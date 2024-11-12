@@ -6,7 +6,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { type Signable } from './signature_utils.js';
+import { type Signable, type SignatureDomainSeperator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
   private size: number | undefined;
@@ -24,10 +24,10 @@ export class ConsensusPayload implements Signable {
     return [fields.header, fields.archive, fields.txHashes] as const;
   }
 
-  getPayloadToSign(): Buffer {
-    const abi = parseAbiParameters('bytes32, bytes32[]');
+  getPayloadToSign(domainSeperator: SignatureDomainSeperator): Buffer {
+    const abi = parseAbiParameters('uint8, bytes32, bytes32[]');
     const txArray = this.txHashes.map(tx => tx.to0xString());
-    const encodedData = encodeAbiParameters(abi, [this.archive.toString(), txArray] as const);
+    const encodedData = encodeAbiParameters(abi, [domainSeperator, this.archive.toString(), txArray] as const);
 
     return Buffer.from(encodedData.slice(2), 'hex');
   }

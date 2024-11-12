@@ -1,26 +1,29 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { EthCheatCodes } from '@aztec/aztec.js';
-import { AZTEC_SLOT_DURATION, ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type BootstrapNode } from '@aztec/p2p';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
-  createBootstrapNodeFromPrivateKey,
   createValidatorConfig,
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
 import { type ISnapshotManager, type SubsystemsContext, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
-export const WAIT_FOR_TX_TIMEOUT = AZTEC_SLOT_DURATION * 3;
+const l1ContractsConfig = getL1ContractsConfigEnvVars();
+export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
@@ -41,6 +44,8 @@ export class P2PNetworkTest {
     private numberOfNodes: number,
     initialValidatorAddress: string,
     initialValidatorConfig: AztecNodeConfig,
+    // If set enable metrics collection
+    metricsPort?: number,
   ) {
     this.logger = createDebugLogger(`aztec:e2e_p2p:${testName}`);
 
@@ -55,16 +60,28 @@ export class P2PNetworkTest {
 
     this.snapshotManager = createSnapshotManager(`e2e_p2p_network/${testName}`, process.env.E2E_DATA_PATH, {
       ...initialValidatorConfig,
-      l1BlockTime: ETHEREUM_SLOT_DURATION,
+      l1BlockTime: l1ContractsConfig.ethereumSlotDuration,
       salt: 420,
       initialValidators,
+      metricsPort: metricsPort,
     });
   }
 
-  static async create(testName: string, numberOfNodes: number, basePort?: number) {
+  static async create({
+    testName,
+    numberOfNodes,
+    basePort,
+    metricsPort,
+  }: {
+    testName: string;
+    numberOfNodes: number;
+    basePort?: number;
+    metricsPort?: number;
+  }) {
     const port = basePort || (await getPort());
 
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port);
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort, /*service name*/ `bootstrapnode`);
+    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
@@ -143,14 +160,20 @@ export class P2PNetworkTest {
 
   async stopNodes(nodes: AztecNodeService[]) {
     this.logger.info('Stopping nodes');
+
+    if (!nodes || !nodes.length) {
+      this.logger.info('No nodes to stop');
+      return;
+    }
+
     for (const node of nodes) {
       await node.stop();
     }
-    await this.bootstrapNode.stop();
     this.logger.info('Nodes stopped');
   }
 
   async teardown() {
+    await this.bootstrapNode.stop();
     await this.snapshotManager.teardown();
   }
 }

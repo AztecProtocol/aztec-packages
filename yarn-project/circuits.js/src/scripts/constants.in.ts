@@ -33,7 +33,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_STORAGE_READ_LENGTH',
   'PUBLIC_INNER_CALL_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_READS_PER_CALL',
-  'MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL',
+  'MAX_ENQUEUED_CALLS_PER_CALL',
   'NOTE_HASH_LENGTH',
   'MAX_NOTE_HASHES_PER_CALL',
   'NULLIFIER_LENGTH',
@@ -78,9 +78,10 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
   'MAX_L2_GAS_PER_ENQUEUED_CALL',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
-const CPP_GENERATORS: string[] = [];
+const CPP_GENERATORS: string[] = ['PARTIAL_ADDRESS', 'CONTRACT_ADDRESS_V1', 'CONTRACT_LEAF', 'PUBLIC_KEYS_HASH'];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -89,7 +90,7 @@ const PIL_CONSTANTS = [
   'MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
   'MAX_PUBLIC_DATA_READS_PER_CALL',
-  'MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL',
+  'MAX_ENQUEUED_CALLS_PER_CALL',
   'MAX_NOTE_HASHES_PER_CALL',
   'MAX_NULLIFIERS_PER_CALL',
   'MAX_L2_TO_L1_MSGS_PER_CALL',
@@ -126,6 +127,7 @@ const PIL_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
 /**
@@ -169,7 +171,7 @@ function processConstantsCpp(
 ): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
+    if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
       // stringify large numbers
       code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
     }

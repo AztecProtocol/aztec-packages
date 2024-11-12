@@ -694,7 +694,7 @@ namespace Program {
         };
 
         struct Trap {
-            Program::HeapArray revert_data;
+            Program::HeapVector revert_data;
 
             friend bool operator==(const Trap&, const Trap&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -702,8 +702,7 @@ namespace Program {
         };
 
         struct Stop {
-            uint64_t return_data_offset;
-            uint64_t return_data_size;
+            Program::HeapVector return_data;
 
             friend bool operator==(const Stop&, const Stop&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -1216,24 +1215,8 @@ namespace Program {
     };
 
     struct AssertionPayload {
-
-        struct StaticString {
-            std::string value;
-
-            friend bool operator==(const StaticString&, const StaticString&);
-            std::vector<uint8_t> bincodeSerialize() const;
-            static StaticString bincodeDeserialize(std::vector<uint8_t>);
-        };
-
-        struct Dynamic {
-            std::tuple<uint64_t, std::vector<Program::ExpressionOrMemory>> value;
-
-            friend bool operator==(const Dynamic&, const Dynamic&);
-            std::vector<uint8_t> bincodeSerialize() const;
-            static Dynamic bincodeDeserialize(std::vector<uint8_t>);
-        };
-
-        std::variant<StaticString, Dynamic> value;
+        uint64_t error_selector;
+        std::vector<Program::ExpressionOrMemory> payload;
 
         friend bool operator==(const AssertionPayload&, const AssertionPayload&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1305,7 +1288,6 @@ namespace Program {
         Program::PublicInputs public_parameters;
         Program::PublicInputs return_values;
         std::vector<std::tuple<Program::OpcodeLocation, Program::AssertionPayload>> assert_messages;
-        bool recursive;
 
         friend bool operator==(const Circuit&, const Circuit&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1335,7 +1317,8 @@ namespace Program {
 namespace Program {
 
     inline bool operator==(const AssertionPayload &lhs, const AssertionPayload &rhs) {
-        if (!(lhs.value == rhs.value)) { return false; }
+        if (!(lhs.error_selector == rhs.error_selector)) { return false; }
+        if (!(lhs.payload == rhs.payload)) { return false; }
         return true;
     }
 
@@ -1360,7 +1343,8 @@ template <>
 template <typename Serializer>
 void serde::Serializable<Program::AssertionPayload>::serialize(const Program::AssertionPayload &obj, Serializer &serializer) {
     serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+    serde::Serializable<decltype(obj.error_selector)>::serialize(obj.error_selector, serializer);
+    serde::Serializable<decltype(obj.payload)>::serialize(obj.payload, serializer);
     serializer.decrease_container_depth();
 }
 
@@ -1369,84 +1353,9 @@ template <typename Deserializer>
 Program::AssertionPayload serde::Deserializable<Program::AssertionPayload>::deserialize(Deserializer &deserializer) {
     deserializer.increase_container_depth();
     Program::AssertionPayload obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    obj.error_selector = serde::Deserializable<decltype(obj.error_selector)>::deserialize(deserializer);
+    obj.payload = serde::Deserializable<decltype(obj.payload)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
-    return obj;
-}
-
-namespace Program {
-
-    inline bool operator==(const AssertionPayload::StaticString &lhs, const AssertionPayload::StaticString &rhs) {
-        if (!(lhs.value == rhs.value)) { return false; }
-        return true;
-    }
-
-    inline std::vector<uint8_t> AssertionPayload::StaticString::bincodeSerialize() const {
-        auto serializer = serde::BincodeSerializer();
-        serde::Serializable<AssertionPayload::StaticString>::serialize(*this, serializer);
-        return std::move(serializer).bytes();
-    }
-
-    inline AssertionPayload::StaticString AssertionPayload::StaticString::bincodeDeserialize(std::vector<uint8_t> input) {
-        auto deserializer = serde::BincodeDeserializer(input);
-        auto value = serde::Deserializable<AssertionPayload::StaticString>::deserialize(deserializer);
-        if (deserializer.get_buffer_offset() < input.size()) {
-            throw serde::deserialization_error("Some input bytes were not read");
-        }
-        return value;
-    }
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::AssertionPayload::StaticString>::serialize(const Program::AssertionPayload::StaticString &obj, Serializer &serializer) {
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::AssertionPayload::StaticString serde::Deserializable<Program::AssertionPayload::StaticString>::deserialize(Deserializer &deserializer) {
-    Program::AssertionPayload::StaticString obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
-    inline bool operator==(const AssertionPayload::Dynamic &lhs, const AssertionPayload::Dynamic &rhs) {
-        if (!(lhs.value == rhs.value)) { return false; }
-        return true;
-    }
-
-    inline std::vector<uint8_t> AssertionPayload::Dynamic::bincodeSerialize() const {
-        auto serializer = serde::BincodeSerializer();
-        serde::Serializable<AssertionPayload::Dynamic>::serialize(*this, serializer);
-        return std::move(serializer).bytes();
-    }
-
-    inline AssertionPayload::Dynamic AssertionPayload::Dynamic::bincodeDeserialize(std::vector<uint8_t> input) {
-        auto deserializer = serde::BincodeDeserializer(input);
-        auto value = serde::Deserializable<AssertionPayload::Dynamic>::deserialize(deserializer);
-        if (deserializer.get_buffer_offset() < input.size()) {
-            throw serde::deserialization_error("Some input bytes were not read");
-        }
-        return value;
-    }
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::AssertionPayload::Dynamic>::serialize(const Program::AssertionPayload::Dynamic &obj, Serializer &serializer) {
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::AssertionPayload::Dynamic serde::Deserializable<Program::AssertionPayload::Dynamic>::deserialize(Deserializer &deserializer) {
-    Program::AssertionPayload::Dynamic obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }
 
@@ -5423,8 +5332,7 @@ Program::BrilligOpcode::Trap serde::Deserializable<Program::BrilligOpcode::Trap>
 namespace Program {
 
     inline bool operator==(const BrilligOpcode::Stop &lhs, const BrilligOpcode::Stop &rhs) {
-        if (!(lhs.return_data_offset == rhs.return_data_offset)) { return false; }
-        if (!(lhs.return_data_size == rhs.return_data_size)) { return false; }
+        if (!(lhs.return_data == rhs.return_data)) { return false; }
         return true;
     }
 
@@ -5448,16 +5356,14 @@ namespace Program {
 template <>
 template <typename Serializer>
 void serde::Serializable<Program::BrilligOpcode::Stop>::serialize(const Program::BrilligOpcode::Stop &obj, Serializer &serializer) {
-    serde::Serializable<decltype(obj.return_data_offset)>::serialize(obj.return_data_offset, serializer);
-    serde::Serializable<decltype(obj.return_data_size)>::serialize(obj.return_data_size, serializer);
+    serde::Serializable<decltype(obj.return_data)>::serialize(obj.return_data, serializer);
 }
 
 template <>
 template <typename Deserializer>
 Program::BrilligOpcode::Stop serde::Deserializable<Program::BrilligOpcode::Stop>::deserialize(Deserializer &deserializer) {
     Program::BrilligOpcode::Stop obj;
-    obj.return_data_offset = serde::Deserializable<decltype(obj.return_data_offset)>::deserialize(deserializer);
-    obj.return_data_size = serde::Deserializable<decltype(obj.return_data_size)>::deserialize(deserializer);
+    obj.return_data = serde::Deserializable<decltype(obj.return_data)>::deserialize(deserializer);
     return obj;
 }
 
@@ -5589,7 +5495,6 @@ namespace Program {
         if (!(lhs.public_parameters == rhs.public_parameters)) { return false; }
         if (!(lhs.return_values == rhs.return_values)) { return false; }
         if (!(lhs.assert_messages == rhs.assert_messages)) { return false; }
-        if (!(lhs.recursive == rhs.recursive)) { return false; }
         return true;
     }
 
@@ -5621,7 +5526,6 @@ void serde::Serializable<Program::Circuit>::serialize(const Program::Circuit &ob
     serde::Serializable<decltype(obj.public_parameters)>::serialize(obj.public_parameters, serializer);
     serde::Serializable<decltype(obj.return_values)>::serialize(obj.return_values, serializer);
     serde::Serializable<decltype(obj.assert_messages)>::serialize(obj.assert_messages, serializer);
-    serde::Serializable<decltype(obj.recursive)>::serialize(obj.recursive, serializer);
     serializer.decrease_container_depth();
 }
 
@@ -5637,7 +5541,6 @@ Program::Circuit serde::Deserializable<Program::Circuit>::deserialize(Deserializ
     obj.public_parameters = serde::Deserializable<decltype(obj.public_parameters)>::deserialize(deserializer);
     obj.return_values = serde::Deserializable<decltype(obj.return_values)>::deserialize(deserializer);
     obj.assert_messages = serde::Deserializable<decltype(obj.assert_messages)>::deserialize(deserializer);
-    obj.recursive = serde::Deserializable<decltype(obj.recursive)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
 }

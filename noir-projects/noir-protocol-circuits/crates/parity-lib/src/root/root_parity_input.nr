@@ -2,8 +2,8 @@ use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
     constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
-    recursion::{
-        proof::RecursiveProof,
+    proof::{
+        recursive_proof::RecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },

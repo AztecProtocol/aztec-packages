@@ -10,14 +10,14 @@ use crate::{
 };
 
 pub struct PublicKernelCircuitPublicInputs {
-    constants: CombinedConstantData,
-    validation_requests: PublicValidationRequests,
-    end_non_revertible: PublicAccumulatedData,
-    end: PublicAccumulatedData,
-    end_side_effect_counter: u32,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
-    revert_code: u8,
+    pub constants: CombinedConstantData,
+    pub validation_requests: PublicValidationRequests,
+    pub end_non_revertible: PublicAccumulatedData,
+    pub end: PublicAccumulatedData,
+    pub end_side_effect_counter: u32,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
+    pub revert_code: u8,
 }
 
 impl Empty for PublicKernelCircuitPublicInputs {
@@ -51,7 +51,7 @@ impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircu
 
         assert_eq(fields.len(), PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

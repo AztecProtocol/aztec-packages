@@ -60,7 +60,7 @@ mod tests {
         root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs},
     };
     use dep::types::constants::BASE_PARITY_INDEX;
-    use dep::types::recursion::{proof::RecursiveProof, verification_key::VerificationKey};
+    use dep::types::proof::{recursive_proof::RecursiveProof, verification_key::VerificationKey};
     use dep::types::tests::fixtures;
 
     use super::NUM_BASE_PARITY_PER_ROOT_PARITY;

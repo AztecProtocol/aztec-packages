@@ -2,8 +2,8 @@ use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInpu
 use dep::types::{
     constants::VK_TREE_HEIGHT,
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
-    recursion::{
-        proof::NestedRecursiveProof,
+    proof::{
+        recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },

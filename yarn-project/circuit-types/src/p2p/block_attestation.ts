@@ -7,7 +7,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import { getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockAttestationHash extends Buffer32 {
@@ -53,7 +53,7 @@ export class BlockAttestation extends Gossipable {
   getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeperator.blockAttestation);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
@@ -62,7 +62,7 @@ export class BlockAttestation extends Gossipable {
   }
 
   getPayload(): Buffer {
-    return this.payload.getPayloadToSign();
+    return this.payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation);
   }
 
   toBuffer(): Buffer {

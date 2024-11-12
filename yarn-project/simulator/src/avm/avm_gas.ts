@@ -89,8 +89,10 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.CAST_16]: makeCost(c.AVM_CAST_BASE_L2_GAS, 0),
   [Opcode.GETENVVAR_16]: makeCost(c.AVM_GETENVVAR_BASE_L2_GAS, 0),
   [Opcode.CALLDATACOPY]: makeCost(c.AVM_CALLDATACOPY_BASE_L2_GAS, 0),
-  [Opcode.JUMP_16]: makeCost(c.AVM_JUMP_BASE_L2_GAS, 0),
-  [Opcode.JUMPI_16]: makeCost(c.AVM_JUMPI_BASE_L2_GAS, 0),
+  [Opcode.RETURNDATASIZE]: makeCost(c.AVM_RETURNDATASIZE_BASE_L2_GAS, 0),
+  [Opcode.RETURNDATACOPY]: makeCost(c.AVM_RETURNDATACOPY_BASE_L2_GAS, 0),
+  [Opcode.JUMP_32]: makeCost(c.AVM_JUMP_BASE_L2_GAS, 0),
+  [Opcode.JUMPI_32]: makeCost(c.AVM_JUMPI_BASE_L2_GAS, 0),
   [Opcode.INTERNALCALL]: makeCost(c.AVM_INTERNALCALL_BASE_L2_GAS, 0),
   [Opcode.INTERNALRETURN]: makeCost(c.AVM_INTERNALRETURN_BASE_L2_GAS, 0),
   [Opcode.SET_8]: makeCost(c.AVM_SET_BASE_L2_GAS, 0),
@@ -122,11 +124,12 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.KECCAKF1600]: makeCost(c.AVM_KECCAKF1600_BASE_L2_GAS, 0),
   [Opcode.ECADD]: makeCost(c.AVM_ECADD_BASE_L2_GAS, 0),
   [Opcode.MSM]: makeCost(c.AVM_MSM_BASE_L2_GAS, 0),
-  [Opcode.TORADIXLE]: makeCost(c.AVM_TORADIXLE_BASE_L2_GAS, 0),
+  [Opcode.TORADIXBE]: makeCost(c.AVM_TORADIXBE_BASE_L2_GAS, 0),
 };
 
 const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)],
+  [Opcode.RETURNDATACOPY, makeCost(c.AVM_RETURNDATACOPY_DYN_L2_GAS, 0)],
   [Opcode.EMITUNENCRYPTEDLOG, makeCost(c.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
   [Opcode.CALL, makeCost(c.AVM_CALL_DYN_L2_GAS, 0)],
   [Opcode.STATICCALL, makeCost(c.AVM_STATICCALL_DYN_L2_GAS, 0)],
@@ -134,7 +137,7 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.MSM, makeCost(c.AVM_MSM_DYN_L2_GAS, 0)],
-  [Opcode.TORADIXLE, makeCost(c.AVM_TORADIXLE_DYN_L2_GAS, 0)],
+  [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
 ]);
 
 /** Returns the fixed base gas cost for a given opcode. */

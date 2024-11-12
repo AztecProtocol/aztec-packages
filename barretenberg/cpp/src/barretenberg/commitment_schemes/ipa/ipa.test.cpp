@@ -137,7 +137,7 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector, lrs, { uint256_t(n) });
-        EXPECT_ANY_THROW(IPA::reduce_verify_internal(this->vk(), opening_claim, transcript));
+        EXPECT_ANY_THROW(IPA::reduce_verify_internal_native(this->vk(), opening_claim, transcript));
     }
 }
 
@@ -159,7 +159,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 
     // initialize an empty mock transcript
     auto transcript = std::make_shared<MockTranscript>();
-    const size_t num_challenges = numeric::get_msb(n) + 1;
+    const size_t num_challenges = CONST_ECCVM_LOG_N + 1;
     std::vector<uint256_t> random_vector(num_challenges);
 
     // Generate a random element vector with challenges
@@ -179,7 +179,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->reset_indices();
 
     // Verify
-    EXPECT_TRUE(IPA::reduce_verify_internal(this->vk(), opening_claim, transcript));
+    EXPECT_TRUE(IPA::reduce_verify_internal_native(this->vk(), opening_claim, transcript));
 }
 #endif
 } // namespace bb

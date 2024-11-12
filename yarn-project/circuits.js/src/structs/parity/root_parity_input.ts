@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -37,10 +38,10 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     return [fields.proof, fields.verificationKey, fields.vkPath, fields.publicInputs] as const;
   }
 
-  static fromBuffer<PROOF_LENGTH extends number | undefined>(
+  static fromBuffer<PROOF_LENGTH extends number>(
     buffer: Buffer | BufferReader,
     expectedSize?: PROOF_LENGTH,
-  ): RootParityInput<PROOF_LENGTH extends number ? PROOF_LENGTH : number> {
+  ): RootParityInput<PROOF_LENGTH> {
     const reader = BufferReader.asReader(buffer);
     return new RootParityInput(
       RecursiveProof.fromBuffer<PROOF_LENGTH>(reader, expectedSize),
@@ -50,10 +51,20 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     );
   }
 
-  static fromString<PROOF_LENGTH extends number | undefined>(
+  static fromString<PROOF_LENGTH extends number>(
     str: string,
     expectedSize?: PROOF_LENGTH,
-  ): RootParityInput<PROOF_LENGTH extends number ? PROOF_LENGTH : number> {
+  ): RootParityInput<PROOF_LENGTH> {
     return RootParityInput.fromBuffer(Buffer.from(str, 'hex'), expectedSize);
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string with expected size. */
+  static schemaFor<N extends number>(expectedSize?: N) {
+    return schemas.HexString.transform(str => RootParityInput.fromString(str, expectedSize));
   }
 }

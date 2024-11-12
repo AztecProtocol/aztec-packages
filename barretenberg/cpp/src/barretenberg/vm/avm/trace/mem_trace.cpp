@@ -1,5 +1,6 @@
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 
 #include <cstdint>
@@ -27,6 +28,19 @@ std::vector<AvmMemTraceBuilder::MemoryTraceEntry> AvmMemTraceBuilder::finalize()
     // Sort avm_mem
     std::sort(mem_trace.begin(), mem_trace.end());
     return std::move(mem_trace);
+}
+
+void AvmMemTraceBuilder::debug_mem_trace_entry(MemoryTraceEntry entry)
+{
+    std::string suffix;
+    if (entry.m_space_id == INTERNAL_CALL_SPACE_ID) {
+        suffix = " (INTERNAL CALL STACK OP)";
+    }
+    if (entry.m_rw) {
+        debug("set(", entry.m_addr, ", ", to_name(entry.w_in_tag), "(", entry.m_val, "))", suffix);
+    } else {
+        debug("get(", entry.m_addr, ", ", to_name(entry.r_in_tag), "(", entry.m_val, "))", suffix);
+    }
 }
 
 /**
@@ -73,6 +87,8 @@ void AvmMemTraceBuilder::insert_in_mem_trace(uint8_t space_id,
         mem_trace_entry.poseidon_mem_op = true;
         break;
     }
+
+    debug_mem_trace_entry(mem_trace_entry);
     mem_trace.emplace_back(mem_trace_entry);
 }
 
@@ -114,17 +130,19 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint8_t space_id,
     // Lookup counter hint, used for #[INCL_MAIN_TAG_ERR] lookup (joined on clk)
     m_tag_err_lookup_counts[m_clk]++;
 
-    mem_trace.emplace_back(MemoryTraceEntry{ .m_space_id = space_id,
-                                             .m_clk = m_clk,
-                                             .m_sub_clk = m_sub_clk,
-                                             .m_addr = m_addr,
-                                             .m_val = m_val,
-                                             .m_tag = m_tag,
-                                             .r_in_tag = r_in_tag,
-                                             .w_in_tag = w_in_tag,
-                                             .m_tag_err = true,
-                                             .m_one_min_inv = one_min_inv,
-                                             .m_tag_err_count_relevant = tag_err_count_relevant });
+    auto mem_trace_entry = MemoryTraceEntry({ .m_space_id = space_id,
+                                              .m_clk = m_clk,
+                                              .m_sub_clk = m_sub_clk,
+                                              .m_addr = m_addr,
+                                              .m_val = m_val,
+                                              .m_tag = m_tag,
+                                              .r_in_tag = r_in_tag,
+                                              .w_in_tag = w_in_tag,
+                                              .m_tag_err = true,
+                                              .m_one_min_inv = one_min_inv,
+                                              .m_tag_err_count_relevant = tag_err_count_relevant });
+    debug_mem_trace_entry(mem_trace_entry);
+    mem_trace.emplace_back(mem_trace_entry);
 }
 
 /**
@@ -224,7 +242,7 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint8_
     auto& mem_space = memory.at(space_id);
     MemEntry mem_entry = mem_space.contains(addr) ? mem_space.at(addr) : MemEntry{};
 
-    mem_trace.emplace_back(MemoryTraceEntry{
+    auto mem_trace_entry = MemoryTraceEntry({
         .m_space_id = space_id,
         .m_clk = clk,
         .m_sub_clk = SUB_CLK_LOAD_A,
@@ -235,6 +253,8 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint8_
         .w_in_tag = mem_entry.tag,
         .m_sel_mov_ia_to_ic = true,
     });
+    debug_mem_trace_entry(mem_trace_entry);
+    mem_trace.emplace_back(mem_trace_entry);
 
     return mem_entry;
 }
@@ -258,7 +278,7 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_jumpi_opcode(uint
     auto& mem_space = memory.at(space_id);
     MemEntry cond_mem_entry = mem_space.contains(cond_addr) ? mem_space.at(cond_addr) : MemEntry{};
 
-    mem_trace.emplace_back(MemoryTraceEntry{
+    auto mem_trace_entry = MemoryTraceEntry({
         .m_space_id = space_id,
         .m_clk = clk,
         .m_sub_clk = SUB_CLK_LOAD_D,
@@ -268,6 +288,8 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_jumpi_opcode(uint
         .r_in_tag = cond_mem_entry.tag,
         .w_in_tag = cond_mem_entry.tag,
     });
+    debug_mem_trace_entry(mem_trace_entry);
+    mem_trace.emplace_back(mem_trace_entry);
 
     return cond_mem_entry;
 }
@@ -295,7 +317,7 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_cast_opcode(uint8
     auto& mem_space = memory.at(space_id);
     MemEntry mem_entry = mem_space.contains(addr) ? mem_space.at(addr) : MemEntry{};
 
-    mem_trace.emplace_back(MemoryTraceEntry{
+    auto mem_trace_entry = MemoryTraceEntry({
         .m_space_id = space_id,
         .m_clk = clk,
         .m_sub_clk = SUB_CLK_LOAD_A,
@@ -305,6 +327,8 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_cast_opcode(uint8
         .r_in_tag = mem_entry.tag,
         .w_in_tag = w_in_tag,
     });
+    debug_mem_trace_entry(mem_trace_entry);
+    mem_trace.emplace_back(mem_trace_entry);
 
     return mem_entry;
 }

@@ -10,7 +10,7 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
-  BaseRollupInputs,
+  BaseRollupHints,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
@@ -18,7 +18,7 @@ import {
   Fr,
   type GlobalVariables,
   Header,
-  KernelData,
+  MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
@@ -42,15 +42,13 @@ import {
   PublicDataHint,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
-  type RECURSIVE_PROOF_LENGTH,
+  PublicDataWrite,
   type RecursiveProof,
   RootRollupInputs,
   StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
-  type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -74,13 +72,11 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
  */
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
-// Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
-export async function buildBaseRollupInput(
+// Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
+export async function buildBaseRollupHints(
   tx: ProcessedTx,
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeWriteOperations,
-  kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
   const constants = await getConstantRollupData(globalVariables, db);
@@ -102,18 +98,15 @@ export async function buildBaseRollupInput(
 
   // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
-  // If there is already a public data write for this slot, also skip the read hint
   const hintsBuilder = new HintsBuilder(db);
   const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-  const existingBalanceWrite = tx.data.end.publicDataUpdateRequests.find(write => write.leafSlot.equals(leafSlot));
-  const feePayerFeeJuiceBalanceReadHint =
-    leafSlot.isZero() || existingBalanceWrite
-      ? PublicDataHint.empty()
-      : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
+  const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
+    ? PublicDataHint.empty()
+    : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-  const noteHashes = tx.data.end.noteHashes;
+  const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
   await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
 
   // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
@@ -128,7 +121,7 @@ export async function buildBaseRollupInput(
     sortedNewLeavesIndexes,
   } = await db.batchInsert(
     MerkleTreeId.NULLIFIER_TREE,
-    tx.data.end.nullifiers.map(n => n.toBuffer()),
+    padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
   if (nullifierWitnessLeaves === undefined) {
@@ -167,7 +160,7 @@ export async function buildBaseRollupInput(
     publicDataSiblingPath,
   });
 
-  const blockHash = tx.data.constants.historicalHeader.hash();
+  const blockHash = tx.constants.historicalHeader.hash();
   const archiveRootMembershipWitness = await getMembershipWitnessFor(
     blockHash,
     MerkleTreeId.ARCHIVE,
@@ -175,8 +168,7 @@ export async function buildBaseRollupInput(
     db,
   );
 
-  return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, kernelVk, proof),
+  return BaseRollupHints.from({
     start,
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
@@ -184,9 +176,7 @@ export async function buildBaseRollupInput(
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-
     archiveRootMembershipWitness,
-
     constants,
   });
 }
@@ -398,23 +388,6 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeReadOperat
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(
-  tx: ProcessedTx,
-  vk: VerificationKeyData,
-  proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
-): KernelData {
-  const leafIndex = getVKIndex(vk);
-
-  return new KernelData(
-    tx.data,
-    proof,
-    // VK for the kernel circuit
-    vk,
-    leafIndex,
-    getVKSiblingPath(leafIndex),
-  );
-}
-
 export function makeEmptyMembershipWitness<N extends number>(height: N) {
   return new MembershipWitness(
     height,
@@ -423,15 +396,15 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
   );
 }
 
-export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
+async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
   const allPublicDataUpdateRequests = padArrayEnd(
-    tx.finalPublicDataUpdateRequests,
-    PublicDataUpdateRequest.empty(),
+    tx.txEffect.publicDataWrites,
+    PublicDataWrite.empty(),
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 
   const allPublicDataWrites = allPublicDataUpdateRequests.map(
-    ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
+    ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
   const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
     MerkleTreeId.PUBLIC_DATA_TREE,
@@ -534,7 +507,7 @@ export function validatePartialState(
 }
 
 // Helper for comparing two trees snapshots
-export function validateSimulatedTree(
+function validateSimulatedTree(
   localTree: AppendOnlyTreeSnapshot,
   simulatedTree: AppendOnlyTreeSnapshot,
   name: TreeNames,
@@ -553,7 +526,7 @@ export function validateSimulatedTree(
 }
 
 export function validateTx(tx: ProcessedTx) {
-  const txHeader = tx.data.constants.historicalHeader;
+  const txHeader = tx.constants.historicalHeader;
   if (txHeader.state.l1ToL2MessageTree.isZero()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }

@@ -1,3 +1,7 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
 /** Stats associated with an ACIR proof generation.*/
 export type ProofConstructed = {
   /** Name of the event for metrics purposes */
@@ -76,7 +80,8 @@ export type NodeSyncedChainHistoryStats = {
 export type CircuitName =
   | 'base-parity'
   | 'root-parity'
-  | 'base-rollup'
+  | 'private-base-rollup'
+  | 'public-base-rollup'
   | 'merge-rollup'
   | 'block-root-rollup'
   | 'empty-block-root-rollup'
@@ -88,9 +93,6 @@ export type CircuitName =
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
   | 'app-circuit'
-  | 'public-kernel-inner'
-  | 'public-kernel-merge'
-  | 'public-kernel-tail'
   | 'avm-circuit'
   | 'empty-nested'
   | 'private-kernel-empty'
@@ -236,6 +238,17 @@ export type NoteProcessorStats = {
   /** How many txs were spanned.  */
   txs: number;
 };
+
+export const NoteProcessorStatsSchema = z.object({
+  seen: z.number(),
+  deferredIncoming: z.number(),
+  deferredOutgoing: z.number(),
+  decryptedIncoming: z.number(),
+  decryptedOutgoing: z.number(),
+  failed: z.number(),
+  blocks: z.number(),
+  txs: z.number(),
+}) satisfies ZodFor<NoteProcessorStats>;
 
 /** Stats for a tx. */
 export type TxStats = {

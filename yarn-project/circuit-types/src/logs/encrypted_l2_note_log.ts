@@ -1,5 +1,8 @@
 import { Fr, Point } from '@aztec/circuits.js';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 /**
  * Represents an individual encrypted log entry.
@@ -24,9 +27,13 @@ export class EncryptedL2NoteLog {
 
   /** Returns a JSON-friendly representation of the log. */
   public toJSON(): object {
-    return {
-      data: this.data.toString('hex'),
-    };
+    return { data: this.data.toString('hex') };
+  }
+
+  static get schema() {
+    return z
+      .object({ data: schemas.HexString })
+      .transform(({ data }) => new EncryptedL2NoteLog(Buffer.from(data, 'hex')));
   }
 
   /** Converts a plain JSON object into an instance. */
@@ -60,10 +67,10 @@ export class EncryptedL2NoteLog {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): EncryptedL2NoteLog {
+  public static random(tag: Fr = Fr.random()): EncryptedL2NoteLog {
     const randomEphPubKey = Point.random();
     const randomLogContent = randomBytes(144 - Point.COMPRESSED_SIZE_IN_BYTES);
-    const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toCompressedBuffer()]);
+    const data = Buffer.concat([tag.toBuffer(), randomLogContent, randomEphPubKey.toCompressedBuffer()]);
     return new EncryptedL2NoteLog(data);
   }
 

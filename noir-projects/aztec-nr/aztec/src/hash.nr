@@ -41,21 +41,23 @@ pub fn compute_unencrypted_log_hash<let N: u32>(
     sha256_to_field(hash_bytes)
 }
 
-pub fn compute_message_hash(
+pub fn compute_l1_to_l2_message_hash(
     sender: EthAddress,
     chain_id: Field,
     recipient: AztecAddress,
     version: Field,
     content: Field,
     secret_hash: Field,
+    leaf_index: Field,
 ) -> Field {
-    let mut hash_bytes = [0 as u8; 192];
+    let mut hash_bytes = [0 as u8; 224];
     let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
     let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
     let recipient_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
     let version_bytes: [u8; 32] = version.to_be_bytes();
     let content_bytes: [u8; 32] = content.to_be_bytes();
     let secret_hash_bytes: [u8; 32] = secret_hash.to_be_bytes();
+    let leaf_index_bytes: [u8; 32] = leaf_index.to_be_bytes();
 
     for i in 0..32 {
         hash_bytes[i] = sender_bytes[i];
@@ -64,22 +66,19 @@ pub fn compute_message_hash(
         hash_bytes[i + 96] = version_bytes[i];
         hash_bytes[i + 128] = content_bytes[i];
         hash_bytes[i + 160] = secret_hash_bytes[i];
+        hash_bytes[i + 192] = leaf_index_bytes[i];
     }
 
     sha256_to_field(hash_bytes)
 }
 
-// The nullifier of a l1 to l2 message is the hash of the message salted with the secret and index of the message hash
-// in the L1 to L2 message tree
-pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index: Field) -> Field {
-    poseidon2_hash_with_separator(
-        [message_hash, secret, leaf_index],
-        GENERATOR_INDEX__MESSAGE_NULLIFIER,
-    )
+// The nullifier of a l1 to l2 message is the hash of the message salted with the secret
+pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) -> Field {
+    poseidon2_hash_with_separator([message_hash, secret], GENERATOR_INDEX__MESSAGE_NULLIFIER)
 }
 
 pub struct ArgsHasher {
-    fields: [Field],
+    pub fields: [Field],
 }
 
 impl Hash for ArgsHasher {

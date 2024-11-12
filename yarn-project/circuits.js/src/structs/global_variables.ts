@@ -1,10 +1,12 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { GasFees } from './gas_fees.js';
@@ -31,6 +33,21 @@ export class GlobalVariables {
     /** Global gas prices for this block. */
     public gasFees: GasFees,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        chainId: schemas.Fr,
+        version: schemas.Fr,
+        blockNumber: schemas.Fr,
+        slotNumber: schemas.Fr,
+        timestamp: schemas.Fr,
+        coinbase: schemas.EthAddress,
+        feeRecipient: schemas.AztecAddress,
+        gasFees: GasFees.schema,
+      })
+      .transform(GlobalVariables.from);
+  }
 
   getSize(): number {
     return this.toBuffer().length;

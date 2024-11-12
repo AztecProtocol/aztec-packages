@@ -1,5 +1,4 @@
-import { randomContractInstanceWithAddress } from '@aztec/circuit-types';
-import { SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress, SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -17,7 +16,7 @@ import {
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
-  const address = Fr.random();
+  const address = AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -147,18 +146,17 @@ describe('journal', () => {
 
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
-      const contractInstance = randomContractInstanceWithAddress(/*(base instance) opts=*/ {}, /*address=*/ address);
-      mockGetContractInstance(worldStateDB, contractInstance);
+      const contractInstance = SerializableContractInstance.default();
+      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: true, ...contractInstance });
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
     });
     it('Can get undefined contract instance', async () => {
-      const defaultContractInstance = SerializableContractInstance.default().withAddress(address);
       await persistableState.getContractInstance(address);
-
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: false, ...defaultContractInstance });
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ false);
     });
   });
 
@@ -170,7 +168,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 2
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);
@@ -303,7 +301,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 1
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);

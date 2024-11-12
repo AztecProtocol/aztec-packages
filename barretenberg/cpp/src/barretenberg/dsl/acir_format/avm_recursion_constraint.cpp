@@ -51,9 +51,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
 
     // Derivation of circuit size based on the proof
     // Here, we should always get CONST_PROOF_SIZE_LOG_N.
-    auto log_circuit_size = (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-                             (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
-                            (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
+    const auto log_circuit_size =
+        (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
+         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
+        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
     /***************************************************************************
      *                  Construct Dummy Verification Key
@@ -148,10 +149,11 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @param input_aggregation_object_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  */
-AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
-                                                          const RecursionConstraint& input,
-                                                          AggregationObjectIndices input_aggregation_object_indices,
-                                                          bool has_valid_witness_assignments)
+PairingPointAccumulatorIndices create_avm_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    bool has_valid_witness_assignments)
 {
     using Flavor = AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;

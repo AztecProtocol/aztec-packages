@@ -1,10 +1,12 @@
 import { CallContext, type PublicCallRequest, Vector } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 /**
  * The execution request of a public function.
@@ -29,6 +31,22 @@ export class PublicExecutionRequest {
     return serializeToBuffer(this.callContext, new Vector(this.args));
   }
 
+  static get schema() {
+    return z
+      .object({
+        callContext: CallContext.schema,
+        args: z.array(schemas.Fr),
+      })
+      .transform(PublicExecutionRequest.from);
+  }
+
+  toJSON() {
+    return {
+      callContext: this.callContext,
+      args: this.args,
+    };
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicExecutionRequest(CallContext.fromBuffer(reader), reader.readVector(Fr));
@@ -46,13 +64,21 @@ export class PublicExecutionRequest {
     return new PublicExecutionRequest(CallContext.empty(), []);
   }
 
+  static random() {
+    return new PublicExecutionRequest(CallContext.random(), [Fr.random(), Fr.random()]);
+  }
+
   isEmpty(): boolean {
     return this.callContext.isEmpty() && this.args.length === 0;
   }
 
   isForCallRequest(callRequest: PublicCallRequest) {
     return (
-      this.callContext.equals(callRequest.callContext) && computeVarArgsHash(this.args).equals(callRequest.argsHash)
+      this.callContext.msgSender.equals(callRequest.msgSender) &&
+      this.callContext.contractAddress.equals(callRequest.contractAddress) &&
+      this.callContext.functionSelector.equals(callRequest.functionSelector) &&
+      this.callContext.isStaticCall == callRequest.isStaticCall &&
+      computeVarArgsHash(this.args).equals(callRequest.argsHash)
     );
   }
 

@@ -1,35 +1,58 @@
-import { type Gas } from '@aztec/circuits.js';
+import { type UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  type CombinedConstantData,
+  type ContractClassIdPreimage,
+  type Gas,
+  type PublicCallRequest,
+  type SerializableContractInstance,
+  type VMCircuitPublicInputs,
+} from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type TracedContractInstance } from './side_effect_trace.js';
+import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
-  fork(): PublicSideEffectTraceInterface;
+  fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
-  tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr): void;
-  traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
-  traceNewNoteHash(contractAddress: Fr, noteHash: Fr): void;
-  traceNullifierCheck(contractAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
-  traceNewNullifier(contractAddress: Fr, nullifier: Fr): void;
-  traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
-  traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr): void;
-  traceUnencryptedLog(contractAddress: Fr, log: Fr[]): void;
-  // TODO(dbanks12): odd that getContractInstance is a one-off in that it accepts an entire object instead of components
-  traceGetContractInstance(instance: TracedContractInstance): void;
+  tracePublicStorageRead(contractAddress: AztecAddress, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
+  tracePublicStorageWrite(contractAddress: AztecAddress, slot: Fr, value: Fr): void;
+  traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
+  traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr): void;
+  traceNullifierCheck(
+    contractAddress: AztecAddress,
+    nullifier: Fr,
+    leafIndex: Fr,
+    exists: boolean,
+    isPending: boolean,
+  ): void;
+  traceNewNullifier(contractAddress: AztecAddress, nullifier: Fr): void;
+  traceL1ToL2MessageCheck(contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
+  traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
+  traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]): void;
+  traceGetContractInstance(
+    contractAddress: AztecAddress,
+    exists: boolean,
+    instance?: SerializableContractInstance,
+  ): void;
+  traceGetBytecode(
+    contractAddress: AztecAddress,
+    exists: boolean,
+    bytecode?: Buffer,
+    contractInstance?: SerializableContractInstance,
+    contractClass?: ContractClassIdPreimage,
+  ): void;
   traceNestedCall(
     /** The trace of the nested call. */
     nestedCallTrace: PublicSideEffectTraceInterface,
     /** The execution environment of the nested call. */
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
-    // TODO(dbanks12): consider moving to AvmExecutionEnvironment
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
-    // TODO(dbanks12): consider moving to AvmContractCallResults
     endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
@@ -38,4 +61,59 @@ export interface PublicSideEffectTraceInterface {
     /** Function name */
     functionName: string,
   ): void;
+  traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ): void;
+  traceExecutionPhase(
+    /** The trace of the enqueued call. */
+    appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ): void;
+  toPublicEnqueuedCallExecutionResult(
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
+  ): EnqueuedPublicCallExecutionResultWithSideEffects;
+  toPublicFunctionCallResult(
+    /** The execution environment of the nested call. */
+    avmEnvironment: AvmExecutionEnvironment,
+    /** How much gas was available for this public execution. */
+    startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** Bytecode used for this execution. */
+    bytecode: Buffer,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
+    /** Function name for logging */
+    functionName: string,
+  ): PublicFunctionCallResult;
+  toVMCircuitPublicInputs(
+    /** Constants. */
+    constants: CombinedConstantData,
+    /** The call request that triggered public execution. */
+    callRequest: PublicCallRequest,
+    /** How much gas was available for this public execution. */
+    startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** Transaction fee. */
+    transactionFee: Fr,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
+  ): VMCircuitPublicInputs;
+  getUnencryptedLogs(): UnencryptedL2Log[];
 }

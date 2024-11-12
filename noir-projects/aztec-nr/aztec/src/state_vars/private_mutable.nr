@@ -1,5 +1,7 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Serialize},
 };
 
 use crate::context::{PrivateContext, UnconstrainedContext};
@@ -22,7 +24,10 @@ pub struct PrivateMutable<Note, Context> {
 
 mod test;
 
-impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for PrivateMutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new

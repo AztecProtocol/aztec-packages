@@ -1,7 +1,9 @@
 #![cfg(test)]
 
+mod aliases;
 mod bound_checks;
 mod imports;
+mod metaprogramming;
 mod name_shadowing;
 mod references;
 mod traits;
@@ -615,8 +617,8 @@ fn check_trait_impl_for_non_type() {
     for (err, _file_id) in errors {
         match &err {
             CompilationError::ResolverError(ResolverError::Expected { expected, got, .. }) => {
-                assert_eq!(expected, "type");
-                assert_eq!(got, "function");
+                assert_eq!(*expected, "type");
+                assert_eq!(*got, "function");
             }
             _ => {
                 panic!("No other errors are expected! Found = {:?}", err);
@@ -2969,9 +2971,7 @@ fn uses_self_type_in_trait_where_clause() {
         }
     }
 
-    struct Bar {
-
-    }
+    struct Bar {}
 
     impl Foo for Bar {
 
@@ -2983,12 +2983,17 @@ fn uses_self_type_in_trait_where_clause() {
     "#;
 
     let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 1);
+    assert_eq!(errors.len(), 2);
+
+    let CompilationError::ResolverError(ResolverError::TraitNotImplemented { .. }) = &errors[0].0
+    else {
+        panic!("Expected a trait not implemented error, got {:?}", errors[0].0);
+    };
 
     let CompilationError::TypeError(TypeCheckError::UnresolvedMethodCall { method_name, .. }) =
-        &errors[0].0
+        &errors[1].0
     else {
-        panic!("Expected an unresolved method call error, got {:?}", errors[0].0);
+        panic!("Expected an unresolved method call error, got {:?}", errors[1].0);
     };
 
     assert_eq!(method_name, "trait_func");
@@ -3538,6 +3543,83 @@ fn uses_self_in_import() {
     }
 
     fn main() {}
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn does_not_error_on_return_values_after_block_expression() {
+    // Regression test for https://github.com/noir-lang/noir/issues/4372
+    let src = r#"
+    fn case1() -> [Field] {
+        if true {
+        }
+        &[1]
+    }
+
+    fn case2() -> [u8] {
+        let mut var: u8 = 1;
+        {
+            var += 1;
+        }
+        &[var]
+    }
+
+    fn main() {
+        let _ = case1();
+        let _ = case2();
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn use_type_alias_in_method_call() {
+    let src = r#"
+        pub struct Foo {
+        }
+
+        impl Foo {
+            fn new() -> Self {
+                Foo {}
+            }
+        }
+
+        type Bar = Foo;
+
+        fn foo() -> Foo {
+            Bar::new()
+        }
+
+        fn main() {
+            let _ = foo();
+        }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn use_type_alias_to_generic_concrete_type_in_method_call() {
+    let src = r#"
+        pub struct Foo<T> {
+            x: T,
+        }
+
+        impl<T> Foo<T> {
+            fn new(x: T) -> Self {
+                Foo { x }
+            }
+        }
+
+        type Bar = Foo<i32>;
+
+        fn foo() -> Bar {
+            Bar::new(1)
+        }
+
+        fn main() {
+            let _ = foo();
+        }
     "#;
     assert_no_errors(src);
 }

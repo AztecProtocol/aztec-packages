@@ -3,16 +3,16 @@ import {
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
-  type ProvingRequestResult,
+  type ProvingRequestResultFor,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
 import type {
+  AVM_PROOF_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BaseRollupInputs,
   BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
@@ -20,20 +20,15 @@ import type {
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  ParityPublicInputs,
+  PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
-  Proof,
-  PublicKernelCircuitPrivateInputs,
-  PublicKernelCircuitPublicInputs,
-  PublicKernelInnerCircuitPrivateInputs,
-  PublicKernelTailCircuitPrivateInputs,
+  PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
-  VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
@@ -46,7 +41,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { ProvingQueueMetrics } from './queue_metrics.js';
 
 type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = ProvingJob<T> &
-  PromiseWithResolvers<ProvingRequestResult<T['type']>> & {
+  PromiseWithResolvers<ProvingRequestResultFor<T['type']>> & {
     signal?: AbortSignal;
     epochNumber?: number;
     attempts: number;
@@ -135,7 +130,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     }
   }
 
-  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResult<T>): Promise<void> {
+  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResultFor<T>): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running.');
     }
@@ -154,7 +149,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return Promise.resolve();
   }
 
-  rejectProvingJob(jobId: string, err: any): Promise<void> {
+  rejectProvingJob(jobId: string, reason: string): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running.');
     }
@@ -175,7 +170,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     if (job.attempts < MAX_RETRIES && job.request.type !== ProvingRequestType.PUBLIC_VM) {
       job.attempts++;
       this.log.warn(
-        `Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${err}. Retry ${
+        `Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${reason}. Retry ${
           job.attempts
         }/${MAX_RETRIES}`,
       );
@@ -185,8 +180,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT
           ? this.log.warn
           : this.log.error;
-      logFn(`Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${err}`);
-      job.reject(err);
+      logFn(`Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${reason}`);
+      job.reject(new Error(reason));
     }
     return Promise.resolve();
   }
@@ -232,12 +227,12 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     request: T,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProvingRequestResult<T['type']>> {
+  ): Promise<ProvingRequestResultFor<T['type']>['result']> {
     if (!this.runningPromise.isRunning()) {
       return Promise.reject(new Error('Proving queue is not running.'));
     }
 
-    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResult<T['type']>>();
+    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResultFor<T['type']>>();
     const item: ProvingJobWithResolvers<T> = {
       id: this.generateId(),
       request,
@@ -265,7 +260,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     const byteSize = serializeToBuffer(item.request.inputs).length;
     this.metrics.recordNewJob(item.request.type, byteSize);
 
-    return promise;
+    return promise.then(({ result }) => result);
   }
 
   getEmptyPrivateKernelProof(
@@ -280,16 +275,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>> {
+  ): Promise<ProofAndVerificationKey<typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.TUBE_PROOF, inputs }, signal, epochNumber);
-  }
-
-  getEmptyTubeProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs }, signal, epochNumber);
   }
 
   /**
@@ -300,7 +287,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: BaseParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.BASE_PARITY, inputs }, signal, epochNumber);
   }
 
@@ -312,20 +299,24 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: RootParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.ROOT_PARITY, inputs }, signal, epochNumber);
   }
 
-  /**
-   * Creates a proof for the given input.
-   * @param input - Input to the circuit.
-   */
-  getBaseRollupProof(
-    baseRollupInput: BaseRollupInputs,
+  getPrivateBaseRollupProof(
+    inputs: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.BASE_ROLLUP, inputs: baseRollupInput }, signal, epochNumber);
+    return this.enqueue({ type: ProvingRequestType.PRIVATE_BASE_ROLLUP, inputs }, signal, epochNumber);
+  }
+
+  getPublicBaseRollupProof(
+    inputs: PublicBaseRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    return this.enqueue({ type: ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs }, signal, epochNumber);
   }
 
   /**
@@ -385,49 +376,13 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   }
 
   /**
-   * Create a public kernel inner proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicKernelInnerProof(
-    inputs: PublicKernelInnerCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_INNER, inputs }, signal, epochNumber);
-  }
-
-  /**
-   * Create a public kernel merge proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicKernelMergeProof(
-    inputs: PublicKernelCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_MERGE, inputs }, signal, epochNumber);
-  }
-
-  /**
-   * Create a public kernel tail proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicTailProof(
-    inputs: PublicKernelTailCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_TAIL, inputs }, signal, epochNumber);
-  }
-
-  /**
    * Creates an AVM proof.
    */
   getAvmProof(
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<Proof>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
     return this.enqueue({ type: ProvingRequestType.PUBLIC_VM, inputs }, signal, epochNumber);
   }
 

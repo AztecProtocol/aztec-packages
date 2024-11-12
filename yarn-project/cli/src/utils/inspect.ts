@@ -78,7 +78,7 @@ export async function inspectTx(
   if (writes.length > 0) {
     log(' Public data writes:');
     for (const write of writes) {
-      log(`  Leaf ${write.leafIndex.toString()} = ${write.newValue.toString()}`);
+      log(`  Leaf ${write.leafSlot.toString()} = ${write.value.toString()}`);
     }
   }
 
@@ -165,8 +165,8 @@ async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
   for (const contract of knownContracts) {
-    initNullifiers[siloNullifier(contract, contract).toString()] = contract;
-    deployNullifiers[siloNullifier(deployerAddress, contract).toString()] = contract;
+    initNullifiers[siloNullifier(contract, contract.toField()).toString()] = contract;
+    deployNullifiers[siloNullifier(deployerAddress, contract.toField()).toString()] = contract;
   }
   for (const artifact of Object.values(artifactMap)) {
     classNullifiers[

@@ -7,15 +7,14 @@ import {
   GasSettings,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
-  PublicAccumulatedDataBuilder,
+  PrivateToPublicAccumulatedDataBuilder,
   ScopedLogHash,
   SerializableContractInstance,
   computeContractAddressFromInstance,
@@ -23,11 +22,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import {
-  makeCombinedAccumulatedData,
-  makeCombinedConstantData,
-  makePublicCallRequest,
-} from '@aztec/circuits.js/testing';
+import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
@@ -42,14 +37,15 @@ import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
+import { TxEffect } from './tx_effect.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
 export const mockPrivateExecutionResult = (
   seed = 1,
   hasLogs = false,
-  numberOfNonRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
-  numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
+  numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+  numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
   hasPublicTeardownCallRequest = false,
 ) => {
   const totalPublicCallRequests =
@@ -67,14 +63,11 @@ export const mockPrivateExecutionResult = (
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
       const args = publicFunctionArgs.shift()!;
-      publicTeardownFunctionCall = new PublicExecutionRequest(
-        CallContext.fromFields(request.callContext.toFields()),
-        args,
-      );
+      publicTeardownFunctionCall = new PublicExecutionRequest(CallContext.fromFields(request.toFields()), args);
     }
 
     enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.callContext.toFields()), publicFunctionArgs[i]),
+      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
     );
   }
   return new PrivateExecutionResult(
@@ -107,8 +100,8 @@ export const mockTx = (
   seed = 1,
   {
     hasLogs = false,
-    numberOfNonRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
-    numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
+    numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+    numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     hasPublicTeardownCallRequest = false,
     feePayer = AztecAddress.ZERO,
   }: {
@@ -138,8 +131,8 @@ export const mockTx = (
     data.forRollup = undefined;
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
-    const revertibleBuilder = new PublicAccumulatedDataBuilder();
-    const nonRevertibleBuilder = new PublicAccumulatedDataBuilder();
+    const revertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
+    const nonRevertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
@@ -149,25 +142,19 @@ export const mockTx = (
       const request = publicCallRequests.shift()!;
       data.forPublic.publicTeardownCallRequest = request;
       const args = publicFunctionArgs.shift()!;
-      publicTeardownFunctionCall = new PublicExecutionRequest(
-        CallContext.fromFields(request.callContext.toFields()),
-        args,
-      );
+      publicTeardownFunctionCall = new PublicExecutionRequest(CallContext.fromFields(request.toFields()), args);
     }
 
     enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.callContext.toFields()), publicFunctionArgs[i]),
+      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
     );
 
-    const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
-    nonRevertibleNullifiers[0] = firstNullifier;
-
-    data.forPublic.endNonRevertibleData = nonRevertibleBuilder
-      .withNullifiers(nonRevertibleNullifiers)
+    data.forPublic.nonRevertibleAccumulatedData = nonRevertibleBuilder
+      .pushNullifier(firstNullifier.value)
       .withPublicCallStack(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
 
-    data.forPublic.end = revertibleBuilder
+    data.forPublic.revertibleAccumulatedData = revertibleBuilder
       .withPublicCallStack(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
 
@@ -187,13 +174,13 @@ export const mockTx = (
                 // +4 for encoding the length of the buffer
                 new Fr(log.length + 4),
               ),
-              log.maskedContractAddress,
+              new AztecAddress(log.maskedContractAddress),
             );
             // make the first log non-revertible
             if (functionCount === 0) {
-              data.forPublic.endNonRevertibleData.encryptedLogsHashes[nonRevertibleIndex++] = hash;
+              data.forPublic.nonRevertibleAccumulatedData.encryptedLogsHashes[nonRevertibleIndex++] = hash;
             } else {
-              data.forPublic.end.encryptedLogsHashes[revertibleIndex++] = hash;
+              data.forPublic.revertibleAccumulatedData.encryptedLogsHashes[revertibleIndex++] = hash;
             }
           }
         });
@@ -216,9 +203,9 @@ export const mockTx = (
             );
             // make the first log non-revertible
             if (functionCount === 0) {
-              data.forPublic.endNonRevertibleData.unencryptedLogsHashes[nonRevertibleIndex++] = hash;
+              data.forPublic.nonRevertibleAccumulatedData.unencryptedLogsHashes[nonRevertibleIndex++] = hash;
             } else {
-              data.forPublic.end.unencryptedLogsHashes[revertibleIndex++] = hash;
+              data.forPublic.revertibleAccumulatedData.unencryptedLogsHashes[revertibleIndex++] = hash;
             }
           }
         });
@@ -237,7 +224,10 @@ export const mockTx = (
         .unrollLogs()
         .map(
           log =>
-            new ScopedLogHash(new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)), log.maskedContractAddress),
+            new ScopedLogHash(
+              new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
+              new AztecAddress(log.maskedContractAddress),
+            ),
         ),
       ScopedLogHash.empty(),
       MAX_ENCRYPTED_LOGS_PER_TX,
@@ -271,13 +261,14 @@ export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
   const privateExecutionResult = mockPrivateExecutionResult(seed, hasLogs);
   const tx = mockTx(seed, { hasLogs });
   const output = new PublicSimulationOutput(
-    tx.encryptedLogs,
-    tx.unencryptedLogs,
     undefined,
     makeCombinedConstantData(),
-    makeCombinedAccumulatedData(),
+    TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
-    {},
+    {
+      totalGas: makeGas(),
+      teardownGas: makeGas(),
+    },
   );
   return new TxSimulationResult(privateExecutionResult, tx.data, output);
 };

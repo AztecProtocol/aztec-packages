@@ -265,10 +265,8 @@ describe('e2e_state_vars', () => {
       const tx = await authContract.methods.get_authorized_in_private().prove();
 
       // The validity of our SharedMutable read request should be limited to 2 blocks
-      expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-      expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
-        new Fr(expectedModifiedMaxBlockNumber),
-      );
+      expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedModifiedMaxBlockNumber));
     });
   });
 });

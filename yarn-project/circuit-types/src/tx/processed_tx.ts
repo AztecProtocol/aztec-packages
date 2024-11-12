@@ -1,33 +1,23 @@
 import {
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  PublicDataWrite,
-  type PublicInputsAndRecursiveProof,
-  type PublicKernelInnerRequest,
-  type PublicKernelMergeRequest,
-  type PublicKernelTailRequest,
-  type SimulationError,
-  type Tx,
-  TxEffect,
-  TxHash,
-  UnencryptedTxL2Logs,
-} from '@aztec/circuit-types';
-import {
-  type AvmExecutionHints,
   ClientIvcProof,
+  CombinedConstantData,
   Fr,
-  type Gas,
-  type GasFees,
+  Gas,
+  type GlobalVariables,
   type Header,
-  KernelCircuitPublicInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type PublicDataUpdateRequest,
+  PrivateKernelTailCircuitPublicInputs,
+  type PublicDataWrite,
   type PublicKernelCircuitPublicInputs,
-  type RecursiveProof,
-  type TUBE_PROOF_LENGTH,
-  type VerificationKeyData,
+  RevertCode,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
+
+import { type AvmProvingRequest } from '../interfaces/proving-job.js';
+import { type SimulationError } from '../simulation_error.js';
+import { TxEffect } from '../tx_effect.js';
+import { type GasUsed } from './gas_used.js';
+import { type Tx } from './tx.js';
+import { TxHash } from './tx_hash.js';
 
 export enum PublicKernelPhase {
   SETUP,
@@ -35,56 +25,47 @@ export enum PublicKernelPhase {
   TEARDOWN,
 }
 
-export type PublicKernelRequest = PublicKernelInnerRequest | PublicKernelMergeRequest | PublicKernelTailRequest;
-
-export const AVM_REQUEST = 'AVM' as const;
-
-export type AvmProvingRequest = {
-  type: typeof AVM_REQUEST;
-  functionName: string; // informational only
-  bytecode: Buffer;
-  calldata: Fr[];
-  avmHints: AvmExecutionHints;
-  kernelRequest: PublicKernelInnerRequest;
-};
-
-export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
-
 /**
  * Represents a tx that has been processed by the sequencer public processor,
  * so its kernel circuit public inputs are filled in.
  */
-export type ProcessedTx = Pick<Tx, 'clientIvcProof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
-  /**
-   * Output of the private tail or public tail kernel circuit for this tx.
-   */
-  data: KernelCircuitPublicInputs;
+export type ProcessedTx = {
   /**
    * Hash of the transaction.
    */
   hash: TxHash;
   /**
-   * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
+   * Tx.data. The output of the private kernel tail or tail_to_public.
    */
-  isEmpty: boolean;
+  data: PrivateKernelTailCircuitPublicInputs;
+  /**
+   * Proof for the private execution.
+   */
+  clientIvcProof: ClientIvcProof;
+  /**
+   * The request for AVM proving.
+   */
+  avmProvingRequest: AvmProvingRequest | undefined;
+  /**
+   * Combining `TxConstantData` specified by the user, and `GlobalVariables` injected by the sequencer.
+   */
+  constants: CombinedConstantData;
+  /**
+   * Output data of the tx.
+   */
+  txEffect: TxEffect;
+  /*
+   * Gas used by the entire transaction.
+   */
+  gasUsed: GasUsed;
   /**
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
   /**
-   * The inputs for AVM and kernel proving.
+   * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
    */
-  publicProvingRequests: PublicProvingRequest[];
-  /**
-   * Gas usage per public execution phase.
-   * Doesn't account for any base costs nor DA gas used in private execution.
-   */
-  gasUsed: Partial<Record<PublicKernelPhase, Gas>>;
-  /**
-   * All public data updates for this transaction, including those created
-   * or updated by the protocol, such as balance updates from fee payments.
-   */
-  finalPublicDataUpdateRequests: PublicDataUpdateRequest[];
+  isEmpty: boolean;
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -96,7 +77,7 @@ export type RevertedTx = ProcessedTx & {
 };
 
 export function isRevertedTx(tx: ProcessedTx): tx is RevertedTx {
-  return !tx.data.revertCode.isOK();
+  return !tx.txEffect.revertCode.isOK();
 }
 
 export function partitionReverts(txs: ProcessedTx[]): { reverted: RevertedTx[]; nonReverted: ProcessedTx[] } {
@@ -128,96 +109,6 @@ export type FailedTx = {
 };
 
 /**
- * Makes a processed tx out of source tx.
- * @param tx - Source tx.
- * @param kernelOutput - Output of the kernel circuit simulation for this tx.
- * @param proof - Proof of the kernel circuit for this tx.
- */
-export function makeProcessedTx(
-  tx: Tx,
-  kernelOutput: KernelCircuitPublicInputs,
-  publicProvingRequests: PublicProvingRequest[],
-  revertReason?: SimulationError,
-  gasUsed: ProcessedTx['gasUsed'] = {},
-  finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
-): ProcessedTx {
-  return {
-    hash: tx.getTxHash(),
-    data: kernelOutput,
-    clientIvcProof: tx.clientIvcProof,
-    // TODO(4712): deal with non-revertible logs here
-    noteEncryptedLogs: tx.noteEncryptedLogs,
-    encryptedLogs: tx.encryptedLogs,
-    unencryptedLogs: tx.unencryptedLogs,
-    isEmpty: false,
-    revertReason,
-    publicProvingRequests,
-    gasUsed,
-    finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
-  };
-}
-
-export type PaddingProcessedTx = ProcessedTx & {
-  verificationKey: VerificationKeyData;
-  recursiveProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-};
-
-export type PaddingProcessedTxFromTube = ProcessedTx & {
-  verificationKey: VerificationKeyData;
-  recursiveProof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
-};
-
-/**
- * Makes a padding empty tx with a valid proof.
- * @returns A valid padding processed tx.
- */
-export function makePaddingProcessedTx(
-  kernelOutput: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>,
-): PaddingProcessedTx {
-  const hash = new TxHash(Fr.ZERO.toBuffer());
-  return {
-    hash,
-    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
-    encryptedLogs: EncryptedTxL2Logs.empty(),
-    unencryptedLogs: UnencryptedTxL2Logs.empty(),
-    data: kernelOutput.inputs,
-    clientIvcProof: ClientIvcProof.empty(),
-    isEmpty: true,
-    revertReason: undefined,
-    publicProvingRequests: [],
-    gasUsed: {},
-    finalPublicDataUpdateRequests: [],
-    verificationKey: kernelOutput.verificationKey,
-    recursiveProof: kernelOutput.proof,
-  };
-}
-
-/**
- * Makes a padding empty tx with a valid proof.
- * @returns A valid padding processed tx.
- */
-export function makePaddingProcessedTxFromTubeProof(
-  kernelOutput: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof TUBE_PROOF_LENGTH>,
-): PaddingProcessedTxFromTube {
-  const hash = new TxHash(Fr.ZERO.toBuffer());
-  return {
-    hash,
-    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
-    encryptedLogs: EncryptedTxL2Logs.empty(),
-    unencryptedLogs: UnencryptedTxL2Logs.empty(),
-    data: kernelOutput.inputs,
-    clientIvcProof: ClientIvcProof.empty(),
-    isEmpty: true,
-    revertReason: undefined,
-    publicProvingRequests: [],
-    gasUsed: {},
-    finalPublicDataUpdateRequests: [],
-    verificationKey: kernelOutput.verificationKey,
-    recursiveProof: kernelOutput.proof,
-  };
-}
-
-/**
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
@@ -228,118 +119,131 @@ export function makeEmptyProcessedTx(
   vkTreeRoot: Fr,
   protocolContractTreeRoot: Fr,
 ): ProcessedTx {
-  const emptyKernelOutput = KernelCircuitPublicInputs.empty();
-  emptyKernelOutput.constants.historicalHeader = header;
-  emptyKernelOutput.constants.txContext.chainId = chainId;
-  emptyKernelOutput.constants.txContext.version = version;
-  emptyKernelOutput.constants.vkTreeRoot = vkTreeRoot;
-  emptyKernelOutput.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+  const constants = CombinedConstantData.empty();
+  constants.historicalHeader = header;
+  constants.txContext.chainId = chainId;
+  constants.txContext.version = version;
+  constants.vkTreeRoot = vkTreeRoot;
+  constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
-  const hash = new TxHash(Fr.ZERO.toBuffer());
+  const clientProofOutput = PrivateKernelTailCircuitPublicInputs.empty();
+  clientProofOutput.constants = constants;
+
   return {
-    hash,
-    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
-    encryptedLogs: EncryptedTxL2Logs.empty(),
-    unencryptedLogs: UnencryptedTxL2Logs.empty(),
-    data: emptyKernelOutput,
+    hash: new TxHash(Fr.ZERO.toBuffer()),
+    data: clientProofOutput,
     clientIvcProof: ClientIvcProof.empty(),
-    isEmpty: true,
+    avmProvingRequest: undefined,
+    constants,
+    txEffect: TxEffect.empty(),
+    gasUsed: {
+      totalGas: Gas.empty(),
+      teardownGas: Gas.empty(),
+    },
     revertReason: undefined,
-    publicProvingRequests: [],
-    gasUsed: {},
-    finalPublicDataUpdateRequests: [],
+    isEmpty: true,
   };
 }
 
-export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
-  return new TxEffect(
-    tx.data.revertCode,
-    tx.data.getTransactionFee(gasFees),
-    tx.data.end.noteHashes.filter(h => !h.isZero()),
-    tx.data.end.nullifiers.filter(h => !h.isZero()),
-    tx.data.end.l2ToL1Msgs
-      .map(message =>
-        siloL2ToL1Message(message, tx.data.constants.txContext.version, tx.data.constants.txContext.chainId),
-      )
+export function makeProcessedTxFromPrivateOnlyTx(
+  tx: Tx,
+  transactionFee: Fr,
+  feePaymentPublicDataWrite: PublicDataWrite | undefined,
+  globalVariables: GlobalVariables,
+): ProcessedTx {
+  const constants = CombinedConstantData.combine(tx.data.constants, globalVariables);
+
+  const publicDataWrites = feePaymentPublicDataWrite ? [feePaymentPublicDataWrite] : [];
+
+  const data = tx.data.forRollup!;
+  const txEffect = new TxEffect(
+    RevertCode.OK,
+    transactionFee,
+    data.end.noteHashes.filter(h => !h.isZero()),
+    data.end.nullifiers.filter(h => !h.isZero()),
+    data.end.l2ToL1Msgs
+      .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
-    tx.finalPublicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)).filter(h => !h.isEmpty()),
-    tx.data.end.noteEncryptedLogPreimagesLength,
-    tx.data.end.encryptedLogPreimagesLength,
-    tx.data.end.unencryptedLogPreimagesLength,
-    tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty(),
-    tx.encryptedLogs || EncryptedTxL2Logs.empty(),
-    tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
+    publicDataWrites,
+    data.end.noteEncryptedLogPreimagesLength,
+    data.end.encryptedLogPreimagesLength,
+    data.end.unencryptedLogPreimagesLength,
+    tx.noteEncryptedLogs,
+    tx.encryptedLogs,
+    tx.unencryptedLogs,
   );
+
+  const gasUsed = {
+    totalGas: tx.data.forRollup!.end.gasUsed,
+    teardownGas: Gas.empty(),
+  };
+
+  return {
+    hash: tx.getTxHash(),
+    data: tx.data,
+    clientIvcProof: tx.clientIvcProof,
+    avmProvingRequest: undefined,
+    constants,
+    txEffect,
+    gasUsed,
+    revertReason: undefined,
+    isEmpty: false,
+  };
 }
 
-function validateProcessedTxLogs(tx: ProcessedTx): void {
-  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty();
-  let kernelHash = Fr.fromBuffer(
-    EncryptedNoteTxL2Logs.hashNoteLogs(
-      tx.data.end.noteEncryptedLogsHashes.filter(hash => !hash.isEmpty()).map(h => h.value.toBuffer()),
-    ),
-  );
-  let referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash());
-  if (!referenceHash.equals(kernelHash)) {
-    throw new Error(
-      `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
-             Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
-    );
-  }
-  const encryptedLogs = tx.encryptedLogs || EncryptedTxL2Logs.empty();
-  kernelHash = kernelHash = Fr.fromBuffer(
-    EncryptedTxL2Logs.hashSiloedLogs(
-      tx.data.end.encryptedLogsHashes.filter(hash => !hash.isEmpty()).map(h => h.getSiloedHash()),
-    ),
-  );
-  referenceHash = Fr.fromBuffer(encryptedLogs.hash());
-  if (!referenceHash.equals(kernelHash)) {
-    throw new Error(
-      `Encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
-             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
-    );
-  }
-  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
-  kernelHash = Fr.fromBuffer(
-    UnencryptedTxL2Logs.hashSiloedLogs(
-      tx.data.end.unencryptedLogsHashes.filter(hash => !hash.isEmpty()).map(h => h.getSiloedHash()),
-    ),
-  );
-  referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
-  if (!referenceHash.equals(kernelHash)) {
-    throw new Error(
-      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
-             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
-             Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
-    );
-  }
-  let referenceLength = new Fr(noteEncryptedLogs.getKernelLength());
-  let kernelLength = tx.data.end.noteEncryptedLogPreimagesLength;
-  if (!referenceLength.equals(kernelLength)) {
-    throw new Error(
-      `Note encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
-             Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
-    );
-  }
-  referenceLength = new Fr(encryptedLogs.getKernelLength());
-  kernelLength = tx.data.end.encryptedLogPreimagesLength;
-  if (!referenceLength.equals(kernelLength)) {
-    throw new Error(
-      `Encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
-             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
-    );
-  }
-  referenceLength = new Fr(unencryptedLogs.getKernelLength());
-  kernelLength = tx.data.end.unencryptedLogPreimagesLength;
-  if (!referenceLength.equals(kernelLength)) {
-    throw new Error(
-      `Unencrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
-             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}`,
-    );
-  }
-}
+export function makeProcessedTxFromTxWithPublicCalls(
+  tx: Tx,
+  avmProvingRequest: AvmProvingRequest,
+  feePaymentPublicDataWrite: PublicDataWrite | undefined,
+  gasUsed: GasUsed,
+  revertCode: RevertCode,
+  revertReason: SimulationError | undefined,
+): ProcessedTx {
+  const avmOutput = avmProvingRequest.inputs.output;
 
-export function validateProcessedTx(tx: ProcessedTx): void {
-  validateProcessedTxLogs(tx);
-  // TODO: validate other fields
+  const constants = CombinedConstantData.combine(tx.data.constants, avmOutput.globalVariables);
+
+  const publicDataWrites = avmOutput.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
+  if (feePaymentPublicDataWrite) {
+    const existingIndex = publicDataWrites.findIndex(w => w.leafSlot.equals(feePaymentPublicDataWrite.leafSlot));
+    if (existingIndex >= 0) {
+      publicDataWrites[existingIndex] = feePaymentPublicDataWrite;
+    } else {
+      publicDataWrites.push(feePaymentPublicDataWrite);
+    }
+  }
+
+  const noteEncryptedLogPreimagesLength = tx.noteEncryptedLogs.getKernelLength();
+  const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
+  // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
+  const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
+
+  const txEffect = new TxEffect(
+    revertCode,
+    avmOutput.transactionFee,
+    avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
+    avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),
+    avmOutput.accumulatedData.l2ToL1Msgs
+      .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
+      .filter(h => !h.isZero()),
+    publicDataWrites,
+    new Fr(noteEncryptedLogPreimagesLength),
+    new Fr(encryptedLogPreimagesLength),
+    new Fr(unencryptedLogPreimagesLength),
+    tx.noteEncryptedLogs,
+    tx.encryptedLogs,
+    tx.unencryptedLogs,
+  );
+
+  return {
+    hash: tx.getTxHash(),
+    data: tx.data,
+    clientIvcProof: tx.clientIvcProof,
+    avmProvingRequest,
+    constants,
+    txEffect,
+    gasUsed,
+    revertReason,
+    isEmpty: false,
+  };
 }

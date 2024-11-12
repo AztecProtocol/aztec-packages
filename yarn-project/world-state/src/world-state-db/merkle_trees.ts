@@ -1,4 +1,4 @@
-import { type L2Block, MerkleTreeId, PublicDataWrite, type SiblingPath, TxEffect } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
   type BatchInsertionResult,
   type IndexedTreeId,
@@ -27,6 +27,7 @@ import {
   PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
+  PublicDataWrite,
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -678,7 +679,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
           );
 
           await publicDataTree.batchInsert(
-            publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+            publicDataWrites.map(write => write.toBuffer()),
             PUBLIC_DATA_SUBTREE_HEIGHT,
           );
         }

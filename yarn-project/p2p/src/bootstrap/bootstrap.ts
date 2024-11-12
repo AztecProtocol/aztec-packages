@@ -1,4 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { SignableENR } from '@chainsafe/enr';
@@ -17,7 +18,7 @@ export class BootstrapNode {
   private node?: Discv5 = undefined;
   private peerId?: PeerId;
 
-  constructor(private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
+  constructor(private telemetry: TelemetryClient, private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
 
   /**
    * Starts the bootstrap node.
@@ -41,7 +42,7 @@ export class BootstrapNode {
     enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
 
     this.logger.info(`Starting bootstrap node ${peerId}, listening on ${listenAddrUdp.toString()}`);
-
+    const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
       enr,
       peerId,
@@ -50,6 +51,7 @@ export class BootstrapNode {
         lookupTimeout: 2000,
         allowUnverifiedSessions: true,
       },
+      metricsRegistry,
     });
 
     (this.node as Discv5EventEmitter).on('multiaddrUpdated', (addr: Multiaddr) => {
@@ -77,7 +79,7 @@ export class BootstrapNode {
   public async stop() {
     // stop libp2p
     await this.node?.stop();
-    this.logger.debug('libp2p has stopped');
+    this.logger.debug('Discv5 has stopped');
   }
 
   /**

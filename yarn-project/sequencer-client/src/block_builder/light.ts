@@ -8,19 +8,12 @@ import {
   type ProcessedTx,
   type TxEffect,
   makeEmptyProcessedTx,
-  toTxEffect,
 } from '@aztec/circuit-types';
-import {
-  Fr,
-  type GlobalVariables,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { TubeVk, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { buildBaseRollupInput, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
+import { buildBaseRollupHints, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -51,13 +44,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   async addNewTx(tx: ProcessedTx): Promise<void> {
     this.logger.verbose('Adding new tx to block', { txHash: tx.hash.toString() });
     this.txs.push(tx);
-    await buildBaseRollupInput(
-      tx,
-      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      this.globalVariables!,
-      this.db,
-      TubeVk,
-    );
+    await buildBaseRollupHints(tx, this.globalVariables!, this.db);
   }
 
   async setBlockCompleted(): Promise<L2Block> {
@@ -80,9 +67,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private async buildBlock(): Promise<L2Block> {
     this.logger.verbose(`Finalising block`);
-    const nonEmptyTxEffects: TxEffect[] = this.txs
-      .map(tx => toTxEffect(tx, this.globalVariables!.gasFees))
-      .filter(txEffect => !txEffect.isEmpty());
+    const nonEmptyTxEffects: TxEffect[] = this.txs.map(tx => tx.txEffect).filter(txEffect => !txEffect.isEmpty());
     const body = new Body(nonEmptyTxEffects);
     const header = await buildHeaderFromTxEffects(body, this.globalVariables!, this.l1ToL2Messages!, this.db);
 

@@ -29,7 +29,7 @@ runs:
           # 128-core x86 instance types, aws chooses for us based on capacity
           echo "instance_type=m6a.32xlarge m6i.32xlarge m6in.32xlarge m7a.32xlarge r6a.32xlarge r6i.32xlarge r6in.32xlarge" >> $GITHUB_OUTPUT
           echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
+          echo "ebs_cache_size=300" >> $GITHUB_OUTPUT
           echo "runner_concurrency=20" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-x86" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT

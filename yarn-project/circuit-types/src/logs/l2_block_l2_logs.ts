@@ -1,6 +1,8 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
+import { z } from 'zod';
 
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
 import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
@@ -17,6 +19,15 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
      */
     public readonly txLogs: TxL2Logs<TLog>[],
   ) {}
+
+  public abstract get type(): string;
+
+  static get schema(): ZodFor<
+    L2BlockL2Logs<EncryptedL2NoteLog> | L2BlockL2Logs<EncryptedL2Log> | L2BlockL2Logs<UnencryptedL2Log>
+  > {
+    // TODO(palla/schemas): This should be a discriminated union, but the compiler refuses
+    return z.union([EncryptedNoteL2BlockL2Logs.schema, EncryptedL2BlockL2Logs.schema, UnencryptedL2BlockL2Logs.schema]);
+  }
 
   /**
    * Serializes logs into a buffer.
@@ -56,9 +67,7 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
    * @returns A plain object with L2BlockL2Logs properties.
    */
   public toJSON() {
-    return {
-      txLogs: this.txLogs.map(log => log.toJSON()),
-    };
+    return { txLogs: this.txLogs, type: this.type };
   }
 
   /**
@@ -83,6 +92,16 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
 }
 
 export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog> {
+  static override get schema() {
+    return z
+      .object({ type: z.literal('EncryptedNote'), txLogs: z.array(EncryptedNoteTxL2Logs.schema) })
+      .transform(({ txLogs }) => new EncryptedNoteL2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'EncryptedNote';
+  }
+
   /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.
@@ -154,6 +173,16 @@ export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog
 }
 
 export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
+  static override get schema() {
+    return z
+      .object({ type: z.literal('Encrypted'), txLogs: z.array(EncryptedTxL2Logs.schema) })
+      .transform(({ txLogs }) => new EncryptedL2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'Encrypted';
+  }
+
   /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.
@@ -225,6 +254,16 @@ export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
 }
 
 export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
+  static override get schema() {
+    return z
+      .object({ type: z.literal('Unencrypted'), txLogs: z.array(UnencryptedTxL2Logs.schema) })
+      .transform(({ txLogs }) => new UnencryptedL2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'Unencrypted';
+  }
+
   /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.

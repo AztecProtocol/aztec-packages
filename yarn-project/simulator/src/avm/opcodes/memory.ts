@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, TaggedMemory } from '../avm_memory_types.js';
+import { Field, TaggedMemory, TypeTag, Uint32 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -72,7 +72,6 @@ export class Set extends Instruction {
     memory.set(dstOffset, res);
 
     memory.assert({ writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -113,7 +112,6 @@ export class Cast extends Instruction {
     memory.set(dstOffset, casted);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -152,7 +150,6 @@ export class Mov extends Instruction {
     memory.set(dstOffset, a);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -179,11 +176,11 @@ export class CalldataCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    // We don't need to check tags here because: (1) the calldata is NOT in memory, and (2) we are the ones writing to destination.
     const operands = [this.cdStartOffset, this.copySizeOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [cdStartOffset, copySizeOffset, dstOffset] = addressing.resolve(operands, memory);
 
+    memory.checkTags(TypeTag.UINT32, cdStartOffset, copySizeOffset);
     const cdStart = memory.get(cdStartOffset).toNumber();
     const copySize = memory.get(copySizeOffset).toNumber();
     context.machineState.consumeGas(this.gasCost(copySize));
@@ -193,6 +190,70 @@ export class CalldataCopy extends Instruction {
     memory.setSlice(dstOffset, transformedData);
 
     memory.assert({ reads: 2, writes: copySize, addressing });
-    context.machineState.incrementPc();
+  }
+}
+
+export class ReturndataSize extends Instruction {
+  static readonly type: string = 'RETURNDATASIZE';
+  static readonly opcode: Opcode = Opcode.RETURNDATASIZE;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
+
+  constructor(private indirect: number, private dstOffset: number) {
+    super();
+  }
+
+  public async execute(context: AvmContext): Promise<void> {
+    const memory = context.machineState.memory.track(this.type);
+    const operands = [this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [dstOffset] = addressing.resolve(operands, memory);
+    context.machineState.consumeGas(this.gasCost());
+
+    memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
+
+    memory.assert({ writes: 1, addressing });
+  }
+}
+
+export class ReturndataCopy extends Instruction {
+  static readonly type: string = 'RETURNDATACOPY';
+  static readonly opcode: Opcode = Opcode.RETURNDATACOPY;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+  ];
+
+  constructor(
+    private indirect: number,
+    private rdStartOffset: number,
+    private copySizeOffset: number,
+    private dstOffset: number,
+  ) {
+    super();
+  }
+
+  public async execute(context: AvmContext): Promise<void> {
+    const memory = context.machineState.memory.track(this.type);
+    const operands = [this.rdStartOffset, this.copySizeOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [rdStartOffset, copySizeOffset, dstOffset] = addressing.resolve(operands, memory);
+
+    memory.checkTags(TypeTag.UINT32, rdStartOffset, copySizeOffset);
+    const rdStart = memory.get(rdStartOffset).toNumber();
+    const copySize = memory.get(copySizeOffset).toNumber();
+    context.machineState.consumeGas(this.gasCost(copySize));
+
+    const transformedData = context.machineState.nestedReturndata
+      .slice(rdStart, rdStart + copySize)
+      .map(f => new Field(f));
+
+    memory.setSlice(dstOffset, transformedData);
+
+    memory.assert({ reads: 2, writes: copySize, addressing });
   }
 }

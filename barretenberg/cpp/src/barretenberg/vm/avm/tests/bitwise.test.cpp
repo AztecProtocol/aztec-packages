@@ -93,7 +93,7 @@ void common_validate_shift_op(std::vector<Row> const& trace,
                               FF const& b,
                               FF const& c,
                               FF const& addr_a,
-                              FF const& addr_b,
+                              [[maybe_unused]] FF const& addr_b,
                               FF const& addr_c,
                               avm_trace::AvmMemoryTag const tag,
                               bool shr)
@@ -118,10 +118,11 @@ void common_validate_shift_op(std::vector<Row> const& trace,
     EXPECT_EQ(row->main_rwa, FF(0));
 
     // Check that ib register is correctly set with memory load operations.
-    EXPECT_EQ(row->main_ib, b);
-    EXPECT_EQ(row->main_mem_addr_b, addr_b);
-    EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
-    EXPECT_EQ(row->main_rwb, FF(0));
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // EXPECT_EQ(row->main_ib, b);
+    // EXPECT_EQ(row->main_mem_addr_b, addr_b);
+    // EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
+    // EXPECT_EQ(row->main_rwb, FF(0));
 
     // Check the instruction tags
     EXPECT_EQ(row->main_r_in_tag, FF(static_cast<uint32_t>(tag)));
@@ -360,7 +361,8 @@ class AvmBitwiseTests : public ::testing::Test {
     {
         trace_builder.op_set(0, a, 0, tag);
         trace_builder.op_not(0, 0, 1);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         auto trace = trace_builder.finalize();
 
         auto select_row = [](Row r) { return r.main_sel_op_not == FF(1); };
@@ -475,7 +477,8 @@ TEST_P(AvmBitwiseTestsNot, ParamTest)
     const auto [a, output] = operands;
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_not(0, 0, 1); // [1,254,0,0,....]
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
     common_validate_op_not(trace, a, output, FF(0), FF(1), mem_tag);
     validate_trace(std::move(trace), public_inputs);
@@ -492,7 +495,8 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_and(0, 0, 1, 2);
-    trace_builder.op_return(0, 2, 1);
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100);
 
     auto trace = trace_builder.finalize();
     common_validate_bit_op(trace, 0, a, b, output, FF(0), FF(1), FF(2), mem_tag);
@@ -509,7 +513,8 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_or(0, 0, 1, 2);
-    trace_builder.op_return(0, 2, 1);
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100);
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 1, a, b, output, FF(0), FF(1), FF(2), mem_tag);
@@ -526,7 +531,8 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_xor(0, 0, 1, 2);
-    trace_builder.op_return(0, 2, 1);
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100);
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 2, a, b, output, FF(0), FF(1), FF(2), mem_tag);
@@ -544,7 +550,8 @@ TEST_P(AvmBitwiseTestsShr, AllShrTest)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_shr(0, 0, 1, 2);
-    trace_builder.op_return(0, 2, 1);
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100);
     auto trace = trace_builder.finalize();
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, true);
     validate_trace(std::move(trace), public_inputs, {}, { output });
@@ -561,7 +568,8 @@ TEST_P(AvmBitwiseTestsShl, AllShlTest)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_shl(0, 0, 1, 2);
-    trace_builder.op_return(0, 2, 1);
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100);
     auto trace = trace_builder.finalize();
 
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, false);
@@ -665,7 +673,8 @@ TEST_P(AvmBitwiseNegativeTestsAnd, AllNegativeTests)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_and(0, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.main_sel_op_and == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), output, failure_mode);
@@ -684,7 +693,8 @@ TEST_P(AvmBitwiseNegativeTestsOr, AllNegativeTests)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_or(0, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.main_sel_op_or == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), output, failure_mode);
@@ -702,7 +712,8 @@ TEST_P(AvmBitwiseNegativeTestsXor, AllNegativeTests)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_xor(0, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.main_sel_op_xor == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), output, failure_mode);
@@ -720,7 +731,8 @@ TEST_P(AvmBitwiseNegativeTestsShr, AllNegativeTests)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_shr(0, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.main_sel_op_shr == FF(1); };
 
@@ -739,7 +751,8 @@ TEST_P(AvmBitwiseNegativeTestsShl, AllNegativeTests)
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_shl(0, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.main_sel_op_shl == FF(1); };
 
@@ -759,7 +772,8 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     trace_builder.op_not(0, 0, 1);
     // Finally, we will have a write in row 3 of the mem_trace to copy the result
     // from the op_not operation.
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     // Manually update the memory tags in the relevant trace;
     auto trace = trace_builder.finalize();
     // TODO(ilyas): When the SET opcodes applies relational constraints, this will fail

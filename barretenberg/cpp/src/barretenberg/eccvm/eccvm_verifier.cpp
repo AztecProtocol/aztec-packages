@@ -48,22 +48,29 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
-
-    // If Sumcheck did not verify, return false
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        return false;
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments;
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
     }
 
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    // If Sumcheck did not verify, return false
+    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        vinfo("eccvm sumcheck failed");
+        return false;
+    }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    const BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
@@ -72,7 +79,9 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
-                                               Flavor::REPEATED_COMMITMENTS);
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
@@ -120,7 +129,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
-
+    vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
+    vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_verified.value() && batched_opening_verified;
 }
 } // namespace bb

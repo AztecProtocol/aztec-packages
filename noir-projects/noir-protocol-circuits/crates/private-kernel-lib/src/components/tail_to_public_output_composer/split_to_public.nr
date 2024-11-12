@@ -1,25 +1,24 @@
 use dep::types::abis::accumulated_data::{
     private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
-    public_accumulated_data::PublicAccumulatedData,
-    public_accumulated_data_builder::PublicAccumulatedDataBuilder,
+    private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
+    private_to_public_accumulated_data_builder::PrivateToPublicAccumulatedDataBuilder,
 };
 
 pub unconstrained fn split_to_public(
     data: PrivateAccumulatedDataBuilder,
     min_revertible_side_effect_counter: u32,
-) -> (PublicAccumulatedData, PublicAccumulatedData) {
-    let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
-    let mut revertible_builder = PublicAccumulatedDataBuilder::empty();
+) -> (PrivateToPublicAccumulatedData, PrivateToPublicAccumulatedData) {
+    let mut non_revertible_builder = PrivateToPublicAccumulatedDataBuilder::empty();
+    let mut revertible_builder = PrivateToPublicAccumulatedDataBuilder::empty();
 
     let note_hashes = data.note_hashes;
     for i in 0..note_hashes.max_len() {
         if i < note_hashes.len() {
             let note_hash = note_hashes.get_unchecked(i);
-            let public_note_hash = note_hash.expose_to_public();
             if note_hash.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.note_hashes.push(public_note_hash);
+                non_revertible_builder.note_hashes.push(note_hash.value());
             } else {
-                revertible_builder.note_hashes.push(public_note_hash);
+                revertible_builder.note_hashes.push(note_hash.value());
             }
         }
     }
@@ -28,11 +27,10 @@ pub unconstrained fn split_to_public(
     for i in 0..nullifiers.max_len() {
         if i < nullifiers.len() {
             let nullifier = nullifiers.get_unchecked(i);
-            let public_nullifier = nullifier.expose_to_public();
             if nullifier.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.nullifiers.push(public_nullifier);
+                non_revertible_builder.nullifiers.push(nullifier.value());
             } else {
-                revertible_builder.nullifiers.push(public_nullifier);
+                revertible_builder.nullifiers.push(nullifier.value());
             }
         }
     }
@@ -92,11 +90,10 @@ pub unconstrained fn split_to_public(
     for i in 0..public_call_requests.max_len() {
         if i < public_call_requests.len() {
             let call_request = public_call_requests.get_unchecked(i);
-            let exposed_call_request = call_request.expose_to_public();
             if call_request.counter < min_revertible_side_effect_counter {
-                non_revertible_builder.public_call_stack.push(exposed_call_request);
+                non_revertible_builder.public_call_requests.push(call_request.inner);
             } else {
-                revertible_builder.public_call_stack.push(exposed_call_request);
+                revertible_builder.public_call_requests.push(call_request.inner);
             }
         }
     }

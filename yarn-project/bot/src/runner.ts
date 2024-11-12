@@ -3,13 +3,16 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { Bot } from './bot.js';
 import { type BotConfig } from './config.js';
+import { type BotRunnerApi } from './interface.js';
 
-export class BotRunner {
+export class BotRunner implements BotRunnerApi {
   private log = createDebugLogger('aztec:bot');
   private bot?: Promise<Bot>;
   private pxe?: PXE;
   private node: AztecNode;
   private runningPromise: RunningPromise;
+  private consecutiveErrors = 0;
+  private healthy = true;
 
   public constructor(private config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode }) {
     this.pxe = dependencies.pxe;
@@ -50,6 +53,10 @@ export class BotRunner {
       await this.runningPromise.stop();
     }
     this.log.info(`Stopped bot`);
+  }
+
+  public isHealthy() {
+    return this.runningPromise.isRunning() && this.healthy;
   }
 
   /** Returns whether the bot is running. */
@@ -96,15 +103,17 @@ export class BotRunner {
 
     try {
       await bot.run();
+      this.consecutiveErrors = 0;
     } catch (err) {
-      this.log.error(`Error running bot: ${err}`);
+      this.consecutiveErrors += 1;
+      this.log.error(`Error running bot consecutiveCount=${this.consecutiveErrors}: ${err}`);
       throw err;
     }
   }
 
   /** Returns the current configuration for the bot. */
   public getConfig() {
-    return this.config;
+    return Promise.resolve(this.config);
   }
 
   async #createBot() {
@@ -130,6 +139,15 @@ export class BotRunner {
       await this.run();
     } catch (err) {
       // Already logged in run()
+      if (this.config.maxConsecutiveErrors > 0 && this.consecutiveErrors >= this.config.maxConsecutiveErrors) {
+        this.log.error(`Too many errors bot is unhealthy`);
+        this.healthy = false;
+      }
+    }
+
+    if (!this.healthy && this.config.stopWhenUnhealthy) {
+      this.log.error(`Stopping bot due to errors`);
+      process.exit(1); // workaround docker not restarting the container if its unhealthy. We have to exit instead
     }
   }
 }

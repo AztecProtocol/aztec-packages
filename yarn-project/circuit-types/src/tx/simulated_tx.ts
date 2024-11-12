@@ -1,6 +1,13 @@
-import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../index.js';
+import { z } from 'zod';
+
+import {
+  type PrivateKernelProverProfileResult,
+  PrivateKernelProverProfileResultSchema,
+} from '../interfaces/private_kernel_prover.js';
+import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
@@ -9,6 +16,7 @@ import {
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
 } from '../private_execution_result.js';
+import { type GasUsed } from './gas_used.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
@@ -60,8 +68,38 @@ export class TxSimulationResult extends PrivateSimulationResult {
     privateExecutionResult: PrivateExecutionResult,
     publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
+    public profileResult?: PrivateKernelProverProfileResult,
   ) {
     super(privateExecutionResult, publicInputs);
+  }
+
+  get gasUsed(): GasUsed {
+    return (
+      this.publicOutput?.gasUsed ?? {
+        totalGas: this.publicInputs.forRollup!.end.gasUsed,
+        teardownGas: Gas.empty(),
+      }
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        privateExecutionResult: PrivateExecutionResult.schema,
+        publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
+        publicOutput: PublicSimulationOutput.schema.optional(),
+        profileResult: PrivateKernelProverProfileResultSchema.optional(),
+      })
+      .transform(TxSimulationResult.from);
+  }
+
+  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
+    return new TxSimulationResult(
+      fields.privateExecutionResult,
+      fields.publicInputs,
+      fields.publicOutput,
+      fields.profileResult,
+    );
   }
 
   getPublicReturnValues() {
@@ -71,11 +109,13 @@ export class TxSimulationResult extends PrivateSimulationResult {
   static fromPrivateSimulationResultAndPublicOutput(
     privateSimulationResult: PrivateSimulationResult,
     publicOutput?: PublicSimulationOutput,
+    profileResult?: PrivateKernelProverProfileResult,
   ) {
     return new TxSimulationResult(
       privateSimulationResult.privateExecutionResult,
       privateSimulationResult.publicInputs,
       publicOutput,
+      profileResult,
     );
   }
 
@@ -84,6 +124,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
       publicInputs: this.publicInputs.toBuffer().toString('hex'),
       publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
+      profileResult: this.profileResult,
     };
   }
 
@@ -91,7 +132,8 @@ export class TxSimulationResult extends PrivateSimulationResult {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
     const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
-    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput);
+    const profileResult = obj.profileResult;
+    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput, profileResult);
   }
 }
 
@@ -121,11 +163,25 @@ export class TxProvingResult {
     return tx;
   }
 
+  static get schema() {
+    return z
+      .object({
+        privateExecutionResult: PrivateExecutionResult.schema,
+        publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
+        clientIvcProof: ClientIvcProof.schema,
+      })
+      .transform(TxProvingResult.from);
+  }
+
+  static from(fields: FieldsOf<TxProvingResult>) {
+    return new TxProvingResult(fields.privateExecutionResult, fields.publicInputs, fields.clientIvcProof);
+  }
+
   public toJSON() {
     return {
-      privateExecutionResult: this.privateExecutionResult.toJSON(),
-      publicInputs: this.publicInputs.toBuffer().toString('hex'),
-      clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
+      privateExecutionResult: this.privateExecutionResult,
+      publicInputs: this.publicInputs,
+      clientIvcProof: this.clientIvcProof,
     };
   }
 

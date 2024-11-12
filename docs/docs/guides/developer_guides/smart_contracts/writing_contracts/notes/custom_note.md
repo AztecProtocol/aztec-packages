@@ -48,6 +48,6 @@ If you are also planning to be able to access the data with a note in public sta
 
 ## Further reading
 
-- [What is `#[note]` actually doing? + functions such as serialize() and deserialize()](../../../../../aztec/smart_contracts/functions/inner_workings.md#custom-notes-aztecnote)
+- [What is `#[note]` actually doing? + functions such as serialize() and deserialize()](../../../../../aztec/smart_contracts/functions//attributes.md#custom-notes-note)
 - [Macros reference](../../../../../reference/developer_references/smart_contract_reference/macros.md)
 - [Keys, including npk_m_hash (nullifier public key master)](../../../../../aztec/concepts/accounts/keys.md)

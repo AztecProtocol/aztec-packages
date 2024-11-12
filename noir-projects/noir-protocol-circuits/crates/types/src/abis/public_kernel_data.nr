@@ -1,19 +1,20 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    constants::{TUBE_INDEX, VK_TREE_HEIGHT},
+    constants::{TUBE_VK_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::check_membership,
-    recursion::{
-        proof::NestedRecursiveProof, traits::Verifiable, verification_key::HonkVerificationKey,
+    proof::{
+        recursive_proof::NestedRecursiveProof, traits::Verifiable,
+        verification_key::HonkVerificationKey,
     },
     utils::arrays::find_index_hint,
 };
 
 pub struct PublicKernelData {
-    public_inputs: PublicKernelCircuitPublicInputs,
-    proof: NestedRecursiveProof,
-    vk: HonkVerificationKey,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
+    pub public_inputs: PublicKernelCircuitPublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub vk: HonkVerificationKey,
+    pub vk_index: u32,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
 }
 
 impl Verifiable for PublicKernelData {
@@ -40,7 +41,7 @@ impl PublicKernelData {
                 self.vk_path,
                 self.public_inputs.constants.vk_tree_root,
             )
-                | (self.vk_index == TUBE_INDEX),
+                | (self.vk_index == TUBE_VK_INDEX),
         );
     }
 }
