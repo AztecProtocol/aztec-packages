@@ -21,20 +21,31 @@ import { makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
+import {
+  BufferReader,
+  FieldReader,
+  serializeArrayOfBufferableToVector,
+  serializeToBuffer,
+} from '@aztec/foundation/serialize';
+
+import { inspect } from 'util';
+
+import {
+  type EncryptedL2Log,
+  EncryptedL2NoteLog,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
+  type TxL2Logs,
+  type UnencryptedL2Log,
+  UnencryptedTxL2Logs,
+} from './logs/index.js';
+import { TxHash } from './tx/tx_hash.js';
 
 // These are helper constants to decode tx effects from blob encoded fields
 const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
 // 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
 const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
-import { hexSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { inspect } from 'util';
-
-import {   type EncryptedL2Log,
-  EncryptedL2NoteLog, EncryptedNoteTxL2Logs,   type TxL2Logs,
-  type UnencryptedL2Log, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
-import { TxHash } from './tx/tx_hash.js';
 
 export class TxEffect {
   constructor(
