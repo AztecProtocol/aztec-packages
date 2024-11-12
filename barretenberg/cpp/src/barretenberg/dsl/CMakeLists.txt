@@ -10,7 +10,6 @@ set(DSL_DEPENDENCIES
     stdlib_keccak
     stdlib_poseidon2
     crypto_merkle_tree
-    stdlib_schnorr
     stdlib_honk_verifier)
 
 if (NOT WASM AND NOT DISABLE_AZTEC_VM)
