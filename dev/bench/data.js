@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731444513437,
+  "lastUpdate": 1731450066394,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "26adc55771a204f96e8594f6defde2a4872c88d2",
-          "message": "feat(avm)!: cleanup CALL (#9551)\n\n* (Static)CALL now returns just the success bit\n* Properly returns U1 instead of U8\n* Removed FunctionSelector\n\nFixes #8998. Part of #9061.",
-          "timestamp": "2024-10-29T17:57:21Z",
-          "tree_id": "1fba5264a5faefaa4166f84df6ded362598266a8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/26adc55771a204f96e8594f6defde2a4872c88d2"
-        },
-        "date": 1730227064645,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30850.779605000014,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29019.381799 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5349.200418000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5004.156865999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92386.64418,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92386646000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15173.086461,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15173086000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2704267986,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2704267986 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127341546,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127341546 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 144427186,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144427186 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9325f6ff987022da1a4dabb771781cdc999af18e",
+          "message": "feat: mock data for IVC (#9893)\n\nIncremental work towards a write_vk flow for kernel circuits. kernel\r\ncircuits are generated from acir via the method\r\n`acir_format::create_kernel_circuit()` which takes as input the raw acir\r\ndata plus a ClientIvc instance containing the proofs to be recursively\r\nverified in that circuit (Oink/PG + merge). In the context of VK\r\ngeneration, those proofs are not yet known, so the IVC state has to be\r\nmocked. This PR adds such functionality but only for the oink case (i.e.\r\nthe state of the IVC after accumulating the first app which only calls\r\nthe pink prover). Equivalent logic for mocking the state after\r\nsubsequent accumulations will be handled in a follow on.",
+          "timestamp": "2024-11-12T14:39:30-07:00",
+          "tree_id": "ec55eac7301c947e731b20dbf5b80db296cd89e4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9325f6ff987022da1a4dabb771781cdc999af18e"
+        },
+        "date": 1731450058671,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28726.523216999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27126.963959999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5342.71464199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5051.560577 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84599.24814899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84599249000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15201.274542999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15201275000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3102320973,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3102320973 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142073295,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142073295 ns\nthreads: 1"
           }
         ]
       }
