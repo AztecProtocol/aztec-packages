@@ -20,12 +20,11 @@ import type {
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  ParityPublicInputs,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -276,7 +275,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>> {
+  ): Promise<ProofAndVerificationKey<typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.TUBE_PROOF, inputs }, signal, epochNumber);
   }
 
@@ -288,7 +287,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: BaseParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.BASE_PARITY, inputs }, signal, epochNumber);
   }
 
@@ -300,7 +299,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: RootParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.ROOT_PARITY, inputs }, signal, epochNumber);
   }
 
@@ -383,7 +382,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
     return this.enqueue({ type: ProvingRequestType.PUBLIC_VM, inputs }, signal, epochNumber);
   }
 
