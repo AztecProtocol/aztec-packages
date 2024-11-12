@@ -498,8 +498,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         for (auto [constraint, queue_entry] :
              zip_view(constraint_system.ivc_recursion_constraints, ivc.verification_queue)) {
 
-            populate_dummy_vk_and_public_inputs_in_constraint(
-                circuit, queue_entry.honk_verification_key, constraint.key);
+            populate_dummy_vk_in_constraint(circuit, queue_entry.honk_verification_key, constraint.key);
         }
     }
 

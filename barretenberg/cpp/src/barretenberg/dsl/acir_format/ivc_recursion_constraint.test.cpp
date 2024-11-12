@@ -32,14 +32,13 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * from another in testing.
      *
      */
-    static Builder construct_mock_app_circuit(ClientIVC& ivc, bool random_pub_input = false)
+    static Builder construct_mock_app_circuit(ClientIVC& ivc)
     {
         Builder circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
 
-        // Add a random or fixed public input value
-        FF pub_input = random_pub_input ? FF::random_element() : FF(5);
-        circuit.add_public_variable(pub_input);
+        // add a random (unique) public input
+        circuit.add_public_variable(FF::random_element());
 
         return circuit;
     }

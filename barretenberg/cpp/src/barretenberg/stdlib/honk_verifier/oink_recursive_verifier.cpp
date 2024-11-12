@@ -104,7 +104,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    // WORKTODO: pub_inputs_offset is native but should prob be a circuit constant somehow
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs,
         beta,

@@ -23,13 +23,21 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
             mock_ivc_oink_accumulation(ivc, constraint.public_inputs.size());
         } else if (static_cast<uint32_t>(PROOF_TYPE::PG) == constraint.proof_type) {
-            // do other stuff
+            // perform equivalent mocking for PG accumulation
         }
     }
 
     return ivc;
 }
 
+/**
+ * @brief Populate an IVC instance with data that mimics the state after accumulating the first app (which runs the oink
+ * prover)
+ *@details Mock state consists a mock verification queue entry of type OINK (proof, VK) and a mocked merge proof
+ *
+ * @param ivc
+ * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
+ */
 void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app)
 {
     ClientIVC::VerifierInputs oink_entry =
@@ -40,7 +48,7 @@ void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app)
 }
 
 /**
- * @brief Create an mock proof and VK that have the correct structure but are not necessarily valid
+ * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
  *
  */
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
@@ -93,6 +101,11 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
     return verifier_inputs;
 }
 
+/**
+ * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
+ *
+ * @return ClientIVC::MergeProof
+ */
 ClientIVC::MergeProof create_dummy_merge_proof()
 {
     using FF = bb::fr;
@@ -125,17 +138,25 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     return proof;
 }
 
-void populate_dummy_vk_and_public_inputs_in_constraint(
-    MegaCircuitBuilder& builder,
-    const std::shared_ptr<ClientIVC::VerificationKey>& mock_verification_key,
-    std::vector<uint32_t>& key_witness_indices)
+/**
+ * @brief Populate VK witness fields from a recursion constraint from a provided VerificationKey
+ *
+ * @param builder
+ * @param mock_verification_key
+ * @param key_witness_indices
+ */
+void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
+                                     const std::shared_ptr<ClientIVC::VerificationKey>& mock_verification_key,
+                                     std::vector<uint32_t>& key_witness_indices)
 {
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
 
+    // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
     ASSERT(mock_vk_fields.size() == key_witness_indices.size());
 
+    // Add the fields to the witness and set the key witness indices accordingly
     for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
         witness_idx = builder.add_variable(value);
     }
