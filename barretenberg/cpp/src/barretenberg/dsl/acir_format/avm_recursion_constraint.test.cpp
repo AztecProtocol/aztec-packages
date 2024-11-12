@@ -54,7 +54,8 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
         trace_builder.op_add(0, 1, 2, 3);
         trace_builder.op_sub(0, 3, 2, 3);
         trace_builder.op_mul(0, 1, 1, 3);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 
         avm_trace::inject_end_gas_values(public_inputs, trace);
