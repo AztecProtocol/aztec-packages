@@ -47,7 +47,8 @@ namespace {
 uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
                                        AvmAluTraceBuilder const& alu_trace_builder,
                                        AvmMemTraceBuilder const& mem_trace_builder,
-                                       AvmRangeCheckBuilder const& rng_chk_trace_builder)
+                                       AvmRangeCheckBuilder const& rng_chk_trace_builder,
+                                       AvmGasTraceBuilder const& gas_trace_builder)
 {
     // Build the main_trace, and add any new rows with specific clks that line up with lookup reads
 
@@ -66,6 +67,10 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     u16_rng_chks.insert(u16_rng_chks.end(),
                         rng_chk_trace_builder.u16_range_chk_counters.begin(),
                         rng_chk_trace_builder.u16_range_chk_counters.end());
+
+    u16_rng_chks.insert(u16_rng_chks.end(),
+                        gas_trace_builder.rem_gas_rng_check_counts.begin(),
+                        gas_trace_builder.rem_gas_rng_check_counts.end());
 
     auto custom_clk = std::set<uint32_t>{};
     for (auto const& row : u8_rng_chks) {
@@ -3779,16 +3784,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     gas_trace_builder.finalize(main_trace);
-    // We need to assert here instead of finalize until we figure out inter-trace threading
-    for (size_t i = 0; i < main_trace_size; i++) {
-        auto& row = main_trace.at(i);
-        if (row.main_is_gas_accounted) {
-            range_check_builder.assert_range(
-                uint128_t(row.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(row.main_clk));
-            range_check_builder.assert_range(
-                uint128_t(row.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(row.main_clk));
-        }
-    }
 
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION
@@ -3843,7 +3838,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
     auto new_trace_size =
         range_check_required
             ? old_trace_size
-            : finalize_rng_chks_for_testing(main_trace, alu_trace_builder, mem_trace_builder, range_check_builder);
+            : finalize_rng_chks_for_testing(
+                  main_trace, alu_trace_builder, mem_trace_builder, range_check_builder, gas_trace_builder);
 
     for (size_t i = 0; i < new_trace_size; i++) {
         auto& r = main_trace.at(i);
@@ -3892,6 +3888,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_rng_chk_diff_counts = range_check_builder.dyn_diff_counts[uint16_t(counter)];
             r.lookup_mem_rng_chk_0_counts = mem_trace_builder.mem_rng_chk_u16_0_counts[uint16_t(counter)];
             r.lookup_mem_rng_chk_1_counts = mem_trace_builder.mem_rng_chk_u16_1_counts[uint16_t(counter)];
+            r.lookup_l2_gas_rng_chk_0_counts = gas_trace_builder.rem_gas_rng_check_counts[0][uint16_t(counter)];
+            r.lookup_l2_gas_rng_chk_1_counts = gas_trace_builder.rem_gas_rng_check_counts[1][uint16_t(counter)];
+            r.lookup_da_gas_rng_chk_0_counts = gas_trace_builder.rem_gas_rng_check_counts[2][uint16_t(counter)];
+            r.lookup_da_gas_rng_chk_1_counts = gas_trace_builder.rem_gas_rng_check_counts[3][uint16_t(counter)];
             r.main_sel_rng_16 = FF(1);
         }
     }
