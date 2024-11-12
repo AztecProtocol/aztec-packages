@@ -326,6 +326,8 @@ class AvmTraceBuilder {
 
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
+    bool check_tag(AvmMemoryTag tag, AddressWithMode addr);
+    bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
     void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);

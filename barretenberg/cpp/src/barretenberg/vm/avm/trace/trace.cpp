@@ -221,6 +221,21 @@ AvmMemoryTag AvmTraceBuilder::unconstrained_get_memory_tag(AddressWithMode addr)
     return mem_trace_builder.unconstrained_get_memory_tag(call_ptr, offset);
 }
 
+bool AvmTraceBuilder::check_tag(AvmMemoryTag tag, AddressWithMode addr)
+{
+    return unconstrained_get_memory_tag(addr) == tag;
+}
+
+bool AvmTraceBuilder::check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size)
+{
+    for (uint32_t i = 0; i < size; i++) {
+        if (!check_tag(tag, start_offset + i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
 {
     auto offset = addr.offset;
@@ -1162,8 +1177,7 @@ AvmError AvmTraceBuilder::op_shl(
     // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
     auto read_b = unconstrained_read_from_memory(resolved_b);
-    const auto tag_b = unconstrained_get_memory_tag(resolved_b); // should be tagged as U8
-    bool op_valid = check_tag_integral(read_a.tag) && tag_b == AvmMemoryTag::U8;
+    bool op_valid = check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b);
 
     FF a = op_valid ? read_a.val : FF(0);
     FF b = op_valid ? read_b : FF(0);
@@ -1224,8 +1238,7 @@ AvmError AvmTraceBuilder::op_shr(
     // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
     auto read_b = unconstrained_read_from_memory(resolved_b);
-    const auto tag_b = unconstrained_get_memory_tag(resolved_b); // should be tagged as U8
-    bool op_valid = check_tag_integral(read_a.tag) && tag_b == AvmMemoryTag::U8;
+    bool op_valid = check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b);
 
     FF a = op_valid ? read_a.val : FF(0);
     FF b = op_valid ? read_b : FF(0);
@@ -1629,10 +1642,8 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
-    const auto cd_resolved_tag = unconstrained_get_memory_tag(cd_offset_resolved);
-    const auto copy_size_resolved_tag = unconstrained_get_memory_tag(copy_size_offset_resolved);
-
-    bool op_valid = tag_match && cd_resolved_tag == AvmMemoryTag::U32 && copy_size_resolved_tag == AvmMemoryTag::U32;
+    bool op_valid = tag_match && check_tag(AvmMemoryTag::U32, cd_offset_resolved) &&
+                    check_tag(AvmMemoryTag::U32, copy_size_offset_resolved);
 
     // TODO: constrain these.
     const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
@@ -1709,11 +1720,8 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
-
-    const auto rd_resolved_tag = unconstrained_get_memory_tag(rd_offset_resolved);
-    const auto copy_size_resolved_tag = unconstrained_get_memory_tag(copy_size_offset_resolved);
-
-    bool op_valid = tag_match && rd_resolved_tag == AvmMemoryTag::U32 && copy_size_resolved_tag == AvmMemoryTag::U32;
+    bool op_valid = tag_match && check_tag(AvmMemoryTag::U32, rd_offset_address) &&
+                    check_tag(AvmMemoryTag::U32, copy_size_offset_resolved);
 
     // TODO: constrain these.
     const uint32_t rd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(rd_offset_resolved));
@@ -2489,7 +2497,7 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
             .resolve({ note_hash_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
-    bool op_valid = unconstrained_get_memory_tag(resolved_leaf_index) == AvmMemoryTag::FF;
+    bool op_valid = check_tag(AvmMemoryTag::FF, resolved_leaf_index);
     Row row;
 
     if (op_valid) {
@@ -2553,7 +2561,7 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
         Addressing<3>::fromWire(indirect, call_ptr)
             .resolve({ nullifier_offset, address_offset, dest_offset }, mem_trace_builder);
 
-    bool op_valid = unconstrained_get_memory_tag(resolved_address) == AvmMemoryTag::FF;
+    bool op_valid = check_tag(AvmMemoryTag::FF, resolved_address);
 
     Row row;
 
@@ -2618,7 +2626,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
             .resolve({ log_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
-    bool op_valid = unconstrained_get_memory_tag(resolved_leaf_index) == AvmMemoryTag::FF;
+    bool op_valid = check_tag(AvmMemoryTag::FF, resolved_leaf_index);
     Row row;
 
     if (op_valid) {
@@ -2776,8 +2784,8 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
                          std::make_move_iterator(contract_address_bytes.begin()),
                          std::make_move_iterator(contract_address_bytes.end()));
 
-    bool op_valid = unconstrained_get_memory_tag(resolved_log_offset) == AvmMemoryTag::FF &&
-                    unconstrained_get_memory_tag(resolved_log_size_offset) == AvmMemoryTag::U32;
+    bool op_valid =
+        check_tag(AvmMemoryTag::FF, resolved_log_offset) && check_tag(AvmMemoryTag::U32, resolved_log_size_offset);
 
     Row row;
     uint32_t log_size = 0;
@@ -2796,10 +2804,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
                              std::make_move_iterator(log_size_bytes.end()));
 
         direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
-
-        for (uint32_t i = 0; i < log_size; i++) {
-            op_valid = op_valid && unconstrained_get_memory_tag(direct_field_addr + i) == AvmMemoryTag::FF;
-        }
+        op_valid = op_valid && check_tag_range(AvmMemoryTag::FF, direct_field_addr, log_size);
     }
 
     if (op_valid) {
@@ -2911,8 +2916,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         call_ptr, clk, resolved_args_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
     bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
 
-    const auto args_size_tag = unconstrained_get_memory_tag(resolved_args_size_offset);
-    bool op_valid = args_size_tag == AvmMemoryTag::U32;
+    bool op_valid = check_tag(AvmMemoryTag::U32, resolved_args_size_offset);
 
     // TODO: constrain this
     auto args_size = op_valid ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
@@ -3043,7 +3047,10 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     // Resolve operands
     auto [resolved_ret_offset, resolved_ret_size_offset] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+
+    bool op_valid = tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset);
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+    op_valid = op_valid && check_tag_range(AvmMemoryTag::FF, resolved_ret_offset, ret_size);
 
     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 
@@ -3053,12 +3060,17 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             .main_call_ptr = call_ptr,
             .main_ib = ret_size,
             .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = static_cast<uint32_t>(!op_valid),
             .main_pc = pc,
             .main_sel_op_external_return = 1,
         });
 
         pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
-        return {};
+
+        return ReturnDataError{
+            .return_data = {},
+            .error = op_valid ? AvmError::NO_ERROR : AvmError::TAG_ERROR,
+        };
     }
 
     // The only memory operation performed from the main trace is a possible indirect load for resolving the
@@ -3076,6 +3088,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         .main_ib = ret_size,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = resolved_ret_offset,
+        .main_op_err = static_cast<uint32_t>(!op_valid),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_external_return = 1,
@@ -3088,7 +3101,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
 
     return ReturnDataError{
         .return_data = returndata,
-        .error = tag_match ? AvmError::NO_ERROR : AvmError::TAG_ERROR,
+        .error = op_valid ? AvmError::NO_ERROR : AvmError::TAG_ERROR,
     };
 }
 
@@ -3103,8 +3116,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     auto [resolved_ret_offset, resolved_ret_size_offset] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
 
-    const auto ret_size_tag = unconstrained_get_memory_tag(ret_size_offset);
-    bool op_valid = ret_size_tag == AvmMemoryTag::U32;
+    bool op_valid = check_tag(AvmMemoryTag::U32, ret_size_offset);
     const auto ret_size =
         op_valid ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
 
@@ -3178,7 +3190,7 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
             .resolve({ message_offset, fields_offset, fields_size_offset }, mem_trace_builder);
 
     // Tags checking
-    bool op_valid = unconstrained_get_memory_tag(resolved_fields_size_offset) == AvmMemoryTag::U32;
+    bool op_valid = check_tag(AvmMemoryTag::U32, resolved_fields_size_offset);
 
     const uint32_t fields_size =
         op_valid ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_fields_size_offset)) : 0;
@@ -3187,13 +3199,8 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
     gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
 
     if (op_valid) {
-        for (uint32_t i = 0; i < message_size; i++) {
-            op_valid = op_valid && unconstrained_get_memory_tag(resolved_message_offset + i) == AvmMemoryTag::U8;
-        }
-
-        for (uint32_t i = 0; i < fields_size; i++) {
-            op_valid = op_valid && unconstrained_get_memory_tag(resolved_fields_offset + i) == AvmMemoryTag::FF;
-        }
+        op_valid = op_valid && check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
+                   check_tag_range(AvmMemoryTag::FF, resolved_fields_offset, fields_size);
     }
 
     main_trace.push_back(Row{
@@ -3370,14 +3377,8 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    bool op_valid = tag_match;
-    for (uint32_t i = 0; i < STATE_SIZE; i++) {
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_state_offset + i) == AvmMemoryTag::U32;
-    }
-
-    for (uint32_t i = 0; i < INPUTS_SIZE; i++) {
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_inputs_offset + i) == AvmMemoryTag::U32;
-    }
+    bool op_valid = tag_match && check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE) &&
+                    check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
@@ -3467,10 +3468,7 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = input_read.tag_match;
 
-    bool op_valid = tag_match;
-    for (uint32_t i = 0; i < KECCAKF1600_INPUT_SIZE; i++) {
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_input_offset + i) == AvmMemoryTag::U64;
-    }
+    bool op_valid = tag_match && check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
@@ -3541,16 +3539,10 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
                                                  mem_trace_builder);
 
     // Tag checking
-    const auto lhs_x_tag = unconstrained_get_memory_tag(resolved_lhs_x_offset);
-    const auto lhs_y_tag = unconstrained_get_memory_tag(resolved_lhs_y_offset);
-    const auto lhs_is_inf_tag = unconstrained_get_memory_tag(resolved_lhs_is_inf_offset);
-    const auto rhs_x_tag = unconstrained_get_memory_tag(resolved_rhs_x_offset);
-    const auto rhs_y_tag = unconstrained_get_memory_tag(resolved_rhs_y_offset);
-    const auto rhs_is_inf_tag = unconstrained_get_memory_tag(resolved_rhs_is_inf_offset);
-
-    bool op_valid = lhs_x_tag == AvmMemoryTag::FF && lhs_y_tag == AvmMemoryTag::FF &&
-                    lhs_is_inf_tag == AvmMemoryTag::U1 && rhs_x_tag == AvmMemoryTag::FF &&
-                    rhs_y_tag == AvmMemoryTag::FF && rhs_is_inf_tag == AvmMemoryTag::U1;
+    bool op_valid =
+        check_tag(AvmMemoryTag::FF, resolved_lhs_x_offset) && check_tag(AvmMemoryTag::FF, resolved_lhs_y_offset) &&
+        check_tag(AvmMemoryTag::U1, resolved_lhs_is_inf_offset) && check_tag(AvmMemoryTag::FF, resolved_rhs_x_offset) &&
+        check_tag(AvmMemoryTag::FF, resolved_rhs_y_offset) && check_tag(AvmMemoryTag::U1, resolved_rhs_is_inf_offset);
 
     gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
 
@@ -3614,7 +3606,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         Addressing<4>::fromWire(indirect, call_ptr)
             .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
 
-    bool op_valid = unconstrained_get_memory_tag(resolved_point_length_offset) == AvmMemoryTag::U32;
+    bool op_valid = check_tag(AvmMemoryTag::U32, resolved_point_length_offset);
     const FF points_length = op_valid ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
 
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
@@ -3625,17 +3617,14 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     std::vector<FF> scalars_vec;
 
     for (uint32_t i = 0; i < num_points; i++) {
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_points_offset + 3 * i) == AvmMemoryTag::FF;
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_points_offset + 3 * i + 1) == AvmMemoryTag::FF;
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_points_offset + 3 * i + 2) == AvmMemoryTag::U1;
+        op_valid = op_valid && check_tag_range(AvmMemoryTag::FF, resolved_points_offset + 3 * i, 2) &&
+                   check_tag(AvmMemoryTag::U1, resolved_points_offset + 3 * i + 2);
     }
 
     // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
     uint32_t scalar_read_length = num_points * 2;
 
-    for (uint32_t i = 0; i < scalar_read_length; i++) {
-        op_valid = op_valid && unconstrained_get_memory_tag(resolved_scalars_offset + i) == AvmMemoryTag::FF;
-    }
+    op_valid = op_valid && check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length);
 
     // TODO(dbanks12): length needs to fit into u32 here or it will certainly
     // run out of gas. Casting/truncating here is not secure.
@@ -3759,7 +3748,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
 
-    bool op_valid = unconstrained_get_memory_tag(resolved_radix_offset) == AvmMemoryTag::U32;
+    bool op_valid = check_tag(AvmMemoryTag::U32, resolved_radix_offset);
 
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 
