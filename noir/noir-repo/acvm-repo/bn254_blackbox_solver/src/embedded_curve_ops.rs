@@ -120,7 +120,7 @@ fn create_point(
 mod tests {
     use super::*;
 
-    use ark_ff::BigInteger;
+    use ark_ff::{BigInteger, MontConfig};
 
     fn get_generator() -> [FieldElement; 3] {
         let generator = grumpkin::SWAffine::generator();
