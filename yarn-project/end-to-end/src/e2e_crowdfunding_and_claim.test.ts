@@ -112,6 +112,13 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     await rewardToken.methods.set_minter(claimContract.address, true).send().wait();
 
+    // Add the operator address
+    // as a contact to all donor wallets, so they can receive notes
+    await Promise.all(
+      donorWallets.map(async wallet => {
+        await wallet.registerContact(operatorWallet.getAddress());
+      }),
+    );
     // Now we mint DNT to donors
     await mintTokensToPrivate(donationToken, operatorWallet, donorWallets[0].getAddress(), 1234n);
     await mintTokensToPrivate(donationToken, operatorWallet, donorWallets[1].getAddress(), 2345n);

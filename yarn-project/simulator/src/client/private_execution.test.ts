@@ -606,7 +606,6 @@ describe('Private Execution test suite', () => {
       let bridgedAmount = 100n;
 
       const l1ToL2MessageIndex = 0;
-      const secretHashForRedeemingNotes = new Fr(2n);
       let secretForL1ToL2MessageConsumption = new Fr(1n);
 
       let crossChainMsgRecipient: AztecAddress | undefined;
@@ -626,8 +625,8 @@ describe('Private Execution test suite', () => {
 
       const computePreimage = () =>
         buildL1ToL2Message(
-          toFunctionSelector('mint_private(bytes32,uint256)').substring(2),
-          [secretHashForRedeemingNotes, new Fr(bridgedAmount)],
+          toFunctionSelector('mint_private(uint256)').substring(2),
+          [new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
           l1ToL2MessageIndex,
@@ -635,7 +634,6 @@ describe('Private Execution test suite', () => {
 
       const computeArgs = () =>
         encodeArguments(artifact, [
-          secretHashForRedeemingNotes,
           bridgedAmount,
           secretForL1ToL2MessageConsumption,
           crossChainMsgSender ?? preimage.sender.sender,

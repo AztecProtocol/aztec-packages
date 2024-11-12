@@ -78,7 +78,10 @@ pub unconstrained fn mint_private(
     let note_randomness = random();
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
-    Token::at(token_contract_address).mint_to_private(recipient, amount).call(&mut env.private());
+    let from = recipient; // we are setting from to recipient because of TODO(#9887)
+    Token::at(token_contract_address).mint_to_private(from, recipient, amount).call(
+        &mut env.private(),
+    );
 
     add_token_note(
         env,
