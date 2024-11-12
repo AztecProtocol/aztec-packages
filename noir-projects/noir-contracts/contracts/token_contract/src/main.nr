@@ -425,6 +425,7 @@ contract Token {
     }
     // docs:end:burn
 
+    // docs:start:transfer_to_private
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
     #[private]
     fn transfer_to_private(to: AztecAddress, amount: Field) {
@@ -441,6 +442,7 @@ contract Token {
             &mut context,
         );
     }
+    // docs:end:transfer_to_private
 
     /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
     /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
@@ -543,6 +545,7 @@ contract Token {
         finalization_payload.emit();
     }
 
+    // docs:start:mint_to_private
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
     /// in the enqueud call).
     #[private]
@@ -563,6 +566,7 @@ contract Token {
             ._finalize_mint_to_private_unsafe(context.msg_sender(), amount, hiding_point_slot)
             .enqueue(&mut context);
     }
+    // docs:end:mint_to_private
 
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
     /// `prepare_transfer_to_private` first and the resulting
