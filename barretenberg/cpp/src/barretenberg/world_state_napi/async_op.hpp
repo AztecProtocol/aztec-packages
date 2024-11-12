@@ -1,7 +1,9 @@
 #pragma once
 
 #include "barretenberg/serialize/cbind.hpp"
+#include <functional>
 #include <memory>
+#include <msgpack.hpp>
 #include <napi.h>
 #include <utility>
 
@@ -10,7 +12,7 @@ namespace bb::world_state {
 using async_fn = std::function<void(msgpack::sbuffer&)>;
 
 /**
- * @brief Encapsulatest some work that can be done off the JavaScript main thread
+ * @brief Encapsulates some work that can be done off the JavaScript main thread
  *
  * This class takes a Deferred instance (i.e. a Promise to JS), execute some work in a separate thread, and then report
  * back on the result. The async execution _must not_ touch the JS environment. Everything that's needed to complete the
