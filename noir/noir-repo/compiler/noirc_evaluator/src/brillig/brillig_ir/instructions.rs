@@ -259,13 +259,13 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
 
     /// Emits a return instruction
     pub(crate) fn return_instruction(&mut self) {
-        self.debug_show.stop_instruction();
+        self.debug_show.return_instruction();
         self.push_opcode(BrilligOpcode::Return);
     }
 
-    /// Emits a external stop instruction with return data
+    /// Emits a stop instruction with return data
     pub(crate) fn stop_instruction(&mut self, return_data: HeapVector) {
-        self.debug_show.external_stop_instruction(return_data);
+        self.debug_show.stop_instruction(return_data);
         self.push_opcode(BrilligOpcode::Stop { return_data });
     }
 
