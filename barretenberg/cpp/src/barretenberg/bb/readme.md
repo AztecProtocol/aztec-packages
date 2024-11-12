@@ -21,6 +21,10 @@ TODO: https://github.com/AztecProtocol/aztec-packages/issues/7511
 
 For quick reference:
 
+- Noir v0.38.0 <> BB v0.61.0
+- Noir v0.37.0 <> BB v0.61.0
+- Noir v0.36.0 <> BB v0.58.0
+- Noir v0.35.0 <> BB v0.56.0
 - Noir v0.34.0 <> BB v0.55.0
 - Noir v0.33.0 <> BB v0.47.1
 - Noir v0.32.0 <> BB v0.46.1
