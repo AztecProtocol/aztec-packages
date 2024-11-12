@@ -14,7 +14,7 @@ terraform {
 
 # Configure the Google Cloud provider
 provider "google" {
-  project = "testnet-440309"
+  project = var.project
   region  = var.region
 }
 
@@ -34,7 +34,7 @@ resource "google_project_iam_member" "gke_sa_roles" {
     "roles/artifactregistry.reader"
   ])
 
-  project = "testnet-440309"
+  project = var.project
   role    = each.key
   member  = "serviceAccount:${google_service_account.gke_sa.email}"
 }
