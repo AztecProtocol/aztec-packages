@@ -106,16 +106,6 @@ export class SentTx {
     return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
   }
 
-  /**
-   * Get notes of accounts registered in the provided PXE/Wallet created in this tx.
-   * @remarks This function will wait for the tx to be mined if it hasn't been already.
-   * @returns The requested notes.
-   */
-  public async getVisibleNotes(): Promise<ExtendedNote[]> {
-    await this.wait();
-    return this.pxe.getIncomingNotes({ txHash: await this.getTxHash() });
-  }
-
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
     return await retryUntil(
