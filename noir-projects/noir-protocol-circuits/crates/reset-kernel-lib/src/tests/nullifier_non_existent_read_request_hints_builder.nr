@@ -77,7 +77,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         }
 
         NullifierNonExistentReadRequestHints {
-            non_membership_hints: self.non_membership_hints.storage,
+            non_membership_hints: self.non_membership_hints.storage(),
             sorted_pending_values,
             sorted_pending_value_index_hints,
             next_pending_value_indices,

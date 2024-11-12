@@ -30,6 +30,16 @@ export class EpochProofQuotePayload {
     return new EpochProofQuotePayload(0n, 0n, 0n, EthAddress.ZERO, 0);
   }
 
+  static random() {
+    return new EpochProofQuotePayload(
+      BigInt(Math.floor(Math.random() * 1e3)),
+      BigInt(Math.floor(Math.random() * 1e6)),
+      BigInt(Math.floor(Math.random() * 1e9)),
+      EthAddress.random(),
+      Math.floor(Math.random() * 10000),
+    );
+  }
+
   static getFields(fields: FieldsOf<EpochProofQuotePayload>) {
     return [
       fields.epochToProve,

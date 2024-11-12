@@ -4,6 +4,6 @@ use crate::abis::kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircu
 pub struct Proof {}
 
 pub struct EnqueuedCallData {
-    data: VMCircuitPublicInputs,
-    proof: Proof,
+    pub data: VMCircuitPublicInputs,
+    pub proof: Proof,
 }

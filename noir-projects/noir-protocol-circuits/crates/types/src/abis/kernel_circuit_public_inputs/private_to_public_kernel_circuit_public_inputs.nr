@@ -10,12 +10,12 @@ use crate::{
 };
 
 pub struct PrivateToPublicKernelCircuitPublicInputs {
-    constants: TxConstantData,
-    rollup_validation_requests: RollupValidationRequests,
-    non_revertible_accumulated_data: PrivateToPublicAccumulatedData,
-    revertible_accumulated_data: PrivateToPublicAccumulatedData,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub rollup_validation_requests: RollupValidationRequests,
+    pub non_revertible_accumulated_data: PrivateToPublicAccumulatedData,
+    pub revertible_accumulated_data: PrivateToPublicAccumulatedData,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
 }
 
 impl Empty for PrivateToPublicKernelCircuitPublicInputs {

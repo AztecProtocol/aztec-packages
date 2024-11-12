@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
@@ -25,27 +25,27 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',
     description: 'How many seconds an L1 slot lasts.',
-    defaultValue: DefaultL1ContractsConfig.ethereumSlotDuration,
+    ...numberConfigHelper(DefaultL1ContractsConfig.ethereumSlotDuration),
   },
   aztecSlotDuration: {
     env: 'AZTEC_SLOT_DURATION',
     description: 'How many seconds an L2 slots lasts (must be multiple of ethereum slot duration).',
-    defaultValue: DefaultL1ContractsConfig.aztecSlotDuration,
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecSlotDuration),
   },
   aztecEpochDuration: {
     env: 'AZTEC_EPOCH_DURATION',
     description: `How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION).`,
-    defaultValue: DefaultL1ContractsConfig.aztecEpochDuration,
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochDuration),
   },
   aztecTargetCommitteeSize: {
     env: 'AZTEC_TARGET_COMMITTEE_SIZE',
     description: 'The target validator committee size.',
-    defaultValue: DefaultL1ContractsConfig.aztecTargetCommitteeSize,
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
   aztecEpochProofClaimWindowInL2Slots: {
     env: 'AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS',
     description: 'The number of L2 slots that we can wait for a proof of an epoch to be produced.',
-    defaultValue: DefaultL1ContractsConfig.aztecEpochProofClaimWindowInL2Slots,
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochProofClaimWindowInL2Slots),
   },
 };
 

@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -41,7 +41,7 @@ export class NullifierManager {
    * @param nullifier - the nullifier to check for
    * @returns exists: whether the nullifier exists in cache here or in parent's
    */
-  private checkExistsHereOrParent(contractAddress: Fr, nullifier: Fr): boolean {
+  private checkExistsHereOrParent(contractAddress: AztecAddress, nullifier: Fr): boolean {
     // First check this cache
     let existsAsPending = this.cache.exists(contractAddress, nullifier);
     // Then try parent's nullifier cache
@@ -66,7 +66,7 @@ export class NullifierManager {
    *          leafIndex: the nullifier's leaf index if it exists and is not pending (comes from host state).
    */
   public async checkExists(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     nullifier: Fr,
   ): Promise<[/*exists=*/ boolean, /*isPending=*/ boolean, /*leafIndex=*/ Fr]> {
     // Check this cache and parent's (recursively)
@@ -89,7 +89,7 @@ export class NullifierManager {
    * @param contractAddress - the address of the contract that the nullifier is associated with
    * @param nullifier - the nullifier to stage
    */
-  public async append(contractAddress: Fr, nullifier: Fr) {
+  public async append(contractAddress: AztecAddress, nullifier: Fr) {
     const [exists, ,] = await this.checkExists(contractAddress, nullifier);
     if (exists) {
       throw new NullifierCollisionError(
@@ -139,10 +139,10 @@ export class NullifierCache {
    * @param nullifier - the nullifier to check existence of
    * @returns whether the nullifier is found in the cache
    */
-  public exists(contractAddress: Fr, nullifier: Fr): boolean {
+  public exists(contractAddress: AztecAddress, nullifier: Fr): boolean {
     const exists =
       this.cachePerContract.get(contractAddress.toBigInt())?.has(nullifier.toBigInt()) ||
-      this.siloedNullifiers.has(siloNullifier(AztecAddress.fromField(contractAddress), nullifier).toBigInt());
+      this.siloedNullifiers.has(siloNullifier(contractAddress, nullifier).toBigInt());
     return !!exists;
   }
 
@@ -152,7 +152,7 @@ export class NullifierCache {
    * @param contractAddress - the address of the contract that the nullifier is associated with
    * @param nullifier - the nullifier to stage
    */
-  public append(contractAddress: Fr, nullifier: Fr) {
+  public append(contractAddress: AztecAddress, nullifier: Fr) {
     if (this.exists(contractAddress, nullifier)) {
       throw new NullifierCollisionError(
         `Nullifier ${nullifier} at contract ${contractAddress} already exists in cache.`,

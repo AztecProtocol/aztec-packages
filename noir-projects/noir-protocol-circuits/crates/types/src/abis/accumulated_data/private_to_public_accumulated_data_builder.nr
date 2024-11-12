@@ -3,11 +3,7 @@ use crate::{
         accumulated_data::private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
         gas::Gas,
         log_hash::{LogHash, ScopedLogHash},
-        note_hash::ScopedNoteHash,
-        nullifier::Nullifier,
         public_call_request::PublicCallRequest,
-        public_data_update_request::PublicDataUpdateRequest,
-        side_effect::Counted,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
@@ -46,13 +42,13 @@ impl PrivateToPublicAccumulatedDataBuilder {
 
     pub fn finish(self) -> PrivateToPublicAccumulatedData {
         PrivateToPublicAccumulatedData {
-            note_hashes: self.note_hashes.storage,
-            nullifiers: self.nullifiers.storage,
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage,
-            public_call_requests: self.public_call_requests.storage,
+            note_hashes: self.note_hashes.storage(),
+            nullifiers: self.nullifiers.storage(),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage(),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage(),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
+            public_call_requests: self.public_call_requests.storage(),
             gas_used: self.gas_used,
         }
     }

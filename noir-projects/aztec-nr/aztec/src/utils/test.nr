@@ -118,7 +118,8 @@ unconstrained fn verify_collapse_hints_dirty_storage() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
 
     let mut collapsed: BoundedVec<u32, 3> = BoundedVec::from_array([7, 3]);
-    collapsed.storage[2] = 1;
+    // We have to use the unchecked setter as we're knowingly writing past the length, breaking its invariants.
+    collapsed.set_unchecked(2, 1);
 
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 2]);
 

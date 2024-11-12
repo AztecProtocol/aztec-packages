@@ -53,7 +53,8 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
         trace_builder.op_add(0, 1, 2, 3);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 
         inject_end_gas_values(public_inputs, trace);
@@ -120,7 +121,7 @@ TEST_F(AvmRecursiveTests, recursion)
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
     auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-        outer_circuit, TraceStructure::NONE, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
+        outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);
