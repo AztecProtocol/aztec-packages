@@ -312,7 +312,7 @@ template <typename FF_> class MegaArith {
 
         size_t get_structured_dyadic_size()
         {
-            size_t total_size = 0;
+            size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
             for (auto block : this->get()) {
                 total_size += block.get_fixed_size();
             }
