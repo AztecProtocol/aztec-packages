@@ -16,7 +16,6 @@ import {
   PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
-  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,

@@ -33,6 +33,11 @@ export class ParityPublicInputs {
     return this.toBuffer().toString('hex');
   }
 
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
   /**
    * Creates a new ParityPublicInputs instance from the given fields.
    * @param fields - The fields to create the instance from.
@@ -71,6 +76,6 @@ export class ParityPublicInputs {
   }
 
   static get schema() {
-    return hexSchemaFor(this);
+    return hexSchemaFor(ParityPublicInputs);
   }
 }
