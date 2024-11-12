@@ -10,7 +10,7 @@ import {
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
-  type ParityPublicInputs,
+  ParityPublicInputs,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PublicBaseRollupInputs,
@@ -59,8 +59,8 @@ export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RE
 
 function schemaForPublicInputsAndRecursiveProof<T extends object>(
   inputs: ZodFor<T>,
+  proofSize = NESTED_RECURSIVE_PROOF_LENGTH,
 ): ZodFor<PublicInputsAndRecursiveProof<T>> {
-  const proofSize = NESTED_RECURSIVE_PROOF_LENGTH;
   return z.object({
     inputs,
     proof: RecursiveProof.schemaFor(proofSize),
@@ -227,11 +227,11 @@ export const ProvingRequestResultSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal(ProvingRequestType.BASE_PARITY),
-    result: RootParityInput.schemaFor(RECURSIVE_PROOF_LENGTH),
+    result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
     type: z.literal(ProvingRequestType.ROOT_PARITY),
-    result: RootParityInput.schemaFor(NESTED_RECURSIVE_PROOF_LENGTH),
+    result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
     type: z.literal(ProvingRequestType.TUBE_PROOF),
