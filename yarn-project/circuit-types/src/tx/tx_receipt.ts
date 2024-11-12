@@ -148,6 +148,4 @@ const DebugInfoSchema = z.object({
   nullifiers: z.array(schemas.Fr),
   publicDataWrites: z.array(PublicDataWrite.schema),
   l2ToL1Msgs: z.array(schemas.Fr),
-  visibleIncomingNotes: z.array(UniqueNote.schema),
-  visibleOutgoingNotes: z.array(UniqueNote.schema),
 });
