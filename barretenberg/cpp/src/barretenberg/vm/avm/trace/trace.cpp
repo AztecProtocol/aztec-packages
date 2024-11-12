@@ -1438,6 +1438,7 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint
             op_dagasleft(indirect, dst_offset);
             break;
         default:
+            // Cannot happen thanks to the first if clause. This is to make the compiler happy.
             throw std::runtime_error("Invalid environment variable");
             break;
         }
@@ -2548,7 +2549,6 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    // TODO: resolved_address should be used
     auto [resolved_nullifier_offset, resolved_address, resolved_dest] =
         Addressing<3>::fromWire(indirect, call_ptr)
             .resolve({ nullifier_offset, address_offset, dest_offset }, mem_trace_builder);
