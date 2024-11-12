@@ -10,10 +10,9 @@ namespace bb {
 constexpr uint32_t PAIRING_POINT_ACCUMULATOR_SIZE = 16;
 // PairingPointAccumulatorIndices represents an array of 16 witness indices pointing to the nested aggregation object.
 using PairingPointAccumulatorIndices = std::array<uint32_t, PAIRING_POINT_ACCUMULATOR_SIZE>;
-// PairingPointAccumPubInputIndices represents an array of 16 public input indices pointing to the witness indices of
-// the nested aggregation object.
-
-using AggregationObjectPubInputIndices = std::array<uint32_t, AGGREGATION_OBJECT_SIZE>;
+// PairingPointAccumulatorPubInputIndices represents an array of 16 public input indices pointing to the witness indices
+// of the nested aggregation object.
+using PairingPointAccumulatorPubInputIndices = std::array<uint32_t, PAIRING_POINT_ACCUMULATOR_SIZE>;
 
 using IPAClaimPubInputIndices = std::array<uint32_t, 30>;
 } // namespace bb

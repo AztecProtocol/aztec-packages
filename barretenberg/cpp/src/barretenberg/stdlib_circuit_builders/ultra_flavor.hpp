@@ -455,7 +455,7 @@ class UltraFlavor {
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,

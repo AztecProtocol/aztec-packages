@@ -191,7 +191,7 @@ class CircuitSimulatorBN254 {
     [[nodiscard]] bool check_circuit() const { return !_failed; }
 
     // Public input indices which contain recursive proof information
-    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
 };
 
 class SimulatorCircuitChecker {

@@ -37,7 +37,7 @@ template <typename FF_> class CircuitBuilderBase {
     std::map<uint32_t, uint32_t> tau;
 
     // Public input indices which contain recursive proof information
-    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
 
     // Public input indices which contain the output IPA opening claim
