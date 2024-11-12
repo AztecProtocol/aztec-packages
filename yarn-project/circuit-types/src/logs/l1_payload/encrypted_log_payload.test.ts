@@ -123,7 +123,7 @@ describe('EncryptedLogPayload', () => {
     let byteArrayString = `[${tagString.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
-      'tag_from_typescript',
+      'encrypted_log_from_typescript',
       byteArrayString,
     );
 
