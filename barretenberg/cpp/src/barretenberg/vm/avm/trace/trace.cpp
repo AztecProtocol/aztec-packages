@@ -3050,7 +3050,6 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
 
     bool op_valid = tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset);
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
-    op_valid = op_valid && check_tag_range(AvmMemoryTag::FF, resolved_ret_offset, ret_size);
 
     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 

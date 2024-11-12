@@ -157,7 +157,6 @@ export class Return extends Instruction {
     const returnSize = memory.get(returnSizeOffset).toNumber();
     context.machineState.consumeGas(this.gasCost(returnSize));
 
-    memory.checkTagsRange(TypeTag.FIELD, returnOffset, returnSize);
     const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
     context.machineState.return(output);
