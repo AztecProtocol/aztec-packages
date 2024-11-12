@@ -24,7 +24,6 @@ import { LmdbAztecSingleton } from './singleton.js';
 export class AztecLmdbStore implements AztecKVStore {
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
-  #multiMapData: Database<unknown, Key>;
   #log = createDebugLogger('aztec:kv-store:lmdb');
 
   constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
@@ -34,12 +33,6 @@ export class AztecLmdbStore implements AztecKVStore {
     this.#data = rootDb.openDB('data', {
       encoding: 'msgpack',
       keyEncoding: 'ordered-binary',
-    });
-
-    this.#multiMapData = rootDb.openDB('data_dup_sort', {
-      encoding: 'ordered-binary',
-      keyEncoding: 'ordered-binary',
-      dupSort: true,
     });
   }
 
@@ -109,7 +102,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @returns A new AztecMultiMap
    */
   openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
-    return new LmdbAztecMap(this.#multiMapData, name);
+    return new LmdbAztecMap(this.#data, name, true);
   }
 
   openCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
@@ -148,7 +141,6 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   async clear() {
     await this.#data.clearAsync();
-    await this.#multiMapData.clearAsync();
     await this.#rootDb.clearAsync();
   }
 
@@ -157,7 +149,6 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   async drop() {
     await this.#data.drop();
-    await this.#multiMapData.drop();
     await this.#rootDb.drop();
   }
 
@@ -166,7 +157,6 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   async close() {
     await this.#data.close();
-    await this.#multiMapData.close();
     await this.#rootDb.close();
   }
 

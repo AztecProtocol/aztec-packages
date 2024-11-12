@@ -10,15 +10,15 @@ type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
  * A map backed by LMDB.
  */
 export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
-  protected db: Database<[K, V], MapValueSlot<K>>;
+  protected db: Database<[K, Array<V>], MapValueSlot<K>>;
   protected name: string;
 
   #startSentinel: MapValueSlot<Buffer>;
   #endSentinel: MapValueSlot<Buffer>;
 
-  constructor(rootDb: Database, mapName: string) {
+  constructor(rootDb: Database, mapName: string, private trackDuplicates = false) {
     this.name = mapName;
-    this.db = rootDb as Database<[K, V], MapValueSlot<K>>;
+    this.db = rootDb as Database<[K, Array<V>], MapValueSlot<K>>;
 
     // sentinels are used to define the start and end of the map
     // with LMDB's key encoding, no _primitive value_ can be "less than" an empty buffer or greater than Byte 255
@@ -32,13 +32,13 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
   }
 
   get(key: K): V | undefined {
-    return this.db.get(this.#slot(key))?.[1];
+    return this.db.get(this.#slot(key))?.[1][0];
   }
 
   *getValues(key: K): IterableIterator<V> {
-    const values = this.db.getValues(this.#slot(key));
+    const values = this.db.get(this.#slot(key))?.[1] ?? [];
     for (const value of values) {
-      yield value?.[1];
+      yield value;
     }
   }
 
@@ -47,21 +47,20 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
   }
 
   async set(key: K, val: V): Promise<void> {
-    await this.db.put(this.#slot(key), [key, val]);
-  }
+    let item = this.db.get(this.#slot(key));
+    if (item && this.trackDuplicates) {
+      item[1].push(val);
+    } else {
+      item = [key, [val]];
+    }
 
-  swap(key: K, fn: (val: V | undefined) => V): Promise<void> {
-    return this.db.childTransaction(() => {
-      const slot = this.#slot(key);
-      const entry = this.db.get(slot);
-      void this.db.put(slot, [key, fn(entry?.[1])]);
-    });
+    await this.db.put(this.#slot(key), item);
   }
 
   setIfNotExists(key: K, val: V): Promise<boolean> {
     const slot = this.#slot(key);
     return this.db.ifNoExists(slot, () => {
-      void this.db.put(slot, [key, val]);
+      void this.db.put(slot, [key, [val]]);
     });
   }
 
@@ -70,7 +69,18 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
   }
 
   async deleteValue(key: K, val: V): Promise<void> {
-    await this.db.remove(this.#slot(key), [key, val]);
+    const item = this.db.get(this.#slot(key));
+    if (!item) {
+      return;
+    }
+
+    item[1] = item[1].filter(v => v !== val);
+
+    if (item[1].length === 0) {
+      await this.db.remove(this.#slot(key));
+    } else {
+      await this.db.put(this.#slot(key), item);
+    }
   }
 
   *entries(range: Range<K> = {}): IterableIterator<[K, V]> {
@@ -103,7 +113,7 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     const iterator = this.db.getRange(lmdbRange);
 
     for (const {
-      value: [key, value],
+      value: [key, [value]],
     } of iterator) {
       yield [key, value];
     }
