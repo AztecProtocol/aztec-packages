@@ -12,7 +12,7 @@ template <typename FF_> class kernelImpl {
 
     static constexpr std::array<size_t, 42> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -364,7 +364,8 @@ template <typename FF_> class kernelImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp = (main_KERNEL_OUTPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_output_lookup));
+            auto tmp = ((main_KERNEL_OUTPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_output_lookup)) *
+                        (FF(1) - new_term.main_op_err));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
