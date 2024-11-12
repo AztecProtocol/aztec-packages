@@ -1,6 +1,6 @@
 // docs:start:cross_chain_test_harness
 import {
-  AccountWallet,
+  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
