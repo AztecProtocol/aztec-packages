@@ -10,10 +10,10 @@ template <typename FF_> class memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 53> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
                                                                             3, 4, 3, 4, 3, 3, 2, 3, 3, 4, 4, 4, 4, 4,
                                                                             2, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -374,6 +374,13 @@ template <typename FF_> class memImpl {
             auto tmp = ((new_term.mem_sel_mov_ia_to_ic + new_term.mem_sel_mov_ib_to_ic) * new_term.mem_tag_err);
             tmp *= scaling_factor;
             std::get<52>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+            auto tmp = (new_term.mem_diff - ((new_term.mem_u16_r0 + (new_term.mem_u16_r1 * FF(65536))) +
+                                             (new_term.mem_u8_r0 * FF(4294967296UL))));
+            tmp *= scaling_factor;
+            std::get<53>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

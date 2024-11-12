@@ -29,15 +29,15 @@ struct ExecutionTraceUsageTracker {
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
 
-    TraceStructure trace_structure = TraceStructure::NONE;
+    TraceSettings trace_settings;
 
-    ExecutionTraceUsageTracker(const TraceStructure& trace_structure = TraceStructure::NONE)
-        : trace_structure(trace_structure)
+    ExecutionTraceUsageTracker(const TraceSettings& trace_settings = TraceSettings{})
+        : trace_settings(trace_settings)
     {
         for (auto& size : max_sizes.get()) {
             size = 0; // init max sizes to zero
         }
-        fixed_sizes.set_fixed_block_sizes(trace_structure);
+        fixed_sizes.set_fixed_block_sizes(trace_settings);
         fixed_sizes.compute_offsets(/*is_structured=*/true);
     }
 
@@ -78,7 +78,7 @@ struct ExecutionTraceUsageTracker {
     bool check_is_active(const size_t idx)
     {
         // If structured trace is not in use, assume the whole trace is active
-        if (trace_structure == TraceStructure::NONE) {
+        if (trace_settings.structure == TraceStructure::NONE) {
             return true;
         }
         for (auto& range : active_ranges.get()) {
@@ -90,10 +90,17 @@ struct ExecutionTraceUsageTracker {
     }
 
     // For printing only. Must match the order of the members in the arithmetization
-    std::vector<std::string> block_labels{ "ecc_op",     "pub_inputs",         "busread",
-                                           "arithmetic", "delta_range",        "elliptic",
-                                           "aux",        "poseidon2_external", "poseidon2_internal",
-                                           "lookup" };
+    std::vector<std::string> block_labels{ "ecc_op",
+                                           "pub_inputs",
+                                           "busread",
+                                           "arithmetic",
+                                           "delta_range",
+                                           "elliptic",
+                                           "aux",
+                                           "poseidon2_external",
+                                           "poseidon2_internal",
+                                           "lookup",
+                                           "overflow" };
 
     void print()
     {
@@ -140,7 +147,7 @@ struct ExecutionTraceUsageTracker {
 
         // Convert the active ranges for each gate type into a set of sorted non-overlapping ranges (union of the input)
         std::vector<Range> simplified_active_ranges;
-        if (trace_structure == TraceStructure::NONE) {
+        if (trace_settings.structure == TraceStructure::NONE) {
             // If not using a structured trace, set the active range to the whole domain
             simplified_active_ranges.push_back(Range{ 0, full_domain_size });
         } else {

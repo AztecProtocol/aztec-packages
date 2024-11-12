@@ -12,12 +12,12 @@ use crate::{
 
 // TODO: Update it to be specifically for the private_kernel_tail once we remove public_kernel_tail, which also outputs this.
 pub struct KernelCircuitPublicInputs {
-    rollup_validation_requests: RollupValidationRequests,
-    end: CombinedAccumulatedData,
-    constants: CombinedConstantData,
-    start_state: PartialStateReference,
-    revert_code: u8,
-    fee_payer: AztecAddress,
+    pub rollup_validation_requests: RollupValidationRequests,
+    pub end: CombinedAccumulatedData,
+    pub constants: CombinedConstantData,
+    pub start_state: PartialStateReference,
+    pub revert_code: u8,
+    pub fee_payer: AztecAddress,
 }
 
 impl Empty for KernelCircuitPublicInputs {

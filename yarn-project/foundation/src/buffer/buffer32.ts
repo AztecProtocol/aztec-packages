@@ -70,6 +70,10 @@ export class Buffer32 {
     return this.buffer.toString('hex');
   }
 
+  toJSON() {
+    return this.toString();
+  }
+
   public to0xString(): `0x${string}` {
     return `0x${this.buffer.toString('hex')}`;
   }
@@ -89,6 +93,7 @@ export class Buffer32 {
   public static fromBigInt(hash: bigint) {
     return new Buffer32(serializeBigInt(hash, Buffer32.SIZE));
   }
+
   public static fromField(hash: Fr) {
     return new Buffer32(serializeBigInt(hash.toBigInt()));
   }

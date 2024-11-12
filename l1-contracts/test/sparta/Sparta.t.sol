@@ -12,8 +12,8 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {Rollup} from "../harnesses/Rollup.sol";
+import {Leonidas} from "../harnesses/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -189,7 +189,8 @@ contract SpartaTest is DecoderBase {
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
-      bytes32 digest = keccak256(abi.encode(archive, txHashes));
+      uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
+      bytes32 digest = keccak256(abi.encode(domainSeperator, archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
         signatures[i] = createSignature(validators[i], digest);
       }

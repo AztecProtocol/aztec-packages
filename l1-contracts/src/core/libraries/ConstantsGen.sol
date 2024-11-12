@@ -1,6 +1,6 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2024 Aztec Labs.
+// Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
 /**
@@ -31,14 +31,14 @@ library Constants {
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_CALL = 16;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
-  uint256 internal constant ARCHIVE_HEIGHT = 16;
+  uint256 internal constant ARCHIVE_HEIGHT = 29;
   uint256 internal constant VK_TREE_HEIGHT = 6;
   uint256 internal constant PROTOCOL_CONTRACT_TREE_HEIGHT = 3;
   uint256 internal constant FUNCTION_TREE_HEIGHT = 5;
-  uint256 internal constant NOTE_HASH_TREE_HEIGHT = 32;
+  uint256 internal constant NOTE_HASH_TREE_HEIGHT = 40;
   uint256 internal constant PUBLIC_DATA_TREE_HEIGHT = 40;
-  uint256 internal constant NULLIFIER_TREE_HEIGHT = 20;
-  uint256 internal constant L1_TO_L2_MSG_TREE_HEIGHT = 16;
+  uint256 internal constant NULLIFIER_TREE_HEIGHT = 40;
+  uint256 internal constant L1_TO_L2_MSG_TREE_HEIGHT = 39;
   uint256 internal constant ARTIFACT_FUNCTION_TREE_MAX_HEIGHT = 5;
   uint256 internal constant NULLIFIER_TREE_ID = 0;
   uint256 internal constant NOTE_HASH_TREE_ID = 1;
@@ -49,10 +49,10 @@ library Constants {
   uint256 internal constant NULLIFIER_SUBTREE_HEIGHT = 6;
   uint256 internal constant PUBLIC_DATA_SUBTREE_HEIGHT = 6;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
-  uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 26;
-  uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 14;
+  uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 34;
+  uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 34;
   uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 34;
-  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 35;
   uint256 internal constant MAX_NOTE_HASHES_PER_TX = 64;
   uint256 internal constant MAX_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
@@ -94,13 +94,9 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_BYTES = 576;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
-  uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 24;
-  uint256 internal constant AZTEC_EPOCH_DURATION = 16;
-  uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
-  uint256 internal constant AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS = 13;
+  uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
-    8142738430000951296386584486068033372964809139261822027365426310856631083550;
+    19007378675971183768036762391356802220352606103602592933942074152320327194720;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
@@ -130,12 +126,12 @@ library Constants {
   uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
   uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;
   uint256 internal constant L2_GAS_PER_PUBLIC_DATA_UPDATE = 2624;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH = 2304;
-  uint256 internal constant L2_GAS_PER_NULLIFIER = 2624;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH = 2624;
+  uint256 internal constant L2_GAS_PER_NULLIFIER = 4224;
   uint256 internal constant L2_GAS_PER_PUBLIC_DATA_READ = 1200;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 960;
-  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 1200;
-  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 480;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 1200;
+  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 2400;
+  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1170;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
   uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant MAX_PROTOCOL_CONTRACTS = 7;
@@ -235,8 +231,8 @@ library Constants {
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 601;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 30;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 60;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 44;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 90;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 76;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

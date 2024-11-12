@@ -50,6 +50,7 @@ import {
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { type L1ContractsConfig } from './config.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
@@ -201,30 +202,18 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   },
 };
 
-export interface DeployL1ContractsArgs {
-  /**
-   * The address of the L2 Fee Juice contract.
-   */
+export interface DeployL1ContractsArgs extends L1ContractsConfig {
+  /** The address of the L2 Fee Juice contract. */
   l2FeeJuiceAddress: AztecAddress;
-  /**
-   * The vk tree root.
-   */
+  /** The vk tree root. */
   vkTreeRoot: Fr;
-  /**
-   * The protocol contract tree root.
-   */
+  /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
-  /**
-   * The block number to assume proven through.
-   */
+  /** The block number to assume proven through. */
   assumeProvenThrough?: number;
-  /**
-   * The salt for CREATE2 deployment.
-   */
+  /** The salt for CREATE2 deployment. */
   salt: number | undefined;
-  /**
-   * The initial validators for the rollup contract.
-   */
+  /** The initial validators for the rollup contract. */
   initialValidators?: EthAddress[];
 }
 
@@ -294,12 +283,11 @@ export const deployL1Contracts = async (
     return await (await fetch(rpcUrl, content)).json();
   };
   if (isAnvilTestChain(chain.id)) {
-    const interval = 12; // @todo  #8084
-    const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    const res = await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    logger.info(`Set block interval to ${interval}`);
+    logger.info(`Set block interval to ${args.ethereumSlotDuration}`);
   }
 
   logger.info(`Deploying contracts from ${account.address.toString()}...`);
@@ -358,6 +346,12 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
+  const rollupArgs = {
+    aztecSlotDuration: args.aztecSlotDuration,
+    aztecEpochDuration: args.aztecEpochDuration,
+    targetCommitteeSize: args.aztecTargetCommitteeSize,
+    aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+  };
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
@@ -365,8 +359,9 @@ export const deployL1Contracts = async (
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
+    rollupArgs,
   ]);
-  logger.info(`Deployed Rollup at ${rollupAddress}`);
+  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupArgs);
 
   await deployer.waitForDeployments();
   logger.info(`All core contracts deployed`);

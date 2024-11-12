@@ -20,3 +20,6 @@ export type Writeable<T> = { -readonly [P in keyof T]: T[P] };
 export function unfreeze<T>(obj: T): Writeable<T> {
   return obj as Writeable<T>;
 }
+
+/** Maybe exists, maybe not. */
+export type Maybe<T extends object> = T | unknown;

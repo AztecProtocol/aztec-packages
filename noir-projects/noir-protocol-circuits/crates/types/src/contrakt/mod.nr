@@ -1,2 +1,2 @@
-mod storage_read;
-mod storage_update_request;
+pub mod storage_read;
+pub mod storage_update_request;

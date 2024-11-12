@@ -7,15 +7,15 @@ use crate::{
 };
 
 pub struct PublicCallRequest {
-    msg_sender: AztecAddress,
-    contract_address: AztecAddress,
+    pub msg_sender: AztecAddress,
+    pub contract_address: AztecAddress,
 
     // TODO: To be removed.
     // Function selector is the first world of calldata.
-    function_selector: FunctionSelector,
+    pub function_selector: FunctionSelector,
 
-    is_static_call: bool,
-    args_hash: Field,
+    pub is_static_call: bool,
+    pub args_hash: Field,
 }
 
 impl Eq for PublicCallRequest {

@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -327,5 +328,13 @@ export class PrivateCircuitPublicInputs {
 
   public static fromJSON(value: any) {
     return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(value, 'hex'));
+  }
+
+  public static fromString(str: string) {
+    return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static get schema() {
+    return hexSchemaFor(PrivateCircuitPublicInputs);
   }
 }
