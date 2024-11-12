@@ -1125,8 +1125,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
   describe('Side effects including merkle checks', () => {
-    const address = new Fr(1);
-    const sender = new Fr(42);
+    const address = AztecAddress.fromNumber(1);
+    const sender = AztecAddress.fromNumber(42);
 
     const value0 = new Fr(420);
     const value1 = new Fr(69);

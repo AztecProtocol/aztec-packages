@@ -56,10 +56,20 @@ export interface PublicSideEffectTraceInterface {
     lowLeafPath?: Fr[],
     insertionPath?: Fr[],
   ): void;
-  traceL1ToL2MessageCheck(contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path?: Fr[]): void;
+  traceL1ToL2MessageCheck(
+    contractAddress: AztecAddress,
+    msgHash: Fr,
+    msgLeafIndex: Fr,
+    exists: boolean,
+    path?: Fr[],
+  ): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
   traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]): void;
-  traceGetContractInstance(contractAddress: AztecAddress, exists: boolean, instance?: SerializableContractInstance): void;
+  traceGetContractInstance(
+    contractAddress: AztecAddress,
+    exists: boolean,
+    instance?: SerializableContractInstance,
+  ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
     exists: boolean,

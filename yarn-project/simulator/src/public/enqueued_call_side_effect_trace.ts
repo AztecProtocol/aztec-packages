@@ -271,7 +271,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, path: Fr[] = emptyNoteHashPath()) {
+  public traceNewNoteHash(
+    contractAddress: AztecAddress,
+    noteHash: Fr,
+    leafIndex: Fr,
+    path: Fr[] = emptyNoteHashPath(),
+  ) {
     if (this.noteHashes.length + this.previousAccumulatedDataArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }

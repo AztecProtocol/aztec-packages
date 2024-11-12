@@ -134,9 +134,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       throw new SideEffectLimitReachedError('contract storage read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
 
-    this.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.sideEffectCounter, contractAddress),
-    );
+    this.contractStorageReads.push(new ContractStorageRead(slot, value, this.sideEffectCounter, contractAddress));
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
     );
@@ -201,7 +199,12 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(_contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, path: Fr[] = emptyNoteHashPath()) {
+  public traceNewNoteHash(
+    _contractAddress: AztecAddress,
+    noteHash: Fr,
+    leafIndex: Fr,
+    path: Fr[] = emptyNoteHashPath(),
+  ) {
     if (this.noteHashes.length >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }

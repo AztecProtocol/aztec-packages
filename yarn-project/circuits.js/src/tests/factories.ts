@@ -151,8 +151,8 @@ import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
   AvmAccumulatedData,
-  AvmCircuitPublicInputs,
   AvmAppendTreeHint,
+  AvmCircuitPublicInputs,
   AvmContractBytecodeHints,
   AvmEnqueuedCallHint,
   AvmNullifierReadTreeHint,

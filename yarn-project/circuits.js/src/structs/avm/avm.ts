@@ -10,8 +10,8 @@ import { PublicKeys } from '../../types/public_keys.js';
 import { Gas } from '../gas.js';
 import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
-import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 
 export class AvmEnqueuedCallHint {
   public readonly contractAddress: AztecAddress;
