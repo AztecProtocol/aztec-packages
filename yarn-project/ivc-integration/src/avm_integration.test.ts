@@ -9,6 +9,7 @@ import {
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
+  AztecAddress,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -172,7 +173,7 @@ const proveAvmTestContract = async (
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
-    deployer: new Fr(0x456),
+    deployer: AztecAddress.fromNumber(0x456),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeys: new PublicKeys(

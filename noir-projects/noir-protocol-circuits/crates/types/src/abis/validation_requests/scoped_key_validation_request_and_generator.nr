@@ -10,8 +10,8 @@ use crate::{
 };
 
 pub struct ScopedKeyValidationRequestAndGenerator {
-    request: KeyValidationRequestAndGenerator,
-    contract_address: AztecAddress,
+    pub request: KeyValidationRequestAndGenerator,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<KeyValidationRequestAndGenerator> for ScopedKeyValidationRequestAndGenerator {

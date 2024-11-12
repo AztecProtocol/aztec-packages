@@ -15,12 +15,12 @@ use crate::{
 };
 
 pub struct PublicValidationRequests {
-    for_rollup: RollupValidationRequests,
-    note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    nullifier_non_existent_read_requests: [ScopedReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
-    l1_to_l2_msg_read_requests: [TreeLeafReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
-    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
+    pub for_rollup: RollupValidationRequests,
+    pub note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pub nullifier_non_existent_read_requests: [ScopedReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
+    pub l1_to_l2_msg_read_requests: [TreeLeafReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
+    pub public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
 }
 
 impl Serialize<PUBLIC_VALIDATION_REQUESTS_LENGTH> for PublicValidationRequests {

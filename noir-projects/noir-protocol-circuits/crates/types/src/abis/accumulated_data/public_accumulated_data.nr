@@ -20,19 +20,19 @@ use crate::{
 
 // TODO(#9594): To be deprecated.
 pub struct PublicAccumulatedData {
-    note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
-    nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
-    l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
+    pub nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
+    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
 
-    note_encrypted_logs_hashes: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    pub note_encrypted_logs_hashes: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    pub encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
-    public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    pub public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 
-    public_call_stack: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_call_stack: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
 
-    gas_used: Gas,
+    pub gas_used: Gas,
 }
 
 impl Empty for PublicAccumulatedData {

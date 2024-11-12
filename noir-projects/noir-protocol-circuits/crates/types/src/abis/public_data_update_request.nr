@@ -7,9 +7,9 @@ use crate::{
 
 // TODO: Rename to PublicDataWrite
 pub struct PublicDataUpdateRequest {
-    leaf_slot: Field,
-    new_value: Field,
-    counter: u32,
+    pub leaf_slot: Field,
+    pub new_value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for PublicDataUpdateRequest {

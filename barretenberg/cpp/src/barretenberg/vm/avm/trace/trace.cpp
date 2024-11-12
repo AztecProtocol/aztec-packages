@@ -47,7 +47,8 @@ namespace {
 uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
                                        AvmAluTraceBuilder const& alu_trace_builder,
                                        AvmMemTraceBuilder const& mem_trace_builder,
-                                       AvmRangeCheckBuilder const& rng_chk_trace_builder)
+                                       AvmRangeCheckBuilder const& rng_chk_trace_builder,
+                                       AvmGasTraceBuilder const& gas_trace_builder)
 {
     // Build the main_trace, and add any new rows with specific clks that line up with lookup reads
 
@@ -66,6 +67,10 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     u16_rng_chks.insert(u16_rng_chks.end(),
                         rng_chk_trace_builder.u16_range_chk_counters.begin(),
                         rng_chk_trace_builder.u16_range_chk_counters.end());
+
+    u16_rng_chks.insert(u16_rng_chks.end(),
+                        gas_trace_builder.rem_gas_rng_check_counts.begin(),
+                        gas_trace_builder.rem_gas_rng_check_counts.end());
 
     auto custom_clk = std::set<uint32_t>{};
     for (auto const& row : u8_rng_chks) {
@@ -2886,9 +2891,18 @@ void AvmTraceBuilder::op_static_call(uint16_t indirect,
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
+    bool tag_match = true;
+
+    // Resolve operands
+    auto [resolved_ret_offset, resolved_ret_size_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 
     if (ret_size == 0) {
@@ -2904,11 +2918,6 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
         return {};
     }
-
-    // This boolean will not be a trivial constant once we re-enable constraining address resolution
-    bool tag_match = true;
-
-    auto [resolved_ret_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ ret_offset }, mem_trace_builder);
 
     // The only memory operation performed from the main trace is a possible indirect load for resolving the
     // direct destination offset stored in main_mem_addr_c.
@@ -3775,16 +3784,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     gas_trace_builder.finalize(main_trace);
-    // We need to assert here instead of finalize until we figure out inter-trace threading
-    for (size_t i = 0; i < main_trace_size; i++) {
-        auto& row = main_trace.at(i);
-        if (row.main_is_gas_accounted) {
-            range_check_builder.assert_range(
-                uint128_t(row.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(row.main_clk));
-            range_check_builder.assert_range(
-                uint128_t(row.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(row.main_clk));
-        }
-    }
 
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION
@@ -3839,7 +3838,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
     auto new_trace_size =
         range_check_required
             ? old_trace_size
-            : finalize_rng_chks_for_testing(main_trace, alu_trace_builder, mem_trace_builder, range_check_builder);
+            : finalize_rng_chks_for_testing(
+                  main_trace, alu_trace_builder, mem_trace_builder, range_check_builder, gas_trace_builder);
 
     for (size_t i = 0; i < new_trace_size; i++) {
         auto& r = main_trace.at(i);
@@ -3888,6 +3888,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_rng_chk_diff_counts = range_check_builder.dyn_diff_counts[uint16_t(counter)];
             r.lookup_mem_rng_chk_0_counts = mem_trace_builder.mem_rng_chk_u16_0_counts[uint16_t(counter)];
             r.lookup_mem_rng_chk_1_counts = mem_trace_builder.mem_rng_chk_u16_1_counts[uint16_t(counter)];
+            r.lookup_l2_gas_rng_chk_0_counts = gas_trace_builder.rem_gas_rng_check_counts[0][uint16_t(counter)];
+            r.lookup_l2_gas_rng_chk_1_counts = gas_trace_builder.rem_gas_rng_check_counts[1][uint16_t(counter)];
+            r.lookup_da_gas_rng_chk_0_counts = gas_trace_builder.rem_gas_rng_check_counts[2][uint16_t(counter)];
+            r.lookup_da_gas_rng_chk_1_counts = gas_trace_builder.rem_gas_rng_check_counts[3][uint16_t(counter)];
             r.main_sel_rng_16 = FF(1);
         }
     }

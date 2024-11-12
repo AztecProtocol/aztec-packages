@@ -8,11 +8,11 @@ global FUNCTION_CALL_SIZE: u32 = 5;
 global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
 
 pub struct FunctionCall {
-    args_hash: Field,
-    function_selector: FunctionSelector,
-    target_address: AztecAddress,
-    is_public: bool,
-    is_static: bool,
+    pub args_hash: Field,
+    pub function_selector: FunctionSelector,
+    pub target_address: AztecAddress,
+    pub is_public: bool,
+    pub is_static: bool,
 }
 
 impl Serialize<FUNCTION_CALL_SIZE> for FunctionCall {

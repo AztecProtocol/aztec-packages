@@ -5,9 +5,9 @@ use crate::{
 };
 
 pub struct PublicDataRead {
-    leaf_slot: Field,
-    value: Field,
-    counter: u32,
+    pub leaf_slot: Field,
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Eq for PublicDataRead {

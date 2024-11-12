@@ -7,10 +7,10 @@ use crate::{
 };
 
 pub struct PrivateKernelData {
-    public_inputs: PrivateKernelCircuitPublicInputs,
-    vk: ClientIVCVerificationKey,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
+    pub public_inputs: PrivateKernelCircuitPublicInputs,
+    pub vk: ClientIVCVerificationKey,
+    pub vk_index: u32,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
 }
 
 impl PrivateKernelData {
