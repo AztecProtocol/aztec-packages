@@ -343,17 +343,17 @@ describe('enqueued_calls_processor', () => {
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(contractAddress, contractSlotA, fr(0x103));
-        stateManager.writeStorage(contractAddress, contractSlotC, fr(0x201));
+        await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x103));
+        await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x201));
         await stateManager.readStorage(contractAddress, contractSlotA);
-        stateManager.writeStorage(contractAddress, contractSlotC, fr(0x102));
-        stateManager.writeStorage(contractAddress, contractSlotC, fr(0x152));
+        await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x102));
+        await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x152));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
     ]);

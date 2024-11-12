@@ -3,7 +3,9 @@ import {
   type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
+  type NullifierLeafPreimage,
   type PublicCallRequest,
+  type PublicDataTreeLeafPreimage,
   type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -18,19 +20,49 @@ export interface PublicSideEffectTraceInterface {
   fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
-  tracePublicStorageRead(contractAddress: AztecAddress, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(contractAddress: AztecAddress, slot: Fr, value: Fr): void;
-  traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
-  traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr): void;
+  tracePublicStorageRead(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    value: Fr,
+    leafPreimage?: PublicDataTreeLeafPreimage,
+    leafIndex?: Fr,
+    path?: Fr[],
+  ): void;
+  tracePublicStorageWrite(
+    contractAddress: AztecAddress,
+    slot: Fr, // This is the storage slot not the computed leaf slot
+    value: Fr,
+    lowLeafPreimage?: PublicDataTreeLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
+    newLeafPreimage?: PublicDataTreeLeafPreimage,
+    insertionPath?: Fr[],
+  ): void;
+  traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
+  traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
   traceNullifierCheck(
     contractAddress: AztecAddress,
     nullifier: Fr,
-    leafIndex: Fr,
     exists: boolean,
-    isPending: boolean,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
-  traceNewNullifier(contractAddress: AztecAddress, nullifier: Fr): void;
-  traceL1ToL2MessageCheck(contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
+  traceNewNullifier(
+    contractAddress: AztecAddress,
+    nullifier: Fr,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
+    insertionPath?: Fr[],
+  ): void;
+  traceL1ToL2MessageCheck(
+    contractAddress: AztecAddress,
+    msgHash: Fr,
+    msgLeafIndex: Fr,
+    exists: boolean,
+    path?: Fr[],
+  ): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
   traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]): void;
   traceGetContractInstance(
