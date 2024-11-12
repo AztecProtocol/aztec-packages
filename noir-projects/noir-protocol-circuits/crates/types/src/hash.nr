@@ -20,8 +20,6 @@ use crate::{
 };
 use super::utils::field::field_from_bytes;
 
-use std::hash::poseidon2::Poseidon2Hasher;
-
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
@@ -266,50 +264,50 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separato
 where
     T: ToField,
 {
-    let mut hasher = Poseidon2Hasher::default();
-
-    hasher.write(separator.to_field());
+    let mut to_hash: [Field; N + 1] = std::mem::zeroed();
+    to_hash[0] = separator.to_field();
     for i in 0..inputs.len() {
-        hasher.write(inputs[i]);
+        to_hash[i + 1] = inputs[i]);
     }
 
-    hasher.finish()
+    poseidon2_hash(to_hash)
 }
 
 pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
 where
     T: ToField,
 {
-    let mut hasher = Poseidon2Hasher::default();
-
-    hasher.write(separator.to_field());
+    let mut to_hash: [Field; N + 1] = std::mem::zeroed();
+    to_hash[0] = separator.to_field();
     for i in 0..inputs.len() {
-        hasher.write(inputs[i]);
+        to_hash[i + 1] = inputs[i]);
     }
 
-    hasher.finish()
+    poseidon2_hash(to_hash)
 }
 
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
-    let mut hasher = Poseidon2Hasher::default();
+    let mut to_hash: [Field; (N + 30) / 31] = std::mem::zeroed(); // (N + 30) / 31 is ceil(N, 31)
 
-    let has_padding = (N % 31) != 0;
-
+    let mut field_index = 0;
     let mut current_field = [0; 31];
     for i in 0..inputs.len() {
-        let index = i % 31;
-        current_field[index] = inputs[i];
-        if index == 30 {
-            hasher.write(field_from_bytes(current_field, false));
+        let byte_index = i % 31;
+        current_field[byte_index] = inputs[i];
+        if byte_index == 30 {
+            to_hash[field_index] = field_from_bytes(current_field, false);
+            field_index += 1;
             current_field = [0; 31];
         }
     }
+
+    let has_padding = (N % 31) != 0;
     if has_padding {
-        hasher.write(field_from_bytes(current_field, false));
+        to_hash[field_index] = field_from_bytes(current_field, false);
     }
 
-    hasher.finish()
+    poseidon2_hash(to_hash)
 }
 
 #[test]
