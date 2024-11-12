@@ -16,8 +16,7 @@ fn main(
     // Check that passing an array as the message is valid
     let pub_key =
         embedded_curve_ops::EmbeddedCurvePoint { x: pub_key_x, y: pub_key_y, is_infinite: false };
-    let valid_signature =
-        std::schnorr::verify_signature(pub_key, pub_key, signature, message_field_bytes);
+    let valid_signature = std::schnorr::verify_signature(pub_key, signature, message_field_bytes);
     assert(valid_signature);
     let valid_signature = std::schnorr::verify_signature(pub_key, signature, message);
     assert(valid_signature);
