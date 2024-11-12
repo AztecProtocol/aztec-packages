@@ -6,7 +6,6 @@ import {
   type NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
-  PublicDataWrite,
   PublicExecutionRequest,
   SimulationError,
   type UnencryptedL2Log,
@@ -21,6 +20,7 @@ import {
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
@@ -136,7 +136,7 @@ export class TXE implements TypedOracle {
     return this.functionSelector;
   }
 
-  setMsgSender(msgSender: Fr) {
+  setMsgSender(msgSender: AztecAddress) {
     this.msgSender = msgSender;
   }
 
@@ -466,12 +466,12 @@ export class TXE implements TypedOracle {
     _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
-  ): Promise<MessageLoadOracleInputs<16>> {
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new Error('Method not implemented.');
   }
 
   async storageRead(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
     numberOfElements: number,
@@ -504,14 +504,14 @@ export class TXE implements TypedOracle {
     const publicDataWrites = values.map((value, i) => {
       const storageSlot = startStorageSlot.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      publicDataWrites.map(write => write.toBuffer()),
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
-    return publicDataWrites.map(write => write.newValue);
+    return publicDataWrites.map(write => write.value);
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
@@ -548,8 +548,8 @@ export class TXE implements TypedOracle {
     );
 
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
@@ -695,8 +695,8 @@ export class TXE implements TypedOracle {
     isStaticCall: boolean,
   ): Promise<Fr> {
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
@@ -803,7 +803,7 @@ export class TXE implements TypedOracle {
     return directionalSecret;
   }
 
-  async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const completeAddresses = await this.txeDatabase.getCompleteAddresses();
     // Filter out the addresses corresponding to accounts
@@ -821,6 +821,11 @@ export class TXE implements TypedOracle {
     return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
   }
 
+  syncNotes(_recipient: AztecAddress) {
+    // TODO: Implement
+    return Promise.resolve();
+  }
+
   // AVM oracles
 
   async avmOpcodeCall(
@@ -829,8 +834,8 @@ export class TXE implements TypedOracle {
     isStaticCall: boolean,
   ): Promise<EnqueuedPublicCallExecutionResultWithSideEffects> {
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
 

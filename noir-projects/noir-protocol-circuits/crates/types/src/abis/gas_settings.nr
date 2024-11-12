@@ -59,7 +59,7 @@ impl Serialize<GAS_SETTINGS_LENGTH> for GasSettings {
         serialized.extend_from_array(self.max_fees_per_gas.serialize());
         serialized.push(self.inclusion_fee);
 
-        serialized.storage
+        serialized.storage()
     }
 }
 

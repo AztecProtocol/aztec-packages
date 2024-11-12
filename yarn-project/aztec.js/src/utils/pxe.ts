@@ -5,8 +5,9 @@ import { retryUntil } from '@aztec/foundation/retry';
 export const waitForPXE = async (pxe: PXE, logger?: DebugLogger) => {
   await retryUntil(async () => {
     try {
-      logger?.debug('Attempting to contact PXE...');
+      logger?.verbose('Attempting to contact PXE...');
       await pxe.getNodeInfo();
+      logger?.verbose('Contacted PXE');
       return true;
     } catch (error) {
       logger?.verbose('Failed to contact PXE');

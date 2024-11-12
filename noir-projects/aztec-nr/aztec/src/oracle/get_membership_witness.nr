@@ -14,8 +14,8 @@ global ARCHIVE_TREE_ID = 4;
 // Another way to do it would be to add "type_hint: [Field; T]" as argument to `get_membership_witness` but that's
 // a bit too boilerplatey for my taste.
 pub struct MembershipWitness<let N: u32, let M: u32> {
-    index: Field,
-    path: [Field; N],
+    pub index: Field,
+    pub path: [Field; N],
 }
 
 #[oracle(getMembershipWitness)]

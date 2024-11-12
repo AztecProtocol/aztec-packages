@@ -5,29 +5,30 @@ use crate::{
         nullifier::ScopedNullifier,
         private_call_request::PrivateCallRequest,
         public_call_request::PublicCallRequest,
+        side_effect::Counted,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 use crate::constants::{
-    MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
     PRIVATE_ACCUMULATED_DATA_LENGTH,
 };
 
 pub struct PrivateAccumulatedData {
-    note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
-    nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
-    l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
+    pub nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
+    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
 
-    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    encrypted_logs_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    pub note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    pub encrypted_logs_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
-    public_call_requests: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-    private_call_stack: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    pub public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_TX],
+    pub private_call_stack: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
 }
 
 impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
@@ -58,7 +59,7 @@ impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
             fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
         }
 
-        for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
+        for i in 0..MAX_ENQUEUED_CALLS_PER_TX {
             fields.extend_from_array(self.public_call_requests[i].serialize());
         }
 
@@ -68,7 +69,7 @@ impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
 
         assert_eq(fields.len(), PRIVATE_ACCUMULATED_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -102,8 +103,8 @@ impl Deserialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
                 [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             ),
             public_call_requests: reader.read_struct_array(
-                PublicCallRequest::deserialize,
-                [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+                Counted::deserialize,
+                [Counted::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             ),
             private_call_stack: reader.read_struct_array(
                 PrivateCallRequest::deserialize,
@@ -137,14 +138,14 @@ impl Empty for PrivateAccumulatedData {
             note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
             encrypted_logs_hashes: [ScopedEncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
             unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
-            public_call_requests: [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+            public_call_requests: [Counted::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             private_call_stack: [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
         }
     }
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_empty_private_accumulated_data() {
     let item = PrivateAccumulatedData::empty();
     let serialized = item.serialize();
     let deserialized = PrivateAccumulatedData::deserialize(serialized);

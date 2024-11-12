@@ -1,8 +1,8 @@
 use dep::protocol_types::traits::{Deserialize, Serialize};
 
 pub(crate) struct MockStruct {
-    a: Field,
-    b: Field,
+    pub(crate) a: Field,
+    pub(crate) b: Field,
 }
 
 impl MockStruct {

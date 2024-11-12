@@ -9,7 +9,7 @@ import {
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
@@ -205,8 +205,9 @@ describe('e2e_prover_coordination', () => {
 
   const advanceToNextEpoch = async () => {
     const slot = await getSlot();
-    const slotsUntilNextEpoch = BigInt(AZTEC_EPOCH_DURATION) - (slot % BigInt(AZTEC_EPOCH_DURATION)) + 1n;
-    const timeToNextEpoch = slotsUntilNextEpoch * BigInt(AZTEC_SLOT_DURATION);
+    const slotsUntilNextEpoch =
+      BigInt(ctx.aztecNodeConfig.aztecEpochDuration) - (slot % BigInt(ctx.aztecNodeConfig.aztecEpochDuration)) + 1n;
+    const timeToNextEpoch = slotsUntilNextEpoch * BigInt(ctx.aztecNodeConfig.aztecSlotDuration);
     const l1Timestamp = await getL1Timestamp();
     await ctx.cheatCodes.eth.warp(Number(l1Timestamp + timeToNextEpoch));
     await logState();
@@ -248,7 +249,7 @@ describe('e2e_prover_coordination', () => {
     // Here we are creating a proof quote for epoch 0
     const quoteForEpoch0 = await makeEpochProofQuote({
       epochToProve: 0n,
-      validUntilSlot: BigInt(AZTEC_EPOCH_DURATION + 10),
+      validUntilSlot: BigInt(ctx.aztecNodeConfig.aztecEpochDuration + 10),
       bondAmount: 10000n,
       basisPointFee: 1,
       signer: proverSigner,
@@ -360,7 +361,7 @@ describe('e2e_prover_coordination', () => {
     // Here we are creating a proof quote for epoch 0
     const quoteForEpoch0 = await makeEpochProofQuote({
       epochToProve: 0n,
-      validUntilSlot: BigInt(AZTEC_EPOCH_DURATION + 10),
+      validUntilSlot: BigInt(ctx.aztecNodeConfig.aztecEpochDuration + 10),
       bondAmount: 10000n,
       basisPointFee: 1,
       signer: proverSigner,
@@ -432,7 +433,7 @@ describe('e2e_prover_coordination', () => {
     // Submit proof claim for the new epoch
     const quoteForEpoch4 = await makeEpochProofQuote({
       epochToProve: 4n,
-      validUntilSlot: BigInt(AZTEC_EPOCH_DURATION * 4 + 10),
+      validUntilSlot: BigInt(ctx.aztecNodeConfig.aztecEpochDuration * 4 + 10),
       bondAmount: 10000n,
       basisPointFee: 1,
       signer: proverSigner,

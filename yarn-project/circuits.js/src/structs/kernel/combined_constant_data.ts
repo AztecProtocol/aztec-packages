@@ -1,10 +1,14 @@
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 import { GlobalVariables } from '../global_variables.js';
 import { Header } from '../header.js';
 import { TxContext } from '../tx_context.js';
+import { type TxConstantData } from './tx_constant_data.js';
 
 /**
  * Data that is constant/not modified by neither of the kernels.
@@ -33,6 +37,29 @@ export class CombinedConstantData {
     /** Present when output by a public kernel, empty otherwise. */
     public globalVariables: GlobalVariables,
   ) {}
+
+  static combine(TxConstantData: TxConstantData, globalVariables: GlobalVariables) {
+    return new CombinedConstantData(
+      TxConstantData.historicalHeader,
+      TxConstantData.txContext,
+      TxConstantData.vkTreeRoot,
+      TxConstantData.protocolContractTreeRoot,
+      globalVariables,
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        historicalHeader: Header.schema,
+        txContext: TxContext.schema,
+        vkTreeRoot: schemas.Fr,
+        protocolContractTreeRoot: schemas.Fr,
+        globalVariables: GlobalVariables.schema,
+      })
+      .transform(CombinedConstantData.from)
+      .or(hexSchemaFor(CombinedConstantData));
+  }
 
   toBuffer() {
     return serializeToBuffer(

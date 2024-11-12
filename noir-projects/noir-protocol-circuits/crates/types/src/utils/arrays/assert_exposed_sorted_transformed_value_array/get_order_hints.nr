@@ -10,8 +10,8 @@ use crate::{
 };
 
 pub struct OrderHint {
-    counter: u32,
-    sorted_index: u32,
+    pub counter: u32,
+    pub sorted_index: u32,
 }
 
 impl OrderHint {

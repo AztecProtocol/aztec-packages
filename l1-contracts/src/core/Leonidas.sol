@@ -3,12 +3,13 @@
 pragma solidity >=0.8.27;
 
 import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {
+  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
+} from "@aztec/core/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
@@ -27,7 +28,7 @@ import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
  *          It will be the duty of his successor (Pleistarchus) to optimize the costs with same functionality.
  *
  */
-contract Leonidas is Ownable, ILeonidas {
+contract Leonidas is Ownable, TimeFns, ILeonidas {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SignatureLib for SignatureLib.Signature;
   using MessageHashUtils for bytes32;
@@ -47,25 +48,9 @@ contract Leonidas is Ownable, ILeonidas {
     uint256 nextSeed;
   }
 
-  // @note  @LHerskind  The multiple cause pain and suffering in the E2E tests as we introduce
-  //                    a timeliness requirement into the publication that did not exists before,
-  //                    and at the same time have a setup that will impact the time at every tx
-  //                    because of auto-mine. By using just 1, we can make our test work
-  //                    but anything using an actual working chain would eat dung as simulating
-  //                    transactions is slower than an actual ethereum slot.
-  //
-  //                    The value should be a higher multiple for any actual chain
-  // @todo  #8019
-  uint256 public constant SLOT_DURATION = Constants.AZTEC_SLOT_DURATION;
-
-  // The duration of an epoch in slots
-  // @todo  @LHerskind - This value should be updated when we are not blind.
-  // @todo  #8020
-  uint256 public constant EPOCH_DURATION = Constants.AZTEC_EPOCH_DURATION;
-
   // The target number of validators in a committee
   // @todo #8021
-  uint256 public constant TARGET_COMMITTEE_SIZE = Constants.AZTEC_TARGET_COMMITTEE_SIZE;
+  uint256 public immutable TARGET_COMMITTEE_SIZE;
 
   // The time that the contract was deployed
   Timestamp public immutable GENESIS_TIME;
@@ -79,8 +64,16 @@ contract Leonidas is Ownable, ILeonidas {
   // The last stored randao value, same value as `seed` in the last inserted epoch
   uint256 private lastSeed;
 
-  constructor(address _ares) Ownable(_ares) {
+  constructor(
+    address _ares,
+    uint256 _slotDuration,
+    uint256 _epochDuration,
+    uint256 _targetCommitteeSize
+  ) Ownable(_ares) TimeFns(_slotDuration, _epochDuration) {
     GENESIS_TIME = Timestamp.wrap(block.timestamp);
+    SLOT_DURATION = _slotDuration;
+    EPOCH_DURATION = _epochDuration;
+    TARGET_COMMITTEE_SIZE = _targetCommitteeSize;
   }
 
   /**
@@ -232,7 +225,7 @@ contract Leonidas is Ownable, ILeonidas {
     override(ILeonidas)
     returns (Timestamp)
   {
-    return GENESIS_TIME + _slotNumber.toTimestamp();
+    return GENESIS_TIME + toTimestamp(_slotNumber);
   }
 
   /**
@@ -303,7 +296,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The computed epoch
    */
   function getEpochAt(Timestamp _ts) public view override(ILeonidas) returns (Epoch) {
-    return _ts < GENESIS_TIME ? Epoch.wrap(0) : EpochLib.fromTimestamp(_ts - GENESIS_TIME);
+    return _ts < GENESIS_TIME ? Epoch.wrap(0) : epochFromTimestamp(_ts - GENESIS_TIME);
   }
 
   /**
@@ -314,7 +307,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The computed slot
    */
   function getSlotAt(Timestamp _ts) public view override(ILeonidas) returns (Slot) {
-    return _ts < GENESIS_TIME ? Slot.wrap(0) : SlotLib.fromTimestamp(_ts - GENESIS_TIME);
+    return _ts < GENESIS_TIME ? Slot.wrap(0) : slotFromTimestamp(_ts - GENESIS_TIME);
   }
 
   /**
@@ -324,7 +317,7 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The computed epoch
    */
-  function getEpochAtSlot(Slot _slotNumber) public pure override(ILeonidas) returns (Epoch) {
+  function getEpochAtSlot(Slot _slotNumber) public view override(ILeonidas) returns (Epoch) {
     return Epoch.wrap(_slotNumber.unwrap() / EPOCH_DURATION);
   }
 

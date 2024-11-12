@@ -56,7 +56,8 @@ describe('e2e_lending_contract', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues } = await setup(1));
+    const ctx = await setup(1);
+    ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
 
@@ -74,6 +75,7 @@ describe('e2e_lending_contract', () => {
       cc,
       lendingAccount,
       rate,
+      ctx.config.ethereumSlotDuration,
       rollup,
       lendingContract,
       new TokenSimulator(collateralAsset, wallet, logger, [lendingContract.address, wallet.getAddress()]),

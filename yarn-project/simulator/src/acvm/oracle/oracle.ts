@@ -293,7 +293,7 @@ export class Oracle {
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(
-      fromACVMField(contractAddress),
+      new AztecAddress(fromACVMField(contractAddress)),
       fromACVMField(startStorageSlot),
       +blockNumber,
       +numberOfElements,
@@ -424,8 +424,7 @@ export class Oracle {
     );
   }
 
-  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
-    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
+  async syncNotes([recipient]: ACVMField[]) {
+    await this.typedOracle.syncNotes(AztecAddress.fromString(recipient));
   }
 }

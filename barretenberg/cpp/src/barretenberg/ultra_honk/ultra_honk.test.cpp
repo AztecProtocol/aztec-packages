@@ -100,8 +100,8 @@ TYPED_TEST(UltraHonkTests, StructuredTrace)
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
 
     // Construct an proving_key with a structured execution trace
-    TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_structure);
+    TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_settings);
     typename TestFixture::Prover prover(proving_key);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
     typename TestFixture::Verifier verifier(verification_key);

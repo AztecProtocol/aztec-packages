@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -33,20 +34,20 @@ library ConfigurationLib {
    *          before writing it to state.
    */
   function assertValid(DataStructures.Configuration memory _self) internal pure returns (bool) {
-    require(_self.quorum >= QUORUM_LOWER, Errors.Apella__ConfigurationLib__QuorumTooSmall());
-    require(_self.quorum <= QUORUM_UPPER, Errors.Apella__ConfigurationLib__QuorumTooBig());
+    require(_self.quorum >= QUORUM_LOWER, Errors.Governance__ConfigurationLib__QuorumTooSmall());
+    require(_self.quorum <= QUORUM_UPPER, Errors.Governance__ConfigurationLib__QuorumTooBig());
 
     require(
       _self.voteDifferential <= DIFFERENTIAL_UPPER,
-      Errors.Apella__ConfigurationLib__DifferentialTooBig()
+      Errors.Governance__ConfigurationLib__DifferentialTooBig()
     );
 
     require(
-      _self.minimumVotes >= VOTES_LOWER, Errors.Apella__ConfigurationLib__InvalidMinimumVotes()
+      _self.minimumVotes >= VOTES_LOWER, Errors.Governance__ConfigurationLib__InvalidMinimumVotes()
     );
     require(
       _self.proposeConfig.lockAmount >= VOTES_LOWER,
-      Errors.Apella__ConfigurationLib__LockAmountTooSmall()
+      Errors.Governance__ConfigurationLib__LockAmountTooSmall()
     );
 
     // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal delay
@@ -54,43 +55,47 @@ library ConfigurationLib {
     // if this is a useful property, it is not enforced.
     require(
       _self.proposeConfig.lockDelay >= TIME_LOWER,
-      Errors.Apella__ConfigurationLib__TimeTooSmall("LockDelay")
+      Errors.Governance__ConfigurationLib__TimeTooSmall("LockDelay")
     );
     require(
       _self.proposeConfig.lockDelay <= TIME_UPPER,
-      Errors.Apella__ConfigurationLib__TimeTooBig("LockDelay")
+      Errors.Governance__ConfigurationLib__TimeTooBig("LockDelay")
     );
 
     require(
-      _self.votingDelay >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("VotingDelay")
+      _self.votingDelay >= TIME_LOWER,
+      Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay")
     );
     require(
-      _self.votingDelay <= TIME_UPPER, Errors.Apella__ConfigurationLib__TimeTooBig("VotingDelay")
+      _self.votingDelay <= TIME_UPPER,
+      Errors.Governance__ConfigurationLib__TimeTooBig("VotingDelay")
     );
 
     require(
       _self.votingDuration >= TIME_LOWER,
-      Errors.Apella__ConfigurationLib__TimeTooSmall("VotingDuration")
+      Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDuration")
     );
     require(
       _self.votingDuration <= TIME_UPPER,
-      Errors.Apella__ConfigurationLib__TimeTooBig("VotingDuration")
+      Errors.Governance__ConfigurationLib__TimeTooBig("VotingDuration")
     );
 
     require(
       _self.executionDelay >= TIME_LOWER,
-      Errors.Apella__ConfigurationLib__TimeTooSmall("ExecutionDelay")
+      Errors.Governance__ConfigurationLib__TimeTooSmall("ExecutionDelay")
     );
     require(
       _self.executionDelay <= TIME_UPPER,
-      Errors.Apella__ConfigurationLib__TimeTooBig("ExecutionDelay")
+      Errors.Governance__ConfigurationLib__TimeTooBig("ExecutionDelay")
     );
 
     require(
-      _self.gracePeriod >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("GracePeriod")
+      _self.gracePeriod >= TIME_LOWER,
+      Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod")
     );
     require(
-      _self.gracePeriod <= TIME_UPPER, Errors.Apella__ConfigurationLib__TimeTooBig("GracePeriod")
+      _self.gracePeriod <= TIME_UPPER,
+      Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod")
     );
 
     return true;

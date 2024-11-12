@@ -1,5 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
@@ -41,7 +42,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private startTime = 0;
 
-  constructor(private peerId: PeerId, config: P2PConfig, private logger = createDebugLogger('aztec:discv5_service')) {
+  constructor(
+    private peerId: PeerId,
+    config: P2PConfig,
+    telemetry: TelemetryClient,
+    private logger = createDebugLogger('aztec:discv5_service'),
+  ) {
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
     this.bootstrapNodes = bootstrapNodes;
@@ -66,6 +72,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.enr.setLocationMultiaddr(multiAddrUdp);
     this.enr.setLocationMultiaddr(multiAddrTcp);
 
+    const metricsRegistry = new OtelMetricsAdapter(telemetry);
     this.discv5 = Discv5.create({
       enr: this.enr,
       peerId,
@@ -75,6 +82,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         requestTimeout: 2000,
         allowUnverifiedSessions: true,
       },
+      metricsRegistry,
     });
 
     this.logger.info(`ENR NodeId: ${this.enr.nodeId}`);

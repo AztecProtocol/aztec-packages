@@ -164,6 +164,8 @@ template <typename FF> struct AvmFullRow {
     FF main_bin_op_id{};
     FF main_call_ptr{};
     FF main_da_gas_remaining{};
+    FF main_da_gas_u16_r0{};
+    FF main_da_gas_u16_r1{};
     FF main_da_out_of_gas{};
     FF main_dyn_da_gas_op_cost{};
     FF main_dyn_gas_multiplier{};
@@ -189,6 +191,8 @@ template <typename FF> struct AvmFullRow {
     FF main_kernel_out_offset{};
     FF main_l1_to_l2_msg_exists_write_offset{};
     FF main_l2_gas_remaining{};
+    FF main_l2_gas_u16_r0{};
+    FF main_l2_gas_u16_r1{};
     FF main_l2_out_of_gas{};
     FF main_mem_addr_a{};
     FF main_mem_addr_b{};
@@ -326,6 +330,9 @@ template <typename FF> struct AvmFullRow {
     FF mem_tag{};
     FF mem_tag_err{};
     FF mem_tsp{};
+    FF mem_u16_r0{};
+    FF mem_u16_r1{};
+    FF mem_u8_r0{};
     FF mem_val{};
     FF mem_w_in_tag{};
     FF merkle_tree_clk{};
@@ -663,7 +670,6 @@ template <typename FF> struct AvmFullRow {
     FF range_check_is_lte_u64{};
     FF range_check_is_lte_u80{};
     FF range_check_is_lte_u96{};
-    FF range_check_mem_rng_chk{};
     FF range_check_rng_chk_bits{};
     FF range_check_sel_lookup_0{};
     FF range_check_sel_lookup_1{};
@@ -698,13 +704,10 @@ template <typename FF> struct AvmFullRow {
     FF slice_sel_start{};
     FF slice_space_id{};
     FF slice_val{};
-    FF perm_rng_mem_inv{};
     FF perm_rng_cmp_lo_inv{};
     FF perm_rng_cmp_hi_inv{};
     FF perm_rng_alu_inv{};
     FF perm_cmp_alu_inv{};
-    FF perm_rng_gas_l2_inv{};
-    FF perm_rng_gas_da_inv{};
     FF perm_l2_start_gas_inv{};
     FF perm_da_start_gas_inv{};
     FF perm_l2_end_gas_inv{};
@@ -744,11 +747,18 @@ template <typename FF> struct AvmFullRow {
     FF lookup_rng_chk_5_inv{};
     FF lookup_rng_chk_6_inv{};
     FF lookup_rng_chk_7_inv{};
+    FF lookup_mem_rng_chk_0_inv{};
+    FF lookup_mem_rng_chk_1_inv{};
+    FF lookup_mem_rng_chk_2_inv{};
     FF lookup_pow_2_0_inv{};
     FF lookup_pow_2_1_inv{};
     FF lookup_byte_lengths_inv{};
     FF lookup_byte_operations_inv{};
     FF lookup_opcode_gas_inv{};
+    FF lookup_l2_gas_rng_chk_0_inv{};
+    FF lookup_l2_gas_rng_chk_1_inv{};
+    FF lookup_da_gas_rng_chk_0_inv{};
+    FF lookup_da_gas_rng_chk_1_inv{};
     FF kernel_output_lookup_inv{};
     FF lookup_into_kernel_inv{};
     FF lookup_cd_value_inv{};
@@ -765,11 +775,18 @@ template <typename FF> struct AvmFullRow {
     FF lookup_rng_chk_5_counts{};
     FF lookup_rng_chk_6_counts{};
     FF lookup_rng_chk_7_counts{};
+    FF lookup_mem_rng_chk_0_counts{};
+    FF lookup_mem_rng_chk_1_counts{};
+    FF lookup_mem_rng_chk_2_counts{};
     FF lookup_pow_2_0_counts{};
     FF lookup_pow_2_1_counts{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
     FF lookup_opcode_gas_counts{};
+    FF lookup_l2_gas_rng_chk_0_counts{};
+    FF lookup_l2_gas_rng_chk_1_counts{};
+    FF lookup_da_gas_rng_chk_0_counts{};
+    FF lookup_da_gas_rng_chk_1_counts{};
     FF kernel_output_lookup_counts{};
     FF lookup_into_kernel_counts{};
     FF lookup_cd_value_counts{};
@@ -780,7 +797,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 766;
+    static constexpr size_t SIZE = 783;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

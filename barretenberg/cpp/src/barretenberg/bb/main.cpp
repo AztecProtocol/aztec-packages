@@ -359,7 +359,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
-    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
@@ -448,7 +448,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
@@ -501,7 +501,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
-    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
@@ -588,7 +588,7 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
-    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
+    num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
 
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
@@ -598,12 +598,12 @@ void prove_tube(const std::string& output_path)
 
     verifier.verify(proof);
 
-    AggregationObjectIndices current_aggregation_object =
+    PairingPointAccumulatorIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
-    builder->add_recursive_proof(current_aggregation_object);
+    builder->add_pairing_point_accumulator(current_aggregation_object);
 
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;

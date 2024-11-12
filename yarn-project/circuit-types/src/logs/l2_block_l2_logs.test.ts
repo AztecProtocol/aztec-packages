@@ -1,4 +1,11 @@
-import { EncryptedL2BlockL2Logs, EncryptedNoteL2BlockL2Logs, UnencryptedL2BlockL2Logs } from './l2_block_l2_logs.js';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+
+import {
+  L2BlockL2Logs as BaseL2BlockL2Logs,
+  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  UnencryptedL2BlockL2Logs,
+} from './l2_block_l2_logs.js';
 
 function shouldBehaveLikeL2BlockL2Logs(
   L2BlockL2Logs: typeof EncryptedNoteL2BlockL2Logs | typeof UnencryptedL2BlockL2Logs | typeof EncryptedL2BlockL2Logs,
@@ -27,11 +34,20 @@ function shouldBehaveLikeL2BlockL2Logs(
       }
     });
 
-    it('serializes to and from JSON', () => {
+    it('serializes to and from JSON via fromJSON', () => {
       const l2Logs = L2BlockL2Logs.random(3, 4, 2);
-      const json = l2Logs.toJSON();
-      const recovered = L2BlockL2Logs.fromJSON(json);
+      const json = jsonStringify(l2Logs);
+      const recovered = L2BlockL2Logs.fromJSON(JSON.parse(json));
       expect(recovered).toEqual(l2Logs);
+      expect(recovered).toBeInstanceOf(L2BlockL2Logs);
+    });
+
+    it('serializes to and from JSON via schema', () => {
+      const l2Logs = L2BlockL2Logs.random(3, 4, 2);
+      const json = jsonStringify(l2Logs);
+      const recovered = BaseL2BlockL2Logs.schema.parse(JSON.parse(json));
+      expect(recovered).toEqual(l2Logs);
+      expect(recovered).toBeInstanceOf(L2BlockL2Logs);
     });
   });
 }

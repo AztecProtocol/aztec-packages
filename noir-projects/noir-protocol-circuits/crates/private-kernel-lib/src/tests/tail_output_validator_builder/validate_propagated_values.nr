@@ -14,13 +14,56 @@ fn validate_propagated_values_constants_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with = "mismatch constants")]
-fn validate_propagated_values_constants_mismatch_fails() {
+#[test(should_fail_with = "mismatch historical_header")]
+fn validate_propagated_values_total_fees_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
     builder.previous_kernel.historical_header.total_fees = 123;
     // Tweak the value in the output.
     builder.output.historical_header.total_fees = 45;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "mismatch tx_context")]
+fn validate_propagated_values_chain_id_mismatch_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.previous_kernel.tx_context.chain_id = 123;
+    // Tweak the value in the output.
+    builder.output.tx_context.chain_id = 45;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "mismatch vk_tree_root")]
+fn validate_propagated_values_vk_tree_root_mismatch_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.previous_kernel.vk_tree_root = 123;
+    // Tweak the value in the output.
+    builder.output.vk_tree_root = 45;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "mismatch protocol_contract_tree_root")]
+fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.previous_kernel.protocol_contract_tree_root = 123;
+    // Tweak the value in the output.
+    builder.output.protocol_contract_tree_root = 45;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "global_variables must be empty")]
+fn validate_propagated_values_global_variables_non_empty_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    // Tweak the value in the output.
+    builder.output.global_variables.chain_id = 1;
 
     builder.validate();
 }

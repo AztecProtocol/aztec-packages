@@ -23,7 +23,6 @@ import {
   AZTEC_VIEW_ATTRIBUTE,
   type NoirCompiledContract,
 } from '../noir/index.js';
-import { mockVerificationKey } from './mocked_keys.js';
 
 /**
  * Serializes a contract artifact to a buffer for storage.
@@ -129,7 +128,7 @@ function generateFunctionParameter(param: NoirCompiledContractFunctionParameter)
 type NoirCompiledContractFunction = NoirCompiledContract['functions'][number];
 
 /**
- * Generates a function build artifact. Replaces verification key with a mock value.
+ * Generates a function build artifact.
  * @param fn - Noir function entry.
  * @param contract - Parent contract.
  * @returns Function artifact.
@@ -180,9 +179,10 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
     parameters,
     returnTypes,
     bytecode: Buffer.from(fn.bytecode, 'base64'),
-    verificationKey: mockVerificationKey,
     debugSymbols: fn.debug_symbols,
     errorTypes: fn.abi.error_types,
+    ...(fn.assert_messages ? { assertMessages: fn.assert_messages } : undefined),
+    ...(fn.verification_key ? { verificationKey: fn.verification_key } : undefined),
   };
 }
 
@@ -308,7 +308,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
       storageLayout: getStorageLayout(contract),
       notes: getNoteTypes(contract),
       fileMap: contract.file_map,
-      aztecNrVersion,
+      ...(aztecNrVersion ? { aztecNrVersion } : {}),
     };
   } catch (err) {
     throw new Error(`Could not generate contract artifact for ${contract.name}: ${err}`);
