@@ -14,11 +14,11 @@ fn main(
     let message_field_bytes: [u8; 10] = message_field.to_be_bytes();
 
     // Check that passing an array as the message is valid
-    let valid_signature =
-        std::schnorr::verify_signature(pub_key_x, pub_key_y, signature, message_field_bytes);
-    assert(valid_signature);
     let pub_key =
         embedded_curve_ops::EmbeddedCurvePoint { x: pub_key_x, y: pub_key_y, is_infinite: false };
+    let valid_signature =
+        std::schnorr::verify_signature(pub_key, pub_key, signature, message_field_bytes);
+    assert(valid_signature);
     let valid_signature = std::schnorr::verify_signature(pub_key, signature, message);
     assert(valid_signature);
     std::schnorr::assert_valid_signature(pub_key, signature, message);
