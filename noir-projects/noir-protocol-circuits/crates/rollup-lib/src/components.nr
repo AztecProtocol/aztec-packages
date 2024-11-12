@@ -449,5 +449,5 @@ fn get_all_update_requests_for_tx_effects(
             all_update_requests.push(update_request);
         }
     }
-    all_update_requests.storage
+    all_update_requests.storage()
 }

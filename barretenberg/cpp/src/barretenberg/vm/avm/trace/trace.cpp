@@ -47,23 +47,30 @@ namespace {
 uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
                                        AvmAluTraceBuilder const& alu_trace_builder,
                                        AvmMemTraceBuilder const& mem_trace_builder,
-                                       AvmRangeCheckBuilder const& rng_chk_trace_builder)
+                                       AvmRangeCheckBuilder const& rng_chk_trace_builder,
+                                       AvmGasTraceBuilder const& gas_trace_builder)
 {
     // Build the main_trace, and add any new rows with specific clks that line up with lookup reads
 
     // Is there a "spread-like" operator in cpp or can I make it generic of the first param of the unordered map
-    std::vector<std::unordered_map<uint8_t, uint32_t>> u8_rng_chks = { alu_trace_builder.u8_range_chk_counters[0],
-                                                                       alu_trace_builder.u8_range_chk_counters[1],
-                                                                       alu_trace_builder.u8_pow_2_counters[0],
-                                                                       alu_trace_builder.u8_pow_2_counters[1],
-                                                                       rng_chk_trace_builder.powers_of_2_counts };
+    std::vector<std::unordered_map<uint8_t, uint32_t>> u8_rng_chks = {
+        alu_trace_builder.u8_range_chk_counters[0], alu_trace_builder.u8_range_chk_counters[1],
+        alu_trace_builder.u8_pow_2_counters[0],     alu_trace_builder.u8_pow_2_counters[1],
+        rng_chk_trace_builder.powers_of_2_counts,   mem_trace_builder.mem_rng_chk_u8_counts,
+    };
 
     std::vector<std::reference_wrapper<std::unordered_map<uint16_t, uint32_t> const>> u16_rng_chks;
 
     u16_rng_chks.emplace_back(rng_chk_trace_builder.dyn_diff_counts);
+    u16_rng_chks.emplace_back(mem_trace_builder.mem_rng_chk_u16_0_counts);
+    u16_rng_chks.emplace_back(mem_trace_builder.mem_rng_chk_u16_1_counts);
     u16_rng_chks.insert(u16_rng_chks.end(),
                         rng_chk_trace_builder.u16_range_chk_counters.begin(),
                         rng_chk_trace_builder.u16_range_chk_counters.end());
+
+    u16_rng_chks.insert(u16_rng_chks.end(),
+                        gas_trace_builder.rem_gas_rng_check_counts.begin(),
+                        gas_trace_builder.rem_gas_rng_check_counts.end());
 
     auto custom_clk = std::set<uint32_t>{};
     for (auto const& row : u8_rng_chks) {
@@ -2884,9 +2891,18 @@ void AvmTraceBuilder::op_static_call(uint16_t indirect,
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
+    bool tag_match = true;
+
+    // Resolve operands
+    auto [resolved_ret_offset, resolved_ret_size_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 
     if (ret_size == 0) {
@@ -2902,11 +2918,6 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
         return {};
     }
-
-    // This boolean will not be a trivial constant once we re-enable constraining address resolution
-    bool tag_match = true;
-
-    auto [resolved_ret_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ ret_offset }, mem_trace_builder);
 
     // The only memory operation performed from the main trace is a possible indirect load for resolving the
     // direct destination offset stored in main_mem_addr_c.
@@ -3669,18 +3680,28 @@ std::vector<Row> AvmTraceBuilder::finalize()
             }
             dest.mem_sel_rng_chk = FF(1);
 
-            // Decomposition of diff
-            dest.mem_diff = uint64_t(diff);
-            // It's not great that this happens here, but we can clean it up after we extract the range checks
             // Mem Address row differences are range checked to 40 bits, and the inter-trace index is the timestamp
-            range_check_builder.assert_range(uint128_t(diff), 40, EventEmitter::MEMORY, uint64_t(dest.mem_tsp));
+            // Decomposition of diff
+            dest.mem_diff = diff;
+            auto diff_u64 = static_cast<uint64_t>(diff);
+            // 16 bit decomposition
+            auto mem_u16_r0 = static_cast<uint16_t>(diff_u64);
+            dest.mem_u16_r0 = FF(mem_u16_r0);
+            mem_trace_builder.mem_rng_chk_u16_0_counts[mem_u16_r0]++;
+            // Next 16 bits
+            auto mem_u16_r1 = static_cast<uint16_t>(diff_u64 >> 16);
+            dest.mem_u16_r1 = FF(mem_u16_r1);
+            mem_trace_builder.mem_rng_chk_u16_1_counts[mem_u16_r1]++;
+            // Final 8 bits
+            auto mem_u8_r0 = static_cast<uint8_t>(diff_u64 >> 32);
+            dest.mem_u8_r0 = FF(mem_u8_r0);
+            mem_trace_builder.mem_rng_chk_u8_counts[mem_u8_r0]++;
 
         } else {
             dest.mem_lastAccess = FF(1);
             dest.mem_last = FF(1);
         }
     }
-
     /**********************************************************************************************
      * ALU TRACE INCLUSION
      **********************************************************************************************/
@@ -3763,16 +3784,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     gas_trace_builder.finalize(main_trace);
-    // We need to assert here instead of finalize until we figure out inter-trace threading
-    for (size_t i = 0; i < main_trace_size; i++) {
-        auto& row = main_trace.at(i);
-        if (row.main_is_gas_accounted) {
-            range_check_builder.assert_range(
-                uint128_t(row.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(row.main_clk));
-            range_check_builder.assert_range(
-                uint128_t(row.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(row.main_clk));
-        }
-    }
 
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION
@@ -3827,7 +3838,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
     auto new_trace_size =
         range_check_required
             ? old_trace_size
-            : finalize_rng_chks_for_testing(main_trace, alu_trace_builder, mem_trace_builder, range_check_builder);
+            : finalize_rng_chks_for_testing(
+                  main_trace, alu_trace_builder, mem_trace_builder, range_check_builder, gas_trace_builder);
 
     for (size_t i = 0; i < new_trace_size; i++) {
         auto& r = main_trace.at(i);
@@ -3854,6 +3866,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
             auto counter_u8 = static_cast<uint8_t>(counter);
             r.lookup_pow_2_0_counts = alu_trace_builder.u8_pow_2_counters[0][counter_u8];
             r.lookup_pow_2_1_counts = alu_trace_builder.u8_pow_2_counters[1][counter_u8];
+            r.lookup_mem_rng_chk_2_counts = mem_trace_builder.mem_rng_chk_u8_counts[counter_u8];
             r.main_sel_rng_8 = FF(1);
             r.lookup_rng_chk_pow_2_counts = range_check_builder.powers_of_2_counts[counter_u8];
 
@@ -3873,6 +3886,12 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_rng_chk_6_counts = range_check_builder.u16_range_chk_counters[6][uint16_t(counter)];
             r.lookup_rng_chk_7_counts = range_check_builder.u16_range_chk_counters[7][uint16_t(counter)];
             r.lookup_rng_chk_diff_counts = range_check_builder.dyn_diff_counts[uint16_t(counter)];
+            r.lookup_mem_rng_chk_0_counts = mem_trace_builder.mem_rng_chk_u16_0_counts[uint16_t(counter)];
+            r.lookup_mem_rng_chk_1_counts = mem_trace_builder.mem_rng_chk_u16_1_counts[uint16_t(counter)];
+            r.lookup_l2_gas_rng_chk_0_counts = gas_trace_builder.rem_gas_rng_check_counts[0][uint16_t(counter)];
+            r.lookup_l2_gas_rng_chk_1_counts = gas_trace_builder.rem_gas_rng_check_counts[1][uint16_t(counter)];
+            r.lookup_da_gas_rng_chk_0_counts = gas_trace_builder.rem_gas_rng_check_counts[2][uint16_t(counter)];
+            r.lookup_da_gas_rng_chk_1_counts = gas_trace_builder.rem_gas_rng_check_counts[3][uint16_t(counter)];
             r.main_sel_rng_16 = FF(1);
         }
     }

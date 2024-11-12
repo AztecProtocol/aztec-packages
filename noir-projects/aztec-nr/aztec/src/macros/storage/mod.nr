@@ -69,17 +69,17 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     quote {
         $storage_impl
 
-        struct StorageLayoutFields {
+        pub struct StorageLayoutFields {
             $storage_layout_fields
         }
 
-        struct StorageLayout<let N: u32> {
-            contract_name: str<N>,
-            fields: StorageLayoutFields
+        pub struct StorageLayout<let N: u32> {
+            pub contract_name: str<N>,
+            pub fields: StorageLayoutFields
         }
 
         #[abi(storage)]
-        global $storage_layout_name = StorageLayout {
+        pub global $storage_layout_name = StorageLayout {
             contract_name: $module_name_str,
             fields: StorageLayoutFields { $storage_layout_constructors }
         };

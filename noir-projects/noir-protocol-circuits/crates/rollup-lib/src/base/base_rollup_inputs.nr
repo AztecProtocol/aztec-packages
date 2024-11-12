@@ -581,7 +581,7 @@ mod tests {
 
         let mut sorted_write_tuples = unsafe {
             get_sorted_tuple(
-                final_public_data_writes.storage,
+                final_public_data_writes.storage(),
                 |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| {
                     full_field_less_than(leaf_b.slot, leaf_a.slot)
                 },
@@ -1332,7 +1332,7 @@ mod tests {
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
-            siloed_l2_to_l1_msgs.storage,
+            siloed_l2_to_l1_msgs.storage(),
         );
         assert_eq(out_hash, expected_tree.get_root());
     }

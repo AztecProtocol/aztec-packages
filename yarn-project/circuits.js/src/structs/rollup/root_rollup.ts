@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -77,6 +78,16 @@ export class RootRollupInputs {
    */
   static fromString(str: string) {
     return RootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(RootRollupInputs);
   }
 }
 
@@ -161,5 +172,15 @@ export class RootRollupPublicInputs {
 
   static fromString(str: string) {
     return RootRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(RootRollupPublicInputs);
   }
 }

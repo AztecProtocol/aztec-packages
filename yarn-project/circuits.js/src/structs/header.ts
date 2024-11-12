@@ -1,9 +1,11 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
@@ -25,6 +27,28 @@ export class Header {
     /** Total fees in the block, computed by the root rollup circuit */
     public totalFees: Fr,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        lastArchive: AppendOnlyTreeSnapshot.schema,
+        contentCommitment: ContentCommitment.schema,
+        state: StateReference.schema,
+        globalVariables: GlobalVariables.schema,
+        totalFees: schemas.Fr,
+      })
+      .transform(Header.from);
+  }
+
+  toJSON() {
+    return {
+      lastArchive: this.lastArchive,
+      contentCommitment: this.contentCommitment,
+      state: this.state,
+      globalVariables: this.globalVariables,
+      totalFees: this.totalFees,
+    };
+  }
 
   static getFields(fields: FieldsOf<Header>) {
     // Note: The order here must match the order in the HeaderLib solidity library.

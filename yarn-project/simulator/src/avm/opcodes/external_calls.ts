@@ -64,7 +64,7 @@ abstract class ExternalCall extends Instruction {
     context.machineState.consumeGas(allocatedGas);
 
     const nestedContext = context.createNestedContractCallContext(
-      callAddress.toFr(),
+      callAddress.toAztecAddress(),
       calldata,
       allocatedGas,
       callType,
@@ -142,22 +142,25 @@ export class Return extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private returnOffset: number, private copySize: number) {
+  constructor(private indirect: number, private returnOffset: number, private returnSizeOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(this.copySize));
 
-    const operands = [this.returnOffset];
+    const operands = [this.returnOffset, this.returnSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [returnOffset] = addressing.resolve(operands, memory);
+    const [returnOffset, returnSizeOffset] = addressing.resolve(operands, memory);
 
-    const output = memory.getSlice(returnOffset, this.copySize).map(word => word.toFr());
+    memory.checkTag(TypeTag.UINT32, returnSizeOffset);
+    const returnSize = memory.get(returnSizeOffset).toNumber();
+    context.machineState.consumeGas(this.gasCost(returnSize));
+
+    const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
     context.machineState.return(output);
-    memory.assert({ reads: this.copySize, addressing });
+    memory.assert({ reads: returnSize + 1, addressing });
   }
 
   public override handlesPC(): boolean {

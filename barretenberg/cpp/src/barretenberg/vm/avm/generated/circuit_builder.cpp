@@ -254,6 +254,8 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_bin_op_id.set_if_valid_index(i, rows[i].main_bin_op_id);
                 polys.main_call_ptr.set_if_valid_index(i, rows[i].main_call_ptr);
                 polys.main_da_gas_remaining.set_if_valid_index(i, rows[i].main_da_gas_remaining);
+                polys.main_da_gas_u16_r0.set_if_valid_index(i, rows[i].main_da_gas_u16_r0);
+                polys.main_da_gas_u16_r1.set_if_valid_index(i, rows[i].main_da_gas_u16_r1);
                 polys.main_da_out_of_gas.set_if_valid_index(i, rows[i].main_da_out_of_gas);
                 polys.main_dyn_da_gas_op_cost.set_if_valid_index(i, rows[i].main_dyn_da_gas_op_cost);
                 polys.main_dyn_gas_multiplier.set_if_valid_index(i, rows[i].main_dyn_gas_multiplier);
@@ -282,6 +284,8 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_l1_to_l2_msg_exists_write_offset.set_if_valid_index(
                     i, rows[i].main_l1_to_l2_msg_exists_write_offset);
                 polys.main_l2_gas_remaining.set_if_valid_index(i, rows[i].main_l2_gas_remaining);
+                polys.main_l2_gas_u16_r0.set_if_valid_index(i, rows[i].main_l2_gas_u16_r0);
+                polys.main_l2_gas_u16_r1.set_if_valid_index(i, rows[i].main_l2_gas_u16_r1);
                 polys.main_l2_out_of_gas.set_if_valid_index(i, rows[i].main_l2_out_of_gas);
                 polys.main_mem_addr_a.set_if_valid_index(i, rows[i].main_mem_addr_a);
                 polys.main_mem_addr_b.set_if_valid_index(i, rows[i].main_mem_addr_b);
@@ -423,6 +427,9 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.mem_tag.set_if_valid_index(i, rows[i].mem_tag);
                 polys.mem_tag_err.set_if_valid_index(i, rows[i].mem_tag_err);
                 polys.mem_tsp.set_if_valid_index(i, rows[i].mem_tsp);
+                polys.mem_u16_r0.set_if_valid_index(i, rows[i].mem_u16_r0);
+                polys.mem_u16_r1.set_if_valid_index(i, rows[i].mem_u16_r1);
+                polys.mem_u8_r0.set_if_valid_index(i, rows[i].mem_u8_r0);
                 polys.mem_val.set_if_valid_index(i, rows[i].mem_val);
                 polys.mem_w_in_tag.set_if_valid_index(i, rows[i].mem_w_in_tag);
                 polys.merkle_tree_clk.set_if_valid_index(i, rows[i].merkle_tree_clk);
@@ -765,7 +772,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.range_check_is_lte_u64.set_if_valid_index(i, rows[i].range_check_is_lte_u64);
                 polys.range_check_is_lte_u80.set_if_valid_index(i, rows[i].range_check_is_lte_u80);
                 polys.range_check_is_lte_u96.set_if_valid_index(i, rows[i].range_check_is_lte_u96);
-                polys.range_check_mem_rng_chk.set_if_valid_index(i, rows[i].range_check_mem_rng_chk);
                 polys.range_check_rng_chk_bits.set_if_valid_index(i, rows[i].range_check_rng_chk_bits);
                 polys.range_check_sel_lookup_0.set_if_valid_index(i, rows[i].range_check_sel_lookup_0);
                 polys.range_check_sel_lookup_1.set_if_valid_index(i, rows[i].range_check_sel_lookup_1);
@@ -810,11 +816,18 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.lookup_rng_chk_5_counts.set_if_valid_index(i, rows[i].lookup_rng_chk_5_counts);
                 polys.lookup_rng_chk_6_counts.set_if_valid_index(i, rows[i].lookup_rng_chk_6_counts);
                 polys.lookup_rng_chk_7_counts.set_if_valid_index(i, rows[i].lookup_rng_chk_7_counts);
+                polys.lookup_mem_rng_chk_0_counts.set_if_valid_index(i, rows[i].lookup_mem_rng_chk_0_counts);
+                polys.lookup_mem_rng_chk_1_counts.set_if_valid_index(i, rows[i].lookup_mem_rng_chk_1_counts);
+                polys.lookup_mem_rng_chk_2_counts.set_if_valid_index(i, rows[i].lookup_mem_rng_chk_2_counts);
                 polys.lookup_pow_2_0_counts.set_if_valid_index(i, rows[i].lookup_pow_2_0_counts);
                 polys.lookup_pow_2_1_counts.set_if_valid_index(i, rows[i].lookup_pow_2_1_counts);
                 polys.lookup_byte_lengths_counts.set_if_valid_index(i, rows[i].lookup_byte_lengths_counts);
                 polys.lookup_byte_operations_counts.set_if_valid_index(i, rows[i].lookup_byte_operations_counts);
                 polys.lookup_opcode_gas_counts.set_if_valid_index(i, rows[i].lookup_opcode_gas_counts);
+                polys.lookup_l2_gas_rng_chk_0_counts.set_if_valid_index(i, rows[i].lookup_l2_gas_rng_chk_0_counts);
+                polys.lookup_l2_gas_rng_chk_1_counts.set_if_valid_index(i, rows[i].lookup_l2_gas_rng_chk_1_counts);
+                polys.lookup_da_gas_rng_chk_0_counts.set_if_valid_index(i, rows[i].lookup_da_gas_rng_chk_0_counts);
+                polys.lookup_da_gas_rng_chk_1_counts.set_if_valid_index(i, rows[i].lookup_da_gas_rng_chk_1_counts);
                 polys.kernel_output_lookup_counts.set_if_valid_index(i, rows[i].kernel_output_lookup_counts);
                 polys.lookup_into_kernel_counts.set_if_valid_index(i, rows[i].lookup_into_kernel_counts);
                 polys.lookup_cd_value_counts.set_if_valid_index(i, rows[i].lookup_cd_value_counts);

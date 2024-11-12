@@ -41,8 +41,8 @@ describe('e2e_sandbox_example', () => {
     const bobWallet = accounts[1];
     const alice = aliceWallet.getAddress();
     const bob = bobWallet.getAddress();
-    logger.info(`Loaded alice's account at ${alice.toShortString()}`);
-    logger.info(`Loaded bob's account at ${bob.toShortString()}`);
+    logger.info(`Loaded alice's account at ${alice.toString()}`);
+    logger.info(`Loaded bob's account at ${bob.toString()}`);
     // docs:end:load_accounts
 
     // docs:start:Deployment
@@ -161,7 +161,7 @@ describe('e2e_sandbox_example', () => {
       [bob, 'Bob'],
     ] as const) {
       if (registeredAccounts.find(acc => acc.equals(account))) {
-        logger.info(`Created ${name}'s account at ${account.toShortString()}`);
+        logger.info(`Created ${name}'s account at ${account.toString()}`);
         continue;
       }
       logger.info(`Failed to create account for ${name}!`);

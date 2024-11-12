@@ -107,7 +107,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicAccumulatedData,
-  PublicCallData,
   PublicCallRequest,
   PublicCallStackItemCompressed,
   PublicCircuitPublicInputs,
@@ -174,8 +173,6 @@ import {
   PublicDataWrite,
   PublicInnerCallRequest,
   PublicKernelCircuitPrivateInputs,
-  PublicKernelInnerCircuitPrivateInputs,
-  PublicKernelInnerData,
   PublicTubeData,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
@@ -771,33 +768,6 @@ function makeCountedPublicCallRequest(seed = 1) {
 
 function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
   return new PublicInnerCallRequest(makePublicCallStackItemCompressed(seed), seed + 0x60);
-}
-
-/**
- * Makes arbitrary public call data.
- * @param seed - The seed to use for generating the public call data.
- * @returns A public call data.
- */
-export function makePublicCallData(seed = 1, full = false): PublicCallData {
-  const publicCallData = new PublicCallData(
-    makePublicCircuitPublicInputs(seed, undefined, full),
-    makeProof(),
-    fr(seed + 1),
-  );
-
-  return publicCallData;
-}
-
-function makePublicKernelInnerData(seed = 1) {
-  return new PublicKernelInnerData(
-    makeVMCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
-    VerificationKeyData.makeFakeHonk(),
-  );
-}
-
-export function makePublicKernelInnerCircuitPrivateInputs(seed = 1) {
-  return new PublicKernelInnerCircuitPrivateInputs(makePublicKernelInnerData(seed), makePublicCallData(seed + 0x1000));
 }
 
 function makeEnqueuedCallData(seed = 1) {
@@ -1537,14 +1507,14 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    new Fr(seed + 0x400),
+    new AztecAddress(new Fr(seed + 0x400)),
   );
 }
 
 export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
   const salt = new Fr(seed);
   const initializationHash = new Fr(seed + 1);
-  const deployer = new Fr(seed + 2);
+  const deployer = new AztecAddress(new Fr(seed + 2));
   const publicKeys = PublicKeys.random();
 
   const saltedInitializationHash = poseidon2HashWithSeparator(
@@ -1596,10 +1566,10 @@ export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
-    new Fr(seed),
+    new AztecAddress(new Fr(seed)),
     true /* exists */,
     new Fr(seed + 0x2),
-    new Fr(seed + 0x3),
+    new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new PublicKeys(
@@ -1613,7 +1583,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
 
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return AvmEnqueuedCallHint.from({
-    contractAddress: new Fr(seed),
+    contractAddress: new AztecAddress(new Fr(seed)),
     calldata: makeVector((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
   });
 }

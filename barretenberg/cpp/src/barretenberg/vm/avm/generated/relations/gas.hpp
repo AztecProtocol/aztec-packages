@@ -10,7 +10,7 @@ template <typename FF_> class gasImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 5, 4, 4 };
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 5, 4, 4, 2, 2 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -93,6 +93,20 @@ template <typename FF_> class gasImpl {
                          new_term.main_abs_da_rem_gas));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            auto tmp = (new_term.main_abs_l2_rem_gas -
+                        (new_term.main_l2_gas_u16_r0 + (new_term.main_l2_gas_u16_r1 * FF(65536))));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            auto tmp = (new_term.main_abs_da_rem_gas -
+                        (new_term.main_da_gas_u16_r0 + (new_term.main_da_gas_u16_r1 * FF(65536))));
+            tmp *= scaling_factor;
+            std::get<11>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
