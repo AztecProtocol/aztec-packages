@@ -54,7 +54,7 @@ contract TokenPortal {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", _to, _amount));
+      Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", _to, _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);

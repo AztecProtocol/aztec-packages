@@ -27,7 +27,7 @@ unconstrained fn transfer_to_private_internal_orchestration() {
 unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, recipient, amount) =
-        utils::setup_and_mint_public(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     let note_randomness = random();
 
@@ -61,7 +61,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _, amount) =
-        utils::setup_and_mint_public(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the hiding point slot
     let hiding_point_slot = random();
@@ -76,7 +76,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, not_owner, amount) =
-        utils::setup_and_mint_public(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes

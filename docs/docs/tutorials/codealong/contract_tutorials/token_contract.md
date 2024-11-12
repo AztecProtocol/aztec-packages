@@ -67,10 +67,10 @@ These are functions that have transparent logic, will execute in a publicly veri
 
 - `set_admin` enables the admin to be updated
 - `set_minter` enables accounts to be added / removed from the approved minter list
-- `mint_public` enables tokens to be minted to the public balance of an account
+- `mint_to_public` enables tokens to be minted to the public balance of an account
 - `mint_private` enables tokens to be minted to the private balance of an account (with some caveats we will dig into)
 - `transfer_to_public` enables tokens to be moved from a public balance to a private balance, not necessarily the same account (step 1 of a 2 step process)
-- `transfer_public` enables users to transfer tokens from one account's public balance to another account's public balance
+- `transfer_in_public` enables users to transfer tokens from one account's public balance to another account's public balance
 - `burn_public` enables users to burn tokens
 
 ### Private functions
@@ -78,7 +78,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
 - `transfer` enables an account to send tokens from their private balance to another account's private balance
-- `transfer_from` enables an account to send tokens from another account's private balance to another account's private balance
+- `transfer_in_private` enables an account to send tokens from another account's private balance to another account's private balance
 - `cancel_authwit` enables an account to cancel an authorization to spend tokens
 - `burn` enables tokens to be burned privately
 
@@ -191,13 +191,13 @@ This function allows the `admin` to add or a remove a `minter` from the public `
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `mint_public`
+#### `mint_to_public`
 
 This function allows an account approved in the public `minters` mapping to create new public tokens owned by the provided `to` address.
 
 First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `U128` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
 
-#include_code mint_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code mint_to_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `mint_private`
 
@@ -215,7 +215,7 @@ First a partial note is prepared then a call to `_finalize_transfer_to_private_u
 
 #include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `transfer_public`
+#### `transfer_in_public`
 
 This public function enables public transfers between Aztec accounts. The sender's public balance will be debited the specified `amount` and the recipient's public balances will be credited with that amount.
 
@@ -227,7 +227,7 @@ If the `msg_sender` is the same as the account to debit tokens from, the authori
 
 It returns `1` to indicate successful execution.
 
-#include_code transfer_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `burn_public`
 
@@ -268,19 +268,19 @@ After initializing storage, the function checks that the `msg_sender` is authori
 
 #include_code transfer /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `transfer_from`
+#### `transfer_in_private`
 
 This private function enables an account to transfer tokens on behalf of another account. The account that tokens are being debited from must have authorized the `msg_sender` to spend tokens on its behalf.
 
-#include_code transfer_from /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `burn`
+#### `burn_private`
 
 This private function enables accounts to privately burn (destroy) tokens.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. Then it gets the sender's current balance and decrements it. Finally it stages a public function call to [`_reduce_total_supply`](#_reduce_total_supply).
 
-#include_code burn /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code burn_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### Internal function implementations
 

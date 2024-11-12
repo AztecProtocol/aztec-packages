@@ -59,7 +59,7 @@ export class Bot {
       calls.push(...times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()));
       calls.push(
         ...times(publicTransfersPerTx, () =>
-          token.methods.transfer_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
+          token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
         ),
       );
     } else {
