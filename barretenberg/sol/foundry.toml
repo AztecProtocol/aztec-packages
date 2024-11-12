@@ -12,4 +12,4 @@ runs = 1
 
 solc = "0.8.21"
 
-# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+# See more config options https://book.getfoundry.sh/reference/config
