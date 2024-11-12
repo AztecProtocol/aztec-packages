@@ -146,14 +146,14 @@ impl TailToPublicOutputValidator {
     }
 
     fn validate_gas_used(self) {
-        let gas_limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
+        let gas_settings = self.output.constants.tx_context.gas_settings;
         let gas_used = meter_gas_used(
             self.output.non_revertible_accumulated_data,
             self.output.revertible_accumulated_data,
             self.output.public_teardown_call_request,
-            self.output.constants.tx_context.gas_settings.teardown_gas_limits,
+            gas_settings.teardown_gas_limits,
         );
         assert_eq(self.output.gas_used, gas_used, "incorrect metered gas used");
-        assert(gas_used.within(gas_limits), "The gas used exceeds the gas limits");
+        assert(gas_used.within(gas_settings.gas_limits), "The gas used exceeds the gas limits");
     }
 }

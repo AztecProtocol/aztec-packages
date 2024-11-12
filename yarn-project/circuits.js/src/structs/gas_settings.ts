@@ -1,6 +1,5 @@
 import { compact } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -29,7 +28,6 @@ export class GasSettings {
         gasLimits: Gas.schema,
         teardownGasLimits: Gas.schema,
         maxFeesPerGas: GasFees.schema,
-        inclusionFee: schemas.Fr,
       })
       .transform(GasSettings.from);
   }
