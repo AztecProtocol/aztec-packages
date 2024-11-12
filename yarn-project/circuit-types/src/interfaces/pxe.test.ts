@@ -459,6 +459,10 @@ class MockPXE implements PXE {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.contractAddress).toEqual(this.address);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
   }

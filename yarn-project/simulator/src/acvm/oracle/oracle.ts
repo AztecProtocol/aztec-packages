@@ -336,15 +336,11 @@ export class Oracle {
     return toACVMField(0);
   }
 
-  emitContractClassUnencryptedLog(
-    [contractAddress]: ACVMField[],
-    message: ACVMField[],
-    [counter]: ACVMField[],
-  ): ACVMField {
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
 
-    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log, +counter);
+    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
     return toACVMField(logHash);
   }
 

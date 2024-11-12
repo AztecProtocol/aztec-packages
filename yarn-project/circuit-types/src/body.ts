@@ -84,6 +84,12 @@ export class Body {
     return new UnencryptedL2BlockL2Logs(logs);
   }
 
+  get contractClassLogs(): UnencryptedL2BlockL2Logs {
+    const logs = this.txEffects.map(txEffect => txEffect.contractClassLogs);
+
+    return new UnencryptedL2BlockL2Logs(logs);
+  }
+
   /**
    * Computes the number of transactions in the block including padding transactions.
    * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad

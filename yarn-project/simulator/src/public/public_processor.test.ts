@@ -180,7 +180,7 @@ describe('public_processor', () => {
 
       // we keep the logs
       expect(processed[0].txEffect.encryptedLogs.getTotalLogCount()).toBe(6);
-      expect(processed[0].txEffect.unencryptedLogs.getTotalLogCount()).toBe(2);
+      expect(processed[0].txEffect.contractClassLogs.getTotalLogCount()).toBe(1);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });

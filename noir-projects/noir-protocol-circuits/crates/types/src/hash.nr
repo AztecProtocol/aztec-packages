@@ -10,7 +10,7 @@ use crate::{
     constants::{
         FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
         GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -205,6 +205,28 @@ pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        // TODO: This is not checking that the decomposition is smaller than P
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+        }
+    }
+    // Ideally we would push to a slice then hash, but there is no sha_slice
+    // Hardcode to 256 bytes for now
+    let mut hash = sha256_to_field(hash_input_flattened);
+    // Not having a 0 value hash for empty logs causes issues with empty txs
+    // used for padding. Returning early is currently unsupported.
+    // We always provide sorted logs here, so 0 being empty means all are empty.
+    if is_empty(logs[0]) {
+        hash = 0;
+    }
+    hash
+}
+
+pub fn compute_contract_class_logs_hash(logs: [LogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX]) -> Field {
+    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    let mut hash_input_flattened = [0; MAX_CONTRACT_CLASS_LOGS_PER_TX * 32];
+    for offset in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
         // TODO: This is not checking that the decomposition is smaller than P
         let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
         for byte_index in 0..32 {

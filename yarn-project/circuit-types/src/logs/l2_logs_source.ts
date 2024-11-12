@@ -38,6 +38,13 @@ export interface L2LogsSource {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
    * Gets the number of the latest L2 block processed by the implementation.
    * @returns The number of the latest L2 block processed by the implementation.
    */

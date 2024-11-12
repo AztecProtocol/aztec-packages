@@ -122,10 +122,6 @@ describe('enqueued_calls_processor', () => {
 
     expect(tailSpy).toHaveBeenCalledTimes(1);
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-
-    const outputs = txResult.avmProvingRequest!.inputs.output.accumulatedData;
-    // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(2);
   });
 
   it('includes a transaction that reverts in teardown', async function () {
@@ -211,9 +207,6 @@ describe('enqueued_calls_processor', () => {
       new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
       new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
     ]);
-
-    // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(1);
   });
 
   it('fails a transaction that reverts in setup', async function () {
@@ -369,9 +362,6 @@ describe('enqueued_calls_processor', () => {
       new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
       new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
     ]);
-
-    // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(1);
   });
 
   it('includes a transaction that reverts in app logic and teardown', async function () {
@@ -461,9 +451,6 @@ describe('enqueued_calls_processor', () => {
       new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
       new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
     ]);
-
-    // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(1);
   });
 
   it('runs a tx with all phases', async function () {

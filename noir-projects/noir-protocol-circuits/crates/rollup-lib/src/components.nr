@@ -12,13 +12,13 @@ use dep::types::{
         public_data_write::PublicDataWrite,
     },
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        AZTEC_MAX_EPOCH_DURATION, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX,
     },
     hash::{
-        accumulate_sha256, compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
-        silo_unencrypted_log_hash,
+        accumulate_sha256, compute_contract_class_logs_hash, compute_tx_logs_hash,
+        compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
     },
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
@@ -213,6 +213,19 @@ fn silo_and_hash_unencrypted_logs(
     compute_tx_logs_hash(siloed_logs)
 }
 
+fn silo_and_hash_contract_class_logs(
+    contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+) -> Field {
+    let siloed_logs = contract_class_logs_hashes.map(|log: ScopedLogHash| {
+        LogHash {
+            value: silo_unencrypted_log_hash(log),
+            counter: log.log_hash.counter,
+            length: log.log_hash.length,
+        }
+    });
+    compute_contract_class_logs_hash(siloed_logs)
+}
+
 fn silo_and_hash_encrypted_logs(
     encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 ) -> Field {
@@ -235,20 +248,22 @@ fn silo_and_hash_encrypted_logs(
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
 //                                          __
 // 1 note encrypted logs length --> 1 field   |
-// 1 encrypted logs length --> 1 field        | -> 3 types of logs - 3 fields for its lengths
-// 1 unencrypted logs length --> 1 field    __|
-//                                                                                                                                   __
-// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
-// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
-// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
+// 1 encrypted logs length --> 1 field        | -> 4 types of logs - 4 fields for its lengths
+// 1 unencrypted logs length --> 1 field      |
+// 1 contract class logs length --> 1 field __|
+//                                                                                                                                    __
+// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!    |
+// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!         | -> 4 types of logs - 4 fields for its hashes
+// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!      |
+// 1 contract class logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! __|
 global TX_EFFECTS_HASH_INPUT_FIELDS = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + 1
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    + 3
-    + 3;
+    + 4
+    + 4;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 pub fn compute_tx_effects_hash(
@@ -270,9 +285,12 @@ pub fn compute_tx_effects_hash(
     let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
+    let contract_class_logs_length = combined.contract_class_log_preimages_length;
     let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
     let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
     let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
+    let contract_class_logs_hash =
+        silo_and_hash_contract_class_logs(combined.contract_class_logs_hashes);
 
     let mut offset = 0;
 
@@ -320,6 +338,10 @@ pub fn compute_tx_effects_hash(
     tx_effects_hash_input[offset] = unencrypted_logs_length;
     offset += 1;
 
+    // CONTRACT CLASS LOGS LENGTH
+    tx_effects_hash_input[offset] = contract_class_logs_length;
+    offset += 1;
+
     // NOTE ENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = note_encrypted_logs_hash;
     offset += 1;
@@ -330,6 +352,10 @@ pub fn compute_tx_effects_hash(
 
     // UNENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = unencrypted_logs_hash;
+    offset += 1;
+
+    // CONTRACT CLASS LOGS HASH
+    tx_effects_hash_input[offset] = contract_class_logs_hash;
     offset += 1;
 
     assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
@@ -367,8 +393,8 @@ fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
         + MAX_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + 1 // out hash
-        + 3 // logs lengths
-        + 3; // logs hashes
+        + 4 // logs lengths
+        + 4; // logs hashes
     assert(
         TX_EFFECTS_HASH_INPUT_FIELDS == expected_size,
         "tx effects hash input size is incorrect",

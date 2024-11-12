@@ -1,6 +1,7 @@
 import {
   Fr,
   type LogHash,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -135,7 +136,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
     for (const fnLogs of this.functionLogs) {
       let include = false;
       for (const log of fnLogs.logs) {
-        let contractAddress;
+        let contractAddress: any;
         if ('contractAddress' in log) {
           contractAddress = log.contractAddress;
         } else if ('maskedContractAddress' in log) {
@@ -433,6 +434,41 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
     }
     // pad the end of logs with 0s
     for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - siloedLogHashes.length; i++) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
+    }
+
+    return sha256Trunc(allSiloedLogHashes);
+  }
+}
+
+export class ContractClassTxL2Logs extends UnencryptedTxL2Logs {
+  /**
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelUnencryptedLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  public override hash(): Buffer {
+    const unrolledLogs = this.unrollLogs();
+    return ContractClassTxL2Logs.hashSiloedLogs(unrolledLogs.map(log => log.getSiloedHash()));
+  }
+
+  /**
+   * Hashes siloed contract class logs as in the same way as the base rollup would.
+   * @param siloedLogHashes - The siloed log hashes
+   * @returns The hash of the logs.
+   */
+  public static override hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
+    if (siloedLogHashes.length == 0) {
+      return Buffer.alloc(32);
+    }
+
+    let allSiloedLogHashes = Buffer.alloc(0);
+    for (const siloedLogHash of siloedLogHashes) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
+    }
+    // pad the end of logs with 0s
+    for (let i = 0; i < MAX_CONTRACT_CLASS_LOGS_PER_TX - siloedLogHashes.length; i++) {
       allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
     }
 

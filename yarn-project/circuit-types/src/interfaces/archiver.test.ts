@@ -307,6 +307,11 @@ class MockArchiver implements ArchiverApi {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.txHash).toBeInstanceOf(TxHash);
+    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
   getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     expect(selector).toBeInstanceOf(FunctionSelector);

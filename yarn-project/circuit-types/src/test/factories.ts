@@ -143,9 +143,11 @@ export function makeBloatedProcessedTx({
 function clearLogs(data: {
   noteEncryptedLogsHashes: LogHash[];
   encryptedLogsHashes: ScopedLogHash[];
-  unencryptedLogsHashes: ScopedLogHash[];
+  unencryptedLogsHashes?: ScopedLogHash[];
+  contractClassLogsHashes: ScopedLogHash[];
 }) {
   data.noteEncryptedLogsHashes.forEach((_, i) => (data.noteEncryptedLogsHashes[i] = LogHash.empty()));
   data.encryptedLogsHashes.forEach((_, i) => (data.encryptedLogsHashes[i] = ScopedLogHash.empty()));
-  data.unencryptedLogsHashes.forEach((_, i) => (data.unencryptedLogsHashes[i] = ScopedLogHash.empty()));
+  data.unencryptedLogsHashes?.forEach((_, i) => (data.unencryptedLogsHashes![i] = ScopedLogHash.empty()));
+  data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

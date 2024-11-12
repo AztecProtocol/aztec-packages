@@ -7,7 +7,7 @@ use dep::types::{
         public_data_update_request::PublicDataUpdateRequest,
         public_data_write::PublicDataWrite,
     },
-    constants::MAX_NOTE_HASHES_PER_TX,
+    constants::{MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX},
     hash::silo_note_hash,
     utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc},
 };
@@ -79,9 +79,11 @@ pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
         note_encrypted_logs_hashes,
         encrypted_logs_hashes,
         unencrypted_logs_hashes,
+        contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
         note_encrypted_log_preimages_length,
         encrypted_log_preimages_length,
         unencrypted_log_preimages_length,
+        contract_class_log_preimages_length: 0,
         public_data_writes,
         gas_used: revertible.gas_used + non_revertible.gas_used,
     }

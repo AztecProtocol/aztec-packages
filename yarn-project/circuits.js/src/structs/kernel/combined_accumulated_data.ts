@@ -7,6 +7,7 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { inspect } from 'util';
 
 import {
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -51,6 +52,11 @@ export class CombinedAccumulatedData {
      */
     public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
+     * Accumulated contract class logs hash from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    /**
      * Total accumulated length of the encrypted note log preimages emitted in all the previous kernel iterations
      */
     public noteEncryptedLogPreimagesLength: Fr,
@@ -62,6 +68,10 @@ export class CombinedAccumulatedData {
      * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
      */
     public unencryptedLogPreimagesLength: Fr,
+    /**
+     * Total accumulated length of the contract class log preimages emitted in all the previous kernel iterations
+     */
+    public contractClassLogPreimagesLength: Fr,
     /**
      * All the public data update requests made in this transaction.
      */
@@ -79,9 +89,11 @@ export class CombinedAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes) +
       this.noteEncryptedLogPreimagesLength.size +
       this.encryptedLogPreimagesLength.size +
       this.unencryptedLogPreimagesLength.size +
+      this.contractClassLogPreimagesLength.size +
       arraySerializedSizeOfNonEmpty(this.publicDataWrites) +
       this.gasUsed.toBuffer().length
     );
@@ -95,9 +107,11 @@ export class CombinedAccumulatedData {
       fields.noteEncryptedLogsHashes,
       fields.encryptedLogsHashes,
       fields.unencryptedLogsHashes,
+      fields.contractClassLogsHashes,
       fields.noteEncryptedLogPreimagesLength,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
+      fields.contractClassLogPreimagesLength,
       fields.publicDataWrites,
       fields.gasUsed,
     ] as const;
@@ -137,6 +151,8 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -162,6 +178,8 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
@@ -196,9 +214,14 @@ export class CombinedAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
+      contractClassLogsHashes: : [${this.contractClassLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}],
       noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
       encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
       unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
+      contractClassLogPreimagesLength: ${this.contractClassLogPreimagesLength.toString()},
       publicDataWrites: [${this.publicDataWrites
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))

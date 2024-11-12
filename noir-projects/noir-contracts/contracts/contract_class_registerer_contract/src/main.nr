@@ -183,10 +183,7 @@ contract ContractClassRegisterer {
     }
 
     #[contract_library_method]
-    fn emit_contract_class_log<let N: u32>(
-        context: &mut PrivateContext,
-        log: [Field; N],
-    ) {
+    fn emit_contract_class_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
         let contract_address = context.this_address();
         let counter = context.next_counter();
 
