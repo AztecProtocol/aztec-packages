@@ -154,6 +154,25 @@ mod tests {
     }
 
     #[test]
+    fn blob_inputs_are_accumulated() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        let outputs = inputs.block_merge_rollup_circuit();
+
+        assert_eq(
+            outputs.blob_public_inputs[0],
+            inputs.previous_rollup_data[0]
+                .block_root_or_block_merge_public_inputs
+                .blob_public_inputs[0],
+        );
+        assert_eq(
+            outputs.blob_public_inputs[1],
+            inputs.previous_rollup_data[1]
+                .block_root_or_block_merge_public_inputs
+                .blob_public_inputs[0],
+        );
+    }
+
+    #[test]
     fn valid_previous_circuit_block_root() {
         let mut inputs = default_block_merge_rollup_inputs();
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =

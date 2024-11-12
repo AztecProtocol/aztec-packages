@@ -176,7 +176,18 @@ pub fn accumulate_blob_public_inputs(
         left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many blob public input structs accumulated in rollup",
     );
-    array_merge(left.blob_public_inputs, right.blob_public_inputs)
+    // NB: For some reason, the below is around 150k gates cheaper than array_merge
+    let mut add_from_left = true;
+    let mut result = [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
+    for i in 0..result.len() {
+        add_from_left &= i != left_len;
+        if (add_from_left) {
+            result[i] = left.blob_public_inputs[i];
+        } else {
+            result[i] = right.blob_public_inputs[i - left_len];
+        }
+    }
+    result
 }
 
 /**
