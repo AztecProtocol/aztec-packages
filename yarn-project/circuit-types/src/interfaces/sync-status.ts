@@ -10,5 +10,4 @@ export type SyncStatus = {
 
 export const SyncStatusSchema = z.object({
   blocks: z.number(),
-  notes: z.record(z.number()),
 }) satisfies ZodFor<SyncStatus>;
