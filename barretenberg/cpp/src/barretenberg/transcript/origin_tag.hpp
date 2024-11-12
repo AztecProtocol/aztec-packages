@@ -54,13 +54,13 @@ struct OriginTag {
     // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses
     // a concrete index, not bits for now, since we never expect two different indices to be used in the same
     // computation apart from equality assertion
-    size_t parent_tag;
+    size_t parent_tag = 0;
 
     // Child tag specifies which submitted values and challenges have been used to generate this element
     // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the
     // round) The higher 128 bits represent using a challenge value from an corresponding round (the shift
     // represents the round)
-    numeric::uint256_t child_tag;
+    numeric::uint256_t child_tag = 0;
 
     // Instant death is used for poisoning values we should never use in arithmetic
     bool instant_death = false;
