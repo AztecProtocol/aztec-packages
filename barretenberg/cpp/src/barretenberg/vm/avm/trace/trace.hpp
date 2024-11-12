@@ -162,7 +162,7 @@ class AvmTraceBuilder {
                         uint32_t args_offset,
                         uint32_t args_size,
                         uint32_t success_offset);
-    std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
+    std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset);
     // REVERT Opcode (that just call return under the hood for now)
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset);
 

@@ -1,5 +1,7 @@
 use acvm::acir::{
-    brillig::{BinaryFieldOp, BitSize, IntegerBitSize, MemoryAddress, Opcode as BrilligOpcode},
+    brillig::{
+        BinaryFieldOp, BitSize, HeapVector, IntegerBitSize, MemoryAddress, Opcode as BrilligOpcode,
+    },
     AcirField,
 };
 
@@ -18,25 +20,27 @@ pub(crate) fn directive_invert<F: AcirField>() -> GeneratedBrillig<F> {
     let one_const = MemoryAddress::direct(1);
     let zero_const = MemoryAddress::direct(2);
     let input_is_zero = MemoryAddress::direct(3);
+    let zero_usize = MemoryAddress::direct(20);
+    let one_usize = MemoryAddress::direct(21);
     // Location of the stop opcode
     let stop_location = 8;
 
     GeneratedBrillig {
         byte_code: vec![
             BrilligOpcode::Const {
-                destination: MemoryAddress::direct(20),
+                destination: one_usize,
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: F::from(1_usize),
             },
             BrilligOpcode::Const {
-                destination: MemoryAddress::direct(21),
+                destination: zero_usize,
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: F::from(0_usize),
             },
             BrilligOpcode::CalldataCopy {
                 destination_address: input,
-                size_address: MemoryAddress::direct(20),
-                offset_address: MemoryAddress::direct(21),
+                size_address: one_usize,
+                offset_address: zero_usize,
             },
             // Put value zero in register (2)
             BrilligOpcode::Const {
@@ -65,7 +69,9 @@ pub(crate) fn directive_invert<F: AcirField>() -> GeneratedBrillig<F> {
                 rhs: input,
                 destination: input,
             },
-            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 1 },
+            BrilligOpcode::Stop {
+                return_data: HeapVector { pointer: zero_usize, size: one_usize },
+            },
         ],
         error_types: Default::default(),
         locations: Default::default(),
@@ -131,7 +137,12 @@ pub(crate) fn directive_quotient<F: AcirField>() -> GeneratedBrillig<F> {
                 destination: MemoryAddress::direct(0),
                 source: MemoryAddress::direct(2),
             },
-            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
+            BrilligOpcode::Stop {
+                return_data: HeapVector {
+                    pointer: MemoryAddress::direct(11),
+                    size: MemoryAddress::direct(10),
+                },
+            },
         ],
         error_types: Default::default(),
         locations: Default::default(),

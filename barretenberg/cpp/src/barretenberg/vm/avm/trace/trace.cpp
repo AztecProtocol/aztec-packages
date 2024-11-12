@@ -2886,9 +2886,18 @@ void AvmTraceBuilder::op_static_call(uint16_t indirect,
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
+    bool tag_match = true;
+
+    // Resolve operands
+    auto [resolved_ret_offset, resolved_ret_size_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 
     if (ret_size == 0) {
@@ -2904,11 +2913,6 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
         return {};
     }
-
-    // This boolean will not be a trivial constant once we re-enable constraining address resolution
-    bool tag_match = true;
-
-    auto [resolved_ret_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ ret_offset }, mem_trace_builder);
 
     // The only memory operation performed from the main trace is a possible indirect load for resolving the
     // direct destination offset stored in main_mem_addr_c.

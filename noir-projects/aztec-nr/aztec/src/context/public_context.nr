@@ -331,7 +331,7 @@ unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
     returndata_copy_opcode(rdoffset, copy_size)
 }
 
-pub unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
+pub unconstrained fn avm_return(returndata: [Field]) {
     return_opcode(returndata)
 }
 
@@ -432,7 +432,7 @@ unconstrained fn returndata_size_opcode() -> u32 {}
 unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 
 #[oracle(avmOpcodeReturn)]
-unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
+unconstrained fn return_opcode(returndata: [Field]) {}
 
 // This opcode reverts using the exact data given. In general it should only be used
 // to do rethrows, where the revert data is the same as the original revert data.
