@@ -366,3 +366,70 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     check_linearly_dependent_relation<Flavor, DatabusLookupRelation<FF>>(circuit_size, prover_polynomials, params);
     check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }
+
+TEST_F(UltraRelationCorrectnessTests, TruncatedPermutation)
+{
+    using Flavor = MegaFlavor;
+    using FF = typename Flavor::FF;
+
+    // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
+    // by each relation are non-trivially exercised.
+    MegaCircuitBuilder builder;
+
+    // Create an assortment of representative gates
+    create_some_add_gates<Flavor>(builder);
+    create_some_lookup_gates<Flavor>(builder);
+    create_some_delta_range_constraint_gates<Flavor>(builder);
+    create_some_elliptic_curve_addition_gates<Flavor>(builder);
+    create_some_RAM_gates<Flavor>(builder);
+    create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
+
+    // Create a prover (it will compute proving key and witness)
+    TraceSettings trace_settings{ TraceStructure::CLIENT_IVC_BENCH };
+    auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
+    auto& proving_key = decider_pk->proving_key;
+    auto circuit_size = proving_key.circuit_size;
+
+    size_t last_gate_idx = builder.blocks.lookup.trace_offset + builder.blocks.lookup.size();
+    info("builder.blocks.lookup.trace_offset = ", builder.blocks.lookup.trace_offset);
+    info("builder.blocks.lookup.size() = ", builder.blocks.lookup.size());
+    info("last_gate_idx = ", last_gate_idx);
+
+    // Generate eta, beta and gamma
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
+
+    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                 decider_pk->relation_parameters.eta_two,
+                                                                 decider_pk->relation_parameters.eta_three);
+    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+
+    auto& prover_polynomials = decider_pk->proving_key.polynomials;
+    auto params = decider_pk->relation_parameters;
+
+    // We expect that z_perm is constant = final_zperm_val on the rest of the domain
+    auto final_zperm_val = prover_polynomials.z_perm[last_gate_idx];
+    bool z_perm_value_is_constant = true;
+    for (size_t i = last_gate_idx; i < circuit_size; ++i) {
+        if (prover_polynomials.z_perm[i] != final_zperm_val) {
+            z_perm_value_is_constant = false;
+        }
+    }
+    EXPECT_TRUE(z_perm_value_is_constant);
+
+    // Change lagrange last to be 1 on the final non-trivial index
+    prover_polynomials.lagrange_last = Polynomial<FF>(circuit_size);
+    prover_polynomials.lagrange_last.at(last_gate_idx) = 1;
+
+    // Set z_perm to zero beyond the final non-trivial index
+    for (size_t i = last_gate_idx + 1; i < circuit_size; ++i) {
+        prover_polynomials.z_perm.at(i) = 0;
+    }
+
+    // Check that the Permutation relation is still satisfied at each row
+    check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
+}
