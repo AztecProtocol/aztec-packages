@@ -4,7 +4,7 @@ import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer public', () => {
-  const t = new TokenContractTest('transfer_public');
+  const t = new TokenContractTest('transfer_in_public');
   let { asset, accounts, tokenSim, wallets, badAccount } = t;
 
   beforeAll(async () => {
@@ -27,7 +27,7 @@ describe('e2e_token_contract transfer public', () => {
     const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
+    await asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
 
     tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
   });
@@ -36,7 +36,7 @@ describe('e2e_token_contract transfer public', () => {
     const balance = await asset.methods.balance_of_public(accounts[0].address).simulate();
     const amount = balance / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer_public(accounts[0].address, accounts[0].address, amount, 0).send().wait();
+    await asset.methods.transfer_in_public(accounts[0].address, accounts[0].address, amount, 0).send().wait();
 
     tokenSim.transferPublic(accounts[0].address, accounts[0].address, amount);
   });
@@ -50,7 +50,7 @@ describe('e2e_token_contract transfer public', () => {
     // docs:start:authwit_public_transfer_example
     const action = asset
       .withWallet(wallets[1])
-      .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+      .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
     await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
     // docs:end:authwit_public_transfer_example
@@ -64,7 +64,7 @@ describe('e2e_token_contract transfer public', () => {
     await expect(
       asset
         .withWallet(wallets[1])
-        .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce)
         .simulate(),
     ).rejects.toThrow(/unauthorized/);
   });
@@ -75,7 +75,7 @@ describe('e2e_token_contract transfer public', () => {
       const amount = balance0 + 1n;
       const nonce = 0;
       await expect(
-        asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
@@ -84,7 +84,7 @@ describe('e2e_token_contract transfer public', () => {
       const amount = balance0 - 1n;
       const nonce = 1;
       await expect(
-        asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
       ).rejects.toThrow('Assertion failed: invalid nonce');
     });
 
@@ -95,7 +95,7 @@ describe('e2e_token_contract transfer public', () => {
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -109,7 +109,7 @@ describe('e2e_token_contract transfer public', () => {
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
       expect(await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action })).toEqual(
         {
@@ -145,7 +145,7 @@ describe('e2e_token_contract transfer public', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
       await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
 
@@ -166,7 +166,7 @@ describe('e2e_token_contract transfer public', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
       await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
 
       // Perform the transfer
@@ -184,7 +184,7 @@ describe('e2e_token_contract transfer public', () => {
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
       await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
 
@@ -193,7 +193,7 @@ describe('e2e_token_contract transfer public', () => {
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce)
           .simulate(),
       ).rejects.toThrowError(/unauthorized/);
     });
@@ -206,7 +206,7 @@ describe('e2e_token_contract transfer public', () => {
 
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
       await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
 
@@ -221,7 +221,7 @@ describe('e2e_token_contract transfer public', () => {
       await expect(
         asset
           .withWallet(wallets[1])
-          .methods.transfer_public(badAccount.address, accounts[1].address, 0, nonce)
+          .methods.transfer_in_public(badAccount.address, accounts[1].address, 0, nonce)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });

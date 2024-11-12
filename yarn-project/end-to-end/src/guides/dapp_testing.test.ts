@@ -120,7 +120,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks public storage', async () => {
         // docs:start:public-storage
-        await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
+        await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
@@ -172,14 +172,14 @@ describe('guides/dapp/testing', () => {
 
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
-        const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
+        const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       });
 
       it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
         // docs:start:pub-reverted
-        const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
+        const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
