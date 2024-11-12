@@ -36,7 +36,7 @@ import {
   PrivateKernelEmptyInputData,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput,
+  RootParityInput,
   RootParityInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
@@ -51,7 +51,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
@@ -100,7 +100,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 export class ProvingOrchestrator implements EpochProver {
   private provingState: EpochProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
-  private paddingTxProof?: ProofAndVerificationKey<RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
+  private paddingTxProof?: ProofAndVerificationKey<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
@@ -503,7 +503,7 @@ export class ProvingOrchestrator implements EpochProver {
   private provePaddingTransactions(
     txInputs: Array<{ hints: BaseRollupHints; snapshot: TreeSnapshots }>,
     paddingTx: ProcessedTx,
-    proofAndVk: ProofAndVerificationKey<RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>>,
+    proofAndVk: ProofAndVerificationKey<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
     provingState: BlockProvingState,
   ) {
     // The padding tx contains the proof and vk, generated separately from the base inputs
@@ -957,8 +957,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
       ),
-      rootInput => {
-        provingState.setRootParityInputs(rootInput, index);
+      provingOutput => {
+        const rootParityInput = new RootParityInput(
+          provingOutput.proof,
+          provingOutput.verificationKey.keyAsFields,
+          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+          provingOutput.inputs,
+        );
+        provingState.setRootParityInputs(rootParityInput, index);
         if (provingState.areRootParityInputsReady()) {
           const rootParityInputs = new RootParityInputs(
             provingState.rootParityInput as Tuple<
@@ -986,8 +992,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
       ),
-      rootInput => {
-        provingState!.finalRootParityInput = rootInput;
+      provingOutput => {
+        const rootParityInput = new RootParityInput(
+          provingOutput.proof,
+          provingOutput.verificationKey.keyAsFields,
+          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+          provingOutput.inputs,
+        );
+        provingState!.finalRootParityInput = rootParityInput;
         this.checkAndEnqueueBlockRootRollup(provingState);
       },
     );
