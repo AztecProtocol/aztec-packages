@@ -20,10 +20,12 @@ import {
   Nullifier,
   NullifierLeafPreimage,
   PublicAccumulatedData,
+  PublicAccumulatedDataArrayLengths,
   PublicCallRequest,
   PublicDataRead,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
+  PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ReadRequest,
   SerializableContractInstance,
@@ -426,7 +428,7 @@ describe('Enqueued-call Side Effect Trace', () => {
         ),
       );
       expect(() =>
-        trace.tracePublicStorageRead(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, true),
+        trace.tracePublicStorageRead(AztecAddress.fromNumber(42), new Fr(42), new Fr(42)),
       ).toThrow(SideEffectLimitReachedError);
       expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
@@ -434,13 +436,13 @@ describe('Enqueued-call Side Effect Trace', () => {
       expect(() => trace.traceNoteHashCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42))).toThrow(
+      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), false)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
       expect(() => trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42))).toThrow(
