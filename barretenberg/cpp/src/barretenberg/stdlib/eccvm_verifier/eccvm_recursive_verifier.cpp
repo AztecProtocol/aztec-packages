@@ -19,7 +19,8 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  * Returns a transcript where the IPA proof has not been verified yet.
  */
 template <typename Flavor>
-ECCVMRecursiveVerifier_<Flavor>::Transcript ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript> ECCVMRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -141,6 +142,7 @@ ECCVMRecursiveVerifier_<Flavor>::Transcript ECCVMRecursiveVerifier_<Flavor>::ver
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
+    static_cast<void>(batch_opening_claim);
     // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     // const typename PCS::VerifierAccumulator batched_opening_accumulator =
     //     PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
