@@ -16,6 +16,25 @@ namespace cmp(256);
     pol commit input_b;
     pol commit result;
 
+    // ========= NON FF GT Short-circuit computation ===============================
+    // If this is a non-ff check, we can short circuit (a > b) by checking
+    // 0 < a - b - 1 < 2**128 --> i.e. we just check we dont underlow which for "small" sized 128-bit number is just a 
+    // single 128 bit range check
+    // This will be constrained by the calling function - maybe through instruction decomposition
+    pol commit op_non_ff_gt;
+    // Value of a - b
+    pol commit diff;
+
+    pol A_GT_B = input_a - input_b - 1;
+    pol B_GTE_A = input_b - input_a;
+    op_non_ff_gt * (diff -  (A_GT_B * result) - (B_GTE_A * (1 - result))) = 0; 
+
+    #[PERM_RNG_NON_FF_CMP]
+    range_check.cmp_non_ff_rng_chk {range_check.clk, range_check.value}
+    is
+    op_non_ff_gt {range_chk_clk, diff};
+
+    // ========= FF GT computation ===============================
     // We range check two columns per row of the cmp gadget, the lo and hi bit ranges resp.
     #[PERM_RNG_CMP_LO]
     range_check.cmp_lo_bits_rng_chk {range_check.clk, range_check.value}
@@ -32,7 +51,7 @@ namespace cmp(256);
     pol commit op_eq;
     pol commit op_gt;
 
-    sel_cmp = op_eq + op_gt;
+    sel_cmp = op_eq + op_gt + op_non_ff_gt;
 
     // There are some standardised constraints on this gadget
     // The result is always a boolean

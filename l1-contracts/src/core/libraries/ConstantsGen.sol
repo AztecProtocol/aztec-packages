@@ -1,6 +1,6 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2024 Aztec Labs.
+// Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
 /**
@@ -97,7 +97,7 @@ library Constants {
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     19007378675971183768036762391356802220352606103602592933942074152320327194720;
-  uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
+  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
