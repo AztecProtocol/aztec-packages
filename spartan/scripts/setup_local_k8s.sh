@@ -2,7 +2,7 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 
 # exit if we are not on linux amd64
 if [ "$(uname)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then

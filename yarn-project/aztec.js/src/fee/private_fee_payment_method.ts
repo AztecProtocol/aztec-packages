@@ -1,6 +1,5 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type GasSettings } from '@aztec/circuits.js';
-import { computeSecretHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -28,10 +27,15 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     private wallet: Wallet,
 
     /**
-     * A secret to shield the rebate amount from the FPC.
-     * Use this to claim the shielded amount to private balance
+     * Address that the FPC sends notes it receives to.
      */
-    private rebateSecret = Fr.random(),
+    private feeRecipient: AztecAddress,
+
+    /**
+     * If true, the max fee will be set to 1.
+     * TODO(#7694): Remove this param once the lacking feature in TXE is implemented.
+     */
+    private setMaxFeeToOne = false,
   ) {}
 
   /**
@@ -52,14 +56,17 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    * @returns The function call to pay the fee.
    */
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+    // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
+    // (maxFee) to be in token denomination.
+    const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
     const nonce = Fr.random();
-    const maxFee = gasSettings.getFeeLimit();
+
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
-        name: 'transfer_to_public',
-        args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
-        selector: FunctionSelector.fromSignature('transfer_to_public((Field),(Field),Field,Field)'),
+        name: 'setup_refund',
+        args: [this.feeRecipient.toField(), this.wallet.getAddress().toField(), maxFee, nonce],
+        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: this.asset,
@@ -67,16 +74,14 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       },
     });
 
-    const secretHashForRebate = computeSecretHash(this.rebateSecret);
-
     return [
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset, secretHashForRebate, nonce],
+        args: [maxFee, this.asset.toField(), nonce],
         returnTypes: [],
       },
     ];

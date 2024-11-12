@@ -1,4 +1,4 @@
-global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
+pub global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
 
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
@@ -8,9 +8,9 @@ use crate::{
 };
 
 pub struct NullifierLeafPreimage {
-    nullifier: Field,
-    next_nullifier: Field,
-    next_index: u32,
+    pub nullifier: Field,
+    pub next_nullifier: Field,
+    pub next_index: u32,
 }
 
 impl Empty for NullifierLeafPreimage {

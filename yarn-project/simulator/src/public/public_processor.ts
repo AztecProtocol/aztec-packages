@@ -5,17 +5,17 @@ import {
   NestedProcessReturnValues,
   type ProcessedTx,
   type ProcessedTxHandler,
-  PublicKernelPhase,
   Tx,
+  TxExecutionPhase,
   type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import {
+  type AztecAddress,
   ContractClassRegisteredEvent,
   type ContractDataSource,
   Fr,
-  Gas,
   type GlobalVariables,
   type Header,
   MAX_NOTE_HASHES_PER_TX,
@@ -88,8 +88,6 @@ export class PublicProcessor {
   private metrics: PublicProcessorMetrics;
   constructor(
     protected db: MerkleTreeWriteOperations,
-    protected publicExecutor: PublicExecutor,
-    protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected worldStateDB: WorldStateDB,
@@ -120,8 +118,6 @@ export class PublicProcessor {
 
     return new PublicProcessor(
       db,
-      publicExecutor,
-      publicKernelSimulator,
       globalVariables,
       historicalHeader,
       worldStateDB,
@@ -248,7 +244,7 @@ export class PublicProcessor {
   private async getFeePaymentPublicDataWrite(
     publicDataWrites: PublicDataWrite[],
     txFee: Fr,
-    feePayer: Fr,
+    feePayer: AztecAddress,
   ): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
       return;
@@ -277,17 +273,14 @@ export class PublicProcessor {
   }
 
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
-    const txData = tx.data.toKernelCircuitPublicInputs();
-
     const gasFees = this.globalVariables.gasFees;
-    const transactionFee = txData.end.gasUsed
-      .computeFee(gasFees)
-      .add(txData.constants.txContext.gasSettings.inclusionFee);
+    const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
+    const accumulatedData = tx.data.forRollup!.end;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      txData.end.publicDataWrites,
+      accumulatedData.publicDataWrites,
       transactionFee,
-      txData.feePayer,
+      tx.data.feePayer,
     );
 
     const processedTx = makeProcessedTxFromPrivateOnlyTx(
@@ -305,14 +298,8 @@ export class PublicProcessor {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const {
-      avmProvingRequest,
-      returnValues,
-      revertCode,
-      revertReason,
-      gasUsed: phaseGasUsed,
-      processedPhases,
-    } = await this.enqueuedCallsProcessor.process(tx);
+    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
+      await this.enqueuedCallsProcessor.process(tx);
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
@@ -344,15 +331,6 @@ export class PublicProcessor {
       tx.data.feePayer,
     );
 
-    const privateGasUsed = tx.data.forPublic!.revertibleAccumulatedData.gasUsed.add(
-      tx.data.forPublic!.nonRevertibleAccumulatedData.gasUsed,
-    );
-    const publicGasUsed = Object.values(phaseGasUsed).reduce((total, gas) => total.add(gas), Gas.empty());
-    const gasUsed = {
-      totalGas: privateGasUsed.add(publicGasUsed),
-      teardownGas: phaseGasUsed[PublicKernelPhase.TEARDOWN] ?? Gas.empty(),
-    };
-
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
       avmProvingRequest,
@@ -361,6 +339,8 @@ export class PublicProcessor {
       revertCode,
       revertReason,
     );
+
+    const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 
     return [processedTx, returnValues];
   }

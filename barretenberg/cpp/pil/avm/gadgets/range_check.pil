@@ -188,12 +188,6 @@ namespace range_check(256);
     #[LOOKUP_RNG_CHK_7]
     sel_rng_chk { u16_r7 } in main.sel_rng_16 { main.clk };
 
-    // ===== MEM TRACE RANGE CHECKS =====
-    pol commit mem_rng_chk;
-    // We range check 40 bits in the mem trace
-    mem_rng_chk * (rng_chk_bits - 40) = 0;
-
-
     // ===== GAS TRACE RANGE CHECKS =====
     pol commit gas_l2_rng_chk;
     pol commit gas_da_rng_chk;
@@ -207,6 +201,9 @@ namespace range_check(256);
     // We range check 128 bits in the cmp trace
     cmp_lo_bits_rng_chk * (rng_chk_bits - 128) = 0;
     cmp_hi_bits_rng_chk * (rng_chk_bits - 128) = 0;
+    // For non FF
+    pol commit cmp_non_ff_rng_chk;
+    cmp_non_ff_rng_chk * (rng_chk_bits - 128) = 0;
 
     // ==== ALU TRACE RANGE CHECKS ====
     pol commit alu_rng_chk;

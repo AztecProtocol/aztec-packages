@@ -210,8 +210,6 @@ The `insert_from_public` allow public function to insert notes into private stor
 
 The usage is similar to using the `insert` method with the difference that this one is called in public functions.
 
-#include_code insert_from_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
 ### `pop_notes`
 
 This function pops (gets, removes and returns) the notes the account has access to based on the provided filter.

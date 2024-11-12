@@ -1,4 +1,4 @@
-mod get_split_order_hints;
+pub mod get_split_order_hints;
 
 use crate::{
     abis::side_effect::Ordered,

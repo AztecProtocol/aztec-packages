@@ -37,6 +37,9 @@ export interface ContractDataSource {
    */
   getContractClassIds(): Promise<Fr[]>;
 
+  /** Returns a contract artifact. */
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
+
+  /** Registers a a contract artifact. */
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
 }

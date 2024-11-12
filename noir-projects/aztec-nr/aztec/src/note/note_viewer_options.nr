@@ -6,11 +6,11 @@ use std::option::Option;
 
 // docs:start:NoteViewerOptions
 pub struct NoteViewerOptions<Note, let N: u32> {
-    selects: BoundedVec<Option<Select>, N>,
-    sorts: BoundedVec<Option<Sort>, N>,
-    limit: u32,
-    offset: u32,
-    status: u8,
+    pub selects: BoundedVec<Option<Select>, N>,
+    pub sorts: BoundedVec<Option<Sort>, N>,
+    pub limit: u32,
+    pub offset: u32,
+    pub status: u8,
 }
 // docs:end:NoteViewerOptions
 

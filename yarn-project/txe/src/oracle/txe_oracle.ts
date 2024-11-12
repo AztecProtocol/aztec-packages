@@ -16,10 +16,13 @@ import {
   CombinedConstantData,
   type ContractInstance,
   type ContractInstanceWithAddress,
+  DEFAULT_GAS_LIMIT,
   Gas,
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_L2_GAS_PER_ENQUEUED_CALL,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
@@ -135,7 +138,7 @@ export class TXE implements TypedOracle {
     return this.functionSelector;
   }
 
-  setMsgSender(msgSender: Fr) {
+  setMsgSender(msgSender: AztecAddress) {
     this.msgSender = msgSender;
   }
 
@@ -465,12 +468,12 @@ export class TXE implements TypedOracle {
     _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
-  ): Promise<MessageLoadOracleInputs<16>> {
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new Error('Method not implemented.');
   }
 
   async storageRead(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
     numberOfElements: number,
@@ -547,8 +550,8 @@ export class TXE implements TypedOracle {
     );
 
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
@@ -679,7 +682,7 @@ export class TXE implements TypedOracle {
     const executionResult = await simulator.simulateIsolatedEnqueuedCall(
       execution,
       combinedConstantData.globalVariables,
-      Gas.test(),
+      /*allocatedGas*/ new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL),
       /*transactionFee=*/ Fr.ONE,
       /*startSideEffectCounter=*/ this.sideEffectCounter,
     );
@@ -694,8 +697,8 @@ export class TXE implements TypedOracle {
     isStaticCall: boolean,
   ): Promise<Fr> {
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
@@ -833,8 +836,8 @@ export class TXE implements TypedOracle {
     isStaticCall: boolean,
   ): Promise<EnqueuedPublicCallExecutionResultWithSideEffects> {
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
 

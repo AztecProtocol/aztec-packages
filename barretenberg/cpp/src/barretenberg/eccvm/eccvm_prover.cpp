@@ -187,6 +187,8 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
+
+    vinfo("computed opening proof");
 }
 
 HonkProof ECCVMProver::export_proof()

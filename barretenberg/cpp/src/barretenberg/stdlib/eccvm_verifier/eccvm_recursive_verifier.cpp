@@ -142,10 +142,10 @@ std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript> ECCVMRecur
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    static_cast<void>(batch_opening_claim);
+    builder->add_ipa_claim(batch_opening_claim.get_witness_indices());
     // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     // const typename PCS::VerifierAccumulator batched_opening_accumulator =
-    //     PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
+    //     PCS::reduce_verify(batch_opening_claim, transcript);
 
     ASSERT(sumcheck_verified);
     return transcript;

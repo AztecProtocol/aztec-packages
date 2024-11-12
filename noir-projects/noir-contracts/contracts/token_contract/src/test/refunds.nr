@@ -1,4 +1,5 @@
 use crate::{test::utils, Token};
+use aztec::oracle::random::random;
 
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use std::test::OracleMock;
@@ -14,14 +15,16 @@ unconstrained fn setup_refund_success() {
 
     let funded_amount = 1_000;
 
-    // We use the same randomness for both the fee payer and the user as we currently don't have `OracleMock::mock_once()`
+    // We use the same randomness for both the fee payer, the user and the nonce as we currently don't have
+    // `OracleMock::mock_once()`
     let fee_payer_randomness = 123;
     let user_randomness = fee_payer_randomness;
+    let nonce = fee_payer_randomness;
 
     let _ = OracleMock::mock("getRandomField").returns(fee_payer_randomness);
 
     let setup_refund_from_call_interface =
-        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount);
+        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount, nonce);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(
         user,
@@ -70,9 +73,10 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
 
     // We set funded amount to 0 to make the transaction fee higher than the funded amount
     let funded_amount = 0;
+    let nonce = random();
 
     let setup_refund_from_call_interface =
-        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount);
+        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount, nonce);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(
         user,

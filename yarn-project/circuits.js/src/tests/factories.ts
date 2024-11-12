@@ -19,7 +19,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
-  AZTEC_EPOCH_DURATION,
+  AZTEC_MAX_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   AvmContractInstanceHint,
@@ -106,7 +106,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicAccumulatedData,
-  PublicCallData,
   PublicCallRequest,
   PublicCallStackItemCompressed,
   PublicCircuitPublicInputs,
@@ -152,10 +151,15 @@ import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
   AvmAccumulatedData,
+  AvmAppendTreeHint,
   AvmCircuitPublicInputs,
   AvmContractBytecodeHints,
   AvmEnqueuedCallHint,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
   AvmProofData,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
   BaseRollupHints,
   CountedPublicCallRequest,
   EnqueuedCallData,
@@ -171,8 +175,6 @@ import {
   PublicDataWrite,
   PublicInnerCallRequest,
   PublicKernelCircuitPrivateInputs,
-  PublicKernelInnerCircuitPrivateInputs,
-  PublicKernelInnerData,
   PublicTubeData,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
@@ -397,7 +399,6 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     fr(seed + 0xb00), // encrypted_log_preimages_length
     fr(seed + 0xc00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0xd00, PublicDataWrite.empty),
-    makeGas(seed + 0xe00),
   );
 }
 
@@ -410,7 +411,6 @@ export function makePrivateToPublicAccumulatedData(seed = 1) {
     makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800),
     makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500),
-    makeGas(seed + 0x600),
   );
 }
 
@@ -592,6 +592,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
     makeRollupValidationRequests(seed + 0x500),
+    makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
     forPublic,
     forRollup,
@@ -605,7 +606,8 @@ function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
     makePrivateToPublicAccumulatedData(seed + 0x200),
     makePrivateToPublicAccumulatedData(seed + 0x300),
     makePublicCallRequest(seed + 0x400),
-    makeAztecAddress(seed + 0x500),
+    makeGas(seed + 0x500),
+    makeAztecAddress(seed + 0x600),
   );
 }
 
@@ -621,6 +623,7 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
     makeCombinedConstantData(seed + 0x100),
     makePartialStateReference(seed + 0x200),
     RevertCode.OK,
+    makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
 }
@@ -646,6 +649,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
   return new AvmCircuitPublicInputs(
     makeGlobalVariables(seed),
     makeTreeSnapshots(seed + 0x10),
+    makeGas(),
     makeGasSettings(),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
@@ -767,33 +771,6 @@ function makeCountedPublicCallRequest(seed = 1) {
 
 function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
   return new PublicInnerCallRequest(makePublicCallStackItemCompressed(seed), seed + 0x60);
-}
-
-/**
- * Makes arbitrary public call data.
- * @param seed - The seed to use for generating the public call data.
- * @returns A public call data.
- */
-export function makePublicCallData(seed = 1, full = false): PublicCallData {
-  const publicCallData = new PublicCallData(
-    makePublicCircuitPublicInputs(seed, undefined, full),
-    makeProof(),
-    fr(seed + 1),
-  );
-
-  return publicCallData;
-}
-
-function makePublicKernelInnerData(seed = 1) {
-  return new PublicKernelInnerData(
-    makeVMCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
-    VerificationKeyData.makeFakeHonk(),
-  );
-}
-
-export function makePublicKernelInnerCircuitPrivateInputs(seed = 1) {
-  return new PublicKernelInnerCircuitPrivateInputs(makePublicKernelInnerData(seed), makePublicCallData(seed + 0x1000));
 }
 
 function makeEnqueuedCallData(seed = 1) {
@@ -1014,7 +991,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x501),
     globalVariables ?? makeGlobalVariables(seed + 0x502),
     fr(seed + 0x600),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
     fr(seed + 0x801),
     fr(seed + 0x900),
@@ -1159,7 +1136,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x600),
     fr(seed + 0x700),
     fr(seed + 0x800),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
     fr(seed + 0x101),
     fr(seed + 0x200),
@@ -1504,14 +1481,14 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    new Fr(seed + 0x400),
+    new AztecAddress(new Fr(seed + 0x400)),
   );
 }
 
 export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
   const salt = new Fr(seed);
   const initializationHash = new Fr(seed + 1);
-  const deployer = new Fr(seed + 2);
+  const deployer = new AztecAddress(new Fr(seed + 2));
   const publicKeys = PublicKeys.random();
 
   const saltedInitializationHash = poseidon2HashWithSeparator(
@@ -1556,6 +1533,46 @@ export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
   });
 }
 
+export function makeAvmTreeHints(seed = 0): AvmAppendTreeHint {
+  return new AvmAppendTreeHint(
+    new Fr(seed),
+    new Fr(seed + 1),
+    makeArray(10, i => new Fr(i), seed + 0x1000),
+  );
+}
+
+export function makeAvmNullifierReadTreeHints(seed = 0): AvmNullifierReadTreeHint {
+  const lowNullifierPreimage = new NullifierLeafPreimage(new Fr(seed), new Fr(seed + 1), BigInt(seed + 2));
+  return new AvmNullifierReadTreeHint(
+    lowNullifierPreimage,
+    new Fr(seed + 1),
+    makeArray(10, i => new Fr(i), seed + 0x1000),
+  );
+}
+
+export function makeAvmNullifierInsertionTreeHints(seed = 0): AvmNullifierWriteTreeHint {
+  return new AvmNullifierWriteTreeHint(
+    makeAvmNullifierReadTreeHints(seed),
+    makeArray(20, i => new Fr(i), seed + 0x1000),
+  );
+}
+
+export function makeAvmStorageReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
+  return new AvmPublicDataReadTreeHint(
+    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
+    new Fr(seed + 1),
+    makeArray(10, i => new Fr(i), seed + 0x1000),
+  );
+}
+
+export function makeAvmStorageUpdateTreeHints(seed = 0): AvmPublicDataWriteTreeHint {
+  return new AvmPublicDataWriteTreeHint(
+    makeAvmStorageReadTreeHints(seed),
+    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
+    makeArray(20, i => new Fr(i), seed + 0x1000),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1563,10 +1580,10 @@ export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
-    new Fr(seed),
+    new AztecAddress(new Fr(seed)),
     true /* exists */,
     new Fr(seed + 0x2),
-    new Fr(seed + 0x3),
+    new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new PublicKeys(
@@ -1580,7 +1597,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
 
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return AvmEnqueuedCallHint.from({
-    contractAddress: new Fr(seed),
+    contractAddress: new AztecAddress(new Fr(seed)),
     calldata: makeVector((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
   });
 }
@@ -1600,13 +1617,20 @@ export function makeAvmExecutionHints(
 
   return AvmExecutionHints.from({
     enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
-    storageValues: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4200),
-    noteHashExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4300),
-    nullifierExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4400),
-    l1ToL2MessageExists: makeVector(baseLength + 4, makeAvmKeyValueHint, seed + 0x4500),
-    externalCalls: makeVector(baseLength + 5, makeAvmExternalCallHint, seed + 0x4600),
-    contractInstances: makeVector(baseLength + 6, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: makeVector(baseLength + 7, makeAvmBytecodeHints, seed + 0x4800),
+    storageValues: makeVector(baseLength, makeAvmKeyValueHint, seed + 0x4200),
+    noteHashExists: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4300),
+    nullifierExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4400),
+    l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
+    externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
+    contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    contractBytecodeHints: makeVector(baseLength + 6, makeAvmBytecodeHints, seed + 0x4800),
+    storageReadRequest: makeVector(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
+    storageUpdateRequest: makeVector(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
+    nullifierReadRequest: makeVector(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
+    nullifierWriteHints: makeVector(baseLength + 10, makeAvmNullifierInsertionTreeHints, seed + 0x4c00),
+    noteHashReadRequest: makeVector(baseLength + 11, makeAvmTreeHints, seed + 0x4d00),
+    noteHashWriteRequest: makeVector(baseLength + 12, makeAvmTreeHints, seed + 0x4e00),
+    l1ToL2MessageReadRequest: makeVector(baseLength + 13, makeAvmTreeHints, seed + 0x4f00),
     ...overrides,
   });
 }

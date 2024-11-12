@@ -1,5 +1,7 @@
+import { type ArchiverApi, type Service } from '@aztec/circuit-types';
 import { type ContractClassPublic } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type Maybe } from '@aztec/foundation/types';
 import { createStore } from '@aztec/kv-store/utils';
 import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -8,13 +10,13 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { Archiver } from './archiver/archiver.js';
 import { type ArchiverConfig } from './archiver/config.js';
 import { KVArchiverDataStore } from './archiver/index.js';
-import { createArchiverClient } from './rpc/archiver_client.js';
+import { createArchiverClient } from './rpc/index.js';
 
 export async function createArchiver(
   config: ArchiverConfig,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
-) {
+): Promise<ArchiverApi & Maybe<Service>> {
   if (!config.archiverUrl) {
     const store = await createStore('archiver', config, createDebugLogger('aztec:archiver:lmdb'));
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);

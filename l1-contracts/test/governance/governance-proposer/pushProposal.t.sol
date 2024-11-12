@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {Leonidas} from "../../harnesses/Leonidas.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 

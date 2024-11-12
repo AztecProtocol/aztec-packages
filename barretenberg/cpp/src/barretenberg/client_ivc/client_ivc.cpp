@@ -173,13 +173,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_structure);
-        trace_usage_tracker = ExecutionTraceUsageTracker(trace_structure);
+        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
         proving_key = std::make_shared<DeciderProvingKey>(
-            circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
+            circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
     }
 
+    vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
     trace_usage_tracker.update(circuit);
 
@@ -188,11 +189,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
     }
+    vinfo("set honk vk metadata");
 
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
         OinkProver<Flavor> oink_prover{ proving_key };
+        vinfo("computing oink proof...");
         oink_prover.prove();
+        vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
         proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
@@ -206,7 +210,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
+        vinfo("constructed folding prover");
         fold_output = folding_prover.prove();
+        vinfo("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
@@ -295,20 +301,20 @@ ClientIVC::Proof ClientIVC::prove()
 };
 
 bool ClientIVC::verify(const Proof& proof,
-                       const std::shared_ptr<VerificationKey>& ultra_vk,
+                       const std::shared_ptr<VerificationKey>& mega_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
 
     // Verify the hiding circuit proof
-    MegaVerifier verifer{ ultra_vk };
-    bool ultra_verified = verifer.verify_proof(proof.mega_proof);
-    vinfo("Mega verified: ", ultra_verified);
+    MegaVerifier verifer{ mega_vk };
+    bool mega_verified = verifer.verify_proof(proof.mega_proof);
+    vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);
-    return goblin_verified && ultra_verified;
+    return goblin_verified && mega_verified;
 }
 
 /**
@@ -331,8 +337,10 @@ bool ClientIVC::verify(const Proof& proof)
  */
 HonkProof ClientIVC::decider_prove() const
 {
+    vinfo("prove decider...");
     MegaDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
+    vinfo("finished decider proving.");
 }
 
 /**
@@ -343,7 +351,11 @@ HonkProof ClientIVC::decider_prove() const
  */
 bool ClientIVC::prove_and_verify()
 {
+    auto start = std::chrono::steady_clock::now();
     auto proof = prove();
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
     return verify(proof);
 }
 
@@ -370,10 +382,10 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     }
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
-    TraceStructure structure = trace_structure;
+    TraceSettings settings = trace_settings;
     bool auto_verify = auto_verify_mode;
     *this = ClientIVC();
-    this->trace_structure = structure;
+    this->trace_settings = settings;
     this->auto_verify_mode = auto_verify;
 
     return vkeys;
