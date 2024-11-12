@@ -11,8 +11,8 @@ telemetry:
 
 images:
   aztec:
-    image: aztecprotocol/aztec:master
-    pullPolicy: Always
+    image: aztecprotocol/aztec
+    pullPolicy: IfNotPresent
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
@@ -186,7 +186,7 @@ ethereum:
     requests:
       memory: "2Gi"
       cpu: "200m"
-  storage: "120Gi"
+  storage: "80Gi"
 
 proverAgent:
   enabled: true
