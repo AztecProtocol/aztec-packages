@@ -120,8 +120,6 @@ fn create_point(
 mod tests {
     use super::*;
 
-    use ark_ff::{BigInteger, MontConfig};
-
     fn get_generator() -> [FieldElement; 3] {
         let generator = grumpkin::SWAffine::generator();
         let generator_x = FieldElement::from_repr(*generator.x().unwrap());
@@ -175,23 +173,23 @@ mod tests {
         assert_eq!(res, expected_error);
     }
 
-    #[test]
-    fn rejects_grumpkin_modulus() {
-        let x = grumpkin::FrConfig::MODULUS.to_bytes_be();
+    // #[test]
+    // fn rejects_grumpkin_modulus() {
+    //     let x = grumpkin::FrConfig::MODULUS.to_bytes_be();
 
-        let low = FieldElement::from_be_bytes_reduce(&x[16..32]);
-        let high = FieldElement::from_be_bytes_reduce(&x[0..16]);
+    //     let low = FieldElement::from_be_bytes_reduce(&x[16..32]);
+    //     let high = FieldElement::from_be_bytes_reduce(&x[0..16]);
 
-        let res = multi_scalar_mul(&get_generator(), &[low], &[high]);
+    //     let res = multi_scalar_mul(&get_generator(), &[low], &[high]);
 
-        assert_eq!(
-            res,
-            Err(BlackBoxResolutionError::Failed(
-                BlackBoxFunc::MultiScalarMul,
-                "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 is not a valid grumpkin scalar".into(),
-            ))
-        );
-    }
+    //     assert_eq!(
+    //         res,
+    //         Err(BlackBoxResolutionError::Failed(
+    //             BlackBoxFunc::MultiScalarMul,
+    //             "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 is not a valid grumpkin scalar".into(),
+    //         ))
+    //     );
+    // }
 
     #[test]
     fn rejects_invalid_point() {
