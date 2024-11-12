@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731434725431,
+  "lastUpdate": 1731443693699,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8f710068a10e09fad9c159306c19c555bb3b5bb6",
-          "message": "feat(avm)!: returndatasize + returndatacopy (#9475)\n\nThis PR\n* Introduces RETURNDATASIZE and RETURNDATACOPY (also copies revert data if reverted)\n* Fixes a bug in CALL in witgen\n* Changes the public context to return slices when calling public functions. This was partly done because templated functions would always be inlined and I wanted to avoid that blowup\n\nNote that the rethrowing hack is still present in the simulator, so the rethrowing branch in the public context is still not used. I will make this change once @sirasistant finishes the string encoding changes.\n\nIn a later PR we can remove the returndata from CALL.\n\nPart of #9061.",
-          "timestamp": "2024-10-29T17:01:39Z",
-          "tree_id": "9f9846d0222e5df93ed550c21885ea9804ef68fe",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8f710068a10e09fad9c159306c19c555bb3b5bb6"
-        },
-        "date": 1730222912212,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30950.335728,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29371.197408 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5397.899536000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5075.965949999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91805.27016700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91805272000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15174.790125999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15174790000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2712315314,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2712315314 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126647434,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126647434 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 141827384,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141827384 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d49e5963092548d31a901a693a1653d3151d114",
+          "message": "feat(avm):  hinting merkle trees (#9658)",
+          "timestamp": "2024-11-12T20:12:00Z",
+          "tree_id": "cf547de568efa8fb12efded2e33adc9c32d76eb7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8d49e5963092548d31a901a693a1653d3151d114"
+        },
+        "date": 1731443686250,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28816.5472,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27049.055808 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5356.700153999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5024.715005000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85824.665226,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85824666000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15250.899986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15250901000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3117147751,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3117147751 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143442566,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143442566 ns\nthreads: 1"
           }
         ]
       }
