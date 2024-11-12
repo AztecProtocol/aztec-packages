@@ -99,7 +99,7 @@ jobs:
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
             export FORCE_COLOR=1
-            NAMESPACE=proving FRESH_INSTALL=true VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
+            NAMESPACE=proving FRESH_INSTALL=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
 
   success-check:
     runs-on: ubuntu-20.04

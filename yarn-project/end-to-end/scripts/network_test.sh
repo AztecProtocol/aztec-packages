@@ -30,6 +30,7 @@ INSTALL_CHAOS_MESH="${INSTALL_CHAOS_MESH:-}"
 CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
+INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -126,7 +127,7 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
       --wait \
       --wait-for-jobs=true \
-      --timeout=30m
+      --timeout="$INSTALL_TIMEOUT"
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
