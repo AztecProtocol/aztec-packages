@@ -197,7 +197,7 @@ export const browserTestSuite = (
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           await contract.methods.transfer(receiverAddress, transferAmount).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
-          return await contract.methods.balance_of_private(receiverAddress).simulate({ from: receiverAddress });
+          return await contract.withWallet(newReceiverAccount).methods.balance_of_private(receiverAddress).simulate();
         },
         pxeURL,
         (await getTokenAddress()).toString(),

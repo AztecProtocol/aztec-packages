@@ -51,6 +51,9 @@ export class BotFactory {
     const wallet = await this.setupAccount();
     // Register the recipient in the wallet's scopes so balances can be checked
     wallet.setScopes([wallet.getAddress(), recipient]);
+    // Add the wallet's address as contact so we can retrieve notes sent by ourselves
+    // when checking the recipient's balance
+    await wallet.registerContact(wallet.getAddress());
     const token = await this.setupToken(wallet);
     await this.mintTokens(token);
     return { wallet, token, pxe: this.pxe, recipient };

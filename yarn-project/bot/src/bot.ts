@@ -72,10 +72,8 @@ export class Bot {
 
     const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
-    this.log.verbose(`Creating batch execution request with ${calls.length} calls`, logCtx);
-    await batch.create(opts);
 
-    this.log.verbose(`Simulating transaction`, logCtx);
+    this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate();
 
     this.log.verbose(`Proving transaction`, logCtx);
