@@ -50,7 +50,7 @@ export class TxProver implements EpochProverManager {
     }
 
     if (this.config.proverAgentConcurrency !== newConfig.proverAgentConcurrency) {
-      this.agent?.setMaxConcurrency(newConfig.proverAgentConcurrency);
+      await this.agent?.setMaxConcurrency(newConfig.proverAgentConcurrency);
     }
 
     if (!this.config.realProofs && newConfig.realProofs) {

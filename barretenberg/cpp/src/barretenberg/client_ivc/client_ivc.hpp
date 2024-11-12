@@ -115,8 +115,8 @@ class ClientIVC {
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
 
-    // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
-    TraceStructure trace_structure = TraceStructure::NONE;
+    // Settings related to the use of fixed block sizes for each gate in the execution trace
+    TraceSettings trace_settings;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
     // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically

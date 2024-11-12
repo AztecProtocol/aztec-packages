@@ -289,7 +289,6 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
     uint32_t counter = 0;
     while ((pc = trace_builder.get_pc()) < bytecode.size()) {
         auto inst = Deserialization::parse(bytecode, pc);
-
         debug("[PC:" + std::to_string(pc) + "] [IC:" + std::to_string(counter++) + "] " + inst.to_string() +
               " (gasLeft l2=" + std::to_string(trace_builder.get_l2_gas_left()) + ")");
 

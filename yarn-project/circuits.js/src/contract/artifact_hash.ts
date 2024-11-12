@@ -63,23 +63,7 @@ export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   // apparently random in the order they appear after compiled w/ nargo. We can try to sort this upon loading an artifact.
   // TODO: #6021: Should we use the sorted event selectors instead? They'd need to be unique for that.
   // Response - The output selectors need to be sorted, because if not noir makes no guarantees on the order of outputs for some reason
-
-  const metadata = { name: artifact.name, outputs: artifact.outputs };
-
-  const exceptions: string[] = [
-    'AuthRegistry',
-    'FeeJuice',
-    'ContractInstanceDeployer',
-    'ContractClassRegisterer',
-    'Router',
-  ];
-
-  // This is a temporary workaround for the canonical contracts to have deterministic deployments.
-  if (exceptions.includes(artifact.name)) {
-    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
-  }
-
-  return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
+  return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
 }
 
 export function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {

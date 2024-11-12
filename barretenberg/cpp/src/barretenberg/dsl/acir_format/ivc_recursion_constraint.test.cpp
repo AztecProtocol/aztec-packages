@@ -160,7 +160,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
     Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -185,7 +185,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
@@ -232,7 +232,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
     VerifierInputs alternative_verification_queue_entry;
     {
         ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::SMALL_TEST;
+        ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
         // construct and accumulate a mock app circuit with a single unique public input
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -254,7 +254,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
     // valid) witnesses during constraint system construction VS recursive verifier construction.
 
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
     // construct and accumulate a mock app circuit with a single unique public input
     Builder app_circuit = construct_mock_app_circuit(ivc);

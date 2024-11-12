@@ -12,6 +12,7 @@ import {
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import {
+  type AztecAddress,
   ContractClassRegisteredEvent,
   type ContractDataSource,
   Fr,
@@ -248,7 +249,7 @@ export class PublicProcessor {
   private async getFeePaymentPublicDataWrite(
     publicDataWrites: PublicDataWrite[],
     txFee: Fr,
-    feePayer: Fr,
+    feePayer: AztecAddress,
   ): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
       return;

@@ -107,7 +107,7 @@ export class NullifierExists extends Instruction {
     memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
 
     const nullifier = memory.get(nullifierOffset).toFr();
-    const address = memory.get(addressOffset).toFr();
+    const address = memory.get(addressOffset).toAztecAddress();
     const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));

@@ -44,7 +44,8 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
 
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
 
     auto trace = trace_builder.finalize();
 

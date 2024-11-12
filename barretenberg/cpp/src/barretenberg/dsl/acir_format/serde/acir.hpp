@@ -720,8 +720,7 @@ struct BrilligOpcode {
     };
 
     struct Stop {
-        uint64_t return_data_offset;
-        uint64_t return_data_size;
+        Program::HeapVector return_data;
 
         friend bool operator==(const Stop&, const Stop&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -6401,10 +6400,7 @@ namespace Program {
 
 inline bool operator==(const BrilligOpcode::Stop& lhs, const BrilligOpcode::Stop& rhs)
 {
-    if (!(lhs.return_data_offset == rhs.return_data_offset)) {
-        return false;
-    }
-    if (!(lhs.return_data_size == rhs.return_data_size)) {
+    if (!(lhs.return_data == rhs.return_data)) {
         return false;
     }
     return true;
@@ -6434,8 +6430,7 @@ template <typename Serializer>
 void serde::Serializable<Program::BrilligOpcode::Stop>::serialize(const Program::BrilligOpcode::Stop& obj,
                                                                   Serializer& serializer)
 {
-    serde::Serializable<decltype(obj.return_data_offset)>::serialize(obj.return_data_offset, serializer);
-    serde::Serializable<decltype(obj.return_data_size)>::serialize(obj.return_data_size, serializer);
+    serde::Serializable<decltype(obj.return_data)>::serialize(obj.return_data, serializer);
 }
 
 template <>
@@ -6444,8 +6439,7 @@ Program::BrilligOpcode::Stop serde::Deserializable<Program::BrilligOpcode::Stop>
     Deserializer& deserializer)
 {
     Program::BrilligOpcode::Stop obj;
-    obj.return_data_offset = serde::Deserializable<decltype(obj.return_data_offset)>::deserialize(deserializer);
-    obj.return_data_size = serde::Deserializable<decltype(obj.return_data_size)>::deserialize(deserializer);
+    obj.return_data = serde::Deserializable<decltype(obj.return_data)>::deserialize(deserializer);
     return obj;
 }
 

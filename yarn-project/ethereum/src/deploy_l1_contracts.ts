@@ -283,12 +283,11 @@ export const deployL1Contracts = async (
     return await (await fetch(rpcUrl, content)).json();
   };
   if (isAnvilTestChain(chain.id)) {
-    const interval = 12; // @todo  #8084
-    const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    const res = await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    logger.info(`Set block interval to ${interval}`);
+    logger.info(`Set block interval to ${args.ethereumSlotDuration}`);
   }
 
   logger.info(`Deploying contracts from ${account.address.toString()}...`);
@@ -347,6 +346,12 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
+  const rollupArgs = {
+    aztecSlotDuration: args.aztecSlotDuration,
+    aztecEpochDuration: args.aztecEpochDuration,
+    targetCommitteeSize: args.aztecTargetCommitteeSize,
+    aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+  };
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
@@ -354,14 +359,9 @@ export const deployL1Contracts = async (
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
-    {
-      aztecSlotDuration: args.aztecSlotDuration,
-      aztecEpochDuration: args.aztecEpochDuration,
-      targetCommitteeSize: args.aztecTargetCommitteeSize,
-      aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
-    },
+    rollupArgs,
   ]);
-  logger.info(`Deployed Rollup at ${rollupAddress}`);
+  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupArgs);
 
   await deployer.waitForDeployments();
   logger.info(`All core contracts deployed`);

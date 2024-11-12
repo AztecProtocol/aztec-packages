@@ -276,7 +276,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await promise;
   }
 
-  private async simulate<I extends { toBuffer: () => Buffer }, O extends { toBuffer: () => Buffer }>(
+  private async simulate<
+    I extends { toBuffer: () => Buffer },
+    O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+  >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
     convertInputs: (inputs: I) => WitnessMap,

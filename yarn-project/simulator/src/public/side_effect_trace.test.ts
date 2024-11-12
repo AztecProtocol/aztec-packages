@@ -26,7 +26,7 @@ import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 
 describe('Side Effect Trace', () => {
-  const address = Fr.random();
+  const address = AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
   const slot = Fr.random();
@@ -79,7 +79,7 @@ describe('Side Effect Trace', () => {
         storageSlot: slot,
         currentValue: value,
         counter: startCounter,
-        contractAddress: AztecAddress.fromField(address),
+        contractAddress: address,
         //exists: exists,
         //cached: cached,
       },
@@ -97,7 +97,7 @@ describe('Side Effect Trace', () => {
         storageSlot: slot,
         newValue: value,
         counter: startCounter,
-        contractAddress: AztecAddress.fromField(address),
+        contractAddress: address,
       },
     ]);
   });
@@ -215,7 +215,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    const expectLog = new UnencryptedL2Log(AztecAddress.fromField(address), Buffer.concat(log.map(f => f.toBuffer())));
+    const expectLog = new UnencryptedL2Log(address, Buffer.concat(log.map(f => f.toBuffer())));
     expect(pxResult.unencryptedLogs.logs).toEqual([expectLog]);
     expect(pxResult.allUnencryptedLogs.logs).toEqual([expectLog]);
     expect(pxResult.unencryptedLogsHashes).toEqual([
@@ -245,101 +245,105 @@ describe('Side Effect Trace', () => {
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of public storage reads', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; i++) {
-        trace.tracePublicStorageRead(new Fr(i), new Fr(i), new Fr(i), true, true);
+        trace.tracePublicStorageRead(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true, true);
       }
-      expect(() => trace.tracePublicStorageRead(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() =>
+        trace.tracePublicStorageRead(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, true),
+      ).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of public storage writes', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        trace.tracePublicStorageWrite(new Fr(i), new Fr(i), new Fr(i));
+        trace.tracePublicStorageWrite(AztecAddress.fromNumber(i), new Fr(i), new Fr(i));
       }
-      expect(() => trace.tracePublicStorageWrite(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of note hash checks', () => {
       for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNoteHashCheck(new Fr(i), new Fr(i), new Fr(i), true);
+        trace.traceNoteHashCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true);
       }
-      expect(() => trace.traceNoteHashCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+      expect(() => trace.traceNoteHashCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of new note hashes', () => {
       for (let i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        trace.traceNewNoteHash(new Fr(i), new Fr(i));
+        trace.traceNewNoteHash(AztecAddress.fromNumber(i), new Fr(i));
       }
-      expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42))).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of nullifier checks', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), true, true);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true, true);
       }
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, true)).toThrow(
         SideEffectLimitReachedError,
       );
       // NOTE: also cannot do a non-existent check once existent checks have filled up
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), false, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false, true)).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of nullifier non-existent checks', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), false, true);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), false, true);
       }
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), false, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false, true)).toThrow(
         SideEffectLimitReachedError,
       );
       // NOTE: also cannot do a existent check once non-existent checks have filled up
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, true)).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of new nullifiers', () => {
       for (let i = 0; i < MAX_NULLIFIERS_PER_TX; i++) {
-        trace.traceNewNullifier(new Fr(i), new Fr(i));
+        trace.traceNewNullifier(AztecAddress.fromNumber(i), new Fr(i));
       }
-      expect(() => trace.traceNewNullifier(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42))).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of L1 to L2 message checks', () => {
       for (let i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX; i++) {
-        trace.traceL1ToL2MessageCheck(new Fr(i), new Fr(i), new Fr(i), true);
+        trace.traceL1ToL2MessageCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true);
       }
-      expect(() => trace.traceL1ToL2MessageCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+      expect(() => trace.traceL1ToL2MessageCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of new l2 to l1 messages', () => {
       for (let i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX; i++) {
-        trace.traceNewL2ToL1Message(new Fr(i), new Fr(i), new Fr(i));
+        trace.traceNewL2ToL1Message(AztecAddress.fromNumber(i), new Fr(i), new Fr(i));
       }
-      expect(() => trace.traceNewL2ToL1Message(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of new logs hashes', () => {
       for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX; i++) {
-        trace.traceUnencryptedLog(new Fr(i), [new Fr(i), new Fr(i)]);
+        trace.traceUnencryptedLog(AztecAddress.fromNumber(i), [new Fr(i), new Fr(i)]);
       }
-      expect(() => trace.traceUnencryptedLog(new Fr(42), [new Fr(42), new Fr(42)])).toThrow(
+      expect(() => trace.traceUnencryptedLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of nullifier checks for GETCONTRACTINSTANCE', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), true, true);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true, true);
       }
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ true, contractInstance)).toThrow(
         SideEffectLimitReachedError,
@@ -352,7 +356,7 @@ describe('Side Effect Trace', () => {
 
     it('Should enforce maximum number of nullifier non-existent checks for GETCONTRACTINSTANCE', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), false, true);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), false, true);
       }
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
         SideEffectLimitReachedError,
