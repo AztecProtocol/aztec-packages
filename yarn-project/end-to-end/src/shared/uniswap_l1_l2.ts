@@ -200,11 +200,11 @@ export const uniswapL1L2TestSuite = (
       // 2. Claim WETH on L2
       logger.info('Minting weth on L2');
       await wethCrossChainHarness.consumeMessageOnAztecAndMintPrivately(wethDepositClaim);
-      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge);
+      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerWallet, wethAmountToBridge);
 
       // Store balances
-      const wethL2BalanceBeforeSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
-      const daiL2BalanceBeforeSwap = await daiCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
+      const wethL2BalanceBeforeSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerWallet);
+      const daiL2BalanceBeforeSwap = await daiCrossChainHarness.getL2PrivateBalanceOf(ownerWallet);
 
       // 3. Owner gives uniswap approval to transfer the funds to public to self on its behalf
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
@@ -274,7 +274,7 @@ export const uniswapL1L2TestSuite = (
       ]);
 
       // ensure that user's funds were burnt
-      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
+      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerWallet, wethL2BalanceBeforeSwap - wethAmountToBridge);
       // ensure that uniswap contract didn't eat the funds.
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
@@ -352,10 +352,10 @@ export const uniswapL1L2TestSuite = (
         messageLeafIndex: tokenOutMsgIndex,
         recipient: ownerAddress,
       });
-      await daiCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, daiL2BalanceBeforeSwap + daiAmountToBridge);
+      await daiCrossChainHarness.expectPrivateBalanceOnL2(ownerWallet, daiL2BalanceBeforeSwap + daiAmountToBridge);
 
-      const wethL2BalanceAfterSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
-      const daiL2BalanceAfterSwap = await daiCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
+      const wethL2BalanceAfterSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerWallet);
+      const daiL2BalanceAfterSwap = await daiCrossChainHarness.getL2PrivateBalanceOf(ownerWallet);
 
       logger.info('WETH balance before swap: ' + wethL2BalanceBeforeSwap.toString());
       logger.info('DAI balance before swap  : ' + daiL2BalanceBeforeSwap.toString());
@@ -643,7 +643,7 @@ export const uniswapL1L2TestSuite = (
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
       // 1. give user private funds on L2:
       await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge);
-      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge);
+      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerWallet, wethAmountToBridge);
 
       // 2. owner gives uniswap approval to transfer the funds to public:
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
@@ -812,7 +812,7 @@ export const uniswapL1L2TestSuite = (
           nonceForWETHTransferToPublicApproval,
         ),
       });
-      const wethL2BalanceBeforeSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
+      const wethL2BalanceBeforeSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerWallet);
 
       // Swap
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
@@ -896,7 +896,7 @@ export const uniswapL1L2TestSuite = (
       };
 
       // ensure that user's funds were burnt
-      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
+      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerWallet, wethL2BalanceBeforeSwap - wethAmountToBridge);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
       await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
