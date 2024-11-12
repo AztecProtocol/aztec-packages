@@ -343,12 +343,13 @@ fn poseidon2_absorb_chunks<let N: u32>(
     sponge
 }
 
+// NB: If it's not required to check that the non-absorbed elts of 'input' are 0s, set skip_0_check=true
 #[no_predicates]
 pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
     in_sponge: std::hash::poseidon2::Poseidon2,
     input: [Field; N],
     in_len: u32,
-    variable: bool,
+    skip_0_check: bool,
 ) -> std::hash::poseidon2::Poseidon2 {
     let mut sponge = in_sponge;
     // 'shift' is to account for already added inputs
@@ -368,7 +369,13 @@ pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
         sponge
     } else {
         // max_chunks = (N - (N % 3)) / 3;
-        poseidon2_absorb_chunks_loop::<N, (N - (N % 3)) / 3>(sponge, input, in_len, variable, shift)
+        poseidon2_absorb_chunks_loop::<N, (N - (N % 3)) / 3>(
+            sponge,
+            input,
+            in_len,
+            skip_0_check,
+            shift,
+        )
     };
     sponge
 }
@@ -376,6 +383,8 @@ pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
 // The below is the loop to absorb elts into a poseidon sponge in chunks of 3
 // shift - the num of elts already absorbed to ensure the sponge's cache_size = 1
 // M - the max number of chunks required to absorb N things (must be comptime to compile)
+// NB: The 0 checks ('Found non-zero field...') are messy, but having a separate loop over N to check
+// for 0s costs 3N gates. Current approach is approx 2N gates.
 #[no_predicates]
 fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
     in_sponge: std::hash::poseidon2::Poseidon2,
@@ -384,6 +393,10 @@ fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
     variable: bool,
     shift: u32,
 ) -> std::hash::poseidon2::Poseidon2 {
+    assert(in_len <= N, "Given in_len to absorb is larger than the input array len");
+    // When we have an existing sponge, we may have a shift of 0, and the final 'k+2' below = N
+    // The below avoids an overflow
+    let skip_last = 3 * M == N;
     // Writing in_sponge: &mut does not compile
     let mut sponge = in_sponge;
     let mut should_add = true;
@@ -397,8 +410,6 @@ fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
         // This is the index at the start of the chunk (for readability)
         let k = 3 * i + shift;
         if should_add {
-            let overflow_check = (k == N) | (k + 1 == N) | (k + 2 == N);
-            assert(!overflow_check, "Given in_len to absorb is larger than the input array len");
             // cache_size = 1, 2 => just assign
             sponge.cache[1] = input[k];
             sponge.cache[2] = input[k + 1];
@@ -412,13 +423,15 @@ fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
         } else if (!variable) & (i != chunks) {
             // if we are hashing a fixed len array which is a subarray, we check the remaining elts are 0
             // NB: we don't check at i == chunks, because that chunk contains elts to be absorbed or checked below
-            let last_0 = if k + 2 == N { 0 } else { input[k + 2] };
+            let last_0 = if (i == M - 1) & (skip_last) {
+                0
+            } else {
+                input[k + 2]
+            };
             let all_0 = (input[k] == 0) & (input[k + 1] == 0) & (last_0 == 0);
             assert(all_0, "Found non-zero field after breakpoint");
         }
     }
-    let overflow_check = (should_add) & (M != chunks);
-    assert(!overflow_check, "Given in_len to absorb is larger than the input array len");
     // we have 'remainder' num of items left to absorb
     should_add = true;
     // below is to avoid overflows (i.e. if inlen is close to N)
