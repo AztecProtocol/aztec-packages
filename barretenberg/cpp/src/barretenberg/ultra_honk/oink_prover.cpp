@@ -235,6 +235,20 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     // Compute the permutation grand product polynomial
     proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters);
 
+    // for (size_t idx = proving_key->final_active_wire_idx - 5; idx < proving_key->final_active_wire_idx + 5; ++idx) {
+    //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
+    //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
+    // }
+
+    for (size_t idx = proving_key->final_active_wire_idx + 1; idx < proving_key->proving_key.circuit_size; ++idx) {
+        proving_key->proving_key.polynomials.z_perm.at(idx) = 0;
+    }
+
+    // for (size_t idx = proving_key->final_active_wire_idx - 5; idx < proving_key->final_active_wire_idx + 5; ++idx) {
+    //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
+    //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
+    // }
+
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
         if (proving_key->get_is_structured()) {

@@ -45,6 +45,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
 
+    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = TraceSettings{},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
@@ -74,6 +76,13 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);
         circuit.blocks.compute_offsets(is_structured);
+
+        // Find index of last non-trivial wire value in the trace
+        for (auto& block : circuit.blocks.get()) {
+            if (block.size() > 0) {
+                final_active_wire_idx = block.trace_offset + block.size();
+            }
+        }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
         // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
@@ -239,7 +248,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
                     // First and last lagrange polynomials (in the full circuit size)
                     proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
-                    proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, dyadic_circuit_size - 1);
+                    proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, final_active_wire_idx);
                 }
             }
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
@@ -264,7 +273,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
         // Set the lagrange polynomials
         proving_key.polynomials.lagrange_first.at(0) = 1;
-        proving_key.polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+        proving_key.polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");

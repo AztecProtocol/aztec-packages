@@ -367,7 +367,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }
 
-TEST_F(UltraRelationCorrectnessTests, TruncatedPermutation)
+TEST_F(UltraRelationCorrectnessTests, TruncatedGrandProductPermutation)
 {
     using Flavor = MegaFlavor;
     using FF = typename Flavor::FF;
@@ -390,10 +390,13 @@ TEST_F(UltraRelationCorrectnessTests, TruncatedPermutation)
     auto& proving_key = decider_pk->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
-    size_t last_gate_idx = builder.blocks.lookup.trace_offset + builder.blocks.lookup.size();
-    info("builder.blocks.lookup.trace_offset = ", builder.blocks.lookup.trace_offset);
-    info("builder.blocks.lookup.size() = ", builder.blocks.lookup.size());
-    info("last_gate_idx = ", last_gate_idx);
+    // Find index of last non-trivial wire value in the trace
+    size_t last_gate_idx = 0;
+    for (auto& block : builder.blocks.get()) {
+        if (block.size() > 0) {
+            last_gate_idx = block.trace_offset + block.size();
+        }
+    }
 
     // Generate eta, beta and gamma
     decider_pk->relation_parameters.eta = FF::random_element();
