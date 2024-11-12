@@ -476,10 +476,10 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH /* previous_non_revertible_accumulated_data */
     + PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH /* previous_revertible_accumulated_data */
     + TREE_SNAPSHOTS_LENGTH /* end_tree_snapshots */
+    + GAS_LENGTH /* end_gas_used */
     + AVM_ACCUMULATED_DATA_LENGTH
     + 1 /* transaction_fee */
-    + 1 /* reverted */
-;
+    + 1 /* reverted */;
 
 pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* vk_tree_root */
