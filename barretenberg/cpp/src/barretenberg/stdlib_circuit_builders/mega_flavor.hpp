@@ -51,9 +51,9 @@ class MegaFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
-
+    // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
-
+    // The number of shifted tables
     static constexpr size_t NUM_SHIFTED_TABLES = 4;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
@@ -284,6 +284,7 @@ class MegaFlavor {
 
     /**
      * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
+     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
      */
     template <typename DataType> class ShiftedTables {
       public:
