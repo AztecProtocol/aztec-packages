@@ -183,8 +183,9 @@ describe('e2e_fees private_payment', () => {
      *  increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const newlyMintedBananas = 10n;
+    const from = aliceAddress; // we are setting from to Alice here because of TODO(#9887)
     const tx = await bananaCoin.methods
-      .mint_to_private(aliceAddress, newlyMintedBananas)
+      .mint_to_private(from, aliceAddress, newlyMintedBananas)
       .send({
         fee: {
           gasSettings,
@@ -349,9 +350,10 @@ describe('e2e_fees private_payment', () => {
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 
+    const from = aliceAddress; // we are setting from to Alice here because of TODO(#9887)
     await expect(
       bananaCoin.methods
-        .mint_to_private(aliceAddress, 10)
+        .mint_to_private(from, aliceAddress, 10)
         .send({
           // we need to skip public simulation otherwise the PXE refuses to accept the TX
           skipPublicSimulation: true,

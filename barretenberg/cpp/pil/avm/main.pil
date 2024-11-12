@@ -85,6 +85,9 @@ namespace main(256);
     // TODO: Opcode value (byte) will be constrained by the bytecode validation circuit
     pol commit opcode_val;
 
+    //===== MISC ======================================================
+    pol commit sel_op_debug_log;
+
     //===== Gadget Selectors ======================================================
     pol commit sel_op_radix_be;
     pol commit sel_op_sha256;
@@ -246,6 +249,8 @@ namespace main(256);
     sel_op_sload * (1 - sel_op_sload) = 0;
     sel_op_sstore * (1 - sel_op_sstore) = 0;
 
+    sel_op_debug_log * (1 - sel_op_debug_log) = 0;
+
     sel_op_radix_be * (1 - sel_op_radix_be) = 0;
     sel_op_sha256 * (1 - sel_op_sha256) = 0;
     sel_op_poseidon2 * (1 - sel_op_poseidon2) = 0;
@@ -351,13 +356,16 @@ namespace main(256);
     #[SUBOP_FDIV_W_IN_TAG_FF]
     sel_op_fdiv * (w_in_tag - constants.MEM_TAG_FF) = 0;
 
-    // op_err cannot be maliciously activated for a non-relevant
+    // TODO: op_err cannot be maliciously activated for a non-relevant
     // operation selector, i.e., op_err == 1 ==> sel_op_fdiv || sel_op_XXX || ...
     // op_err * (sel_op_fdiv + sel_op_XXX + ... - 1) == 0
     // Note that the above is even a stronger constraint, as it shows
     // that exactly one sel_op_XXX must be true.
-    #[SUBOP_ERROR_RELEVANT_OP]
-    op_err * ((sel_op_fdiv + sel_op_div + sel_op_get_contract_instance) - 1) = 0;
+    // #[SUBOP_ERROR_RELEVANT_OP]
+    // op_err * (1 - tag_err) * ((sel_op_fdiv + sel_op_div + sel_op_get_contract_instance) - 1) = 0;
+
+    #[TAG_ERR_IMPLIES_OP_ERR]
+    tag_err * (1 - op_err) = 0;
 
     // TODO: constraint that we stop execution at the first error (tag_err or op_err)
     // An error can only happen at the last sub-operation row.
@@ -426,7 +434,7 @@ namespace main(256);
                        + sel_op_ecadd + sel_op_msm;
     pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol OPCODE_SELECTORS = sel_op_fdiv + sel_op_calldata_copy + sel_op_get_contract_instance
-                         + sel_op_returndata_size + sel_op_returndata_copy
+                         + sel_op_returndata_size + sel_op_returndata_copy + sel_op_debug_log
                          + SEL_ALL_ALU + SEL_ALL_BINARY + SEL_ALL_MEMORY + SEL_ALL_GADGET
                          + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + SEL_ALL_LEFTGAS
                          + SEL_ALL_CTRL_FLOW;
@@ -486,9 +494,9 @@ namespace main(256);
     #[MOV_MAIN_SAME_TAG]
     sel_op_mov * (r_in_tag - w_in_tag) = 0;
 
-    // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
-    // the operation is not copied to the ALU table.
-    sel_alu = SEL_ALL_ALU * (1 - tag_err) * (1 - op_err);
+    // Predicate to activate the copy of intermediate registers to ALU table. If op_err == 1,
+    // the operation is not copied to the ALU table. Note that it encompasses tag_err == 1.
+    sel_alu = SEL_ALL_ALU * (1 - op_err);
 
     // Dispatch the correct in_tag for alu
     SEL_ALU_R_TAG * (alu_in_tag - r_in_tag) = 0;
@@ -506,8 +514,8 @@ namespace main(256);
     //===== Memory Slice Constraints ============================================
     pol commit sel_slice_gadget; // Selector to activate a slice gadget operation in the gadget (#[PERM_MAIN_SLICE]).
 
-    // Activate only if tag_err is disabled or retsize (ib) is non-zero
-    ib * (1 - tag_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
+    // Activate only if op_err is disabled or retsize (ib) is non-zero
+    ib * (1 - op_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
 
     //====== Inter-table Constraints ============================================
 
@@ -537,7 +545,7 @@ namespace main(256);
     // sel_Bin is not explicitly constrained to be boolean, however this is enforced through
     // the operation decomposition step during bytecode unpacking.
     #[BIN_SEL_2]
-    sel_bin = sel_op_and + sel_op_or + sel_op_xor;
+    sel_bin = (sel_op_and + sel_op_or + sel_op_xor) * (1 - op_err);
 
     #[PERM_MAIN_BIN]
     sel_bin {clk, ia, ib, ic, bin_op_id, r_in_tag}
