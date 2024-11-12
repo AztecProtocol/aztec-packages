@@ -7,7 +7,7 @@ use dep::aztec::test::helpers::cheatcodes;
 unconstrained fn transfer_private() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     // docs:start:txe_test_transfer_private
     // Transfer tokens
@@ -23,7 +23,7 @@ unconstrained fn transfer_private() {
 unconstrained fn transfer_private_to_self() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = 1000;
     Token::at(token_contract_address).transfer(owner, transfer_amount).call(&mut env.private());
@@ -36,7 +36,7 @@ unconstrained fn transfer_private_to_self() {
 unconstrained fn transfer_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     let not_deployed = cheatcodes::create_account();
     // Transfer tokens
     let transfer_amount = 1000;
@@ -57,7 +57,7 @@ unconstrained fn transfer_private_to_non_deployed_account() {
 unconstrained fn transfer_private_failure_more_than_balance() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, recipient, mint_amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + 1;
     Token::at(token_contract_address).transfer(recipient, transfer_amount).call(&mut env.private());
