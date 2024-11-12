@@ -559,7 +559,6 @@ fn simplify_black_box_func(
 
         BlackBoxFunc::MultiScalarMul => SimplifyResult::None,
         BlackBoxFunc::EmbeddedCurveAdd => blackbox::simplify_ec_add(dfg, solver, arguments),
-        BlackBoxFunc::SchnorrVerify => blackbox::simplify_schnorr_verify(dfg, solver, arguments),
 
         BlackBoxFunc::BigIntAdd
         | BlackBoxFunc::BigIntSub

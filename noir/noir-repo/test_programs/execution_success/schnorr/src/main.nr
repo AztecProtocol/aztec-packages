@@ -13,14 +13,9 @@ fn main(
     // We want to make sure that we can accurately verify a signature whose message is a slice vs. an array
     let message_field_bytes: [u8; 10] = message_field.to_be_bytes();
 
-    // Is there ever a situation where someone would want
-    // to ensure that a signature was invalid?
-    // Check that passing a slice as the message is valid
-    let valid_signature =
-        std::schnorr::verify_signature_slice(pub_key_x, pub_key_y, signature, message_field_bytes);
-    assert(valid_signature);
     // Check that passing an array as the message is valid
-    let valid_signature = std::schnorr::verify_signature(pub_key_x, pub_key_y, signature, message);
+    let valid_signature =
+        std::schnorr::verify_signature(pub_key_x, pub_key_y, signature, message_field_bytes);
     assert(valid_signature);
     let pub_key =
         embedded_curve_ops::EmbeddedCurvePoint { x: pub_key_x, y: pub_key_y, is_infinite: false };
