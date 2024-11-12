@@ -36,7 +36,6 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AccountWallet,
   type AccountWalletWithSecretKey,
   AnvilTestWatcher,
   BatchCall,
@@ -48,7 +47,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, LogType, Note, type TxHash, tryStop } from '@aztec/circuit-types';
+import { L2Block, LogType, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
@@ -182,27 +181,6 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
       await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
     }
-  }
-
-  private async addPendingShieldNoteToPXE(args: {
-    amount: bigint;
-    secretHash: Fr;
-    txHash: TxHash;
-    accountAddress: AztecAddress;
-    assetAddress: AztecAddress;
-    wallet: AccountWallet;
-  }) {
-    const { accountAddress, assetAddress, amount, secretHash, txHash, wallet } = args;
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      accountAddress,
-      assetAddress,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await wallet.addNote(extendedNote);
   }
 
   async createAndSendTxs() {
