@@ -17,7 +17,6 @@ mod visibility;
 // A test harness will allow for more expressive and readable tests
 use std::collections::BTreeMap;
 
-use acvm::{AcirField, FieldElement};
 use fm::FileId;
 
 use iter_extended::vecmap;
