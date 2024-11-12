@@ -2,6 +2,7 @@ import {
   type EncryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
@@ -589,7 +590,7 @@ export class Archiver implements ArchiveSource {
     }
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash) {
     return this.store.getTxEffect(txHash);
   }
 
@@ -933,7 +934,7 @@ class ArchiverStoreHelper
   getBlockHeaders(from: number, limit: number): Promise<Header[]> {
     return this.store.getBlockHeaders(from, limit);
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.store.getTxEffect(txHash);
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {

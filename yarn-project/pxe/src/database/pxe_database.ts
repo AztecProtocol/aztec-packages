@@ -214,4 +214,16 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
   setTaggingSecretsIndexesAsRecipient(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
+
+  /**
+   * Deletes all notes synched after this block number.
+   * @param blockNumber - All notes strictly after this block number are removed.
+   */
+  removeNotesAfter(blockNumber: number): Promise<void>;
+
+  /**
+   * Restores notes nullified after the given block.
+   * @param blockNumber - All nullifiers strictly after this block are removed.
+   */
+  unnullifyNotesAfter(blockNumber: number): Promise<void>;
 }

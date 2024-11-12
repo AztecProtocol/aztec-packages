@@ -20,6 +20,7 @@ import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
+import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
@@ -106,7 +107,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getTxEffect', async () => {
     const result = await context.client.getTxEffect(new TxHash(Buffer.alloc(32, 1)));
-    expect(result).toBeInstanceOf(TxEffect);
+    expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getSettledTxReceipt', async () => {
@@ -261,9 +262,9 @@ class MockArchiver implements ArchiverApi {
   getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return Promise.resolve([L2Block.random(from)]);
   }
-  getTxEffect(_txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxEffect.empty());
+    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);

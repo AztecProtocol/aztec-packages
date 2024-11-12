@@ -12,14 +12,15 @@ export class L2BlockStream {
   private readonly log = createDebugLogger('aztec:l2_block_stream');
 
   constructor(
-    private l2BlockSource: L2BlockSource,
+    private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private opts: {
       proven?: boolean;
       pollIntervalMS?: number;
       batchSize?: number;
-    },
+      startingBlock?: number;
+    } = {},
   ) {
     this.runningPromise = new RunningPromise(() => this.work(), this.opts.pollIntervalMS ?? 1000);
   }
@@ -68,6 +69,11 @@ export class L2BlockStream {
       if (latestBlockNumber < localTips.latest.number) {
         this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
         await this.emitEvent({ type: 'chain-pruned', blockNumber: latestBlockNumber });
+      }
+
+      // If we are just starting, use the starting block number from the options.
+      if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
+        latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
       }
 
       // Request new blocks from the source.

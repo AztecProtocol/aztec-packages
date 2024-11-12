@@ -7,6 +7,7 @@ import {
   type TxEffect,
   TxHash,
   TxScopedL2Log,
+  randomInBlock,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -423,7 +424,7 @@ describe('Simulator oracle', () => {
       });
 
       aztecNode.getTxEffect.mockImplementation(txHash => {
-        return Promise.resolve(txEffectsMap[txHash.toString()] as TxEffect);
+        return Promise.resolve(randomInBlock(txEffectsMap[txHash.toString()] as TxEffect));
       });
       aztecNode.findLeavesIndexes.mockImplementation((_blockNumber, _treeId, leafValues) =>
         Promise.resolve(

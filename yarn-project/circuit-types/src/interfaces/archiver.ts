@@ -10,6 +10,7 @@ import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas'
 
 import { z } from 'zod';
 
+import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
 import { GetUnencryptedLogsResponseSchema, TxScopedL2Log } from '../logs/get_logs_response.js';
@@ -42,7 +43,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
-  getTxEffect: z.function().args(TxHash.schema).returns(TxEffect.schema.optional()),
+  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
   getL2EpochNumber: z.function().args().returns(schemas.BigInt),

@@ -38,22 +38,23 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effects, notes] = await Promise.all([
+  const [receipt, effectsInBlock, notes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
     pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
-  log(` Status: ${receipt.status} ${effects ? `(${effects.revertCode.getDescription()})` : ''}`);
+  log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
   if (receipt.error) {
     log(` Error: ${receipt.error}`);
   }
 
-  if (!effects) {
+  if (!effectsInBlock) {
     return;
   }
 
+  const effects = effectsInBlock.data;
   const artifactMap = opts?.artifactMap ?? (await getKnownArtifacts(pxe));
 
   if (opts.includeBlockInfo) {

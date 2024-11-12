@@ -5,7 +5,8 @@
   "exports": {
     ".": "./dest/interfaces/index.js",
     "./lmdb": "./dest/lmdb/index.js",
-    "./utils": "./dest/utils.js"
+    "./utils": "./dest/utils.js",
+    "./stores": "./dest/stores/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -55,10 +56,12 @@
     ]
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "lmdb": "^3.0.6"
   },
   "devDependencies": {
+    "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",

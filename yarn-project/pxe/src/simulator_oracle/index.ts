@@ -1,5 +1,6 @@
 import {
   type AztecNode,
+  InBlock,
   L1NotePayload,
   type L2Block,
   type L2BlockNumber,
@@ -469,7 +470,7 @@ export class SimulatorOracle implements DBOracle {
     const incomingNotes: IncomingNoteDao[] = [];
     const outgoingNotes: OutgoingNoteDao[] = [];
 
-    const txEffectsCache = new Map<string, TxEffect | undefined>();
+    const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
       const incomingNotePayload = L1NotePayload.decryptAsIncoming(
@@ -513,8 +514,10 @@ export class SimulatorOracle implements DBOracle {
           incomingNotePayload ? computePoint(recipient) : undefined,
           outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
           payload!,
-          txEffect.txHash,
-          txEffect.noteHashes,
+          txEffect.data.txHash,
+          txEffect.l2BlockNumber,
+          txEffect.l2BlockHash,
+          txEffect.data.noteHashes,
           scopedLog.dataStartIndexForTx,
           excludedIndices.get(scopedLog.txHash.toString())!,
           this.log,

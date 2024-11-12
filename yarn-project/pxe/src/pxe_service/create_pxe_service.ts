@@ -3,6 +3,7 @@ import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
+import { L2TipsStore } from '@aztec/kv-store/stores';
 import { createStore } from '@aztec/kv-store/utils';
 
 import { type PXEServiceConfig } from '../config/index.js';
@@ -35,10 +36,12 @@ export async function createPXEService(
   const keyStore = new KeyStore(
     await createStore('pxe_key_store', storeConfig, createDebugLogger('aztec:pxe:keystore:lmdb')),
   );
-  const db = new KVPxeDatabase(await createStore('pxe_data', storeConfig, createDebugLogger('aztec:pxe:data:lmdb')));
+  const store = await createStore('pxe_data', storeConfig, createDebugLogger('aztec:pxe:data:lmdb'));
+  const db = new KVPxeDatabase(store);
+  const tips = new L2TipsStore(store, 'pxe');
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
-  const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);
+  const server = new PXEService(keyStore, aztecNode, db, tips, prover, config, logSuffix);
   await server.start();
   return server;
 }

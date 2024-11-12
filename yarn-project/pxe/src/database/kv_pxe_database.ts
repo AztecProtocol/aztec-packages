@@ -214,6 +214,41 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
+  public removeNotesAfter(blockNumber: number): Promise<void> {
+    return this.db.transaction(() => {
+      for (const note of this.#notes.values()) {
+        const noteDao = IncomingNoteDao.fromBuffer(note);
+        if (noteDao.l2BlockNumber > blockNumber) {
+          const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
+          void this.#notes.delete(noteIndex);
+          void this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
+          for (const scope of this.#scopes.entries()) {
+            void this.#notesByAddressPointAndScope.get(scope)!.deleteValue(noteDao.addressPoint.toString(), noteIndex);
+            void this.#notesByTxHashAndScope.get(scope)!.deleteValue(noteDao.txHash.toString(), noteIndex);
+            void this.#notesByContractAndScope.get(scope)!.deleteValue(noteDao.contractAddress.toString(), noteIndex);
+            void this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(noteDao.storageSlot.toString(), noteIndex);
+          }
+        }
+      }
+
+      for (const note of this.#outgoingNotes.values()) {
+        const noteDao = OutgoingNoteDao.fromBuffer(note);
+        if (noteDao.l2BlockNumber > blockNumber) {
+          const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
+          void this.#outgoingNotes.delete(noteIndex);
+          void this.#outgoingNotesByContract.deleteValue(noteDao.contractAddress.toString(), noteIndex);
+          void this.#outgoingNotesByStorageSlot.deleteValue(noteDao.storageSlot.toString(), noteIndex);
+          void this.#outgoingNotesByTxHash.deleteValue(noteDao.txHash.toString(), noteIndex);
+          void this.#outgoingNotesByOvpkM.deleteValue(noteDao.ovpkM.toString(), noteIndex);
+        }
+      }
+    });
+  }
+
+  public async unnullifyNotesAfter(_blockNumber: number): Promise<void> {
+    // TODO: Implementme. Requires tracking when a note was nullified.
+  }
+
   getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
     const publicKey: PublicKey | undefined = filter.owner ? computePoint(filter.owner) : undefined;
 

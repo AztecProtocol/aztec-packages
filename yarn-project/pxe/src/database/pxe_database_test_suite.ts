@@ -12,10 +12,8 @@ import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 
-import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
-import { randomOutgoingNoteDao } from './outgoing_note_dao.test.js';
+import { IncomingNoteDao } from './incoming_note_dao.js';
+import { OutgoingNoteDao } from './outgoing_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -121,11 +119,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomIncomingNoteDao({
+          IncomingNoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
             addressPoint: computePoint(owners[i % owners.length].address),
             index: BigInt(i),
+            l2BlockNumber: i,
           }),
         );
 
@@ -260,6 +259,14 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           }),
         ).resolves.toEqual([]);
       });
+
+      it('removes notes after a given block', async () => {
+        await database.addNotes(notes, [], owners[0].address);
+
+        await database.removeNotesAfter(5);
+        const result = await database.getIncomingNotes({ scopes: [owners[0].address] });
+        expect(new Set(result)).toEqual(new Set(notes.slice(0, 6)));
+      });
     });
 
     describe('outgoing notes', () => {
@@ -307,7 +314,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomOutgoingNoteDao({
+          OutgoingNoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
             ovpkM: owners[i % owners.length].publicKeys.masterOutgoingViewingPublicKey,

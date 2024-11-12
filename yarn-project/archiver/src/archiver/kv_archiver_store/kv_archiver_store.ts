@@ -6,7 +6,6 @@ import {
   type L2BlockL2Logs,
   type LogFilter,
   type LogType,
-  type TxEffect,
   type TxHash,
   type TxReceipt,
   type TxScopedL2Log,
@@ -159,7 +158,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param txHash - The txHash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash) {
     return Promise.resolve(this.#blockStore.getTxEffect(txHash));
   }
 

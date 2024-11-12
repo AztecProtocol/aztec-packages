@@ -22,3 +22,4 @@ export * from './simulation_error.js';
 export * from './tx/index.js';
 export * from './tx_effect.js';
 export * from './tx_execution_request.js';
+export * from './in_block.js';

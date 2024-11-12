@@ -6,6 +6,7 @@ import {
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockL2Logs,
@@ -117,12 +118,16 @@ export class AztecNodeService implements AztecNode {
     this.log.info(message);
   }
 
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+  public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
   }
 
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+  public getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
     return this.p2pClient.getEpochProofQuotes(epoch);
+  }
+
+  public getL2Tips() {
+    return this.blockSource.getL2Tips();
   }
 
   /**
@@ -372,7 +377,7 @@ export class AztecNodeService implements AztecNode {
     return txReceipt;
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.blockSource.getTxEffect(txHash);
   }
 
@@ -708,7 +713,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
     return (
       (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
       this.worldStateSynchronizer.getCommitted().getInitialHeader()

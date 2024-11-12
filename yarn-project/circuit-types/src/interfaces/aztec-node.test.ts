@@ -28,7 +28,9 @@ import omit from 'lodash.omit';
 import times from 'lodash.times';
 import { resolve } from 'path';
 
+import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
+import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
 import {
@@ -78,6 +80,15 @@ describe('AztecNodeApiSchema', () => {
   afterAll(() => {
     const all = Object.keys(AztecNodeApiSchema);
     expect([...tested].sort()).toEqual(all.sort());
+  });
+
+  it('getL2Tips', async () => {
+    const result = await context.client.getL2Tips();
+    expect(result).toEqual({
+      latest: { number: 1, hash: `0x01` },
+      proven: { number: 1, hash: `0x01` },
+      finalized: { number: 1, hash: `0x01` },
+    });
   });
 
   it('findLeavesIndexes', async () => {
@@ -231,7 +242,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getTxEffect', async () => {
     const response = await context.client.getTxEffect(TxHash.random());
-    expect(response).toBeInstanceOf(TxEffect);
+    expect(response!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getPendingTxs', async () => {
@@ -254,8 +265,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(Fr);
   });
 
-  it('getHeader', async () => {
-    const response = await context.client.getHeader();
+  it('getBlockHeader', async () => {
+    const response = await context.client.getBlockHeader();
     expect(response).toBeInstanceOf(Header);
   });
 
@@ -318,6 +329,13 @@ describe('AztecNodeApiSchema', () => {
 class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
 
+  getL2Tips(): Promise<L2Tips> {
+    return Promise.resolve({
+      latest: { number: 1, hash: `0x01` },
+      proven: { number: 1, hash: `0x01` },
+      finalized: { number: 1, hash: `0x01` },
+    });
+  }
   findLeavesIndexes(
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
@@ -472,9 +490,9 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxEffect.random());
+    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
   }
   getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve([Tx.random()]);
@@ -491,7 +509,7 @@ class MockAztecNode implements AztecNode {
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getHeader(_blockNumber?: number | 'latest' | undefined): Promise<Header> {
+  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<Header> {
     return Promise.resolve(Header.empty());
   }
   simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
