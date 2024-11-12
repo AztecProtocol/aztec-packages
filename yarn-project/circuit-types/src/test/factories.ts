@@ -74,15 +74,16 @@ export function makeBloatedProcessedTx({
     : mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
   tx.data.constants = txConstantData;
 
+  // No side effects were created in mockTx. The default gasUsed is the tx overhead.
+  tx.data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
+
   if (privateOnly) {
     const data = makeCombinedAccumulatedData(seed + 0x1000);
 
     // Private-only tx has no public data writes.
     data.publicDataWrites.forEach((_, i) => (data.publicDataWrites[i] = PublicDataWrite.empty()));
 
-    // No side effects were created in mockTx. The default gasUsed is the tx overhead.
-    data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
-    const transactionFee = data.gasUsed.computeFee(globalVariables.gasFees);
+    const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
 
     clearLogs(data);
 

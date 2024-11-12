@@ -201,7 +201,7 @@ describe('public_processor', () => {
       });
 
       const privateGasUsed = new Gas(12, 34);
-      tx.data.forRollup!.end.gasUsed = privateGasUsed;
+      tx.data.gasUsed = privateGasUsed;
 
       const txFee = privateGasUsed.computeFee(globalVariables.gasFees);
 

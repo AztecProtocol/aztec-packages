@@ -51,7 +51,7 @@ export class PublicExecutionResultBuilder {
 
   build(overrides: Partial<EnqueuedPublicCallExecutionResult> = {}): EnqueuedPublicCallExecutionResult {
     return {
-      endGasLeft: new Gas(0, 0),
+      endGasLeft: Gas.empty(),
       endSideEffectCounter: Fr.ZERO,
       returnValues: padArrayEnd(this._returnValues, Fr.ZERO, 4), // TODO(#5450) Need to use the proper return values here
       reverted: this._reverted,

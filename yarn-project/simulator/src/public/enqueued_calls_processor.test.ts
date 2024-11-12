@@ -33,7 +33,6 @@ import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { PublicExecutionResultBuilder } from '../mocks/fixtures.js';
 import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
-import { type EnqueuedPublicCallExecutionResult } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
@@ -46,9 +45,8 @@ describe('enqueued_calls_processor', () => {
   const teardownGasLimits = Gas.from({ daGas: 20, l2Gas: 30 });
   const maxFeesPerGas = gasFees;
 
-  // gasUsed for the tx after private execution.
-  const txPrivateNonRevertibleGasUsed = Gas.from({ daGas: 13, l2Gas: 17 });
-  const txPrivateRevertibleGasUsed = Gas.from({ daGas: 7, l2Gas: 11 });
+  // gasUsed for the tx after private execution, minus the teardownGasLimits.
+  const privateGasUsed = Gas.from({ daGas: 13, l2Gas: 17 });
 
   // gasUsed for each enqueued call.
   const enqueuedCallGasUsed = new Gas(12, 34);
@@ -81,23 +79,30 @@ describe('enqueued_calls_processor', () => {
 
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(7777);
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] = new Fr(8888);
-    tx.data.forPublic!.nonRevertibleAccumulatedData.gasUsed = txPrivateNonRevertibleGasUsed;
 
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = new Fr(9999);
-    tx.data.forPublic!.revertibleAccumulatedData.gasUsed = txPrivateRevertibleGasUsed;
+
+    tx.data.gasUsed = privateGasUsed;
+    if (hasPublicTeardownCall) {
+      tx.data.gasUsed = tx.data.gasUsed.add(teardownGasLimits);
+    }
 
     return tx;
   };
 
   const mockPublicExecutor = (
-    mockedSimulatorExecutions: ((stateManager: AvmPersistableStateManager) => Promise<PublicExecutionResultBuilder>)[],
+    mockedSimulatorExecutions: ((
+      stateManager: AvmPersistableStateManager,
+      resultBuilder: PublicExecutionResultBuilder,
+    ) => Promise<void>)[],
   ) => {
     for (const executeSimulator of mockedSimulatorExecutions) {
       publicExecutor.simulate.mockImplementationOnce(
-        async (stateManager: AvmPersistableStateManager, _executionResult, _globalVariables, allocatedGas) => {
-          const builder = await executeSimulator(stateManager);
+        async (stateManager: AvmPersistableStateManager, _executionResult, _globalVariables, availableGas) => {
+          const builder = PublicExecutionResultBuilder.empty();
+          await executeSimulator(stateManager, builder);
           return builder.build({
-            endGasLeft: allocatedGas.sub(enqueuedCallGasUsed),
+            endGasLeft: availableGas.sub(enqueuedCallGasUsed),
           });
         },
       );
@@ -124,9 +129,9 @@ describe('enqueued_calls_processor', () => {
     root = Buffer.alloc(32, 5);
 
     publicExecutor = mock<PublicExecutor>();
-    publicExecutor.simulate.mockImplementation((_stateManager, _executionResult, _globalVariables, allocatedGas) => {
+    publicExecutor.simulate.mockImplementation((_stateManager, _executionResult, _globalVariables, availableGas) => {
       const result = PublicExecutionResultBuilder.empty().build({
-        endGasLeft: allocatedGas.sub(enqueuedCallGasUsed),
+        endGasLeft: availableGas.sub(enqueuedCallGasUsed),
       });
       return Promise.resolve(result);
     });
@@ -184,15 +189,14 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
-    const expectedPrivateGasUsed = txPrivateNonRevertibleGasUsed.add(txPrivateRevertibleGasUsed);
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // For 2 setup calls.
-    const expectedTotalGas = expectedPrivateGasUsed.add(expectedPublicGasUsed);
+    const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: Gas.empty(),
     });
 
-    const availableGasForFirstSetup = gasLimits.sub(txPrivateNonRevertibleGasUsed);
+    const availableGasForFirstSetup = gasLimits.sub(privateGasUsed);
     const availableGasForSecondSetup = availableGasForFirstSetup.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstSetup, availableGasForSecondSetup]);
 
@@ -218,15 +222,14 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
-    const expectedPrivateGasUsed = txPrivateNonRevertibleGasUsed.add(txPrivateRevertibleGasUsed);
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // For 2 app logic calls.
-    const expectedTotalGas = expectedPrivateGasUsed.add(expectedPublicGasUsed);
+    const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: Gas.empty(),
     });
 
-    const availableGasForFirstAppLogic = gasLimits.sub(expectedPrivateGasUsed);
+    const availableGasForFirstAppLogic = gasLimits.sub(privateGasUsed);
     const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstAppLogic, availableGasForSecondAppLogic]);
 
@@ -252,9 +255,8 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
-    const expectedPrivateGasUsed = txPrivateNonRevertibleGasUsed.add(txPrivateRevertibleGasUsed);
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
-    const expectedTotalGas = expectedPrivateGasUsed.add(expectedTeardownGasUsed);
+    const expectedTotalGas = privateGasUsed.add(expectedTeardownGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
@@ -290,19 +292,18 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
-    const expectedPrivateGasUsed = txPrivateNonRevertibleGasUsed.add(txPrivateRevertibleGasUsed);
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(3); // 2 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
-    const expectedTotalGas = expectedPrivateGasUsed.add(expectedPublicGasUsed).add(expectedTeardownGasUsed);
+    const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed).add(expectedTeardownGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
     });
 
     // Check that each enqueued call is allocated the correct amount of gas.
-    const availableGasForFirstSetup = gasLimits.sub(teardownGasLimits).sub(txPrivateNonRevertibleGasUsed);
+    const availableGasForFirstSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
     const availableGasForSecondSetup = availableGasForFirstSetup.sub(enqueuedCallGasUsed);
-    const availableGasForAppLogic = availableGasForSecondSetup.sub(txPrivateRevertibleGasUsed).sub(enqueuedCallGasUsed);
+    const availableGasForAppLogic = availableGasForSecondSetup.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([
       availableGasForFirstSetup,
       availableGasForSecondSetup,
@@ -334,7 +335,7 @@ describe('enqueued_calls_processor', () => {
     const contractSlotB = fr(0x150);
     const contractSlotC = fr(0x200);
 
-    const mockedSimulatorExecutions = [
+    mockPublicExecutor([
       // SETUP
       async (_stateManager: AvmPersistableStateManager) => {
         // Nothing happened in setup phase.
@@ -355,24 +356,7 @@ describe('enqueued_calls_processor', () => {
         stateManager.writeStorage(contractAddress, contractSlotC, fr(0x152));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
-    ];
-
-    for (const executeSimulator of mockedSimulatorExecutions) {
-      publicExecutor.simulate.mockImplementationOnce(
-        async (
-          stateManager: AvmPersistableStateManager,
-          _executionResult,
-          _globalVariables,
-          allocatedGas,
-        ): Promise<EnqueuedPublicCallExecutionResult> => {
-          await executeSimulator(stateManager);
-          const result = PublicExecutionResultBuilder.empty().build({
-            endGasLeft: allocatedGas.sub(enqueuedCallGasUsed),
-          });
-          return Promise.resolve(result);
-        },
-      );
-    }
+    ]);
 
     const txResult = await processor.process(tx);
 
@@ -415,7 +399,7 @@ describe('enqueued_calls_processor', () => {
   it('includes a transaction that reverts in app logic', async function () {
     const tx = mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
-      numberOfAppLogicCalls: 1,
+      numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
     });
 
@@ -425,21 +409,20 @@ describe('enqueued_calls_processor', () => {
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(1));
-        return PublicExecutionResultBuilder.empty();
       },
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(2));
         await stateManager.writeNullifier(contractAddress, new Fr(3));
-        return PublicExecutionResultBuilder.empty().withReverted(appLogicFailure);
       },
-      async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers the state manager
+      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
         await stateManager.writeNullifier(contractAddress, new Fr(4));
-        return PublicExecutionResultBuilder.empty();
+        resultBuilder.withReverted(appLogicFailure);
+      },
+      // TEARDOWN
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeNullifier(contractAddress, new Fr(5));
       },
     ]);
 
@@ -455,20 +438,24 @@ describe('enqueued_calls_processor', () => {
     // tx reports app logic failure
     expect(txResult.revertReason).toBe(appLogicFailure);
 
-    const expectedSetupGas = txPrivateNonRevertibleGasUsed.add(enqueuedCallGasUsed);
-    const { l2Gas: appLogicL2Gas } = txPrivateRevertibleGasUsed.add(enqueuedCallGasUsed);
-    // All data emitted from app logic were discarded. daGas set to 0.
-    const expectedAppLogicGas = Gas.from({ daGas: 0, l2Gas: appLogicL2Gas });
+    const expectedSetupGas = enqueuedCallGasUsed;
+    const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
-    const expectedTotalGas = expectedSetupGas.add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
     });
 
-    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(txPrivateNonRevertibleGasUsed);
-    const allocatedAppLogicGas = availableGasForSetup.sub(txPrivateRevertibleGasUsed).sub(enqueuedCallGasUsed);
-    expectAvailableGasForCalls([availableGasForSetup, allocatedAppLogicGas, teardownGasLimits]);
+    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
+    const availableGasForFirstAppLogic = availableGasForSetup.sub(enqueuedCallGasUsed);
+    const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
+    expectAvailableGasForCalls([
+      availableGasForSetup,
+      availableGasForFirstAppLogic,
+      availableGasForSecondAppLogic,
+      teardownGasLimits,
+    ]);
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
@@ -482,14 +469,14 @@ describe('enqueued_calls_processor', () => {
       new Fr(7777),
       new Fr(8888),
       siloNullifier(contractAddress, new Fr(1)),
-      siloNullifier(contractAddress, new Fr(4)),
+      siloNullifier(contractAddress, new Fr(5)),
     ]);
   });
 
   it('includes a transaction that reverts in teardown', async function () {
     const tx = mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
-      numberOfAppLogicCalls: 1,
+      numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
     });
 
@@ -499,21 +486,20 @@ describe('enqueued_calls_processor', () => {
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(1));
-        return PublicExecutionResultBuilder.empty();
       },
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(2));
         await stateManager.writeNullifier(contractAddress, new Fr(3));
-        return PublicExecutionResultBuilder.empty();
       },
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(4));
-        return PublicExecutionResultBuilder.empty().withReverted(teardownFailure);
+      },
+      // TEARDOWN
+      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
+        await stateManager.writeNullifier(contractAddress, new Fr(5));
+        resultBuilder.withReverted(teardownFailure);
       },
     ]);
 
@@ -527,20 +513,24 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
     expect(txResult.revertReason).toBe(teardownFailure);
 
-    const expectedSetupGas = txPrivateNonRevertibleGasUsed.add(enqueuedCallGasUsed);
-    const expectedAppLogicGas = txPrivateRevertibleGasUsed.add(enqueuedCallGasUsed);
-    const { l2Gas: teardownL2Gas } = enqueuedCallGasUsed;
-    // All data emitted from teardown were discarded. daGas set to 0.
-    const expectedTeardownGasUsed = Gas.from({ daGas: 0, l2Gas: teardownL2Gas });
-    const expectedTotalGas = expectedSetupGas.add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedSetupGas = enqueuedCallGasUsed;
+    const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
+    const expectedTeardownGasUsed = enqueuedCallGasUsed;
+    const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
     });
 
-    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(txPrivateNonRevertibleGasUsed);
-    const allocatedAppLogicGas = availableGasForSetup.sub(txPrivateRevertibleGasUsed).sub(enqueuedCallGasUsed);
-    expectAvailableGasForCalls([availableGasForSetup, allocatedAppLogicGas, teardownGasLimits]);
+    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
+    const availableGasForFirstAppLogic = availableGasForSetup.sub(enqueuedCallGasUsed);
+    const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
+    expectAvailableGasForCalls([
+      availableGasForSetup,
+      availableGasForFirstAppLogic,
+      availableGasForSecondAppLogic,
+      teardownGasLimits,
+    ]);
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
@@ -557,14 +547,16 @@ describe('enqueued_calls_processor', () => {
       // new Fr(9999), // TODO: Data in app logic should be kept if teardown reverts.
       siloNullifier(contractAddress, new Fr(1)),
       // siloNullifier(contractAddress, new Fr(2)),
-      // siloNullifier(contractAddress, new Fr(2)),
+      // siloNullifier(contractAddress, new Fr(3)),
+      // siloNullifier(contractAddress, new Fr(4)),
+      // siloNullifier(contractAddress, new Fr(5)),
     ]);
   });
 
   it('includes a transaction that reverts in app logic and teardown', async function () {
     const tx = mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
-      numberOfAppLogicCalls: 1,
+      numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
     });
 
@@ -574,21 +566,21 @@ describe('enqueued_calls_processor', () => {
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(1));
-        return PublicExecutionResultBuilder.empty();
       },
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
         await stateManager.writeNullifier(contractAddress, new Fr(2));
         await stateManager.writeNullifier(contractAddress, new Fr(3));
-        return PublicExecutionResultBuilder.empty().withReverted(appLogicFailure);
       },
-      async (stateManager: AvmPersistableStateManager) => {
-        // mock nullifiers on the state manager
+      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
         await stateManager.writeNullifier(contractAddress, new Fr(4));
-        return PublicExecutionResultBuilder.empty().withReverted(teardownFailure);
+        resultBuilder.withReverted(appLogicFailure);
+      },
+      // TEARDOWN
+      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
+        await stateManager.writeNullifier(contractAddress, new Fr(5));
+        resultBuilder.withReverted(teardownFailure);
       },
     ]);
 
@@ -604,22 +596,24 @@ describe('enqueued_calls_processor', () => {
     // tx reports app logic failure
     expect(txResult.revertReason).toBe(appLogicFailure);
 
-    const expectedSetupGas = txPrivateNonRevertibleGasUsed.add(enqueuedCallGasUsed);
-    const { l2Gas: appLogicL2Gas } = txPrivateRevertibleGasUsed.add(enqueuedCallGasUsed);
-    // All data emitted from app logic were discarded. daGas set to 0.
-    const expectedAppLogicGas = Gas.from({ daGas: 0, l2Gas: appLogicL2Gas });
-    const { l2Gas: teardownL2Gas } = enqueuedCallGasUsed;
-    // All data emitted from teardown were discarded. daGas set to 0.
-    const expectedTeardownGasUsed = Gas.from({ daGas: 0, l2Gas: teardownL2Gas });
-    const expectedTotalGas = expectedSetupGas.add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedSetupGas = enqueuedCallGasUsed;
+    const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
+    const expectedTeardownGasUsed = enqueuedCallGasUsed;
+    const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
     });
 
-    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(txPrivateNonRevertibleGasUsed);
-    const allocatedAppLogicGas = availableGasForSetup.sub(txPrivateRevertibleGasUsed).sub(enqueuedCallGasUsed);
-    expectAvailableGasForCalls([availableGasForSetup, allocatedAppLogicGas, teardownGasLimits]);
+    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
+    const availableGasForFirstAppLogic = availableGasForSetup.sub(enqueuedCallGasUsed);
+    const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
+    expectAvailableGasForCalls([
+      availableGasForSetup,
+      availableGasForFirstAppLogic,
+      availableGasForSecondAppLogic,
+      teardownGasLimits,
+    ]);
 
     const output = txResult.avmProvingRequest!.inputs.output;
 

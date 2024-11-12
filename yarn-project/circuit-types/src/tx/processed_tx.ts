@@ -174,7 +174,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   );
 
   const gasUsed = {
-    totalGas: tx.data.forRollup!.end.gasUsed,
+    totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
   };
 

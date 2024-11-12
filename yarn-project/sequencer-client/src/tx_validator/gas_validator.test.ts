@@ -26,7 +26,7 @@ describe('GasTxValidator', () => {
   let tx: Tx;
   let payer: AztecAddress;
   let expectedBalanceSlot: Fr;
-  let feeLimit = 0n;
+  let feeLimit: bigint;
 
   beforeEach(() => {
     tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });

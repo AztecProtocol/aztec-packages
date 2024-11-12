@@ -274,9 +274,9 @@ export class PublicProcessor {
 
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
     const gasFees = this.globalVariables.gasFees;
-    const accumulatedData = tx.data.forRollup!.end;
-    const transactionFee = accumulatedData.gasUsed.computeFee(gasFees);
+    const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
+    const accumulatedData = tx.data.forRollup!.end;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
       accumulatedData.publicDataWrites,
       transactionFee,

@@ -14,7 +14,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
-import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { PublicCallRequest } from '../public_call_request.js';
@@ -28,7 +27,6 @@ export class PrivateToPublicAccumulatedData {
     public encryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
-    public gasUsed: Gas,
   ) {}
 
   getSize() {
@@ -39,8 +37,7 @@ export class PrivateToPublicAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
-      arraySerializedSizeOfNonEmpty(this.publicCallRequests) +
-      this.gasUsed.toBuffer().length
+      arraySerializedSizeOfNonEmpty(this.publicCallRequests)
     );
   }
 
@@ -53,7 +50,6 @@ export class PrivateToPublicAccumulatedData {
       fields.encryptedLogsHashes,
       fields.unencryptedLogsHashes,
       fields.publicCallRequests,
-      fields.gasUsed,
     ] as const;
   }
 
@@ -67,7 +63,6 @@ export class PrivateToPublicAccumulatedData {
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
-      reader.readObject(Gas),
     );
   }
 
@@ -85,7 +80,6 @@ export class PrivateToPublicAccumulatedData {
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
-      reader.readObject(Gas),
     );
   }
 
@@ -102,7 +96,6 @@ export class PrivateToPublicAccumulatedData {
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
-      Gas.empty(),
     );
   }
 
@@ -136,7 +129,6 @@ export class PrivateToPublicAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))
         .join(', ')}],
-      gasUsed: [${inspect(this.gasUsed)}]
     }`;
   }
 }
