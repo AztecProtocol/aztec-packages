@@ -68,7 +68,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 - `set_admin` enables the admin to be updated
 - `set_minter` enables accounts to be added / removed from the approved minter list
 - `mint_to_public` enables tokens to be minted to the public balance of an account
-- `mint_private` enables tokens to be minted to the private balance of an account (with some caveats we will dig into)
+- `mint_to_private` enables tokens to be minted to the private balance of an account (with some caveats we will dig into)
 - `transfer_to_public` enables tokens to be moved from a public balance to a private balance, not necessarily the same account (step 1 of a 2 step process)
 - `transfer_in_public` enables users to transfer tokens from one account's public balance to another account's public balance
 - `burn_public` enables users to burn tokens
@@ -199,7 +199,7 @@ First, storage is initialized. Then the function checks that the `msg_sender` is
 
 #include_code mint_to_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `mint_private`
+#### `mint_to_private`
 
 This public function allows an account approved in the public `minters` mapping to create new private tokens.
 

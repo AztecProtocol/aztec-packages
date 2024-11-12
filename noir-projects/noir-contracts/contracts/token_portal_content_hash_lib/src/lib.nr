@@ -14,21 +14,22 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: Field) -> Fi
         hash_bytes[i + 36] = amount_bytes[i];
     }
 
-    // Function selector: 0x3e87b9be keccak256('mint_to_public(bytes32,uint256)')
-    hash_bytes[0] = 0x3e;
-    hash_bytes[1] = 0x87;
-    hash_bytes[2] = 0xb9;
-    hash_bytes[3] = 0xbe;
+    let selector = comptime { std::hash::keccak256("mint_to_public(bytes32,uint256)".as_bytes(), 24) };
+
+    hash_bytes[0] = selector[0];
+    hash_bytes[1] = selector[1];
+    hash_bytes[2] = selector[2];
+    hash_bytes[3] = selector[3];
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
 // docs:end:mint_to_public_content_hash_nr
 
-// docs:start:get_mint_private_content_hash
-// Computes a content hash of a deposit/mint_private message.
+// docs:start:get_mint_to_private_content_hash
+// Computes a content hash of a deposit/mint_to_private message.
 // Refer TokenPortal.sol for reference on L1.
-pub fn get_mint_private_content_hash(
+pub fn get_mint_to_private_content_hash(
     amount: Field
 ) -> Field {
     let mut hash_bytes = [0; 36];
@@ -38,16 +39,17 @@ pub fn get_mint_private_content_hash(
         hash_bytes[i + 4] = amount_bytes[i];
     }
 
-    // Function selector: 0xb81559e2 keccak256('mint_private(uint256)')
-    hash_bytes[0] = 0xb8;
-    hash_bytes[1] = 0x15;
-    hash_bytes[2] = 0x59;
-    hash_bytes[3] = 0xe2;
+    let selector = comptime { std::hash::keccak256("mint_to_private(uint256)".as_bytes(), 24) };
+
+    hash_bytes[0] = selector[0];
+    hash_bytes[1] = selector[1];
+    hash_bytes[2] = selector[2];
+    hash_bytes[3] = selector[3];
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:get_mint_private_content_hash
+// docs:end:get_mint_to_private_content_hash
 
 // docs:start:get_withdraw_content_hash
 // Computes a content hash of a withdraw message.
@@ -61,11 +63,12 @@ pub fn get_withdraw_content_hash(recipient: EthAddress, amount: Field, caller_on
     let amount_bytes: [u8; 32] = amount.to_be_bytes();
     let caller_on_l1_bytes: [u8; 32] = caller_on_l1.to_field().to_be_bytes();
 
-    //  0x69328dec, selector for "withdraw(address,uint256,address)"
-    hash_bytes[0] = 0x69;
-    hash_bytes[1] = 0x32;
-    hash_bytes[2] = 0x8d;
-    hash_bytes[3] = 0xec;
+    let selector = comptime { std::hash::keccak256("withdraw(address,uint256,address)".as_bytes(), 24) };
+
+    hash_bytes[0] = selector[0];
+    hash_bytes[1] = selector[1];
+    hash_bytes[2] = selector[2];
+    hash_bytes[3] = selector[3];
 
     for i in 0..32 {
         hash_bytes[i + 4] = recipient_bytes[i];

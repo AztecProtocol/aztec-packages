@@ -6,7 +6,7 @@ use dep::aztec::oracle::random::random;
 #[test]
 unconstrained fn burn_private_on_behalf_of_self() {
     let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     let burn_amount = mint_amount / 10;
 
     // Burn less than balance
@@ -17,7 +17,7 @@ unconstrained fn burn_private_on_behalf_of_self() {
 #[test]
 unconstrained fn burn_private_on_behalf_of_other() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ true);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
     let burn_amount = mint_amount / 10;
 
     // Burn on behalf of other

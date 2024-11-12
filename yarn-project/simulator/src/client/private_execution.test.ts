@@ -603,7 +603,7 @@ describe('Private Execution test suite', () => {
     const contractAddress = defaultContractAddress;
 
     describe('L1 to L2', () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
+      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_to_private_message');
       let bridgedAmount = 100n;
 
       const l1ToL2MessageIndex = 0;
@@ -626,7 +626,7 @@ describe('Private Execution test suite', () => {
 
       const computePreimage = () =>
         buildL1ToL2Message(
-          toFunctionSelector('mint_private(uint256)').substring(2),
+          toFunctionSelector('mint_to_private(uint256)').substring(2),
           [new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,

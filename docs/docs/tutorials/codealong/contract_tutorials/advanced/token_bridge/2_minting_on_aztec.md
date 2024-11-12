@@ -46,12 +46,12 @@ Now we will create a function to mint the amount privately. Paste this into your
 
 #include_code call_mint_on_token /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
-The `get_mint_private_content_hash` function is imported from the `token_portal_content_hash_lib`.
+The `get_mint_to_private_content_hash` function is imported from the `token_portal_content_hash_lib`.
 
-If the content hashes were constructed similarly for `mint_private` and `mint_to_publicly`, then content intended for private execution could have been consumed by calling the `claim_public` method. By making these two content hashes distinct, we prevent this scenario.
+If the content hashes were constructed similarly for `mint_to_private` and `mint_to_public`, then content intended for private execution could have been consumed by calling the `claim_public` method. By making these two content hashes distinct, we prevent this scenario.
 
 While we mint the tokens on L2, we _still don’t actually mint them to a certain address_. Instead we continue to pass the `secret_hash_for_redeeming_minted_notes` like we did on L1. This means that a user could reveal their secret for L2 message consumption for anyone to mint tokens on L2 but they can redeem these notes at a later time. **This enables a paradigm where an app can manage user’s secrets for L2 message consumption on their behalf**. **The app or any external party can also mint tokens on the user’s behalf should they be comfortable with leaking the secret for L2 Message consumption.** This doesn’t leak any new information to the app because their smart contract on L1 knew that a user wanted to move some amount of tokens to L2. The app still doesn’t know which address on L2 the user wants these notes to be in, but they can mint tokens nevertheless on their behalf.
 
-To mint tokens privately, `claim_private` calls an internal function `_call_mint_on_token()` which then calls [token.mint_private()](../../token_contract.md#mint_private).
+To mint tokens privately, `claim_private` calls an internal function `_call_mint_on_token()` which then calls [token.mint_to_private()](../../token_contract.md#mint_to_private).
 
 In the next step we will see how we can cancel a message.
