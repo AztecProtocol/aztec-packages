@@ -107,7 +107,7 @@ resource "google_container_node_pool" "primary_nodes" {
 
   # Node configuration
   node_config {
-    machine_type = "e2-medium"
+    machine_type = "n1-standard-16"
 
     service_account = google_service_account.gke_sa.email
     oauth_scopes = [
@@ -142,7 +142,7 @@ resource "google_container_node_pool" "spot_nodes" {
 
   # Node configuration
   node_config {
-    machine_type = "e2-medium"
+    machine_type = "n1-standard-16"
     spot         = true
 
     service_account = google_service_account.gke_sa.email
