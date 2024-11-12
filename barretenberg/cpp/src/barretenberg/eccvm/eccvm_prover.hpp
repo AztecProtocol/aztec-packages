@@ -37,10 +37,11 @@ class ECCVMProver {
     BB_PROFILE void execute_pcs_rounds();
     BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    HonkProof export_proof();
-    HonkProof construct_proof();
+    ECCVMProof export_proof();
+    ECCVMProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> ipa_transcript;
 
     TranslationEvaluations translation_evaluations;
 
@@ -62,9 +63,6 @@ class ECCVMProver {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 } // namespace bb

@@ -8,7 +8,7 @@ namespace bb {
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  */
-bool ECCVMVerifier::verify_proof(const HonkProof& proof)
+bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -16,7 +16,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     using OpeningClaim = OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof);
+    transcript = std::make_shared<Transcript>(proof.first);
+    ipa_transcript = std::make_shared<Transcript>(proof.second);
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 

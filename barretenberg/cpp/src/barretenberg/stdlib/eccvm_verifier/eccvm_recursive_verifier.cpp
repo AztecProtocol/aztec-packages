@@ -16,7 +16,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
  */
-template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -25,8 +25,10 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof.first);
+    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_proof_to_witness(builder, proof.second);
     transcript = std::make_shared<Transcript>(stdlib_proof);
+    ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

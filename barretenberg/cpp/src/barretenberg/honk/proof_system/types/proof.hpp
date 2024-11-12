@@ -11,7 +11,8 @@ static constexpr size_t HONK_PROOF_PUBLIC_INPUT_OFFSET = 3;
 // Where the number of public inputs is specified in a proof
 static constexpr size_t PUBLIC_INPUTS_SIZE_INDEX = 1;
 
-using HonkProof = std::vector<bb::fr>; // this can be fr?
+using HonkProof = std::vector<bb::fr>;              // this can be fr?
+using ECCVMProof = std::pair<HonkProof, HonkProof>; // Pair of Honk proof and IPA proof
 
 template <typename Builder> using StdlibProof = std::vector<bb::stdlib::field_t<Builder>>;
 
