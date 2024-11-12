@@ -105,7 +105,9 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)),
+      content: Hash.sha256ToField(
+        abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)
+      ),
       secretHash: secretHashForL2MessageConsumption,
       index: _index
     });
