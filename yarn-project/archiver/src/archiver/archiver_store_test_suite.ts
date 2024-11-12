@@ -407,7 +407,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         });
       });
 
-      it.skip('is possible to batch request encrypted logs of a tx via tags', async () => {
+      it('is possible to batch request encrypted logs of a tx via tags', async () => {
         // get random tx from any block that's not the last one
         const targetBlockIndex = randomInt(numBlocks - 2);
         const targetTxIndex = randomInt(txsPerBlock);
