@@ -479,7 +479,6 @@ impl FixtureBuilder {
             public_call_requests: self.public_call_requests.storage().map(
                 |cr: Counted<PublicCallRequest>| cr.inner,
             ),
-            gas_used: self.gas_used,
         }
     }
 
@@ -503,7 +502,6 @@ impl FixtureBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_writes: self.public_data_writes.storage(),
-            gas_used: self.gas_used,
         }
     }
 
@@ -568,6 +566,7 @@ impl FixtureBuilder {
             non_revertible_accumulated_data,
             revertible_accumulated_data,
             public_teardown_call_request: self.public_teardown_call_request,
+            gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
     }
@@ -659,6 +658,7 @@ impl FixtureBuilder {
             constants,
             start_state: self.start_state,
             revert_code: self.revert_code,
+            gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
     }

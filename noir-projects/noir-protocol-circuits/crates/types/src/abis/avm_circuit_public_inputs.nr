@@ -6,6 +6,7 @@ use crate::{
                 PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths,
             },
         },
+        gas::Gas,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         public_call_request::PublicCallRequest,
@@ -21,6 +22,7 @@ pub struct AvmCircuitPublicInputs {
     // Inputs.
     global_variables: GlobalVariables,
     start_tree_snapshots: TreeSnapshots,
+    start_gas_used: Gas,
     gas_settings: GasSettings,
     public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -43,6 +45,7 @@ impl Empty for AvmCircuitPublicInputs {
         AvmCircuitPublicInputs {
             global_variables: GlobalVariables::empty(),
             start_tree_snapshots: TreeSnapshots::empty(),
+            start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_app_logic_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -63,6 +66,7 @@ impl Eq for AvmCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
         (self.global_variables == other.global_variables)
             & (self.start_tree_snapshots == other.start_tree_snapshots)
+            & (self.start_gas_used == other.start_gas_used)
             & (self.gas_settings == other.gas_settings)
             & (self.public_setup_call_requests == other.public_setup_call_requests)
             & (self.public_app_logic_call_requests == other.public_app_logic_call_requests)
@@ -96,6 +100,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
 
         fields.extend_from_array(self.global_variables.serialize());
         fields.extend_from_array(self.start_tree_snapshots.serialize());
+        fields.extend_from_array(self.start_gas_used.serialize());
         fields.extend_from_array(self.gas_settings.serialize());
         for i in 0..self.public_setup_call_requests.len() {
             fields.extend_from_array(self.public_setup_call_requests[i].serialize());
@@ -127,6 +132,7 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         let item = AvmCircuitPublicInputs {
             global_variables: reader.read_struct(GlobalVariables::deserialize),
             start_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
+            start_gas_used: reader.read_struct(Gas::deserialize),
             gas_settings: reader.read_struct(GasSettings::deserialize),
             public_setup_call_requests: reader.read_struct_array(
                 PublicCallRequest::deserialize,

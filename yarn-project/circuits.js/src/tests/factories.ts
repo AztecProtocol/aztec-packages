@@ -394,7 +394,6 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     fr(seed + 0xb00), // encrypted_log_preimages_length
     fr(seed + 0xc00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0xd00, PublicDataWrite.empty),
-    makeGas(seed + 0xe00),
   );
 }
 
@@ -407,7 +406,6 @@ export function makePrivateToPublicAccumulatedData(seed = 1) {
     makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800),
     makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500),
-    makeGas(seed + 0x600),
   );
 }
 
@@ -589,6 +587,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
     makeRollupValidationRequests(seed + 0x500),
+    makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
     forPublic,
     forRollup,
@@ -602,7 +601,8 @@ function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
     makePrivateToPublicAccumulatedData(seed + 0x200),
     makePrivateToPublicAccumulatedData(seed + 0x300),
     makePublicCallRequest(seed + 0x400),
-    makeAztecAddress(seed + 0x500),
+    makeGas(seed + 0x500),
+    makeAztecAddress(seed + 0x600),
   );
 }
 
@@ -618,6 +618,7 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
     makeCombinedConstantData(seed + 0x100),
     makePartialStateReference(seed + 0x200),
     RevertCode.OK,
+    makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
 }
@@ -643,6 +644,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
   return new AvmCircuitPublicInputs(
     makeGlobalVariables(seed),
     makeTreeSnapshots(seed + 0x10),
+    makeGas(),
     makeGasSettings(),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
