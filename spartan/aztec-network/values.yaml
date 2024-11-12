@@ -196,7 +196,7 @@ ethereum:
     requests:
       memory: "2Gi"
       cpu: "200m"
-  storage: "8Gi"
+  storage: "80Gi"
 
 proverAgent:
   enabled: true

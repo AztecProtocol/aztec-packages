@@ -49,7 +49,6 @@ impl PublicKernelOutputComposer {
         self.propagate_validation_requests(enqueued_call);
         self.propagate_accumulated_data(enqueued_call, phase);
         self.propagate_end_side_effect_counter(enqueued_call);
-        self.update_gas_used(enqueued_call, phase);
         *self
     }
 
@@ -153,15 +152,5 @@ impl PublicKernelOutputComposer {
 
     fn propagate_end_side_effect_counter(&mut self, enqueued_call: VMCircuitPublicInputs) {
         self.output_builder.end_side_effect_counter = enqueued_call.end_side_effect_counter;
-    }
-
-    fn update_gas_used(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) {
-        let call_gas_used = enqueued_call.accumulated_data.gas_used;
-        if phase == PublicKernelPhase.SETUP {
-            self.output_builder.end_non_revertible.gas_used += call_gas_used;
-        }
-        if phase == PublicKernelPhase.APP_LOGIC {
-            self.output_builder.end.gas_used += call_gas_used;
-        }
     }
 }
