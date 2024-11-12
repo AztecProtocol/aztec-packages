@@ -255,6 +255,7 @@ export class SendL2ToL1Message extends Instruction {
     const operands = [this.recipientOffset, this.contentOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [recipientOffset, contentOffset] = addressing.resolve(operands, memory);
+    memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();

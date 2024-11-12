@@ -9,12 +9,12 @@ using FF = AvmFlavorSettings::FF;
 using AffinePoint = grumpkin::g1::affine_element;
 
 struct ExternalCallHint {
-    FF success;
+    FF success{};
     std::vector<FF> return_data;
     uint32_t l2_gas_used;
     uint32_t da_gas_used;
-    FF end_side_effect_counter;
-    FF contract_address;
+    FF end_side_effect_counter{};
+    FF contract_address{};
 };
 
 // Add support for deserialization of ExternalCallHint. This is implicitly used by serialize::read
@@ -31,9 +31,9 @@ inline void read(uint8_t const*& it, ExternalCallHint& hint)
 }
 
 struct ContractClassIdHint {
-    FF artifact_hash;
-    FF private_fn_root;
-    FF public_bytecode_commitment;
+    FF artifact_hash{};
+    FF private_fn_root{};
+    FF public_bytecode_commitment{};
 };
 
 inline void read(uint8_t const*& it, ContractClassIdHint& preimage)
@@ -61,12 +61,12 @@ struct PublicKeysHint {
 };
 
 struct ContractInstanceHint {
-    FF address;
+    FF address{};
     bool exists; // Useful for membership checks
-    FF salt;
-    FF deployer_addr;
-    FF contract_class_id;
-    FF initialisation_hash;
+    FF salt{};
+    FF deployer_addr{};
+    FF contract_class_id{};
+    FF initialisation_hash{};
     PublicKeysHint public_keys;
 };
 

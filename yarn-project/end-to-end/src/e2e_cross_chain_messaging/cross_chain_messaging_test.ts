@@ -43,7 +43,7 @@ export class CrossChainMessagingTest {
   user2Wallet!: AccountWallet;
   crossChainTestHarness!: CrossChainTestHarness;
   ethAccount!: EthAddress;
-  ownerAddress!: AztecAddress;
+  ownerWallet!: AccountWallet;
   l2Token!: TokenContract;
   l2Bridge!: TokenBridgeContract;
 
@@ -135,7 +135,6 @@ export class CrossChainMessagingTest {
 
         // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
         this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
-        this.ownerAddress = AztecAddress.fromString(crossChainContext.ownerAddress.toString());
         const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
         const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrl, MNEMONIC);

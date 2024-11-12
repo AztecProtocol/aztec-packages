@@ -5,6 +5,7 @@ import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec
 import { inspect } from 'util';
 
 import { MAX_ENQUEUED_CALLS_PER_TX } from '../../constants.gen.js';
+import { Gas } from '../gas.js';
 import { GasSettings } from '../gas_settings.js';
 import { GlobalVariables } from '../global_variables.js';
 import {
@@ -19,6 +20,7 @@ export class AvmCircuitPublicInputs {
   constructor(
     public globalVariables: GlobalVariables,
     public startTreeSnapshots: TreeSnapshots,
+    public startGasUsed: Gas,
     public gasSettings: GasSettings,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
@@ -38,6 +40,7 @@ export class AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       reader.readObject(GlobalVariables),
       reader.readObject(TreeSnapshots),
+      reader.readObject(Gas),
       reader.readObject(GasSettings),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -57,6 +60,7 @@ export class AvmCircuitPublicInputs {
     return serializeToBuffer(
       this.globalVariables,
       this.startTreeSnapshots,
+      this.startGasUsed,
       this.gasSettings,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
@@ -85,6 +89,7 @@ export class AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       GlobalVariables.fromFields(reader),
       TreeSnapshots.fromFields(reader),
+      Gas.fromFields(reader),
       GasSettings.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -104,6 +109,7 @@ export class AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       GlobalVariables.empty(),
       TreeSnapshots.empty(),
+      Gas.empty(),
       GasSettings.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
@@ -123,6 +129,7 @@ export class AvmCircuitPublicInputs {
     return `AvmCircuitPublicInputs {
       globalVariables: ${inspect(this.globalVariables)},
       startTreeSnapshots: ${inspect(this.startTreeSnapshots)},
+      startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())

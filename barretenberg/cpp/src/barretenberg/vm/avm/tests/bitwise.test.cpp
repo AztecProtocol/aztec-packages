@@ -548,7 +548,7 @@ TEST_P(AvmBitwiseTestsShr, AllShrTest)
     const auto [operands, mem_tag] = GetParam();
     const auto [a, b, output] = operands;
     trace_builder.op_set(0, a, 0, mem_tag);
-    trace_builder.op_set(0, b, 1, mem_tag);
+    trace_builder.op_set(0, b, 1, AvmMemoryTag::U8);
     trace_builder.op_shr(0, 0, 1, 2);
     trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
     trace_builder.op_return(0, 2, 100);
@@ -566,7 +566,7 @@ TEST_P(AvmBitwiseTestsShl, AllShlTest)
     const auto [operands, mem_tag] = GetParam();
     const auto [a, b, output] = operands;
     trace_builder.op_set(0, a, 0, mem_tag);
-    trace_builder.op_set(0, b, 1, mem_tag);
+    trace_builder.op_set(0, b, 1, AvmMemoryTag::U8);
     trace_builder.op_shl(0, 0, 1, 2);
     trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
     trace_builder.op_return(0, 2, 100);

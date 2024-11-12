@@ -1,5 +1,6 @@
 // docs:start:cross_chain_test_harness
 import {
+  AccountWallet,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
@@ -141,7 +142,7 @@ export class CrossChainTestHarness {
     pxeService: PXE,
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: WalletClient<HttpTransport, Chain, Account>,
-    wallet: Wallet,
+    wallet: AccountWallet,
     logger: DebugLogger,
     underlyingERC20Address?: EthAddress,
   ): Promise<CrossChainTestHarness> {
@@ -210,7 +211,7 @@ export class CrossChainTestHarness {
     public readonly l1ContractAddresses: L1ContractAddresses,
 
     /** Wallet of the owner. */
-    public readonly ownerWallet: Wallet,
+    public readonly ownerWallet: AccountWallet,
   ) {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
@@ -295,11 +296,11 @@ export class CrossChainTestHarness {
     return withdrawReceipt;
   }
 
-  async getL2PrivateBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_private(owner).simulate({ from: owner });
+  async getL2PrivateBalanceOf(owner: AccountWallet) {
+    return await this.l2Token.withWallet(owner).methods.balance_of_private(owner.getAddress()).simulate();
   }
 
-  async expectPrivateBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
+  async expectPrivateBalanceOnL2(owner: AccountWallet, expectedBalance: bigint) {
     const balance = await this.getL2PrivateBalanceOf(owner);
     this.logger.info(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);

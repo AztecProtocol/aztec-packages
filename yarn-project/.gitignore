@@ -41,6 +41,7 @@ noir-protocol-circuits-types/src/types/
 ivc-integration/artifacts
 ivc-integration/src/types/
 protocol-contracts/artifacts
+protocol-contracts/src/protocol_contract_data.ts
 scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/
