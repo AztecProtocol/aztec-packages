@@ -317,8 +317,8 @@ export class SimulatorOracle implements DBOracle {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add the recipient as a contact, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = [...this.db.getContactAddresses(), recipient];
+    // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
+    const contacts = Array.from(new Set([...this.db.getContactAddresses(), ...(await this.keyStore.getAccounts())]));
     const appTaggingSecrets = contacts.map(contact => {
       const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);

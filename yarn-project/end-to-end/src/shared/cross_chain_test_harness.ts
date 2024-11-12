@@ -296,11 +296,11 @@ export class CrossChainTestHarness {
     return withdrawReceipt;
   }
 
-  async getL2PrivateBalanceOf(owner: AccountWallet) {
-    return await this.l2Token.withWallet(owner).methods.balance_of_private(owner.getAddress()).simulate();
+  async getL2PrivateBalanceOf(owner: AztecAddress) {
+    return await this.l2Token.methods.balance_of_private(owner).simulate({ from: owner });
   }
 
-  async expectPrivateBalanceOnL2(owner: AccountWallet, expectedBalance: bigint) {
+  async expectPrivateBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
     const balance = await this.getL2PrivateBalanceOf(owner);
     this.logger.info(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);

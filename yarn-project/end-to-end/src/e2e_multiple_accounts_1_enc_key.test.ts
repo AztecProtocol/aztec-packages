@@ -43,15 +43,6 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     }
     logger.info('Account contracts deployed');
 
-    // Add all accounts as contacts to each other
-    await Promise.all(
-      wallets.flatMap(wallet =>
-        wallets
-          .filter(otherWallet => otherWallet.getAddress() != wallet.getAddress())
-          .map(otherWallet => wallet.registerContact(otherWallet.getAddress())),
-      ),
-    );
-
     // Verify that all accounts use the same encryption key
     const encryptionPublicKey = deriveKeys(encryptionPrivateKey).publicKeys.masterIncomingViewingPublicKey;
 
