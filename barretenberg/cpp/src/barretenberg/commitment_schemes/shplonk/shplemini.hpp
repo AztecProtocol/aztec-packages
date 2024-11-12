@@ -290,7 +290,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
 
-        remove_shifted_commitments(commitments, scalars, repeated_commitments);
+        remove_shifted_commitments(commitments, scalars, repeated_commitments, has_zk);
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
@@ -513,14 +513,18 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void remove_shifted_commitments(std::vector<Commitment>& commitments,
                                            std::vector<Fr>& scalars,
-                                           const RepeatedCommitmentsData& repeated_commitments)
+                                           const RepeatedCommitmentsData& repeated_commitments,
+                                           bool has_zk)
     {
-        const size_t& first_range_to_be_shifted_start = repeated_commitments.first_range_to_be_shifted_start;
-        const size_t& first_range_shifted_start = repeated_commitments.first_range_shifted_start;
+        const size_t zk_offset = has_zk ? 1 : 0;
+        const size_t& first_range_to_be_shifted_start =
+            repeated_commitments.first_range_to_be_shifted_start + zk_offset;
+        const size_t& first_range_shifted_start = repeated_commitments.first_range_shifted_start + zk_offset;
         const size_t& first_range_size = repeated_commitments.first_range_size;
 
-        const size_t& second_range_to_be_shifted_start = repeated_commitments.second_range_to_be_shifted_start;
-        const size_t& second_range_shifted_start = repeated_commitments.second_range_shifted_start;
+        const size_t& second_range_to_be_shifted_start =
+            repeated_commitments.second_range_to_be_shifted_start + zk_offset;
+        const size_t& second_range_shifted_start = repeated_commitments.second_range_shifted_start + zk_offset;
         const size_t& second_range_size = repeated_commitments.second_range_size;
 
         // Iterate over the first range of to-be-shifted scalars and their shifted counterparts
