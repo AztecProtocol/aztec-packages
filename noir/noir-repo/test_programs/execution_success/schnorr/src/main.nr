@@ -19,7 +19,7 @@ fn main(
     assert(valid_signature);
     let pub_key =
         embedded_curve_ops::EmbeddedCurvePoint { x: pub_key_x, y: pub_key_y, is_infinite: false };
-    let valid_signature = std::schnorr::verify_signature_noir(pub_key, signature, message);
+    let valid_signature = std::schnorr::verify_signature(pub_key, signature, message);
     assert(valid_signature);
     std::schnorr::assert_valid_signature(pub_key, signature, message);
 }
