@@ -142,7 +142,7 @@ pub global GENESIS_ARCHIVE_ROOT: Field =
     0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-pub global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
+global FEE_JUICE_INITIAL_MINT: Field = 200000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -537,7 +537,7 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4261;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4266;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -708,7 +708,8 @@ pub global AVM_CALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUE
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 28;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 28;
-pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12; // Must be equal to AVM_JUMP_BASE_L2_GAS as long as circuit implements debugLog as a jump
+pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12;
+pub global AVM_DEBUGLOG_DYN_L2_GAS: u32 = 3;
 pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 78;
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 261;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 300;

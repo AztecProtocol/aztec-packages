@@ -112,10 +112,11 @@ describe('benchmarks/proving', () => {
       initialFpContract.address,
     );
 
+    const from = initialSchnorrWallet.getAddress(); // we are setting from to initial schnorr wallet here because of TODO(#9887)
     await Promise.all([
       initialGasContract.methods.claim(initialFpContract.address, 1e12, claimSecret, messageLeafIndex).send().wait(),
       initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
-      initialTokenContract.methods.mint_to_private(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialTokenContract.methods.mint_to_private(from, initialSchnorrWallet.getAddress(), 1e12).send().wait(),
     ]);
   });
 

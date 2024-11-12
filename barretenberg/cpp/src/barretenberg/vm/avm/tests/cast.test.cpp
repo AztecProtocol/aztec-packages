@@ -185,6 +185,7 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
                         .set_full_precomputed_tables(false)
                         .set_range_check_required(false);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
@@ -202,6 +203,7 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus2)
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
                         .set_full_precomputed_tables(false)
                         .set_range_check_required(false);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
