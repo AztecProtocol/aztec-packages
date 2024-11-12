@@ -10,12 +10,12 @@ import {
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  ParityPublicInputs,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
-  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -29,21 +29,24 @@ import { z } from 'zod';
 
 import { type CircuitName } from '../stats/index.js';
 
-export type ProofAndVerificationKey<P> = { proof: P; verificationKey: VerificationKeyData };
+export type ProofAndVerificationKey<N extends number> = {
+  proof: RecursiveProof<N>;
+  verificationKey: VerificationKeyData;
+};
 
 function schemaForRecursiveProofAndVerificationKey<N extends number>(
   proofLength: N,
-): ZodFor<ProofAndVerificationKey<RecursiveProof<N>>> {
+): ZodFor<ProofAndVerificationKey<N>> {
   return z.object({
     proof: RecursiveProof.schemaFor(proofLength),
     verificationKey: VerificationKeyData.schema,
-  }) as ZodFor<ProofAndVerificationKey<RecursiveProof<N>>>;
+  });
 }
 
-export function makeProofAndVerificationKey<P>(
-  proof: P,
+export function makeProofAndVerificationKey<N extends number>(
+  proof: RecursiveProof<N>,
   verificationKey: VerificationKeyData,
-): ProofAndVerificationKey<P> {
+): ProofAndVerificationKey<N> {
   return { proof, verificationKey };
 }
 
@@ -55,8 +58,8 @@ export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RE
 
 function schemaForPublicInputsAndRecursiveProof<T extends object>(
   inputs: ZodFor<T>,
+  proofSize = NESTED_RECURSIVE_PROOF_LENGTH,
 ): ZodFor<PublicInputsAndRecursiveProof<T>> {
-  const proofSize = NESTED_RECURSIVE_PROOF_LENGTH;
   return z.object({
     inputs,
     proof: RecursiveProof.schemaFor(proofSize),
@@ -155,7 +158,7 @@ export const ProvingJobSchema = z.object({ id: JobIdSchema, request: ProvingRequ
 
 type ProvingRequestResultsMap = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
+  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
   [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
@@ -163,9 +166,12 @@ type ProvingRequestResultsMap = {
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
-  [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
-  [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  [ProvingRequestType.TUBE_PROOF]: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
+  [ProvingRequestType.BASE_PARITY]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
+  [ProvingRequestType.ROOT_PARITY]: PublicInputsAndRecursiveProof<
+    ParityPublicInputs,
+    typeof NESTED_RECURSIVE_PROOF_LENGTH
+  >;
+  [ProvingRequestType.TUBE_PROOF]: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
 };
 
 export type ProvingRequestResultFor<T extends ProvingRequestType> = { type: T; result: ProvingRequestResultsMap[T] };
@@ -220,11 +226,11 @@ export const ProvingRequestResultSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal(ProvingRequestType.BASE_PARITY),
-    result: RootParityInput.schemaFor(RECURSIVE_PROOF_LENGTH),
+    result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
     type: z.literal(ProvingRequestType.ROOT_PARITY),
-    result: RootParityInput.schemaFor(NESTED_RECURSIVE_PROOF_LENGTH),
+    result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
     type: z.literal(ProvingRequestType.TUBE_PROOF),
