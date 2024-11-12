@@ -282,6 +282,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
                                                        mle_opening_point,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript,
+                                                       {},
                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                        RefVector(c_evaluations));
     const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
@@ -351,17 +352,6 @@ TYPED_TEST(KZGTest, ShpleminiKzgShiftsRemoval)
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-
-    // Gemini verifier output:
-    // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                                              RefVector(unshifted_commitments),
-                                                                              RefVector(shifted_commitments),
-                                                                              RefArray{ eval1, eval2, eval3, eval4 },
-                                                                              RefArray{ eval2_shift, eval3_shift },
-                                                                              mle_opening_point,
-                                                                              this->vk()->get_g1_identity(),
-                                                                              verifier_transcript);
     // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and
     // shifted_commitments. in our case, it is poly2
     const size_t to_be_shifted_commitments_start = 1;
@@ -373,9 +363,21 @@ TYPED_TEST(KZGTest, ShpleminiKzgShiftsRemoval)
     // since commitments to poly2, poly3 and their shifts are the same group elements, we simply combine the scalar
     // multipliers of commitment2 and commitment3 in one place and remove the entries of the commitments and scalars
     // vectors corresponding to the "shifted" commitment
+    const RepeatedCommitmentsData repeated_commitments =
+        RepeatedCommitmentsData(to_be_shifted_commitments_start, shifted_commitments_start, num_shifted_commitments);
 
-    ShpleminiVerifier::remove_shifted_commitments(
-        batch_opening_claim, to_be_shifted_commitments_start, shifted_commitments_start, num_shifted_commitments);
+    // Gemini verifier output:
+    // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(n,
+                                                       RefVector(unshifted_commitments),
+                                                       RefVector(shifted_commitments),
+                                                       RefArray{ eval1, eval2, eval3, eval4 },
+                                                       RefArray{ eval2_shift, eval3_shift },
+                                                       mle_opening_point,
+                                                       this->vk()->get_g1_identity(),
+                                                       verifier_transcript,
+                                                       repeated_commitments);
 
     const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
 

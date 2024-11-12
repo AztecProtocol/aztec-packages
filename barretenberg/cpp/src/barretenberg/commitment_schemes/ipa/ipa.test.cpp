@@ -384,6 +384,19 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
+    // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and
+    // shifted_commitments. in our case, it is poly2
+    const size_t to_be_shifted_commitments_start = 1;
+    // the index of the first commitment to a shifted polynomial in the union of unshifted_commitments and
+    // shifted_commitments. in our case, it is the second occurence of poly2
+    const size_t shifted_commitments_start = 4;
+    // number of shifted polynomials
+    const size_t num_shifted_commitments = 2;
+    const RepeatedCommitmentsData repeated_commitments =
+        RepeatedCommitmentsData(to_be_shifted_commitments_start, shifted_commitments_start, num_shifted_commitments);
+    // since commitments to poly2, poly3 and their shifts are the same group elements, we simply combine the scalar
+    // multipliers of commitment2 and commitment3 in one place and remove the entries of the commitments and scalars
+    // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
@@ -393,20 +406,8 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
                                                                               RefArray{ eval2_shift, eval3_shift },
                                                                               mle_opening_point,
                                                                               this->vk()->get_g1_identity(),
-                                                                              verifier_transcript);
-    // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and
-    // shifted_commitments. in our case, it is poly2
-    const size_t to_be_shifted_commitments_start = 1;
-    // the index of the first commitment to a shifted polynomial in the union of unshifted_commitments and
-    // shifted_commitments. in our case, it is the second occurence of poly2
-    const size_t shifted_commitments_start = 4;
-    // number of shifted polynomials
-    const size_t num_shifted_commitments = 2;
-    // since commitments to poly2, poly3 and their shifts are the same group elements, we simply combine the scalar
-    // multipliers of commitment2 and commitment3 in one place and remove the entries of the commitments and scalars
-    // vectors corresponding to the "shifted" commitment
-    ShpleminiVerifier::remove_shifted_commitments(
-        batch_opening_claim, to_be_shifted_commitments_start, shifted_commitments_start, num_shifted_commitments);
+                                                                              verifier_transcript,
+                                                                              repeated_commitments);
 
     auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
     EXPECT_EQ(result, true);

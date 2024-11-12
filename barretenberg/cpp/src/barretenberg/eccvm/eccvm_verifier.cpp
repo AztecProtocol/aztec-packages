@@ -63,7 +63,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+    const BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
@@ -71,12 +71,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                claimed_evaluations.get_shifted(),
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
-                                               transcript);
-
-    Shplemini::remove_shifted_commitments(sumcheck_batch_opening_claims,
-                                          Flavor::TO_BE_SHIFTED_WITNESSES_START,
-                                          Flavor::SHIFTED_WITNESSES_START,
-                                          Flavor::NUM_SHIFTED_WITNESSES);
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

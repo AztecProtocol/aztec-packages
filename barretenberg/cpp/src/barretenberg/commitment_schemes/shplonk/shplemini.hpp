@@ -4,6 +4,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini_impl.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -116,6 +117,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
+        const RepeatedCommitmentsData& repeated_commitments = {},
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
 
@@ -253,6 +255,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Finalize the batch opening claim
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
+
+        remove_shifted_commitments(commitments, scalars, repeated_commitments);
 
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
@@ -454,17 +458,17 @@ template <typename Curve> class ShpleminiVerifier_ {
      * of scalars. This method iterates over the commitments and scalars in a BatchOpeningClaim object
      *
      */
-    static void remove_shifted_commitments(BatchOpeningClaim<Curve>& accumulator,
-                                           const size_t first_range_to_be_shifted_start,
-                                           const size_t first_range_shifted_start,
-                                           const size_t first_range_size,
-                                           const size_t second_range_to_be_shifted_start = 0,
-                                           const size_t second_range_shifted_start = 0,
-                                           const size_t second_range_size = 0)
+    static void remove_shifted_commitments(std::vector<Commitment>& commitments,
+                                           std::vector<Fr>& scalars,
+                                           const RepeatedCommitmentsData& repeated_commitments)
     {
-        // Get references to the scalars and commitments in the accumulator
-        auto& commitments = accumulator.commitments;
-        auto& scalars = accumulator.scalars;
+        const size_t& first_range_to_be_shifted_start = repeated_commitments.first_range_to_be_shifted_start;
+        const size_t& first_range_shifted_start = repeated_commitments.first_range_shifted_start;
+        const size_t& first_range_size = repeated_commitments.first_range_size;
+
+        const size_t& second_range_to_be_shifted_start = repeated_commitments.second_range_to_be_shifted_start;
+        const size_t& second_range_shifted_start = repeated_commitments.second_range_shifted_start;
+        const size_t& second_range_size = repeated_commitments.second_range_size;
 
         // Iterate over the first range of to-be-shifted scalars and their shifted counterparts
         for (size_t i = 0; i < first_range_size; i++) {

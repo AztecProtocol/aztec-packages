@@ -7,6 +7,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
@@ -52,14 +53,19 @@ class ECCVMFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
+    // The number of entities in ShiftedEntities.
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
+    // The number of entities in DerivedWitnessEntities that are not going to be shifted.
+    static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 113;
-    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
-    // get_unshifted() and get_to_be_shifted()
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 63;
-    // The index of the shift of the first unshifted witness
-    static constexpr size_t NUM_SHIFTED_WITNESSES = 26;
-    static constexpr size_t SHIFTED_WITNESSES_START = 90;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
+    // Container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
+    // first witness to be shifted. -1 appears because WitnessEntities contain
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
+                                    NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
+                                NUM_SHIFTED_ENTITIES);
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation

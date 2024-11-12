@@ -111,7 +111,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     }
     // Execute Shplemini
 
-    BatchOpeningClaim<Curve> opening_claim =
+    const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
                                                commitments.get_to_be_shifted(),
@@ -120,15 +120,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                Commitment::one(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
-    Shplemini::remove_shifted_commitments(opening_claim,
-                                          Flavor::TO_BE_SHIFTED_WITNESSES_START,
-                                          Flavor::SHIFTED_WITNESSES_START,
-                                          Flavor::NUM_SHIFTED_WITNESSES,
-                                          Flavor::TO_BE_CONCATENATED_START,
-                                          Flavor::CONCATENATED_START,
-                                          Flavor::NUM_CONCATENATED);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

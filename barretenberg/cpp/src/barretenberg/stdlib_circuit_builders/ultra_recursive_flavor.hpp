@@ -68,18 +68,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
-    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
-    // get_unshifted() and get_to_be_shifted()
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = UltraFlavor::TO_BE_SHIFTED_WITNESSES_START;
-    // The index of the shift of the first unshifted witness
-    static constexpr size_t SHIFTED_WITNESSES_START = UltraFlavor::SHIFTED_WITNESSES_START;
-    static constexpr size_t NUM_SHIFTED_WITNESSES = UltraFlavor::NUM_SHIFTED_WITNESSES;
-    // The index of the first unshifted precomputed element that is going to be shifted when AllEntities are
-    // partitioned into get_unshifted() and get_to_be_shifted()
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = UltraFlavor::TO_BE_SHIFTED_PRECOMPUTED_START;
-    // The index of the shift of the first precomputed element
-    static constexpr size_t SHIFTED_PRECOMPUTED_START = UltraFlavor::SHIFTED_PRECOMPUTED_START;
-    static constexpr size_t NUM_PRECOMPUTED_SHIFTS = UltraFlavor::NUM_PRECOMPUTED_SHIFTS;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
