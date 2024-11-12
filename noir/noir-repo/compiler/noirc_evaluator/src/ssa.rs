@@ -26,7 +26,7 @@ use acvm::{
     FieldElement,
 };
 
-use ir::instruction::ErrorType;
+pub use ir::instruction::ErrorType;
 use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVariables};
 
 use noirc_frontend::ast::Visibility;

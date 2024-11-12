@@ -7,7 +7,7 @@ use noirc_abi::{
     Abi, AbiErrorType, AbiParameter, AbiReturnType, AbiType, AbiValue, AbiVisibility, Sign,
 };
 use noirc_errors::Span;
-use noirc_evaluator::ErrorType;
+use noirc_evaluator::ssa::ErrorType;
 use noirc_frontend::ast::{Signedness, Visibility};
 use noirc_frontend::TypeBinding;
 use noirc_frontend::{
