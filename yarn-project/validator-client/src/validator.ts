@@ -121,7 +121,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
     this.log.verbose(`request to attest`, {
       archive: proposal.payload.archive.toString(),
-      txHashes: proposal.payload.txHashes,
+      txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
     });
     try {
       await this.ensureTransactionsAreAvailable(proposal);
