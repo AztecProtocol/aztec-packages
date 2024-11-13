@@ -276,7 +276,8 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -329,7 +330,8 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -390,14 +392,6 @@ TEST_F(UltraRelationCorrectnessTests, TruncatedGrandProductPermutation)
     auto& proving_key = decider_pk->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
-    // Find index of last non-trivial wire value in the trace
-    size_t last_gate_idx = 0;
-    for (auto& block : builder.blocks.get()) {
-        if (block.size() > 0) {
-            last_gate_idx = block.trace_offset + block.size() - 1;
-        }
-    }
-
     // Generate eta, beta and gamma
     decider_pk->relation_parameters.eta = FF::random_element();
     decider_pk->relation_parameters.eta_two = FF::random_element();
@@ -409,29 +403,20 @@ TEST_F(UltraRelationCorrectnessTests, TruncatedGrandProductPermutation)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     auto& prover_polynomials = decider_pk->proving_key.polynomials;
     auto params = decider_pk->relation_parameters;
 
-    // We expect that z_perm is constant = final_zperm_val on the rest of the domain
-    auto final_zperm_val = prover_polynomials.z_perm[last_gate_idx + 1];
-    bool z_perm_value_is_constant = true;
-    for (size_t i = last_gate_idx + 1; i < circuit_size; ++i) {
-        if (prover_polynomials.z_perm[i] != final_zperm_val) {
-            z_perm_value_is_constant = false;
-        }
-    }
-    EXPECT_TRUE(z_perm_value_is_constant);
+    // // Change lagrange last to be 1 on the final non-trivial index
+    // prover_polynomials.lagrange_last = Polynomial<FF>(circuit_size);
+    // prover_polynomials.lagrange_last.at(decider_pk->final_active_wire_idx) = 1;
 
-    // Change lagrange last to be 1 on the final non-trivial index
-    prover_polynomials.lagrange_last = Polynomial<FF>(circuit_size);
-    prover_polynomials.lagrange_last.at(last_gate_idx) = 1;
-
-    // Set z_perm to zero beyond the final non-trivial index
-    for (size_t i = last_gate_idx + 1; i < circuit_size; ++i) {
-        prover_polynomials.z_perm.at(i) = 0;
-    }
+    // // Set z_perm to zero beyond the final non-trivial index
+    // for (size_t i = last_gate_idx + 1; i < circuit_size; ++i) {
+    //     prover_polynomials.z_perm.at(i) = 0;
+    // }
 
     // Check that the Permutation relation is still satisfied at each row
     check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);

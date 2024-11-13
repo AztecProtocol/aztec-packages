@@ -401,7 +401,7 @@ class UltraFlavor {
          *
          * @param relation_parameters
          */
-        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters)
+        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
         {
             relation_parameters.public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
                                                                                              relation_parameters.beta,
@@ -410,7 +410,8 @@ class UltraFlavor {
                                                                                              this->pub_inputs_offset);
 
             // Compute permutation grand product polynomial
-            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(this->polynomials, relation_parameters);
+            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(
+                this->polynomials, relation_parameters, size_override);
         }
     };
 
