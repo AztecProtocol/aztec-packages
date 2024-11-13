@@ -43,7 +43,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  NodeInfo,
+  type NodeInfo,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
   type ProtocolContractAddresses,

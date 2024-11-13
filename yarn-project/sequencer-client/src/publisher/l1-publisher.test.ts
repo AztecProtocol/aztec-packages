@@ -7,7 +7,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type GetTransactionReceiptReturnType, type PrivateKeyAccount } from 'viem';
+import { type GetTransactionReceiptReturnType, type PrivateKeyAccount, type WalletClient } from 'viem';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1Publisher } from './l1-publisher.js';
@@ -17,6 +17,16 @@ interface MockPublicClient {
   getBlock(): Promise<{ timestamp: bigint }>;
   getTransaction: ({ hash }: { hash: '0x${string}' }) => Promise<{ input: `0x${string}`; hash: `0x${string}` }>;
   estimateGas: ({ to, data }: { to: '0x${string}'; data: '0x${string}' }) => Promise<bigint>;
+}
+
+interface MockGasUtils {
+  getGasPrice: () => Promise<bigint>;
+  estimateGas: ({ to, data }: { to: '0x${string}'; data: '0x${string}' }) => Promise<bigint>;
+  monitorTransaction: (
+    txHash: `0x${string}`,
+    walletClient: WalletClient,
+    options: { to: `0x${string}`; data: `0x${string}`; nonce: bigint; gasLimit: bigint; maxFeePerGas: bigint },
+  ) => Promise<GetTransactionReceiptReturnType>;
 }
 
 interface MockRollupContractWrite {
@@ -50,6 +60,7 @@ describe('L1Publisher', () => {
   let rollupContract: MockRollupContract;
 
   let publicClient: MockProxy<MockPublicClient>;
+  let gasUtils: MockProxy<MockGasUtils>;
 
   let proposeTxHash: `0x${string}`;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
@@ -87,7 +98,7 @@ describe('L1Publisher', () => {
     rollupContract = new MockRollupContract(rollupContractWrite, rollupContractRead);
 
     publicClient = mock<MockPublicClient>();
-
+    gasUtils = mock<MockGasUtils>();
     const config = {
       l1RpcUrl: `http://127.0.0.1:8545`,
       l1ChainId: 1,
@@ -101,12 +112,15 @@ describe('L1Publisher', () => {
 
     (publisher as any)['rollupContract'] = rollupContract;
     (publisher as any)['publicClient'] = publicClient;
-
+    (publisher as any)['gasUtils'] = gasUtils;
     account = (publisher as any)['account'];
 
     rollupContractRead.getCurrentSlot.mockResolvedValue(l2Block.header.globalVariables.slotNumber.toBigInt());
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
     publicClient.estimateGas.mockResolvedValue(GAS_GUESS);
+    gasUtils.getGasPrice.mockResolvedValue(100_000_000n);
+    gasUtils.estimateGas.mockResolvedValue(GAS_GUESS);
+    gasUtils.monitorTransaction.mockResolvedValue(proposeTxReceipt);
   });
 
   it('publishes and propose l2 block to l1', async () => {
@@ -130,6 +144,7 @@ describe('L1Publisher', () => {
     expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, {
       account: account,
       gas: L1Publisher.PROPOSE_GAS_GUESS + GAS_GUESS,
+      maxFeePerGas: 100_000_000n,
     });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
   });
