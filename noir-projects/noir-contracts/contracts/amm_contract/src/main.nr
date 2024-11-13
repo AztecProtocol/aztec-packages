@@ -207,9 +207,9 @@ contract AMM {
             // Since we don't collect a protocol fee (unlike Uniswap V2) we can set initial liquidity to an arbitrary
             // value instead of sqrt(amount0 * amount1).
             liquidity = INITIAL_LIQUIDITY;
-            liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY.to_integer()).call(
-                &mut context,
-            ); // permanently lock the first MINIMUM_LIQUIDITY tokens
+            liquidity_token
+                .mint_to_public(AztecAddress::zero(), MINIMUM_LIQUIDITY.to_integer())
+                .call(&mut context); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
             liquidity = std::cmp::min(
                 amount0 * total_supply / reserve0,

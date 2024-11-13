@@ -1,5 +1,5 @@
 use crate::AMM;
-use dep::token::{test::utils::{check_private_balance, mint_private}, Token};
+use dep::token::{test::utils::{check_private_balance, mint_to_private}, Token};
 use aztec::{
     keys::getters::get_public_keys,
     oracle::{
@@ -70,13 +70,13 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let lp_balance_1 = 10000;
     let swapper_balance_0 = 5000;
 
-    mint_private(&mut env, token0_address, liquidity_provider, lp_balance_0);
+    mint_to_private(&mut env, token0_address, liquidity_provider, lp_balance_0);
     check_private_balance(token0_address, liquidity_provider, lp_balance_0);
 
-    mint_private(&mut env, token1_address, liquidity_provider, lp_balance_1);
+    mint_to_private(&mut env, token1_address, liquidity_provider, lp_balance_1);
     check_private_balance(token1_address, liquidity_provider, lp_balance_1);
 
-    mint_private(&mut env, token0_address, swapper, swapper_balance_0);
+    mint_to_private(&mut env, token0_address, swapper, swapper_balance_0);
     check_private_balance(token0_address, swapper, swapper_balance_0);
 
     env.advance_block_by(1);
