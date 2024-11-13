@@ -1,3 +1,11 @@
+import {
+  ProvingRequestType,
+  type V2ProvingJob,
+  type V2ProvingJobId,
+  type V2ProvingJobResult,
+  type V2ProvingJobStatus,
+  type V2ProvingResult,
+} from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
@@ -6,17 +14,9 @@ import assert from 'assert';
 
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
 import type { ProvingJobConsumer, ProvingJobFilter, ProvingJobProducer } from './proving_broker_interface.js';
-import {
-  type ProofOutputs,
-  ProofType,
-  type ProvingJob,
-  type ProvingJobId,
-  type ProvingJobStatus,
-  getProofTypeFromId,
-} from './proving_job.js';
 
-type InProgressMetadata<T extends ProofType = ProofType> = {
-  id: ProvingJobId<T>;
+type InProgressMetadata<T extends ProvingRequestType = ProvingRequestType> = {
+  id: V2ProvingJobId<T>;
   startedAt: number;
   lastUpdatedAt: number;
 };
@@ -35,53 +35,37 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   // Each proof type gets its own queue so that agents can request specific types of proofs
   // Manually create the queues to get type checking
   private queues: ProvingQueues = {
-    [ProofType.AvmProof]: new PriorityMemoryQueue<ProvingJob<ProofType.AvmProof>>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
 
-    [ProofType.TubeProof]: new PriorityMemoryQueue<ProvingJob<ProofType.TubeProof>>(provingJobComparator),
-    [ProofType.EmptyTubeProof]: new PriorityMemoryQueue<ProvingJob<ProofType.EmptyTubeProof>>(provingJobComparator),
+    [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.MERGE_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
 
-    [ProofType.PublicKernelSetupProof]: new PriorityMemoryQueue<ProvingJob<ProofType.PublicKernelSetupProof>>(
-      provingJobComparator,
-    ),
-    [ProofType.PublicKernelAppLogicProof]: new PriorityMemoryQueue<ProvingJob<ProofType.PublicKernelAppLogicProof>>(
-      provingJobComparator,
-    ),
-    [ProofType.PublicKernelTeardownProof]: new PriorityMemoryQueue<ProvingJob<ProofType.PublicKernelTeardownProof>>(
-      provingJobComparator,
-    ),
-    [ProofType.PublicKernelTailProof]: new PriorityMemoryQueue<ProvingJob<ProofType.PublicKernelTailProof>>(
-      provingJobComparator,
-    ),
+    [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
 
-    [ProofType.BaseRollupProof]: new PriorityMemoryQueue<ProvingJob<ProofType.BaseRollupProof>>(provingJobComparator),
-    [ProofType.MergeRollupProof]: new PriorityMemoryQueue<ProvingJob<ProofType.MergeRollupProof>>(provingJobComparator),
-    [ProofType.RootRollupProof]: new PriorityMemoryQueue<ProvingJob<ProofType.RootRollupProof>>(provingJobComparator),
-
-    [ProofType.BlockMergeRollupProof]: new PriorityMemoryQueue<ProvingJob<ProofType.BlockMergeRollupProof>>(
-      provingJobComparator,
-    ),
-    [ProofType.BlockRootRollupProof]: new PriorityMemoryQueue<ProvingJob<ProofType.BlockRootRollupProof>>(
-      provingJobComparator,
-    ),
-
-    [ProofType.BaseParityProof]: new PriorityMemoryQueue<ProvingJob<ProofType.BaseParityProof>>(provingJobComparator),
-    [ProofType.RootParityProof]: new PriorityMemoryQueue<ProvingJob<ProofType.RootParityProof>>(provingJobComparator),
+    [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
+    [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
   // this is fine because this broker is the only one that can modify the database
-  private jobsCache = new Map<ProvingJobId, ProvingJob>();
+  private jobsCache = new Map<V2ProvingJobId, V2ProvingJob>();
   // as above, but for results
-  private resultsCache = new Map<ProvingJobId, { value: ProofOutputs[ProofType] } | { error: Error }>();
+  private resultsCache = new Map<V2ProvingJobId, V2ProvingJobResult>();
 
   // keeps track of which jobs are currently being processed
   // in the event of a crash this information is lost, but that's ok
   // the next time the broker starts it will recreate jobsCache and still
   // accept results from the workers
-  private inProgress = new Map<ProvingJobId, InProgressMetadata>();
+  private inProgress = new Map<V2ProvingJobId, InProgressMetadata>();
 
   // keep track of which proving job has been retried
-  private retries = new Map<ProvingJobId, number>();
+  private retries = new Map<V2ProvingJobId, number>();
 
   private timeoutPromise: RunningPromise;
   private timeSource = Date.now;
@@ -123,7 +107,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     return this.timeoutPromise.stop();
   }
 
-  public async enqueueProvingJob<T extends ProofType>(job: ProvingJob<T>): Promise<void> {
+  public async enqueueProvingJob(job: V2ProvingJob): Promise<void> {
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
@@ -135,7 +119,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     this.enqueueJobInternal(job);
   }
 
-  public async removeAndCancelProvingJob<T extends ProofType>(id: ProvingJobId<T>): Promise<void> {
+  public async removeAndCancelProvingJob<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<void> {
     this.logger.info(`Cancelling job id=${id}`);
     await this.database.deleteProvingJobAndResult(id);
 
@@ -146,7 +130,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   }
 
   // eslint-disable-next-line require-await
-  public async getProvingJobStatus<T extends ProofType>(id: ProvingJobId<T>): Promise<ProvingJobStatus<T>> {
+  public async getProvingJobStatus<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<V2ProvingJobStatus> {
     const result = this.resultsCache.get(id);
     if (!result) {
       // no result yet, check if we know the item
@@ -159,17 +143,19 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
       return Promise.resolve({ status: this.inProgress.has(id) ? 'in-progress' : 'in-queue' });
     } else if ('value' in result) {
-      return Promise.resolve({ status: 'resolved', value: result.value as ProofOutputs[T] });
+      return Promise.resolve({ status: 'resolved', value: result.value });
     } else {
       return Promise.resolve({ status: 'rejected', error: result.error });
     }
   }
 
   // eslint-disable-next-line require-await
-  async getProvingJob<T extends ProofType[]>(
+  async getProvingJob<T extends ProvingRequestType[]>(
     filter: ProvingJobFilter<T> = {},
-  ): Promise<ProvingJob<T[number]> | undefined> {
-    const allowedProofs = filter.allowList ? [...filter.allowList] : Object.values(ProofType);
+  ): Promise<V2ProvingJob | undefined> {
+    const allowedProofs: ProvingRequestType[] = filter.allowList
+      ? [...filter.allowList]
+      : Object.values(ProvingRequestType).filter((x): x is ProvingRequestType => typeof x === 'number');
     allowedProofs.sort(proofTypeComparator);
 
     for (const proofType of allowedProofs) {
@@ -189,7 +175,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     return undefined;
   }
 
-  async reportProvingJobError<T extends ProofType>(id: ProvingJobId<T>, err: Error, retry = false): Promise<void> {
+  async reportProvingJobError<T extends ProvingRequestType>(
+    id: V2ProvingJobId<T>,
+    err: Error,
+    retry = false,
+  ): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
@@ -214,13 +204,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
     this.logger.debug(`Marking proving job id=${id} totalAttempts=${retries + 1} as failed`);
     await this.database.setProvingJobError(id, err);
-    this.resultsCache.set(id, { error: err });
+    this.resultsCache.set(id, { error: String(err) });
   }
 
-  reportProvingJobProgress<T extends ProofType, F extends ProofType[]>(
-    id: ProvingJobId<T>,
+  reportProvingJobProgress<T extends ProvingRequestType, F extends ProvingRequestType[]>(
+    id: V2ProvingJobId<T>,
     filter?: ProvingJobFilter<F>,
-  ): Promise<ProvingJob<F[number]> | undefined> {
+  ): Promise<V2ProvingJob | undefined> {
     const metadata = this.inProgress.get(id);
     if (metadata) {
       metadata.lastUpdatedAt = this.timeSource();
@@ -234,7 +224,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
   }
 
-  async reportProvingJobSuccess<T extends ProofType>(id: ProvingJobId<T>, value: ProofOutputs[T]): Promise<void> {
+  async reportProvingJobSuccess<T extends ProvingRequestType>(
+    id: V2ProvingJobId<T>,
+    value: V2ProvingResult,
+  ): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
@@ -272,15 +265,14 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
   };
 
-  private enqueueJobInternal<T extends ProofType>(job: ProvingJob<T>): void {
-    const proofType = getProofTypeFromId(job.id);
-    this.queues[proofType].put(job);
+  private enqueueJobInternal(job: V2ProvingJob): void {
+    this.queues[job.type].put(job);
     this.logger.debug(`Enqueued new proving job id=${job.id}`);
   }
 }
 
 type ProvingQueues = {
-  [K in ProofType]: PriorityMemoryQueue<ProvingJob<K>>;
+  [K in ProvingRequestType]: PriorityMemoryQueue<V2ProvingJob>;
 };
 
 /**
@@ -289,7 +281,7 @@ type ProvingQueues = {
  * @param b - Another proving job
  * @returns A number indicating the relative priority of the two proving jobs
  */
-function provingJobComparator<T extends ProofType>(a: ProvingJob<T>, b: ProvingJob<T>): -1 | 0 | 1 {
+function provingJobComparator(a: V2ProvingJob, b: V2ProvingJob): -1 | 0 | 1 {
   if (a.blockNumber < b.blockNumber) {
     return -1;
   } else if (a.blockNumber > b.blockNumber) {
@@ -307,7 +299,7 @@ function provingJobComparator<T extends ProofType>(a: ProvingJob<T>, b: ProvingJ
  * @param b - Another proof type
  * @returns A number indicating the relative priority of the two proof types
  */
-function proofTypeComparator(a: ProofType, b: ProofType): -1 | 0 | 1 {
+function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 | 0 | 1 {
   const indexOfA = PROOF_TYPES_IN_PRIORITY_ORDER.indexOf(a);
   const indexOfB = PROOF_TYPES_IN_PRIORITY_ORDER.indexOf(b);
   if (indexOfA === indexOfB) {
@@ -333,19 +325,17 @@ function proofTypeComparator(a: ProofType, b: ProofType): -1 | 0 | 1 {
  * The aim is that this will speed up block proving as the closer we get to a block's root proof the more likely it
  * is to get picked up by agents
  */
-const PROOF_TYPES_IN_PRIORITY_ORDER: ProofType[] = [
-  ProofType.BlockRootRollupProof,
-  ProofType.BlockMergeRollupProof,
-  ProofType.RootRollupProof,
-  ProofType.MergeRollupProof,
-  ProofType.BaseRollupProof,
-  ProofType.PublicKernelSetupProof,
-  ProofType.PublicKernelAppLogicProof,
-  ProofType.PublicKernelTeardownProof,
-  ProofType.PublicKernelTailProof,
-  ProofType.AvmProof,
-  ProofType.TubeProof,
-  ProofType.EmptyTubeProof,
-  ProofType.RootParityProof,
-  ProofType.BaseParityProof,
+const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+  ProvingRequestType.BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.BLOCK_MERGE_ROLLUP,
+  ProvingRequestType.ROOT_ROLLUP,
+  ProvingRequestType.MERGE_ROLLUP,
+  ProvingRequestType.PUBLIC_BASE_ROLLUP,
+  ProvingRequestType.PRIVATE_BASE_ROLLUP,
+  ProvingRequestType.PUBLIC_VM,
+  ProvingRequestType.TUBE_PROOF,
+  ProvingRequestType.ROOT_PARITY,
+  ProvingRequestType.BASE_PARITY,
+  ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.PRIVATE_KERNEL_EMPTY,
 ];

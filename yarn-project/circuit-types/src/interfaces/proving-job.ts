@@ -237,3 +237,254 @@ export const ProvingRequestResultSchema = z.discriminatedUnion('type', [
     result: schemaForRecursiveProofAndVerificationKey(TUBE_PROOF_LENGTH),
   }),
 ]) satisfies ZodFor<ProvingRequestResult>;
+
+export const V2ProvingJobIdSchema = z.custom<`${ProvingRequestType}:${string}`>().brand('ProvingJobId');
+export type V2ProvingJobId<_ extends ProvingRequestType = ProvingRequestType> = z.infer<typeof V2ProvingJobIdSchema>;
+export const V2ProvingJobSchema = z.discriminatedUnion('type', [
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.PUBLIC_VM),
+    inputs: AvmCircuitInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.BASE_PARITY),
+    inputs: BaseParityInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.ROOT_PARITY),
+    inputs: RootParityInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
+    inputs: PrivateBaseRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP),
+    inputs: PublicBaseRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.MERGE_ROLLUP),
+    inputs: MergeRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP),
+    inputs: BlockRootRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
+    inputs: EmptyBlockRootRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
+    inputs: BlockMergeRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.ROOT_ROLLUP),
+    inputs: RootRollupInputs.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.PRIVATE_KERNEL_EMPTY),
+    inputs: PrivateKernelEmptyInputData.schema,
+  }),
+  z.object({
+    id: V2ProvingJobIdSchema,
+    blockNumber: z.number(),
+    type: z.literal(ProvingRequestType.TUBE_PROOF),
+    inputs: TubeInputs.schema,
+  }),
+]);
+export type V2ProvingJob = z.infer<typeof V2ProvingJobSchema>;
+
+// export const V2ProvingJobResultSchema = z.discriminatedUnion('type', [
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.PRIVATE_KERNEL_EMPTY),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(KernelCircuitPublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.PUBLIC_VM),
+//     result: z.union([
+//       z.object({ value: schemaForRecursiveProofAndVerificationKey(AVM_PROOF_LENGTH_IN_FIELDS) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.MERGE_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.ROOT_ROLLUP),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(RootRollupPublicInputs.schema) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.BASE_PARITY),
+//     result: z.union([
+//       z.object({ value: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, RECURSIVE_PROOF_LENGTH) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.ROOT_PARITY),
+//     result: z.union([
+//       z.object({
+//         value: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
+//       }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+//   z.object({
+//     id: V2ProvingJobIdSchema,
+//     type: z.literal(ProvingRequestType.TUBE_PROOF),
+//     result: z.union([
+//       z.object({ value: schemaForRecursiveProofAndVerificationKey(TUBE_PROOF_LENGTH) }),
+//       z.object({ error: z.string() }),
+//     ]),
+//   }),
+// ]);
+//
+// export type V2ProvingJobResult = z.infer<typeof V2ProvingJobResultSchema>;
+
+export const V2ProvingResultSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal(ProvingRequestType.PRIVATE_KERNEL_EMPTY),
+    value: schemaForPublicInputsAndRecursiveProof(KernelCircuitPublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.PUBLIC_VM),
+    value: schemaForRecursiveProofAndVerificationKey(AVM_PROOF_LENGTH_IN_FIELDS),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.MERGE_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.ROOT_ROLLUP),
+    value: schemaForPublicInputsAndRecursiveProof(RootRollupPublicInputs.schema),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.BASE_PARITY),
+    value: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, RECURSIVE_PROOF_LENGTH),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.ROOT_PARITY),
+    value: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.TUBE_PROOF),
+    value: schemaForRecursiveProofAndVerificationKey(TUBE_PROOF_LENGTH),
+  }),
+]);
+
+export type V2ProvingResult = z.infer<typeof V2ProvingResultSchema>;
+
+export const V2ProvingJobStatusSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('in-queue') }),
+  z.object({ status: z.literal('in-progress') }),
+  z.object({ status: z.literal('not-found') }),
+  z.object({ status: z.literal('resolved'), value: V2ProvingResultSchema }),
+  z.object({ status: z.literal('rejected'), error: z.string() }),
+]);
+
+export type V2ProvingJobStatus = z.infer<typeof V2ProvingJobStatusSchema>;
+
+export const V2ProvingJobResultSchema = z.union([
+  z.object({ value: V2ProvingResultSchema }),
+  z.object({ error: z.string() }),
+]);
+
+export type V2ProvingJobResult = z.infer<typeof V2ProvingJobResultSchema>;
