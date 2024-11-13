@@ -433,8 +433,8 @@ contract Token {
         let from = context.msg_sender();
         let token = Token::at(context.this_address());
 
-        // We prepare the transfer.
-        let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
+        // We prepare the private balance increase (the partial note).
+        let hiding_point_slot = _prepare_private_balance_increase(from, to, &mut context, storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
@@ -449,7 +449,7 @@ contract Token {
     #[private]
     fn prepare_transfer_to_private(to: AztecAddress) -> Field {
         let from = context.msg_sender();
-        _prepare_transfer_to_private(from, to, &mut context, storage)
+        _prepare_private_balance_increase(from, to, &mut context, storage)
     }
 
     /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
@@ -458,7 +458,7 @@ contract Token {
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
     #[contract_library_method]
-    fn _prepare_transfer_to_private(
+    fn _prepare_private_balance_increase(
         from: AztecAddress, // recipient of the outgoing: TODO(#9887): this is not great?
         to: AztecAddress,
         context: &mut PrivateContext,
@@ -557,7 +557,7 @@ contract Token {
         let token = Token::at(context.this_address());
 
         // We prepare the partial note to which we'll "send" the minted amount.
-        let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
+        let hiding_point_slot = _prepare_private_balance_increase(from, to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that only a message sender with minter permissions
@@ -667,11 +667,11 @@ contract Token {
         ));
 
         // 4. We prepare the partial notes
-        // TODO(#9887): In each `_prepare_transfer_to_private` call we fetch the user's ovpk_m 2 more times. This is
+        // TODO(#9887): In each `_prepare_private_balance_increase` call we fetch the user's ovpk_m 2 more times. This is
         // very inefficient.
         let fee_payer_point_slot =
-            _prepare_transfer_to_private(user, fee_payer, &mut context, storage);
-        let user_point_slot = _prepare_transfer_to_private(user, user, &mut context, storage);
+            _prepare_private_balance_increase(user, fee_payer, &mut context, storage);
+        let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
 
         // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.

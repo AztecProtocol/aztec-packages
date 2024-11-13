@@ -1,8 +1,5 @@
 use crate::{test::utils, Token};
-use dep::aztec::{
-    keys::getters::get_public_keys, oracle::random::random,
-    protocol_types::storage::map::derive_storage_slot_in_map,
-};
+use dep::aztec::oracle::random::random;
 use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_transfer_to_private`
