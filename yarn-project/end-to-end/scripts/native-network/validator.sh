@@ -13,9 +13,6 @@ P2P_PORT="$2"
 ADDRESS="${3:-${ADDRESS:-}}"
 export VALIDATOR_PRIVATE_KEY="${4:-${VALIDATOR_PRIVATE_KEY:-}}"
 
-echo "ADDRESS: $ADDRESS"
-echo "VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY"
-
 # Starts the Validator Node
 REPO=$(git rev-parse --show-toplevel)
 
