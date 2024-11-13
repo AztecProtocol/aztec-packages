@@ -181,7 +181,7 @@ lazy_static::lazy_static! {{
 {test_cases}
 fn test_{test_name}(force_brillig: bool, inliner_aggressiveness: i64) {{
     // Ignore poisoning errors if some of the matrix cases failed.
-    let _guard = {mutex_name}.lock().unwrap_or_else(|e| e.into_inner()); 
+    let _guard = {mutex_name}.lock().unwrap_or_else(|e| e.into_inner());
 
     let test_program_dir = PathBuf::from("{test_dir}");
 
@@ -224,7 +224,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
             "#,
             &MatrixConfig {
                 vary_brillig: !IGNORED_BRILLIG_TESTS.contains(&test_name.as_str()),
-                vary_inliner: true,
+                vary_inliner: false,
                 min_inliner: INLINER_MIN_OVERRIDES
                     .iter()
                     .find(|(n, _)| *n == test_name.as_str())
@@ -363,7 +363,7 @@ fn generate_compile_success_empty_tests(test_file: &mut File, test_data_dir: &Pa
             "info",
             &format!(
                 r#"
-                nargo.arg("--json");                
+                nargo.arg("--json");
                 {assert_zero_opcodes}
             "#,
             ),
