@@ -32,8 +32,7 @@ import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-sta
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
-  WorldStateStatusFull,
-  type WorldStateStatusSummary,
+  type WorldStateStatusFull,
   blockStateReference,
   treeStateReferenceToSnapshot,
   worldStateRevision,
@@ -74,7 +73,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const worldState = new this(instance, log, cleanup);
     try {
       await worldState.init();
-    } catch(e) {
+    } catch (e) {
       log.error(`Error initialising world state: ${e}`);
       throw e;
     }
@@ -102,9 +101,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   protected async init() {
-    const status = await this.getStatus();
+    const status = await this.getStatusSummary();
     if (!status.treesAreSynched) {
-      throw new Error("World state trees are out of sync, please delete your data directory and re-sync");
+      throw new Error('World state trees are out of sync, please delete your data directory and re-sync');
     }
     this.initialHeader = await this.buildInitialHeader();
     const committed = this.getCommitted();
@@ -141,7 +140,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusSummary> {
+  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
     // by circuits.
     const paddedTxEffects = padArrayEnd(
@@ -181,7 +180,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPaddedPublicDataWrites: batchesOfPaddedPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
-    return response.summary;
+    return response;
   }
 
   public async close(): Promise<void> {
@@ -227,7 +226,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     });
   }
 
-  public async getStatus() {
+  public async getStatusSummary() {
     return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
   }
 

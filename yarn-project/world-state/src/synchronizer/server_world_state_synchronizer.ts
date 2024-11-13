@@ -163,7 +163,7 @@ export class ServerWorldStateSynchronizer
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
   public async getL2Tips(): Promise<L2Tips> {
-    const status = await this.merkleTreeDb.getStatus();
+    const status = await this.merkleTreeDb.getStatusSummary();
     const unfinalisedBlockHash = await this.getL2BlockHash(Number(status.unfinalisedBlockNumber));
     const latestBlockId: L2BlockId = { number: Number(status.unfinalisedBlockNumber), hash: unfinalisedBlockHash! };
 
@@ -240,7 +240,7 @@ export class ServerWorldStateSynchronizer
       this.syncPromise.resolve();
     }
 
-    return result;
+    return result.summary;
   }
 
   private async handleChainFinalized(blockNumber: number) {

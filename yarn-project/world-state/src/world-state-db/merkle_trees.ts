@@ -51,7 +51,11 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type Hasher } from '@aztec/types/interfaces';
 
-import { type WorldStateStatusSummary } from '../native/message.js';
+import {
+  type WorldStateStatusFull,
+  type WorldStateStatusSummary,
+  buildEmptyWorldStateStatusFull,
+} from '../native/message.js';
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
   INITIAL_PUBLIC_DATA_TREE_SIZE,
@@ -198,19 +202,19 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     }
   }
 
-  public removeHistoricalBlocks(_toBlockNumber: bigint): Promise<WorldStateStatusSummary> {
+  public removeHistoricalBlocks(_toBlockNumber: bigint): Promise<WorldStateStatusFull> {
     throw new Error('Method not implemented.');
   }
 
-  public unwindBlocks(_toBlockNumber: bigint): Promise<WorldStateStatusSummary> {
+  public unwindBlocks(_toBlockNumber: bigint): Promise<WorldStateStatusFull> {
     throw new Error('Method not implemented.');
   }
 
-  public setFinalised(_toBlockNumber: bigint): Promise<WorldStateStatusSummary> {
+  public setFinalised(_toBlockNumber: bigint): Promise<WorldStateStatusFull> {
     throw new Error('Method not implemented.');
   }
 
-  public getStatus(): Promise<WorldStateStatusSummary> {
+  public getStatusSummary(): Promise<WorldStateStatusSummary> {
     throw new Error('Method not implemented.');
   }
 
@@ -467,7 +471,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusSummary> {
+  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     return await this.synchronize(() => this.#handleL2BlockAndMessages(block, l1ToL2Messages));
   }
 
@@ -617,7 +621,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param l2Block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusSummary> {
+  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     const timer = new Timer();
 
     const treeRootWithIdPairs = [
@@ -710,7 +714,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
 
     this.metrics.recordDbSize(this.store.estimateSize().bytes);
     this.metrics.recordSyncDuration('commit', timer);
-    return { unfinalisedBlockNumber: 0n, finalisedBlockNumber: 0n, oldestHistoricalBlock: 0n } as WorldStateStatusSummary;
+    return buildEmptyWorldStateStatusFull();
   }
 
   #isDbPopulated(): boolean {

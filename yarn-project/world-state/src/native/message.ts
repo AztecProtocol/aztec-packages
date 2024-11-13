@@ -96,15 +96,25 @@ export interface WorldStateStatusSummary {
 }
 
 export interface TreeMeta {
+  /** The name of the tree */
   name: string;
+  /** The depth of the tree */
   depth: number;
+  /** The current size of the tree (number of leaves) */
   size: bigint;
+  /** The committed size of the tree */
   committedSize: bigint;
+  /** The current root of the tree */
   root: Fr;
+  /** The tree's initial size */
   initialSize: bigint;
+  /** The tree's initial root value  */
   initialRoot: Fr;
+  /** The current oldest historical block number of the tree */
   oldestHistoricBlock: bigint;
+  /** The current unfinalised block number of the tree */
   unfinalisedBlockHeight: bigint;
+  /** The current finalised block number of the tree */
   finalisedBlockHeight: bigint;
 }
 
@@ -162,6 +172,77 @@ export interface WorldStateStatusFull {
   summary: WorldStateStatusSummary;
   dbStats: WorldStateDBStats;
   meta: WorldStateMeta;
+}
+
+export function buildEmptyDBStats() {
+  return {
+    name: '',
+    numDataItems: 0n,
+    totalUsedSize: 0n,
+  } as DBStats;
+}
+
+export function buildEmptyTreeDBStats() {
+  return {
+    mapSize: 0n,
+    blocksDBStats: buildEmptyDBStats(),
+    nodesDBStats: buildEmptyDBStats(),
+    leafIndicesDBStats: buildEmptyDBStats(),
+    leafKeysDBStats: buildEmptyDBStats(),
+    leafPreimagesDBStats: buildEmptyDBStats(),
+  } as TreeDBStats;
+}
+
+export function buildEmptyTreeMeta() {
+  return {
+    name: '',
+    depth: 0,
+    size: 0n,
+    committedSize: 0n,
+    unfinalisedBlockHeight: 0n,
+    finalisedBlockHeight: 0n,
+    oldestHistoricBlock: 0n,
+    root: Fr.ZERO,
+    initialRoot: Fr.ZERO,
+    initialSize: 0n,
+  } as TreeMeta;
+}
+
+export function buildEmptyWorldStateMeta() {
+  return {
+    noteHashTreeMeta: buildEmptyTreeMeta(),
+    messageTreeMeta: buildEmptyTreeMeta(),
+    publicDataTreeMeta: buildEmptyTreeMeta(),
+    nullifierTreeMeta: buildEmptyTreeMeta(),
+    archiveTreeMeta: buildEmptyTreeMeta(),
+  } as WorldStateMeta;
+}
+
+export function buildEmptyWorldStateDBStats() {
+  return {
+    noteHashTreeStats: buildEmptyTreeDBStats(),
+    archiveTreeStats: buildEmptyTreeDBStats(),
+    messageTreeStats: buildEmptyTreeDBStats(),
+    publicDataTreeStats: buildEmptyTreeDBStats(),
+    nullifierTreeStats: buildEmptyTreeDBStats(),
+  } as WorldStateDBStats;
+}
+
+export function buildEmptyWorldStateSummary() {
+  return {
+    unfinalisedBlockNumber: 0n,
+    finalisedBlockNumber: 0n,
+    oldestHistoricalBlock: 0n,
+    treesAreSynched: true,
+  } as WorldStateStatusSummary;
+}
+
+export function buildEmptyWorldStateStatusFull() {
+  return {
+    meta: buildEmptyWorldStateMeta(),
+    dbStats: buildEmptyWorldStateDBStats(),
+    summary: buildEmptyWorldStateSummary(),
+  } as WorldStateStatusFull;
 }
 
 interface WithForkId {
@@ -346,7 +427,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatusFull;
   [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatusFull;
-  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusFull;
+  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
 
