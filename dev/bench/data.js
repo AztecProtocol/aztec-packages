@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731450066394,
+  "lastUpdate": 1731499557114,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "blorktronics@gmail.com",
-            "name": "Zachary James Williamson",
-            "username": "zac-williamson"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4bd3e14f6cde05f4d59bc48142e9ef4bc78f0ae",
-          "message": "feat: 20-30% cost reduction in recursive ipa algorithm (#9420)\n\neccvm_recursive_verifier_test measurements (size-512 eccvm recursive\r\nverification)\r\n\r\nOld: 876,214\r\nNew: 678,751\r\n\r\nThe relative performance delta should be much greater for large eccvm\r\ninstances as this PR removes an nlogn algorithm.\r\n\r\nThis PR resolves issue\r\n[#857](https://github.com/AztecProtocol/barretenberg/issues/857) and\r\nissue [#1023](https://github.com/AztecProtocol/barretenberg/issues/1023)\r\n(single batch mul in IPA)\r\n\r\nRe: [#1023](https://github.com/AztecProtocol/barretenberg/issues/1023).\r\nThe code still performs 2 batch muls, but all additional * operator\r\ncalls have been combined into the batch muls.\r\n\r\nIt is not worth combining both batch muls, as it would require a\r\nmultiplication operation on a large number of scalar multipliers. In the\r\nrecursive setting the scalars are bigfield elements - the extra\r\nbigfield::operator* cost is not worth combining both batch_mul calls.\r\n\r\nAdditional improvements:\r\n\r\nremoved unneccessary uses of `pow` operator in ipa - in the recursive\r\nsetting these were stdlib::bigfield::pow calls and very expensive\r\n\r\nremoved the number of distinct multiplication calls in\r\nipa::reduce_verify_internal\r\n\r\ncycle_scalar::cycle_scalar(stdlib::bigfield) constructor now more\r\noptimally constructs a cycle_scalar out of a bigfield element. New\r\nmethod leverages the fact that `scalar.lo` and `scalar.hi` are\r\nimplicitly range-constrained to remove reundant bigfield constructor\r\ncalls and arithmetic calls, and the process of performing a scalar\r\nmultiplication applies a modular reduction to the imput, which makes the\r\nexplicit call to `validate_scalar_is_in_field` unneccessary\r\n\r\n---------\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>",
-          "timestamp": "2024-10-29T19:33:43Z",
-          "tree_id": "5bfa9fcb50af6a23b007b7468c9bddb518c11ac9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a4bd3e14f6cde05f4d59bc48142e9ef4bc78f0ae"
-        },
-        "date": 1730232804114,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30870.16600800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29020.958751000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5343.219687000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4971.285772 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92672.39028,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92672392000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15116.009784999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15116010000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2712001183,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2712001183 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126471477,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126471477 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 142073295,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142073295 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3889deffe372c94b2a38e465e89f6babbee18fec",
+          "message": "chore: add end_gas_used to avm public inputs (#9910)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-11-13T11:20:29Z",
+          "tree_id": "395eb4ea9d58948530725fc3af1808c2ab36fc37",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3889deffe372c94b2a38e465e89f6babbee18fec"
+        },
+        "date": 1731499550065,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29439.29619399998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27644.541277999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5778.846983999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5355.351254 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85808.149449,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85808150000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15513.028964000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15513029000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3200887107,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3200887107 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143113934,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143113934 ns\nthreads: 1"
           }
         ]
       }
