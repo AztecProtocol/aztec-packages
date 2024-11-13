@@ -652,7 +652,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
   return new AvmCircuitPublicInputs(
     makeGlobalVariables(seed),
     makeTreeSnapshots(seed + 0x10),
-    makeGas(),
+    makeGas(seed + 0x20),
     makeGasSettings(),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
@@ -662,8 +662,9 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makePrivateToAvmAccumulatedData(seed + 0x500),
     makePrivateToAvmAccumulatedData(seed + 0x600),
     makeTreeSnapshots(seed + 0x700),
+    makeGas(seed + 0x750),
     makeAvmAccumulatedData(seed + 0x800),
-    fr(seed + 0x700),
+    fr(seed + 0x900),
     false,
   );
 }

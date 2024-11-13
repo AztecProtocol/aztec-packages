@@ -13,7 +13,6 @@ use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
         combined_constant_data::CombinedConstantData,
-        gas::Gas,
         log_hash::{LogHash, ScopedLogHash},
     },
     constants::{
@@ -117,7 +116,7 @@ impl PublicBaseRollupInputs {
             end,
             start_state,
             revert_code,
-            gas_used: Gas::empty(), // gas_used is not used in rollup circuits.
+            gas_used: from_public.end_gas_used,
             fee_payer: from_private.fee_payer,
         }
     }
