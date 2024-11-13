@@ -1,5 +1,19 @@
 import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, EthAddress, Fr, Header } from '@aztec/circuits.js';
+import {
+  ARCHIVE_HEIGHT,
+  AppendOnlyTreeSnapshot,
+  EthAddress,
+  Fr,
+  Header,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
 import { mkdtemp, rm } from 'fs/promises';
@@ -7,6 +21,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
+import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
+import { type WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService } from './native_world_state.js';
 
 describe('NativeWorldState', () => {
@@ -407,6 +423,122 @@ describe('NativeWorldState', () => {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
       }
+    }, 30_000);
+  });
+
+  describe('status reporting', () => {
+    let block: L2Block;
+    let messages: Fr[];
+
+    it('correctly reports status', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const statuses = [];
+      for (let i = 0; i < 2; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, 2, fork));
+        await fork.close();
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+        statuses.push(status);
+
+        expect(status.summary).toEqual({
+          unfinalisedBlockNumber: BigInt(i + 1),
+          finalisedBlockNumber: 0n,
+          oldestHistoricalBlock: 1n,
+          treesAreSynched: true,
+        } as WorldStateStatusSummary);
+
+        expect(status.meta.archiveTreeMeta).toMatchObject({
+          depth: ARCHIVE_HEIGHT,
+          size: BigInt(i + 2),
+          committedSize: BigInt(i + 2),
+          initialSize: BigInt(1),
+          oldestHistoricBlock: 1n,
+          unfinalisedBlockHeight: BigInt(i + 1),
+          finalisedBlockHeight: 0n,
+        });
+
+        expect(status.meta.noteHashTreeMeta).toMatchObject({
+          depth: NOTE_HASH_TREE_HEIGHT,
+          size: BigInt(2 * MAX_NOTE_HASHES_PER_TX * (i + 1)),
+          committedSize: BigInt(2 * MAX_NOTE_HASHES_PER_TX * (i + 1)),
+          initialSize: BigInt(0),
+          oldestHistoricBlock: 1n,
+          unfinalisedBlockHeight: BigInt(i + 1),
+          finalisedBlockHeight: 0n,
+        });
+
+        expect(status.meta.nullifierTreeMeta).toMatchObject({
+          depth: NULLIFIER_TREE_HEIGHT,
+          size: BigInt(2 * MAX_NULLIFIERS_PER_TX * (i + 1) + INITIAL_NULLIFIER_TREE_SIZE),
+          committedSize: BigInt(2 * MAX_NULLIFIERS_PER_TX * (i + 1) + INITIAL_NULLIFIER_TREE_SIZE),
+          initialSize: BigInt(INITIAL_NULLIFIER_TREE_SIZE),
+          oldestHistoricBlock: 1n,
+          unfinalisedBlockHeight: BigInt(i + 1),
+          finalisedBlockHeight: 0n,
+        });
+
+        expect(status.meta.publicDataTreeMeta).toMatchObject({
+          depth: PUBLIC_DATA_TREE_HEIGHT,
+          size: BigInt(2 * (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1) * (i + 1) + INITIAL_PUBLIC_DATA_TREE_SIZE),
+          committedSize: BigInt(
+            2 * (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1) * (i + 1) + INITIAL_PUBLIC_DATA_TREE_SIZE,
+          ),
+          initialSize: BigInt(INITIAL_PUBLIC_DATA_TREE_SIZE),
+          oldestHistoricBlock: 1n,
+          unfinalisedBlockHeight: BigInt(i + 1),
+          finalisedBlockHeight: 0n,
+        });
+
+        expect(status.meta.messageTreeMeta).toMatchObject({
+          depth: L1_TO_L2_MSG_TREE_HEIGHT,
+          size: BigInt(2 * MAX_L2_TO_L1_MSGS_PER_TX * (i + 1)),
+          committedSize: BigInt(2 * MAX_L2_TO_L1_MSGS_PER_TX * (i + 1)),
+          initialSize: BigInt(0),
+          oldestHistoricBlock: 1n,
+          unfinalisedBlockHeight: BigInt(i + 1),
+          finalisedBlockHeight: 0n,
+        });
+      }
+
+      expect(statuses[1].dbStats.archiveTreeStats.nodesDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.archiveTreeStats.nodesDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.archiveTreeStats.blocksDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.archiveTreeStats.blocksDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.messageTreeStats.nodesDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.messageTreeStats.nodesDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.messageTreeStats.blocksDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.messageTreeStats.blocksDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.noteHashTreeStats.nodesDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.noteHashTreeStats.nodesDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.noteHashTreeStats.blocksDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.noteHashTreeStats.blocksDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.nullifierTreeStats.nodesDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.nullifierTreeStats.nodesDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.nullifierTreeStats.blocksDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.nullifierTreeStats.blocksDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.publicDataTreeStats.nodesDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.publicDataTreeStats.nodesDBStats.numDataItems,
+      );
+      expect(statuses[1].dbStats.publicDataTreeStats.blocksDBStats.numDataItems).toBeGreaterThan(
+        statuses[0].dbStats.publicDataTreeStats.blocksDBStats.numDataItems,
+      );
+
+      const mapSizeBytes = BigInt(1024 * defaultDBMapSize);
+      expect(statuses[0].dbStats.archiveTreeStats.mapSize).toBe(mapSizeBytes);
+      expect(statuses[0].dbStats.messageTreeStats.mapSize).toBe(mapSizeBytes);
+      expect(statuses[0].dbStats.nullifierTreeStats.mapSize).toBe(mapSizeBytes);
+      expect(statuses[0].dbStats.noteHashTreeStats.mapSize).toBe(mapSizeBytes);
+      expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(mapSizeBytes);
+
+      await ws.close();
     }, 30_000);
   });
 });

@@ -245,6 +245,64 @@ export function buildEmptyWorldStateStatusFull() {
   } as WorldStateStatusFull;
 }
 
+export function sanitiseSummary(summary: WorldStateStatusSummary) {
+  summary.finalisedBlockNumber = BigInt(summary.finalisedBlockNumber);
+  summary.unfinalisedBlockNumber = BigInt(summary.unfinalisedBlockNumber);
+  summary.oldestHistoricalBlock = BigInt(summary.oldestHistoricalBlock);
+  return summary;
+}
+
+export function sanitiseDBStats(stats: DBStats) {
+  stats.numDataItems = BigInt(stats.numDataItems);
+  stats.totalUsedSize = BigInt(stats.totalUsedSize);
+  return stats;
+}
+
+export function sanitiseMeta(meta: TreeMeta) {
+  meta.committedSize = BigInt(meta.committedSize);
+  meta.finalisedBlockHeight = BigInt(meta.finalisedBlockHeight);
+  meta.initialSize = BigInt(meta.initialSize);
+  meta.oldestHistoricBlock = BigInt(meta.oldestHistoricBlock);
+  meta.size = BigInt(meta.size);
+  meta.unfinalisedBlockHeight = BigInt(meta.unfinalisedBlockHeight);
+  return meta;
+}
+
+export function sanitiseTreeDBStats(stats: TreeDBStats) {
+  stats.blocksDBStats = sanitiseDBStats(stats.blocksDBStats);
+  stats.leafIndicesDBStats = sanitiseDBStats(stats.leafIndicesDBStats);
+  stats.leafKeysDBStats = sanitiseDBStats(stats.leafKeysDBStats);
+  stats.leafPreimagesDBStats = sanitiseDBStats(stats.leafPreimagesDBStats);
+  stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
+  stats.mapSize = BigInt(stats.mapSize);
+  return stats;
+}
+
+export function sanitiseWorldStateDBStats(stats: WorldStateDBStats) {
+  stats.archiveTreeStats = sanitiseTreeDBStats(stats.archiveTreeStats);
+  stats.messageTreeStats = sanitiseTreeDBStats(stats.messageTreeStats);
+  stats.noteHashTreeStats = sanitiseTreeDBStats(stats.noteHashTreeStats);
+  stats.nullifierTreeStats = sanitiseTreeDBStats(stats.nullifierTreeStats);
+  stats.publicDataTreeStats = sanitiseTreeDBStats(stats.publicDataTreeStats);
+  return stats;
+}
+
+export function sanitiseWorldStateTreeMeta(meta: WorldStateMeta) {
+  meta.archiveTreeMeta = sanitiseMeta(meta.archiveTreeMeta);
+  meta.messageTreeMeta = sanitiseMeta(meta.messageTreeMeta);
+  meta.noteHashTreeMeta = sanitiseMeta(meta.noteHashTreeMeta);
+  meta.nullifierTreeMeta = sanitiseMeta(meta.nullifierTreeMeta);
+  meta.publicDataTreeMeta = sanitiseMeta(meta.publicDataTreeMeta);
+  return meta;
+}
+
+export function sanitiseFullStatus(status: WorldStateStatusFull) {
+  status.dbStats = sanitiseWorldStateDBStats(status.dbStats);
+  status.summary = sanitiseSummary(status.summary);
+  status.meta = sanitiseWorldStateTreeMeta(status.meta);
+  return status;
+}
+
 interface WithForkId {
   forkId: number;
 }

@@ -210,7 +210,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     throw new Error('Method not implemented.');
   }
 
-  public setFinalised(_toBlockNumber: bigint): Promise<WorldStateStatusFull> {
+  public setFinalised(_toBlockNumber: bigint): Promise<WorldStateStatusSummary> {
     throw new Error('Method not implemented.');
   }
 

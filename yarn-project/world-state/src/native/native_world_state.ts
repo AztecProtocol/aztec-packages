@@ -34,6 +34,7 @@ import {
   WorldStateMessageType,
   type WorldStateStatusFull,
   blockStateReference,
+  sanitiseFullStatus,
   treeStateReferenceToSnapshot,
   worldStateRevision,
 } from './message.js';
@@ -180,7 +181,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPaddedPublicDataWrites: batchesOfPaddedPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
-    return response;
+    return sanitiseFullStatus(response);
   }
 
   public async close(): Promise<void> {
@@ -210,9 +211,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
+    const response = await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
       toBlockNumber,
     });
+    return sanitiseFullStatus(response);
   }
 
   /**
@@ -221,9 +223,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
+    const response = await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
       toBlockNumber,
     });
+    return sanitiseFullStatus(response);
   }
 
   public async getStatusSummary() {

@@ -76,7 +76,7 @@ export interface MerkleTreeAdminDatabase {
    * @param toBlockNumber The block number that is now the tip of the finalised chain
    * @returns The new WorldStateStatus
    */
-  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
+  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
 
   /**
    * Gets the current status summary of the database.
