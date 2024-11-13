@@ -1,8 +1,4 @@
-import {
-  Fr,
-  computeAuthWitMessageHash,
-  computeInnerAuthWitHashFromAction
-} from '@aztec/aztec.js';
+import { Fr, computeAuthWitMessageHash, computeInnerAuthWitHashFromAction } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';

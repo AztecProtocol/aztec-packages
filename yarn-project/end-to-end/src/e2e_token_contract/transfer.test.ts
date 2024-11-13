@@ -1,20 +1,17 @@
-import {
-  AztecAddress,
-  CompleteAddress
-} from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js';
 
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, accounts, tokenSim, wallets, badAccount } = t;
+  let { asset, accounts, tokenSim, wallets } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
+    ({ asset, accounts, tokenSim, wallets } = t);
   });
 
   afterAll(async () => {
