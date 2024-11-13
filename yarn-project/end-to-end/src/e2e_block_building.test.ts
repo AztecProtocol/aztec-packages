@@ -400,7 +400,7 @@ describe('e2e_block_building', () => {
       logger.info('Spamming the network with public txs');
       const txs = [];
       for (let i = 0; i < 30; i++) {
-        const tx = token.methods.mint_public(owner.getAddress(), 10n);
+        const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
         txs.push(tx.send({ skipPublicSimulation: false }));
       }
 
