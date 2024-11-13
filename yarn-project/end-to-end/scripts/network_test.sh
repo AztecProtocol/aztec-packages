@@ -53,8 +53,10 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
+STERN_PID=""
 function copy_stern_to_log() {
-  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
@@ -105,12 +107,12 @@ handle_network_shaping() {
     return 0
 }
 
-copy_stern_to_log &
+copy_stern_to_log
 show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) $STERN_PID &>/dev/null || true
 
   if [ "$CLEANUP_CLUSTER" = "true" ]; then
     kind delete cluster || true
