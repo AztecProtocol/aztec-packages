@@ -16,11 +16,14 @@ pub fn get_bridge_gas_msg_hash(owner: AztecAddress, amount: Field) -> Field {
         hash_bytes[i + 36] = amount_bytes[i];
     }
 
-    // Function selector: 0x63f44968 keccak256('claim(bytes32,uint256)')
-    hash_bytes[0] = 0x63;
-    hash_bytes[1] = 0xf4;
-    hash_bytes[2] = 0x49;
-    hash_bytes[3] = 0x68;
+    // The purpose of including the following selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
+    let selector = comptime { std::hash::keccak256("claim(bytes32,uint256)".as_bytes(), 22) };
+
+    hash_bytes[0] = selector[0];
+    hash_bytes[1] = selector[1];
+    hash_bytes[2] = selector[2];
+    hash_bytes[3] = selector[3];
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash

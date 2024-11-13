@@ -88,6 +88,8 @@ contract TokenPortalTest is Test {
     view
     returns (DataStructures.L1ToL2Msg memory)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
@@ -102,6 +104,8 @@ contract TokenPortalTest is Test {
     view
     returns (DataStructures.L1ToL2Msg memory)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
@@ -171,6 +175,8 @@ contract TokenPortalTest is Test {
     internal
     returns (bytes32, bytes32)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     bytes32 l2ToL1Message = Hash.sha256ToField(
       DataStructures.L2ToL1Msg({
         sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),

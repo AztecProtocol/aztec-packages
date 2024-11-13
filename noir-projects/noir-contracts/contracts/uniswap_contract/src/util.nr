@@ -27,11 +27,19 @@ pub fn compute_swap_public_content_hash(
         secret_hash_for_L1_to_l2_message.to_be_bytes();
     let caller_on_L1_bytes: [u8; 32] = caller_on_L1.to_field().to_be_bytes();
 
-    // function selector: 0xf18186d8 keccak256("swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
-    hash_bytes[0] = 0xf1;
-    hash_bytes[1] = 0x81;
-    hash_bytes[2] = 0x86;
-    hash_bytes[3] = 0xd8;
+    // The purpose of including the following selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
+    let selector = comptime {
+        std::hash::keccak256(
+            "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)".as_bytes(),
+            75,
+        )
+    };
+
+    hash_bytes[0] = selector[0];
+    hash_bytes[1] = selector[1];
+    hash_bytes[2] = selector[2];
+    hash_bytes[3] = selector[3];
 
     for i in 0..32 {
         hash_bytes[i + 4] = input_token_portal_bytes[i];
@@ -73,11 +81,19 @@ pub fn compute_swap_private_content_hash(
         secret_hash_for_L1_to_l2_message.to_be_bytes();
     let caller_on_L1_bytes: [u8; 32] = caller_on_L1.to_field().to_be_bytes();
 
-    // function selector: 0x84e55078 keccak256("swap_private(address,uint256,uint24,address,uint256,bytes32,address)")
-    hash_bytes[0] = 0x84;
-    hash_bytes[1] = 0xe5;
-    hash_bytes[2] = 0x50;
-    hash_bytes[3] = 0x78;
+    // The purpose of including the following selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
+    let selector = comptime {
+        std::hash::keccak256(
+            "swap_private(address,uint256,uint24,address,uint256,bytes32,address)".as_bytes(),
+            68,
+        )
+    };
+
+    hash_bytes[0] = selector[0];
+    hash_bytes[1] = selector[1];
+    hash_bytes[2] = selector[2];
+    hash_bytes[3] = selector[3];
 
     for i in 0..32 {
         hash_bytes[i + 4] = input_token_portal_bytes[i];
