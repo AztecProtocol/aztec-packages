@@ -8,6 +8,7 @@
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
+#include <execution>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -18,7 +19,7 @@ void UltraCircuitBuilder_<Arithmetization>::finalize_circuit(const bool ensure_n
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
-     * Note that the total number of rows in an UltraPlonk program can be divided as following:
+     * Note that the total number of rows in an 9UltraPlonk program can be divided as following:
      *  1. arithmetic gates:  n_computation (includes all computation gates)
      *  2. rom/memory gates:  n_rom
      *  3. range list gates:  n_range
