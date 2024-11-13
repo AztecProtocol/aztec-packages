@@ -106,10 +106,14 @@ void AvmAluTraceBuilder::reset()
 FF AvmAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     bool carry = false;
-    uint256_t c_u256 = uint256_t(a) + uint256_t(b);
-    FF c = cast_to_mem_tag(c_u256, in_tag);
+    FF c;
 
-    if (in_tag != AvmMemoryTag::FF) {
+    if (in_tag == AvmMemoryTag::FF) {
+        c = a + b;
+    } else {
+        uint256_t c_u256 = uint256_t(a) + uint256_t(b);
+        c = cast_to_mem_tag(c_u256, in_tag);
+
         // a_u128 + b_u128 >= 2^128  <==> c_u128 < a_u128
         if (uint128_t(c) < uint128_t(a)) {
             carry = true;
@@ -150,10 +154,14 @@ FF AvmAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 FF AvmAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     bool carry = false;
-    uint256_t c_u256 = uint256_t(a) - uint256_t(b);
-    FF c = cast_to_mem_tag(c_u256, in_tag);
+    FF c;
 
-    if (in_tag != AvmMemoryTag::FF) {
+    if (in_tag == AvmMemoryTag::FF) {
+        c = a - b;
+    } else {
+        uint256_t c_u256 = uint256_t(a) - uint256_t(b);
+        c = cast_to_mem_tag(c_u256, in_tag);
+
         // Underflow when a_u128 < b_u128
         if (uint128_t(a) < uint128_t(b)) {
             carry = true;
