@@ -124,7 +124,6 @@ impl TailToPublicOutputValidator {
             hints.sorted_l2_to_l1_msg_hints,
         );
 
-        // TODO(Miranda): remove below as we only have 1 bytecode log?
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.contract_class_logs_hashes,

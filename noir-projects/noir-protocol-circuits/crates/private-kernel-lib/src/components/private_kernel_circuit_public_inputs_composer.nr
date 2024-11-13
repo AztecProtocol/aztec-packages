@@ -102,7 +102,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage =
             sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
-        // TODO(Miranda): remove below as we only have 1 bytecode log?
         self.public_inputs.end.contract_class_logs_hashes.storage =
             sort_by_counter_asc(self.public_inputs.end.contract_class_logs_hashes.storage);
         self.public_inputs.end.public_call_requests.storage =

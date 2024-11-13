@@ -116,7 +116,6 @@ impl TailOutputValidator {
             self.hints.sorted_l2_to_l1_msg_hints,
         );
 
-        // TODO(Miranda): remove below as we only have 1 bytecode log?
         assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.contract_class_logs_hashes,
             self.output.end.contract_class_logs_hashes,

@@ -41,7 +41,6 @@ pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NOTE_ENCRYPTED_LOGS_PER_CALL: u32 = 16;
 pub global MAX_ENCRYPTED_LOGS_PER_CALL: u32 = 4;
 pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
-// TODO(Miranda): remove arrays and make single?
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 
 // TREES RELATED CONSTANTS
@@ -96,7 +95,6 @@ pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NOTE_ENCRYPTED_LOGS_PER_TX: u32 = 64;
 pub global MAX_ENCRYPTED_LOGS_PER_TX: u32 = 8;
 pub global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
-// TODO(Miranda): remove arrays and make single?
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 // docs:end:constants
 

@@ -359,6 +359,14 @@ export class Tx extends Gossipable {
       kernelOutput.endNonRevertibleData.noteEncryptedLogsHashes,
       EncryptedNoteTxL2Logs.empty(),
     );
+
+    // See comment in enqueued_calls_processor.ts -> tx.filterRevertedLogs()
+    if (this.data.forPublic) {
+      this.contractClassLogs = this.contractClassLogs.filterScoped(
+        this.data.forPublic?.nonRevertibleAccumulatedData.contractClassLogsHashes,
+        ContractClassTxL2Logs.empty(),
+      );
+    }
   }
 }
 

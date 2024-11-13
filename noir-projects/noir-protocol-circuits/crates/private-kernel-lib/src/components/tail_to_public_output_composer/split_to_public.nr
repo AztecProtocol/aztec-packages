@@ -72,7 +72,7 @@ pub unconstrained fn split_to_public(
             }
         }
     }
-    // TODO(Miranda): remove below as we only have 1 bytecode log?
+
     let contract_class_logs_hashes = data.contract_class_logs_hashes;
     for i in 0..contract_class_logs_hashes.max_len() {
         if i < contract_class_logs_hashes.len() {

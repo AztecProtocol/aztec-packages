@@ -348,7 +348,6 @@ impl PrivateCallDataValidator {
             public_inputs.encrypted_logs_hashes,
             self.array_lengths.encrypted_logs_hashes,
         );
-        // TODO(Miranda): remove below as we only have 1 bytecode log?
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
