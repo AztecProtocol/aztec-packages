@@ -283,7 +283,7 @@ Our output should now look like this:
 Here, we used the same contract abstraction as was previously used for reading Alice's balance. But this time we called `send()` generating and sending a transaction to the network. After waiting for the transaction to settle we were able to check the new balance values.
 
 Finally, the contract has 2 `mint` functions that can be used to generate new tokens for an account.
-We will focus only on `mint_private`.
+We will focus only on `mint_to_private`.
 This function is public but it mints tokens privately.
 This function takes:
 

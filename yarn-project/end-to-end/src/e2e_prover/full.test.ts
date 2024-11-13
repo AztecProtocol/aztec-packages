@@ -74,7 +74,7 @@ describe('full_prover', () => {
       const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
       const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAssets[1].methods.transfer_public(sender, recipient, publicSendAmount, 0);
+      const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
       // Prove them
       logger.info(`Proving txs`);
@@ -166,7 +166,7 @@ describe('full_prover', () => {
     }
 
     const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
-    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(sender, recipient, 1n, 0);
+    const publicInteraction = t.fakeProofsAsset.methods.transfer_in_public(sender, recipient, 1n, 0);
 
     const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
     const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
