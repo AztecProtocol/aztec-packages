@@ -93,8 +93,27 @@ describe('NativeWorldState', () => {
       // The first block should succeed
       await expect(ws.handleL2BlockAndMessages(block1, messages1)).resolves.toBeDefined();
 
+      // The trees should be synched at block 1
+      const goodSummary = await ws.getStatusSummary();
+      expect(goodSummary).toEqual({
+        unfinalisedBlockNumber: 1n,
+        finalisedBlockNumber: 0n,
+        oldestHistoricalBlock: 1n,
+        treesAreSynched: true,
+      } as WorldStateStatusSummary);
+
       // The second block should fail
       await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow();
+
+      // The summary should indicate that the unfinalised block number (that of the archive tree) is 2
+      // But it should also tell us that the trees are not synched
+      const badSummary = await ws.getStatusSummary();
+      expect(badSummary).toEqual({
+        unfinalisedBlockNumber: 2n,
+        finalisedBlockNumber: 0n,
+        oldestHistoricalBlock: 1n,
+        treesAreSynched: false,
+      } as WorldStateStatusSummary);
 
       // Commits should always fail now, the trees are in an inconsistent state
       await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow('World state trees are out of sync');
