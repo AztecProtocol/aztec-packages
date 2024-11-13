@@ -444,15 +444,16 @@ contract Token {
     }
     // docs:end:transfer_to_private
 
-    /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
-    /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
+    /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
+    /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`).
+    /// Returns a hiding point slot.
     #[private]
-    fn prepare_transfer_to_private(to: AztecAddress) -> Field {
+    fn prepare_private_balance_increase(to: AztecAddress) -> Field {
         let from = context.msg_sender();
         _prepare_private_balance_increase(from, to, &mut context, storage)
     }
 
-    /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
+    /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
@@ -504,7 +505,7 @@ contract Token {
     }
 
     /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
     fn finalize_transfer_to_private(amount: Field, hiding_point_slot: Field) {
@@ -569,7 +570,7 @@ contract Token {
     // docs:end:mint_to_private
 
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
-    /// `prepare_transfer_to_private` first and the resulting
+    /// `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     ///
     /// Note: This function is only an optimization as it could be replaced by a combination of `mint_to_public`
