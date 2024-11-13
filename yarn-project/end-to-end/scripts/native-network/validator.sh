@@ -47,7 +47,6 @@ if [ -z "${VALIDATOR_PRIVATE_KEY:-}" ] || [ -z "${ADDRESS:-}" ]; then
   export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
 fi
 
-export PRIVATE_KEY=${PRIVATE_KEY:-${VALIDATOR_PRIVATE_KEY:-}}
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
