@@ -326,7 +326,7 @@ export class FullProverTest {
 
         this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
         await asset.methods
-          .mint_public(accounts[0].address, privateAmount + publicAmount)
+          .mint_to_public(accounts[0].address, privateAmount + publicAmount)
           .send()
           .wait(waitOpts);
 

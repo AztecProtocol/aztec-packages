@@ -129,7 +129,7 @@ export class TokenContractTest {
         const amount = 10000n;
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(wallets[0].getAddress(), amount).send().wait();
+        await asset.methods.mint_to_public(wallets[0].getAddress(), amount).send().wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
         await mintTokensToPrivate(asset, wallets[0], wallets[0].getAddress(), amount);

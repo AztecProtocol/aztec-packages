@@ -53,8 +53,10 @@ contract TokenPortal {
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", _to, _amount));
+      Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", _to, _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
@@ -87,7 +89,7 @@ contract TokenPortal {
     // Hash the message content to be reconstructed in the receiving contract - the signature below does not correspond
     // to a real function. It's just an identifier of an action.
     bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint_private(uint256)", _amount));
+      Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
@@ -123,6 +125,8 @@ contract TokenPortal {
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2Bridge, 1),
       recipient: DataStructures.L1Actor(address(this), block.chainid),

@@ -197,9 +197,9 @@ contract Token {
     }
     // docs:end:set_minter
 
-    // docs:start:mint_public
+    // docs:start:mint_to_public
     #[public]
-    fn mint_public(to: AztecAddress, amount: Field) {
+    fn mint_to_public(to: AztecAddress, amount: Field) {
         // docs:start:read_minter
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
         // docs:end:read_minter
@@ -209,11 +209,11 @@ contract Token {
         storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(supply);
     }
-    // docs:end:mint_public
+    // docs:end:mint_to_public
 
-    // docs:start:transfer_public
+    // docs:start:transfer_in_public
     #[public]
-    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
@@ -225,7 +225,7 @@ contract Token {
         let to_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(to_balance);
     }
-    // docs:end:transfer_public
+    // docs:end:transfer_in_public
 
     // docs:start:burn_public
     #[public]
@@ -297,7 +297,7 @@ contract Token {
             to,
             from,
         ));
-        // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
+        // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
@@ -371,9 +371,9 @@ contract Token {
     }
     // docs:end:cancel_authwit
 
-    // docs:start:transfer_from
+    // docs:start:transfer_in_private
     #[private]
-    fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -405,11 +405,11 @@ contract Token {
             from,
         ));
     }
-    // docs:end:transfer_from
+    // docs:end:transfer_in_private
 
-    // docs:start:burn
+    // docs:start:burn_private
     #[private]
-    fn burn(from: AztecAddress, amount: Field, nonce: Field) {
+    fn burn_private(from: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -423,7 +423,7 @@ contract Token {
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
-    // docs:end:burn
+    // docs:end:burn_private
 
     // docs:start:transfer_to_private
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
@@ -556,7 +556,7 @@ contract Token {
     ) {
         let token = Token::at(context.this_address());
 
-        // We prepare the transfer.
+        // We prepare the partial note to which we'll "send" the minted amount.
         let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
@@ -572,7 +572,7 @@ contract Token {
     /// `prepare_transfer_to_private` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     ///
-    /// Note: This function is only an optimization as it could be replaced by a combination of `mint_public`
+    /// Note: This function is only an optimization as it could be replaced by a combination of `mint_to_public`
     /// and `finalize_transfer_to_private`. It is however used very commonly so it makes sense to optimize it
     /// (e.g. used during token bridging, in AMM liquidity token etc.).
     #[public]

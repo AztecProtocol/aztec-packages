@@ -11,11 +11,11 @@ use std::test::OracleMock;
 /// in `utils::setup_mint_and_transfer_to_private`.
 #[test]
 unconstrained fn transfer_to_private_internal_orchestration() {
-    // The transfer to private is done in `utils::setup_and_mint_private` and for this reason
+    // The transfer to private is done in `utils::setup_and_mint_to_private` and for this reason
     // in this test we just call it and check the outcome.
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (_, token_contract_address, user, _, amount) =
-        utils::setup_and_mint_private(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     // User's private balance should be equal to the amount
     utils::check_private_balance(token_contract_address, user, amount);
@@ -27,7 +27,7 @@ unconstrained fn transfer_to_private_internal_orchestration() {
 unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, recipient, amount) =
-        utils::setup_and_mint_public(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     let note_randomness = random();
 
@@ -61,7 +61,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _, amount) =
-        utils::setup_and_mint_public(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the hiding point slot
     let hiding_point_slot = random();
@@ -76,7 +76,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, not_owner, amount) =
-        utils::setup_and_mint_public(/* with_account_contracts */ false);
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes

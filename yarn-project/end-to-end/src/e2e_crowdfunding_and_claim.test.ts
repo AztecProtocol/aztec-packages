@@ -155,7 +155,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[0])
-        .methods.transfer_from(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
+        .methods.transfer_in_private(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[0].createAuthWit({ caller: crowdfundingContract.address, action });
       await donorWallets[0].addAuthWitness(witness);
     }
@@ -226,7 +226,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[1])
-        .methods.transfer_from(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+        .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
       await donorWallets[1].addAuthWitness(witness);
     }
@@ -319,7 +319,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
     const action = donationToken
       .withWallet(donorWallets[1])
-      .methods.transfer_from(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+      .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
     const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
     await donorWallets[1].addAuthWitness(witness);
 
@@ -365,7 +365,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[1])
-        .methods.transfer_from(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+        .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
       await donorWallets[1].addAuthWitness(witness);
     }
