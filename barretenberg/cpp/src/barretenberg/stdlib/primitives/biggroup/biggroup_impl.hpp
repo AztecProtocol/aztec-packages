@@ -3,6 +3,7 @@
 #include "../bit_array/bit_array.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib::element_default {
 
@@ -116,6 +117,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
+
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 
@@ -186,6 +189,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 
@@ -411,6 +415,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
     const Fq x_4 = minus_lambda_2.sqradd({ -x, -x_3 });
 
     const Fq y_4 = minus_lambda_2.madd(x_4 - x, { -y });
+    info("x_3 tag:", x_3.get_origin_tag());
+    info("minus_lambda_2 tag:", minus_lambda_2.get_origin_tag());
     return element(x_4, y_4);
 }
 
@@ -749,6 +755,25 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const bool with_edgecases)
 {
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
+    OriginTag tag{};
+    const auto empty_tag = OriginTag();
+
+    // handle_points_at_infinity_method can remove some constant points, which messes with this code under
+    // CircuitSimulator
+    for (size_t i = 0; i < _points.size(); i++) {
+        tag = OriginTag(tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
+    }
+    for (size_t i = 0; i < scalars.size(); i++) {
+        // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
+        // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms even
+        // though the final result satisfies the secureity logic
+        // For example result = submitted_in_round_0 *challenge_from_round_0 +submitted_in_round_1 *
+        // challenge_in_round_1 will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is
+        // dangerous by itself. To avoid this, we remove the tags, merge them separately and set the result
+        // appropriately
+        points[i].set_origin_tag(empty_tag);
+        scalars[i].set_origin_tag(empty_tag);
+    }
 
     if constexpr (IsSimulator<C>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
@@ -760,7 +785,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
             result += (element_t(points[i].get_value()) * scalars[i].get_value());
         }
         result = result.normalize();
-        return from_witness(context, result);
+        auto nonnative_result = from_witness(context, result);
+        nonnative_result.set_origin_tag(tag);
+        return nonnative_result;
     } else {
         // Perform goblinized batched mul if available; supported only for BN254
         if (with_edgecases) {
@@ -807,6 +834,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         }
         accumulator = accumulator - offset_generators.second;
 
+        accumulator.set_origin_tag(tag);
         return accumulator;
     }
 }
