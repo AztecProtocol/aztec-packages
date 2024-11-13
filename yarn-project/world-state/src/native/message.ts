@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, TreeLeafReadRequest, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, type StateReference, TreeLeafReadRequest, type UInt32 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export type MessageHeaderInit = {
@@ -95,6 +95,19 @@ export interface WorldStateStatusSummary {
   treesAreSynched: boolean;
 }
 
+export interface TreeMeta {
+  name: string;
+  depth: number;
+  size: bigint;
+  committedSize: bigint;
+  root: Fr;
+  initialSize: bigint;
+  initialRoot: Fr;
+  oldestHistoricBlock: bigint;
+  unfinalisedBlockHeight: bigint;
+  finalisedBlockHeight: bigint;
+}
+
 export interface DBStats {
   /** The name of the DB */
   name: string;
@@ -119,6 +132,19 @@ export interface TreeDBStats {
   leafIndicesDBStats: DBStats;
 }
 
+export interface WorldStateMeta {
+  /** Tree meta for the note hash tree */
+  noteHashTreeMeta: TreeMeta;
+  /** Tree meta for the message tree */
+  messageTreeMeta: TreeMeta;
+  /** Tree meta for the archive tree */
+  archiveTreeMeta: TreeMeta;
+  /** Tree meta for the public data tree */
+  publicDataTreeMeta: TreeMeta;
+  /** Tree meta for the nullifier tree */
+  nullifierTreeMeta: TreeMeta;
+}
+
 export interface WorldStateDBStats {
   /** Full stats for the note hash tree */
   noteHashTreeStats: TreeDBStats;
@@ -135,6 +161,7 @@ export interface WorldStateDBStats {
 export interface WorldStateStatusFull {
   summary: WorldStateStatusSummary;
   dbStats: WorldStateDBStats;
+  meta: WorldStateMeta;
 }
 
 interface WithForkId {

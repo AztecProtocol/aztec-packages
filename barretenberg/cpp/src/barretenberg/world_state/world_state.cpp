@@ -409,8 +409,7 @@ void WorldState::update_archive(const StateReference& block_state_ref,
     }
 }
 
-std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status,
-                                                std::array<TreeMeta, NUM_TREES>& metaResponses)
+std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status)
 {
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
@@ -420,12 +419,8 @@ std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status,
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
-        commit_tree(status.dbStats.nullifierTreeStats,
-                    signal,
-                    *wrapper.tree,
-                    success,
-                    message,
-                    metaResponses[MerkleTreeId::NULLIFIER_TREE]);
+        commit_tree(
+            status.dbStats.nullifierTreeStats, signal, *wrapper.tree, success, message, status.meta.nullifierTreeMeta);
     }
     {
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
@@ -434,37 +429,25 @@ std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status,
                     *wrapper.tree,
                     success,
                     message,
-                    metaResponses[MerkleTreeId::PUBLIC_DATA_TREE]);
+                    status.meta.publicDataTreeMeta);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::NOTE_HASH_TREE));
-        commit_tree(status.dbStats.noteHashTreeStats,
-                    signal,
-                    *wrapper.tree,
-                    success,
-                    message,
-                    metaResponses[MerkleTreeId::NOTE_HASH_TREE]);
+        commit_tree(
+            status.dbStats.noteHashTreeStats, signal, *wrapper.tree, success, message, status.meta.noteHashTreeMeta);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
-        commit_tree(status.dbStats.messageTreeStats,
-                    signal,
-                    *wrapper.tree,
-                    success,
-                    message,
-                    metaResponses[MerkleTreeId::L1_TO_L2_MESSAGE_TREE]);
+        commit_tree(
+            status.dbStats.messageTreeStats, signal, *wrapper.tree, success, message, status.meta.messageTreeMeta);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
-        commit_tree(status.dbStats.archiverTreeStats,
-                    signal,
-                    *wrapper.tree,
-                    success,
-                    message,
-                    metaResponses[MerkleTreeId::ARCHIVE]);
+        commit_tree(
+            status.dbStats.archiveTreeStats, signal, *wrapper.tree, success, message, status.meta.archiveTreeMeta);
     }
 
     signal.wait_for_level(0);
@@ -498,12 +481,11 @@ WorldStateStatusFull WorldState::sync_block(
     WorldStateStatusFull status;
     if (is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref) &&
         is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        std::array<TreeMeta, NUM_TREES> metaResponses;
-        std::pair<bool, std::string> result = commit(status, metaResponses);
+        std::pair<bool, std::string> result = commit(status);
         if (!result.first) {
             throw std::runtime_error(result.second);
         }
-        get_status_summary_from_meta_responses(status.summary, metaResponses);
+        populate_status_summary(status);
         return status;
     }
     rollback();
@@ -580,12 +562,11 @@ WorldStateStatusFull WorldState::sync_block(
         throw std::runtime_error("Can't synch block: block state does not match world state");
     }
 
-    std::array<TreeMeta, NUM_TREES> metaResponses;
-    std::pair<bool, std::string> result = commit(status, metaResponses);
+    std::pair<bool, std::string> result = commit(status);
     if (!result.first) {
         throw std::runtime_error(result.second);
     }
-    get_status_summary_from_meta_responses(status.summary, metaResponses);
+    populate_status_summary(status);
     return status;
 }
 
@@ -645,13 +626,12 @@ WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
         throw std::runtime_error("Unable to unwind block, block not found");
     }
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaResponses;
     for (index_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber; blockNumber--) {
-        if (!unwind_block(blockNumber, status, metaResponses)) {
+        if (!unwind_block(blockNumber, status)) {
             throw std::runtime_error("Failed to unwind block");
         }
     }
-    get_status_summary_from_meta_responses(status.summary, metaResponses);
+    populate_status_summary(status);
     return status;
 }
 WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlockNumber)
@@ -662,13 +642,12 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
         throw std::runtime_error("Unable to remove historical block, block not found");
     }
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaResponses;
     for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
-        if (!remove_historical_block(blockNumber, status, metaResponses)) {
+        if (!remove_historical_block(blockNumber, status)) {
             throw std::runtime_error("Failed to remove historical block");
         }
     }
-    get_status_summary_from_meta_responses(status.summary, metaResponses);
+    populate_status_summary(status);
     return status;
 }
 
@@ -690,9 +669,7 @@ bool WorldState::set_finalised_block(const index_t& blockNumber)
     signal.wait_for_level();
     return success;
 }
-bool WorldState::unwind_block(const index_t& blockNumber,
-                              WorldStateStatusFull& status,
-                              std::array<TreeMeta, NUM_TREES>& metaResponses)
+bool WorldState::unwind_block(const index_t& blockNumber, WorldStateStatusFull& status)
 {
     std::atomic_bool success = true;
     std::string message;
@@ -705,7 +682,7 @@ bool WorldState::unwind_block(const index_t& blockNumber,
                     *wrapper.tree,
                     success,
                     message,
-                    metaResponses[MerkleTreeId::NULLIFIER_TREE],
+                    status.meta.nullifierTreeMeta,
                     blockNumber);
     }
     {
@@ -715,7 +692,7 @@ bool WorldState::unwind_block(const index_t& blockNumber,
                     *wrapper.tree,
                     success,
                     message,
-                    metaResponses[MerkleTreeId::PUBLIC_DATA_TREE],
+                    status.meta.publicDataTreeMeta,
                     blockNumber);
     }
 
@@ -726,7 +703,7 @@ bool WorldState::unwind_block(const index_t& blockNumber,
                     *wrapper.tree,
                     success,
                     message,
-                    metaResponses[MerkleTreeId::NOTE_HASH_TREE],
+                    status.meta.noteHashTreeMeta,
                     blockNumber);
     }
 
@@ -737,27 +714,25 @@ bool WorldState::unwind_block(const index_t& blockNumber,
                     *wrapper.tree,
                     success,
                     message,
-                    metaResponses[MerkleTreeId::L1_TO_L2_MESSAGE_TREE],
+                    status.meta.messageTreeMeta,
                     blockNumber);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
-        unwind_tree(status.dbStats.archiverTreeStats,
+        unwind_tree(status.dbStats.archiveTreeStats,
                     signal,
                     *wrapper.tree,
                     success,
                     message,
-                    metaResponses[MerkleTreeId::ARCHIVE],
+                    status.meta.archiveTreeMeta,
                     blockNumber);
     }
     signal.wait_for_level();
     remove_forks_for_block(blockNumber);
     return success;
 }
-bool WorldState::remove_historical_block(const index_t& blockNumber,
-                                         WorldStateStatusFull& status,
-                                         std::array<TreeMeta, NUM_TREES>& metaResponses)
+bool WorldState::remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status)
 {
     std::atomic_bool success = true;
     std::string message;
@@ -770,7 +745,7 @@ bool WorldState::remove_historical_block(const index_t& blockNumber,
                                        *wrapper.tree,
                                        success,
                                        message,
-                                       metaResponses[MerkleTreeId::NULLIFIER_TREE],
+                                       status.meta.nullifierTreeMeta,
                                        blockNumber);
     }
     {
@@ -780,7 +755,7 @@ bool WorldState::remove_historical_block(const index_t& blockNumber,
                                        *wrapper.tree,
                                        success,
                                        message,
-                                       metaResponses[MerkleTreeId::PUBLIC_DATA_TREE],
+                                       status.meta.publicDataTreeMeta,
                                        blockNumber);
     }
 
@@ -791,7 +766,7 @@ bool WorldState::remove_historical_block(const index_t& blockNumber,
                                        *wrapper.tree,
                                        success,
                                        message,
-                                       metaResponses[MerkleTreeId::NOTE_HASH_TREE],
+                                       status.meta.noteHashTreeMeta,
                                        blockNumber);
     }
 
@@ -802,18 +777,18 @@ bool WorldState::remove_historical_block(const index_t& blockNumber,
                                        *wrapper.tree,
                                        success,
                                        message,
-                                       metaResponses[MerkleTreeId::L1_TO_L2_MESSAGE_TREE],
+                                       status.meta.messageTreeMeta,
                                        blockNumber);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
-        remove_historic_block_for_tree(status.dbStats.archiverTreeStats,
+        remove_historic_block_for_tree(status.dbStats.archiveTreeStats,
                                        signal,
                                        *wrapper.tree,
                                        success,
                                        message,
-                                       metaResponses[MerkleTreeId::ARCHIVE],
+                                       status.meta.archiveTreeMeta,
                                        blockNumber);
     }
     signal.wait_for_level();
@@ -884,6 +859,18 @@ void WorldState::get_status_summary_from_meta_responses(WorldStateStatusSummary&
     status.finalisedBlockNumber = archive_state.finalisedBlockHeight;
     status.oldestHistoricalBlock = archive_state.oldestHistoricBlock;
     status.treesAreSynched = determine_if_synched(metaResponses);
+}
+
+void WorldState::populate_status_summary(WorldStateStatusFull& status)
+{
+    status.summary.finalisedBlockNumber = status.meta.archiveTreeMeta.finalisedBlockHeight;
+    status.summary.unfinalisedBlockNumber = status.meta.archiveTreeMeta.unfinalisedBlockHeight;
+    status.summary.oldestHistoricalBlock = status.meta.archiveTreeMeta.oldestHistoricBlock;
+    status.summary.treesAreSynched =
+        status.meta.messageTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber &&
+        status.meta.noteHashTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber &&
+        status.meta.nullifierTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber &&
+        status.meta.publicDataTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber;
 }
 
 bool WorldState::is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const

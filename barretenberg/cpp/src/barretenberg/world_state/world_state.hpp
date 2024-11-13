@@ -200,7 +200,7 @@ class WorldState {
     /**
      * @brief Commits the current state of the world state.
      */
-    std::pair<bool, std::string> commit(WorldStateStatusFull& status, std::array<TreeMeta, NUM_TREES>& metaResponses);
+    std::pair<bool, std::string> commit(WorldStateStatusFull& status);
 
     /**
      * @brief Rolls back any uncommitted changes made to the world state.
@@ -243,12 +243,8 @@ class WorldState {
     Fork::SharedPtr create_new_fork(const index_t& blockNumber);
     void remove_forks_for_block(const index_t& blockNumber);
 
-    bool unwind_block(const index_t& blockNumber,
-                      WorldStateStatusFull& status,
-                      std::array<TreeMeta, NUM_TREES>& metaResponses);
-    bool remove_historical_block(const index_t& blockNumber,
-                                 WorldStateStatusFull& status,
-                                 std::array<TreeMeta, NUM_TREES>& metaResponses);
+    bool unwind_block(const index_t& blockNumber, WorldStateStatusFull& status);
+    bool remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status);
     bool set_finalised_block(const index_t& blockNumber);
 
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
@@ -271,6 +267,8 @@ class WorldState {
 
     static void get_status_summary_from_meta_responses(WorldStateStatusSummary& status,
                                                        std::array<TreeMeta, NUM_TREES>& metaResponses);
+
+    static void populate_status_summary(WorldStateStatusFull& status);
 
     template <typename TreeType>
     void commit_tree(TreeDBStats& dbStats,

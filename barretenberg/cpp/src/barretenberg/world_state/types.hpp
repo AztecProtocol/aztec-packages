@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -99,6 +100,17 @@ struct WorldStateDBStats {
     MSGPACK_FIELDS(noteHashTreeStats, messageTreeStats, archiveTreeStats, publicDataTreeStats, nullifierTreeStats);
 
     WorldStateDBStats() = default;
+    WorldStateDBStats(const TreeDBStats& noteHashStats,
+                      const TreeDBStats& messageStats,
+                      const TreeDBStats& archiveStats,
+                      const TreeDBStats& publicDataStats,
+                      const TreeDBStats& nullifierStats)
+        : noteHashTreeStats(noteHashStats)
+        , messageTreeStats(messageStats)
+        , archiveTreeStats(archiveStats)
+        , publicDataTreeStats(publicDataStats)
+        , nullifierTreeStats(nullifierStats)
+    {}
     WorldStateDBStats(const WorldStateDBStats& other) = default;
     WorldStateDBStats(WorldStateDBStats&& other) noexcept { *this = std::move(other); }
 
@@ -134,13 +146,77 @@ struct WorldStateDBStats {
     }
 };
 
+struct WorldStateMeta {
+    TreeMeta noteHashTreeMeta;
+    TreeMeta messageTreeMeta;
+    TreeMeta archiveTreeMeta;
+    TreeMeta publicDataTreeMeta;
+    TreeMeta nullifierTreeMeta;
+
+    MSGPACK_FIELDS(noteHashTreeMeta, messageTreeMeta, archiveTreeMeta, publicDataTreeMeta, nullifierTreeMeta);
+
+    WorldStateMeta() = default;
+    WorldStateMeta(const TreeMeta& noteHashMeta,
+                   const TreeMeta& messageMeta,
+                   const TreeMeta& archiveMeta,
+                   const TreeMeta& publicDataMeta,
+                   const TreeMeta& nullifierMeta)
+        : noteHashTreeMeta(noteHashMeta)
+        , messageTreeMeta(messageMeta)
+        , archiveTreeMeta(archiveMeta)
+        , publicDataTreeMeta(publicDataMeta)
+        , nullifierTreeMeta(nullifierMeta)
+    {}
+    WorldStateMeta(const WorldStateMeta& other) = default;
+    WorldStateMeta(WorldStateMeta&& other) noexcept { *this = std::move(other); }
+
+    WorldStateMeta& operator=(WorldStateMeta&& other) noexcept
+    {
+        if (this != &other) {
+            noteHashTreeMeta = std::move(other.noteHashTreeMeta);
+            messageTreeMeta = std::move(other.messageTreeMeta);
+            archiveTreeMeta = std::move(other.archiveTreeMeta);
+            publicDataTreeMeta = std::move(other.publicDataTreeMeta);
+            nullifierTreeMeta = std::move(other.nullifierTreeMeta);
+        }
+        return *this;
+    }
+
+    ~WorldStateMeta() = default;
+
+    bool operator==(const WorldStateMeta& other) const
+    {
+        return noteHashTreeMeta == other.noteHashTreeMeta && messageTreeMeta == other.messageTreeMeta &&
+               archiveTreeMeta == other.archiveTreeMeta && publicDataTreeMeta == other.publicDataTreeMeta &&
+               nullifierTreeMeta == other.nullifierTreeMeta;
+    }
+
+    WorldStateMeta& operator=(const WorldStateMeta& other) = default;
+
+    friend std::ostream& operator<<(std::ostream& os, const WorldStateMeta& stats)
+    {
+        os << "Note hash tree meta " << stats.noteHashTreeMeta << ", Message tree meta " << stats.messageTreeMeta
+           << ", Archive tree meta " << stats.archiveTreeMeta << ", Public Data tree meta " << stats.publicDataTreeMeta
+           << ", Nullifier tree meta " << stats.nullifierTreeMeta;
+        return os;
+    }
+};
+
 struct WorldStateStatusFull {
     WorldStateStatusSummary summary;
     WorldStateDBStats dbStats;
+    WorldStateMeta meta;
 
-    MSGPACK_FIELDS(summary, dbStats);
+    MSGPACK_FIELDS(summary, dbStats, meta);
 
     WorldStateStatusFull() = default;
+    WorldStateStatusFull(const WorldStateStatusSummary& summary,
+                         const WorldStateDBStats& dbStats,
+                         const WorldStateMeta& meta)
+        : summary(summary)
+        , dbStats(dbStats)
+        , meta(meta)
+    {}
     WorldStateStatusFull(const WorldStateStatusFull& other) = default;
     WorldStateStatusFull(WorldStateStatusFull&& other) noexcept { *this = std::move(other); }
 
@@ -149,6 +225,7 @@ struct WorldStateStatusFull {
         if (this != &other) {
             summary = std::move(other.summary);
             dbStats = std::move(other.dbStats);
+            meta = std::move(other.meta);
         }
         return *this;
     }
@@ -159,12 +236,12 @@ struct WorldStateStatusFull {
 
     bool operator==(const WorldStateStatusFull& other) const
     {
-        return summary == other.summary && dbStats == other.dbStats;
+        return summary == other.summary && dbStats == other.dbStats && meta == other.meta;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const WorldStateStatusFull& status)
     {
-        os << "Summary: " << status.summary << ", DB Stats " << status.dbStats;
+        os << "Summary: " << status.summary << ", DB Stats " << status.dbStats << ", Meta " << status.meta;
         return os;
     }
 };

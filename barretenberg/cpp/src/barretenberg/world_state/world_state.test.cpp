@@ -250,8 +250,7 @@ TEST_F(WorldStateTest, GetInitialStateReference)
     auto before_commit = ws.get_initial_state_reference();
     ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaResponses;
-    ws.commit(status, metaResponses);
+    ws.commit(status);
 
     auto after_commit = ws.get_initial_state_reference();
 
@@ -286,8 +285,7 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
         EXPECT_EQ(committed.meta.root, initial.meta.root);
 
         WorldStateStatusFull status;
-        std::array<TreeMeta, NUM_TREES> metaResponses;
-        ws.commit(status, metaResponses);
+        ws.commit(status);
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 0, fr(42));
         assert_leaf_index(ws, WorldStateRevision::committed(), tree_id, fr(42), 0);
 
@@ -337,8 +335,7 @@ TEST_F(WorldStateTest, AppendOnlyAllowDuplicates)
         assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 2, fr(42));
 
         WorldStateStatusFull status;
-        std::array<TreeMeta, NUM_TREES> metaRespoonses;
-        ws.commit(status, metaRespoonses);
+        ws.commit(status);
 
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 0, fr(42));
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 1, fr(42));
@@ -360,8 +357,7 @@ TEST_F(WorldStateTest, NullifierTree)
     assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 128, test_nullifier);
 
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaRespoonses;
-    ws.commit(status, metaRespoonses);
+    ws.commit(status);
 
     auto test_leaf = ws.get_indexed_leaf<NullifierLeafValue>(WorldStateRevision::committed(), tree_id, 128);
     // at this point 142 should be the biggest leaf so it wraps back to 0
@@ -392,8 +388,7 @@ TEST_F(WorldStateTest, NullifierTreeDuplicates)
 
     ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier });
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaRespoonses;
-    ws.commit(status, metaRespoonses);
+    ws.commit(status);
 
     assert_tree_size(ws, WorldStateRevision::committed(), tree_id, 129);
     EXPECT_THROW(ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier }), std::runtime_error);
@@ -471,8 +466,7 @@ TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)
     ws.append_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { PublicDataLeafValue(142, 1) });
 
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaRespoonses;
-    ws.commit(status, metaRespoonses);
+    ws.commit(status);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(42));
@@ -746,8 +740,7 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
     EXPECT_NE(fork_archive_state_after_insert.meta, canonical_archive_state_after_insert.meta);
 
     WorldStateStatusFull status;
-    std::array<TreeMeta, NUM_TREES> metaResponses;
-    ws.commit(status, metaResponses);
+    ws.commit(status);
     auto canonical_archive_state_after_commit =
         ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
     auto fork_archive_state_after_commit = ws.get_tree_info(

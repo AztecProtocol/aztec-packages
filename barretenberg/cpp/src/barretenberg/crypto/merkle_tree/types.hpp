@@ -33,6 +33,11 @@ struct DBStats {
         , numDataItems(stat.ms_entries)
         , totalUsedSize(stat.ms_psize * (stat.ms_branch_pages + stat.ms_leaf_pages + stat.ms_overflow_pages))
     {}
+    DBStats(const std::string& name, uint64_t numDataItems, uint64_t totalUsedSize)
+        : name(name)
+        , numDataItems(numDataItems)
+        , totalUsedSize(totalUsedSize)
+    {}
 
     MSGPACK_FIELDS(name, numDataItems, totalUsedSize)
 
@@ -72,6 +77,19 @@ struct TreeDBStats {
     TreeDBStats() = default;
     TreeDBStats(uint64_t mapSize)
         : mapSize(mapSize)
+    {}
+    TreeDBStats(uint64_t mapSize,
+                const DBStats& blockStats,
+                const DBStats& nodesStats,
+                const DBStats& leafPreimagesDBStats,
+                const DBStats& leafKeysDBStats,
+                const DBStats& leafIndicesStats)
+        : mapSize(mapSize)
+        , blocksDBStats(blockStats)
+        , nodesDBStats(nodesStats)
+        , leafPreimagesDBStats(leafPreimagesDBStats)
+        , leafKeysDBStats(leafKeysDBStats)
+        , leafIndicesDBStats(leafIndicesStats)
     {}
     TreeDBStats(const TreeDBStats& other) = default;
     TreeDBStats(TreeDBStats&& other) noexcept { *this = std::move(other); }
