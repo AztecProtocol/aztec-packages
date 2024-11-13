@@ -667,7 +667,8 @@ contract Token {
         ));
 
         // 4. We prepare the partial notes
-        let fee_payer_point_slot = _prepare_transfer_to_private(user, fee_payer, &mut context, storage);
+        let fee_payer_point_slot =
+            _prepare_transfer_to_private(user, fee_payer, &mut context, storage);
         let user_point_slot = _prepare_transfer_to_private(user, user, &mut context, storage);
 
         // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
