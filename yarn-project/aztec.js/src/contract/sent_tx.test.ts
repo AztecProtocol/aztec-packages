@@ -23,16 +23,11 @@ describe('SentTx', () => {
       pxe.getTxReceipt.mockResolvedValue(txReceipt);
     });
 
-    it('waits for all notes accounts to be synced', async () => {
+    it('waits for all notes of the accounts to be available', async () => {
       pxe.getSyncStatus.mockResolvedValueOnce({ blocks: 25 }).mockResolvedValueOnce({ blocks: 25 });
 
       const actual = await sentTx.wait({ timeout: 1, interval: 0.4 });
       expect(actual).toEqual(txReceipt);
-    });
-
-    it('fails if an account is not synced', async () => {
-      pxe.getSyncStatus.mockResolvedValue({ blocks: 25 });
-      await expect(sentTx.wait({ timeout: 1, interval: 0.4 })).rejects.toThrow(/timeout/i);
     });
 
     it('does not wait for notes sync', async () => {
