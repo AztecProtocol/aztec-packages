@@ -17,8 +17,16 @@ proverNode:
 proverAgent:
   replicas: 6
   realProofs: true
+  realProofs: true
   bb:
     hardwareConcurrency: 16
+  resources:
+    requests:
+      memory: "64Gi"
+      cpu: "16"
+    limits:
+      memory: "96Gi"
+      cpu: "16"
 
 pxe:
   proverEnabled: true
@@ -35,3 +43,7 @@ jobs:
 aztec:
   slotDuration: 36
   epochDuration: 32
+
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
