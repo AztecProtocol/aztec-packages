@@ -318,7 +318,9 @@ export class SimulatorOracle implements DBOracle {
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
     // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = Array.from(new Set([...this.db.getContactAddresses(), ...(await this.keyStore.getAccounts())]));
+    const contacts = [...this.db.getContactAddresses(), ...(await this.keyStore.getAccounts())].filter(
+      (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
+    );
     const appTaggingSecrets = contacts.map(contact => {
       const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
@@ -339,9 +341,7 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
-    const recipients = scopes
-      ? scopes
-      : (await this.db.getCompleteAddresses()).map(completeAddress => completeAddress.address);
+    const recipients = scopes ? scopes : await this.keyStore.getAccounts();
     const result = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
@@ -353,35 +353,51 @@ export class SimulatorOracle implements DBOracle {
       // length, since we don't really know the note they correspond to until we decrypt them.
 
       // 1. Get all the secrets for the recipient and sender pairs (#9365)
-      let appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
+      const appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
+
       // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
       // and inadvertedly incremented their index without use getting any logs (for example, in case
       // of a revert). If we stopped looking for logs the first time
       // we receive 0 for a tag, we might never receive anything from that sender again.
       const INDEX_OFFSET = 10;
-      const maxIndexesToCheck = appTaggingSecrets.reduce<{ [k: string]: number }>(
+      type SearchState = {
+        currentTagggingSecrets: IndexedTaggingSecret[];
+        maxIndexesToCheck: { [k: string]: number };
+        initialSecretIndexes: { [k: string]: number };
+        secretsToIncrement: { [k: string]: number };
+      };
+      const searchState = appTaggingSecrets.reduce<SearchState>(
         (acc, appTaggingSecret) => ({
-          ...acc,
-          ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
+          currentTagggingSecrets: acc.currentTagggingSecrets.concat([
+            new IndexedTaggingSecret(appTaggingSecret.secret, Math.max(0, appTaggingSecret.index - INDEX_OFFSET)),
+          ]),
+          maxIndexesToCheck: {
+            ...acc.maxIndexesToCheck,
+            ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
+          },
+          secretsToIncrement: {},
+          initialSecretIndexes: {
+            ...acc.initialSecretIndexes,
+            ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index },
+          },
         }),
-        {},
+        { currentTagggingSecrets: [], maxIndexesToCheck: {}, secretsToIncrement: {}, initialSecretIndexes: {} },
       );
 
-      const secretsToIncrement = appTaggingSecrets.reduce<{ [k: string]: number }>(
-        (acc, appTaggingSecret) => ({
-          ...acc,
-          ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index },
-        }),
-        {},
-      );
-      while (appTaggingSecrets.length > 0) {
+      let { currentTagggingSecrets } = searchState;
+      const { maxIndexesToCheck, secretsToIncrement, initialSecretIndexes } = searchState;
+
+      while (currentTagggingSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-        const currentTags = appTaggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient));
+        const currentTags = currentTagggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient));
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
         const newTaggingSecrets: IndexedTaggingSecret[] = [];
         logsByTags.forEach((logsByTag, logIndex) => {
-          const { secret: currentSecret, index: currentIndex } = appTaggingSecrets[logIndex];
+          const { secret: currentSecret, index: currentIndex } = currentTagggingSecrets[logIndex];
           const currentSecretAsStr = currentSecret.toString();
+          this.log.debug(
+            `Syncing logs for recipient ${recipient}, secret ${currentSecretAsStr}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
+          );
           // 3.1. Append logs to the list and increment the index for the tags that have logs (#9380)
           if (logsByTag.length > 0) {
             this.log.verbose(
@@ -393,9 +409,13 @@ export class SimulatorOracle implements DBOracle {
             );
             logs.push(...logsByTag);
             // 3.2. Increment the index for the tags that have logs (#9380)
-            secretsToIncrement[currentSecretAsStr] = currentIndex + 1;
+            if (currentIndex >= initialSecretIndexes[currentSecretAsStr]) {
+              secretsToIncrement[currentSecretAsStr] = currentIndex + 1;
+            }
             // 3.4. Slide the window forwards
-            maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
+            if (currentIndex + INDEX_OFFSET > maxIndexesToCheck[currentSecretAsStr]) {
+              maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
+            }
           }
           // 3.3 Keep increasing the index (inside a window) temporarily for the tags that have no logs
           // There's a chance the sender missed some and we want to catch up
@@ -409,7 +429,7 @@ export class SimulatorOracle implements DBOracle {
             secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
           ),
         );
-        appTaggingSecrets = newTaggingSecrets;
+        currentTagggingSecrets = newTaggingSecrets;
       }
 
       result.set(

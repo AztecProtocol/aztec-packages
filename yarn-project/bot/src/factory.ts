@@ -8,7 +8,7 @@ import {
   createPXEClient,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

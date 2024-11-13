@@ -294,7 +294,30 @@ describe('Simulator oracle', () => {
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(5 + 2 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
-    it('should only sync tagged logs for which indexes are not updated', async () => {
+    it("should sync tagged logs for which indexes are not updated if they're inside the window", async () => {
+      const senderOffset = 1;
+      generateMockLogs(senderOffset);
+
+      // Recompute the secrets (as recipient) to update indexes
+      const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      const secrets = senders.map(sender => {
+        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+      });
+
+      await database.setTaggingSecretsIndexesAsRecipient(secrets.map(secret => new IndexedTaggingSecret(secret, 2)));
+
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+
+      // Even if our index as recipient is higher than what the recipient sent, we should be able to find the logs
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+
+      // We should have called the node 13 times:
+      // 1 time without logs + 2 times with logs (sliding the window) + 10 times with no results (window size)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(3 + SENDER_OFFSET_WINDOW_SIZE);
+    });
+
+    it("should sync not tagged logs for which indexes are not updated if they're outside the window", async () => {
       const senderOffset = 0;
       generateMockLogs(senderOffset);
 
@@ -305,16 +328,18 @@ describe('Simulator oracle', () => {
         return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
       });
 
-      await database.setTaggingSecretsIndexesAsRecipient(secrets.map(secret => new IndexedTaggingSecret(secret, 1)));
+      await database.setTaggingSecretsIndexesAsRecipient(
+        secrets.map(secret => new IndexedTaggingSecret(secret, SENDER_OFFSET_WINDOW_SIZE + 1)),
+      );
 
       const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
       // Only half of the logs should be synced since we start from index 1 = offset + 1, the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
 
-      // We should have called the node twice + SENDER_OFFSET_WINDOW_SIZE:
-      // Once for index 1 (NUM_SENDERS/2 logs) + the sliding window (no logs each time)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1 + SENDER_OFFSET_WINDOW_SIZE);
+      // We should have called the node SENDER_OFFSET_WINDOW_SIZE + 1 (with logs) + SENDER_OFFSET_WINDOW_SIZE:
+      // Once for index 1 (NUM_SENDERS/2 logs) + 2 times the sliding window (no logs each time)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1 + 2 * SENDER_OFFSET_WINDOW_SIZE);
     });
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {

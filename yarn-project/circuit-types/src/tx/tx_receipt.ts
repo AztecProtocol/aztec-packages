@@ -5,7 +5,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { UniqueNote } from '../notes/extended_note.js';
 import { TxHash } from './tx_hash.js';
 
 /**
