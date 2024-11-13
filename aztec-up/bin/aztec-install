@@ -65,7 +65,7 @@ BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
 
 # Define version if specified, otherwise set to "latest".
 VERSION=${VERSION:-"latest"}
-INSTALL_HOST=install.aztec.network.s3-website.eu-west-2.amazonaws.com
+INSTALL_HOST=install.aztec.network
 
 [ -z "${NON_INTERACTIVE:-}" ] && title
 
@@ -113,9 +113,9 @@ fi
 function download_docker_compose {
   local install_url
   if [ "$VERSION" != "latest" ]; then
-    install_url="http://$INSTALL_HOST/$VERSION/docker-compose.${1}.yml"
+    install_url="https://$INSTALL_HOST/$VERSION/docker-compose.${1}.yml"
   else
-    install_url="http://$INSTALL_HOST/docker-compose.${1}.yml"
+    install_url="https://$INSTALL_HOST/docker-compose.${1}.yml"
   fi
   curl -fsSL "$install_url" -o $AZTEC_PATH/docker-compose.${1}.yml
   echo "Installed docker-compose.${1}.yml"
@@ -127,9 +127,9 @@ download_docker_compose "test"
 function install_bin {
   local install_url
   if [ "$VERSION" != "latest" ]; then
-    install_url="http://$INSTALL_HOST/$VERSION/$1"
+    install_url="https://$INSTALL_HOST/$VERSION/$1"
   else
-    install_url="http://$INSTALL_HOST/$1"
+    install_url="https://$INSTALL_HOST/$1"
   fi
   curl -fsSL "$install_url" -o "$BIN_PATH/$1"
   chmod +x "$BIN_PATH/$1"
