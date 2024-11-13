@@ -2126,6 +2126,7 @@ function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCir
       inputs.previousRevertibleAccumulatedData,
     ),
     end_tree_snapshots: mapTreeSnapshotsToNoir(inputs.endTreeSnapshots),
+    end_gas_used: mapGasToNoir(inputs.endGasUsed),
     accumulated_data: mapAvmAccumulatedDataToNoir(inputs.accumulatedData),
     transaction_fee: mapFieldToNoir(inputs.transactionFee),
     reverted: inputs.reverted,
