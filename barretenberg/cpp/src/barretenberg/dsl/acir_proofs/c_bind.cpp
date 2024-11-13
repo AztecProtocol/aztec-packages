@@ -328,7 +328,8 @@ WASM_EXPORT void get_honk_solidity_verifier_vk(uint8_t const* acir_vec, uint8_t*
 
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
+    auto builder =
+        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, *recursive, 0, {}, /*honk_recursion=*/true);
 
     DeciderProvingKey proving_key(builder);
     VerificationKey vk(proving_key.proving_key);
