@@ -666,62 +666,11 @@ contract Token {
             user,
         ));
 
-        // 4. Now we get the partial payloads
-        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
-        // notes we could just inject it in macros.
-        let fee_payer_randomness = unsafe { random() };
-        let user_randomness = unsafe { random() };
+        // 4. We prepare the partial notes
+        let fee_payer_point_slot = _prepare_transfer_to_private(user, fee_payer, &mut context, storage);
+        let user_point_slot = _prepare_transfer_to_private(user, user, &mut context, storage);
 
-        let fee_payer_setup_payload = UintNote::setup_payload().new(
-            fee_payer,
-            fee_payer_randomness,
-            storage.balances.at(fee_payer).set.storage_slot,
-        );
-
-        let user_setup_payload = UintNote::setup_payload().new(
-            user,
-            user_randomness,
-            storage.balances.at(user).set.storage_slot,
-        );
-
-        // 5. We get transient storage slots
-        // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
-        // we have a guarantee that the public functions of the transaction are executed right after the private ones
-        // and for this reason the protocol guarantees that nobody can front-run us in consuming the hiding point.
-        // This guarantee would break if `finalize_transfer_to_private` was not called in the same transaction. This
-        // however is not the flow we are currently concerned with. To support the multi-transaction flow we could
-        // introduce a `from` function argument, hash the x-coordinate with it and then repeat the hashing in
-        // `finalize_transfer_to_private`.
-        //
-        // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
-        // in our state variables we derive slots using a different hash function from multi scalar multiplication
-        // (MSM).
-        let fee_payer_point_slot = fee_payer_setup_payload.hiding_point.x;
-        let user_point_slot = user_setup_payload.hiding_point.x;
-
-        // 6. We compute setup logs
-        let fee_payer_setup_log =
-            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer, fee_payer);
-        let user_setup_log =
-            user_setup_payload.encrypt_log(&mut context, user_ovpk, user, fee_payer);
-
-        // 7. We store the hiding points an logs in transients storage
-        Token::at(context.this_address())
-            ._store_payload_in_transient_storage_unsafe(
-                fee_payer_point_slot,
-                fee_payer_setup_payload.hiding_point,
-                fee_payer_setup_log,
-            )
-            .enqueue(&mut context);
-        Token::at(context.this_address())
-            ._store_payload_in_transient_storage_unsafe(
-                user_point_slot,
-                user_setup_payload.hiding_point,
-                user_setup_log,
-            )
-            .enqueue(&mut context);
-
-        // 8. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
