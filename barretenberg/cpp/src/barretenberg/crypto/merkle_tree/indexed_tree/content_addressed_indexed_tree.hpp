@@ -309,7 +309,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(s
     ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(appended_hashes, completion, false);
     signal.wait_for_level(0);
     if (!result.success) {
-        throw std::runtime_error("Failed to initialise tree: " + result.message);
+        throw std::runtime_error(format("Failed to initialise tree: ", result.message));
     }
     {
         ReadTransactionPtr tx = store_->create_read_transaction();
@@ -337,12 +337,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (!leaf_hash.has_value()) {
                     response.success = false;
+                    response.message = "Failed to find leaf hash for current root";
                     return;
                 }
                 std::optional<IndexedLeafValueType> leaf =
                     store_->get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
                 if (!leaf.has_value()) {
                     response.success = false;
+                    response.message = "Failed to find leaf by it's hash";
                     return;
                 }
                 response.success = true;
@@ -368,10 +370,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream()
-                                              << "Unable to get leaf at index " << index << " for block " << blockNumber
-                                              << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(format("Unable to get leaf at index ",
+                                                    index,
+                                                    " for block ",
+                                                    blockNumber,
+                                                    ", failed to get block data."));
                 }
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
@@ -380,12 +383,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (!leaf_hash.has_value()) {
                     response.success = false;
+                    response.message = format("Failed to find leaf hash for root of block ", blockNumber);
                     return;
                 }
                 std::optional<IndexedLeafValueType> leaf =
                     store_->get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
                 if (!leaf.has_value()) {
                     response.success = false;
+                    response.message = format("Unable to get leaf at index ", index, " for block ", blockNumber);
                     return;
                 }
                 response.success = true;
@@ -434,6 +439,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
+                } else {
+                    response.message = format("Index not found for leaf ", leaf);
                 }
             },
             on_completion);
@@ -458,10 +465,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
                 typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream()
-                                              << "Unable to find leaf from index " << start_index << " for block "
-                                              << blockNumber << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(format("Unable to find leaf from index ",
+                                                    start_index,
+                                                    " for block ",
+                                                    blockNumber,
+                                                    ", failed to get block data."));
                 }
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
@@ -472,6 +480,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
+                } else {
+                    response.message =
+                        format("Unable to find leaf from index ", start_index, " for block ", blockNumber);
                 }
             },
             on_completion);
@@ -516,9 +527,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                 typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream() << "Unable to find low leaf for block " << blockNumber
-                                                                  << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(
+                        format("Unable to find low leaf for block ", blockNumber, ", failed to get block data."));
                 }
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
@@ -988,10 +998,12 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 //  Ensure that the tree is not going to be overfilled
                 index_t new_total_size = num_leaves_to_be_inserted + meta.size;
                 if (new_total_size > max_size_) {
-                    throw std::runtime_error((std::stringstream()
-                                              << "Unable to insert values into tree " << meta.name
-                                              << " new size: " << new_total_size << " max size: " << max_size_)
-                                                 .str());
+                    throw std::runtime_error(format("Unable to insert values into tree ",
+                                                    meta.name,
+                                                    " new size: ",
+                                                    new_total_size,
+                                                    " max size: ",
+                                                    max_size_));
                 }
                 for (size_t i = 0; i < values.size(); ++i) {
                     std::pair<LeafValueType, size_t>& value_pair = values[i];
@@ -1003,10 +1015,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     fr value = value_pair.first.get_key();
                     auto it = unique_values.insert(value);
                     if (!it.second) {
-                        throw std::runtime_error((std::stringstream()
-                                                  << "Duplicate key not allowed in same batch, key value: " << value
-                                                  << ", tree: " << meta.name)
-                                                     .str());
+                        throw std::runtime_error(format(
+                            "Duplicate key not allowed in same batch, key value: ", value, ", tree: ", meta.name));
                     }
 
                     // This gives us the leaf that need updating
@@ -1034,10 +1044,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
 
                         if (!low_leaf_hash.has_value()) {
                             // std::cout << "Failed to find low leaf" << std::endl;
-                            throw std::runtime_error((std::stringstream()
-                                                      << "Unable to insert values into tree " << meta.name
-                                                      << " failed to find low leaf at index " << low_leaf_index)
-                                                         .str());
+                            throw std::runtime_error(format("Unable to insert values into tree ",
+                                                            meta.name,
+                                                            " failed to find low leaf at index ",
+                                                            low_leaf_index));
                         }
                         // std::cout << "Low leaf hash " << low_leaf_hash.value() << std::endl;
 
@@ -1046,11 +1056,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
 
                         if (!low_leaf_option.has_value()) {
                             // std::cout << "No pre-image" << std::endl;
-                            throw std::runtime_error((std::stringstream()
-                                                      << "Unable to insert values into tree " << meta.name
-                                                      << " failed to get leaf pre-image by hash for index "
-                                                      << low_leaf_index)
-                                                         .str());
+                            throw std::runtime_error(format("Unable to insert values into tree ",
+                                                            meta.name,
+                                                            " failed to get leaf pre-image by hash for index ",
+                                                            low_leaf_index));
                         }
                         // std::cout << "Low leaf pre-image " << low_leaf_option.value() << std::endl;
                         low_leaf = low_leaf_option.value();
@@ -1099,10 +1108,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         // The set of appended leaves already has an empty leaf in the slot at index
                         // 'index_into_appended_leaves'
                     } else {
-                        throw std::runtime_error((std::stringstream()
-                                                  << "Unable to insert values into tree " << meta.name << " leaf type "
-                                                  << IndexedLeafValueType::name() << " is not updateable")
-                                                     .str());
+                        throw std::runtime_error(format("Unable to insert values into tree ",
+                                                        meta.name,
+                                                        " leaf type ",
+                                                        IndexedLeafValueType::name(),
+                                                        " is not updateable"));
                     }
                     response.inner.highest_index = std::max(response.inner.highest_index, low_leaf_index);
 
