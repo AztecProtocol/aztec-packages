@@ -171,6 +171,14 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
+  it('getContractClassLogs', async () => {
+    const result = await context.client.getContractClassLogs({
+      txHash: TxHash.random(),
+      contractAddress: AztecAddress.random(),
+    });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
   it('getPublicFunction', async () => {
     const selector = FunctionSelector.random();
     const result = await context.client.getPublicFunction(AztecAddress.random(), selector);

@@ -441,7 +441,65 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
   }
 }
 
-export class ContractClassTxL2Logs extends UnencryptedTxL2Logs {
+export class ContractClassTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(UnencryptedFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new ContractClassTxL2Logs(functionLogs));
+  }
+
+  /** Creates an empty instance. */
+  public static empty() {
+    return new ContractClassTxL2Logs([]);
+  }
+
+  /**
+   * Deserializes logs from a buffer.
+   * @param buf - The buffer containing the serialized logs.
+   * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
+   * @returns A new L2Logs object.
+   */
+  public static fromBuffer(buf: Buffer | BufferReader, isLengthPrefixed = true): ContractClassTxL2Logs {
+    const reader = BufferReader.asReader(buf);
+
+    // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
+    const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
+    const serializedFunctionLogs = reader.readBufferArray(logsBufLength);
+
+    const functionLogs = serializedFunctionLogs.map(logs => UnencryptedFunctionL2Logs.fromBuffer(logs, false));
+    return new ContractClassTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
+   * @param numCalls - The number of function calls in the tx.
+   * @param numLogsPerCall - The number of logs emitted in each function call.
+   * @param logType - The type of logs to generate.
+   * @returns A new `TxL2Logs` object.
+   */
+  public static random(numCalls: number, numLogsPerCall: number): ContractClassTxL2Logs {
+    if (numCalls * numLogsPerCall > MAX_CONTRACT_CLASS_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_CONTRACT_CLASS_LOGS_PER_TX})`,
+      );
+    }
+    const functionLogs: UnencryptedFunctionL2Logs[] = [];
+    for (let i = 0; i < numCalls; i++) {
+      functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
+    }
+    return new ContractClassTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Convert a plain JSON object to a TxL2Logs class object.
+   * @param obj - A plain TxL2Logs JSON object.
+   * @returns A TxL2Logs class object.
+   */
+  public static fromJSON(obj: any) {
+    const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
+    return new ContractClassTxL2Logs(functionLogs);
+  }
+
   /**
    * @param logs - Logs to be hashed.
    * @returns The hash of the logs.
@@ -458,7 +516,7 @@ export class ContractClassTxL2Logs extends UnencryptedTxL2Logs {
    * @param siloedLogHashes - The siloed log hashes
    * @returns The hash of the logs.
    */
-  public static override hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
+  public static hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
     if (siloedLogHashes.length == 0) {
       return Buffer.alloc(32);
     }

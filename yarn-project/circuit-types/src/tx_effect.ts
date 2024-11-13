@@ -162,8 +162,7 @@ export class TxEffect {
     const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
-    // TODO(miranda): for some reason, the below hashing only works if made into a new instance. Investigate
-    const contractClassLogsHashKernel0 = new ContractClassTxL2Logs(this.contractClassLogs.functionLogs).hash();
+    const contractClassLogsHashKernel0 = this.contractClassLogs.hash();
 
     const inputValue = Buffer.concat([
       this.revertCode.toHashPreimage(),
@@ -222,6 +221,7 @@ export class TxEffect {
     const noteEncryptedLogs = EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const encryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
+    const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
       Fr.random(),
@@ -232,11 +232,11 @@ export class TxEffect {
       new Fr(noteEncryptedLogs.getKernelLength()),
       new Fr(encryptedLogs.getKernelLength()),
       new Fr(unencryptedLogs.getKernelLength()),
-      new Fr(UnencryptedTxL2Logs.empty().getKernelLength()),
+      new Fr(contractClassLogs.getKernelLength()),
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
-      ContractClassTxL2Logs.empty(),
+      contractClassLogs,
     );
   }
 

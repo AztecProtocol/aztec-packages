@@ -223,6 +223,11 @@ describe('PXESchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
+  it('getContractClassLogs', async () => {
+    const result = await context.client.getContractClassLogs({ contractAddress: address });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
   it('getBlockNumber', async () => {
     const result = await context.client.getBlockNumber();
     expect(result).toBe(1);

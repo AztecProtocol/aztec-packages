@@ -4,7 +4,12 @@ import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { EncryptedL2BlockL2Logs, EncryptedNoteL2BlockL2Logs, UnencryptedL2BlockL2Logs } from './logs/index.js';
+import {
+  ContractClass2BlockL2Logs,
+  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  UnencryptedL2BlockL2Logs,
+} from './logs/index.js';
 import { TxEffect } from './tx_effect.js';
 
 export class Body {
@@ -84,10 +89,10 @@ export class Body {
     return new UnencryptedL2BlockL2Logs(logs);
   }
 
-  get contractClassLogs(): UnencryptedL2BlockL2Logs {
+  get contractClassLogs(): ContractClass2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.contractClassLogs);
 
-    return new UnencryptedL2BlockL2Logs(logs);
+    return new ContractClass2BlockL2Logs(logs);
   }
 
   /**

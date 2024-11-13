@@ -1,4 +1,5 @@
 import {
+  ContractClass2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -248,7 +249,7 @@ export class LogStore {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets contract class logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
@@ -273,8 +274,8 @@ export class LogStore {
     }
     const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber);
     const contractClassLogsInBlock = contractClassLogsBuffer
-      ? UnencryptedL2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
-      : new UnencryptedL2BlockL2Logs([]);
+      ? ContractClass2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
+      : new ContractClass2BlockL2Logs([]);
     const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
 
     const logs: ExtendedUnencryptedL2Log[] = [];
@@ -299,7 +300,7 @@ export class LogStore {
 
     let maxLogsHit = false;
     loopOverBlocks: for (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({ start, end })) {
-      const contractClassLogsInBlock = UnencryptedL2BlockL2Logs.fromBuffer(logBuffer);
+      const contractClassLogsInBlock = ContractClass2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
@@ -312,6 +313,7 @@ export class LogStore {
 
     return { logs, maxLogsHit };
   }
+
   #accumulateLogs(
     results: ExtendedUnencryptedL2Log[],
     blockNumber: number,

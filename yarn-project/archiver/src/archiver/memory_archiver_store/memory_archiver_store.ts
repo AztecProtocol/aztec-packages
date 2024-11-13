@@ -1,4 +1,5 @@
 import {
+  type ContractClass2BlockL2Logs,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -60,7 +61,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private unencryptedLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
 
-  private contractClassLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
+  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
 
   /**
    * Contains all L1 to L2 messages.
