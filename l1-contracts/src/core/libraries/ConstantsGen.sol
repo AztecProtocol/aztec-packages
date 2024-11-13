@@ -206,7 +206,7 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
   uint256 internal constant HEADER_LENGTH_BYTES = 616;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 500;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 499;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 866;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 37;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
