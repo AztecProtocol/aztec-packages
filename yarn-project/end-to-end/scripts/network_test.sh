@@ -31,6 +31,7 @@ CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
+CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -110,6 +111,10 @@ show_status_until_pxe_ready &
 function cleanup() {
   # kill everything in our process group except our process
   trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+
+  if [ "$CLEANUP_CLUSTER" = "true" ]; then
+    kind delete cluster || true
+  fi
 }
 trap cleanup SIGINT SIGTERM EXIT
 

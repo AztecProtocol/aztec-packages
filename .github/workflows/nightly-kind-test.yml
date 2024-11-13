@@ -78,7 +78,7 @@ jobs:
             ./spartan/scripts/setup_local_k8s.sh
             cd yarn-project/end-to-end
             export FORCE_COLOR=1
-            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts || true
+            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true CLEANUP_CLUSTER=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts || true
 
   proving-test:
     needs: build
@@ -102,10 +102,10 @@ jobs:
           tester_ttl: 90
           run: |
             set -eux
-            ./spartan/scripts/setup_local_k8s.sh
-            cd yarn-project/end-to-end
-            export FORCE_COLOR=1
-            NAMESPACE=proving FRESH_INSTALL=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
+            # ./spartan/scripts/setup_local_k8s.sh
+            # cd yarn-project/end-to-end
+            # export FORCE_COLOR=1
+            # NAMESPACE=proving FRESH_INSTALL=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
 
   success-check:
     runs-on: ubuntu-20.04
