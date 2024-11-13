@@ -37,11 +37,12 @@ export class DebugLog extends Instruction {
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
+    memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.gasCost(this.messageSize + fieldsSize));
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);
     const fields = memory.getSlice(fieldsOffset, fieldsSize);

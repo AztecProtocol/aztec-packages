@@ -3,15 +3,17 @@ use dep::types::{
         accumulated_data::PrivateToPublicAccumulatedData,
         gas::Gas,
         log_hash::{LogHash, ScopedLogHash},
+        public_call_request::PublicCallRequest,
     },
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
     },
+    traits::is_empty,
     utils::arrays::array_length,
 };
 
-fn meter_gas_used(data: PrivateToPublicAccumulatedData) -> Gas {
+fn meter_accumulated_data_gas_used(data: PrivateToPublicAccumulatedData) -> Gas {
     let mut metered_da_bytes = 0;
     let mut metered_l2_gas = 0;
 
@@ -45,10 +47,20 @@ fn meter_gas_used(data: PrivateToPublicAccumulatedData) -> Gas {
     Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas)
 }
 
-pub fn meter_gas_used_non_revertible(data: PrivateToPublicAccumulatedData) -> Gas {
-    meter_gas_used(data) + Gas::tx_overhead()
-}
+pub fn meter_gas_used(
+    non_revertible_data: PrivateToPublicAccumulatedData,
+    revertible_data: PrivateToPublicAccumulatedData,
+    public_teardown_call_request: PublicCallRequest,
+    teardown_gas_limits: Gas,
+) -> Gas {
+    let teardown_gas = if is_empty(public_teardown_call_request) {
+        Gas::empty()
+    } else {
+        teardown_gas_limits
+    };
 
-pub fn meter_gas_used_revertible(data: PrivateToPublicAccumulatedData) -> Gas {
-    meter_gas_used(data)
+    Gas::tx_overhead()
+        + meter_accumulated_data_gas_used(non_revertible_data)
+        + meter_accumulated_data_gas_used(revertible_data)
+        + teardown_gas
 }

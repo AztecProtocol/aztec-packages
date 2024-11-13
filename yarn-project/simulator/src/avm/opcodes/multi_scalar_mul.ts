@@ -2,7 +2,7 @@ import { Fq, Point } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, TypeTag } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -105,9 +105,11 @@ export class MultiScalarMul extends Instruction {
         return grumpkin.add(acc, grumpkin.mul(curr[0], curr[1]));
       }
     }, grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]));
-    const output = outputPoint.toFields().map(f => new Field(f));
 
-    memory.setSlice(outputOffset, output);
+    memory.set(outputOffset, new Field(outputPoint.x));
+    memory.set(outputOffset + 1, new Field(outputPoint.y));
+    // Check representation of infinity for grumpkin
+    memory.set(outputOffset + 2, new Uint1(outputPoint.equals(Point.ZERO) ? 1 : 0));
 
     memory.assert({
       reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,

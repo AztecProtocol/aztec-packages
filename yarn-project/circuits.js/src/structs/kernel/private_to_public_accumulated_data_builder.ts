@@ -10,7 +10,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
 } from '../../constants.gen.js';
-import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { PublicCallRequest } from '../public_call_request.js';
@@ -30,7 +29,6 @@ export class PrivateToPublicAccumulatedDataBuilder {
   private encryptedLogsHashes: ScopedLogHash[] = [];
   private contractClassLogsHashes: ScopedLogHash[] = [];
   private publicCallStack: PublicCallRequest[] = [];
-  private gasUsed: Gas = Gas.empty();
 
   pushNoteHash(newNoteHash: Fr) {
     this.noteHashes.push(newNoteHash);
@@ -102,11 +100,6 @@ export class PrivateToPublicAccumulatedDataBuilder {
     return this;
   }
 
-  withGasUsed(gasUsed: Gas) {
-    this.gasUsed = gasUsed;
-    return this;
-  }
-
   build() {
     return new PrivateToPublicAccumulatedData(
       padArrayEnd(this.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
@@ -116,7 +109,6 @@ export class PrivateToPublicAccumulatedDataBuilder {
       padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
       padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
-      this.gasUsed,
     );
   }
 
@@ -128,7 +120,6 @@ export class PrivateToPublicAccumulatedDataBuilder {
       .withNoteEncryptedLogsHashes(publicAccumulatedData.noteEncryptedLogsHashes)
       .withEncryptedLogsHashes(publicAccumulatedData.encryptedLogsHashes)
       .withContractClassLogsHashes(publicAccumulatedData.contractClassLogsHashes)
-      .withPublicCallStack(publicAccumulatedData.publicCallRequests)
-      .withGasUsed(publicAccumulatedData.gasUsed);
+      .withPublicCallStack(publicAccumulatedData.publicCallRequests);
   }
 }

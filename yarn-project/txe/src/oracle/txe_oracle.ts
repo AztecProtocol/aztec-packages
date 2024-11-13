@@ -16,11 +16,13 @@ import {
   CombinedConstantData,
   type ContractInstance,
   type ContractInstanceWithAddress,
+  DEFAULT_GAS_LIMIT,
   Gas,
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_L2_GAS_PER_ENQUEUED_CALL,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
@@ -680,7 +682,7 @@ export class TXE implements TypedOracle {
     const executionResult = await simulator.simulateIsolatedEnqueuedCall(
       execution,
       combinedConstantData.globalVariables,
-      Gas.test(),
+      /*allocatedGas*/ new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL),
       /*transactionFee=*/ Fr.ONE,
       /*startSideEffectCounter=*/ this.sideEffectCounter,
     );

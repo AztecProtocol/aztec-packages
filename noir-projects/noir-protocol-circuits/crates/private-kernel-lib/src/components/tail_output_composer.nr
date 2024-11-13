@@ -35,6 +35,7 @@ impl TailOutputComposer {
         let mut output = KernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;
         output.end = self.build_combined_accumulated_data();
+        output.gas_used = meter_gas_used(output.end);
         output.constants =
             CombinedConstantData::combine(source.constants, GlobalVariables::empty());
         output.fee_payer = source.fee_payer;
@@ -65,7 +66,6 @@ impl TailOutputComposer {
             0,
             |len, l: ScopedLogHash| len + l.log_hash.length,
         );
-        data.gas_used = meter_gas_used(data);
         data
     }
 }

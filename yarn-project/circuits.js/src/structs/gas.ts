@@ -6,7 +6,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { MAX_L2_GAS_PER_ENQUEUED_CALL } from '../constants.gen.js';
 import { type GasFees } from './gas_fees.js';
 import { type UInt32 } from './shared.js';
 
@@ -48,11 +47,6 @@ export class Gas {
 
   static random() {
     return new Gas(Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9));
-  }
-
-  /** Returns large enough gas amounts for testing purposes. */
-  static test() {
-    return new Gas(1e9, MAX_L2_GAS_PER_ENQUEUED_CALL);
   }
 
   isEmpty() {

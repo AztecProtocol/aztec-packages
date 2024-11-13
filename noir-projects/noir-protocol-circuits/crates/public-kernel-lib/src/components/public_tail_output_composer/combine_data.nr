@@ -85,6 +85,5 @@ pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
         unencrypted_log_preimages_length,
         contract_class_log_preimages_length: 0,
         public_data_writes,
-        gas_used: revertible.gas_used + non_revertible.gas_used,
     }
 }

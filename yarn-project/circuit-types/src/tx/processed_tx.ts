@@ -19,7 +19,7 @@ import { type GasUsed } from './gas_used.js';
 import { type Tx } from './tx.js';
 import { TxHash } from './tx_hash.js';
 
-export enum PublicKernelPhase {
+export enum TxExecutionPhase {
   SETUP,
   APP_LOGIC,
   TEARDOWN,
@@ -176,7 +176,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   );
 
   const gasUsed = {
-    totalGas: tx.data.forRollup!.end.gasUsed,
+    totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
   };
 

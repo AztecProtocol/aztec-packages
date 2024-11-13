@@ -96,7 +96,6 @@ namespace main(256);
     // We range check that the absolute value of the differences between each row of l2 and da gas are 32 bits.
     pol commit l2_gas_u16_r0;
     pol commit l2_gas_u16_r1;
-    // Do we need DA?
     main.abs_l2_rem_gas = l2_gas_u16_r0 + l2_gas_u16_r1 * 2**16;
 
     #[LOOKUP_L2_GAS_RNG_CHK_0]

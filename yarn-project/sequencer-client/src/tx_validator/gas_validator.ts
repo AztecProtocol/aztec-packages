@@ -1,4 +1,4 @@
-import { PublicKernelPhase, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type Tx, TxExecutionPhase, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EnqueuedCallsProcessor, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
@@ -58,7 +58,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
+    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
     const claimFunctionCall = setupFns.find(
       fn =>
         fn.callContext.contractAddress.equals(this.#feeJuiceAddress) &&

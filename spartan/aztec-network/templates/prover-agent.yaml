@@ -17,6 +17,11 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
+      {{- if .Values.proverAgent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.proverAgent.nodeSelector | nindent 8 }}
+      {{- end }}
+
       initContainers:
         - name: wait-for-prover-node
           image: {{ .Values.images.curl.image }}
@@ -38,7 +43,7 @@ spec:
               {{- end }}
           env:
             - name: PROVER_JOB_SOURCE_URL
-              value: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
+              value: "http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}"
       containers:
         - name: prover-agent
           image: "{{ .Values.images.aztec.image }}"
@@ -57,7 +62,7 @@ spec:
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.proverAgent.realProofs }}"
             - name: PROVER_JOB_SOURCE_URL
-              value: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
+              value: "http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}"
             - name: PROVER_AGENT_ENABLED
               value: "true"
             - name: PROVER_AGENT_CONCURRENCY
@@ -72,4 +77,6 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+          resources:
+            {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}

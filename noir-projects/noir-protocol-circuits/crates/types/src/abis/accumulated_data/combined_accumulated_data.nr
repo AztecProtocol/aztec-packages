@@ -1,5 +1,5 @@
 use crate::{
-    abis::{gas::Gas, log_hash::{LogHash, ScopedLogHash}, public_data_write::PublicDataWrite},
+    abis::{log_hash::{LogHash, ScopedLogHash}, public_data_write::PublicDataWrite},
     constants::{
         COMBINED_ACCUMULATED_DATA_LENGTH, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -28,8 +28,6 @@ pub struct CombinedAccumulatedData {
     pub contract_class_log_preimages_length: Field,
 
     pub public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-
-    pub gas_used: Gas,
 }
 
 impl Empty for CombinedAccumulatedData {
@@ -47,7 +45,6 @@ impl Empty for CombinedAccumulatedData {
             unencrypted_log_preimages_length: 0,
             contract_class_log_preimages_length: 0,
             public_data_writes: [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-            gas_used: Gas::empty(),
         }
     }
 }
@@ -81,8 +78,6 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             fields.extend_from_array(self.public_data_writes[i].serialize());
         }
-
-        fields.extend_from_array(self.gas_used.serialize());
 
         assert_eq(fields.len(), COMBINED_ACCUMULATED_DATA_LENGTH);
 
@@ -125,7 +120,6 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
                 PublicDataWrite::deserialize,
                 [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             ),
-            gas_used: reader.read_struct(Gas::deserialize),
         };
         reader.finish();
         item
@@ -152,7 +146,6 @@ impl Eq for CombinedAccumulatedData {
                     == other.contract_class_log_preimages_length
             )
             & (self.public_data_writes == other.public_data_writes)
-            & (self.gas_used == other.gas_used)
     }
 }
 
