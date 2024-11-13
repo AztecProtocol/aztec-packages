@@ -1,8 +1,9 @@
 import { type PXE } from '@aztec/circuit-types';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';
 
-import axios, { type AxiosError, type AxiosResponse } from 'axios';
+import { Axios, type AxiosError } from 'axios';
 
 import { createPXEClient } from '../pxe_client.js';
 
@@ -15,34 +16,18 @@ import { createPXEClient } from '../pxe_client.js';
  * @returns The response data.
  */
 async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
-  let resp: AxiosResponse;
-  if (useApiEndpoints) {
-    resp = await axios
-      .post(`${host}/${rpcMethod}`, body, {
-        headers: { 'content-type': 'application/json' },
-      })
-      .catch((error: AxiosError) => {
-        if (error.response) {
-          return error.response;
-        }
-        throw error;
-      });
-  } else {
-    resp = await axios
-      .post(
-        host,
-        { ...body, method: rpcMethod },
-        {
-          headers: { 'content-type': 'application/json' },
-        },
-      )
-      .catch((error: AxiosError) => {
-        if (error.response) {
-          return error.response;
-        }
-        throw error;
-      });
-  }
+  const request = new Axios({
+    headers: { 'content-type': 'application/json' },
+    transformRequest: [(data: any) => jsonStringify(data)],
+    transformResponse: [(data: any) => JSON.parse(data)],
+  });
+  const [url, content] = useApiEndpoints ? [`${host}/${rpcMethod}`, body] : [host, { ...body, method: rpcMethod }];
+  const resp = await request.post(url, content).catch((error: AxiosError) => {
+    if (error.response) {
+      return error.response;
+    }
+    throw error;
+  });
 
   const isOK = resp.status >= 200 && resp.status < 300;
   if (isOK) {

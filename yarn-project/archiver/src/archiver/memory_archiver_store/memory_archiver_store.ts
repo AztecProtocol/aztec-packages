@@ -9,6 +9,7 @@ import {
   type InBlock,
   type InboxLeaf,
   type L2Block,
+  L2BlockHash,
   type L2BlockL2Logs,
   type LogFilter,
   LogId,
@@ -435,7 +436,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
               TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
-              block.data.hash().toBuffer(),
+              L2BlockHash.fromField(block.data.hash()),
               block.data.number,
             ),
           );

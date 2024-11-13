@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
 import { type OpcodeLocation } from '@aztec/foundation/abi';
 import { schemas } from '@aztec/foundation/schemas';
 
@@ -218,15 +218,6 @@ export class SimulationError extends Error {
       noirErrorStack: this.noirErrorStack,
       revertData: this.revertData.map(fr => fr.toString()),
     };
-  }
-
-  static fromJSON(obj: ReturnType<SimulationError['toJSON']>) {
-    return new SimulationError(
-      obj.originalMessage,
-      obj.functionErrorStack,
-      obj.revertData.map(serializedFr => Fr.fromString(serializedFr)),
-      obj.noirErrorStack,
-    );
   }
 
   static get schema() {

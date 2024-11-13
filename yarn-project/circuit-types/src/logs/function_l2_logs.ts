@@ -62,14 +62,6 @@ export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2
     const preimage = Buffer.concat(this.logs.map(l => l.hash()));
     return sha256Trunc(preimage);
   }
-
-  /**
-   * Convert a FunctionL2Logs class object to a plain JSON object.
-   * @returns A plain object with FunctionL2Logs properties.
-   */
-  public toJSON() {
-    return { logs: this.logs };
-  }
 }
 
 export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteLog> {
@@ -116,16 +108,6 @@ export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteL
     for (let i = 0; i < numLogs; i++) {
       logs.push(EncryptedL2NoteLog.random());
     }
-    return new EncryptedNoteFunctionL2Logs(logs);
-  }
-
-  /**
-   * Convert a plain JSON object to a FunctionL2Logs class object.
-   * @param obj - A plain FunctionL2Logs JSON object.
-   * @returns A FunctionL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const logs = obj.logs.map(EncryptedL2NoteLog.fromJSON);
     return new EncryptedNoteFunctionL2Logs(logs);
   }
 }
@@ -176,16 +158,6 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
     }
     return new EncryptedFunctionL2Logs(logs);
   }
-
-  /**
-   * Convert a plain JSON object to a FunctionL2Logs class object.
-   * @param obj - A plain FunctionL2Logs JSON object.
-   * @returns A FunctionL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const logs = obj.logs.map(EncryptedL2Log.fromJSON);
-    return new EncryptedFunctionL2Logs(logs);
-  }
 }
 
 export class UnencryptedFunctionL2Logs extends FunctionL2Logs<UnencryptedL2Log> {
@@ -232,16 +204,6 @@ export class UnencryptedFunctionL2Logs extends FunctionL2Logs<UnencryptedL2Log> 
     for (let i = 0; i < numLogs; i++) {
       logs.push(UnencryptedL2Log.random());
     }
-    return new UnencryptedFunctionL2Logs(logs);
-  }
-
-  /**
-   * Convert a plain JSON object to a FunctionL2Logs class object.
-   * @param obj - A plain FunctionL2Logs JSON object.
-   * @returns A FunctionL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const logs = obj.logs.map(UnencryptedL2Log.fromJSON);
     return new UnencryptedFunctionL2Logs(logs);
   }
 }

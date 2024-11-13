@@ -368,7 +368,7 @@ async function setupFromFresh(
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
 
   if (statePath) {
-    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
+    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
   }
 
   return {
@@ -497,7 +497,7 @@ export const addAccounts =
 
     logger.verbose('Account deployment tx hashes:');
     for (const provenTx of provenTxs) {
-      logger.verbose(provenTx.getTxHash().to0xString());
+      logger.verbose(provenTx.getTxHash().toString());
     }
 
     logger.verbose('Deploying accounts...');

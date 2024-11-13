@@ -2,6 +2,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
@@ -83,11 +84,11 @@ export class AvmAccumulatedData {
   }
 
   static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str, 'hex'));
+    return this.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static empty() {

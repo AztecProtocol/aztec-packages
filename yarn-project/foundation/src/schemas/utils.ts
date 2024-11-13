@@ -43,6 +43,8 @@ export function optional<T extends ZodTypeAny>(schema: T) {
   return ZodNullableOptional.create(schema);
 }
 
+type ToJsonIs<T, TRet> = T extends { toJSON(): TRet } ? T : never;
+
 /**
  * Creates a schema that accepts a hex string and uses it to hydrate an instance.
  * @param klazz - Class that implements either fromString or fromBuffer.
@@ -50,28 +52,38 @@ export function optional<T extends ZodTypeAny>(schema: T) {
  */
 export function hexSchemaFor<TClass extends { fromString(str: string): any } | { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
+  refinement?: (input: string) => boolean,
 ): ZodType<
   TClass extends { fromString(str: string): infer TInstance } | { fromBuffer(buf: Buffer): infer TInstance }
-    ? TInstance
+    ? ToJsonIs<TInstance, string>
     : never,
   any,
   string
 > {
+  const stringSchema = refinement ? z.string().refine(refinement, `Not a valid instance`) : z.string();
+  const hexSchema = stringSchema.refine(isHex, 'Not a valid hex string').transform(withoutHexPrefix);
   return 'fromString' in klazz
     ? hexSchema.transform(klazz.fromString.bind(klazz))
     : hexSchema.transform(str => Buffer.from(str, 'hex')).transform(klazz.fromBuffer.bind(klazz));
 }
 
-// TODO(palla/schemas): Delete this class once all serialization of the type { type: string, value: string } are removed.
-export function maybeStructuredStringSchemaFor<TClass extends { fromString(str: string): any }>(
-  name: string,
+/**
+ * Creates a schema that accepts a base64 string and uses it to hydrate an instance.
+ * @param klazz - Class that implements fromBuffer.
+ * @returns A schema for the class.
+ */
+export function bufferSchemaFor<TClass extends { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
-  refinement?: (input: string) => boolean,
-): ZodFor<TClass extends { fromString(str: string): infer TInstance } ? TInstance : never> {
-  const stringSchema = refinement ? z.string().refine(refinement, `Not a valid ${name}`) : z.string();
+): ZodType<
+  TClass extends { fromBuffer(buf: Buffer): infer TInstance } ? ToJsonIs<TInstance, Buffer> : never,
+  any,
+  string
+> {
   return z
-    .union([stringSchema, z.object({ type: z.literal(name), value: stringSchema })])
-    .transform(input => klazz.fromString(typeof input === 'string' ? input : input.value));
+    .string()
+    .base64()
+    .transform(data => Buffer.from(data, 'base64'))
+    .transform(klazz.fromBuffer.bind(klazz));
 }
 
 /** Creates a schema for a js Map type that matches the serialization used in jsonStringify. */

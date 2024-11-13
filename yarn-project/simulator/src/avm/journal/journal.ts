@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import assert from 'assert';
@@ -469,7 +470,7 @@ export class AvmPersistableStateManager {
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
       this.log.debug(
-        `Got contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
+        `Got contract instance (address=${contractAddress}): exists=${exists}, instance=${jsonStringify(instance)}`,
       );
       this.trace.traceGetContractInstance(contractAddress, exists, instance);
 

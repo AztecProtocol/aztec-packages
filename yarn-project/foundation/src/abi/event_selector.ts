@@ -1,6 +1,7 @@
 import { fromHex, toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2HashBytes, randomBytes } from '../crypto/index.js';
 import { type Fr } from '../fields/fields.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { Selector } from './selector.js';
 
@@ -83,9 +84,10 @@ export class EventSelector extends Selector {
   }
 
   toJSON() {
-    return {
-      type: 'EventSelector',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(EventSelector);
   }
 }
