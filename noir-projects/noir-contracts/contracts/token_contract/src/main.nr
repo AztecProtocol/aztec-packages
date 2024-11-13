@@ -556,7 +556,7 @@ contract Token {
     ) {
         let token = Token::at(context.this_address());
 
-        // We prepare the transfer.
+        // We prepare the partial note to which we'll "send" the minted amount.
         let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`

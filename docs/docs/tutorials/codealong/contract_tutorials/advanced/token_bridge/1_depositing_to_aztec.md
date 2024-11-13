@@ -79,7 +79,6 @@ Let’s do the similar for the private flow:
 Here we want to send a message to mint tokens privately on Aztec! Some key differences from the previous method are:
 
 - The content hash uses a different function name - `mint_to_private`. This is done to make it easy to separate concerns. If the contentHash between the public and private message was the same, then an attacker could consume a private message publicly!
-- Since we want to mint tokens privately, we shouldn’t specify a `to` Aztec address (remember that Ethereum is completely public). Instead, we will use a secret hash - `secretHashForRedeemingMintedNotes`. Only he who knows the preimage to the secret hash can actually mint the notes. This is similar to the mechanism we use for message consumption on L2
 - Like with the public flow, we move the user’s funds to the portal
 - We now send the message to the inbox with the `recipient` (the sister contract on L2 along with the version of aztec the message is intended for) and the `secretHashForL2MessageConsumption` (such that on L2, the consumption of the message can be private).
 
