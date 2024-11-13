@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731499557114,
+  "lastUpdate": 1731506656505,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "10874f402c48c0721491f0db8bc0266653193d9b",
-          "message": "feat: reorder blocks for efficiency (#9560)\n\nReorders blocks (Mega only) so that data bus reads are close to the top\r\nof the trace and lookups are at the bottom. This helps minimize both the\r\nmemory required to store the log-deriv inverse polynomials as well as\r\nthe \"active\" region of the trace by minimizing the distance (maximizing\r\nthe overlap) of the various lookup gates with the data from which they\r\nread. (Note: tables are constructed at the bottom of the trace).",
-          "timestamp": "2024-10-29T15:16:31-07:00",
-          "tree_id": "dd55b09c26fe5ba1cdec96dbadeb75b468fad307",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/10874f402c48c0721491f0db8bc0266653193d9b"
-        },
-        "date": 1730242391172,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30572.905143000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28699.815508 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5352.307101000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5051.848772 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91708.771418,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91708773000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15118.753338999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15118753000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2664636702,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2664636702 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126149529,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126149529 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 143113934,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143113934 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jose@aztecprotocol.com",
+            "name": "José Pedro Sousa",
+            "username": "signorecello"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc27eafaaa471e888805c785066f361f0da15298",
+          "message": "feat: naive attempt to bind the honk solidity verifier function to the ts interface (#9432)\n\nAttempts to plumb the honk solidity verifier into the WASM output and\r\nexpose it in the ts API",
+          "timestamp": "2024-11-13T14:20:47+01:00",
+          "tree_id": "ab344098e7e6e7251738f810ffada0fe0c9e7381",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc27eafaaa471e888805c785066f361f0da15298"
+        },
+        "date": 1731506649834,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28818.745078999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26819.430010999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5344.8635560000075,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4970.529963 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85111.584661,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85111586000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15179.080876,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15179081000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3102272849,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3102272849 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142375069,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142375069 ns\nthreads: 1"
           }
         ]
       }
