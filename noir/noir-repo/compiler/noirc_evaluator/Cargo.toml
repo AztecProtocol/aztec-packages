@@ -35,4 +35,4 @@ similar-asserts.workspace = true
 
 [features]
 bn254 = ["noirc_frontend/bn254"]
-bls12_381= []
+bls12_381 = []
