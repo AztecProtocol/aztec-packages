@@ -82,7 +82,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, dbMapSizeKb: number,  private log = createDebugLogger('aztec:world-state:database')) {
+  constructor(dataDir: string, dbMapSizeKb: number, private log = createDebugLogger('aztec:world-state:database')) {
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {
