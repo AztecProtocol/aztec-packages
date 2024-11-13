@@ -1,5 +1,4 @@
 import { EthCheatCodes, sleep } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
@@ -65,14 +64,15 @@ describe('reorg test', () => {
       ethCheatCodes,
       await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),
     );
+    const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
     await performTransfers({
       testWallets,
-      rounds: AZTEC_EPOCH_DURATION * SETUP_EPOCHS,
+      rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
       logger: debugLogger,
     });
-    await checkBalances(testWallets, MINT_AMOUNT, TRANSFER_AMOUNT * BigInt(AZTEC_EPOCH_DURATION * SETUP_EPOCHS));
+    await checkBalances(testWallets, MINT_AMOUNT, TRANSFER_AMOUNT * epochDuration * BigInt(SETUP_EPOCHS));
 
     // get the tips before the reorg
     const { pending: preReorgPending, proven: preReorgProven } = await rollupCheatCodes.getTips();
@@ -81,14 +81,14 @@ describe('reorg test', () => {
     const stdout = await applyKillProvers({
       namespace: NAMESPACE,
       spartanDir: SPARTAN_DIR,
-      durationSeconds: AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION * 2,
+      durationSeconds: Number(epochDuration * slotDuration) * 2,
     });
     debugLogger.info(stdout);
 
     // We only need 2 epochs for a reorg to be triggered, but 3 gives time for the bot to be restarted and the chain to re-stabilize
     // TODO(#9613): why do we need to wait for 3 epochs?
     debugLogger.info(`Waiting for 3 epochs to pass`);
-    await sleep(AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION * 3 * 1000);
+    await sleep(Number(epochDuration * slotDuration) * 3 * 1000);
 
     // TODO(#9327): begin delete
     // The bot must be restarted because the PXE does not handle reorgs without a restart.
@@ -108,7 +108,7 @@ describe('reorg test', () => {
 
     await performTransfers({
       testWallets,
-      rounds: AZTEC_EPOCH_DURATION * SETUP_EPOCHS,
+      rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
       logger: debugLogger,
     });
@@ -116,8 +116,8 @@ describe('reorg test', () => {
     // expect the block height to be at least 4 epochs worth of slots
     const { pending: newPending, proven: newProven } = await rollupCheatCodes.getTips();
     expect(newPending).toBeGreaterThan(preReorgPending);
-    expect(newPending).toBeGreaterThan(4 * AZTEC_EPOCH_DURATION);
+    expect(newPending).toBeGreaterThan(4 * Number(epochDuration));
     expect(newProven).toBeGreaterThan(preReorgProven);
-    expect(newProven).toBeGreaterThan(3 * AZTEC_EPOCH_DURATION);
+    expect(newProven).toBeGreaterThan(3 * Number(epochDuration));
   });
 });

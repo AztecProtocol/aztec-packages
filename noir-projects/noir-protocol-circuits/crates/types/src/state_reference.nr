@@ -24,7 +24,7 @@ impl Serialize<STATE_REFERENCE_LENGTH> for StateReference {
         fields.extend_from_array(self.l1_to_l2_message_tree.serialize());
         fields.extend_from_array(self.partial.serialize());
 
-        fields.storage
+        fields.storage()
     }
 }
 

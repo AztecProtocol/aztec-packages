@@ -19,7 +19,6 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type TUBE_PROOF_LENGTH,
   type TubeInputs,
 } from '@aztec/circuits.js';
 
@@ -131,12 +130,6 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
-
-  getEmptyTubeProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof TUBE_PROOF_LENGTH>>;
 
   /**
    * Create a proof for the AVM circuit.

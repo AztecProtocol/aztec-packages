@@ -7,12 +7,12 @@ use crate::{
     },
     address::AztecAddress,
     constants::{
-        MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIERS_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+        MAX_NULLIFIERS_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
+        PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     header::Header,
@@ -36,7 +36,7 @@ pub struct PublicCircuitPublicInputs {
     contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
     // todo: add sideeffect ranges for the input to these hashes
-    public_call_requests: [PublicInnerCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    public_call_requests: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_CALL],
     note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_CALL],
     nullifiers: [Nullifier; MAX_NULLIFIERS_PER_CALL],
     l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
@@ -92,7 +92,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             fields.extend_from_array(self.contract_storage_reads[i].serialize());
         }
-        for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
+        for i in 0..MAX_ENQUEUED_CALLS_PER_CALL {
             fields.extend_from_array(self.public_call_requests[i].serialize());
         }
         for i in 0..MAX_NOTE_HASHES_PER_CALL {
@@ -118,7 +118,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         fields.extend_from_array(self.start_gas_left.serialize());
         fields.extend_from_array(self.end_gas_left.serialize());
         fields.push(self.transaction_fee);
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -156,7 +156,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             ),
             public_call_requests: reader.read_struct_array(
                 PublicInnerCallRequest::deserialize,
-                [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+                [PublicInnerCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_CALL],
             ),
             note_hashes: reader.read_struct_array(
                 NoteHash::deserialize,
@@ -210,9 +210,7 @@ impl Empty for PublicCircuitPublicInputs {
                 StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
             ],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-            public_call_requests: [
-                PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
-            ],
+            public_call_requests: [PublicInnerCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_CALL],
             note_hashes: [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL],
             nullifiers: [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL],
             l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],

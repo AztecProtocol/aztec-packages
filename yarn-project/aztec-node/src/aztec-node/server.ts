@@ -3,7 +3,6 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -27,6 +26,7 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
+  type TxScopedEncryptedL2NoteLog,
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
@@ -313,7 +313,7 @@ export class AztecNodeService implements AztecNode {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  public getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
@@ -745,11 +745,9 @@ export class AztecNodeService implements AztecNode {
       this.log.debug(`Simulated tx ${tx.getTxHash()} ${processedTx.revertReason ? 'Reverts' : 'Succeeds'}`);
 
       return new PublicSimulationOutput(
-        processedTx.encryptedLogs,
-        processedTx.unencryptedLogs,
         processedTx.revertReason,
-        processedTx.data.constants,
-        processedTx.data.end,
+        processedTx.constants,
+        processedTx.txEffect,
         returns,
         processedTx.gasUsed,
       );
