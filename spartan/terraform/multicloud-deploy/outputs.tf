@@ -6,7 +6,7 @@ output "eks_cluster_deployment" {
     chart       = helm_release.aztec-eks-cluster.chart
     version     = helm_release.aztec-eks-cluster.version
     status      = helm_release.aztec-eks-cluster.status
-    values_file = var.eks-values-file
+    values_file = var.values-file
     cluster     = var.eks_cluster_context
   }
 }
@@ -19,7 +19,7 @@ output "gke_cluster_deployment" {
     chart       = helm_release.aztec-gke-cluster.chart
     version     = helm_release.aztec-gke-cluster.version
     status      = helm_release.aztec-gke-cluster.status
-    values_file = var.gke-values-file
+    values_file = var.values-file
     cluster     = var.gke_cluster_context
   }
 }

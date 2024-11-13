@@ -54,7 +54,20 @@ resource "helm_release" "aztec-eks-cluster" {
   chart            = "aztec-network"
   namespace        = var.testnet_name
   create_namespace = true
-  values           = [file("../../aztec-network/values/${var.eks-values-file}")]
+
+  # base values file
+  values = [file("../../aztec-network/values/${var.values-file}")]
+
+  # deployment customizations
+  set {
+    name  = "proverNode.replicas"
+    value = "0"
+  }
+
+  set {
+    name  = "proverAgent.replicas"
+    value = "0"
+  }
 
   # Setting timeout and wait conditions
   timeout       = 1800 # 30 minutes in seconds
@@ -70,7 +83,35 @@ resource "helm_release" "aztec-gke-cluster" {
   chart            = "aztec-network"
   namespace        = var.testnet_name
   create_namespace = true
-  values           = [file("../../aztec-network/values/${var.gke-values-file}")]
+
+  # base values file
+  values = [file("../../aztec-network/values/${var.values-file}")]
+
+  # deployment customizations
+  set {
+    name  = "bootNode.replicas"
+    value = "0"
+  }
+
+  set {
+    name  = "validator.replicas"
+    value = "0"
+  }
+
+  set {
+    name  = "pxe.replicas"
+    value = "0"
+  }
+
+  set {
+    name  = "bot.replicas"
+    value = "0"
+  }
+
+  set {
+    name  = "ethereum.replicas"
+    value = "0"
+  }
 
   # Setting timeout and wait conditions
   timeout       = 1800 # 30 minutes in seconds

@@ -7,23 +7,17 @@ variable "eks_cluster_context" {
 variable "gke_cluster_context" {
   description = "GKE cluster context"
   type        = string
-  default     = "gke_testnet-440309_us-east1_spartan-provers"
+  default     = "gke_testnet-440309_us-east4-a_spartan-gke"
 }
 
 variable "testnet_name" {
   description = "Name of helm deployment and k8s namespace"
   type        = string
-  default     = "terratest"
+  default     = "multicloud"
 }
 
-variable "eks-values-file" {
-  description = "Name of the values file to use for eks cluster"
+variable "values-file" {
+  description = "Name of the values file to use for deployment"
   type        = string
-  default     = "1-validator-0-prover.yaml"
-}
-
-variable "gke-values-file" {
-  description = "Name of the values file to use for gke cluster"
-  type        = string
-  default     = "0-validator-1-prover.yaml"
+  default     = "multicloud-demo.yaml"
 }
