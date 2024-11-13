@@ -192,7 +192,11 @@ describe('e2e_fees account_init', () => {
       await expect(t.getGasBalanceFn(aliceAddress)).resolves.toEqual([alicesInitialGas - tx.transactionFee!]);
 
       // bob can now use his wallet for sending txs
-      await bananaCoin.withWallet(bobsWallet).methods.transfer_in_public(bobsAddress, aliceAddress, 0n, 0n).send().wait();
+      await bananaCoin
+        .withWallet(bobsWallet)
+        .methods.transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)
+        .send()
+        .wait();
     });
   });
 });
