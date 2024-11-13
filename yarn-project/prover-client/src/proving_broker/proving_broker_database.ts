@@ -1,9 +1,8 @@
 import {
-  type ProvingRequestType,
+  type V2ProofOutput,
   type V2ProvingJob,
   type V2ProvingJobId,
   type V2ProvingJobResult,
-  type V2ProvingResult,
 } from '@aztec/circuit-types';
 
 export interface ProvingBrokerDatabase {
@@ -17,7 +16,7 @@ export interface ProvingBrokerDatabase {
    * Removes a proof request from the backend
    * @param id - The ID of the proof request to remove
    */
-  deleteProvingJobAndResult<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<void>;
+  deleteProvingJobAndResult(id: V2ProvingJobId): Promise<void>;
 
   /**
    * Returns an iterator over all saved proving jobs
@@ -30,7 +29,7 @@ export interface ProvingBrokerDatabase {
    * @param ProvingRequestType - The type of proof that was requested
    * @param value - The result of the proof request
    */
-  setProvingJobResult<T extends ProvingRequestType>(id: V2ProvingJobId<T>, value: V2ProvingResult): Promise<void>;
+  setProvingJobResult(id: V2ProvingJobId, value: V2ProofOutput): Promise<void>;
 
   /**
    * Saves an error that occurred while processing a proof request
@@ -38,18 +37,18 @@ export interface ProvingBrokerDatabase {
    * @param ProvingRequestType - The type of proof that was requested
    * @param err - The error that occurred while processing the proof request
    */
-  setProvingJobError<T extends ProvingRequestType>(id: V2ProvingJobId<T>, err: Error): Promise<void>;
+  setProvingJobError(id: V2ProvingJobId, err: Error): Promise<void>;
 }
 
 export class InMemoryDatabase implements ProvingBrokerDatabase {
   private jobs = new Map<V2ProvingJobId, V2ProvingJob>();
   private results = new Map<V2ProvingJobId, V2ProvingJobResult>();
 
-  getProvingJob<T extends ProvingRequestType>(id: V2ProvingJobId<T>): V2ProvingJob | undefined {
+  getProvingJob(id: V2ProvingJobId): V2ProvingJob | undefined {
     return this.jobs.get(id);
   }
 
-  getProvingJobResult<T extends ProvingRequestType>(id: V2ProvingJobId<T>): V2ProvingJobResult | undefined {
+  getProvingJobResult(id: V2ProvingJobId): V2ProvingJobResult | undefined {
     return this.results.get(id);
   }
 
@@ -58,17 +57,17 @@ export class InMemoryDatabase implements ProvingBrokerDatabase {
     return Promise.resolve();
   }
 
-  setProvingJobResult<T extends ProvingRequestType>(id: V2ProvingJobId<T>, value: V2ProvingResult): Promise<void> {
+  setProvingJobResult(id: V2ProvingJobId, value: V2ProofOutput): Promise<void> {
     this.results.set(id, { value });
     return Promise.resolve();
   }
 
-  setProvingJobError<T extends ProvingRequestType>(id: V2ProvingJobId<T>, error: Error): Promise<void> {
+  setProvingJobError(id: V2ProvingJobId, error: Error): Promise<void> {
     this.results.set(id, { error: String(error) });
     return Promise.resolve();
   }
 
-  deleteProvingJobAndResult<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<void> {
+  deleteProvingJobAndResult(id: V2ProvingJobId): Promise<void> {
     this.jobs.delete(id);
     this.results.delete(id);
     return Promise.resolve();

@@ -1,9 +1,9 @@
 import {
   type ProvingRequestType,
+  type V2ProofOutput,
   type V2ProvingJob,
   type V2ProvingJobId,
   type V2ProvingJobStatus,
-  type V2ProvingResult,
 } from '@aztec/circuit-types';
 
 /**
@@ -20,13 +20,13 @@ export interface ProvingJobProducer {
    * Cancels a proving job and clears all of its
    * @param id - The ID of the job to cancel
    */
-  removeAndCancelProvingJob<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<void>;
+  removeAndCancelProvingJob(id: V2ProvingJobId): Promise<void>;
 
   /**
    * Returns the current status fof the proving job
    * @param id - The ID of the job to get the status of
    */
-  getProvingJobStatus<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<V2ProvingJobStatus>;
+  getProvingJobStatus(id: V2ProvingJobId): Promise<V2ProvingJobStatus>;
 }
 
 export interface ProvingJobFilter<T extends ProvingRequestType[]> {
@@ -48,7 +48,7 @@ export interface ProvingJobConsumer {
    * @param id - The ID of the job to report success for
    * @param result - The result of the job
    */
-  reportProvingJobSuccess<T extends ProvingRequestType>(id: V2ProvingJobId<T>, result: V2ProvingResult): Promise<void>;
+  reportProvingJobSuccess(id: V2ProvingJobId, result: V2ProofOutput): Promise<void>;
 
   /**
    * Marks a proving job as errored
@@ -56,19 +56,15 @@ export interface ProvingJobConsumer {
    * @param err - The error that occurred while processing the job
    * @param retry - Whether to retry the job
    */
-  reportProvingJobError<T extends ProvingRequestType>(
-    id: V2ProvingJobId<T>,
-    err: Error,
-    retry?: boolean,
-  ): Promise<void>;
+  reportProvingJobError(id: V2ProvingJobId, err: Error, retry?: boolean): Promise<void>;
 
   /**
    * Sends a heartbeat to the broker to indicate that the agent is still working on the given proving job
    * @param id - The ID of the job to report progress for
    * @param filter - Optional filter for the type of job to get
    */
-  reportProvingJobProgress<T extends ProvingRequestType, F extends ProvingRequestType[]>(
-    id: V2ProvingJobId<T>,
+  reportProvingJobProgress<F extends ProvingRequestType[]>(
+    id: V2ProvingJobId,
     filter?: ProvingJobFilter<F>,
   ): Promise<V2ProvingJob | undefined>;
 }

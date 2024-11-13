@@ -1,10 +1,10 @@
 import {
   ProvingRequestType,
+  type V2ProofOutput,
   type V2ProvingJob,
   type V2ProvingJobId,
   type V2ProvingJobResult,
   type V2ProvingJobStatus,
-  type V2ProvingResult,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
@@ -15,8 +15,8 @@ import assert from 'assert';
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
 import type { ProvingJobConsumer, ProvingJobFilter, ProvingJobProducer } from './proving_broker_interface.js';
 
-type InProgressMetadata<T extends ProvingRequestType = ProvingRequestType> = {
-  id: V2ProvingJobId<T>;
+type InProgressMetadata = {
+  id: V2ProvingJobId;
   startedAt: number;
   lastUpdatedAt: number;
 };
@@ -119,7 +119,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     this.enqueueJobInternal(job);
   }
 
-  public async removeAndCancelProvingJob<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<void> {
+  public async removeAndCancelProvingJob(id: V2ProvingJobId): Promise<void> {
     this.logger.info(`Cancelling job id=${id}`);
     await this.database.deleteProvingJobAndResult(id);
 
@@ -130,7 +130,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   }
 
   // eslint-disable-next-line require-await
-  public async getProvingJobStatus<T extends ProvingRequestType>(id: V2ProvingJobId<T>): Promise<V2ProvingJobStatus> {
+  public async getProvingJobStatus(id: V2ProvingJobId): Promise<V2ProvingJobStatus> {
     const result = this.resultsCache.get(id);
     if (!result) {
       // no result yet, check if we know the item
@@ -175,11 +175,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     return undefined;
   }
 
-  async reportProvingJobError<T extends ProvingRequestType>(
-    id: V2ProvingJobId<T>,
-    err: Error,
-    retry = false,
-  ): Promise<void> {
+  async reportProvingJobError(id: V2ProvingJobId, err: Error, retry = false): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
@@ -207,8 +203,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     this.resultsCache.set(id, { error: String(err) });
   }
 
-  reportProvingJobProgress<T extends ProvingRequestType, F extends ProvingRequestType[]>(
-    id: V2ProvingJobId<T>,
+  reportProvingJobProgress<F extends ProvingRequestType[]>(
+    id: V2ProvingJobId,
     filter?: ProvingJobFilter<F>,
   ): Promise<V2ProvingJob | undefined> {
     const metadata = this.inProgress.get(id);
@@ -224,10 +220,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
   }
 
-  async reportProvingJobSuccess<T extends ProvingRequestType>(
-    id: V2ProvingJobId<T>,
-    value: V2ProvingResult,
-  ): Promise<void> {
+  async reportProvingJobSuccess(id: V2ProvingJobId, value: V2ProofOutput): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
