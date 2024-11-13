@@ -15,25 +15,32 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 CMD=()
 
+echo "NUM_VALIDATORS: $NUM_VALIDATORS"
+
 # Generate validator commands
-for ((i=0; i<NUM_VALIDATORS; i++))
-do
-    PORT=$((8081 + i))
-    P2P_PORT=$((40401 + i))
-    IDX=$((i + 1))
+for ((i = 0; i < NUM_VALIDATORS; i++)); do
+  PORT=$((8081 + i))
+  P2P_PORT=$((40401 + i))
+  IDX=$((i + 1))
 
-    eval "ADDRESS=\$ADDRESS_${IDX}"
-    eval "VALIDATOR_PRIVATE_KEY=\$VALIDATOR_PRIVATE_KEY_${IDX}"
+  # Use empty string as default if variables are not set
+  ADDRESS_VAR="ADDRESS_${IDX}"
+  PRIVATE_KEY_VAR="VALIDATOR_PRIVATE_KEY_${IDX}"
+  ADDRESS="${!ADDRESS_VAR:-}"
+  VALIDATOR_PRIVATE_KEY="${!PRIVATE_KEY_VAR:-}"
 
-    CMD+=("./validator.sh $PORT $P2P_PORT $ADDRESS $VALIDATOR_PRIVATE_KEY")
+  echo "ADDRESS: $ADDRESS"
+  echo "VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY"
+
+  CMD+=("./validator.sh $PORT $P2P_PORT $ADDRESS $VALIDATOR_PRIVATE_KEY")
 done
 
 # If there's only one validator, run it directly
 if [ "$NUM_VALIDATORS" -eq 1 ]; then
-    echo "Running single validator directly"
-    eval "${CMD[0]}"
+  echo "Running single validator directly"
+  eval "${CMD[0]}"
 else
-    echo "Running $NUM_VALIDATORS validators interleaved"
-    # Execute the run_interleaved.sh script with the commands
-    "$(git rev-parse --show-toplevel)/scripts/run_interleaved.sh" "${CMD[@]}"
+  echo "Running $NUM_VALIDATORS validators interleaved"
+  # Execute the run_interleaved.sh script with the commands
+  "$(git rev-parse --show-toplevel)/scripts/run_interleaved.sh" "${CMD[@]}"
 fi
