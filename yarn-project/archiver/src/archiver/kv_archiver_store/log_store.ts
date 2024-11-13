@@ -1,6 +1,6 @@
 import {
-  ContractClass2BlockL2Logs,
   type Body,
+  ContractClass2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
