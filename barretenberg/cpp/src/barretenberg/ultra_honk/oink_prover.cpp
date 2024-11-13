@@ -239,21 +239,25 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
     //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
     // }
-    size_t final_active_wire_idx = proving_key->final_active_wire_idx;
+
     for (size_t idx = proving_key->final_active_wire_idx + 1; idx < proving_key->proving_key.circuit_size; ++idx) {
         proving_key->proving_key.polynomials.z_perm.at(idx) = 0;
     }
 
-    if (final_active_wire_idx != proving_key->proving_key.circuit_size - 1) {
-        proving_key->proving_key.active_block_ranges.emplace_back(final_active_wire_idx, final_active_wire_idx + 1);
-    }
-    info("proving_key->final_active_wire_idx: ", proving_key->final_active_wire_idx);
-    info("z_perm[final_active_wire_idx - 1]: ",
-         proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx - 1));
-    info("z_perm[final_active_wire_idx ]: ",
-         proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx));
-    info("z_perm[final_active_wire_idx + 1]: ",
-         proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx + 1));
+    // info("proving_key->final_active_wire_idx: ", proving_key->final_active_wire_idx);
+    // info("z_perm[final_active_wire_idx - 1]: ",
+    //      proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx - 1));
+    // info("z_perm[final_active_wire_idx ]: ",
+    //      proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx));
+    // info("z_perm[final_active_wire_idx + 1]: ",
+    //      proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx + 1));
+
+    // for (size_t idx = proving_key->final_active_wire_idx - 1; idx < proving_key->final_active_wire_idx + 1; ++idx) {
+    //     info("idx = ", idx);
+    //     for (auto wire : proving_key->proving_key.polynomials.get_wires()) {
+    //         info("wire[idx] = ", wire[idx]);
+    //     }
+    // }
 
     // proving_key->proving_key.active_block_ranges[proving_key->proving_key.active_block_ranges.size() - 2].second +=
     // 1;

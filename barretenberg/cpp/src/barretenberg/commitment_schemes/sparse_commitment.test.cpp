@@ -61,11 +61,12 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
                 }
             }
         }
-        // fill complement region between end of last fixed block and end of polynomial
+
+        // In practice, the polynomials of interest (z_perm) will be zero at all indices starting 1 index beyond the
+        // final "active" row
         if (non_zero_complement) {
-            Fr const_val = polynomial[active_range_endpoints.back().second];
-            for (size_t i = active_range_endpoints.back().second; i < polynomial.end_index(); ++i) {
-                polynomial.at(i) = const_val;
+            for (size_t i = active_range_endpoints.back().second + 1; i < polynomial.end_index(); ++i) {
+                polynomial.at(i) = 0;
             }
         }
 
@@ -338,6 +339,8 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     using G1 = Curve::AffineElement;
 
     // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
+    // std::vector<uint32_t> fixed_sizes = { 5, 3 };
+    // std::vector<uint32_t> actual_sizes = { 3, 2 };
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
 
@@ -345,6 +348,11 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     const bool non_zero_complement = true;
     auto [polynomial, active_range_endpoints] =
         TestFixture::create_structured_test_polynomial(fixed_sizes, actual_sizes, non_zero_complement);
+
+    info("active_range_endpoints: ");
+    for (auto range : active_range_endpoints) {
+        info(range.first, ", ", range.second);
+    }
 
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());

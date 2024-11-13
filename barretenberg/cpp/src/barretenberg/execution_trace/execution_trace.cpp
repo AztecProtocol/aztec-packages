@@ -101,7 +101,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // Save ranges over which the blocks are "active" for use in structured commitments
         if constexpr (IsHonkFlavor<Flavor>) {
             // MARA: hope i'm not overlooking anything if I choose to not add active ranges if there are none
-            if (block.size() != 0) {
+            if (block.size() > 0) {
                 proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
             }
         }
