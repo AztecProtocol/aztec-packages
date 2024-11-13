@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 template <> struct std::hash<uint256_t> {
     std::size_t operator()(const uint256_t& k) const { return k.data[0]; }
@@ -729,36 +730,48 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
                                                                   uint32_t level,
                                                                   WriteTransaction& tx)
 {
-    // If the optional hash does not have a value then it means it's the zero tree value at this level
-    // If it has a value but that value is not in our stores then it means it is referencing a node
-    // created in a previous block, so that will need to have it's reference count increased
-    if (!optional_hash.has_value()) {
-        return;
-    }
-    fr hash = optional_hash.value();
+    struct StackObject {
+        std::optional<fr> opHash;
+        uint32_t lvl;
+    };
+    std::vector<StackObject> stack;
+    stack.push_back({ .opHash = optional_hash, .lvl = level });
 
-    if (level == depth_) {
-        // this is a leaf
-        persist_leaf_pre_image(hash, tx);
-    }
+    while (!stack.empty()) {
+        StackObject so = stack.back();
+        stack.pop_back();
 
-    // std::cout << "Persisting node hash " << hash << " at level " << level << std::endl;
+        // If the optional hash does not have a value then it means it's the zero tree value at this level
+        // If it has a value but that value is not in our stores then it means it is referencing a node
+        // created in a previous block, so that will need to have it's reference count increased
+        if (!so.opHash.has_value()) {
+            continue;
+        }
+        fr hash = so.opHash.value();
 
-    auto nodePayloadIter = nodes_.find(hash);
-    if (nodePayloadIter == nodes_.end()) {
-        //  need to increase the stored node's reference count here
-        dataStore_->increment_node_reference_count(hash, tx);
-        return;
+        if (so.lvl == depth_) {
+            // this is a leaf
+            persist_leaf_pre_image(hash, tx);
+        }
+
+        // std::cout << "Persisting node hash " << hash << " at level " << so.lvl << std::endl;
+        auto nodePayloadIter = nodes_.find(hash);
+        if (nodePayloadIter == nodes_.end()) {
+            //  need to increase the stored node's reference count here
+            dataStore_->increment_node_reference_count(hash, tx);
+            continue;
+        }
+
+        NodePayload nodeData = nodePayloadIter->second;
+        dataStore_->set_or_increment_node_reference_count(hash, nodeData, tx);
+        if (nodeData.ref != 1) {
+            // If the node now has a ref count greater then 1, we don't continue.
+            // It means that the entire sub-tree underneath already exists
+            continue;
+        }
+        stack.push_back({ .opHash = nodePayloadIter->second.left, .lvl = so.lvl + 1 });
+        stack.push_back({ .opHash = nodePayloadIter->second.right, .lvl = so.lvl + 1 });
     }
-    NodePayload nodeData = nodePayloadIter->second;
-    dataStore_->set_or_increment_node_reference_count(hash, nodeData, tx);
-    if (nodeData.ref != 1) {
-        // If the node now has a ref count greater then 1, we don't continue.
-        // It means that the entire sub-tree underneath already exists
-        return;
-    }
-    persist_node(nodePayloadIter->second.left, level + 1, tx);
-    persist_node(nodePayloadIter->second.right, level + 1, tx);
 }
 
 template <typename LeafValueType>
@@ -1048,29 +1061,38 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_node(const std::opti
                                                                  std::optional<index_t> maxIndex,
                                                                  WriteTransaction& tx)
 {
-    if (!optional_hash.has_value()) {
-        return;
+    struct StackObject {
+        std::optional<fr> opHash;
+        uint32_t lvl;
+    };
+    std::vector<StackObject> stack;
+    stack.push_back({ .opHash = optional_hash, .lvl = level });
+
+    while (!stack.empty()) {
+        StackObject so = stack.back();
+        stack.pop_back();
+
+        if (!so.opHash.has_value()) {
+            continue;
+        }
+        fr hash = so.opHash.value();
+        // we need to retrieve the node and decrement it's reference count
+        // std::cout << "Decrementing ref count for node " << hash << ", level " << so.lvl << std::endl;
+        NodePayload nodeData;
+        dataStore_->decrement_node_reference_count(hash, nodeData, tx);
+
+        if (nodeData.ref != 0) {
+            // node was not deleted, we don't continue the search
+            continue;
+        }
+        // the node was deleted, if it was a leaf then we need to remove the pre-image
+        if (so.lvl == depth_) {
+            remove_leaf(hash, maxIndex, tx);
+        }
+        // push the child nodes to the stack
+        stack.push_back({ .opHash = std::optional<fr>(nodeData.left), .lvl = so.lvl + 1 });
+        stack.push_back({ .opHash = std::optional<fr>(nodeData.right), .lvl = so.lvl + 1 });
     }
-    fr hash = optional_hash.value();
-
-    // we need to retrieve the node and decrement it's reference count
-    // std::cout << "Decrementing ref count for node " << hash << ", level " << level << std::endl;
-    NodePayload nodeData;
-    dataStore_->decrement_node_reference_count(hash, nodeData, tx);
-
-    if (nodeData.ref != 0) {
-        // node was not deleted, we don't continue the search
-        return;
-    }
-
-    // the node was deleted, if it was a leaf then we need to remove the pre-image
-    if (level == depth_) {
-        remove_leaf(hash, maxIndex, tx);
-    }
-
-    // now recursively remove the next level
-    remove_node(std::optional<fr>(nodeData.left), level + 1, maxIndex, tx);
-    remove_node(std::optional<fr>(nodeData.right), level + 1, maxIndex, tx);
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::initialise()
