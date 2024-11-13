@@ -272,7 +272,6 @@ class UltraFlavor {
         };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -340,6 +339,9 @@ class UltraFlavor {
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         using Base = ProvingKey_<FF, CommitmentKey>;
+
+        bool contains_ipa_claim;
+        IPAClaimPubInputIndices ipa_claim_pub_input_indices;
 
         ProvingKey() = default;
         ProvingKey(const size_t dyadic_circuit_size,
@@ -426,12 +428,17 @@ class UltraFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        bool contains_ipa_claim;
+        IPAClaimPubInputIndices ipa_claim_pub_input_indices;
+
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(ProvingKey& proving_key)
+            : contains_ipa_claim(proving_key.contains_ipa_claim)
+            , ipa_claim_pub_input_indices(proving_key.ipa_claim_pub_input_indices)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;

@@ -288,7 +288,11 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        // Set the recursive proof indices
+        // Set the IPA claim indices
+        proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
+        proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+
+        // Set the pairing point accumulator indices
         proving_key.pairing_point_accumulator_public_input_indices =
             circuit.pairing_point_accumulator_public_input_indices;
         proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
