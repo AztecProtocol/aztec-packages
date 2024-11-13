@@ -114,12 +114,12 @@ contract AMM {
         // We may need to return some token amounts depending on public state (i.e. if the desired amounts do
         // not have the same ratio as the live reserves), so we prepare partial notes for the refunds.
         let refund_token0_hiding_point_slot =
-            token0.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token0.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
         let refund_token1_hiding_point_slot =
-            token1.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token1.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
         // We prepare a partial note for the liquidity tokens.
         let liquidity_hiding_point_slot =
-            liquidity_token.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            liquidity_token.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._add_liquidity(
@@ -241,9 +241,9 @@ contract AMM {
             .transfer_to_public(context.msg_sender(), context.this_address(), liquidity, nonce)
             .call(&mut context);
         let token0_hiding_point_slot =
-            token0.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token0.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
         let token1_hiding_point_slot =
-            token1.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token1.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._remove_liquidity(
@@ -334,7 +334,7 @@ contract AMM {
             .transfer_to_public(context.msg_sender(), context.this_address(), amount_in, nonce)
             .call(&mut context);
         let token_out_hiding_point_slot =
-            token_out_contract.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token_out_contract.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_exact_tokens_for_tokens(
@@ -412,9 +412,9 @@ contract AMM {
             .transfer_to_public(context.msg_sender(), context.this_address(), amount_in_max, nonce)
             .call(&mut context);
         let refund_token_in_hiding_point_slot =
-            token_in_contract.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token_in_contract.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
         let token_out_hiding_point_slot =
-            token_out_contract.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+            token_out_contract.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_tokens_for_exact_tokens(
