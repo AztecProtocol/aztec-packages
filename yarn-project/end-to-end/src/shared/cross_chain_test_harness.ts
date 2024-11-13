@@ -4,17 +4,14 @@ import {
   type AztecNode,
   type DebugLogger,
   EthAddress,
-  ExtendedNote,
   type FieldsOf,
   Fr,
   type L1TokenManager,
   L1TokenPortalManager,
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
-  Note,
   type PXE,
   type SiblingPath,
-  type TxHash,
   type TxReceipt,
   type Wallet,
   deployL1Contract,
@@ -243,7 +240,7 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_public(this.ownerAddress, amount).send().wait();
+    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send().wait();
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
@@ -252,7 +249,7 @@ export class CrossChainTestHarness {
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
     // send a transfer tx to force through rollup with the message included
-    await this.l2Token.methods.transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
+    await this.l2Token.methods.transfer_in_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
   }
 
   async consumeMessageOnAztecAndMintPrivately(
@@ -341,20 +338,6 @@ export class CrossChainTestHarness {
   async transferToPrivateOnL2(shieldAmount: bigint) {
     this.logger.info('Transferring to private on L2');
     await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
-  }
-
-  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
-    this.logger.info('Adding note to PXE');
-    const note = new Note([new Fr(shieldAmount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.ownerAddress,
-      this.l2Token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.ownerWallet.addNote(extendedNote);
   }
 
   async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {

@@ -57,7 +57,7 @@ describe('token transfer test', () => {
         ...testWallets.wallets.map(async w =>
           (
             await TokenContract.at(testWallets.tokenAddress, w)
-          ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+          ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
         ),
       ]);
 

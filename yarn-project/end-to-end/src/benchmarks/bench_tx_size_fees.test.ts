@@ -73,7 +73,7 @@ describe('benchmarks/tx_size_fees', () => {
     ]);
     const from = aliceWallet.getAddress(); // we are setting from to Alice here because of TODO(#9887)
     await token.methods.mint_to_private(from, aliceWallet.getAddress(), 100e9).send().wait();
-    await token.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait();
+    await token.methods.mint_to_public(aliceWallet.getAddress(), 100e9).send().wait();
   });
 
   it.each<[string, () => FeePaymentMethod | undefined /*bigint*/]>([

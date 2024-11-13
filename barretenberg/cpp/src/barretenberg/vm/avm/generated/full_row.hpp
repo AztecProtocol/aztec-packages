@@ -49,6 +49,7 @@ template <typename FF> struct AvmFullRow {
     FF alu_cmp_gadget_gt{};
     FF alu_cmp_gadget_input_a{};
     FF alu_cmp_gadget_input_b{};
+    FF alu_cmp_gadget_non_ff_gt{};
     FF alu_cmp_gadget_result{};
     FF alu_cmp_gadget_sel{};
     FF alu_ff_tag{};
@@ -128,11 +129,13 @@ template <typename FF> struct AvmFullRow {
     FF cmp_borrow{};
     FF cmp_clk{};
     FF cmp_cmp_rng_ctr{};
+    FF cmp_diff{};
     FF cmp_input_a{};
     FF cmp_input_b{};
     FF cmp_op_eq{};
     FF cmp_op_eq_diff_inv{};
     FF cmp_op_gt{};
+    FF cmp_op_non_ff_gt{};
     FF cmp_p_a_borrow{};
     FF cmp_p_b_borrow{};
     FF cmp_p_sub_a_hi{};
@@ -658,6 +661,7 @@ template <typename FF> struct AvmFullRow {
     FF range_check_clk{};
     FF range_check_cmp_hi_bits_rng_chk{};
     FF range_check_cmp_lo_bits_rng_chk{};
+    FF range_check_cmp_non_ff_rng_chk{};
     FF range_check_dyn_diff{};
     FF range_check_dyn_rng_chk_bits{};
     FF range_check_dyn_rng_chk_pow_2{};
@@ -705,6 +709,7 @@ template <typename FF> struct AvmFullRow {
     FF slice_sel_start{};
     FF slice_space_id{};
     FF slice_val{};
+    FF perm_rng_non_ff_cmp_inv{};
     FF perm_rng_cmp_lo_inv{};
     FF perm_rng_cmp_hi_inv{};
     FF perm_rng_alu_inv{};
@@ -798,7 +803,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 784;
+    static constexpr size_t SIZE = 789;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

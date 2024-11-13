@@ -202,7 +202,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
+    const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -235,7 +237,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
+    const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -266,8 +270,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -313,8 +318,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -343,17 +349,17 @@ describe('enqueued_calls_processor', () => {
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(contractAddress, contractSlotA, fr(0x103));
-        stateManager.writeStorage(contractAddress, contractSlotC, fr(0x201));
+        await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x103));
+        await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x201));
         await stateManager.readStorage(contractAddress, contractSlotA);
-        stateManager.writeStorage(contractAddress, contractSlotC, fr(0x102));
-        stateManager.writeStorage(contractAddress, contractSlotC, fr(0x152));
+        await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x102));
+        await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x152));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
     ]);
@@ -459,8 +465,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // we keep the non-revertible data.
@@ -535,8 +542,9 @@ describe('enqueued_calls_processor', () => {
     const output = txResult.avmProvingRequest!.inputs.output;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep the non-revertible data.
@@ -618,8 +626,9 @@ describe('enqueued_calls_processor', () => {
     const output = txResult.avmProvingRequest!.inputs.output;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // we keep the non-revertible data

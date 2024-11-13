@@ -11,6 +11,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "honk_contract.hpp"
 #include <cstdint>
 #include <memory>
 
@@ -318,6 +319,23 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
     DeciderProvingKey proving_key(builder);
     VerificationKey vk(proving_key.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
+}
+
+WASM_EXPORT void get_honk_solidity_verifier_vk(uint8_t const* acir_vec, bool const* recursive, uint8_t** out)
+{
+    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using VerificationKey = UltraFlavor::VerificationKey;
+
+    auto constraint_system =
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
+    auto builder =
+        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, *recursive, 0, {}, /*honk_recursion=*/true);
+
+    DeciderProvingKey proving_key(builder);
+    VerificationKey vk(proving_key.proving_key);
+
+    auto str = get_honk_solidity_verifier(&vk);
+    *out = to_heap_buffer(str);
 }
 
 WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out)
