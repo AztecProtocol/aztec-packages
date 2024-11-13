@@ -667,6 +667,8 @@ contract Token {
         ));
 
         // 4. We prepare the partial notes
+        // TODO(#9887): In each `_prepare_transfer_to_private` call we fetch the user's ovpk_m 2 more times. This is
+        // very inefficient.
         let fee_payer_point_slot =
             _prepare_transfer_to_private(user, fee_payer, &mut context, storage);
         let user_point_slot = _prepare_transfer_to_private(user, user, &mut context, storage);
