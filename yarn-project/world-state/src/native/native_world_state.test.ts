@@ -181,7 +181,7 @@ describe('NativeWorldState', () => {
         const { block, messages } = await mockBlock(blockNumber, 1, fork);
         const status = await ws.handleL2BlockAndMessages(block, messages);
 
-        expect(status.summary.unfinalisedBlockNumber).toBe(blockNumber);
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
       }
 
       const forkAtZero = await ws.fork(0);
@@ -209,16 +209,16 @@ describe('NativeWorldState', () => {
         const { block, messages } = await mockBlock(blockNumber, 1, fork);
         const status = await ws.handleL2BlockAndMessages(block, messages);
 
-        expect(status.summary.unfinalisedBlockNumber).toBe(blockNumber);
-        expect(status.summary.oldestHistoricalBlock).toBe(1);
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
+        expect(status.summary.oldestHistoricalBlock).toBe(1n);
 
         if (provenBlock > 0) {
           const provenStatus = await ws.setFinalised(BigInt(provenBlock));
-          expect(provenStatus.unfinalisedBlockNumber).toBe(blockNumber);
-          expect(provenStatus.finalisedBlockNumber).toBe(provenBlock);
-          expect(provenStatus.oldestHistoricalBlock).toBe(1);
+          expect(provenStatus.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
+          expect(provenStatus.finalisedBlockNumber).toBe(BigInt(provenBlock));
+          expect(provenStatus.oldestHistoricalBlock).toBe(1n);
         } else {
-          expect(status.summary.finalisedBlockNumber).toBe(0);
+          expect(status.summary.finalisedBlockNumber).toBe(0n);
         }
       }
     }, 30_000);
@@ -231,15 +231,15 @@ describe('NativeWorldState', () => {
         const { block, messages } = await mockBlock(blockNumber, 1, fork);
         const status = await ws.handleL2BlockAndMessages(block, messages);
 
-        expect(status.summary.unfinalisedBlockNumber).toBe(blockNumber);
-        expect(status.summary.oldestHistoricalBlock).toBe(1);
-        expect(status.summary.finalisedBlockNumber).toBe(0);
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
+        expect(status.summary.oldestHistoricalBlock).toBe(1n);
+        expect(status.summary.finalisedBlockNumber).toBe(0n);
       }
 
       const status = await ws.setFinalised(8n);
-      expect(status.unfinalisedBlockNumber).toBe(16);
-      expect(status.oldestHistoricalBlock).toBe(1);
-      expect(status.finalisedBlockNumber).toBe(8);
+      expect(status.unfinalisedBlockNumber).toBe(16n);
+      expect(status.oldestHistoricalBlock).toBe(1n);
+      expect(status.finalisedBlockNumber).toBe(8n);
     }, 30_000);
 
     it('Can prune historic blocks', async () => {
@@ -255,23 +255,23 @@ describe('NativeWorldState', () => {
         const { block, messages } = await mockBlock(blockNumber, 1, fork);
         const status = await ws.handleL2BlockAndMessages(block, messages);
 
-        expect(status.summary.unfinalisedBlockNumber).toBe(blockNumber);
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
 
         const blockFork = await ws.fork();
         forks.push(blockFork);
 
         if (provenBlock > 0) {
           const provenStatus = await ws.setFinalised(BigInt(provenBlock));
-          expect(provenStatus.finalisedBlockNumber).toBe(provenBlock);
+          expect(provenStatus.finalisedBlockNumber).toBe(BigInt(provenBlock));
         } else {
-          expect(status.summary.finalisedBlockNumber).toBe(0);
+          expect(status.summary.finalisedBlockNumber).toBe(0n);
         }
 
         if (prunedBlockNumber > 0) {
           const prunedStatus = await ws.removeHistoricalBlocks(BigInt(prunedBlockNumber + 1));
-          expect(prunedStatus.summary.oldestHistoricalBlock).toBe(prunedBlockNumber + 1);
+          expect(prunedStatus.summary.oldestHistoricalBlock).toBe(BigInt(prunedBlockNumber + 1));
         } else {
-          expect(status.summary.oldestHistoricalBlock).toBe(1);
+          expect(status.summary.oldestHistoricalBlock).toBe(1n);
         }
       }
 

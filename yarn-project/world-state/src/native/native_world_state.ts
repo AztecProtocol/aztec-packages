@@ -35,6 +35,7 @@ import {
   type WorldStateStatusFull,
   blockStateReference,
   sanitiseFullStatus,
+  sanitiseSummary,
   treeStateReferenceToSnapshot,
   worldStateRevision,
 } from './message.js';
@@ -200,9 +201,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    return await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
+    const response = await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
       toBlockNumber,
     });
+    return sanitiseSummary(response);
   }
 
   /**
@@ -230,7 +232,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async getStatusSummary() {
-    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
+    const response = await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
+    return sanitiseSummary(response);
   }
 
   updateLeaf<ID extends IndexedTreeId>(
