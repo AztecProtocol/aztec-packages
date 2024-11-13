@@ -359,6 +359,9 @@ export class SimulatorOracle implements DBOracle {
       // and inadvertedly incremented their index without use getting any logs (for example, in case
       // of a revert). If we stopped looking for logs the first time
       // we receive 0 for a tag, we might never receive anything from that sender again.
+      // Also there's a possibility that we have advanced our index, but the sender has reused it, so
+      // we might have missed some logs. For these reasons, we have to look both back and ahead of the
+      // stored index
       const INDEX_OFFSET = 10;
       type SearchState = {
         currentTagggingSecrets: IndexedTaggingSecret[];
@@ -368,14 +371,18 @@ export class SimulatorOracle implements DBOracle {
       };
       const searchState = appTaggingSecrets.reduce<SearchState>(
         (acc, appTaggingSecret) => ({
+          // Start looking for logs before the stored index
           currentTagggingSecrets: acc.currentTagggingSecrets.concat([
             new IndexedTaggingSecret(appTaggingSecret.secret, Math.max(0, appTaggingSecret.index - INDEX_OFFSET)),
           ]),
+          // Keep looking for logs beyond the stored index
           maxIndexesToCheck: {
             ...acc.maxIndexesToCheck,
             ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
           },
+          // Keeps track of the secrets we have to increment in the database
           secretsToIncrement: {},
+          // Store the initial set of indexes for the secrets
           initialSecretIndexes: {
             ...acc.initialSecretIndexes,
             ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index },
@@ -408,16 +415,16 @@ export class SimulatorOracle implements DBOracle {
               } at contract: ${contractName}(${contractAddress})`,
             );
             logs.push(...logsByTag);
-            // 3.2. Increment the index for the tags that have logs (#9380)
+
             if (currentIndex >= initialSecretIndexes[currentSecretAsStr]) {
+              // 3.2. Increment the index for the tags that have logs, provided they're higher than the one
+              // we have stored in the db (#9380)
               secretsToIncrement[currentSecretAsStr] = currentIndex + 1;
-            }
-            // 3.4. Slide the window forwards
-            if (currentIndex + INDEX_OFFSET > maxIndexesToCheck[currentSecretAsStr]) {
+              // 3.3. Slide the window forwards if we have found logs beyond the initial index
               maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
             }
           }
-          // 3.3 Keep increasing the index (inside a window) temporarily for the tags that have no logs
+          // 3.4 Keep increasing the index (inside the window) temporarily for the tags that have no logs
           // There's a chance the sender missed some and we want to catch up
           if (currentIndex < maxIndexesToCheck[currentSecretAsStr]) {
             const newTaggingSecret = new IndexedTaggingSecret(currentSecret, currentIndex + 1);
