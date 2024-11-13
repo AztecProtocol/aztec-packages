@@ -3,7 +3,7 @@ import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
-import { WorldStateStatusFull, type WorldStateStatusSummary } from '../native/message.js';
+import { type WorldStateStatusFull, type WorldStateStatusSummary } from '../native/message.js';
 
 /**
  *
