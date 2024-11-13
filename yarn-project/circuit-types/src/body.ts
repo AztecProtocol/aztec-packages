@@ -49,20 +49,20 @@ export class Body {
   /**
    * Returns a flat packed array of fields of all tx effects - used for blobs.
    */
-  toFields() {
+  toBlobFields() {
     let flattened: Fr[] = [];
     this.txEffects.forEach((effect: TxEffect) => {
-      flattened = flattened.concat(effect.toFields());
+      flattened = flattened.concat(effect.toBlobFields());
     });
     return flattened;
   }
 
   /**
    * Decodes a block from blob fields.
-   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromFields.
+   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromBlobFields.
    * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
    */
-  static fromFields(
+  static fromBlobFields(
     fields: Fr[],
     noteEncryptedLogs?: EncryptedNoteL2BlockL2Logs,
     encryptedLogs?: EncryptedL2BlockL2Logs,
@@ -72,7 +72,7 @@ export class Body {
     let checkedFields = 0;
     while (checkedFields !== fields.length) {
       if (!TxEffect.isFirstField(fields[checkedFields])) {
-        throw new Error('Invalid fields given to Body.fromFields(): First field invalid.');
+        throw new Error('Invalid fields given to Body.fromBlobFields(): First field invalid.');
       }
       const len = TxEffect.decodeFirstField(fields[checkedFields]).length;
       txEffectsFields.push(fields.slice(checkedFields, checkedFields + len));
@@ -81,7 +81,12 @@ export class Body {
     const txEffects = txEffectsFields
       .filter(effect => effect.length)
       .map((effect, i) =>
-        TxEffect.fromFields(effect, noteEncryptedLogs?.txLogs[i], encryptedLogs?.txLogs[i], unencryptedLogs?.txLogs[i]),
+        TxEffect.fromBlobFields(
+          effect,
+          noteEncryptedLogs?.txLogs[i],
+          encryptedLogs?.txLogs[i],
+          unencryptedLogs?.txLogs[i],
+        ),
       );
     return new this(txEffects);
   }

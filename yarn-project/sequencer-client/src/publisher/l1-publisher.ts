@@ -483,7 +483,7 @@ export class L1Publisher {
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
-      blob: new Blob(block.body.toFields()),
+      blob: new Blob(block.body.toBlobFields()),
       attestations,
       txHashes: txHashes ?? [],
     };

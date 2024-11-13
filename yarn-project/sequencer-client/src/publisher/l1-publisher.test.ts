@@ -2,7 +2,6 @@ import { L2Block } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
 import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Blob } from '@aztec/foundation/blob';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -141,7 +140,7 @@ describe('L1Publisher', () => {
 
     expect(result).toEqual(true);
 
-    const blob = new Blob(padArrayEnd(l2Block.body.toFields(), Fr.ZERO, l2Block.body.toFields().length));
+    const blob = new Blob(l2Block.body.toBlobFields());
 
     const blobInput = blob.getEthBlobEvaluationInputs();
 

@@ -11,37 +11,37 @@ describe('TxEffect', () => {
 
   it('converts to and from fields', () => {
     const txEffect = TxEffect.random();
-    const fields = txEffect.toFields();
+    const fields = txEffect.toBlobFields();
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
     expect(
-      TxEffect.fromFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
+      TxEffect.fromBlobFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
     ).toEqual(txEffect);
   });
 
   it('converts empty to and from fields', () => {
     const txEffect = TxEffect.empty();
-    const fields = txEffect.toFields();
-    expect(TxEffect.fromFields(fields)).toEqual(txEffect);
+    const fields = txEffect.toBlobFields();
+    expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
   });
 
   it('fails with invalid fields', () => {
     let txEffect = TxEffect.random();
-    let fields = txEffect.toFields();
+    let fields = txEffect.toBlobFields();
     // Replace the initial field with an invalid encoding
     fields[0] = new Fr(12);
-    expect(() => TxEffect.fromFields(fields)).toThrow('Invalid fields');
+    expect(() => TxEffect.fromBlobFields(fields)).toThrow('Invalid fields');
 
     txEffect = TxEffect.random();
-    fields = txEffect.toFields();
+    fields = txEffect.toBlobFields();
     // Add an extra field
     fields.push(new Fr(7));
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
     expect(() =>
-      TxEffect.fromFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
+      TxEffect.fromBlobFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
     ).toThrow('Too many fields');
 
     txEffect = TxEffect.random();
-    fields = txEffect.toFields();
+    fields = txEffect.toBlobFields();
     const buf = Buffer.alloc(3);
     buf.writeUint8(6);
     buf.writeUint8(0, 2);
@@ -50,7 +50,7 @@ describe('TxEffect', () => {
     fields.push(fakePrefix);
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
     expect(() =>
-      TxEffect.fromFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
+      TxEffect.fromBlobFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
     ).toThrow('Invalid fields');
   });
 });

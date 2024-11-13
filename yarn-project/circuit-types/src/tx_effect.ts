@@ -326,7 +326,7 @@ export class TxEffect {
   /**
    * Returns a flat packed array of prefixed fields of all tx effects, used for blobs.
    */
-  toFields(): Fr[] {
+  toBlobFields(): Fr[] {
     if (this.isEmpty()) {
       return [];
     }
@@ -382,7 +382,7 @@ export class TxEffect {
    * Decodes a flat packed array of prefixed fields to TxEffect
    * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields as below
    */
-  static fromFields(
+  static fromBlobFields(
     fields: Fr[] | FieldReader,
     noteEncryptedLogs?: EncryptedNoteTxL2Logs,
     encryptedLogs?: EncryptedTxL2Logs,
@@ -390,7 +390,7 @@ export class TxEffect {
   ) {
     const ensureEmpty = <T>(arr: Array<T>) => {
       if (arr.length) {
-        throw new Error('Invalid fields given to TxEffect.fromFields(): Attempted to assign property twice.');
+        throw new Error('Invalid fields given to TxEffect.fromBlobFields(): Attempted to assign property twice.');
       }
     };
     const effect = this.empty();
@@ -400,7 +400,7 @@ export class TxEffect {
     const reader = FieldReader.asReader(fields);
     const firstField = reader.readField();
     if (!this.isFirstField(firstField)) {
-      throw new Error('Invalid fields given to TxEffect.fromFields(): First field invalid.');
+      throw new Error('Invalid fields given to TxEffect.fromBlobFields(): First field invalid.');
     }
     const { length: _, revertCode } = this.decodeFirstField(firstField);
     effect.revertCode = RevertCode.fromField(new Fr(revertCode));
@@ -436,7 +436,7 @@ export class TxEffect {
           // effect.noteEncryptedLogs = EncryptedNoteTxL2Logs.fromFields(reader.readFieldArray(length));
           ensureEmpty(effect.noteEncryptedLogs.functionLogs);
           if (!noteEncryptedLogs) {
-            throw new Error(`Tx effect has note logs, but they were not passed raw to .fromFields()`);
+            throw new Error(`Tx effect has note logs, but they were not passed raw to .fromBlobFields()`);
           }
           this.checkInjectedLogs(noteEncryptedLogs, reader.readFieldArray(length));
           effect.noteEncryptedLogs = noteEncryptedLogs;
@@ -446,7 +446,7 @@ export class TxEffect {
           // effect.encryptedLogs = EncryptedTxL2Logs.fromFields(reader.readFieldArray(length));
           ensureEmpty(effect.encryptedLogs.functionLogs);
           if (!encryptedLogs) {
-            throw new Error(`Tx effect has encrypted logs, but they were not passed raw to .fromFields()`);
+            throw new Error(`Tx effect has encrypted logs, but they were not passed raw to .fromBlobFields()`);
           }
           this.checkInjectedLogs(encryptedLogs, reader.readFieldArray(length));
           effect.encryptedLogs = encryptedLogs;
@@ -456,7 +456,7 @@ export class TxEffect {
           // effect.unencryptedLogs = UnencryptedTxL2Logs.fromFields(reader.readFieldArray(length));
           ensureEmpty(effect.unencryptedLogs.functionLogs);
           if (!unencryptedLogs) {
-            throw new Error(`Tx effect has unencrypted logs, but they were not passed raw to .fromFields()`);
+            throw new Error(`Tx effect has unencrypted logs, but they were not passed raw to .fromBlobFields()`);
           }
           this.checkInjectedLogs(unencryptedLogs, reader.readFieldArray(length));
           effect.unencryptedLogs = unencryptedLogs;
@@ -464,7 +464,7 @@ export class TxEffect {
           break;
         case REVERT_CODE_PREFIX:
         default:
-          throw new Error(`Too many fields to decode given to TxEffect.fromFields()`);
+          throw new Error(`Too many fields to decode given to TxEffect.fromBlobFields()`);
       }
     }
 

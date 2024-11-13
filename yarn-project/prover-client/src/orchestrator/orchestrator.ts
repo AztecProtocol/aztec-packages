@@ -6,7 +6,7 @@ import {
   type ServerCircuitProver,
   type TxEffect,
   makeEmptyProcessedTx,
-  toNumTxsEffects,
+  toNumBlobFields,
 } from '@aztec/circuit-types';
 import {
   type EpochProver,
@@ -142,11 +142,8 @@ export class ProvingOrchestrator implements EpochProver {
 
   /**
    * Starts off a new block
-   * @param numTxs - The total number of transactions in the block.
-   * @param numTxsEffects - The total number of transaction effects in the block
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
-   * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
@@ -246,11 +243,11 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
 
-    const numTxsEffects = toNumTxsEffects(txs);
-    provingState.startNewBlock(Math.max(2, txs.length), numTxsEffects);
+    const numBlobFields = toNumBlobFields(txs);
+    provingState.startNewBlock(Math.max(2, txs.length), numBlobFields);
 
     logger.info(
-      `Adding ${txs.length} transactions with ${numTxsEffects} effects to block ${provingState?.blockNumber}`,
+      `Adding ${txs.length} transactions with ${numBlobFields} effects to block ${provingState?.blockNumber}`,
     );
     for (const tx of txs) {
       if (!provingState.verifyState()) {
@@ -864,10 +861,10 @@ export class ProvingOrchestrator implements EpochProver {
     provingState.blockRootRollupStarted = true;
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
-    const txEffectsFields = this.extractTxEffects(provingState)
-      .map(tx => tx.toFields())
+    const blobFields = this.extractTxEffects(provingState)
+      .map(tx => tx.toBlobFields())
       .flat();
-    const blob = new Blob(txEffectsFields);
+    const blob = new Blob(blobFields);
 
     logger.debug(
       `Enqueuing block root rollup for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs`,
@@ -892,7 +889,7 @@ export class ProvingOrchestrator implements EpochProver {
       previousBlockHash: provingState.previousBlockHash,
       proverId: this.proverId,
       // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      txEffects: padArrayEnd(txEffectsFields, Fr.ZERO, FIELDS_PER_BLOB),
+      txEffects: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB),
       blobCommitment: blob.commitmentToFields(),
       blobHash: Fr.fromBuffer(blob.getEthBlobHash()),
     });

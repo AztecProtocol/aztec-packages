@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makeEmptyProcessedTx, toNumTxEffects } from '@aztec/circuit-types';
+import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import {
   PRIVATE_KERNEL_EMPTY_INDEX,
   PrivateBaseRollupInputs,
@@ -41,8 +41,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const vkTreeRoot = getVKTreeRoot();
 
     const tx = makeEmptyProcessedTx(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
-    const numTxsEffects = toNumTxEffects(tx);
-    const startSpongeBlob = SpongeBlob.init(numTxsEffects);
+    const startSpongeBlob = SpongeBlob.init(tx.txEffect.toBlobFields().length);
 
     logger.verbose('Building empty private proof');
     const privateInputs = new PrivateKernelEmptyInputData(

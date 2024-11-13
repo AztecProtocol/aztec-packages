@@ -446,7 +446,7 @@ function makeMessageSentEventWithIndexInL2BlockSubtree(
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const body = toHex(l2Block.body.toBuffer());
-  const blobInput = new Blob(l2Block.body.toFields()).getEthBlobEvaluationInputs();
+  const blobInput = new Blob(l2Block.body.toBlobFields()).getEthBlobEvaluationInputs();
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex(l2Block.header.hash().toBuffer());
   const input = encodeFunctionData({

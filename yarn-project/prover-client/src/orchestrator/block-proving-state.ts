@@ -47,7 +47,6 @@ export class BlockProvingState {
   public block: L2Block | undefined;
   public spongeBlobState: SpongeBlob | undefined = undefined;
   public totalNumTxs: number | undefined;
-  public totalNumTxsEffects: number | undefined;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
 
@@ -101,13 +100,13 @@ export class BlockProvingState {
     return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
   }
 
-  public startNewBlock(numTxs: number, numTxsEffects: number) {
+  public startNewBlock(numTxs: number, numBlobFields: number) {
     if (this.spongeBlobState) {
       throw new Error(`Must end previous block before starting a new one`);
     }
     // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
     // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
-    this.spongeBlobState = SpongeBlob.init(numTxsEffects);
+    this.spongeBlobState = SpongeBlob.init(numBlobFields);
     this.totalNumTxs = numTxs;
   }
 

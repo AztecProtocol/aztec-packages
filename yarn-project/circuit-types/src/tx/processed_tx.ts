@@ -191,13 +191,9 @@ export function makeProcessedTxFromPrivateOnlyTx(
   };
 }
 
-export function toNumTxEffects(tx: ProcessedTx): number {
-  return tx.txEffect.toFields().length;
-}
-
-export function toNumTxsEffects(txs: ProcessedTx[]): number {
+export function toNumBlobFields(txs: ProcessedTx[]): number {
   return txs.reduce((acc, tx) => {
-    return acc + toNumTxEffects(tx);
+    return acc + tx.txEffect.toBlobFields().length;
   }, 0);
 }
 

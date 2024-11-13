@@ -5,7 +5,7 @@ import {
   type ProcessedTx,
   type ServerCircuitProver,
   makeEmptyProcessedTx,
-  toNumTxsEffects,
+  toNumBlobFields,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
@@ -269,7 +269,7 @@ describe('LightBlockBuilder', () => {
 
   const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
-    const spongeBlobState = SpongeBlob.init(toNumTxsEffects(txs));
+    const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
       const vkIndex = TUBE_VK_INDEX;
       const vkPath = getVKSiblingPath(vkIndex);
@@ -332,8 +332,8 @@ describe('LightBlockBuilder', () => {
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const previousBlockHashLeafIndex = BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1);
     const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
-    const txEffectsFields = txs.map(tx => tx.txEffect.toFields()).flat();
-    const blob = new Blob(txEffectsFields);
+    const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
+    const blob = new Blob(blobFields);
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
     const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
 
@@ -355,7 +355,7 @@ describe('LightBlockBuilder', () => {
       previousBlockHash,
       proverId: Fr.ZERO,
       // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      txEffects: padArrayEnd(txEffectsFields, Fr.ZERO, FIELDS_PER_BLOB),
+      txEffects: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB),
       blobCommitment: blob.commitmentToFields(),
       blobHash: Fr.fromBuffer(blob.getEthBlobHash()),
     });

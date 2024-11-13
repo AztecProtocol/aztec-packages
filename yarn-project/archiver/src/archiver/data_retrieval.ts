@@ -157,11 +157,11 @@ async function getBlockFromRollupTx(
   // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
-  const blockFields = blockBody.toFields();
+  const blockFields = blockBody.toBlobFields();
   // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
   // The blob source will give us blockFields, and we must construct the body from them:
   // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
-  const reconstructedBlock = Body.fromFields(
+  const reconstructedBlock = Body.fromBlobFields(
     blockFields,
     blockBody.noteEncryptedLogs,
     blockBody.encryptedLogs,

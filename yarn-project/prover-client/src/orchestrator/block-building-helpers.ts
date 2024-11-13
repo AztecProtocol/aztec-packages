@@ -173,7 +173,7 @@ export async function buildBaseRollupHints(
 
   // Append new data to startSpongeBlob
   const inputSpongeBlob = startSpongeBlob.clone();
-  startSpongeBlob.absorb(tx.txEffect.toFields());
+  startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
   return BaseRollupHints.from({
     start,
@@ -282,7 +282,7 @@ export async function buildHeaderFromTxEffects(
   const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
-  const blobHash = new Blob(body.toFields()).getEthBlobHash();
+  const blobHash = new Blob(body.toBlobFields()).getEthBlobHash();
   const contentCommitment = new ContentCommitment(
     new Fr(body.numberOfTxsIncludingPadded),
     blobHash,

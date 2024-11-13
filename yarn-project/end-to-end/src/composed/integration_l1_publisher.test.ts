@@ -364,7 +364,7 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blob = new Blob(block.body.toFields());
+        const blob = new Blob(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobHash).toEqual(blob.getEthBlobHash());
 
         writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, blob, recipientAddress, deployerAccount.address);
@@ -470,7 +470,7 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
         blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-        const blob = new Blob(block.body.toFields());
+        const blob = new Blob(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobHash).toEqual(blob.getEthBlobHash());
 
         writeJson(`empty_block_${block.number}`, block, [], blob, AztecAddress.ZERO, deployerAccount.address);

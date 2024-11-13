@@ -8,7 +8,7 @@ import {
   type ProcessedTx,
   type TxEffect,
   makeEmptyProcessedTx,
-  toNumTxsEffects,
+  toNumBlobFields,
 } from '@aztec/circuit-types';
 import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, SpongeBlob } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -44,7 +44,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   async addTxs(txs: ProcessedTx[]): Promise<void> {
     this.numTxs = Math.max(2, txs.length);
-    this.spongeBlobState = SpongeBlob.init(toNumTxsEffects(txs));
+    this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
       this.logger.verbose('Adding new tx to block', { txHash: tx.hash.toString() });
       this.txs.push(tx);
@@ -81,17 +81,6 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
     const block = new L2Block(newArchive, header, body);
     return block;
-  }
-
-  // Reinitialises the blob state if more tx effects are required
-  // See public_processor.ts for use case
-  public reInitSpongeBlob(totalNumTxsEffects: number) {
-    if (this.spongeBlobState!.fields > 0) {
-      throw new Error(
-        'Cannot reinitialise blob state after txs have been added. Ensure the correct number of tx effects has been passed to BlockProvingState constructor.',
-      );
-    }
-    this.spongeBlobState = SpongeBlob.init(totalNumTxsEffects);
   }
 }
 
