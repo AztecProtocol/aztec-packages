@@ -1,6 +1,4 @@
-use crate::test::utils;
-use crate::{Token, types::transparent_note::TransparentNote};
-use dep::aztec::{oracle::random::random, test::helpers::cheatcodes};
+use crate::{test::utils, Token};
 
 #[test]
 unconstrained fn mint_public_success() {

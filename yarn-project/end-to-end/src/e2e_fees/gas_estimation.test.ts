@@ -5,7 +5,7 @@ import {
   type FeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { GasFees, type GasSettings } from '@aztec/circuits.js';
+import { Gas, GasFees, type GasSettings } from '@aztec/circuits.js';
 import { type Logger } from '@aztec/foundation/log';
 import { TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
 
@@ -52,17 +52,23 @@ describe('e2e_fees gas_estimation', () => {
       ),
     );
 
-  const getFeeFromEstimatedGas = (estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) =>
-    gasSettings.inclusionFee
-      .add(estimatedGas.gasLimits.computeFee(GasFees.default()))
-      .add(estimatedGas.teardownGasLimits.computeFee(GasFees.default()))
-      .toBigInt();
-
   const logGasEstimate = (estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) =>
     logger.info(`Estimated gas at`, {
       gasLimits: inspect(estimatedGas.gasLimits),
       teardownGasLimits: inspect(estimatedGas.teardownGasLimits),
     });
+
+  const expectGreaterFeeFromEstimatedGas = (
+    estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
+    actualFee: bigint,
+  ) => {
+    const feeFromEstimatedGas = estimatedGas.gasLimits.computeFee(GasFees.default()).toBigInt();
+
+    // The actual fee should be under the estimate, since we add 10% by default to the estimated gas (see aztec.js/src/contract/get_gas_limits.ts).
+    const adjustedForFloatingPoint = new Gas(1, 1).computeFee(GasFees.default()).toBigInt();
+    expect(feeFromEstimatedGas).toBeLessThanOrEqual((actualFee * 110n) / 100n + adjustedForFloatingPoint);
+    expect(feeFromEstimatedGas).toBeGreaterThan(actualFee);
+  };
 
   it('estimates gas with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
@@ -72,19 +78,15 @@ describe('e2e_fees gas_estimation', () => {
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
     const actualFee = withEstimate.transactionFee!;
 
-    // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
-    expect(actualFee + teardownFixedFee).toEqual(withoutEstimate.transactionFee!);
+    // Tx has no teardown cost, so both fees should just reflect the actual gas cost.
+    expect(actualFee).toEqual(withoutEstimate.transactionFee!);
 
     // Check that estimated gas for teardown are zero
     expect(estimatedGas.teardownGasLimits.l2Gas).toEqual(0);
     expect(estimatedGas.teardownGasLimits.daGas).toEqual(0);
 
     // Check that the estimate was close to the actual gas used by recomputing the tx fee from it
-    const feeFromEstimatedGas = getFeeFromEstimatedGas(estimatedGas);
-
-    // The actual fee should be under the estimate, but not too much
-    expect(feeFromEstimatedGas).toBeLessThan(actualFee * 2n);
-    expect(feeFromEstimatedGas).toBeGreaterThanOrEqual(actualFee);
+    expectGreaterFeeFromEstimatedGas(estimatedGas, actualFee);
   });
 
   it('estimates gas with public payment method', async () => {
@@ -95,20 +97,19 @@ describe('e2e_fees gas_estimation', () => {
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
     const actualFee = withEstimate.transactionFee!;
 
+    // Actual teardown gas used is less than the limits.
+    expect(estimatedGas.teardownGasLimits.l2Gas).toBeLessThan(gasSettings.teardownGasLimits.l2Gas);
+    expect(estimatedGas.teardownGasLimits.daGas).toBeLessThan(gasSettings.teardownGasLimits.daGas);
+
     // Estimation should yield that teardown has reduced cost, but is not zero
     expect(withEstimate.transactionFee!).toBeLessThan(withoutEstimate.transactionFee!);
-    expect(withEstimate.transactionFee! + teardownFixedFee).toBeGreaterThan(withoutEstimate.transactionFee!);
+    expect(withEstimate.transactionFee!).toBeGreaterThan(withoutEstimate.transactionFee! - teardownFixedFee);
 
     // Check that estimated gas for teardown are not zero since we're doing work there
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeGreaterThan(0);
 
     // Check that the estimate was close to the actual gas used by recomputing the tx fee from it
-    const feeFromEstimatedGas = getFeeFromEstimatedGas(estimatedGas);
-
-    // The actual fee should be under the estimate, but not too much
-    // TODO(palla/gas): 3x is too much, find out why we cannot bring this down to 2x
-    expect(feeFromEstimatedGas).toBeLessThan(actualFee * 3n);
-    expect(feeFromEstimatedGas).toBeGreaterThanOrEqual(actualFee);
+    expectGreaterFeeFromEstimatedGas(estimatedGas, actualFee);
   });
 
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
@@ -129,17 +130,13 @@ describe('e2e_fees gas_estimation', () => {
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
     const actualFee = withEstimate.transactionFee!;
-    expect(actualFee + teardownFixedFee).toEqual(withoutEstimate.transactionFee!);
+    expect(actualFee).toEqual(withoutEstimate.transactionFee!);
 
     // Check that estimated gas for teardown are zero
     expect(estimatedGas.teardownGasLimits.l2Gas).toEqual(0);
     expect(estimatedGas.teardownGasLimits.daGas).toEqual(0);
 
     // Check that the estimate was close to the actual gas used by recomputing the tx fee from it
-    const feeFromEstimatedGas = getFeeFromEstimatedGas(estimatedGas);
-
-    // The actual fee should be under the estimate, but not too much
-    expect(feeFromEstimatedGas).toBeLessThan(actualFee * 2n);
-    expect(feeFromEstimatedGas).toBeGreaterThanOrEqual(actualFee);
+    expectGreaterFeeFromEstimatedGas(estimatedGas, actualFee);
   });
 });

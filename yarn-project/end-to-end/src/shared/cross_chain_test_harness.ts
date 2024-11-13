@@ -4,17 +4,14 @@ import {
   type AztecNode,
   type DebugLogger,
   EthAddress,
-  ExtendedNote,
   type FieldsOf,
   Fr,
   type L1TokenManager,
   L1TokenPortalManager,
   type L2AmountClaim,
-  type L2RedeemableAmountClaim,
-  Note,
+  type L2AmountClaimWithRecipient,
   type PXE,
   type SiblingPath,
-  type TxHash,
   type TxReceipt,
   type Wallet,
   deployL1Contract,
@@ -256,16 +253,14 @@ export class CrossChainTestHarness {
   }
 
   async consumeMessageOnAztecAndMintPrivately(
-    claim: Pick<L2RedeemableAmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'redeemSecretHash'>,
+    claim: Pick<L2AmountClaimWithRecipient, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'recipient'>,
   ) {
     this.logger.info('Consuming messages on L2 privately');
-    const { claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex, redeemSecretHash } = claim;
-    const consumptionReceipt = await this.l2Bridge.methods
-      .claim_private(redeemSecretHash, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
+    const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
+    await this.l2Bridge.methods
+      .claim_private(recipient, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
       .send()
       .wait();
-
-    await this.addPendingShieldNoteToPXE(claimAmount.toBigInt(), redeemSecretHash, consumptionReceipt.txHash);
   }
 
   async consumeMessageOnAztecAndMintPublicly(
@@ -340,33 +335,9 @@ export class CrossChainTestHarness {
     );
   }
 
-  async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
-    this.logger.info('Shielding funds on L2');
-    const shieldReceipt = await this.l2Token.methods
-      .shield(this.ownerAddress, shieldAmount, secretHash, 0)
-      .send()
-      .wait();
-
-    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
-  }
-
-  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
-    this.logger.info('Adding note to PXE');
-    const note = new Note([new Fr(shieldAmount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.ownerAddress,
-      this.l2Token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.ownerWallet.addNote(extendedNote);
-  }
-
-  async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
-    this.logger.info('Spending note in private call');
-    await this.l2Token.methods.redeem_shield(this.ownerAddress, shieldAmount, secret).send().wait();
+  async transferToPrivateOnL2(shieldAmount: bigint) {
+    this.logger.info('Transferring to private on L2');
+    await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
   }
 
   async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {
@@ -383,13 +354,8 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
     const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
-    const currentL2BlockNumber = await this.aztecNode.getBlockNumber();
     // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(
-      async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash, currentL2BlockNumber),
-      'message sync',
-      10,
-    );
+    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

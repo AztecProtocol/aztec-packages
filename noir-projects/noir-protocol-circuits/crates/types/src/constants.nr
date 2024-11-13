@@ -43,14 +43,14 @@ pub global MAX_ENCRYPTED_LOGS_PER_CALL: u32 = 4;
 pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
 
 // TREES RELATED CONSTANTS
-pub global ARCHIVE_HEIGHT: u32 = 16;
+pub global ARCHIVE_HEIGHT: u32 = 29;
 pub global VK_TREE_HEIGHT: u32 = 6;
 pub global PROTOCOL_CONTRACT_TREE_HEIGHT: u32 = 3;
 pub global FUNCTION_TREE_HEIGHT: u32 = 5;
-pub global NOTE_HASH_TREE_HEIGHT: u32 = 32;
+pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
-pub global NULLIFIER_TREE_HEIGHT: u32 = 20;
-pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 16;
+pub global NULLIFIER_TREE_HEIGHT: u32 = 40;
+pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 39;
 pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = 5;
 pub global NULLIFIER_TREE_ID = 0;
 pub global NOTE_HASH_TREE_ID = 1;
@@ -135,20 +135,14 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
 pub global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
-pub global ETHEREUM_SLOT_DURATION: u32 = 12;
-// AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
-pub global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
-pub global AZTEC_EPOCH_DURATION: u32 = 16;
-pub global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
-// The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
-pub global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
+pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
+    0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-pub global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
+global FEE_JUICE_INITIAL_MINT: Field = 200000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -185,7 +179,6 @@ pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
 pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
 pub global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
-pub global DEFAULT_INCLUSION_FEE: Field = 0;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -259,7 +252,7 @@ pub global DEFAULT_TPK_M_Y = 0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec2
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
 pub global GAS_FEES_LENGTH: u32 = 2;
 pub global GAS_LENGTH: u32 = 2;
-pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH + /* inclusion_fee */ 1;
+pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
 pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
@@ -383,8 +376,7 @@ pub global COMBINED_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + (SCOPED_LOG_HASH_LENGTH * MAX_ENCRYPTED_LOGS_PER_TX)
     + 3
     + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
-    + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH)
-    + GAS_LENGTH;
+    + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 pub global TX_CONSTANT_DATA_LENGTH: u32 = HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* vk_tree_root */
@@ -423,8 +415,7 @@ pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_
     + (MAX_NOTE_ENCRYPTED_LOGS_PER_TX * LOG_HASH_LENGTH)
     + (MAX_ENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
     + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
-    + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH)
-    + GAS_LENGTH;
+    + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH);
 
 pub global PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -442,6 +433,7 @@ pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONST
     + PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH /* non_revertible_accumulated_data */
     + PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH /* revertible_accumulated_data */
     + PUBLIC_CALL_REQUEST_LENGTH /* public_teardown_call_request */
+    + GAS_LENGTH /* gas_used */
     + AZTEC_ADDRESS_LENGTH /* fee_payer */;
 pub global PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = COMBINED_CONSTANT_DATA_LENGTH
     + PUBLIC_VALIDATION_REQUESTS_LENGTH
@@ -468,11 +460,13 @@ pub global KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS
     + COMBINED_ACCUMULATED_DATA_LENGTH
     + COMBINED_CONSTANT_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
-    + 1
+    + 1 /* revert_code */
+    + GAS_LENGTH /* gas_used */
     + AZTEC_ADDRESS_LENGTH;
 
 pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
+    + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
@@ -503,12 +497,12 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* end_block_hash */
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
-    + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 =
-    2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
+    2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
 
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
@@ -543,7 +537,7 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4176;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4291;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -714,7 +708,8 @@ pub global AVM_CALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUE
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 28;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 28;
-pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12; // Must be equal to AVM_JUMP_BASE_L2_GAS as long as circuit implements debugLog as a jump
+pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12;
+pub global AVM_DEBUGLOG_DYN_L2_GAS: u32 = 3;
 pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 78;
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 261;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 300;

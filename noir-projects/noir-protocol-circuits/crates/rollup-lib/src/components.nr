@@ -12,7 +12,7 @@ use dep::types::{
         public_data_write::PublicDataWrite,
     },
     constants::{
-        AZTEC_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        AZTEC_MAX_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX,
     },
@@ -143,11 +143,11 @@ pub fn accumulate_fees(
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
-) -> [FeeRecipient; AZTEC_EPOCH_DURATION] {
+) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
     assert(
-        left_len + right_len <= AZTEC_EPOCH_DURATION,
+        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many fee payment structs accumulated in rollup",
     );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
@@ -356,7 +356,7 @@ fn get_all_update_requests_for_tx_effects(
             all_update_requests.push(update_request);
         }
     }
-    all_update_requests.storage
+    all_update_requests.storage()
 }
 
 #[test]

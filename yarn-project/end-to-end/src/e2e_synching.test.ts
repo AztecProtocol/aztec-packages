@@ -35,7 +35,6 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AccountWallet,
   type AccountWalletWithSecretKey,
   AnvilTestWatcher,
   BatchCall,
@@ -47,8 +46,9 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
+import { L2Block, LogType, tryStop } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -68,7 +68,7 @@ const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-
+const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -180,27 +180,6 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
       await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
     }
-  }
-
-  private async addPendingShieldNoteToPXE(args: {
-    amount: bigint;
-    secretHash: Fr;
-    txHash: TxHash;
-    accountAddress: AztecAddress;
-    assetAddress: AztecAddress;
-    wallet: AccountWallet;
-  }) {
-    const { accountAddress, assetAddress, amount, secretHash, txHash, wallet } = args;
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      accountAddress,
-      assetAddress,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await wallet.addNote(extendedNote);
   }
 
   async createAndSendTxs() {
@@ -401,6 +380,7 @@ describe('e2e_synching', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       },
       new NoopTelemetryClient(),
     );
@@ -572,7 +552,7 @@ describe('e2e_synching', () => {
             .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
-          await archiver.stop();
+          await tryStop(archiver);
           await worldState.stop();
         },
         ASSUME_PROVEN_THROUGH,

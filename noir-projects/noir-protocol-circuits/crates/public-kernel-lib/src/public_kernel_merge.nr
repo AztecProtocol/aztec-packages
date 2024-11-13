@@ -1,10 +1,5 @@
 use crate::{
-    components::{
-        enqueued_call_data_validator::EnqueuedCallDataValidator,
-        previous_kernel_validator::PreviousKernelValidator,
-        public_kernel_output_composer::PublicKernelOutputComposer,
-        public_kernel_output_validator::PublicKernelOutputValidator,
-    },
+    components::public_kernel_output_composer::PublicKernelOutputComposer,
     public_kernel_phase::PublicKernelPhase,
 };
 use dep::types::abis::{
@@ -13,22 +8,12 @@ use dep::types::abis::{
     public_kernel_data::PublicKernelData,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [];
-
 pub struct PublicKernelMergeCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     enqueued_call: EnqueuedCallData,
 }
 
 impl PublicKernelMergeCircuitPrivateInputs {
-    unconstrained fn generate_output(self, phase: u8) -> PublicKernelCircuitPublicInputs {
-        // noir-fmt:ignore
-        PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
-            .remove_top_call_request(phase)
-            .propagate_from_enqueued_call(self.enqueued_call.data, phase)
-            .finish()
-    }
-
     fn get_phase(self) -> u8 {
         let public_inputs = self.previous_kernel.public_inputs;
         let needs_setup =
@@ -46,41 +31,21 @@ impl PublicKernelMergeCircuitPrivateInputs {
     fn execute(self) -> PublicKernelCircuitPublicInputs {
         let phase = self.get_phase();
 
-        let output = unsafe { self.generate_output(phase) };
-
-        let output_validator = PublicKernelOutputValidator::new(
-            output,
-            self.previous_kernel.public_inputs,
-            self.enqueued_call.data,
-            phase,
-        );
-
-        // let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        // previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        let enqueued_call_data_validator =
-            EnqueuedCallDataValidator::new(self.enqueued_call, phase);
-        // enqueued_call_data_validator.validate_proof();
-        enqueued_call_data_validator.validate_against_previous_kernel(
-            self.previous_kernel.public_inputs,
-            output_validator.previous_validation_request_array_lengths,
-            output_validator.previous_non_revertible_data_array_lengths,
-            output_validator.previous_revertible_data_array_lengths,
-        );
-
-        output_validator.validate();
-
-        output
+        PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
+            .remove_top_call_request(phase)
+            .propagate_from_enqueued_call(self.enqueued_call.data, phase)
+            .finish()
     }
 }
 
 mod tests {
     use crate::{
-        public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs},
+        public_kernel_merge::PublicKernelMergeCircuitPrivateInputs,
         public_kernel_phase::PublicKernelPhase,
     };
     use dep::types::{
         abis::{
-            accumulated_data::PublicAccumulatedDataArrayLengths, gas::Gas,
+            accumulated_data::PublicAccumulatedDataArrayLengths,
             kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
             validation_requests::PublicValidationRequestArrayLengths,
@@ -147,24 +112,6 @@ mod tests {
             kernel.execute()
         }
 
-        pub fn populate_gas_used(&mut self) {
-            // Transaction gas limit is 1k.
-            self.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000);
-
-            // Non-revertible has used 200.
-            self.previous_kernel.gas_used = Gas::new(200, 200);
-
-            // Revertible has used 100.
-            self.previous_revertible.gas_used = Gas::new(100, 100);
-
-            // So this call starts with 700 gas left
-            self.enqueued_call.start_gas_left = Gas::new(700, 700);
-            // And uses 250.
-            self.enqueued_call.gas_used = Gas::new(250, 250);
-            // Ending with 450 left.
-            self.enqueued_call.end_gas_left = Gas::new(450, 450);
-        }
-
         pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
@@ -212,35 +159,5 @@ mod tests {
             public_inputs.end_non_revertible.public_call_stack,
             [prev_calls[0].inner], // Public call requests can only be propagated from previous kernel.
         );
-    }
-
-    #[test]
-    unconstrained fn updates_revertible_gas_used() {
-        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-        builder.phase = PublicKernelPhase.APP_LOGIC;
-
-        builder.populate_gas_used();
-
-        // So the updated gas used by revertible must go up by 250, and non-revertible must stay the same.
-        let output = builder.execute();
-        assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
-        assert_eq(output.end.gas_used, Gas::new(350, 350));
-    }
-
-    #[test]
-    unconstrained fn handle_revert_in_app_logic() {
-        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-        builder.phase = PublicKernelPhase.APP_LOGIC;
-        builder.enqueued_call.revert_code = 1;
-
-        builder.populate_gas_used();
-
-        let output = builder.execute();
-
-        assert_eq(output.revert_code, 1);
-
-        // gas_used is propagated even when reverts.
-        assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
-        assert_eq(output.end.gas_used, Gas::new(350, 350));
     }
 }

@@ -121,7 +121,10 @@ describe('guides/dapp/testing', () => {
       it('checks public storage', async () => {
         // docs:start:public-storage
         await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+          TokenContract.storage.public_balances.slot,
+          owner.getAddress(),
+        );
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:public-storage
@@ -179,7 +182,10 @@ describe('guides/dapp/testing', () => {
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+          TokenContract.storage.public_balances.slot,
+          owner.getAddress(),
+        );
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:pub-reverted

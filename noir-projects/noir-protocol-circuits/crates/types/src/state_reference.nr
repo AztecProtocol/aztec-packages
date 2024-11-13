@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub struct StateReference {
-    l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
-    partial: PartialStateReference,
+    pub l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
+    pub partial: PartialStateReference,
 }
 
 impl Eq for StateReference {

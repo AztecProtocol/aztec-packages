@@ -9,9 +9,9 @@ use crate::{
 };
 
 pub struct PrivateToAvmAccumulatedData {
-    note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
-    nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
 }
 
 impl Empty for PrivateToAvmAccumulatedData {

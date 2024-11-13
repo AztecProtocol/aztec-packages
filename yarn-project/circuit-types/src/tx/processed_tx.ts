@@ -1,4 +1,3 @@
-import { type AvmProvingRequest, type SimulationError, type Tx, TxEffect, TxHash } from '@aztec/circuit-types';
 import {
   ClientIvcProof,
   CombinedConstantData,
@@ -13,9 +12,14 @@ import {
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
+import { type AvmProvingRequest } from '../interfaces/proving-job.js';
+import { type SimulationError } from '../simulation_error.js';
+import { TxEffect } from '../tx_effect.js';
 import { type GasUsed } from './gas_used.js';
+import { type Tx } from './tx.js';
+import { TxHash } from './tx_hash.js';
 
-export enum PublicKernelPhase {
+export enum TxExecutionPhase {
   SETUP,
   APP_LOGIC,
   TEARDOWN,
@@ -170,7 +174,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   );
 
   const gasUsed = {
-    totalGas: tx.data.forRollup!.end.gasUsed,
+    totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
   };
 

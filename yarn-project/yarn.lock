@@ -288,10 +288,12 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
@@ -351,6 +353,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 
@@ -384,6 +387,7 @@ __metadata:
     "@types/jest": ^29.5.0
     "@types/lodash.clonedeep": ^4.5.7
     "@types/lodash.isequal": ^4.5.6
+    "@types/lodash.omit": ^4.5.9
     "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     browserify-cipher: ^1.0.1
@@ -391,6 +395,7 @@ __metadata:
     jest-mock-extended: ^3.0.3
     lodash.clonedeep: ^4.5.0
     lodash.isequal: ^4.5.0
+    lodash.omit: ^4.5.0
     lodash.times: ^4.3.2
     ts-node: ^10.9.1
     tslib: ^2.5.0
@@ -405,6 +410,7 @@ __metadata:
   resolution: "@aztec/circuits.js@workspace:circuits.js"
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -418,6 +424,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 
@@ -622,6 +629,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     viem: ^2.7.15
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 
@@ -694,8 +702,11 @@ __metadata:
     "@aztec/bb.js": ../../ts
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
@@ -1222,6 +1233,7 @@ __metadata:
     jest-mock-extended: ^3.0.3
     ts-node: ^10.9.1
     typescript: ^5.0.4
+    zod: ^3.23.8
   bin:
     txe: ./dest/bin/index.js
   languageName: unknown

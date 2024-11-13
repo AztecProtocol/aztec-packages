@@ -12,7 +12,6 @@ import {
 import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
-  AZTEC_SLOT_DURATION,
   AppendOnlyTreeSnapshot,
   ContentCommitment,
   GENESIS_ARCHIVE_ROOT,
@@ -86,7 +85,7 @@ export class Sequencer {
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
-  protected l1GenesisTime: number;
+
   /**
    * The maximum number of seconds that the sequencer can be into a slot to transition to a particular state.
    * For example, in order to transition into WAITING_FOR_ATTESTATIONS, the sequencer can be at most 3 seconds into the slot.
@@ -105,18 +104,18 @@ export class Sequencer {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
     private txValidatorFactory: TxValidatorFactory,
+    protected l1GenesisTime: number,
+    private aztecSlotDuration: number,
     telemetry: TelemetryClient,
     private config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.l1GenesisTime = 0;
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
 
     // Register the block builder with the validator client for re-execution
     this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));
-    this.setTimeTable();
   }
 
   get tracer(): Tracer {
@@ -166,30 +165,28 @@ export class Sequencer {
     this.config = config;
   }
 
-  public setTimeTable() {
+  private setTimeTable() {
     const newTimeTable: Record<SequencerState, number> = {
-      [SequencerState.STOPPED]: AZTEC_SLOT_DURATION,
-      [SequencerState.IDLE]: AZTEC_SLOT_DURATION,
-      [SequencerState.SYNCHRONIZING]: AZTEC_SLOT_DURATION,
-      [SequencerState.PROPOSER_CHECK]: AZTEC_SLOT_DURATION, // We always want to allow the full slot to check if we are the proposer
+      [SequencerState.STOPPED]: this.aztecSlotDuration,
+      [SequencerState.IDLE]: this.aztecSlotDuration,
+      [SequencerState.SYNCHRONIZING]: this.aztecSlotDuration,
+      [SequencerState.PROPOSER_CHECK]: this.aztecSlotDuration, // We always want to allow the full slot to check if we are the proposer
       [SequencerState.WAITING_FOR_TXS]: 3,
       [SequencerState.CREATING_BLOCK]: 5,
       [SequencerState.PUBLISHING_BLOCK_TO_PEERS]: 5 + this.maxTxsPerBlock * 2, // if we take 5 seconds to create block, then 4 transactions at 2 seconds each
       [SequencerState.WAITING_FOR_ATTESTATIONS]: 5 + this.maxTxsPerBlock * 2 + 3, // it shouldn't take 3 seconds to publish to peers
       [SequencerState.PUBLISHING_BLOCK]: 5 + this.maxTxsPerBlock * 2 + 3 + 5, // wait 5 seconds for attestations
     };
-    if (this.enforceTimeTable && newTimeTable[SequencerState.PUBLISHING_BLOCK] > AZTEC_SLOT_DURATION) {
+    if (this.enforceTimeTable && newTimeTable[SequencerState.PUBLISHING_BLOCK] > this.aztecSlotDuration) {
       throw new Error('Sequencer cannot publish block in less than a slot');
     }
     this.timeTable = newTimeTable;
   }
+
   /**
-   * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
+   * Starts the sequencer and moves to IDLE state.
    */
-  public async start() {
-    const rollup = this.publisher.getRollupContract();
-    const [l1GenesisTime] = await Promise.all([rollup.read.GENESIS_TIME()] as const);
-    this.l1GenesisTime = Number(l1GenesisTime);
+  public start() {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
     this.setState(SequencerState.IDLE, true /** force */);
@@ -380,7 +377,7 @@ export class Sequencer {
       return true;
     }
 
-    if (this.timeTable[proposedState] === AZTEC_SLOT_DURATION) {
+    if (this.timeTable[proposedState] === this.aztecSlotDuration) {
       return true;
     }
 
@@ -406,7 +403,7 @@ export class Sequencer {
       );
       return;
     }
-    const secondsIntoSlot = getSecondsIntoSlot(this.l1GenesisTime);
+    const secondsIntoSlot = getSecondsIntoSlot(this.l1GenesisTime, this.aztecSlotDuration);
     if (!this.doIHaveEnoughTimeLeft(proposedState, secondsIntoSlot)) {
       throw new SequencerTooSlowError(this.state, proposedState, this.timeTable[proposedState], secondsIntoSlot);
     }

@@ -1,7 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
-import { AZTEC_SLOT_DURATION, ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
+import { AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js';
@@ -28,7 +29,8 @@ import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
-export const WAIT_FOR_TX_TIMEOUT = AZTEC_SLOT_DURATION * 3;
+const l1ContractsConfig = getL1ContractsConfigEnvVars();
+export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
@@ -69,7 +71,7 @@ export class P2PNetworkTest {
 
     this.snapshotManager = createSnapshotManager(`e2e_p2p_network/${testName}`, process.env.E2E_DATA_PATH, {
       ...initialValidatorConfig,
-      l1BlockTime: ETHEREUM_SLOT_DURATION,
+      l1BlockTime: l1ContractsConfig.ethereumSlotDuration,
       salt: 420,
       initialValidators,
       metricsPort: metricsPort,

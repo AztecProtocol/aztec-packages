@@ -19,16 +19,16 @@ use crate::constants::{
 };
 
 pub struct PrivateAccumulatedData {
-    note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
-    nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
-    l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
+    pub nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
+    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
 
-    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    encrypted_logs_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    pub note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    pub encrypted_logs_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
-    public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_TX],
-    private_call_stack: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    pub public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_TX],
+    pub private_call_stack: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
 }
 
 impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {

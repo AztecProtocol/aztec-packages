@@ -17,7 +17,7 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type DeployL1ContractsArgs, createL1Clients, l1Artifacts } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
@@ -343,6 +343,7 @@ async function setupFromFresh(
     salt: opts.salt,
     initialValidators: opts.initialValidators,
     ...deployL1ContractsArgs,
+    ...getL1ContractsConfigEnvVars(),
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;

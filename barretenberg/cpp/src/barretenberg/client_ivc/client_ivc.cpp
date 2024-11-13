@@ -173,11 +173,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_structure);
-        trace_usage_tracker = ExecutionTraceUsageTracker(trace_structure);
+        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
         proving_key = std::make_shared<DeciderProvingKey>(
-            circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
+            circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
     }
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
@@ -355,7 +355,7 @@ bool ClientIVC::prove_and_verify()
     auto proof = prove();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to call ClientIVC::prove: ", diff, " ms.");
+    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
     return verify(proof);
 }
 
@@ -382,10 +382,10 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     }
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
-    TraceStructure structure = trace_structure;
+    TraceSettings settings = trace_settings;
     bool auto_verify = auto_verify_mode;
     *this = ClientIVC();
-    this->trace_structure = structure;
+    this->trace_settings = settings;
     this->auto_verify_mode = auto_verify;
 
     return vkeys;

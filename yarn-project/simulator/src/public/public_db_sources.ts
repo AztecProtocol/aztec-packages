@@ -131,6 +131,10 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     super(dataSource);
   }
 
+  public getMerkleInterface(): MerkleTreeWriteOperations {
+    return this.db;
+  }
+
   /**
    * Reads a value from public storage, returning zero if none.
    * @param contract - Owner of the storage.

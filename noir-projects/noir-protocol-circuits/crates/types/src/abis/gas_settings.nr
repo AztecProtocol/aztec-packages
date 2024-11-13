@@ -1,8 +1,7 @@
 use crate::{
     abis::{gas::Gas, gas_fees::GasFees},
     constants::{
-        DEFAULT_GAS_LIMIT, DEFAULT_INCLUSION_FEE, DEFAULT_MAX_FEE_PER_GAS,
-        DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH,
+        DEFAULT_GAS_LIMIT, DEFAULT_MAX_FEE_PER_GAS, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH,
     },
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
@@ -12,17 +11,11 @@ pub struct GasSettings {
     gas_limits: Gas,
     teardown_gas_limits: Gas,
     max_fees_per_gas: GasFees,
-    inclusion_fee: Field,
 }
 
 impl GasSettings {
-    pub fn new(
-        gas_limits: Gas,
-        teardown_gas_limits: Gas,
-        max_fees_per_gas: GasFees,
-        inclusion_fee: Field,
-    ) -> Self {
-        Self { gas_limits, teardown_gas_limits, max_fees_per_gas, inclusion_fee }
+    pub fn new(gas_limits: Gas, teardown_gas_limits: Gas, max_fees_per_gas: GasFees) -> Self {
+        Self { gas_limits, teardown_gas_limits, max_fees_per_gas }
     }
 
     pub fn default() -> Self {
@@ -30,7 +23,6 @@ impl GasSettings {
             Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
             Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
             GasFees::new(DEFAULT_MAX_FEE_PER_GAS, DEFAULT_MAX_FEE_PER_GAS),
-            DEFAULT_INCLUSION_FEE,
         )
     }
 }
@@ -40,13 +32,12 @@ impl Eq for GasSettings {
         (self.gas_limits == other.gas_limits)
             & (self.teardown_gas_limits == other.teardown_gas_limits)
             & (self.max_fees_per_gas == other.max_fees_per_gas)
-            & (self.inclusion_fee == other.inclusion_fee)
     }
 }
 
 impl Empty for GasSettings {
     fn empty() -> Self {
-        GasSettings::new(Gas::empty(), Gas::empty(), GasFees::empty(), 0)
+        GasSettings::new(Gas::empty(), Gas::empty(), GasFees::empty())
     }
 }
 
@@ -57,9 +48,8 @@ impl Serialize<GAS_SETTINGS_LENGTH> for GasSettings {
         serialized.extend_from_array(self.gas_limits.serialize());
         serialized.extend_from_array(self.teardown_gas_limits.serialize());
         serialized.extend_from_array(self.max_fees_per_gas.serialize());
-        serialized.push(self.inclusion_fee);
 
-        serialized.storage
+        serialized.storage()
     }
 }
 
@@ -70,7 +60,6 @@ impl Deserialize<GAS_SETTINGS_LENGTH> for GasSettings {
             reader.read_struct(Gas::deserialize),
             reader.read_struct(Gas::deserialize),
             reader.read_struct(GasFees::deserialize),
-            reader.read(),
         )
     }
 }

@@ -1,7 +1,8 @@
 use crate::{
     abis::{
-        accumulated_data::PrivateToPublicAccumulatedData, public_call_request::PublicCallRequest,
-        tx_constant_data::TxConstantData, validation_requests::RollupValidationRequests,
+        accumulated_data::PrivateToPublicAccumulatedData, gas::Gas,
+        public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
+        validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
     constants::PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -10,12 +11,13 @@ use crate::{
 };
 
 pub struct PrivateToPublicKernelCircuitPublicInputs {
-    constants: TxConstantData,
-    rollup_validation_requests: RollupValidationRequests,
-    non_revertible_accumulated_data: PrivateToPublicAccumulatedData,
-    revertible_accumulated_data: PrivateToPublicAccumulatedData,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub rollup_validation_requests: RollupValidationRequests,
+    pub non_revertible_accumulated_data: PrivateToPublicAccumulatedData,
+    pub revertible_accumulated_data: PrivateToPublicAccumulatedData,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub gas_used: Gas,
+    pub fee_payer: AztecAddress,
 }
 
 impl Empty for PrivateToPublicKernelCircuitPublicInputs {
@@ -26,6 +28,7 @@ impl Empty for PrivateToPublicKernelCircuitPublicInputs {
             non_revertible_accumulated_data: PrivateToPublicAccumulatedData::empty(),
             revertible_accumulated_data: PrivateToPublicAccumulatedData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
+            gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
         }
     }
@@ -38,6 +41,7 @@ impl Eq for PrivateToPublicKernelCircuitPublicInputs {
             & (self.non_revertible_accumulated_data == other.non_revertible_accumulated_data)
             & (self.revertible_accumulated_data == other.revertible_accumulated_data)
             & (self.public_teardown_call_request == other.public_teardown_call_request)
+            & (self.gas_used == other.gas_used)
             & (self.fee_payer == other.fee_payer)
     }
 }
@@ -52,6 +56,7 @@ impl Serialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Privat
         fields.extend_from_array(self.non_revertible_accumulated_data.serialize());
         fields.extend_from_array(self.revertible_accumulated_data.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
+        fields.extend_from_array(self.gas_used.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
 
         assert_eq(fields.len(), PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
@@ -76,6 +81,7 @@ impl Deserialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Priv
                 PrivateToPublicAccumulatedData::deserialize,
             ),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
+            gas_used: reader.read_struct(Gas::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
