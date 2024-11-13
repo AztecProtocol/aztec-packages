@@ -28,7 +28,7 @@ import { NativeWorldStateService } from './native_world_state.js';
 describe('NativeWorldState', () => {
   let dataDir: string;
   let rollupAddress: EthAddress;
-  const defaultDBMapSize = 10 * 1024 * 1024;
+  const defaultDBMapSize = 25 * 1024 * 1024;
 
   beforeAll(async () => {
     dataDir = await mkdtemp(join(tmpdir(), 'world-state-test'));
