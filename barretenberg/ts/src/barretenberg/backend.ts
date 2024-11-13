@@ -229,8 +229,8 @@ export class UltraHonkBackend {
   /** @description Returns a solidity verifier */
   async getSolidityVerifier(): Promise<string> {
     await this.instantiate();
-    await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
-    return await this.api.getHonkSolidityVerifier(this.acirUncompressedBytecode);
+    await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    return await this.api.getHonkSolidityVerifier(this.acirUncompressedBytecode, this.circuitOptions.recursive);
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
