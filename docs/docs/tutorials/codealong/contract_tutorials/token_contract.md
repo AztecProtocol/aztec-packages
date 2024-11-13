@@ -203,7 +203,7 @@ First, storage is initialized. Then the function checks that the `msg_sender` is
 
 This public function allows an account approved in the public `minters` mapping to create new private tokens.
 
-First, partial note is prepared by the call to `_prepare_transfer_to_private` for the minted tokens recipient. Then a public call to `_finalize_mint_to_private_unsafe` is enqueued while `msg_sender`, `amount` and the `hiding_point_slot` are passed in via arguments. Since we set `from` to `msg_sender` here the usage of the unsafe function is safe. The enqueued call then checks the minter permissions of `from` and it finalizes the partial note for `to`.
+First, partial note is prepared by the call to `_prepare_private_balance_increase` for the minted tokens recipient. Then a public call to `_finalize_mint_to_private_unsafe` is enqueued while `msg_sender`, `amount` and the `hiding_point_slot` are passed in via arguments. Since we set `from` to `msg_sender` here the usage of the unsafe function is safe. The enqueued call then checks the minter permissions of `from` and it finalizes the partial note for `to`.
 
 #include_code mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
