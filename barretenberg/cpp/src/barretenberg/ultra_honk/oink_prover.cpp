@@ -119,7 +119,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         transcript->send_to_verifier(domain_separator + wire_labels[idx], wire_comms[idx]);
     }
 
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
 
         // Commit to Goblin ECC op wires
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
@@ -211,7 +211,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                                  witness_commitments.lookup_inverses);
 
     // If Mega, commit to the databus inverse polynomials and send
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_inverses(),
                       proving_key->proving_key.polynomials.get_databus_inverses(),
@@ -239,16 +239,35 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
     //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
     // }
-
+    size_t final_active_wire_idx = proving_key->final_active_wire_idx;
     for (size_t idx = proving_key->final_active_wire_idx + 1; idx < proving_key->proving_key.circuit_size; ++idx) {
         proving_key->proving_key.polynomials.z_perm.at(idx) = 0;
     }
 
-    // for (size_t idx = proving_key->final_active_wire_idx - 5; idx < proving_key->final_active_wire_idx + 5; ++idx) {
+    if (final_active_wire_idx != proving_key->proving_key.circuit_size - 1) {
+        proving_key->proving_key.active_block_ranges.emplace_back(final_active_wire_idx, final_active_wire_idx + 1);
+    }
+    info("proving_key->final_active_wire_idx: ", proving_key->final_active_wire_idx);
+    info("z_perm[final_active_wire_idx - 1]: ",
+         proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx - 1));
+    info("z_perm[final_active_wire_idx ]: ",
+         proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx));
+    info("z_perm[final_active_wire_idx + 1]: ",
+         proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx + 1));
+
+    // proving_key->proving_key.active_block_ranges[proving_key->proving_key.active_block_ranges.size() - 2].second +=
+    // 1;
+    for (auto pair : proving_key->proving_key.active_block_ranges) {
+        info(pair.first, " ", pair.second);
+    }
+
+    // for (size_t idx = proving_key->final_active_wire_idx - 5; idx < proving_key->final_active_wire_idx + 5;
+    // ++idx) {
     //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
     //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
     // }
 
+    info("proving_key is structured: ", proving_key->get_is_structured());
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
         if (proving_key->get_is_structured()) {

@@ -219,7 +219,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 {
     using G1 = typename Flavor::Curve::Group;
     using FF = typename Flavor::FF;
-    static_assert(IsGoblinFlavor<Flavor>);
+    static_assert(IsMegaFlavor<Flavor>);
     const size_t num_ecc_operations = 10; // arbitrary
     for (size_t i = 0; i < num_ecc_operations; ++i) {
         auto point = G1::affine_one * FF::random_element();
@@ -249,7 +249,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
 
-    // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
+    // Create a builder and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
     auto builder = UltraCircuitBuilder();
 

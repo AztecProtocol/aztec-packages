@@ -48,7 +48,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void construct_circuit(Builder& builder)
     {
         MockCircuits::add_arithmetic_gates(builder);
-        if constexpr (IsGoblinFlavor<Flavor>) {
+        if constexpr (IsMegaFlavor<Flavor>) {
             GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
     }

@@ -46,6 +46,8 @@ namespace bb {
  * Step 3) Compute Z_perm[i + 1] = numerator[i] / denominator[i] (recall: Z_perm[0] = 1)
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
+ * MARA: should be changed so computation of this doesn't go past the actual final wire index if it's not equal to the
+ * dyadic circuit size
  */
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,

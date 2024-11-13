@@ -18,7 +18,7 @@ template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic
 
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         min_size_of_execution_trace += circuit.blocks.ecc_op.size();
     }
 
@@ -39,7 +39,7 @@ template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic
  */
 template <IsHonkFlavor Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
-    requires IsGoblinFlavor<Flavor>
+    requires IsMegaFlavor<Flavor>
 {
     auto& calldata_poly = proving_key.polynomials.calldata;
     auto& calldata_read_counts = proving_key.polynomials.calldata_read_counts;
@@ -114,7 +114,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
         if (block_size > fixed_block_size && block != overflow_block) {
             // Disallow overflow in blocks that are not expected to be used by App circuits
             ASSERT(!block.is_pub_inputs);
-            if constexpr (IsGoblinFlavor<Flavor>) {
+            if constexpr (IsMegaFlavor<Flavor>) {
                 ASSERT(block != blocks.ecc_op);
             }
 
