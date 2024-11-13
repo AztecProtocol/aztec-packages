@@ -13,7 +13,6 @@ use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
         combined_constant_data::CombinedConstantData,
-        gas::Gas,
         log_hash::{LogHash, ScopedLogHash},
         sponge_blob::SpongeBlob,
     },
@@ -88,7 +87,6 @@ impl PublicBaseRollupInputs {
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             public_data_writes: from_public.accumulated_data.public_data_writes,
-            gas_used: Gas::empty(), // gas_used is not used in rollup circuits.
         };
 
         let constants =
@@ -108,6 +106,7 @@ impl PublicBaseRollupInputs {
             end,
             start_state,
             revert_code,
+            gas_used: from_public.end_gas_used,
             fee_payer: from_private.fee_payer,
         }
     }

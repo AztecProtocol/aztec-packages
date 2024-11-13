@@ -40,7 +40,7 @@ impl TailOutputValidatorBuilder {
 
     pub fn export_output(self) -> KernelCircuitPublicInputs {
         let mut output = self.output.to_kernel_circuit_public_inputs();
-        output.end.gas_used = meter_gas_used(output.end);
+        output.gas_used = meter_gas_used(output.end);
         output
     }
 

@@ -40,7 +40,8 @@ async function mintPrivateFunds(pxe) {
 
   // We mint tokens to the owner
   const mintAmount = 20n;
-  await token.methods.mint_to_private(ownerWallet.getAddress(), mintAmount).send().wait();
+  const from = ownerWallet.getAddress(); // we are setting from to owner here because of TODO(#9887)
+  await token.methods.mint_to_private(from, ownerWallet.getAddress(), mintAmount).send().wait();
 
   await showPrivateBalances(pxe);
 }

@@ -317,11 +317,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
      * @brief Compute dyadic size based on a structured trace with fixed block size
      *
      */
-    size_t compute_structured_dyadic_size(Circuit& circuit)
-    {
-        size_t minimum_size = circuit.blocks.get_total_structured_size();
-        return circuit.get_circuit_subgroup_size(minimum_size);
-    }
+    size_t compute_structured_dyadic_size(Circuit& circuit) { return circuit.blocks.get_structured_dyadic_size(); }
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
