@@ -6,32 +6,31 @@ tags: [contracts, profiling]
 
 # Profiling Transactions
 
-An Aztec transaction typically consists of a private and a public part. The private part is where the user executes a contract logic with in the PXE and generates a proof of execution, which is then sent to the sequencer.
+An Aztec transaction typically consists of a private and a public part. The private part is where the user executes contract logic within the PXE and generates a proof of execution, which is then sent to the sequencer.
 
-Since the proof generation is an expensive operation and needs to be done on the client side, it is important to optimize the private contract logic. i.e, it is desirable to keep the gate count of circuits representing the private contract logic as low as possible.
+Since proof generation is an expensive operation that needs to be done on the client side, it is important to optimize the private contract logic. That is, it is desirable to keep the gate count of circuits representing the private contract logic as low as possible.
 
-A private transaction can also involve multiple function calls. It starts with account `entrypoint()` which may call several private functions for executing the application logic, which itself might call other functions. Moreover, every private function call then has to go through a round of kernal circuits each. Read more on transaction lifecycle [here](../../../aztec/concepts/transactions.md).
+A private transaction can involve multiple function calls. It starts with an account `entrypoint()` which may call several private functions to execute the application logic, which in turn might call other functions. Moreover, every private function call has to go through a round of kernel circuits. Read more about the transaction lifecycle [here](../../../aztec/concepts/transactions.md).
 
-In this guide we will look at how to profile the private execution of a transaction, allowing you to get the gate count of each private function within the transaction, including the kernel circuits.
+In this guide, we will look at how to profile the private execution of a transaction, allowing you to get the gate count of each private function within the transaction, including the kernel circuits.
 
 ## Prerequisites
 
 - `aztec-nargo` installed (go to [Sandbox section](../../../reference/developer_references/sandbox_reference/sandbox-reference.md) for installation instructions)
 - `aztec-wallet` installed (installed as part of the Sandbox)
-- contract artifacts ready (go to [How to Compile Contract](./how_to_compile_contract.md) for instructions on how to compile contracts)
 - Aztec Sandbox running with **proving enabled** (go to [Sandbox PXE Proving](../local_env/sandbox_proving.md) for instructions)
 
 ## Profiling using aztec-wallet
 
-Profiling tool is integrated to the `aztec-wallet`.
+The profiling tool is integrated into the `aztec-wallet`.
 
-In this example we will profile a private token transfer transaction, where an `operator` transfers tokens from a `user` account using [Authwit](../../../aztec/concepts/accounts/authwit.md).
+In this example, we will profile a "private token transfer" transaction where an `operator` transfers tokens from a `user` account using [Authwit](../../../aztec/concepts/accounts/authwit.md).
 
-Let us deploy the necessary account and token contracts first:
+Let's deploy the necessary account and token contracts first:
 
 ```bash
 # Deploy account contracts for the user, owner (token deployer and minter),
-# and an operator (who use authwit to transfer token from user's account)
+# and an operator (who uses authwit to transfer token from user's account)
 aztec-wallet create-account -a owner
 aztec-wallet create-account -a user
 aztec-wallet create-account -a operator
@@ -46,20 +45,20 @@ aztec-wallet create-authwit transfer_from operator -ca token --args accounts:use
 aztec-wallet add-authwit authwits:last user -f operator
 ```
 
-Running above will add an Authwit that allows the `operator` to transfer 100 TST tokens from the `user`'s account. i.e, the `operator` can now transfer tokens by running:
+Running the above will add an Authwit that allows the `operator` to transfer 100 TST tokens from the `user`'s account. The `operator` can now transfer tokens by running:
 
 ```bash
 # operator transfers 100 TST tokens to themselves
 aztec-wallet send transfer_from -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f operator
 ```
 
-But, instead of sending the transaction, you can simulate it by running the `simulate` command with same params, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
+Instead of sending the transaction, you can simulate it by running the `simulate` command with the same parameters, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
 
 ```bash
 aztec-wallet simulate --profile transfer_from -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f operator
 ```
 
-This will print the below results after some time:
+This will print the following results after some time:
 
 ```bash
 Gate count per circuit:
@@ -75,6 +74,6 @@ Gate count per circuit:
 Total gates: 416,626
 ```
 
-Here you can see the gate count of each private function call in the transaction along with the kernal circuits needed in between, and the total gate count.
+Here you can see the gate count of each private function call in the transaction along with the kernel circuits needed in between, and the total gate count.
 
-This will help you understand which part of your transaction is the bottleneck and optimize the contract logic accordingly.
+This will help you understand which parts of your transaction are bottlenecks and optimize the contract logic accordingly.
