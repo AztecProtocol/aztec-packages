@@ -458,25 +458,28 @@ TEST_F(AvmArithmeticTestsFF, subtraction)
 // Test on basic multiplication over finite field type.
 TEST_F(AvmArithmeticTestsFF, multiplication)
 {
-    std::vector<FF> const calldata = { 5, 0, 20 };
+    const FF a = FF::modulus - 1;
+    const FF b = 278;
+    const FF c = FF::modulus - 278;
+    std::vector<FF> const calldata = { b, 0, a };
     gen_trace_builder(calldata);
     trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
-    //                             Memory layout:    [5,0,20,0,0,0,....]
-    trace_builder.op_mul(0, 2, 0, 1); // [5,100,20,0,0,0....]
+    //                             Memory layout:    [b,0,a,0,0,0,....]
+    trace_builder.op_mul(0, 2, 0, 1); // [b,c,a,0,0,0....]
     trace_builder.op_set(0, 3, 100, AvmMemoryTag::U32);
     trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
-    auto alu_row_index = common_validate_mul(trace, FF(20), FF(5), FF(100), FF(2), FF(0), FF(1), AvmMemoryTag::FF);
+    auto alu_row_index = common_validate_mul(trace, a, b, c, FF(2), FF(0), FF(1), AvmMemoryTag::FF);
     auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
 
-    std::vector<FF> const returndata = { 5, 100, 20 };
+    std::vector<FF> const returndata = { b, c, a };
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
