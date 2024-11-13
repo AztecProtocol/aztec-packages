@@ -33,7 +33,7 @@ spec:
               export ROLLUP_CONTRACT_ADDRESS=$(curl -X POST -H 'Content-Type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}' \
                   "$AZTEC_NODE_URL" \
-                  | jq -r '.result.rollupAddress.data')
+                  | jq -r '.result.rollupAddress.value')
 
               echo "Rollup contract address: $ROLLUP_CONTRACT_ADDRESS"
               node /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-verifier --verifier real
