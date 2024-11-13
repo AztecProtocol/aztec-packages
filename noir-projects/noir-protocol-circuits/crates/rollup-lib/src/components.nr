@@ -17,8 +17,7 @@ use dep::types::{
         MAX_UNENCRYPTED_LOGS_PER_TX,
     },
     hash::{
-        accumulate_sha256, compute_contract_class_logs_hash, compute_tx_logs_hash,
-        compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
+        accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
     },
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
@@ -200,8 +199,8 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     ])
 }
 
-fn silo_and_hash_unencrypted_logs(
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+fn silo_and_hash_unencrypted_logs<let N: u32>(
+    unencrypted_logs_hashes: [ScopedLogHash; N],
 ) -> Field {
     let siloed_logs = unencrypted_logs_hashes.map(|log: ScopedLogHash| {
         LogHash {
@@ -211,19 +210,6 @@ fn silo_and_hash_unencrypted_logs(
         }
     });
     compute_tx_logs_hash(siloed_logs)
-}
-
-fn silo_and_hash_contract_class_logs(
-    contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
-) -> Field {
-    let siloed_logs = contract_class_logs_hashes.map(|log: ScopedLogHash| {
-        LogHash {
-            value: silo_unencrypted_log_hash(log),
-            counter: log.log_hash.counter,
-            length: log.log_hash.length,
-        }
-    });
-    compute_contract_class_logs_hash(siloed_logs)
 }
 
 fn silo_and_hash_encrypted_logs(
@@ -286,11 +272,11 @@ pub fn compute_tx_effects_hash(
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
     let contract_class_logs_length = combined.contract_class_log_preimages_length;
-    let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
+    let note_encrypted_logs_hash = compute_tx_logs_hash(combined.note_encrypted_logs_hashes);
     let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
     let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
     let contract_class_logs_hash =
-        silo_and_hash_contract_class_logs(combined.contract_class_logs_hashes);
+        silo_and_hash_unencrypted_logs(combined.contract_class_logs_hashes);
 
     let mut offset = 0;
 

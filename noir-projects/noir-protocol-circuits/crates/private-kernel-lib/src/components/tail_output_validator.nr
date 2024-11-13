@@ -10,7 +10,7 @@ use dep::types::{
         log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::is_empty,
+    traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 
@@ -39,6 +39,10 @@ impl TailOutputValidator {
     fn validate_empty_values(self) {
         assert(is_empty(self.output.start_state), "start_state must be empty");
         assert_eq(self.output.revert_code, 0, "revert_code must be empty");
+        assert(
+            is_empty_array(self.output.end.unencrypted_logs_hashes),
+            "unencrypted logs in private must be empty",
+        );
     }
 
     fn validate_propagated_values(self) {
@@ -115,7 +119,7 @@ impl TailOutputValidator {
             |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev.expose_to_public(),
             self.hints.sorted_l2_to_l1_msg_hints,
         );
-
+        // contract_class_logs
         assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.contract_class_logs_hashes,
             self.output.end.contract_class_logs_hashes,

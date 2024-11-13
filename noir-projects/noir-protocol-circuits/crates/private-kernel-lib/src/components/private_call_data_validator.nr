@@ -19,7 +19,7 @@ use dep::types::{
         side_effect::{Ordered, RangeOrdered},
     },
     address::AztecAddress,
-    constants::MAX_FIELD_VALUE,
+    constants::{MAX_FIELD_VALUE, REGISTERER_CONTRACT_ADDRESS},
     transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
 };
@@ -221,6 +221,13 @@ impl PrivateCallDataValidator {
                 self.array_lengths.contract_class_logs_hashes,
                 0,
                 "contract_class_logs_hashes must be empty for static calls",
+            );
+        }
+        if (self.array_lengths.contract_class_logs_hashes != 0) {
+            assert_eq(
+                call_context.contract_address,
+                REGISTERER_CONTRACT_ADDRESS,
+                "only the class registerer may emit contract class logs",
             );
         }
     }

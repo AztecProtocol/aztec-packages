@@ -58,10 +58,6 @@ fn meter_gas_used_everything_succeeds() {
     metered_da_bytes += 6;
     computed_l2_gas += 6 * L2_GAS_PER_LOG_BYTE;
 
-    builder.add_unencrypted_log_hash(3001, 51);
-    metered_da_bytes += 51;
-    computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
-
     let data = builder.to_combined_accumulated_data();
     let gas = meter_gas_used(data);
 
