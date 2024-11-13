@@ -1,8 +1,8 @@
 terraform {
   backend "s3" {
-    bucket         = "aztec-terraform"
-    key            = "spartan/terraform.tfstate"
-    region         = "eu-west-2"
+    bucket = "aztec-terraform"
+    key    = "spartan/terraform.tfstate"
+    region = "eu-west-2"
   }
 
   required_providers {
@@ -26,6 +26,54 @@ data "aws_availability_zones" "available" {
   }
 }
 
+# Create security group for node traffic
+resource "aws_security_group" "node_traffic" {
+  name_prefix = "eks-node-traffic"
+  description = "Security group for EKS node UDP and TCP traffic"
+  vpc_id      = module.vpc.vpc_id
+
+  # Ingress UDP rule
+  ingress {
+    from_port   = 40400
+    to_port     = 40499
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow incoming UDP traffic"
+  }
+
+  # Ingress TCP rule
+  ingress {
+    from_port   = 40400
+    to_port     = 40499
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow incoming TCP traffic"
+  }
+
+  # Egress UDP rule
+  egress {
+    from_port   = 40400
+    to_port     = 40499
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outgoing UDP traffic"
+  }
+
+  # Egress TCP rule
+  egress {
+    from_port   = 40400
+    to_port     = 40499
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outgoing TCP traffic"
+  }
+
+  tags = {
+    Name    = "${var.cluster_name}-node-traffic"
+    Project = var.cluster_name
+  }
+}
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.8.1"
@@ -33,14 +81,14 @@ module "vpc" {
   name = var.cluster_name
   cidr = "10.1.0.0/16"
 
-  azs  = slice(data.aws_availability_zones.available.names, 0, 3)
-  private_subnets  = ["10.1.1.0/24", "10.1.2.0/24"]
-  public_subnets = ["10.1.3.0/24", "10.1.4.0/24"]
+  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
+  private_subnets = ["10.1.1.0/24", "10.1.2.0/24"]
+  public_subnets  = ["10.1.3.0/24", "10.1.4.0/24"]
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
   enable_dns_hostnames = true
-  enable_vpn_gateway = true
+  enable_vpn_gateway   = true
 
   public_subnet_tags = {
     "kubernetes.io/role/elb" = 1
@@ -51,7 +99,7 @@ module "vpc" {
   }
 
   tags = {
-    Project     = var.cluster_name
+    Project = var.cluster_name
   }
 }
 
@@ -83,17 +131,17 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      name = "node-group-1"
+      name           = "node-group-1"
       instance_types = ["m6a.2xlarge"]
 
       min_size     = 1
-      max_size     = 2
-      desired_size = 1
+      max_size     = 10
+      desired_size = 10
     }
   }
 
   tags = {
-    Project     = var.cluster_name
+    Project = var.cluster_name
   }
 }
 
