@@ -40,6 +40,14 @@ library FeeMath {
     return true;
   }
 
+  /**
+   * @notice  Clamps the addition of a signed integer to a uint256
+   *          Useful for running values, whose minimum value will be 0
+   *          but should not throw if going below.
+   * @param _a The base value
+   * @param _b The value to add
+   * @return The clamped value
+   */
   function clampedAdd(uint256 _a, int256 _b) internal pure returns (uint256) {
     if (_b >= 0) {
       return _a + _b.toUint256();
