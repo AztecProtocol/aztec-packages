@@ -294,7 +294,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
 
         signal.wait_for_level(0);
         if (!result.success) {
-            throw std::runtime_error("Failed to initialise tree: " + result.message);
+            throw std::runtime_error(format("Failed to initialise tree: ", result.message));
         }
 
         {
@@ -338,9 +338,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(const i
 
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream() << "Unable to get meta data for block " << blockNumber
-                                                                  << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(
+                        format("Unable to get meta data for block ", blockNumber, ", failed to get block data."));
                 }
 
                 response.inner.meta.size = blockData.size;
@@ -375,10 +374,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream()
-                                              << "Unable to get sibling path for index " << index << " at block "
-                                              << blockNumber << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(format("Unable to get sibling path for index ",
+                                                    index,
+                                                    " at block ",
+                                                    blockNumber,
+                                                    ", failed to get block data."));
                 }
 
                 RequestContext requestContext;
@@ -580,6 +580,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
+                } else {
+                    response.message = format("Failed to find leaf hash at index ", leaf_index);
                 }
             },
             on_completion);
@@ -602,16 +604,18 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream()
-                                              << "Unable to get leaf at index " << leaf_index << " for block "
-                                              << blockNumber << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(format("Unable to get leaf at index ",
+                                                    leaf_index,
+                                                    " for block ",
+                                                    blockNumber,
+                                                    ", failed to get block data."));
                 }
                 if (blockData.size < leaf_index) {
-                    response.message =
-                        (std::stringstream() << "Unable to get leaf at index " << leaf_index << " for block "
-                                             << blockNumber << ", leaf index is too high.")
-                            .str();
+                    response.message = format("Unable to get leaf at index ",
+                                              leaf_index,
+                                              " for block ",
+                                              blockNumber,
+                                              ", leaf index is too high.");
                     response.success = false;
                     return;
                 }
@@ -623,6 +627,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
+                } else {
+                    response.message =
+                        format("Failed to find leaf hash at index ", leaf_index, " for block number ", blockNumber);
                 }
             },
             on_completion);
@@ -663,6 +670,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
+                } else {
+                    response.message = format("Failed to find index from ", start_index, " for leaf ", leaf);
                 }
             },
             on_completion);
@@ -687,10 +696,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error((std::stringstream()
-                                              << "Unable to find leaf from index " << start_index << " for block "
-                                              << blockNumber << ", failed to get block data.")
-                                                 .str());
+                    throw std::runtime_error(format("Unable to find leaf from index ",
+                                                    start_index,
+                                                    " for block ",
+                                                    blockNumber,
+                                                    ", failed to get block data."));
                 }
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
@@ -701,6 +711,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
+                } else {
+                    response.message = format(
+                        "Failed to find index from ", start_index, " for leaf ", leaf, " at block ", blockNumber);
                 }
             },
             on_completion);
@@ -871,9 +884,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     }
 
     if (new_size > max_size_) {
-        throw std::runtime_error((std::stringstream() << "Unable to append leaves to tree " << meta.name
-                                                      << " new size: " << new_size << " max size: " << max_size_)
-                                     .str());
+        throw std::runtime_error(
+            format("Unable to append leaves to tree ", meta.name, " new size: ", new_size, " max size: ", max_size_));
     }
 
     // Add the values at the leaf nodes of the tree
