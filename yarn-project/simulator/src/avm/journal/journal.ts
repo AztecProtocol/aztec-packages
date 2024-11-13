@@ -1,12 +1,18 @@
+import { type IndexedTreeId, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   type Gas,
+  type NullifierLeafPreimage,
   type PublicCallRequest,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import assert from 'assert';
 
@@ -30,6 +36,9 @@ import { PublicStorage } from './public_storage.js';
 export class AvmPersistableStateManager {
   private readonly log = createDebugLogger('aztec:avm_simulator:state_manager');
 
+  /** Interface to perform merkle tree operations */
+  public merkleTrees: MerkleTreeWriteOperations;
+
   constructor(
     /** Reference to node storage */
     private readonly worldStateDB: WorldStateDB,
@@ -40,7 +49,15 @@ export class AvmPersistableStateManager {
     private readonly publicStorage: PublicStorage = new PublicStorage(worldStateDB),
     /** Nullifier set, including cached/recently-emitted nullifiers */
     private readonly nullifiers: NullifierManager = new NullifierManager(worldStateDB),
-  ) {}
+    private readonly doMerkleOperations: boolean = false,
+    merkleTrees?: MerkleTreeWriteOperations,
+  ) {
+    if (merkleTrees) {
+      this.merkleTrees = merkleTrees;
+    } else {
+      this.merkleTrees = worldStateDB.getMerkleInterface();
+    }
+  }
 
   /**
    * Create a new state manager with some preloaded pending siloed nullifiers
@@ -68,6 +85,7 @@ export class AvmPersistableStateManager {
       this.trace.fork(incrementSideEffectCounter),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
+      this.doMerkleOperations,
     );
   }
 
@@ -78,11 +96,46 @@ export class AvmPersistableStateManager {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr) {
+  public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
-    this.trace.tracePublicStorageWrite(contractAddress, slot, value);
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    if (this.doMerkleOperations) {
+      const result = await this.merkleTrees.batchInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        [new PublicDataTreeLeaf(leafSlot, value).toBuffer()],
+        0,
+      );
+      assert(result !== undefined, 'Public data tree insertion error. You might want to disable skipMerkleOperations.');
+      this.log.debug(`Inserted public data tree leaf at leafSlot ${leafSlot}, value: ${value}`);
+
+      const lowLeafInfo = result.lowLeavesWitnessData![0];
+      const lowLeafPreimage = lowLeafInfo.leafPreimage as PublicDataTreeLeafPreimage;
+      const lowLeafIndex = lowLeafInfo.index;
+      const lowLeafPath = lowLeafInfo.siblingPath.toFields();
+
+      const insertionPath = result.newSubtreeSiblingPath.toFields();
+      const newLeafPreimage = new PublicDataTreeLeafPreimage(
+        leafSlot,
+        value,
+        lowLeafPreimage.nextSlot,
+        lowLeafPreimage.nextIndex,
+      );
+      // FIXME: Why do we need to hint both preimages for public data writes, but not for nullifier insertions?
+      this.trace.tracePublicStorageWrite(
+        contractAddress,
+        slot,
+        value,
+        lowLeafPreimage,
+        new Fr(lowLeafIndex),
+        lowLeafPath,
+        newLeafPreimage,
+        insertionPath,
+      );
+    } else {
+      this.trace.tracePublicStorageWrite(contractAddress, slot, value);
+    }
   }
 
   /**
@@ -97,7 +150,41 @@ export class AvmPersistableStateManager {
     this.log.debug(
       `Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
-    this.trace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
+
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+
+    if (this.doMerkleOperations) {
+      // Get leaf if present, low leaf if absent
+      // If leaf is present, hint/trace it. Otherwise, hint/trace the low leaf.
+      const [leafIndex, leafPreimage, leafPath, _alreadyPresent] = await getLeafOrLowLeaf<PublicDataTreeLeafPreimage>(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        leafSlot.toBigInt(),
+        this.merkleTrees,
+      );
+      // FIXME: cannot have this assertion until "caching" is done via ephemeral merkle writes
+      //assert(alreadyPresent == exists, 'WorldStateDB contains public data leaf, but merkle tree does not.... This is a bug!');
+      this.log.debug(
+        `leafPreimage.nextSlot: ${leafPreimage.nextSlot}, leafPreimage.nextIndex: ${Number(leafPreimage.nextIndex)}`,
+      );
+      this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
+
+      if (!exists) {
+        // Sanity check that the leaf slot is skipped by low leaf when it doesn't exist
+        assert(
+          leafSlot.toBigInt() > leafPreimage.slot.toBigInt() && leafSlot.toBigInt() < leafPreimage.nextSlot.toBigInt(),
+          'Public data tree low leaf should skip the target leaf slot when the target leaf does not exist.',
+        );
+      }
+      this.log.debug(
+        `Tracing storage leaf preimage slot=${slot}, leafSlot=${leafSlot}, value=${value}, nextKey=${leafPreimage.nextSlot}, nextIndex=${leafPreimage.nextIndex}`,
+      );
+      // On non-existence, AVM circuit will need to recognize that leafPreimage.slot != leafSlot,
+      // prove that this is a low leaf that skips leafSlot, and then prove memebership of the leaf.
+      this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
+    } else {
+      this.trace.tracePublicStorageRead(contractAddress, slot, value);
+    }
+
     return Promise.resolve(value);
   }
 
@@ -131,9 +218,14 @@ export class AvmPersistableStateManager {
     this.log.debug(
       `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
     );
-    // TODO(8287): We still return exists here, but we need to transmit both the requested noteHash and the gotLeafValue
-    // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists);
+    if (this.doMerkleOperations) {
+      // TODO(8287): We still return exists here, but we need to transmit both the requested noteHash and the gotLeafValue
+      // such that the VM can constrain the equality and decide on exists based on that.
+      const path = await this.merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex.toBigInt());
+      this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists, path.toFields());
+    } else {
+      this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists);
+    }
     return Promise.resolve(exists);
   }
 
@@ -141,9 +233,22 @@ export class AvmPersistableStateManager {
    * Write a note hash, trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(contractAddress: AztecAddress, noteHash: Fr) {
+  public async writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): Promise<void> {
     this.log.debug(`noteHashes(${contractAddress}) += @${noteHash}.`);
-    this.trace.traceNewNoteHash(contractAddress, noteHash);
+
+    if (this.doMerkleOperations) {
+      // TODO: We should track this globally here in the state manager
+      const info = await this.merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+      const leafIndex = new Fr(info.size + 1n);
+
+      const path = await this.merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex.toBigInt());
+      const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+
+      await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
+      this.trace.traceNewNoteHash(contractAddress, noteHash, leafIndex, path.toFields());
+    } else {
+      this.trace.traceNewNoteHash(contractAddress, noteHash);
+    }
   }
 
   /**
@@ -153,11 +258,51 @@ export class AvmPersistableStateManager {
    * @returns exists - whether the nullifier exists in the nullifier set
    */
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
-    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(contractAddress, nullifier);
-    this.log.debug(
-      `nullifiers(${contractAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
-    );
-    this.trace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
+    const [exists, isPending, _] = await this.nullifiers.checkExists(contractAddress, nullifier);
+
+    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+
+    if (this.doMerkleOperations) {
+      // Get leaf if present, low leaf if absent
+      // If leaf is present, hint/trace it. Otherwise, hint/trace the low leaf.
+      const [leafIndex, leafPreimage, leafPath, alreadyPresent] = await getLeafOrLowLeaf<NullifierLeafPreimage>(
+        MerkleTreeId.NULLIFIER_TREE,
+        siloedNullifier.toBigInt(),
+        this.merkleTrees,
+      );
+      assert(
+        alreadyPresent == exists,
+        'WorldStateDB contains nullifier leaf, but merkle tree does not.... This is a bug!',
+      );
+
+      this.log.debug(
+        `nullifiers(${contractAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
+      );
+
+      if (!exists) {
+        // Sanity check that the leaf value is skipped by low leaf when it doesn't exist
+        assert(
+          siloedNullifier.toBigInt() > leafPreimage.nullifier.toBigInt() &&
+            siloedNullifier.toBigInt() < leafPreimage.nextNullifier.toBigInt(),
+          'Nullifier tree low leaf should skip the target leaf nullifier when the target leaf does not exist.',
+        );
+      }
+
+      this.trace.traceNullifierCheck(
+        contractAddress,
+        nullifier, // FIXME: Should this be siloed?
+        exists,
+        leafPreimage,
+        new Fr(leafIndex),
+        leafPath,
+      );
+    } else {
+      this.trace.traceNullifierCheck(
+        contractAddress,
+        nullifier, // FIXME: Should this be siloed?
+        exists,
+      );
+    }
     return Promise.resolve(exists);
   }
 
@@ -170,8 +315,40 @@ export class AvmPersistableStateManager {
     this.log.debug(`nullifiers(${contractAddress}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
     await this.nullifiers.append(contractAddress, nullifier);
-    // Trace all nullifier creations (even reverted ones)
-    this.trace.traceNewNullifier(contractAddress, nullifier);
+
+    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+
+    if (this.doMerkleOperations) {
+      // Trace all nullifier creations, even duplicate insertions that fail
+      const alreadyPresent = await this.merkleTrees.getPreviousValueIndex(
+        MerkleTreeId.NULLIFIER_TREE,
+        siloedNullifier.toBigInt(),
+      );
+      if (alreadyPresent) {
+        this.log.verbose(`Nullifier already present in tree: ${nullifier} at index ${alreadyPresent.index}.`);
+      }
+      const insertionResult = await this.merkleTrees.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        [siloedNullifier.toBuffer()],
+        0,
+      );
+      const lowLeafInfo = insertionResult.lowLeavesWitnessData![0];
+      const lowLeafPreimage = lowLeafInfo.leafPreimage as NullifierLeafPreimage;
+      const lowLeafIndex = lowLeafInfo.index;
+      const lowLeafPath = lowLeafInfo.siblingPath.toFields();
+      const insertionPath = insertionResult.newSubtreeSiblingPath.toFields();
+
+      this.trace.traceNewNullifier(
+        contractAddress,
+        nullifier,
+        lowLeafPreimage,
+        new Fr(lowLeafIndex),
+        lowLeafPath,
+        insertionPath,
+      );
+    } else {
+      this.trace.traceNewNullifier(contractAddress, nullifier);
+    }
   }
 
   /**
@@ -190,9 +367,15 @@ export class AvmPersistableStateManager {
     this.log.debug(
       `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
     );
-    // TODO(8287): We still return exists here, but we need to transmit both the requested msgHash and the value
-    // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists);
+
+    if (this.doMerkleOperations) {
+      // TODO(8287): We still return exists here, but we need to transmit both the requested msgHash and the value
+      // such that the VM can constrain the equality and decide on exists based on that.
+      const path = await this.merkleTrees.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, msgLeafIndex.toBigInt());
+      this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists, path.toFields());
+    } else {
+      this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists);
+    }
     return Promise.resolve(exists);
   }
 
@@ -228,6 +411,7 @@ export class AvmPersistableStateManager {
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
 
+    // TODO: nullifier check!
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
       this.log.debug(
@@ -366,4 +550,31 @@ export class AvmPersistableStateManager {
 
     this.trace.traceExecutionPhase(forkedState.trace, publicCallRequests, calldatas, reverted);
   }
+}
+
+/**
+ * Get leaf if present, low leaf if absent
+ */
+export async function getLeafOrLowLeaf<TreePreimageType extends IndexedTreeLeafPreimage>(
+  treeId: IndexedTreeId,
+  key: bigint,
+  merkleTrees: MerkleTreeWriteOperations,
+) {
+  // "key" is siloed slot (leafSlot) or siloed nullifier
+  const previousValueIndex = await merkleTrees.getPreviousValueIndex(treeId, key);
+  assert(
+    previousValueIndex !== undefined,
+    `${MerkleTreeId[treeId]} low leaf index should always be found (even if target leaf does not exist)`,
+  );
+  const { index: leafIndex, alreadyPresent } = previousValueIndex;
+
+  const leafPreimage = await merkleTrees.getLeafPreimage(treeId, leafIndex);
+  assert(
+    leafPreimage !== undefined,
+    `${MerkleTreeId[treeId]}  low leaf preimage should never be undefined (even if target leaf does not exist)`,
+  );
+
+  const leafPath = await merkleTrees.getSiblingPath(treeId, leafIndex);
+
+  return [leafIndex, leafPreimage as TreePreimageType, leafPath.toFields(), alreadyPresent] as const;
 }

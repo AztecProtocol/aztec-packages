@@ -107,11 +107,9 @@ describe('e2e_lending_contract', () => {
     }
 
     lendingSim.mintStableCoinOutsideLoan(lendingAccount.address, 10000n, true);
-    lendingSim.stableCoin.redeemShield(lendingAccount.address, 10000n);
     lendingSim.mintStableCoinOutsideLoan(lendingAccount.address, 10000n, false);
 
-    lendingSim.collateralAsset.mintPrivate(10000n);
-    lendingSim.collateralAsset.redeemShield(lendingAccount.address, 10000n);
+    lendingSim.collateralAsset.mintPrivate(lendingAccount.address, 10000n);
     lendingSim.collateralAsset.mintPublic(lendingAccount.address, 10000n);
   });
 

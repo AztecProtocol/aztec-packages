@@ -139,6 +139,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.alu_cmp_gadget_gt.set_if_valid_index(i, rows[i].alu_cmp_gadget_gt);
                 polys.alu_cmp_gadget_input_a.set_if_valid_index(i, rows[i].alu_cmp_gadget_input_a);
                 polys.alu_cmp_gadget_input_b.set_if_valid_index(i, rows[i].alu_cmp_gadget_input_b);
+                polys.alu_cmp_gadget_non_ff_gt.set_if_valid_index(i, rows[i].alu_cmp_gadget_non_ff_gt);
                 polys.alu_cmp_gadget_result.set_if_valid_index(i, rows[i].alu_cmp_gadget_result);
                 polys.alu_cmp_gadget_sel.set_if_valid_index(i, rows[i].alu_cmp_gadget_sel);
                 polys.alu_ff_tag.set_if_valid_index(i, rows[i].alu_ff_tag);
@@ -218,11 +219,13 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.cmp_borrow.set_if_valid_index(i, rows[i].cmp_borrow);
                 polys.cmp_clk.set_if_valid_index(i, rows[i].cmp_clk);
                 polys.cmp_cmp_rng_ctr.set_if_valid_index(i, rows[i].cmp_cmp_rng_ctr);
+                polys.cmp_diff.set_if_valid_index(i, rows[i].cmp_diff);
                 polys.cmp_input_a.set_if_valid_index(i, rows[i].cmp_input_a);
                 polys.cmp_input_b.set_if_valid_index(i, rows[i].cmp_input_b);
                 polys.cmp_op_eq.set_if_valid_index(i, rows[i].cmp_op_eq);
                 polys.cmp_op_eq_diff_inv.set_if_valid_index(i, rows[i].cmp_op_eq_diff_inv);
                 polys.cmp_op_gt.set_if_valid_index(i, rows[i].cmp_op_gt);
+                polys.cmp_op_non_ff_gt.set_if_valid_index(i, rows[i].cmp_op_non_ff_gt);
                 polys.cmp_p_a_borrow.set_if_valid_index(i, rows[i].cmp_p_a_borrow);
                 polys.cmp_p_b_borrow.set_if_valid_index(i, rows[i].cmp_p_b_borrow);
                 polys.cmp_p_sub_a_hi.set_if_valid_index(i, rows[i].cmp_p_sub_a_hi);
@@ -760,6 +763,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.range_check_clk.set_if_valid_index(i, rows[i].range_check_clk);
                 polys.range_check_cmp_hi_bits_rng_chk.set_if_valid_index(i, rows[i].range_check_cmp_hi_bits_rng_chk);
                 polys.range_check_cmp_lo_bits_rng_chk.set_if_valid_index(i, rows[i].range_check_cmp_lo_bits_rng_chk);
+                polys.range_check_cmp_non_ff_rng_chk.set_if_valid_index(i, rows[i].range_check_cmp_non_ff_rng_chk);
                 polys.range_check_dyn_diff.set_if_valid_index(i, rows[i].range_check_dyn_diff);
                 polys.range_check_dyn_rng_chk_bits.set_if_valid_index(i, rows[i].range_check_dyn_rng_chk_bits);
                 polys.range_check_dyn_rng_chk_pow_2.set_if_valid_index(i, rows[i].range_check_dyn_rng_chk_pow_2);

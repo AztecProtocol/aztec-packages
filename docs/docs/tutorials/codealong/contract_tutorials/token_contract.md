@@ -69,7 +69,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 - `set_minter` enables accounts to be added / removed from the approved minter list
 - `mint_public` enables tokens to be minted to the public balance of an account
 - `mint_private` enables tokens to be minted to the private balance of an account (with some caveats we will dig into)
-- `shield` enables tokens to be moved from a public balance to a private balance, not necessarily the same account (step 1 of a 2 step process)
+- `transfer_to_public` enables tokens to be moved from a public balance to a private balance, not necessarily the same account (step 1 of a 2 step process)
 - `transfer_public` enables users to transfer tokens from one account's public balance to another account's public balance
 - `burn_public` enables users to burn tokens
 
@@ -77,8 +77,6 @@ These are functions that have transparent logic, will execute in a publicly veri
 
 These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
-- `redeem_shield` enables accounts to claim tokens that have been made private via `mint_private` or `shield` by providing the secret
-- `transfer_to_public` enables an account to send tokens from their private balance to any other account's public balance
 - `transfer` enables an account to send tokens from their private balance to another account's private balance
 - `transfer_from` enables an account to send tokens from another account's private balance to another account's private balance
 - `cancel_authwit` enables an account to cancel an authorization to spend tokens
@@ -160,7 +158,6 @@ Reading through the storage variables:
 - `minters` is a mapping of Aztec addresses in public state. This will store whether an account is an approved minter on the contract.
 - `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `UintNote`s. The balance is the sum of all of an account's `UintNote`s.
 - `total_supply` is an unsigned integer (max 128 bit value) stored in public state and represents the total number of tokens minted.
-- `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
 - `symbol`, `name`, and `decimals` are similar in meaning to ERC20 tokens on Ethereum.
 
@@ -178,7 +175,7 @@ This function sets the creator of the contract (passed as `msg_sender` from the 
 
 Public functions are declared with the `#[public]` macro above the function name.
 
-As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
+As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize prepared in a private context (partial notes flow).
 
 Storage is referenced as `storage.variable`.
 
@@ -204,17 +201,23 @@ First, storage is initialized. Then the function checks that the `msg_sender` is
 
 #### `mint_private`
 
-This public function allows an account approved in the public `minters` mapping to create new private tokens that can be claimed by anyone that has the pre-image to the `secret_hash`.
+This public function allows an account approved in the public `minters` mapping to create new private tokens.
 
-First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function.
+First, partial note is prepared by the call to `_prepare_transfer_to_private` for the minted tokens recipient. Then a public call to `_finalize_mint_to_private_unsafe` is enqueued while `msg_sender`, `amount` and the `hiding_point_slot` are passed in via arguments. Since we set `from` to `msg_sender` here the usage of the unsafe function is safe. The enqueued call then checks the minter permissions of `from` and it finalizes the partial note for `to`.
 
-#include_code mint_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `shield`
+#### `transfer_to_private`
 
-This public function enables an account to stage tokens from it's `public_balance` to be claimed as a private `TransparentNote` by any account that has the pre-image to the `secret_hash`.
+This public function enables an account to send tokens from its `public_balance` to a private balance of an arbitrary recipient.
 
-First, storage is initialized. Then it checks whether the calling contract (`context.msg_sender`) matches the account that the funds will be debited from.
+First a partial note is prepared then a call to `_finalize_transfer_to_private_unsafe` is enqueued. The enqueued public call subtracts the `amount` from public balance of `msg_sender` and finalizes the partial note with the `amount`.
+
+#include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `transfer_public`
+
+This public function enables public transfers between Aztec accounts. The sender's public balance will be debited the specified `amount` and the recipient's public balances will be credited with that amount.
 
 ##### Authorizing token spends
 
@@ -223,14 +226,6 @@ If the `msg_sender` is **NOT** the same as the account to debit from, the functi
 If the `msg_sender` is the same as the account to debit tokens from, the authorization check is bypassed and the function proceeds to update the account's `public_balance` and adds a new `TransparentNote` to the `pending_shields`.
 
 It returns `1` to indicate successful execution.
-
-#include_code shield /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-#### `transfer_public`
-
-This public function enables public transfers between Aztec accounts. The sender's public balance will be debited the specified `amount` and the recipient's public balances will be credited with that amount.
-
-After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender and recipient's balances are updated and saved to storage.
 
 #include_code transfer_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -248,26 +243,16 @@ Private functions are declared with the `#[private]` macro above the function na
 
 ```rust
     #[private]
-    fn redeem_shield(
+    fn transfer_to_public(
 ```
 
 As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`transfer_to_public`](#transfer_to_public) function).
 
 Storage is referenced as `storage.variable`.
 
-#### `redeem_shield`
-
-This private function enables an account to move tokens from a `TransparentNote` in the `pending_shields` mapping to a `UintNote` in private `balances`. The `UintNote` will be associated with a nullifier key, so any account that knows this key can spend this note.
-
-Going through the function logic, first the `secret_hash` is generated from the given secret. This ensures that only the entity possessing the secret can use it to redeem the note. Following this, a `TransparentNote` is retrieved from the set, using the provided amount and secret. The note is subsequently removed from the set, allowing it to be redeemed only once. The recipient's private balance is then increased using the `increment` helper function from the `value_note` [library (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/utils.nr).
-
-The function returns `1` to indicate successful execution.
-
-#include_code redeem_shield /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
 #### `transfer_to_public`
 
-This private function enables un-shielding of private `UintNote`s stored in `balances` to any Aztec account's `public_balance`.
+This private function enables transferring of private balance (`UintNote` stored in `balances`) to any Aztec account's `public_balance`.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. See [the Authorizing token spends section](#authorizing-token-spends) above for more detail--the only difference being that `assert_valid_message_for` is modified to work specifically in the private context. After the authorization check, the sender's private balance is decreased using the `decrement` helper function for the `value_note` library. Then it stages a public function call on this contract ([`_increase_public_balance`](#_increase_public_balance)) to be executed in the [public execution phase](#execution-contexts) of transaction execution. `_increase_public_balance` is marked as an `internal` function, so can only be called by this token contract.
 
@@ -303,7 +288,7 @@ Internal functions are functions that can only be called by this contract. The f
 
 #### `_increase_public_balance`
 
-This function is called from [`transfer_to_public`](#transfer_to_public). The account's private balance is decremented in `shield` and the public balance is increased in this function.
+This function is called from [`transfer_to_public`](#transfer_to_public). The account's private balance is decremented in `transfer_to_public` and the public balance is increased in this function.
 
 #include_code increase_public_balance /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 

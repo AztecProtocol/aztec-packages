@@ -1,14 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  type CompleteAddress,
-  type DebugLogger,
-  ExtendedNote,
-  Fr,
-  Note,
-  type TxHash,
-  createDebugLogger,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type CompleteAddress, type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -130,19 +121,6 @@ export class TokenContractTest {
     await this.snapshotManager.teardown();
   }
 
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.asset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
-  }
-
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
@@ -171,8 +149,7 @@ export class TokenContractTest {
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(amount);
-        tokenSim.redeemShield(address, amount);
+        tokenSim.mintPrivate(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
