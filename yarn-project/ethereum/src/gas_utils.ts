@@ -15,6 +15,8 @@ import {
 // 1_000_000_000 Wei = 1 Gwei
 // 1_000_000_000_000_000_000 Wei = 1 ETH
 
+const WEI_CONST = 1_000_000_000n;
+
 export interface GasConfig {
   /**
    * How much to increase gas price by each attempt (percentage)
@@ -87,13 +89,13 @@ export class GasUtils {
   public async getGasPrice(): Promise<bigint> {
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
-    const priorityFee = this.gasConfig.priorityFeeGwei * 1_000_000_000n;
+    const priorityFee = this.gasConfig.priorityFeeGwei * WEI_CONST;
 
     const baseWithBuffer = baseFee + (baseFee * this.gasConfig.bufferPercentage) / 100n;
     const totalGasPrice = baseWithBuffer + priorityFee;
 
-    const maxGasPrice = this.gasConfig.maxGwei * 1_000_000_000n;
-    const minGasPrice = this.gasConfig.minGwei * 1_000_000_000n;
+    const maxGasPrice = this.gasConfig.maxGwei * WEI_CONST;
+    const minGasPrice = this.gasConfig.minGwei * WEI_CONST;
 
     let finalGasPrice: bigint;
     if (totalGasPrice < minGasPrice) {
