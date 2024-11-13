@@ -20,11 +20,11 @@ struct L1Fees {
   uint256 blob_fee;
 }
 
-struct Header {
+struct FeeHeader {
   uint256 excess_mana;
   uint256 fee_asset_price_numerator;
   uint256 mana_used;
-  uint256 proving_cast_per_mana_numerator;
+  uint256 proving_cost_per_mana_numerator;
 }
 
 struct OracleInput {
@@ -46,6 +46,16 @@ struct ManaBaseFeeComponents {
   uint256 proving_cost;
 }
 
+struct BlockHeader {
+  uint256 blobs_needed;
+  uint256 block_number;
+  uint256 l1_block_number;
+  uint256 mana_spent;
+  uint256 size_in_fields;
+  uint256 slot_number;
+  uint256 timestamp;
+}
+
 struct TestPointOutputs {
   uint256 fee_asset_price_at_execution;
   L1Fees l1_fee_oracle_output;
@@ -55,13 +65,11 @@ struct TestPointOutputs {
 }
 
 struct TestPoint {
-  Header header;
-  uint256 l1_block_number;
-  uint256 l2_block_number;
-  uint256 l2_slot_number;
+  BlockHeader block_header;
+  FeeHeader fee_header;
   OracleInput oracle_input;
   TestPointOutputs outputs;
-  Header parent_header;
+  FeeHeader parent_fee_header;
 }
 
 struct FullFeeData {
@@ -80,8 +88,11 @@ contract FeeModelTestPoints is TestBase {
     bytes memory jsonBytes = vm.parseJson(json);
     FullFeeData memory data = abi.decode(jsonBytes, (FullFeeData));
 
-    for (uint256 i = 0; i < data.points.length; i++) {
+    for (uint256 i = 0; i < data.l1_metadata.length; i++) {
       l1Metadata.push(data.l1_metadata[i]);
+    }
+
+    for (uint256 i = 0; i < data.points.length; i++) {
       points.push(data.points[i]);
     }
   }

@@ -70,6 +70,46 @@ library FeeMath {
     return fakeExponential(MINIMUM_FEE_ASSET_PRICE, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION);
   }
 
+  /**
+   * @notice An approximation of the exponential function: factor * e ** (numerator / denominator)
+   *
+   *         Approximated using a taylor series.
+   *         For shorthand below, let `a = factor`, `x = numerator`, `d = denominator`
+   *
+   *         f(x) =  a
+   *              + (a * x) / d
+   *              + (a * x ** 2) / (2 * d ** 2)
+   *              + (a * x ** 3) / (6 * d ** 3)
+   *              + (a * x ** 4) / (24 * d ** 4)
+   *              + (a * x ** 5) / (120 * d ** 5)
+   *              + ...
+   *
+   *         For integer precision purposes, we will multiply by the denominator for intermediary steps and then
+   *         finally do a division by it.
+   *         The notation below might look slightly strange, but it is to try to convey the program flow below.
+   *
+   *         e(x) = (          a * d
+   *                 +         a * d * x / d
+   *                 +       ((a * d * x / d) * x) / (2 * d)
+   *                 +     ((((a * d * x / d) * x) / (2 * d)) * x) / (3 * d)
+   *                 +   ((((((a * d * x / d) * x) / (2 * d)) * x) / (3 * d)) * x) / (4 * d)
+   *                 + ((((((((a * d * x / d) * x) / (2 * d)) * x) / (3 * d)) * x) / (4 * d)) * x) / (5 * d)
+   *                 + ...
+   *                 ) / d
+   *
+   *         The notation might make it a bit of a pain to look at, but f(x) and e(x) are the same.
+   *         Gotta love integer math.
+   *
+   * @dev   Notice that as _numerator grows, the computation will quickly overflow.
+   *        As long as the `_denominator` is fairly small, it won't bring us back down to not overflow
+   *        For our purposes, this is acceptable, as if we have a fee that is so high that it would overflow and throw
+   *        then we would have other problems.
+   *
+   * @param _factor The base value
+   * @param _numerator The numerator
+   * @param _denominator The denominator
+   * @return The approximated value `_factor * e ** (_numerator / _denominator)`
+   */
   function fakeExponential(uint256 _factor, uint256 _numerator, uint256 _denominator)
     private
     pure

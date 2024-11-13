@@ -18,14 +18,14 @@ struct L1BaseFees {
   Slot slotOfChange;
 }
 
+struct DataPoint {
+  uint256 provingCostNumerator;
+  uint256 feeAssetPriceNumerator;
+}
+
 contract MinimalFeeModel is TimeFns {
   using FeeMath for OracleInput;
   using FeeMath for uint256;
-
-  struct DataPoint {
-    uint256 provingCostNumerator;
-    uint256 feeAssetPriceNumerator;
-  }
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -94,7 +94,7 @@ contract MinimalFeeModel is TimeFns {
     return FeeMath.provingCostPerMana(dataPoints[_slotNumber].provingCostNumerator);
   }
 
-  function getCurrentFee() public view returns (BaseFees memory) {
+  function getCurrentL1Fees() public view returns (BaseFees memory) {
     Slot slot = getCurrentSlot();
     if (slot < l1BaseFees.slotOfChange) {
       return l1BaseFees.pre;

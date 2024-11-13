@@ -3,9 +3,9 @@ pragma solidity >=0.8.27;
 
 import {OracleInput, FeeMath} from "@aztec/core/libraries/FeeMath.sol";
 import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
-import {MinimalFeeModel, BaseFees, L1BaseFees} from "./MinimalFeeModel.sol";
+import {MinimalFeeModel, BaseFees} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, SlotLib, Slot} from "@aztec/core/libraries/TimeMath.sol";
+import {SlotLib, Slot} from "@aztec/core/libraries/TimeMath.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {
   using SlotLib for Slot;
@@ -111,11 +111,11 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
 
       if (model.getCurrentSlot() == nextSlot) {
         TestPoint memory expected = points[nextSlot.unwrap() - 1];
-        BaseFees memory fees = model.getCurrentFee();
+        BaseFees memory fees = model.getCurrentL1Fees();
 
-        assertEq(expected.l1_block_number, block.number, "invalid l1 block number");
-        assertEq(expected.l2_block_number, nextSlot.unwrap(), "invalid l2 block number");
-        assertEq(expected.l2_slot_number, nextSlot.unwrap(), "invalid l2 slot number");
+        assertEq(expected.block_header.l1_block_number, block.number, "invalid l1 block number");
+        assertEq(expected.block_header.block_number, nextSlot.unwrap(), "invalid l2 block number");
+        assertEq(expected.block_header.slot_number, nextSlot.unwrap(), "invalid l2 slot number");
         assertEq(expected.outputs.l1_fee_oracle_output.base_fee, fees.baseFee, "baseFee mismatch");
         assertEq(expected.outputs.l1_fee_oracle_output.blob_fee, fees.blobFee, "blobFee mismatch");
         nextSlot = nextSlot + Slot.wrap(1);
