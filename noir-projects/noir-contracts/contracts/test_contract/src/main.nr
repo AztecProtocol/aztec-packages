@@ -386,15 +386,13 @@ contract Test {
 
     #[private]
     fn consume_mint_private_message(
-        secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash =
-            get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
+        let content_hash = get_mint_private_content_hash(amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,

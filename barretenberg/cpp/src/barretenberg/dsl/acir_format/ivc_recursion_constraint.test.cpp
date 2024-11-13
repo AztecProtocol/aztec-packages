@@ -1,3 +1,4 @@
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -76,38 +77,10 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
     /**
-     * @brief Create an arithmetic constraint fixing the first public input witness to it's present value
-     * @details Meant to mimic the "business logic" of the aztec kernel. Used to facilitate failure testing since this
-     * will lead to failure of the kernel circuit to verify if a different proof witness is used in the business logic
-     * VS the recursive verification logic.
-     *
-     * @param public_inputs Witness indices of public inputs of some proof to be constrained
-     * @param witness
-     * @return ArithmeticConstraint
-     */
-    static ArithmeticConstraint create_public_input_value_constraint(const std::vector<uint32_t>& public_inputs,
-                                                                     const SlabVector<FF>& witness)
-    {
-        const uint32_t pub_input_idx = public_inputs[0];
-        const FF pub_input_val = witness[pub_input_idx];
-        return {
-            .a = pub_input_idx,
-            .b = 0,
-            .c = 0,
-            .q_m = 0,
-            .q_l = -1,
-            .q_r = 0,
-            .q_o = 0,
-            .q_c = pub_input_val,
-        };
-    }
-
-    /**
      * @brief Generate an acir program {constraints, witness} for a mock kernel
      * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
      * Construct an AcirProgram with a RecursionConstraint for each entry in the ivc verification queue. (In practice
-     * these constraints would come directly from calls to verify_proof in noir). Also add mock "business logic" which
-     * simply enforces some constraint on the public inputs of the proof.
+     * these constraints would come directly from calls to verify_proof in noir).
      * @note This method needs the number of public inputs in each proof-to-be-verified so they can be extracted and
      * provided separately as is required in the acir constraint system.
      *
@@ -130,14 +103,9 @@ class IvcRecursionConstraintTest : public ::testing::Test {
                 verification_queue[idx], program.witness, inner_circuit_num_pub_inputs[idx]));
         }
 
-        // Add some mock kernel "business logic" which simply fixes one of the public inputs to a particular value
-        ArithmeticConstraint pub_input_constraint =
-            create_public_input_value_constraint(ivc_recursion_constraints[0].public_inputs, program.witness);
-
         // Construct a constraint system containing the business logic and ivc recursion constraints
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(ivc_recursion_constraints.size());
-        program.constraints.poly_triple_constraints = { pub_input_constraint };
         program.constraints.ivc_recursion_constraints = ivc_recursion_constraints;
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
         mock_opcode_indices(program.constraints);
@@ -214,64 +182,110 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     EXPECT_TRUE(ivc.prove_and_verify());
 }
 
-/**
- * @brief Demonstrate failure of the IVC if the proof witness differs between those encoded in the constraint system
- * (i.e. those used in the noir program) and those used in constructing the recursive verifiers internally
- * @brief The idea is to construct two valid but unique verification queue entries of the form {proof, vkey}. One is
- * used to construct the acir constraint system and the other is used to construct the recursive verification logic
- * internally in the IVC. Since the proof/vkey witnesses in the constraint system are asserted equal to those used to
- * construct the recursive verifiers, the use of different verification queue witnesses should result in failure as long
- * as they were used in some nontrivial way in the main logic of the kernel. (Specifically, failure results from a
- * failure of the "business logic" of the kernel which constrains one of the public inputs to a particular value).
- */
-TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
+// Test generation of "init" kernel VK via dummy IVC data
+TEST_F(IvcRecursionConstraintTest, GenerateVK)
 {
-    // Accumulate a single app in order to construct a valid verification queue entry {proof, vkey} to be used later on.
-    // Demonstrate that it is indeed valid by completing the IVC with a kernel (which recursively verifies the entry)
-    // then proving and verifying the full IVC.
-    VerifierInputs alternative_verification_queue_entry;
+    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
+    size_t num_app_public_inputs = 0;
     {
         ClientIVC ivc;
-        ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+        ivc.trace_settings = trace_settings;
 
-        // construct and accumulate a mock app circuit with a single unique public input
+        // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
         ivc.accumulate(app_circuit);
+        num_app_public_inputs = app_circuit.public_inputs.size();
 
-        // Save the single entry in the verification queue at this point
-        alternative_verification_queue_entry = ivc.verification_queue[0];
-
-        // Construct and accumulate kernel_0
-        size_t num_pub_inputs_app = app_circuit.public_inputs.size();
-        AcirProgram program_0 = construct_mock_kernel_program(ivc.verification_queue, { num_pub_inputs_app });
-        Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
-        ivc.accumulate(kernel_0);
-
-        EXPECT_TRUE(ivc.prove_and_verify());
+        // Construct and accumulate kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc, program.witness);
+        ivc.accumulate(kernel);
+        expected_kernel_vk = ivc.verification_queue.back().honk_verification_key;
     }
 
-    // Repeat a similar IVC but use the alternative queue entry just created to provide different (but independently
-    // valid) witnesses during constraint system construction VS recursive verifier construction.
+    // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
+    std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
+    {
+        ClientIVC ivc;
+        ivc.trace_settings = trace_settings;
 
-    ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+        acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
 
-    // construct and accumulate a mock app circuit with a single unique public input
-    Builder app_circuit = construct_mock_app_circuit(ivc);
-    ivc.accumulate(app_circuit);
+        // Construct kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc);
+        // WORKTODO: this would normally happen in accumulate()
+        kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
-    // Construct kernel_0
-    AcirProgram program_0 = construct_mock_kernel_program(ivc.verification_queue, { app_circuit.public_inputs.size() });
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);
+        MegaProver prover(proving_key);
+        kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
+    }
 
-    // Replace the existing verification queue entry that was used to construct the acir constraint system for the
-    // kernel with a different (but valid, as shown above) set of inputs
-    ivc.verification_queue[0] = alternative_verification_queue_entry;
-    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
+    // PCS verification keys will not match so set to null before comparing
+    kernel_vk->pcs_verification_key = nullptr;
+    expected_kernel_vk->pcs_verification_key = nullptr;
 
-    // The witness should fail to check due to the business logic of the kernel failing
-    EXPECT_FALSE(CircuitChecker::check(kernel_0));
-    ivc.accumulate(kernel_0);
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
 
-    // The full IVC should of course also fail to verify since we've accumulated an invalid witness for the kernel
-    EXPECT_FALSE(ivc.prove_and_verify());
+// Test generation of "init" kernel VK via dummy IVC data
+TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
+{
+    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
+    size_t num_app_public_inputs = 0;
+    {
+        ClientIVC ivc;
+        ivc.trace_settings = trace_settings;
+
+        // Construct and accumulate mock app_circuit
+        Builder app_circuit = construct_mock_app_circuit(ivc);
+        ivc.accumulate(app_circuit);
+        num_app_public_inputs = app_circuit.public_inputs.size();
+
+        // Construct and accumulate kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc, program.witness);
+
+        ivc.accumulate(kernel);
+        expected_kernel_vk = ivc.verification_queue.back().honk_verification_key;
+    }
+
+    // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
+    std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
+    {
+        ClientIVC ivc;
+        ivc.trace_settings = trace_settings;
+
+        // Construct kernel consisting only of the kernel completion logic
+        acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        program.witness = {}; // erase witness to mimic VK construction context
+
+        // Create a mock IVC instance from the IVC recursion constraints in the kernel program
+        ClientIVC mock_ivc = create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints);
+
+        // Create a kernel circuit from the kernel program and the mocked IVC
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, mock_ivc);
+        // Note: adding pairing point normally happens in accumulate()
+        kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+
+        // Manually construct the VK for the kernel circuit
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, ivc.trace_settings);
+        MegaProver prover(proving_key);
+        kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
+    }
+
+    // PCS verification keys will not match so set to null before comparing
+    kernel_vk->pcs_verification_key = nullptr;
+    expected_kernel_vk->pcs_verification_key = nullptr;
+
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }

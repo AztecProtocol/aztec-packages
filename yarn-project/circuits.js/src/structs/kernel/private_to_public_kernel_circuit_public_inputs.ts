@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
@@ -13,6 +14,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
     public nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData,
     public revertibleAccumulatedData: PrivateToPublicAccumulatedData,
     public publicTeardownCallRequest: PublicCallRequest,
+    public gasUsed: Gas,
     public feePayer: AztecAddress,
   ) {}
 
@@ -23,6 +25,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       this.nonRevertibleAccumulatedData,
       this.revertibleAccumulatedData,
       this.publicTeardownCallRequest,
+      this.gasUsed,
       this.feePayer,
     );
   }
@@ -35,6 +38,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       reader.readObject(PrivateToPublicAccumulatedData),
       reader.readObject(PrivateToPublicAccumulatedData),
       reader.readObject(PublicCallRequest),
+      reader.readObject(Gas),
       reader.readObject(AztecAddress),
     );
   }
@@ -46,6 +50,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       PrivateToPublicAccumulatedData.empty(),
       PrivateToPublicAccumulatedData.empty(),
       PublicCallRequest.empty(),
+      Gas.empty(),
       AztecAddress.ZERO,
     );
   }

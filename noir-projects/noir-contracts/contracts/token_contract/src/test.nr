@@ -8,4 +8,3 @@ mod transfer_to_public;
 mod refunds;
 mod minting;
 mod reading_constants;
-mod shielding;

@@ -15,7 +15,6 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
-import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { PublicDataWrite } from '../public_data_write.js';
@@ -66,9 +65,6 @@ export class CombinedAccumulatedData {
      * All the public data update requests made in this transaction.
      */
     public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-
-    /** Gas used during this transaction */
-    public gasUsed: Gas,
   ) {}
 
   getSize() {
@@ -82,8 +78,7 @@ export class CombinedAccumulatedData {
       this.noteEncryptedLogPreimagesLength.size +
       this.encryptedLogPreimagesLength.size +
       this.unencryptedLogPreimagesLength.size +
-      arraySerializedSizeOfNonEmpty(this.publicDataWrites) +
-      this.gasUsed.toBuffer().length
+      arraySerializedSizeOfNonEmpty(this.publicDataWrites)
     );
   }
 
@@ -99,7 +94,6 @@ export class CombinedAccumulatedData {
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
       fields.publicDataWrites,
-      fields.gasUsed,
     ] as const;
   }
 
@@ -141,7 +135,6 @@ export class CombinedAccumulatedData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
-      reader.readObject(Gas),
     );
   }
 
@@ -166,7 +159,6 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
-      Gas.empty(),
     );
   }
 
@@ -203,7 +195,6 @@ export class CombinedAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
-      gasUsed: ${inspect(this.gasUsed)}
     }`;
   }
 }
