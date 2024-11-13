@@ -19,11 +19,11 @@ variable "testnet_name" {
 variable "eks-values-file" {
   description = "Name of the values file to use for eks cluster"
   type        = string
-  default     = "1-validators.yaml"
+  default     = "1-validator-0-prover.yaml"
 }
 
 variable "gke-values-file" {
   description = "Name of the values file to use for gke cluster"
   type        = string
-  default     = "1-validators.yaml"
+  default     = "0-validator-1-prover.yaml"
 }
