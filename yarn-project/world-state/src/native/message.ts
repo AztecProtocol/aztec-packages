@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, type StateReference, TreeLeafReadRequest, type UInt32 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export type MessageHeaderInit = {
