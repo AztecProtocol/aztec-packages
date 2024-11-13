@@ -202,7 +202,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
+    const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -235,7 +237,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
+    const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -266,8 +270,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -313,8 +318,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
@@ -459,8 +465,9 @@ describe('enqueued_calls_processor', () => {
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // we keep the non-revertible data.
@@ -535,8 +542,9 @@ describe('enqueued_calls_processor', () => {
     const output = txResult.avmProvingRequest!.inputs.output;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // We keep the non-revertible data.
@@ -618,8 +626,9 @@ describe('enqueued_calls_processor', () => {
     const output = txResult.avmProvingRequest!.inputs.output;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
-    const expectedTotalGasForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    const expectedTxFee = expectedTotalGasForFee.computeFee(gasFees);
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
     // we keep the non-revertible data
