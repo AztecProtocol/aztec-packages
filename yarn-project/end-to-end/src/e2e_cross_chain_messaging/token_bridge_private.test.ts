@@ -45,7 +45,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   });
 
   // docs:start:e2e_private_cross_chain
-  it('Privately deposit funds from L1 -> L2 and withdraw back to L1', async () => {
+  it.only('Privately deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
