@@ -82,7 +82,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random()]);
-    expect(response).toBe(1n);
+    expect(response).toEqual([1n]);
   });
 
   it('getNullifierSiblingPath', async () => {

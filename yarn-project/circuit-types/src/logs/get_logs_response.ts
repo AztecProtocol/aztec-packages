@@ -52,7 +52,7 @@ export class TxScopedL2Log {
         dataStartIndexForTx: z.number(),
         blockNumber: z.number(),
         isFromPublic: z.boolean(),
-        log: schemas.BufferHex,
+        log: schemas.BufferB64,
       })
       .transform(
         ({ txHash, dataStartIndexForTx, blockNumber, isFromPublic, log }) =>

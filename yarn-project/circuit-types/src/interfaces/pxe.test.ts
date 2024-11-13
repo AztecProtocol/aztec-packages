@@ -484,7 +484,6 @@ class MockPXE implements PXE {
   getSyncStatus(): Promise<SyncStatus> {
     return Promise.resolve({
       blocks: 1,
-      notes: { [this.address.toString()]: 1 },
     });
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
