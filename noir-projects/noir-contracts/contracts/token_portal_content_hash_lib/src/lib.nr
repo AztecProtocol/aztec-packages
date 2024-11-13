@@ -9,19 +9,18 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: Field) -> Fi
     let recipient_bytes:[u8; 32] = owner.to_field().to_be_bytes();
     let amount_bytes:[u8; 32] = amount.to_be_bytes();
 
-    for i in 0..32 {
-        hash_bytes[i + 4] = recipient_bytes[i];
-        hash_bytes[i + 36] = amount_bytes[i];
-    }
-
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     let selector = comptime { std::hash::keccak256("mint_to_public(bytes32,uint256)".as_bytes(), 31) };
 
-    hash_bytes[0] = selector[0];
-    hash_bytes[1] = selector[1];
-    hash_bytes[2] = selector[2];
-    hash_bytes[3] = selector[3];
+    for i in 0..4 {
+        hash_bytes[i] = selector[i];
+    }
+
+    for i in 0..32 {
+        hash_bytes[i + 4] = recipient_bytes[i];
+        hash_bytes[i + 36] = amount_bytes[i];
+    }
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
@@ -37,18 +36,17 @@ pub fn get_mint_to_private_content_hash(
     let mut hash_bytes = [0; 36];
     let amount_bytes:[u8; 32] = amount.to_be_bytes();
 
-    for i in 0..32 {
-        hash_bytes[i + 4] = amount_bytes[i];
-    }
-
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     let selector = comptime { std::hash::keccak256("mint_to_private(uint256)".as_bytes(), 24) };
 
-    hash_bytes[0] = selector[0];
-    hash_bytes[1] = selector[1];
-    hash_bytes[2] = selector[2];
-    hash_bytes[3] = selector[3];
+    for i in 0..4 {
+        hash_bytes[i] = selector[i];
+    }
+
+    for i in 0..32 {
+        hash_bytes[i + 4] = amount_bytes[i];
+    }
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
@@ -71,10 +69,9 @@ pub fn get_withdraw_content_hash(recipient: EthAddress, amount: Field, caller_on
     // it has nothing to do with calling the function.
     let selector = comptime { std::hash::keccak256("withdraw(address,uint256,address)".as_bytes(), 33) };
 
-    hash_bytes[0] = selector[0];
-    hash_bytes[1] = selector[1];
-    hash_bytes[2] = selector[2];
-    hash_bytes[3] = selector[3];
+    for i in 0..4 {
+        hash_bytes[i] = selector[i];
+    }
 
     for i in 0..32 {
         hash_bytes[i + 4] = recipient_bytes[i];
