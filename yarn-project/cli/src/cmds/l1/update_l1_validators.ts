@@ -1,7 +1,6 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
-
 import { type EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain, isAnvilTestChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
