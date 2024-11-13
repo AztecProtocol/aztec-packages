@@ -20,7 +20,12 @@ for ((i=0; i<NUM_VALIDATORS; i++))
 do
     PORT=$((8081 + i))
     P2P_PORT=$((40401 + i))
-    CMD+=("./validator.sh $PORT $P2P_PORT")
+    IDX=$((i + 1))
+
+    eval "ADDRESS=\$ADDRESS_${IDX}"
+    eval "VALIDATOR_PRIVATE_KEY=\$VALIDATOR_PRIVATE_KEY_${IDX}"
+
+    CMD+=("./validator.sh $PORT $P2P_PORT $ADDRESS $VALIDATOR_PRIVATE_KEY")
 done
 
 # If there's only one validator, run it directly

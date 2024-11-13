@@ -151,6 +151,9 @@ export class GasUtils {
     let lastSeen = Date.now();
     let currentTxHash = txHash;
 
+    // Flag to use for first run to avoid logging errors.
+    let firstRun = true;
+
     while (true) {
       try {
         // Check transaction status
@@ -158,6 +161,12 @@ export class GasUtils {
         if (receipt) {
           this.logger?.info(`Transaction ${currentTxHash} confirmed`);
           return receipt;
+        }
+
+        if (firstRun) {
+          firstRun = false;
+          // Wait a second for tx to be broadcast
+          await sleep(1000);
         }
 
         // Check if transaction is pending
