@@ -15,8 +15,6 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 CMD=()
 
-echo "NUM_VALIDATORS: $NUM_VALIDATORS"
-
 # Generate validator commands
 for ((i = 0; i < NUM_VALIDATORS; i++)); do
   PORT=$((8081 + i))
@@ -28,9 +26,6 @@ for ((i = 0; i < NUM_VALIDATORS; i++)); do
   PRIVATE_KEY_VAR="VALIDATOR_PRIVATE_KEY_${IDX}"
   ADDRESS="${!ADDRESS_VAR:-}"
   VALIDATOR_PRIVATE_KEY="${!PRIVATE_KEY_VAR:-}"
-
-  echo "ADDRESS: $ADDRESS"
-  echo "VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY"
 
   CMD+=("./validator.sh $PORT $P2P_PORT $ADDRESS $VALIDATOR_PRIVATE_KEY")
 done
