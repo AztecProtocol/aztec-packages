@@ -3,6 +3,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 
@@ -309,13 +310,18 @@ template <typename FF_> class MegaArith {
             info("");
         }
 
-        size_t get_total_structured_size()
+        size_t get_structured_dyadic_size()
         {
-            size_t total_size = 0;
+            size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
             for (auto block : this->get()) {
                 total_size += block.get_fixed_size();
             }
-            return total_size;
+
+            auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
+            if ((1UL << log2_n) != (total_size)) {
+                ++log2_n;
+            }
+            return 1UL << log2_n;
         }
 
         bool operator==(const TraceBlocks& other) const = default;

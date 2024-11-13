@@ -1,12 +1,4 @@
-import {
-  type AccountWallet,
-  type AztecAddress,
-  BatchCall,
-  Fr,
-  PrivateFeePaymentMethod,
-  computeSecretHash,
-  sleep,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type AztecAddress, BatchCall, PrivateFeePaymentMethod, sleep } from '@aztec/aztec.js';
 import { type GasSettings } from '@aztec/circuits.js';
 import { type TokenContract as BananaCoin, FPCContract } from '@aztec/noir-contracts.js';
 
@@ -179,8 +171,8 @@ describe('e2e_fees private_payment', () => {
      * BC increase total supply
      *
      * PUBLIC TEARDOWN
-     *  increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
-     *  increase Alice's private banana balance by feeAmount by finalizing partial note
+     * increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
+     * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const newlyMintedBananas = 10n;
     const from = aliceAddress; // we are setting from to Alice here because of TODO(#9887)
@@ -221,23 +213,20 @@ describe('e2e_fees private_payment', () => {
      * setup fee and refund partial notes
      * setup public teardown call
      *
-     *
      * PRIVATE APP LOGIC
-     * N/A
+     * a partial note is prepared
      *
      * PUBLIC APP LOGIC
      * BC decrease Alice public balance by shieldedBananas
-     * BC create transparent note of shieldedBananas
+     * BC finalizes the partial note with an amount --> this is where the note is created in public
      *
      * PUBLIC TEARDOWN
-     *  increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
-     *  increase Alice's private banana balance by feeAmount by finalizing partial note
+     * increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
+     * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
-    const shieldedBananas = 1n;
-    const shieldSecret = Fr.random();
-    const shieldSecretHash = computeSecretHash(shieldSecret);
+    const amountTransferredToPrivate = 1n;
     const tx = await bananaCoin.methods
-      .shield(aliceAddress, shieldedBananas, shieldSecretHash, 0n)
+      .transfer_to_private(aliceAddress, amountTransferredToPrivate)
       .send({
         fee: {
           gasSettings,
@@ -256,30 +245,27 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas - feeAmount, 0n, initialSequencerPrivateBananas + feeAmount],
+      [
+        initialAlicePrivateBananas - feeAmount + amountTransferredToPrivate,
+        0n,
+        initialSequencerPrivateBananas + feeAmount,
+      ],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas - shieldedBananas, initialFPCPublicBananas, 0n],
+      [initialAlicePublicBananas - amountTransferredToPrivate, initialFPCPublicBananas, 0n],
     );
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
-
-    await expect(
-      t.addPendingShieldNoteToPXE(t.aliceWallet, shieldedBananas, shieldSecretHash, tx.txHash),
-    ).resolves.toBeUndefined();
   });
 
   it('pays fees for tx that creates notes in both private and public', async () => {
-    const privateTransfer = 1n;
-    const shieldedBananas = 1n;
-    const shieldSecret = Fr.random();
-    const shieldSecretHash = computeSecretHash(shieldSecret);
-
+    const amountTransferredInPrivate = 1n;
+    const amountTransferredToPrivate = 2n;
     /**
      * PRIVATE SETUP
      * check authwit
@@ -290,18 +276,19 @@ describe('e2e_fees private_payment', () => {
      * PRIVATE APP LOGIC
      * reduce Alice's private balance by privateTransfer
      * create note for Bob with privateTransfer amount of private BC
+     * prepare partial note (in the transfer to private)
      *
      * PUBLIC APP LOGIC
-     * BC decrease Alice public balance by shieldedBananas
-     * BC create transparent note of shieldedBananas
+     * BC decrease Alice public balance by amountTransferredToPrivate
+     * BC finalize partial note with amountTransferredToPrivate (this is where the note is created in public)
      *
      * PUBLIC TEARDOWN
-     *  increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
-     *  increase Alice's private banana balance by feeAmount by finalizing partial note
+     * increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
+     * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const tx = await new BatchCall(aliceWallet, [
-      bananaCoin.methods.transfer(bobAddress, privateTransfer).request(),
-      bananaCoin.methods.shield(aliceAddress, shieldedBananas, shieldSecretHash, 0n).request(),
+      bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate).request(),
+      bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate).request(),
     ])
       .send({
         fee: {
@@ -322,8 +309,8 @@ describe('e2e_fees private_payment', () => {
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
       [
-        initialAlicePrivateBananas - feeAmount - privateTransfer,
-        initialBobPrivateBananas + privateTransfer,
+        initialAlicePrivateBananas - feeAmount - amountTransferredInPrivate + amountTransferredToPrivate,
+        initialBobPrivateBananas + amountTransferredInPrivate,
         0n,
         initialSequencerPrivateBananas + feeAmount,
       ],
@@ -331,17 +318,13 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas - shieldedBananas, initialFPCPublicBananas, 0n],
+      [initialAlicePublicBananas - amountTransferredToPrivate, initialFPCPublicBananas, 0n],
     );
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
-
-    await expect(
-      t.addPendingShieldNoteToPXE(t.aliceWallet, shieldedBananas, shieldSecretHash, tx.txHash),
-    ).resolves.toBeUndefined();
   });
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
