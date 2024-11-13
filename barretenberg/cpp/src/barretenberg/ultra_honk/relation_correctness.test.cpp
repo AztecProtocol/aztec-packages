@@ -394,7 +394,7 @@ TEST_F(UltraRelationCorrectnessTests, TruncatedGrandProductPermutation)
     size_t last_gate_idx = 0;
     for (auto& block : builder.blocks.get()) {
         if (block.size() > 0) {
-            last_gate_idx = block.trace_offset + block.size();
+            last_gate_idx = block.trace_offset + block.size() - 1;
         }
     }
 
@@ -415,9 +415,9 @@ TEST_F(UltraRelationCorrectnessTests, TruncatedGrandProductPermutation)
     auto params = decider_pk->relation_parameters;
 
     // We expect that z_perm is constant = final_zperm_val on the rest of the domain
-    auto final_zperm_val = prover_polynomials.z_perm[last_gate_idx];
+    auto final_zperm_val = prover_polynomials.z_perm[last_gate_idx + 1];
     bool z_perm_value_is_constant = true;
-    for (size_t i = last_gate_idx; i < circuit_size; ++i) {
+    for (size_t i = last_gate_idx + 1; i < circuit_size; ++i) {
         if (prover_polynomials.z_perm[i] != final_zperm_val) {
             z_perm_value_is_constant = false;
         }

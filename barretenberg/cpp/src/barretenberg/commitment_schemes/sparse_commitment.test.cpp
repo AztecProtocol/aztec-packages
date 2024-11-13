@@ -54,19 +54,17 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
                 polynomial.at(idx) = Fr::random_element();
             }
             start_idx += fixed_size;
-            if (non_zero_complement) { // fill complement with random constant value
-                Fr const_val = Fr::random_element();
-                for (size_t idx = end_idx; idx < start_idx; ++idx) {
-                    polynomial.at(idx) = const_val;
-                }
-            }
         }
 
-        // In practice, the polynomials of interest (z_perm) will be zero at all indices starting 1 index beyond the
-        // final "active" row
+        // If non_zero_complement, populate the space between active regions with a random constant value
         if (non_zero_complement) {
-            for (size_t i = active_range_endpoints.back().second + 1; i < polynomial.end_index(); ++i) {
-                polynomial.at(i) = 0;
+            for (size_t i = 0; i < active_range_endpoints.size() - 1; ++i) {
+                const size_t start = active_range_endpoints[i].second;
+                const size_t end = active_range_endpoints[i + 1].first;
+                Fr const_val = Fr::random_element();
+                for (size_t idx = start; idx < end; ++idx) {
+                    polynomial.at(idx) = const_val;
+                }
             }
         }
 
@@ -339,8 +337,6 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     using G1 = Curve::AffineElement;
 
     // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
-    // std::vector<uint32_t> fixed_sizes = { 5, 3 };
-    // std::vector<uint32_t> actual_sizes = { 3, 2 };
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
 

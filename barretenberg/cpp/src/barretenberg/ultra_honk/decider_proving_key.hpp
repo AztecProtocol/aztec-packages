@@ -80,7 +80,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
             if (block.size() > 0) {
-                final_active_wire_idx = block.trace_offset + block.size();
+                final_active_wire_idx = block.trace_offset + block.size() - 1;
             }
         }
 

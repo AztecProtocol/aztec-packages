@@ -259,22 +259,19 @@ template <class Curve> class CommitmentKey {
      * @return Commitment
      */
     Commitment commit_structured_with_nonzero_complement(PolynomialSpan<const Fr> polynomial,
-                                                         const std::vector<std::pair<size_t, size_t>>& active_ranges_in)
+                                                         const std::vector<std::pair<size_t, size_t>>& active_ranges)
     {
         BB_OP_COUNT_TIME();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
-
-        // The grand product polynomial z_perm takes a nonzero value at the index just beyond the last active wire and
-        // then vanishes at every index beyond; the last active range is incremented by one to include this value
-        auto active_ranges = active_ranges_in;
-        active_ranges.back().second += 1;
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
 
         // Percentage of constant coefficients below which we resort to the conventional commit method
         constexpr size_t CONSTANT_THRESHOLD = 50;
 
-        // Compute the active range complement over which the polynomial is assumed to be constant within each range
+        // Compute the active range complement over which the polynomial is assumed to be constant within each range.
+        // Note: the range from the end of the last active range to the end of the polynomial is excluded from the
+        // complement since the polynomial is assumed to be zero there.
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
         for (size_t i = 0; i < active_ranges.size() - 1; ++i) {
             const size_t start = active_ranges[i].second;
@@ -296,8 +293,8 @@ template <class Curve> class CommitmentKey {
         // Compute percentage of polynomial comprised of constant blocks; resort to standard commit if appropriate
         size_t percentage_constant = total_num_complement_scalars * 100 / polynomial.size();
         if (percentage_constant < CONSTANT_THRESHOLD) {
-            // return commit(polynomial);
-            info("ignoring commit() fallback for testsing.");
+            return commit(polynomial);
+            // info("ignoring commit() fallback for testsing.");
         }
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
