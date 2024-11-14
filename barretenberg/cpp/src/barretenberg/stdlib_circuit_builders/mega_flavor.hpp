@@ -513,6 +513,7 @@ class MegaFlavor {
 
         uint64_t estimate_memory()
         {
+            vinfo("++Estimating proving key memory++");
             for (auto [polynomial, label] : zip_view(polynomials.get_all(), polynomials.get_labels())) {
                 uint64_t size = polynomial.size();
                 vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");

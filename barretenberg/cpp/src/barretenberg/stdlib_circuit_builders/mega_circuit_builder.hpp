@@ -8,7 +8,7 @@
 namespace bb {
 
 template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaArith<FF>> {
-  public:
+  private:
     DataBus databus; // Container for public calldata/returndata
 
   public:
@@ -36,7 +36,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     // Metadata for propagating databus return data commitments via the public input mechanism
     DatabusPropagationData databus_propagation_data;
 
-  public:
+  private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
     void set_goblin_ecc_op_code_constant_variables();
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
@@ -238,7 +238,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
     uint64_t estimate_memory() const
     {
-        vinfo("ESTIMATING BUILDER MEMORY");
+        vinfo("++Estimating builder memory++");
         uint64_t result{ 0 };
 
         // gates:
@@ -255,23 +255,23 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         }
 
         // variables
-        result += this->variables.capacity() * sizeof(FF);
+        size_t to_add{ this->variables.capacity() * sizeof(FF) };
+        result += to_add;
+        vinfo("variables: ", to_add);
 
         // public inputs
-        result += this->public_inputs.capacity() * sizeof(uint32_t);
+        to_add = this->public_inputs.capacity() * sizeof(uint32_t);
+        result += to_add;
+        vinfo("public inputs: ", to_add);
 
         // other variable indices
-        result += this->next_var_index.capacity() * sizeof(uint32_t);
-        result += this->prev_var_index.capacity() * sizeof(uint32_t);
-        result += this->real_variable_index.capacity() * sizeof(uint32_t);
-        result += this->real_variable_tags.capacity() * sizeof(uint32_t);
+        to_add = this->next_var_index.capacity() * sizeof(uint32_t);
+        to_add += this->prev_var_index.capacity() * sizeof(uint32_t);
+        to_add += this->real_variable_index.capacity() * sizeof(uint32_t);
+        to_add += this->real_variable_tags.capacity() * sizeof(uint32_t);
+        result += to_add;
+        vinfo("variable indices: ", to_add);
 
-        // // databus
-        // for (const auto& bus_vector : databus) {
-        //     const uint64_t size((bus_vector.read_counts.capacity() + bus_vector.data.capacity()) * sizeof(uint32_t));
-        //     vinfo("size: ", size >> 10, " KiB");
-        //     result += size;
-        // }
         return result;
     }
 };
