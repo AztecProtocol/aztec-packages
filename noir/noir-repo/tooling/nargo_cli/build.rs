@@ -130,7 +130,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_dir,
             r#"
                 nargo.arg("execute").arg("--force");
-            
+
                 nargo.assert().success();"#,
         );
 
@@ -141,7 +141,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
                 &test_dir,
                 r#"
                 nargo.arg("execute").arg("--force").arg("--force-brillig");
-            
+
                 nargo.assert().success();"#,
             );
         }
@@ -169,7 +169,7 @@ fn generate_execution_failure_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_dir,
             r#"
                 nargo.arg("execute").arg("--force");
-            
+
                 nargo.assert().failure().stderr(predicate::str::contains("The application panicked (crashed).").not());"#,
         );
     }
@@ -196,7 +196,7 @@ fn generate_noir_test_success_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_dir,
             r#"
         nargo.arg("test");
-        
+
         nargo.assert().success();"#,
         );
     }
@@ -222,7 +222,7 @@ fn generate_noir_test_failure_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_dir,
             r#"
         nargo.arg("test");
-        
+
         nargo.assert().failure();"#,
         );
     }
@@ -273,7 +273,7 @@ fn generate_compile_success_empty_tests(test_file: &mut File, test_data_dir: &Pa
             &format!(
                 r#"
                 nargo.arg("info").arg("--json").arg("--force");
-                
+
                 {assert_zero_opcodes}"#,
             ),
         );
@@ -353,7 +353,7 @@ fn generate_compile_failure_tests(test_file: &mut File, test_data_dir: &Path) {
             &test_name,
             &test_dir,
             r#"nargo.arg("compile").arg("--force");
-        
+
         nargo.assert().failure().stderr(predicate::str::contains("The application panicked (crashed).").not());"#,
         );
     }
