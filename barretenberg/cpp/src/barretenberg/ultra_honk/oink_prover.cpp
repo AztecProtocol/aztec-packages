@@ -233,45 +233,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
-    proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters);
+    proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
+                                                              proving_key->final_active_wire_idx + 1);
 
-    // for (size_t idx = proving_key->final_active_wire_idx - 5; idx < proving_key->final_active_wire_idx + 5; ++idx) {
-    //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
-    //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
-    // }
-
-    for (size_t idx = proving_key->final_active_wire_idx + 1; idx < proving_key->proving_key.circuit_size; ++idx) {
-        proving_key->proving_key.polynomials.z_perm.at(idx) = 0;
-    }
-
-    // info("proving_key->final_active_wire_idx: ", proving_key->final_active_wire_idx);
-    // info("z_perm[final_active_wire_idx - 1]: ",
-    //      proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx - 1));
-    // info("z_perm[final_active_wire_idx ]: ",
-    //      proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx));
-    // info("z_perm[final_active_wire_idx + 1]: ",
-    //      proving_key->proving_key.polynomials.z_perm.at(proving_key->final_active_wire_idx + 1));
-
-    // for (size_t idx = proving_key->final_active_wire_idx - 1; idx < proving_key->final_active_wire_idx + 1; ++idx) {
-    //     info("idx = ", idx);
-    //     for (auto wire : proving_key->proving_key.polynomials.get_wires()) {
-    //         info("wire[idx] = ", wire[idx]);
-    //     }
-    // }
-
-    // proving_key->proving_key.active_block_ranges[proving_key->proving_key.active_block_ranges.size() - 2].second +=
-    // 1;
-    for (auto pair : proving_key->proving_key.active_block_ranges) {
-        info(pair.first, " ", pair.second);
-    }
-
-    // for (size_t idx = proving_key->final_active_wire_idx - 5; idx < proving_key->final_active_wire_idx + 5;
-    // ++idx) {
-    //     info("z_perm[i] = ", proving_key->proving_key.polynomials.z_perm.at(idx));
-    //     info("z_perm_shift[i] = ", proving_key->proving_key.polynomials.z_perm_shift.at(idx));
-    // }
-
-    info("proving_key is structured: ", proving_key->get_is_structured());
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
         if (proving_key->get_is_structured()) {

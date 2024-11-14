@@ -279,11 +279,6 @@ template <class Curve> class CommitmentKey {
             active_ranges_complement.emplace_back(start, end);
         }
 
-        info("Complement ranges:");
-        for (auto pair : active_ranges_complement) {
-            info(pair.first, " ", pair.second);
-        }
-
         // Compute the total number of scalars in the constant regions
         size_t total_num_complement_scalars = 0;
         for (const auto& range : active_ranges_complement) {
@@ -294,7 +289,6 @@ template <class Curve> class CommitmentKey {
         size_t percentage_constant = total_num_complement_scalars * 100 / polynomial.size();
         if (percentage_constant < CONSTANT_THRESHOLD) {
             return commit(polynomial);
-            // info("ignoring commit() fallback for testsing.");
         }
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding

@@ -345,11 +345,6 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     auto [polynomial, active_range_endpoints] =
         TestFixture::create_structured_test_polynomial(fixed_sizes, actual_sizes, non_zero_complement);
 
-    info("active_range_endpoints: ");
-    for (auto range : active_range_endpoints) {
-        info(range.first, ", ", range.second);
-    }
-
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
 

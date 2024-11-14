@@ -24,10 +24,8 @@ template <class FF> class GrandProductTests : public testing::Test {
 
     /**
      * @brief Check consistency of the computation of the permutation grand product polynomial z_permutation.
-     * @details This test compares a simple, unoptimized, easily readable calculation of the grand product
-     z_permutation
-     * to the optimized implementation used by the prover. It's purpose is to provide confidence that some
-     optimization
+     * @details This test compares a simple, unoptimized, easily readable calculation of the grand product z_permutation
+     * to the optimized implementation used by the prover. It's purpose is to provide confidence that some optimization
      * introduced into the calculation has not changed the result.
      * @note This test does confirm the correctness of z_permutation, only that the two implementations yield an
      * identical result.

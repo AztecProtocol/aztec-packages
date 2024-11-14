@@ -319,10 +319,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     DeciderProvingKey_() = default;
     ~DeciderProvingKey_() = default;
 
-    /**
-     * @brief Getter for whether the trace is structured, will always evaluate to true in case the overflow block is
-     * set.
-     */
     bool get_is_structured() { return is_structured; }
 
   private:

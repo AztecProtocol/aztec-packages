@@ -123,7 +123,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    // Ranges over which the execution trace is "active"  assumed to be [start, end)
+    // Ranges of the form [start, end) over which the execution trace is "active"
     std::vector<std::pair<size_t, size_t>> active_block_ranges;
 
     ProvingKey_() = default;
