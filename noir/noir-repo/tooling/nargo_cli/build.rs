@@ -152,7 +152,7 @@ fn generate_test_cases(
         }
         cases
     } else {
-        vec![Inliner::Default]
+        vec![Inliner::Max]
     };
 
     // We can't use a `#[test_matrix(brillig_cases, inliner_cases)` if we only want to limit the
