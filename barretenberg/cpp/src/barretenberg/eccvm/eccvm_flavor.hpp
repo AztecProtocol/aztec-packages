@@ -951,11 +951,6 @@ class ECCVMFlavor {
         FF translation_eval_z1;
         FF translation_eval_z2;
         Commitment shplonk_q2_comm;
-        uint32_t ipa_poly_degree;
-        std::vector<Commitment> ipa_l_comms;
-        std::vector<Commitment> ipa_r_comms;
-        Commitment ipa_G_0_eval;
-        FF ipa_a_0_eval;
 
         Transcript() = default;
 
