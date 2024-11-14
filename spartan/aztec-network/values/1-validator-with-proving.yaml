@@ -17,7 +17,6 @@ proverNode:
 proverAgent:
   replicas: 6
   realProofs: true
-  realProofs: true
   bb:
     hardwareConcurrency: 16
   resources:
