@@ -1,5 +1,3 @@
-#pragma GCC diagnostic ignored "-Wunused-variable"
-
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -137,21 +135,20 @@ void fill_elliptic_block(Builder& builder)
     const uint32_t y2_idx = builder.add_variable(fr::random_element());
     const uint32_t x3_idx = builder.add_variable(fr::random_element());
     const uint32_t y3_idx = builder.add_variable(fr::random_element());
-    while (builder.blocks.elliptic.size() < builder.blocks.elliptic.get_fixed_size() - 100) {
+    while (builder.blocks.elliptic.size() < builder.blocks.elliptic.get_fixed_size() - 10 * NUM_SHORT) {
         builder.create_ecc_add_gate({ x1_idx, y1_idx, x2_idx, y2_idx, x3_idx, y3_idx, 1 });
     }
 }
 
 void fill_aux_block(Builder& builder)
 {
-    // static constexpr size_t NUM_AUX_TYPES = 11;
     auto& block = builder.blocks.aux;
 
     const uint32_t idx_1 = builder.add_variable(fr::random_element());
     const uint32_t idx_2 = builder.add_variable(fr::random_element());
     const uint32_t idx_3 = builder.add_variable(fr::random_element());
     const uint32_t idx_4 = builder.add_variable(fr::random_element());
-    while (block.size() < block.get_fixed_size() - 100) {
+    while (block.size() < block.get_fixed_size() - 10 * NUM_SHORT) {
         builder.apply_aux_selectors(Builder::AUX_SELECTORS::ROM_READ);
         block.populate_wires(idx_1, idx_2, idx_3, idx_4);
         builder.apply_aux_selectors(Builder::AUX_SELECTORS::LIMB_ACCUMULATE_1);
@@ -234,8 +231,6 @@ void fill_lookup_block(Builder& builder)
                        plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
         const auto input_lo =
             uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
-        const auto input_hi_index = builder.add_variable(input_hi);
-        const auto input_lo_index = builder.add_variable(input_lo);
         plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
         plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
         plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_HI, input_hi);
