@@ -78,7 +78,7 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 {{- if .Values.validator.externalTcpHost -}}
 http://{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.nodePort }}
 {{- else -}}
-http://{{ include "aztec-network.fullname" . }}-validator-0.{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
+http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
 {{- end -}}
 {{- end -}}
 
