@@ -51,12 +51,11 @@ jobs:
   test:
     needs: build
     runs-on: ubuntu-20.04
-    timeout-minutes: 90
     strategy:
       matrix:
         test:
           - transfer
-          # - reorg
+          - reorg
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -82,7 +81,7 @@ jobs:
 
   proving-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-20.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -104,14 +103,8 @@ jobs:
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
             cd yarn-project/end-to-end
-
-            (while true; do echo "Still running..." && sleep 60; done) &
-            HEARTBEAT_PID=$!
-
             export FORCE_COLOR=1
             NAMESPACE=proving FRESH_INSTALL=true CLEANUP_CLUSTER=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
-
-            kill $HEARTBEAT_PID
 
   success-check:
     runs-on: ubuntu-20.04
