@@ -8,6 +8,7 @@ import {
   TxStatus,
   createDebugLogger,
   retryUntil,
+  sleep,
 } from '@aztec/aztec.js';
 import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
