@@ -508,6 +508,8 @@ export async function generateAvmProof(
   const calldataPath = join(workingDirectory, AVM_CALLDATA_FILENAME);
   const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
   const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
+  // Temp while we are using the old public inputs
+  const newPublicInputsPath = join(workingDirectory, `new_${AVM_PUBLIC_INPUTS_FILENAME}`);
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -542,6 +544,9 @@ export async function generateAvmProof(
     if (!filePresent(publicInputsPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
     }
+
+    // New public inputs, we serialize as a buffer as we will deserialize them in C++ to a similar struct
+    await fs.writeFile(newPublicInputsPath, input.output.toBuffer());
 
     await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
     if (!filePresent(avmHintsPath)) {

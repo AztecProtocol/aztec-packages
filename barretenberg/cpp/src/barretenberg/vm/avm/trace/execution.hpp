@@ -4,6 +4,7 @@
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/instructions.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 
 #include <cstddef>
@@ -42,6 +43,7 @@ class Execution {
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
         std::vector<FF> const& calldata = {},
         std::vector<FF> const& public_inputs_vec = getDefaultPublicInputs(),
+        AvmPublicInputs const& public_inputs = AvmPublicInputs(),
         ExecutionHints const& execution_hints = {});
     static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
 

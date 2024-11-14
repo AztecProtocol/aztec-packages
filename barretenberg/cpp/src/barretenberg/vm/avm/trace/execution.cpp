@@ -13,6 +13,7 @@
 #include "barretenberg/vm/avm/trace/instructions.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/constants.hpp"
@@ -175,9 +176,11 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  * @throws runtime_error exception when the bytecode is invalid.
  * @return The verifier key and zk proof of the execution.
  */
-std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<FF> const& calldata,
-                                                                   std::vector<FF> const& public_inputs_vec,
-                                                                   ExecutionHints const& execution_hints)
+std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(
+    std::vector<FF> const& calldata,
+    std::vector<FF> const& public_inputs_vec,
+    [[maybe_unused]] AvmPublicInputs const& public_inputs,
+    ExecutionHints const& execution_hints)
 {
     if (public_inputs_vec.size() != PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
         throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
