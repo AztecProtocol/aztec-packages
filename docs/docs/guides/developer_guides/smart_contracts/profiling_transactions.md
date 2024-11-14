@@ -24,7 +24,7 @@ In this guide, we will look at how to profile the private execution of a transac
 
 The profiling tool is integrated into the `aztec-wallet`.
 
-In this example, we will profile a simple "private token transfer" transaction using the  [transfer_in_private](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L376) method in the token contract.
+In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L269) method in the token contract.
 
 Let's deploy the necessary account and token contracts first:
 
@@ -42,13 +42,13 @@ Now, the `user` can transfer tokens by running:
 
 ```bash
 # Send the tokens back to the owner
-aztec-wallet send transfer_in_private -ca token --args accounts:user accounts:owner 100 0 -f user
+aztec-wallet send transfer -ca token --args accounts:owner 40 -f user
 ```
 
 Instead of sending the above transaction, you can simulate it by running the `simulate` command with the same parameters, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
 
 ```bash
-aztec-wallet simulate --profile transfer_in_private -ca token --args accounts:user accounts:owner 100 0 -f user
+aztec-wallet simulate --profile transfer -ca token --args accounts:owner 40 -f user
 ```
 
 This will print the following results after some time:
@@ -57,12 +57,12 @@ This will print the following results after some time:
 Gate count per circuit:
    SchnorrAccount:entrypoint                          Gates: 26,363     Acc: 26,363
    private_kernel_init                                Gates: 34,887     Acc: 61,250
-   Token:transfer_in_private                          Gates: 128,095    Acc: 189,345
-   private_kernel_inner                               Gates: 57,530     Acc: 246,875
-   private_kernel_reset                               Gates: 86,600     Acc: 333,475
-   private_kernel_tail                                Gates: 13,045     Acc: 346,520
+   Token:transfer                                     Gates: 28,229     Acc: 89,479
+   private_kernel_inner                               Gates: 57,530     Acc: 147,009
+   private_kernel_reset                               Gates: 86,600     Acc: 233,609
+   private_kernel_tail                                Gates: 13,045     Acc: 246,654
 
-Total gates: 346,520
+Total gates: 246,654
 ```
 
 Here you can see the gate count of each private function call in the transaction along with the kernel circuits needed in between, and the total gate count.
