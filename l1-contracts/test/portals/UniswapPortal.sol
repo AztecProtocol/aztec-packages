@@ -87,6 +87,8 @@ contract UniswapPortal {
 
     {
       // prevent stack too deep errors
+      // The purpose of including the function selector is to make the message unique to that specific call. Note that
+      // it has nothing to do with calling the function.
       vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
           "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
@@ -191,6 +193,8 @@ contract UniswapPortal {
 
     {
       // prevent stack too deep errors
+      // The purpose of including the function selector is to make the message unique to that specific call. Note that
+      // it has nothing to do with calling the function.
       vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
           "swap_private(address,uint256,uint24,address,uint256,bytes32,address)",
