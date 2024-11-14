@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731608974111,
+  "lastUpdate": 1731609036760,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "blorktronics@gmail.com",
-            "name": "Zachary James Williamson",
-            "username": "zac-williamson"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "722ec5c3dfdc2a5e467528ed94a25677f8800087",
-          "message": "feat: faster square roots (#2694)\n\nWe use the Tonelli-Shanks square root algorithm to perform square roots,\r\nrequired for deriving generators on the Grumpkin curve.\r\n\r\nOur existing implementation uses a slow algorithm that requires ~1,000\r\nfield multiplications per square root.\r\n\r\nThis PR implements a newer algorithm by Bernstein that uses precomputed\r\nlookup tables to increase performance\r\n\r\nhttps://cr.yp.to/papers/sqroot-20011123-retypeset20220327.pdf",
-          "timestamp": "2024-10-30T17:54:29-04:00",
-          "tree_id": "9dfa0c8467e712b8f4a9bdfe6b6bde11d20f9510",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/722ec5c3dfdc2a5e467528ed94a25677f8800087"
-        },
-        "date": 1730327613020,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29168.44631999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27502.004968999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5384.818256000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5045.767242 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86206.17749599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86206180000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15132.977390999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15132977000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2498302551,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2498302551 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127878727,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127878727 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 143841826,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143841826 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37d7cd784bc6dfe366d1eabc2b7be8cca4359f7b",
+          "message": "feat: split up eccvm proof into two proofs (#9914)\n\nSplits the IPA proof from the rest of the ECCVM proof.\r\n\r\nWe want the IPA proof to be separate from the rest of the ECCVM proof so\r\nwe don't have to run IPA accumulation in the tube and base rollup\r\ncircuits.",
+          "timestamp": "2024-11-14T17:40:27Z",
+          "tree_id": "1fdc1dc6b32ee8e4032cf419348e57dd4d8447b8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/37d7cd784bc6dfe366d1eabc2b7be8cca4359f7b"
+        },
+        "date": 1731609029749,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28836.814621,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27081.803125000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5359.435134999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4922.5056079999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84297.451539,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84297452000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15125.039399,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15125041000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3115200669,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3115200669 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143619617,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143619617 ns\nthreads: 1"
           }
         ]
       }
