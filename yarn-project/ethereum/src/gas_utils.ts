@@ -176,7 +176,7 @@ export class GasUtils {
         this.logger?.info(`Transaction ${currentTxHash} pending`);
         if (tx) {
           lastSeen = Date.now();
-          await new Promise(resolve => setTimeout(resolve, config.checkIntervalMs));
+          await sleep(config.checkIntervalMs);
           continue;
         }
 
@@ -204,8 +204,6 @@ export class GasUtils {
 
           lastSeen = Date.now();
         }
-
-        // await new Promise(resolve => setTimeout(resolve, cfg.checkIntervalMs));
         await sleep(config.checkIntervalMs);
       } catch (err: any) {
         this.logger?.warn(`Error monitoring transaction ${currentTxHash}:`, err);

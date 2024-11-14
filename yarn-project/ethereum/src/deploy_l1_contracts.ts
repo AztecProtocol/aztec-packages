@@ -223,6 +223,19 @@ export type L1Clients = {
   walletClient: WalletClient<HttpTransport, Chain, Account>;
 };
 
+export const deployerAbi = [
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'salt', type: 'bytes32' },
+      { internalType: 'bytes', name: 'init_code', type: 'bytes' },
+    ],
+    name: 'deploy',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+];
+
 /**
  * Creates a wallet and a public viem client for interacting with L1.
  * @param rpcUrl - RPC URL to connect to L1.
@@ -604,6 +617,8 @@ export async function deployL1Contract(
   let txHash: Hex | undefined = undefined;
   let address: Hex | null | undefined = undefined;
 
+  const gasUtils = new GasUtils(publicClient, logger);
+
   if (libraries) {
     // @note  Assumes that we wont have nested external libraries.
 
@@ -652,33 +667,43 @@ export async function deployL1Contract(
     const existing = await publicClient.getBytecode({ address });
 
     if (existing === undefined || existing === '0x') {
-      // Add gas estimation and price buffering for CREATE2 deployment
-      const deployData = encodeDeployData({ abi, bytecode, args });
-      const gasUtils = new GasUtils(publicClient, logger);
-      const gasEstimate = await gasUtils.estimateGas(() =>
-        publicClient.estimateGas({
-          account: walletClient.account?.address,
-          data: deployData,
-        }),
-      );
-      const gasPrice = await gasUtils.getGasPrice();
-
-      txHash = await walletClient.sendTransaction({
-        to: deployer,
-        data: concatHex([salt, calldata]),
-        gas: gasEstimate,
-        maxFeePerGas: gasPrice,
+      const { request } = await publicClient.simulateContract({
+        account: walletClient.account,
+        address: deployer,
+        abi: deployerAbi,
+        functionName: 'deploy',
+        args: [salt, calldata],
       });
-      logger?.verbose(
-        `Deploying contract with salt ${salt} to address ${address} in tx ${txHash} (gas: ${gasEstimate}, price: ${gasPrice})`,
-      );
+
+      console.log('REQUEST', request);
+
+      txHash = await walletClient.writeContract(request);
+
+      // Add gas estimation and price buffering for CREATE2 deployment
+      // const deployData = encodeDeployData({ abi, bytecode, args });
+      // const gasEstimate = await gasUtils.estimateGas(() =>
+      //   publicClient.estimateGas({
+      //     account: walletClient.account?.address,
+      //     data: deployData,
+      //   }),
+      // );
+      // const gasPrice = await gasUtils.getGasPrice();
+
+      // txHash = await walletClient.sendTransaction({
+      //   to: deployer,
+      //   data: concatHex([salt, calldata]),
+      //   gas: gasEstimate,
+      //   maxFeePerGas: gasPrice,
+      // });
+      // logger?.verbose(
+      //   `Deploying contract with salt ${salt} to address ${address} in tx ${txHash} (gas: ${gasEstimate}, price: ${gasPrice})`,
+      // );
     } else {
       logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
     }
   } else {
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const gasUtils = new GasUtils(publicClient, logger);
     const gasEstimate = await gasUtils.estimateGas(() =>
       publicClient.estimateGas({
         account: walletClient.account?.address,

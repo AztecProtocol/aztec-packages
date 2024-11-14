@@ -1,11 +1,25 @@
-import { GasUtils } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { createAnvil } from '@viem/anvil';
+import getPort from 'get-port';
 import { createPublicClient, createWalletClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { getPrivateKeyFromIndex, startAnvil } from './fixtures/utils.js';
+import { GasUtils } from './gas_utils.js';
+
+const MNEMONIC = 'test test test test test test test test test test test junk';
+
+const startAnvil = async (l1BlockTime?: number) => {
+  const ethereumHostPort = await getPort();
+  const rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+  const anvil = createAnvil({
+    port: ethereumHostPort,
+    blockTime: l1BlockTime,
+  });
+  await anvil.start();
+  return { anvil, rpcUrl };
+};
 
 describe('e2e_l1_gas', () => {
   let gasUtils: GasUtils;
@@ -14,10 +28,15 @@ describe('e2e_l1_gas', () => {
   const logger = createDebugLogger('l1_gas_test');
 
   beforeAll(async () => {
-    const res = await startAnvil(12);
-    const rpcUrl = res.rpcUrl;
-    const privKey = getPrivateKeyFromIndex(0);
-    const account = privateKeyToAccount(`0x${privKey?.toString('hex')}`);
+    const { rpcUrl } = await startAnvil(12);
+    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+    const privKeyRaw = hdAccount.getHdKey().privateKey;
+    if (!privKeyRaw) {
+      // should never happen, used for types
+      throw new Error('Failed to get private key');
+    }
+    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
       transport: http(rpcUrl),

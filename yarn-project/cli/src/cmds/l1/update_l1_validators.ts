@@ -57,6 +57,13 @@ export async function addL1Validator({
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
     await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  } else {
+    const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
+    const balanceInEth = Number(balance) / 10 ** 18;
+    dualLog(`Validator balance: ${balanceInEth.toFixed(6)} ETH`);
+    if (balanceInEth === 0) {
+      dualLog(`WARNING: Validator has no balance. Remember to fund it!`);
+    }
   }
 }
 

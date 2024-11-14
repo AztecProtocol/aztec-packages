@@ -21,7 +21,7 @@ for ((i = 0; i < NUM_VALIDATORS; i++)); do
   P2P_PORT=$((40401 + i))
   IDX=$((i + 1))
 
-  # Use empty string as default if variables are not set
+  # These variables should be set in public networks if we have funded validators already. Leave empty for test environments.
   ADDRESS_VAR="ADDRESS_${IDX}"
   PRIVATE_KEY_VAR="VALIDATOR_PRIVATE_KEY_${IDX}"
   ADDRESS="${!ADDRESS_VAR:-}"

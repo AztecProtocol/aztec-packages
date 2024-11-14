@@ -51,7 +51,14 @@ export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
-export IS_ANVIL=${IS_ANVIL:-"true"}
+
+# Automatically detect if we're using Anvil
+if curl -s -H "Content-Type: application/json" -X POST --data '{"method":"web3_clientVersion","params":[],"id":49,"jsonrpc":"2.0"}' $ETHEREUM_HOST | jq .result | grep -q anvil; then
+  IS_ANVIL="true"
+else
+  IS_ANVIL="false"
+fi
+
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
 export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
