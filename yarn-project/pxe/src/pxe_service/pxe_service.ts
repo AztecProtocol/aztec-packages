@@ -608,6 +608,15 @@ export class PXEService implements PXE {
     return this.node.getUnencryptedLogs(filter);
   }
 
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  public getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.node.getContractClassLogs(filter);
+  }
+
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {

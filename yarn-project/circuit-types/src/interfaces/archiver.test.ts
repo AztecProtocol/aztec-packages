@@ -171,6 +171,14 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
+  it('getContractClassLogs', async () => {
+    const result = await context.client.getContractClassLogs({
+      txHash: TxHash.random(),
+      contractAddress: AztecAddress.random(),
+    });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
   it('getPublicFunction', async () => {
     const selector = FunctionSelector.random();
     const result = await context.client.getPublicFunction(AztecAddress.random(), selector);
@@ -303,6 +311,11 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.txHash).toBeInstanceOf(TxHash);
+    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });

@@ -262,6 +262,13 @@ export interface AztecNode extends ProverCoordination {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
@@ -392,7 +399,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
-    .returns(z.array(schemas.BigInt.optional())),
+    .returns(z.array(optional(schemas.BigInt))),
 
   getNullifierSiblingPath: z
     .function()
@@ -466,6 +473,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getLogs: z.function().args(z.number(), z.number(), z.nativeEnum(LogType)).returns(z.array(L2BlockL2Logs.schema)),
 
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
 
   getLogsByTags: z
     .function()

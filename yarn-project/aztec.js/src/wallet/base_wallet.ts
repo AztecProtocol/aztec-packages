@@ -157,6 +157,9 @@ export abstract class BaseWallet implements Wallet {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.pxe.getUnencryptedLogs(filter);
   }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.pxe.getContractClassLogs(filter);
+  }
   getBlockNumber(): Promise<number> {
     return this.pxe.getBlockNumber();
   }

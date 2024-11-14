@@ -58,6 +58,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args(z.array(schemas.Fr))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getPublicFunction: z
     .function()
     .args(schemas.AztecAddress, schemas.FunctionSelector)

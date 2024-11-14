@@ -153,7 +153,7 @@ type GetLeafPreImageResponse = SerializedIndexedLeaf | undefined;
 interface FindLeafIndexRequest extends WithTreeId, WithLeafValue, WithWorldStateRevision {
   startIndex: bigint;
 }
-type FindLeafIndexResponse = bigint | undefined;
+type FindLeafIndexResponse = bigint | null;
 
 interface FindLowLeafRequest extends WithTreeId, WithWorldStateRevision {
   key: Fr;

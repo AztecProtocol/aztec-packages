@@ -81,8 +81,8 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('findLeavesIndexes', async () => {
-    const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random()]);
-    expect(response).toEqual([1n]);
+    const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
+    expect(response).toEqual([1n, undefined]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -210,6 +210,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
+  it('getContractClassLogs', async () => {
+    const response = await context.client.getContractClassLogs({ contractAddress: AztecAddress.random() });
+    expect(response).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
   it('getLogsByTags', async () => {
     const response = await context.client.getLogsByTags([Fr.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
@@ -318,9 +323,10 @@ class MockAztecNode implements AztecNode {
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(bigint | undefined)[]> {
-    expect(leafValues).toHaveLength(1);
+    expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([1n]);
+    expect(leafValues[1]).toBeInstanceOf(Fr);
+    return Promise.resolve([1n, undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',
@@ -446,6 +452,10 @@ class MockAztecNode implements AztecNode {
     }
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }

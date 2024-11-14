@@ -212,7 +212,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('emitUnencryptedLog');
   }
 
-  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
 

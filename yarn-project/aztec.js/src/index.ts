@@ -111,6 +111,7 @@ export {
   Body,
   Comparator,
   CompleteAddress,
+  ContractClass2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   EncryptedLogPayload,
   EncryptedNoteL2BlockL2Logs,

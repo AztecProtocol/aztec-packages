@@ -1,5 +1,6 @@
 import {
   type Body,
+  type ContractClass2BlockL2Logs,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -60,6 +61,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
 
   private unencryptedLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
+
+  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
 
   /**
    * Contains all L1 to L2 messages.
@@ -270,6 +273,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
       this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
+      this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);
     });
     return Promise.resolve(true);
   }
@@ -287,6 +291,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       this.noteEncryptedLogsPerBlock.delete(block.number);
       this.unencryptedLogsPerBlock.delete(block.number);
       this.logTagsPerBlock.delete(block.number);
+      this.contractClassLogsPerBlock.delete(block.number);
     });
 
     return Promise.resolve(true);
@@ -512,6 +517,90 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     for (; fromBlock < toBlock; fromBlock++) {
       const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
       const blockLogs = this.unencryptedLogsPerBlock.get(fromBlock);
+
+      if (blockLogs) {
+        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
+          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
+          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
+            const log = txLogs[logIndexInTx];
+            if (
+              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
+              (!contractAddress || log.contractAddress.equals(contractAddress))
+            ) {
+              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
+              if (logs.length === this.maxLogs) {
+                return Promise.resolve({
+                  logs,
+                  maxLogsHit: true,
+                });
+              }
+            }
+          }
+          logIndexInTx = 0;
+        }
+      }
+      txIndexInBlock = 0;
+    }
+
+    return Promise.resolve({
+      logs,
+      maxLogsHit: false,
+    });
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * NB: clone of the above fn, but for contract class logs
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   * @remarks Works by doing an intersection of all params in the filter.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    let txHash: TxHash | undefined;
+    let fromBlock = 0;
+    let toBlock = this.l2Blocks.length + INITIAL_L2_BLOCK_NUM;
+    let txIndexInBlock = 0;
+    let logIndexInTx = 0;
+
+    if (filter.afterLog) {
+      // Continuation parameter is set --> tx hash is ignored
+      if (filter.fromBlock == undefined || filter.fromBlock <= filter.afterLog.blockNumber) {
+        fromBlock = filter.afterLog.blockNumber;
+        txIndexInBlock = filter.afterLog.txIndex;
+        logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
+      } else {
+        fromBlock = filter.fromBlock;
+      }
+    } else {
+      txHash = filter.txHash;
+
+      if (filter.fromBlock !== undefined) {
+        fromBlock = filter.fromBlock;
+      }
+    }
+
+    if (filter.toBlock !== undefined) {
+      toBlock = filter.toBlock;
+    }
+
+    // Ensure the indices are within block array bounds
+    fromBlock = Math.max(fromBlock, INITIAL_L2_BLOCK_NUM);
+    toBlock = Math.min(toBlock, this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
+
+    if (fromBlock > this.l2Blocks.length || toBlock < fromBlock || toBlock <= 0) {
+      return Promise.resolve({
+        logs: [],
+        maxLogsHit: false,
+      });
+    }
+
+    const contractAddress = filter.contractAddress;
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+
+    for (; fromBlock < toBlock; fromBlock++) {
+      const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
+      const blockLogs = this.contractClassLogsPerBlock.get(fromBlock);
 
       if (blockLogs) {
         for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
