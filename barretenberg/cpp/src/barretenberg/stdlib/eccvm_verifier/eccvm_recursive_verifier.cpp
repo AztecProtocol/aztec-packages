@@ -149,7 +149,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     //     PCS::reduce_verify(batch_opening_claim, ipa_transcript);
 
     ASSERT(sumcheck_verified);
-    return transcript;
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
