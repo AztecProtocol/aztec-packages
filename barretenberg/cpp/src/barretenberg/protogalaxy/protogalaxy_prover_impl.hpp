@@ -128,6 +128,16 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +
                                      vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
 
+    // Check whether the incoming key has a larger trace overflow than the accumulator. If so, the memory structure of
+    // the accumulator polynomials will not be sufficient to contain the contribution from the incoming polynomials. The
+    // solution is to simply reorder the addition in the folding formula so that the accumulator is added into the
+    // incoming key rather than vice-versa.
+    if (keys[1]->overflow_size > result.accumulator->overflow_size) {
+        ASSERT(DeciderProvingKeys::NUM == 2);  // this mechanism is not supported for the folding of multiple keys
+        std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
+        std::swap(result.accumulator->proving_key.polynomials, keys[1]->proving_key.polynomials); // swap the polys
+    }
+
     // Fold the proving key polynomials
     for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
         poly *= lagranges[0];

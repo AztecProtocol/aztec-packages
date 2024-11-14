@@ -47,6 +47,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
 
+    size_t overflow_size{ 0 }; // size of the structured execution trace overflow
+
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = TraceSettings{},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
@@ -63,6 +65,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             circuit.blocks.set_fixed_block_sizes(trace_settings); // set the fixed sizes for each block
             circuit.blocks.summarize();
             move_structured_trace_overflow_to_overflow_block(circuit);
+            overflow_size = circuit.blocks.overflow.size();
             dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
         } else {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes

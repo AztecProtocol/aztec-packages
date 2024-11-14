@@ -416,3 +416,32 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
+
+/**
+ * @brief Test dynamic structured trace overflow block mechanism
+ * @details
+ *
+ */
+TEST_F(ClientIVCTests, DynamicStructuredTraceOverflow)
+{
+    ClientIVC ivc;
+
+    // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
+    // uint32_t overflow_capacity = 1 << 16;
+    uint32_t overflow_capacity = 0;
+    ivc.trace_settings = { TraceStructure::SMALL_TEST, overflow_capacity };
+
+    MockCircuitProducer circuit_producer;
+
+    size_t NUM_CIRCUITS = 2;
+
+    // Construct and accumulate some circuits of varying size
+    size_t log2_num_gates = 14;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+        ivc.accumulate(circuit);
+        log2_num_gates += 2;
+    }
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
