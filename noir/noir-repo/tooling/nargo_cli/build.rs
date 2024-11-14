@@ -237,7 +237,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
             "#,
             &MatrixConfig {
                 vary_brillig: !IGNORED_BRILLIG_TESTS.contains(&test_name.as_str()),
-                vary_inliner: true,
+                vary_inliner: false,
                 min_inliner: INLINER_MIN_OVERRIDES
                     .iter()
                     .find(|(n, _)| *n == test_name.as_str())
