@@ -16,8 +16,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using OpeningClaim = OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof.first);
-    ipa_transcript = std::make_shared<Transcript>(proof.second);
+    transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
+    ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 

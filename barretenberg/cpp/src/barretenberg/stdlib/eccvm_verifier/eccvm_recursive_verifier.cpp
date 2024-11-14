@@ -25,8 +25,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof.first);
-    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_proof_to_witness(builder, proof.second);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof.pre_ipa_proof);
+    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_proof_to_witness(builder, proof.ipa_proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
     ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
 
