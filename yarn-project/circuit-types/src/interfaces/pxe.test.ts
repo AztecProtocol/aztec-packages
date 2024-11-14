@@ -226,6 +226,11 @@ describe('PXESchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
+  it('getContractClassLogs', async () => {
+    const result = await context.client.getContractClassLogs({ contractAddress: address });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
   it('getBlockNumber', async () => {
     const result = await context.client.getBlockNumber();
     expect(result).toBe(1);
@@ -459,6 +464,10 @@ class MockPXE implements PXE {
     return Promise.resolve(10n);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.contractAddress).toEqual(this.address);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }

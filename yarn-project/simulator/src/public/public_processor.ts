@@ -316,7 +316,7 @@ export class PublicProcessor {
 
     this.metrics.recordClassRegistration(
       ...ContractClassRegisteredEvent.fromLogs(
-        tx.unencryptedLogs.unrollLogs(),
+        tx.contractClassLogs.unrollLogs(),
         ProtocolContractAddress.ContractClassRegisterer,
       ),
     );
