@@ -520,6 +520,24 @@ class MegaFlavor {
             compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
                 this->polynomials, relation_parameters, size_override);
         }
+
+        uint64_t estimate_memory()
+        {
+            vinfo("++Estimating proving key memory++");
+            for (auto [polynomial, label] : zip_view(polynomials.get_all(), polynomials.get_labels())) {
+                uint64_t size = polynomial.size();
+                vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");
+            }
+
+            uint64_t result(0);
+            for (auto& polynomial : polynomials.get_unshifted()) {
+                result += polynomial.size() * sizeof(FF);
+            }
+
+            result += public_inputs.capacity() * sizeof(FF);
+
+            return result;
+        }
     };
 
     /**
