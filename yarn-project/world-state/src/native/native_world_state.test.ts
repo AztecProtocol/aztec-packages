@@ -79,7 +79,6 @@ describe('NativeWorldState', () => {
       const status = await ws.handleL2BlockAndMessages(block, messages);
       expect(status.unfinalisedBlockNumber).toBe(1);
       await ws.close();
-
       // we open up the version file that was created and modify the version to be older
       const fullPath = join(dataDir, WORLD_STATE_VERSION_FILE);
       const storedWorldStateVersion = await WorldStateVersion.readVersion(fullPath);
