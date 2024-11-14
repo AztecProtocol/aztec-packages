@@ -515,6 +515,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * corresponding entries in both vectors.
      *
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
     static void remove_repeated_commitments(std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
                                             const RepeatedCommitmentsData& repeated_commitments,
