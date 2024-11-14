@@ -83,9 +83,6 @@ impl CircuitSimulator {
                 }
                 true
             }
-            Opcode::Directive(_) => {
-                unreachable!("directives no longer exist")
-            }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 if !self.can_solve_expression(&op.index) {
                     return false;

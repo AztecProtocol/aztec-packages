@@ -145,8 +145,6 @@ pub(super) fn transform_internal<F: AcirField>(
                 new_acir_opcode_positions.push(acir_opcode_positions[index]);
                 transformed_opcodes.push(opcode);
             }
-            // Directive opcode is to be removed
-            Opcode::Directive(_) => unreachable!(),
         }
     }
 

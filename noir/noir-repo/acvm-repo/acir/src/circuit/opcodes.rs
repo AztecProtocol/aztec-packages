@@ -1,7 +1,4 @@
-use super::{
-    brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs},
-    directives::Directive,
-};
+use super::brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs};
 
 pub mod function_id;
 pub use function_id::AcirFunctionId;
@@ -74,16 +71,6 @@ pub enum Opcode<F> {
     /// Aztec's Barretenberg uses BN254 as the main curve and Grumpkin as the
     /// embedded curve.
     BlackBoxFuncCall(BlackBoxFuncCall<F>),
-
-    /// This opcode is a specialization of a Brillig opcode. Instead of having
-    /// some generic assembly code like Brillig, a directive has a hardcoded
-    /// name which tells the solver which computation to do: with Brillig, the
-    /// computation refers to the compiled bytecode of an unconstrained Noir
-    /// function, but with a directive, the computation is hardcoded inside the
-    /// compiler.
-    ///
-    /// Directives will be replaced by Brillig opcodes in the future.
-    Directive(Directive<F>),
 
     /// Atomic operation on a block of memory
     ///
@@ -158,9 +145,6 @@ impl<F: AcirField> std::fmt::Display for Opcode<F> {
             }
 
             Opcode::BlackBoxFuncCall(g) => write!(f, "{g}"),
-            Opcode::Directive(_) => {
-                unreachable!("directives no longer exist")
-            }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 write!(f, "MEM ")?;
                 if let Some(pred) = predicate {

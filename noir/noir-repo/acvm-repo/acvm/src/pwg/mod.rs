@@ -384,8 +384,6 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> ACVM<'a, F, B> {
                 Ok(Some(input_values)) => return self.wait_for_acir_call(input_values),
                 res => res.map(|_| ()),
             },
-            // Directive opcode is to be removed
-            Opcode::Directive(_) => unreachable!(),
         };
         self.handle_opcode_resolution(resolution)
     }

@@ -3,14 +3,13 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use crate::{
     compiler::optimizers::GeneralOptimizer,
     pwg::{
-        arithmetic::ExpressionSolver, blackbox::solve_range_opcode, directives::solve_directives,
-        BrilligSolver, BrilligSolverStatus,
+        arithmetic::ExpressionSolver, blackbox::solve_range_opcode, BrilligSolver,
+        BrilligSolverStatus,
     },
 };
 use acir::{
     circuit::{
         brillig::{Brillig, BrilligInputs, BrilligOutputs},
-        directives::Directive,
         opcodes::BlackBoxFuncCall,
         Circuit, Opcode,
     },

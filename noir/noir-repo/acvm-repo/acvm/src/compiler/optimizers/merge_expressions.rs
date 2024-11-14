@@ -191,8 +191,6 @@ impl MergeExpressionsOptimizer {
                 }
                 witnesses
             }
-            // Directive opcode is to be removed
-            Opcode::Directive(_) => unreachable!(),
         }
     }
 

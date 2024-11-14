@@ -6,7 +6,6 @@
 //! The Brillig VM is a specialized VM which allows the [ACVM][acvm] to perform custom non-determinism.
 //!
 //! Brillig bytecode is distinct from regular [ACIR][acir] in that it does not generate constraints.
-//! This is a generalization over the fixed directives that exists within in the ACVM.
 //!
 //! [acir]: https://crates.io/crates/acir
 //! [acvm]: https://crates.io/crates/acvm
