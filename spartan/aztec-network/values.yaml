@@ -11,8 +11,8 @@ telemetry:
 
 images:
   aztec:
-    image: telecomsteve/aztec:b36c1376ee009f3b1ac5003592cfd1185d17e1ed
-    pullPolicy: Always
+    image: aztecprotocol/aztec
+    pullPolicy: IfNotPresent
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
