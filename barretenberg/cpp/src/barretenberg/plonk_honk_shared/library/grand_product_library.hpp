@@ -12,10 +12,6 @@ namespace bb {
 // TODO(luke): This contains utilities for grand product computation and is not specific to the permutation grand
 // product. Update comments accordingly.
 /**
-
- */
-
-/**
  * @brief Compute a permutation grand product polynomial Z_perm(X)
  *
  * @details
@@ -66,14 +62,15 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
-    // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, for
-    // example, for the permutation grand product which can be set to zero beyond the index of the last active wire
+    // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, e.g
+    // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
     const size_t num_threads = domain_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
     const size_t block_size = domain_size / num_threads;
     const size_t final_idx = domain_size - 1;
 
+    // Cumpute the index bounds for each thread for reuse in the computations below
     std::vector<std::pair<size_t, size_t>> idx_bounds;
     idx_bounds.reserve(num_threads);
     for (size_t thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
@@ -81,17 +78,6 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * block_size;
         idx_bounds.push_back(std::make_pair(start, end));
     }
-
-    // auto get_start_idx = [&](size_t thread_idx) {
-    //     const size_t start = thread_idx * block_size;
-    //     const size_t end = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * block_size;
-    //     return std::make_pair(start, end);
-    // };
-    // auto get_end_idx = [&](size_t thread_idx) {
-    //     const size_t start = thread_idx * block_size;
-    //     const size_t end = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * block_size;
-    //     return std::make_pair(start, end);
-    // };
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
