@@ -403,24 +403,27 @@ std::vector<std::array<FF, 3>> positive_op_div_test_values = { {
 // Test on basic addition over finite field type.
 TEST_F(AvmArithmeticTestsFF, addition)
 {
-    std::vector<FF> const calldata = { 37, 4, 11 };
+    const FF a = FF::modulus - 19;
+    const FF b = FF::modulus - 5;
+    const FF c = FF::modulus - 24; // c = a + b
+    std::vector<FF> const calldata = { a, b, 4 };
     gen_trace_builder(calldata);
     trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
-    //                                   Memory layout:    [37,4,11,0,0,0,....]
-    trace_builder.op_add(0, 0, 1, 4); // [37,4,11,0,41,0,....]
+    //                                   Memory layout:    [a,b,4,0,0,....]
+    trace_builder.op_add(0, 0, 1, 4); // [a,b,4,0,c,0,....]
     trace_builder.op_set(0, 5, 100, AvmMemoryTag::U32);
     trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_add(trace, FF(37), FF(4), FF(41), FF(0), FF(1), FF(4), AvmMemoryTag::FF);
+    auto alu_row = common_validate_add(trace, a, b, c, FF(0), FF(1), FF(4), AvmMemoryTag::FF);
 
     EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
 
-    std::vector<FF> const returndata = { 37, 4, 11, 0, 41 };
+    std::vector<FF> const returndata = { a, b, 4, 0, c };
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
@@ -428,49 +431,55 @@ TEST_F(AvmArithmeticTestsFF, addition)
 // Test on basic subtraction over finite field type.
 TEST_F(AvmArithmeticTestsFF, subtraction)
 {
-    std::vector<FF> const calldata = { 8, 4, 17 };
+    const FF a = 8;
+    const FF b = FF::modulus - 5;
+    const FF c = 13; // c = a - b
+    std::vector<FF> const calldata = { b, 4, a };
     gen_trace_builder(calldata);
     trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
-    //                             Memory layout:    [8,4,17,0,0,0,....]
-    trace_builder.op_sub(0, 2, 0, 1); // [8,9,17,0,0,0....]
+    //                             Memory layout:    [b,4,a,0,0,0,....]
+    trace_builder.op_sub(0, 2, 0, 1); // [b,c,a,0,0,0....]
     trace_builder.op_set(0, 3, 100, AvmMemoryTag::U32);
     trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_sub(trace, FF(17), FF(8), FF(9), FF(2), FF(0), FF(1), AvmMemoryTag::FF);
+    auto alu_row = common_validate_sub(trace, a, b, c, FF(2), FF(0), FF(1), AvmMemoryTag::FF);
 
     EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
 
-    std::vector<FF> const returndata = { 8, 9, 17 };
+    std::vector<FF> const returndata = { b, c, a };
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Test on basic multiplication over finite field type.
 TEST_F(AvmArithmeticTestsFF, multiplication)
 {
-    std::vector<FF> const calldata = { 5, 0, 20 };
+    const FF a = FF::modulus - 1;
+    const FF b = 278;
+    const FF c = FF::modulus - 278;
+    std::vector<FF> const calldata = { b, 0, a };
     gen_trace_builder(calldata);
     trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
-    //                             Memory layout:    [5,0,20,0,0,0,....]
-    trace_builder.op_mul(0, 2, 0, 1); // [5,100,20,0,0,0....]
+    //                             Memory layout:    [b,0,a,0,0,0,....]
+    trace_builder.op_mul(0, 2, 0, 1); // [b,c,a,0,0,0....]
     trace_builder.op_set(0, 3, 100, AvmMemoryTag::U32);
     trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
-    auto alu_row_index = common_validate_mul(trace, FF(20), FF(5), FF(100), FF(2), FF(0), FF(1), AvmMemoryTag::FF);
+    auto alu_row_index = common_validate_mul(trace, a, b, c, FF(2), FF(0), FF(1), AvmMemoryTag::FF);
     auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
 
-    std::vector<FF> const returndata = { 5, 100, 20 };
+    std::vector<FF> const returndata = { b, c, a };
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 

@@ -43,6 +43,7 @@ mod checks;
 pub(super) mod function_builder;
 pub mod ir;
 mod opt;
+mod parser;
 pub mod ssa_gen;
 
 pub struct SsaEvaluatorOptions {
