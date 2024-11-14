@@ -401,6 +401,7 @@ describe('e2e_prover_coordination', () => {
     await advanceToNextEpoch();
 
     // Wait a bit for the sequencer / node to notice a re-org
+    await sleep(2000);
     await retryUntil(
       async () => (await ctx.aztecNode.getTxReceipt(tx2BeforeReorg.txHash)).status === TxStatus.SUCCESS,
       'wait for re-inclusion',
