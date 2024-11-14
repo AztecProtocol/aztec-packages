@@ -19,7 +19,7 @@ void UltraCircuitBuilder_<Arithmetization>::finalize_circuit(const bool ensure_n
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
-     * Note that the total number of rows in an 9UltraPlonk program can be divided as following:
+     * Note that the total number of rows in an UltraPlonk program can be divided as following:
      *  1. arithmetic gates:  n_computation (includes all computation gates)
      *  2. rom/memory gates:  n_rom
      *  3. range list gates:  n_range
