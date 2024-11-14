@@ -32,8 +32,6 @@ type ProofRequestBrokerConfig = {
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
  */
 export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
-  // Each proof type gets its own queue so that agents can request specific types of proofs
-  // Manually create the queues to get type checking
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
     [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<V2ProvingJob>(provingJobComparator),
@@ -280,7 +278,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   }
 
   private timeoutCheck = () => {
-    for (const [id, metadata] of this.inProgress.entries()) {
+    const inProgressEntries = Array.from(this.inProgress.entries());
+    for (const [id, metadata] of inProgressEntries) {
       const item = this.jobsCache.get(id);
       if (!item) {
         this.logger.warn(`Proving job id=${id} not found. Removing it from the queue.`);
