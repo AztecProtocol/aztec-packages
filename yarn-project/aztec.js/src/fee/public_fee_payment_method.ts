@@ -53,9 +53,9 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
           {
             caller: this.paymentContract,
             action: {
-              name: 'transfer_public',
-              args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-              selector: FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+              name: 'transfer_in_public',
+              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
               to: this.asset,
@@ -71,7 +71,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
         selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset, nonce],
+        args: [maxFee, this.asset.toField(), nonce],
         returnTypes: [],
       },
     ]);

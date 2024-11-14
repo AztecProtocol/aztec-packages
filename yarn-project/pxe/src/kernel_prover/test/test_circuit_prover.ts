@@ -107,6 +107,11 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    // No gates in test prover
+    return Promise.resolve(0);
+  }
+
   computeAppCircuitVerificationKey(
     _bytecode: Buffer,
     _appCircuitName?: string | undefined,
@@ -117,10 +122,9 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     return Promise.resolve(appCircuitProofOutput);
   }
 
-  private makeEmptyKernelSimulateOutput<PublicInputsType>(
-    publicInputs: PublicInputsType,
-    circuitType: ProtocolArtifact,
-  ) {
+  private makeEmptyKernelSimulateOutput<
+    PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
+  >(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
       verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,

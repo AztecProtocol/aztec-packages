@@ -19,6 +19,7 @@ import {
   GeneratorIndex,
   type GrumpkinScalar,
   Header,
+  IndexedTaggingSecret,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -26,6 +27,7 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
+  TaggingSecret,
   TxContext,
   computeAppNullifierSecretKey,
   computeOvskApp,
@@ -257,11 +259,19 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
+    oracle.getAppTaggingSecret.mockImplementation(
+      (_contractAddress: AztecAddress, _sender: AztecAddress, recipient: AztecAddress) => {
+        const directionalSecret = new TaggingSecret(Fr.random(), recipient);
+        return Promise.resolve(IndexedTaggingSecret.fromTaggingSecret(directionalSecret, 0));
+      },
+    );
+
     node = mock<AztecNode>();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    node.getPublicStorageAt.mockImplementation((address: Fr, storageSlot: Fr, blockNumber: L2BlockNumber) => {
-      return Promise.resolve(Fr.ZERO);
-    });
+    node.getPublicStorageAt.mockImplementation(
+      (_address: AztecAddress, _storageSlot: Fr, _blockNumber: L2BlockNumber) => {
+        return Promise.resolve(Fr.ZERO);
+      },
+    );
 
     acirSimulator = new AcirSimulator(oracle, node);
   });
@@ -301,7 +311,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Fr, noteTypeId: NoteSelector) => {
+    const buildNote = (amount: bigint, ownerAddress: AztecAddress, storageSlot: Fr, noteTypeId: NoteSelector) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -312,7 +322,7 @@ describe('Private Execution test suite', () => {
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final noteHashes array
       const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
-      const note = new Note([new Fr(amount), ownerNpkMHash, Fr.random()]);
+      const note = new Note([new Fr(amount), ownerAddress.toField(), Fr.random()]);
       // Note: The following does not correspond to how note hashing is generally done in real notes.
       const noteHash = poseidon2Hash([storageSlot, ...note.items]);
       return {
@@ -527,8 +537,8 @@ describe('Private Execution test suite', () => {
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(childArtifact));
 
-      logger.info(`Parent deployed at ${parentAddress.toShortString()}`);
-      logger.info(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
+      logger.info(`Parent deployed at ${parentAddress.toString()}`);
+      logger.info(`Calling child function ${childSelector.toString()} at ${childAddress.toString()}`);
 
       const args = [childAddress, childSelector];
       const result = await runSimulator({ args, artifact: parentArtifact });
@@ -593,10 +603,10 @@ describe('Private Execution test suite', () => {
     const contractAddress = defaultContractAddress;
 
     describe('L1 to L2', () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
+      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_to_private_message');
       let bridgedAmount = 100n;
 
-      const secretHashForRedeemingNotes = new Fr(2n);
+      const l1ToL2MessageIndex = 0;
       let secretForL1ToL2MessageConsumption = new Fr(1n);
 
       let crossChainMsgRecipient: AztecAddress | undefined;
@@ -616,18 +626,19 @@ describe('Private Execution test suite', () => {
 
       const computePreimage = () =>
         buildL1ToL2Message(
-          toFunctionSelector('mint_private(bytes32,uint256)').substring(2),
-          [secretHashForRedeemingNotes, new Fr(bridgedAmount)],
+          toFunctionSelector('mint_to_private(uint256)').substring(2),
+          [new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
+          l1ToL2MessageIndex,
         );
 
       const computeArgs = () =>
         encodeArguments(artifact, [
-          secretHashForRedeemingNotes,
           bridgedAmount,
           secretForL1ToL2MessageConsumption,
           crossChainMsgSender ?? preimage.sender.sender,
+          l1ToL2MessageIndex,
         ]);
 
       const mockOracles = async (updateHeader = true) => {

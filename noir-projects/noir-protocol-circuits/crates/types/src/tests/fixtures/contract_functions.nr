@@ -1,18 +1,20 @@
 use crate::abis::{function_data::FunctionData, function_selector::FunctionSelector};
-use crate::constants::FUNCTION_TREE_HEIGHT;
+use crate::constants::{CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT};
 use crate::merkle_tree::membership::MembershipWitness;
 
 pub struct ContractFunction {
-    data: FunctionData,
-    vk_hash: Field,
-    acir_hash: Field,
-    membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
+    pub data: FunctionData,
+    pub vk_hash: Field,
+    pub acir_hash: Field,
+    pub membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 }
 
+pub global default_vk = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
+
 // sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
-global default_private_function = ContractFunction {
+pub global default_private_function = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
-    vk_hash: 0,
+    vk_hash: crate::hash::verification_key_hash(default_vk),
     acir_hash: 1111,
     membership_witness: MembershipWitness {
         leaf_index: 0,
@@ -26,7 +28,7 @@ global default_private_function = ContractFunction {
     },
 };
 
-global default_public_function = ContractFunction {
+pub global default_public_function = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 3030303 }, is_private: false },
     vk_hash: 0,
     acir_hash: 3333,
@@ -48,7 +50,7 @@ pub fn get_protocol_contract_function(contract_index: u32) -> ContractFunction {
             selector: FunctionSelector { inner: 98989 + contract_index },
             is_private: true,
         },
-        vk_hash: 0,
+        vk_hash: crate::hash::verification_key_hash(default_vk),
         acir_hash: 5555 + contract_index as Field,
         membership_witness: MembershipWitness {
             leaf_index: contract_index as Field,

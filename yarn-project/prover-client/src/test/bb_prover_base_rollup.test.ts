@@ -1,13 +1,11 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
+import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import {
-  NESTED_RECURSIVE_PROOF_LENGTH,
   PRIVATE_KERNEL_EMPTY_INDEX,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PrivateTubeData,
   VkWitnessData,
-  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -41,22 +39,24 @@ describe('prover/bb_prover/base-rollup', () => {
     const version = context.globalVariables.version;
     const vkTreeRoot = getVKTreeRoot();
 
-    const inputs = new PrivateKernelEmptyInputData(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
-    const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
-    const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
+    const tx = makeEmptyProcessedTx(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
 
-    logger.verbose('Building base rollup inputs');
-    const baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    const verificationKey = paddingTxPublicInputsAndProof.verificationKey;
-    baseRollupInputProof.proof[0] = verificationKey.keyAsFields.key[0];
-    baseRollupInputProof.proof[1] = verificationKey.keyAsFields.key[1];
-    baseRollupInputProof.proof[2] = verificationKey.keyAsFields.key[2];
+    logger.verbose('Building empty private proof');
+    const privateInputs = new PrivateKernelEmptyInputData(
+      header,
+      chainId,
+      version,
+      vkTreeRoot,
+      protocolContractTreeRoot,
+    );
+    const tubeProof = await context.prover.getEmptyPrivateKernelProof(privateInputs);
+    expect(tubeProof.inputs).toEqual(tx.data.toKernelCircuitPublicInputs());
 
     const vkIndex = PRIVATE_KERNEL_EMPTY_INDEX;
     const vkPath = getVKSiblingPath(vkIndex);
-    const vkData = new VkWitnessData(verificationKey, vkIndex, vkPath);
+    const vkData = new VkWitnessData(tubeProof.verificationKey, vkIndex, vkPath);
 
-    const tubeData = new PrivateTubeData(tx.data, baseRollupInputProof, vkData);
+    const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
     const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, context.actualDb);
     const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints);

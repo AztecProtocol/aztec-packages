@@ -293,7 +293,7 @@ export class Oracle {
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(
-      fromACVMField(contractAddress),
+      new AztecAddress(fromACVMField(contractAddress)),
       fromACVMField(startStorageSlot),
       +blockNumber,
       +numberOfElements,
@@ -336,15 +336,11 @@ export class Oracle {
     return toACVMField(0);
   }
 
-  emitContractClassUnencryptedLog(
-    [contractAddress]: ACVMField[],
-    message: ACVMField[],
-    [counter]: ACVMField[],
-  ): ACVMField {
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
 
-    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log, +counter);
+    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
     return toACVMField(logHash);
   }
 
@@ -417,8 +413,14 @@ export class Oracle {
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
-    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
+  async incrementAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+  }
+
+  async syncNotes([recipient]: ACVMField[]) {
+    await this.typedOracle.syncNotes(AztecAddress.fromString(recipient));
   }
 }

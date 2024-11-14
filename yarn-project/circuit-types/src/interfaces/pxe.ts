@@ -1,34 +1,48 @@
 import {
   type AztecAddress,
-  type CompleteAddress,
+  CompleteAddress,
   type ContractClassWithId,
+  ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
   type Fr,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
+  NodeInfoSchema,
   type PartialAddress,
   type Point,
   type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
+import {
+  type AbiDecoded,
+  type AbiType,
+  AbiTypeSchema,
+  type ContractArtifact,
+  ContractArtifactSchema,
+  type EventSelector,
+} from '@aztec/foundation/abi';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
-import { type AuthWitness } from '../auth_witness.js';
-import { type L2Block } from '../l2_block.js';
+import { z } from 'zod';
+
+import { AuthWitness } from '../auth_witness.js';
+import { L2Block } from '../l2_block.js';
 import {
   type GetUnencryptedLogsResponse,
-  type L1EventPayload,
+  GetUnencryptedLogsResponseSchema,
   type LogFilter,
-  type UnencryptedL2Log,
+  LogFilterSchema,
 } from '../logs/index.js';
-import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
-import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
-import { type PrivateExecutionResult } from '../private_execution_result.js';
-import { type SiblingPath } from '../sibling_path/sibling_path.js';
-import { type NoteProcessorStats } from '../stats/stats.js';
-import { type Tx, type TxHash, type TxProvingResult, type TxReceipt, type TxSimulationResult } from '../tx/index.js';
-import { type TxEffect } from '../tx_effect.js';
-import { type TxExecutionRequest } from '../tx_execution_request.js';
-import { type SyncStatus } from './sync-status.js';
+import { type IncomingNotesFilter, IncomingNotesFilterSchema } from '../notes/incoming_notes_filter.js';
+import { ExtendedNote, type OutgoingNotesFilter, OutgoingNotesFilterSchema, UniqueNote } from '../notes/index.js';
+import { PrivateExecutionResult } from '../private_execution_result.js';
+import { SiblingPath } from '../sibling_path/sibling_path.js';
+import { type NoteProcessorStats, NoteProcessorStatsSchema } from '../stats/stats.js';
+import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
+import { TxExecutionRequest } from '../tx_execution_request.js';
+import { type SyncStatus, SyncStatusSchema } from './sync-status.js';
 
 // docs:start:pxe-interface
 /**
@@ -79,20 +93,6 @@ export interface PXE {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
-   * Registers a recipient in PXE. This is required when sending encrypted notes to
-   * a user who hasn't deployed their account contract yet. Since their account is not deployed, their
-   * encryption public key has not been broadcasted, so we need to manually register it on the PXE Service
-   * in order to be able to encrypt data for this recipient.
-   *
-   * @param recipient - The complete address of the recipient
-   * @remarks Called recipient because we can only send notes to this account and not receive them via this PXE Service.
-   * This is because we don't have the associated private key and for this reason we can't decrypt
-   * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
-   * public key.
-   */
-  registerRecipient(recipient: CompleteAddress): Promise<void>;
-
-  /**
    * Retrieves the user accounts registered on this PXE Service.
    * @returns An array of the accounts registered on this PXE Service.
    */
@@ -108,19 +108,26 @@ export interface PXE {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the recipients added to this PXE Service.
-   * @returns An array of recipients registered on this PXE Service.
+   * Registers a user contact in PXE.
+   *
+   * Once a new contact is registered, the PXE Service will be able to receive notes tagged from this contact.
+   * Will do nothing if the account is already registered.
+   *
+   * @param address - Address of the user to add to the address book
+   * @returns The address address of the account.
    */
-  getRecipients(): Promise<CompleteAddress[]>;
+  registerContact(address: AztecAddress): Promise<AztecAddress>;
 
   /**
-   * Retrieves the complete address of the recipient corresponding to the provided aztec address.
-   * Complete addresses include the address, the partial address, and the encryption public key.
-   *
-   * @param address - The aztec address of the recipient.
-   * @returns The complete address of the requested recipient.
+   * Retrieves the addresses stored as contacts on this PXE Service.
+   * @returns An array of the contacts on this PXE Service.
    */
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getContacts(): Promise<AztecAddress[]>;
+
+  /**
+   * Removes a contact in the address book.
+   */
+  removeContact(address: AztecAddress): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -173,6 +180,7 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @param profile - (Optional) If true, will run the private kernel prover with profiling enabled and include the result (gate count) in TxSimulationResult.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
@@ -183,6 +191,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
 
@@ -295,7 +304,7 @@ export interface PXE {
     to: AztecAddress,
     from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<any>;
+  ): Promise<AbiDecoded>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -303,6 +312,13 @@ export interface PXE {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Fetches the current block number.
@@ -362,7 +378,7 @@ export interface PXE {
   getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
 
   /**
-   * Returns a Contact Instance given its address, which includes the contract class identifier,
+   * Returns a Contract Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
    * @param address - Deployment address of the contract.
@@ -370,7 +386,7 @@ export interface PXE {
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
-   * Returns a Contact Class given its identifier.
+   * Returns a Contract Class given its identifier.
    * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
    * should the pxe query the node for contract public info, and merge it with its own definitions?
    * @param id - Identifier of the class.
@@ -407,51 +423,156 @@ export interface PXE {
   isContractInitialized(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Returns the events of a specified type given search parameters.
-   * @param type - The type of the event to search for—Encrypted, or Unencrypted.
-   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * Returns the enctypred events given search parameters.
+   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
-   * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
+   * @param vpks - The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
    * @returns - The deserialized events.
    */
-  getEvents<T>(
-    type: EventType,
-    eventMetadata: EventMetadata<T>,
+  getEncryptedEvents<T>(
+    eventMetadata: EventMetadataDefinition,
     from: number,
     limit: number,
     vpks: Point[],
   ): Promise<T[]>;
+
+  /**
+   * Returns the unenctypred events given search parameters.
+   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param from - The block number to search from.
+   * @param limit - The amount of blocks to search.
+   * @returns - The deserialized events.
+   */
+  getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 // docs:end:pxe-interface
 
-/**
- * The shape of the event generated on the Contract.
- */
-export interface EventMetadata<T> {
-  decode(payload: L1EventPayload | UnencryptedL2Log): T | undefined;
+export type EventMetadataDefinition = {
   eventSelector: EventSelector;
+  abiType: AbiType;
   fieldNames: string[];
-}
+};
 
-/**
- * This is used in getting events via the filter
- */
+const EventMetadataDefinitionSchema = z.object({
+  eventSelector: schemas.EventSelector,
+  abiType: AbiTypeSchema,
+  fieldNames: z.array(z.string()),
+});
+
+/** This is used in getting events via the filter */
 export enum EventType {
   Encrypted = 'Encrypted',
   Unencrypted = 'Unencrypted',
 }
 
-/**
- * Provides basic information about the running PXE.
- */
+/** Provides basic information about the running PXE. */
 export interface PXEInfo {
-  /**
-   * Version as tracked in the aztec-packages repository.
-   */
+  /** Version as tracked in the aztec-packages repository. */
   pxeVersion: string;
-  /**
-   * Protocol contract addresses
-   */
+  /** Protocol contract addresses */
   protocolContractAddresses: ProtocolContractAddresses;
 }
+
+const PXEInfoSchema = z.object({
+  pxeVersion: z.string(),
+  protocolContractAddresses: ProtocolContractAddressesSchema,
+}) satisfies ZodFor<PXEInfo>;
+
+export const PXESchema: ApiSchemaFor<PXE> = {
+  addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
+  getAuthWitness: z
+    .function()
+    .args(schemas.Fr)
+    .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
+  addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
+  registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
+  getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
+  getRegisteredAccount: z
+    .function()
+    .args(schemas.AztecAddress)
+    .returns(z.union([CompleteAddress.schema, z.undefined()])),
+  registerContact: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
+  getContacts: z.function().returns(z.array(schemas.AztecAddress)),
+  removeContact: z.function().args(schemas.AztecAddress).returns(z.void()),
+  registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
+  registerContract: z
+    .function()
+    .args(z.object({ instance: ContractInstanceWithAddressSchema, artifact: z.optional(ContractArtifactSchema) }))
+    .returns(z.void()),
+  getContracts: z.function().returns(z.array(schemas.AztecAddress)),
+  proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
+  simulateTx: z
+    .function()
+    .args(
+      TxExecutionRequest.schema,
+      z.boolean(),
+      optional(schemas.AztecAddress),
+      optional(z.boolean()),
+      optional(z.boolean()),
+      optional(z.array(schemas.AztecAddress)),
+    )
+    .returns(TxSimulationResult.schema),
+  sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
+  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+  getTxEffect: z
+    .function()
+    .args(TxHash.schema)
+    .returns(z.union([TxEffect.schema, z.undefined()])),
+  getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
+  getIncomingNotes: z.function().args(IncomingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
+  getL1ToL2MembershipWitness: z
+    .function()
+    .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
+    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
+  getOutgoingNotes: z.function().args(OutgoingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
+  addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
+  addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
+  getBlock: z
+    .function()
+    .args(z.number())
+    .returns(z.union([L2Block.schema, z.undefined()])),
+  simulateUnconstrained: z
+    .function()
+    .args(
+      z.string(),
+      z.array(z.any()),
+      schemas.AztecAddress,
+      optional(schemas.AztecAddress),
+      optional(z.array(schemas.AztecAddress)),
+    )
+    .returns(AbiDecodedSchema),
+  getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getBlockNumber: z.function().returns(z.number()),
+  getProvenBlockNumber: z.function().returns(z.number()),
+  getNodeInfo: z.function().returns(NodeInfoSchema),
+  getPXEInfo: z.function().returns(PXEInfoSchema),
+  isGlobalStateSynchronized: z.function().returns(z.boolean()),
+  isAccountStateSynchronized: z.function().args(schemas.AztecAddress).returns(z.boolean()),
+  getSyncStatus: z.function().returns(SyncStatusSchema),
+  getSyncStats: z.function().returns(z.record(NoteProcessorStatsSchema)),
+  getContractInstance: z
+    .function()
+    .args(schemas.AztecAddress)
+    .returns(z.union([ContractInstanceWithAddressSchema, z.undefined()])),
+  getContractClass: z
+    .function()
+    .args(schemas.Fr)
+    .returns(z.union([ContractClassWithIdSchema, z.undefined()])),
+  getContractArtifact: z
+    .function()
+    .args(schemas.Fr)
+    .returns(z.union([ContractArtifactSchema, z.undefined()])),
+  isContractClassPubliclyRegistered: z.function().args(schemas.Fr).returns(z.boolean()),
+  isContractPubliclyDeployed: z.function().args(schemas.AztecAddress).returns(z.boolean()),
+  isContractInitialized: z.function().args(schemas.AztecAddress).returns(z.boolean()),
+  getEncryptedEvents: z
+    .function()
+    .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))
+    .returns(z.array(AbiDecodedSchema)),
+  getUnencryptedEvents: z
+    .function()
+    .args(EventMetadataDefinitionSchema, z.number(), z.number())
+    .returns(z.array(AbiDecodedSchema)),
+};

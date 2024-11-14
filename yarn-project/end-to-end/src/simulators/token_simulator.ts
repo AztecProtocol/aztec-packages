@@ -26,8 +26,9 @@ export class TokenSimulator {
     this.lookupProvider.set(account.toString(), wallet);
   }
 
-  public mintPrivate(amount: bigint) {
+  public mintPrivate(to: AztecAddress, amount: bigint) {
     this.totalSupply += amount;
+    this.balancesPrivate.set(to.toString(), (this.balancesPrivate.get(to.toString()) || 0n) + amount);
   }
 
   public mintPublic(to: AztecAddress, amount: bigint) {
@@ -54,18 +55,15 @@ export class TokenSimulator {
     this.balancesPrivate.set(to.toString(), toBalance + amount);
   }
 
-  public shield(from: AztecAddress, amount: bigint) {
+  public transferToPrivate(from: AztecAddress, to: AztecAddress, amount: bigint) {
     const fromBalance = this.balancePublic.get(from.toString()) || 0n;
     expect(fromBalance).toBeGreaterThanOrEqual(amount);
     this.balancePublic.set(from.toString(), fromBalance - amount);
-  }
-
-  public redeemShield(to: AztecAddress, amount: bigint) {
     const toBalance = this.balancesPrivate.get(to.toString()) || 0n;
     this.balancesPrivate.set(to.toString(), toBalance + amount);
   }
 
-  public unshield(from: AztecAddress, to: AztecAddress, amount: bigint) {
+  public transferToPublic(from: AztecAddress, to: AztecAddress, amount: bigint) {
     const fromBalance = this.balancesPrivate.get(from.toString()) || 0n;
     const toBalance = this.balancePublic.get(to.toString()) || 0n;
     expect(fromBalance).toBeGreaterThanOrEqual(amount);

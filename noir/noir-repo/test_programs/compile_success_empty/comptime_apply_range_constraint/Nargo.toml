@@ -1,6 +1,11 @@
 [package]
+<<<<<<<< HEAD:noir/noir-repo/test_programs/compile_success_empty/comptime_apply_range_constraint/Nargo.toml
 name = "comptime_apply_range_constraint"
+|||||||| d9de430e4a:noir/noir-repo/test_programs/execution_success/double_verify_honk_proof_recursive/Nargo.toml
+name = "double_verify_honk_proof_recursive"
+========
+name = "regression_6451"
+>>>>>>>> master:noir/noir-repo/test_programs/execution_success/regression_6451/Nargo.toml
 type = "bin"
 authors = [""]
-
 [dependencies]

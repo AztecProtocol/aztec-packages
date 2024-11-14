@@ -1,6 +1,7 @@
 import {
+  type Body,
+  ContractClass2BlockL2Logs,
   EncryptedL2BlockL2Logs,
-  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -10,13 +11,14 @@ import {
   type LogFilter,
   LogId,
   LogType,
+  TxScopedEncryptedL2NoteLog,
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type BlockStore } from './block_store.js';
 
@@ -25,23 +27,71 @@ import { type BlockStore } from './block_store.js';
  */
 export class LogStore {
   #noteEncryptedLogsByBlock: AztecMap<number, Buffer>;
-  #noteEncryptedLogsByHash: AztecMap<string, Buffer>;
-  #noteEncryptedLogHashesByTag: AztecMultiMap<string, string>;
-  #noteEncryptedLogTagsByBlock: AztecMultiMap<number, string>;
+  #logsByTag: AztecMap<string, Buffer[]>;
+  #logTagsByBlock: AztecMap<number, string[]>;
   #encryptedLogsByBlock: AztecMap<number, Buffer>;
   #unencryptedLogsByBlock: AztecMap<number, Buffer>;
+  #contractClassLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
   #log = createDebugLogger('aztec:archiver:log_store');
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#noteEncryptedLogsByBlock = db.openMap('archiver_note_encrypted_logs_by_block');
-    this.#noteEncryptedLogsByHash = db.openMap('archiver_note_encrypted_logs_by_hash');
-    this.#noteEncryptedLogHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_log_hashes_by_tag');
-    this.#noteEncryptedLogTagsByBlock = db.openMultiMap('archiver_note_encrypted_log_tags_by_block');
+    this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');
+    this.#logTagsByBlock = db.openMap('archiver_log_tags_by_block');
     this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs_by_block');
     this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs_by_block');
+    this.#contractClassLogsByBlock = db.openMap('archiver_contract_class_logs_by_block');
 
     this.#logsMaxPageSize = logsMaxPageSize;
+  }
+
+  #extractTaggedLogs(block: L2Block, logType: keyof Pick<Body, 'noteEncryptedLogs' | 'unencryptedLogs'>) {
+    const taggedLogs = new Map<string, Buffer[]>();
+    const dataStartIndexForBlock =
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+    block.body[logType].txLogs.forEach((txLogs, txIndex) => {
+      const txHash = block.body.txEffects[txIndex].txHash;
+      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+      const logs = txLogs.unrollLogs();
+      logs.forEach(log => {
+        if (
+          (logType == 'noteEncryptedLogs' && log.data.length < 32) ||
+          // TODO remove when #9835 and #9836 are fixed
+          (logType === 'unencryptedLogs' && log.data.length < 32 * 33)
+        ) {
+          this.#log.warn(`Skipping log (${logType}) with invalid data length: ${log.data.length}`);
+          return;
+        }
+        try {
+          let tag = Fr.ZERO;
+          // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
+          // This means that for every 32 bytes of payload, we only have 1 byte of data.
+          // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
+          if (logType === 'unencryptedLogs') {
+            const correctedBuffer = Buffer.alloc(32);
+            const initialOffset = 32;
+            for (let i = 0; i < 32; i++) {
+              const byte = Fr.fromBuffer(
+                log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset),
+              ).toNumber();
+              correctedBuffer.writeUInt8(byte, i);
+            }
+            tag = new Fr(correctedBuffer);
+          } else {
+            tag = new Fr(log.data.subarray(0, 32));
+          }
+          this.#log.verbose(`Found tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
+          const currentLogs = taggedLogs.get(tag.toString()) ?? [];
+          currentLogs.push(new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, log).toBuffer());
+          taggedLogs.set(tag.toString(), currentLogs);
+        } catch (err) {
+          this.#log.warn(`Failed to add tagged log to store: ${err}`);
+        }
+      });
+    });
+    return taggedLogs;
   }
 
   /**
@@ -49,34 +99,44 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2Block[]): Promise<boolean> {
+  async addLogs(blocks: L2Block[]): Promise<boolean> {
+    const taggedLogsToAdd = blocks
+      .flatMap(block => [
+        this.#extractTaggedLogs(block, 'noteEncryptedLogs'),
+        // TODO: process unencrypted logs in #9794
+        // this.#extractTaggedLogs(block, 'unencryptedLogs'),
+      ])
+      .reduce((acc, val) => {
+        for (const [tag, logs] of val.entries()) {
+          const currentLogs = acc.get(tag) ?? [];
+          acc.set(tag, currentLogs.concat(logs));
+        }
+        return acc;
+      });
+    const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
+    const currentTaggedLogs = await this.db.transaction(() =>
+      tagsToUpdate.map(tag => ({ tag, logBuffers: this.#logsByTag.get(tag) })),
+    );
+    currentTaggedLogs.forEach(taggedLogBuffer => {
+      if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
+        taggedLogsToAdd.set(
+          taggedLogBuffer.tag,
+          taggedLogBuffer.logBuffers!.concat(taggedLogsToAdd.get(taggedLogBuffer.tag)!),
+        );
+      }
+    });
     return this.db.transaction(() => {
       blocks.forEach(block => {
+        const tagsInBlock = [];
+        for (const [tag, logs] of taggedLogsToAdd.entries()) {
+          void this.#logsByTag.set(tag, logs);
+          tagsInBlock.push(tag);
+        }
+        void this.#logTagsByBlock.set(block.number, tagsInBlock);
         void this.#noteEncryptedLogsByBlock.set(block.number, block.body.noteEncryptedLogs.toBuffer());
-        block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
-          const noteLogs = txLogs.unrollLogs();
-          noteLogs.forEach(noteLog => {
-            if (noteLog.data.length < 32) {
-              this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
-              return;
-            }
-            try {
-              const tag = new Fr(noteLog.data.subarray(0, 32));
-              const hexHash = noteLog.hash().toString('hex');
-              // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't doesn't
-              // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
-              // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
-              // instead the hashes of the logs.
-              void this.#noteEncryptedLogHashesByTag.set(tag.toString(), hexHash);
-              void this.#noteEncryptedLogsByHash.set(hexHash, noteLog.toBuffer());
-              void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
-            } catch (err) {
-              this.#log.warn(`Failed to add tagged note log to store: ${err}`);
-            }
-          });
-        });
         void this.#encryptedLogsByBlock.set(block.number, block.body.encryptedLogs.toBuffer());
         void this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
+        void this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
       });
 
       return true;
@@ -84,26 +144,19 @@ export class LogStore {
   }
 
   async deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const noteTagsToDelete = await this.db.transaction(() => {
-      return blocks.flatMap(block => Array.from(this.#noteEncryptedLogTagsByBlock.getValues(block.number)));
-    });
-    const noteLogHashesToDelete = await this.db.transaction(() => {
-      return noteTagsToDelete.flatMap(tag => Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag)));
+    const tagsToDelete = await this.db.transaction(() => {
+      return blocks.flatMap(block => this.#logTagsByBlock.get(block.number)?.map(tag => tag.toString()) ?? []);
     });
     return this.db.transaction(() => {
       blocks.forEach(block => {
         void this.#noteEncryptedLogsByBlock.delete(block.number);
         void this.#encryptedLogsByBlock.delete(block.number);
         void this.#unencryptedLogsByBlock.delete(block.number);
-        void this.#noteEncryptedLogTagsByBlock.delete(block.number);
+        void this.#logTagsByBlock.delete(block.number);
       });
 
-      noteTagsToDelete.forEach(tag => {
-        void this.#noteEncryptedLogHashesByTag.delete(tag.toString());
-      });
-
-      noteLogHashesToDelete.forEach(hash => {
-        void this.#noteEncryptedLogsByHash.delete(hash);
+      tagsToDelete.forEach(tag => {
+        void this.#logsByTag.delete(tag.toString());
       });
 
       return true;
@@ -156,20 +209,15 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
-    return this.db.transaction(() => {
-      return tags.map(tag => {
-        const logHashes = Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag.toString()));
-        return (
-          logHashes
-            .map(hash => this.#noteEncryptedLogsByHash.get(hash))
-            // addLogs should ensure that we never have undefined logs, but we filter them out regardless to protect
-            // ourselves from database corruption
-            .filter(noteLogBuffer => noteLogBuffer != undefined)
-            .map(noteLogBuffer => EncryptedL2NoteLog.fromBuffer(noteLogBuffer!))
-        );
-      });
-    });
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+    return this.db.transaction(() =>
+      tags
+        .map(tag => this.#logsByTag.get(tag.toString()))
+        .map(
+          noteLogBuffers =>
+            noteLogBuffers?.map(noteLogBuffer => TxScopedEncryptedL2NoteLog.fromBuffer(noteLogBuffer)) ?? [],
+        ),
+    );
   }
 
   /**
@@ -225,6 +273,72 @@ export class LogStore {
       const unencryptedLogsInBlock = UnencryptedL2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
+        maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+        if (maxLogsHit) {
+          this.#log.debug(`Max logs hit at block ${blockNumber}`);
+          break loopOverBlocks;
+        }
+      }
+    }
+
+    return { logs, maxLogsHit };
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): GetUnencryptedLogsResponse {
+    if (filter.afterLog) {
+      return this.#filterContractClassLogsBetweenBlocks(filter);
+    } else if (filter.txHash) {
+      return this.#filterContractClassLogsOfTx(filter);
+    } else {
+      return this.#filterContractClassLogsBetweenBlocks(filter);
+    }
+  }
+
+  #filterContractClassLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+    if (!filter.txHash) {
+      throw new Error('Missing txHash');
+    }
+
+    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
+    if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
+      return { logs: [], maxLogsHit: false };
+    }
+    const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber);
+    const contractClassLogsInBlock = contractClassLogsBuffer
+      ? ContractClass2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
+      : new ContractClass2BlockL2Logs([]);
+    const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+
+    return { logs, maxLogsHit };
+  }
+
+  #filterContractClassLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+    const start =
+      filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
+    const end = filter.toBlock;
+
+    if (typeof end === 'number' && end < start) {
+      return {
+        logs: [],
+        maxLogsHit: true,
+      };
+    }
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+
+    let maxLogsHit = false;
+    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({ start, end })) {
+      const contractClassLogsInBlock = ContractClass2BlockL2Logs.fromBuffer(logBuffer);
+      for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.txLogs.length; txIndex++) {
+        const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);

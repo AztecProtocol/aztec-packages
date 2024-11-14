@@ -32,7 +32,7 @@ describe('MetadataTxValidator', () => {
   it.each([42, 43])('allows txs with valid max block number', async maxBlockNumber => {
     const goodTx = mockTxForRollup(1);
     goodTx.data.constants.txContext.chainId = chainId;
-    goodTx.data.forRollup!.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(maxBlockNumber));
+    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(maxBlockNumber));
 
     await expect(validator.validateTxs([goodTx])).resolves.toEqual([[goodTx], []]);
   });
@@ -40,7 +40,7 @@ describe('MetadataTxValidator', () => {
   it('allows txs with unset max block number', async () => {
     const goodTx = mockTxForRollup(1);
     goodTx.data.constants.txContext.chainId = chainId;
-    goodTx.data.forRollup!.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, Fr.ZERO);
+    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, Fr.ZERO);
 
     await expect(validator.validateTxs([goodTx])).resolves.toEqual([[goodTx], []]);
   });
@@ -48,10 +48,7 @@ describe('MetadataTxValidator', () => {
   it('rejects txs with lower max block number', async () => {
     const badTx = mockTxForRollup(1);
     badTx.data.constants.txContext.chainId = chainId;
-    badTx.data.forRollup!.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(
-      true,
-      blockNumber.sub(new Fr(1)),
-    );
+    badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber.sub(new Fr(1)));
     await expect(validator.validateTxs([badTx])).resolves.toEqual([[], [badTx]]);
   });
 });

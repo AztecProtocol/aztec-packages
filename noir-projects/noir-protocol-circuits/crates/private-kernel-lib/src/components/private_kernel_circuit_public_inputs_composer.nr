@@ -1,12 +1,12 @@
 use dep::types::{
     abis::{
-        combined_constant_data::CombinedConstantData,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
         },
         max_block_number::MaxBlockNumber,
         nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
     traits::is_empty,
@@ -31,12 +31,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
-        public_inputs.constants = CombinedConstantData::private(
-            private_call_public_inputs.historical_header,
-            tx_request.tx_context,
+        public_inputs.constants = TxConstantData {
+            historical_header: private_call_public_inputs.historical_header,
+            tx_context: tx_request.tx_context,
             vk_tree_root,
             protocol_contract_tree_root,
-        );
+        };
 
         // Since it's the first iteration, we need to push the tx hash nullifier into the `nullifiers` array
         public_inputs.end.nullifiers.push(create_first_nullifier(tx_request));
@@ -76,8 +76,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.end.note_encrypted_logs_hashes =
             array_to_bounded_vec(start.note_encrypted_logs_hashes);
         public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
-        public_inputs.end.unencrypted_logs_hashes =
-            array_to_bounded_vec(start.unencrypted_logs_hashes);
+        public_inputs.end.contract_class_logs_hashes =
+            array_to_bounded_vec(start.contract_class_logs_hashes);
         public_inputs.end.public_call_requests = array_to_bounded_vec(start.public_call_requests);
         public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
 
@@ -102,8 +102,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage =
             sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
-        self.public_inputs.end.unencrypted_logs_hashes.storage =
-            sort_by_counter_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);
+        self.public_inputs.end.contract_class_logs_hashes.storage =
+            sort_by_counter_asc(self.public_inputs.end.contract_class_logs_hashes.storage);
         self.public_inputs.end.public_call_requests.storage =
             sort_by_counter_desc(self.public_inputs.end.public_call_requests.storage);
     }
@@ -237,11 +237,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
             }
         }
 
-        let unencrypted_logs = private_call.unencrypted_logs_hashes;
-        for i in 0..unencrypted_logs.len() {
-            let log = unencrypted_logs[i];
+        let contract_class_logs = private_call.contract_class_logs_hashes;
+        for i in 0..contract_class_logs.len() {
+            let log = contract_class_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.unencrypted_logs_hashes.push(log.scope(
+                self.public_inputs.end.contract_class_logs_hashes.push(log.scope(
                     private_call.call_context.contract_address,
                 ));
             }

@@ -1,3 +1,7 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
 /** Stats associated with an ACIR proof generation.*/
 export type ProofConstructed = {
   /** Name of the event for metrics purposes */
@@ -235,6 +239,17 @@ export type NoteProcessorStats = {
   txs: number;
 };
 
+export const NoteProcessorStatsSchema = z.object({
+  seen: z.number(),
+  deferredIncoming: z.number(),
+  deferredOutgoing: z.number(),
+  decryptedIncoming: z.number(),
+  decryptedOutgoing: z.number(),
+  failed: z.number(),
+  blocks: z.number(),
+  txs: z.number(),
+}) satisfies ZodFor<NoteProcessorStats>;
+
 /** Stats for a tx. */
 export type TxStats = {
   /** Hash of the tx. */
@@ -261,6 +276,8 @@ export type TxStats = {
   newNullifierCount: number;
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
+  /** Serialized size of contract class logs. */
+  contractClassLogSize: number;
   /** How this tx pays for its fee */
   feePaymentMethod: 'none' | 'fee_juice' | 'fpc_public' | 'fpc_private';
 };

@@ -5,7 +5,7 @@ use crate::{
     utils::reader::Reader,
 };
 
-// TODO(#7124): To be deprecated.
+// TODO(#9594): To be deprecated.
 pub struct PublicInnerCallRequest {
     item: PublicCallStackItemCompressed,
     counter: u32,
@@ -38,7 +38,7 @@ impl Serialize<PUBLIC_INNER_CALL_REQUEST_LENGTH> for PublicInnerCallRequest {
 
         assert_eq(fields.len(), PUBLIC_INNER_CALL_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

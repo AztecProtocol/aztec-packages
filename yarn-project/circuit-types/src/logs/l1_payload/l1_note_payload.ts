@@ -4,7 +4,6 @@ import { randomInt } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { EncryptedL2NoteLog } from '../encrypted_l2_note_log.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 
 /**
@@ -60,9 +59,9 @@ export class L1NotePayload {
     }
   }
 
-  static decryptAsIncoming(log: Buffer, sk: Fq): L1NotePayload | undefined {
-    const { publicValues, encryptedLog } = parseLog(log);
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(encryptedLog.data, sk);
+  static decryptAsIncoming(log: Buffer, sk: Fq, isFromPublic = false): L1NotePayload | undefined {
+    const { publicValues, encryptedLog } = parseLog(log, isFromPublic);
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(encryptedLog, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -74,9 +73,9 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsOutgoing(log: Buffer, sk: Fq): L1NotePayload | undefined {
-    const { publicValues, encryptedLog } = parseLog(log);
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(encryptedLog.data, sk);
+  static decryptAsOutgoing(log: Buffer, sk: Fq, isFromPublic = false): L1NotePayload | undefined {
+    const { publicValues, encryptedLog } = parseLog(log, isFromPublic);
+    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(encryptedLog, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -103,10 +102,10 @@ export class L1NotePayload {
    * @returns A random L1NotePayload object.
    */
   static random(contract = AztecAddress.random()) {
-    const numPrivateNoteValues = randomInt(10) + 1;
+    const numPrivateNoteValues = randomInt(2) + 1;
     const privateNoteValues = Array.from({ length: numPrivateNoteValues }, () => Fr.random());
 
-    const numPublicNoteValues = randomInt(10) + 1;
+    const numPublicNoteValues = randomInt(2) + 1;
     const publicNoteValues = Array.from({ length: numPublicNoteValues }, () => Fr.random());
 
     return new L1NotePayload(contract, Fr.random(), NoteSelector.random(), privateNoteValues, publicNoteValues);
@@ -150,20 +149,20 @@ export class L1NotePayload {
  * @param log - Log to be parsed.
  * @returns An object containing the public values and the encrypted log.
  */
-function parseLog(log: Buffer) {
+function parseLog(log: Buffer, isFromPublic: boolean) {
   // First we remove padding bytes
-  const processedLog = removePaddingBytes(log);
+  const processedLog = isFromPublic ? removePaddingBytes(log) : log;
 
   const reader = new BufferReader(processedLog);
 
   // Then we extract public values from the log
-  const numPublicValues = reader.readUInt8();
+  const numPublicValues = isFromPublic ? reader.readUInt8() : 0;
 
   const publicValuesLength = numPublicValues * Fr.SIZE_IN_BYTES;
   const encryptedLogLength = reader.remainingBytes() - publicValuesLength;
 
   // Now we get the buffer corresponding to the encrypted log
-  const encryptedLog = new EncryptedL2NoteLog(reader.readBytes(encryptedLogLength));
+  const encryptedLog = reader.readBytes(encryptedLogLength);
 
   // At last we load the public values
   const publicValues = reader.readArray(numPublicValues, Fr);
@@ -180,16 +179,15 @@ function parseLog(log: Buffer) {
 function removePaddingBytes(unprocessedLog: Buffer) {
   // Determine whether first 31 bytes of each 32 bytes block of bytes are 0
   const is1FieldPerByte = unprocessedLog.every((byte, index) => index % 32 === 31 || byte === 0);
-
-  if (is1FieldPerByte) {
-    // We take every 32nd byte from the log and return the result
-    const processedLog = Buffer.alloc(unprocessedLog.length / 32);
-    for (let i = 0; i < processedLog.length; i++) {
-      processedLog[i] = unprocessedLog[31 + i * 32];
-    }
-
-    return processedLog;
+  if (!is1FieldPerByte) {
+    return unprocessedLog;
   }
 
-  return unprocessedLog;
+  // We take every 32nd byte from the log and return the result
+  const processedLog = Buffer.alloc(unprocessedLog.length / 32);
+  for (let i = 0; i < processedLog.length; i++) {
+    processedLog[i] = unprocessedLog[31 + i * 32];
+  }
+
+  return processedLog;
 }

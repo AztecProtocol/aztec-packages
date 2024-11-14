@@ -47,7 +47,7 @@ export class GetContractInstance extends Instruction {
     const [addressOffset, dstOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 
-    const address = memory.get(addressOffset).toFr();
+    const address = memory.get(addressOffset).toAztecAddress();
     const instance = await context.persistableState.getContractInstance(address);
     const exists = instance !== undefined;
 
@@ -70,6 +70,5 @@ export class GetContractInstance extends Instruction {
     memory.set(dstOffset, memberValue);
 
     memory.assert({ reads: 1, writes: 2, addressing });
-    context.machineState.incrementPc();
   }
 }

@@ -9,7 +9,7 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   const t = new CrossChainMessagingTest('token_bridge_failure_cases');
 
-  let { crossChainTestHarness, ethAccount, l2Bridge, user1Wallet, user2Wallet, aztecNode, ownerAddress } = t;
+  let { crossChainTestHarness, ethAccount, l2Bridge, user1Wallet, user2Wallet, ownerAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -18,7 +18,6 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ({ crossChainTestHarness, user1Wallet, user2Wallet } = t);
     ethAccount = crossChainTestHarness.ethAccount;
     l2Bridge = crossChainTestHarness.l2Bridge;
-    aztecNode = crossChainTestHarness.aztecNode;
     ownerAddress = crossChainTestHarness.ownerAddress;
   }, 300_000);
 
@@ -43,30 +42,35 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
 
   it("Can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
-    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
-    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
-    await crossChainTestHarness.makeMessageConsumable(msgHash);
+    await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
     // Wrong message hash
-    const content = sha256ToField([
-      Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-      secretHash,
-      new Fr(bridgeAmount),
+    const wrongBridgeAmount = bridgeAmount + 1n;
+    const wrongMessageContent = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_to_private(uint256)').substring(2), 'hex'),
+      new Fr(wrongBridgeAmount),
     ]);
+
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
-      content,
-      secretHash,
+      wrongMessageContent,
+      claim.claimSecretHash,
+      new Fr(claim.messageLeafIndex),
     );
 
+    // Sending wrong secret hashes should fail:
     await expect(
-      l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).prove(),
-    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+      l2Bridge
+        .withWallet(user2Wallet)
+        .methods.claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
+        .prove(),
+    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
   it("Can't claim funds publicly which were intended for private deposit from the token portal", async () => {
@@ -75,29 +79,17 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
 
     // 2. Deposit tokens to the TokenPortal privately
-    const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      crossChainTestHarness.generateClaimSecret();
-
-    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
-      Fr.random(),
-      bridgeAmount,
-      secretHashForL2MessageConsumption,
-    );
+    const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgHash);
-
-    // get message leaf index, needed for claiming in public
-    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash, 0n);
-    expect(maybeIndexAndPath).toBeDefined();
-    const messageLeafIndex = maybeIndexAndPath![0];
+    await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
     // 3. Consume L1 -> L2 message and try to mint publicly on L2  - should fail
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption, messageLeafIndex)
+        .methods.claim_public(ownerAddress, bridgeAmount, Fr.random(), claim.messageLeafIndex)
         .prove(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
   });

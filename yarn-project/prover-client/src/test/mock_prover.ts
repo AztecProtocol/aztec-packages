@@ -11,8 +11,8 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   type KernelCircuitPublicInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   VerificationKeyData,
@@ -23,7 +23,7 @@ import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
   makeKernelCircuitPublicInputs,
-  makeRootParityInput,
+  makeParityPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 
@@ -40,11 +40,23 @@ export class MockProver implements ServerCircuitProver {
   }
 
   getBaseParityProof() {
-    return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeParityPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
   }
 
   getRootParityProof() {
-    return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeParityPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
   }
 
   getPrivateBaseRollupProof(): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
@@ -117,16 +129,6 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyTubeProof(): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return Promise.resolve(
-      makePublicInputsAndRecursiveProof(
-        makeKernelCircuitPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
-      ),
-    );
-  }
-
   getRootRollupProof(): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
@@ -137,7 +139,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getTubeProof(): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  getTubeProof(): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return Promise.resolve(
       makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFake()),
     );

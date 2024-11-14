@@ -52,7 +52,6 @@ export async function send(
   const gasSettings = GasSettings.from({
     ...gasLimits,
     maxFeesPerGas: feeOpts.gasSettings.maxFeesPerGas,
-    inclusionFee: feeOpts.gasSettings.inclusionFee,
   });
   return {
     txHash,

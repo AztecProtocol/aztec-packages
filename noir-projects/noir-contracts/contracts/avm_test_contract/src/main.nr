@@ -230,6 +230,21 @@ contract AvmTest {
     }
 
     #[public]
+    fn external_call_to_assertion_failure() {
+        AvmTest::at(context.this_address()).assertion_failure().call(&mut context);
+    }
+
+    #[public]
+    fn divide_by_zero() -> u8 {
+        1 / 0
+    }
+
+    #[public]
+    fn external_call_to_divide_by_zero() {
+        AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+    }
+
+    #[public]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
@@ -625,9 +640,9 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        let _ = nested_call_to_add(1, 2);
-        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        let _ = nested_static_call_to_add(1, 2);
+        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        //let _ = nested_call_to_add(1, 2);
+        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        //let _ = nested_static_call_to_add(1, 2);
     }
 }

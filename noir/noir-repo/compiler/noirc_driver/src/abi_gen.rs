@@ -26,7 +26,7 @@ pub(super) fn gen_abi(
     context: &Context,
     func_id: &FuncId,
     return_visibility: Visibility,
-    error_types: BTreeMap<ErrorSelector, Type>,
+    error_types: BTreeMap<ErrorSelector, ErrorType>,
 ) -> Abi {
     let (parameters, return_type) = compute_function_abi(context, func_id);
     let return_type = return_type.map(|typ| AbiReturnType {
@@ -35,7 +35,7 @@ pub(super) fn gen_abi(
     });
     let error_types = error_types
         .into_iter()
-        .map(|(selector, typ)| (selector, build_abi_error_type(context, &typ)))
+        .map(|(selector, typ)| (selector, build_abi_error_type(context, typ)))
         .collect();
     Abi { parameters, return_type, error_types }
 }
@@ -49,7 +49,16 @@ fn get_main_function_span(context: &Context) -> Span {
     }
 }
 
-fn build_abi_error_type(context: &Context, typ: &Type) -> AbiErrorType {
+// Get the Span of the root crate's main function, or else a dummy span if that fails
+fn get_main_function_span(context: &Context) -> Span {
+    if let Some(func_id) = context.get_main_function(context.root_crate_id()) {
+        context.function_meta(&func_id).location.span
+    } else {
+        Span::default()
+    }
+}
+
+fn build_abi_error_type(context: &Context, typ: ErrorType) -> AbiErrorType {
     match typ {
         Type::FmtString(len, item_types) => {
             let span = get_main_function_span(context);
@@ -61,7 +70,7 @@ fn build_abi_error_type(context: &Context, typ: &Type) -> AbiErrorType {
                 item_types.iter().map(|typ| abi_type_from_hir_type(context, typ)).collect();
             AbiErrorType::FmtString { length, item_types }
         }
-        _ => AbiErrorType::Custom(abi_type_from_hir_type(context, typ)),
+        ErrorType::String(string) => AbiErrorType::String { string },
     }
 }
 

@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub struct ReadRequest {
-    value: Field,
-    counter: u32,
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for ReadRequest {
@@ -48,8 +48,8 @@ impl ReadRequest {
 }
 
 pub struct ScopedReadRequest {
-    read_request: ReadRequest,
-    contract_address: AztecAddress,
+    pub read_request: ReadRequest,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<ReadRequest> for ScopedReadRequest {

@@ -6,7 +6,7 @@
     "acvm",
     "addrs",
     "alphanet",
-    "Apella",
+    "Governance",
     "archiver",
     "assignement",
     "asyncify",
@@ -102,7 +102,6 @@
     "fullpath",
     "fuzzer",
     "fuzzers",
-    "Gerousia",
     "gitmodules",
     "gitrepo",
     "Gossipable",
@@ -169,7 +168,6 @@
     "nodebuffer",
     "noirc",
     "noirup",
-    "Nomismatokopio",
     "nullifer",
     "offchain",
     "onchain",
@@ -250,7 +248,6 @@
     "subrepo",
     "subroot",
     "suyash",
-    "Sysstia",
     "templating",
     "tldr",
     "toplevel",
@@ -270,9 +267,6 @@
     "unexcluded",
     "unfinalised",
     "unprefixed",
-    "unshield",
-    "unshielding",
-    "unshields",
     "unzipit",
     "updateable",
     "upperfirst",
@@ -283,6 +277,7 @@
     "Validium",
     "vals",
     "viem",
+    "vpks",
     "Vyper",
     "wasms",
     "webassembly",
@@ -318,7 +313,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous"
-  ]
+  "flagWords": ["anonymous"]
 }

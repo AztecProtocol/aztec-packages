@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,6 +9,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -111,12 +111,11 @@ export interface ArchiverDataStore {
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined>;
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined>;
 
   /**
    * Get the total number of L1 to L2 messages
@@ -143,7 +142,7 @@ export interface ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -151,6 +150,13 @@ export interface ArchiverDataStore {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed.

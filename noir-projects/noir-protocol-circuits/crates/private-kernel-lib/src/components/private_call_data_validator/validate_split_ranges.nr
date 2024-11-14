@@ -61,7 +61,7 @@ mod tests {
             validate_split_ranges(
                 self.private_call.min_revertible_side_effect_counter,
                 self.first_revertible_private_call_request_index,
-                self.private_call.private_call_requests.storage,
+                self.private_call.private_call_requests.storage(),
                 self.private_call.private_call_requests.len(),
             );
         }

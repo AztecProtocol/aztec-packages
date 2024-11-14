@@ -8,13 +8,9 @@ import {
   type DebugLogger,
   type DeployL1Contracts,
   EthAddress,
-  ExtendedNote,
   type Fq,
   Fr,
-  Note,
   type PXE,
-  type TxHash,
-  computeSecretHash,
   createDebugLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
@@ -102,7 +98,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      { startProverNode: true, fundSysstia: true, coinbase },
+      { startProverNode: true, fundRewardDistributor: true, coinbase },
       { assumeProvenThrough: undefined },
     );
   }
@@ -328,42 +324,28 @@ export class FullProverTest {
     await this.acvmConfigCleanup?.();
   }
 
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.fakeProofsAsset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
-  }
-
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
         const { fakeProofsAsset: asset, accounts } = this;
-        const amount = 10000n;
+        const privateAmount = 10000n;
+        const publicAmount = 10000n;
 
         const waitOpts = { proven: false };
 
-        this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
+        this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
+        await asset.methods
+          .mint_to_public(accounts[0].address, privateAmount + publicAmount)
+          .send()
+          .wait(waitOpts);
 
-        this.logger.verbose(`Minting ${amount} privately...`);
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait(waitOpts);
+        this.logger.verbose(`Transferring ${privateAmount} to private...`);
+        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait(waitOpts);
 
-        await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-        const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ ...waitOpts, debug: true });
         this.logger.verbose(`Minting complete.`);
 
-        return { amount };
+        return { amount: publicAmount };
       },
       async ({ amount }) => {
         const {
@@ -377,8 +359,7 @@ export class FullProverTest {
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(amount);
-        tokenSim.redeemShield(address, amount);
+        tokenSim.mintPrivate(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));

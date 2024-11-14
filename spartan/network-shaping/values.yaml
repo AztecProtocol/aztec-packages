@@ -35,7 +35,6 @@ networkShaping:
         # Eg: 75 means the current delay will be 75% influenced by the previous delay
         correlation: "75"
 
-
     packetLoss:
       # Enable / disable packet loss configuration
       enabled: false
@@ -63,8 +62,9 @@ networkShaping:
       # Buffer = smoother bandwidth restriction but higher memory usage
       buffer: 1000
 
-
-
+    killProvers:
+      enabled: false
+      duration: 13m
 ## Here are some exciting example configurations created by claude:
 # Example use cases for different configurations:
 

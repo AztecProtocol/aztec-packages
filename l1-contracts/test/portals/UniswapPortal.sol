@@ -67,7 +67,7 @@ contract UniswapPortal {
     bool _withCaller,
     // Avoiding stack too deep
     PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
-  ) public returns (bytes32) {
+  ) public returns (bytes32, uint256) {
     LocalSwapVars memory vars;
 
     vars.inputAsset = TokenPortal(_inputTokenPortal).underlying();
@@ -87,6 +87,8 @@ contract UniswapPortal {
 
     {
       // prevent stack too deep errors
+      // The purpose of including the function selector is to make the message unique to that specific call. Note that
+      // it has nothing to do with calling the function.
       vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
           "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
@@ -158,7 +160,6 @@ contract UniswapPortal {
    * @param _uniswapFeeTier - The fee tier for the swap on UniswapV3
    * @param _outputTokenPortal - The ethereum address of the output token portal
    * @param _amountOutMinimum - The minimum amount of output assets to receive from the swap (slippage protection)
-   * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
    * @param _secretHashForL1ToL2Message - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
    * @param _withCaller - When true, using `msg.sender` as the caller, otherwise address(0)
    * @return A hash of the L1 to L2 message inserted in the Inbox
@@ -169,12 +170,11 @@ contract UniswapPortal {
     uint24 _uniswapFeeTier,
     address _outputTokenPortal,
     uint256 _amountOutMinimum,
-    bytes32 _secretHashForRedeemingMintedNotes,
     bytes32 _secretHashForL1ToL2Message,
     bool _withCaller,
     // Avoiding stack too deep
     PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
-  ) public returns (bytes32) {
+  ) public returns (bytes32, uint256) {
     LocalSwapVars memory vars;
 
     vars.inputAsset = TokenPortal(_inputTokenPortal).underlying();
@@ -193,15 +193,16 @@ contract UniswapPortal {
 
     {
       // prevent stack too deep errors
+      // The purpose of including the function selector is to make the message unique to that specific call. Note that
+      // it has nothing to do with calling the function.
       vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
+          "swap_private(address,uint256,uint24,address,uint256,bytes32,address)",
           _inputTokenPortal,
           _inAmount,
           _uniswapFeeTier,
           _outputTokenPortal,
           _amountOutMinimum,
-          _secretHashForRedeemingMintedNotes,
           _secretHashForL1ToL2Message,
           _withCaller ? msg.sender : address(0)
         )
@@ -247,9 +248,8 @@ contract UniswapPortal {
     vars.outputAsset.approve(address(_outputTokenPortal), amountOut);
 
     // Deposit the output asset to the L2 via its portal
-    return TokenPortal(_outputTokenPortal).depositToAztecPrivate(
-      _secretHashForRedeemingMintedNotes, amountOut, _secretHashForL1ToL2Message
-    );
+    return
+      TokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _secretHashForL1ToL2Message);
   }
 }
 // docs:end:solidity_uniswap_swap_private

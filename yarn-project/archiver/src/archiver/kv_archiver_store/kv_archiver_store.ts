@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,6 +9,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -199,13 +199,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message, startIndex));
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message));
   }
 
   /**
@@ -246,7 +245,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     try {
       return this.#logStore.getLogsByTags(tags);
     } catch (err) {
@@ -262,6 +261,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     try {
       return Promise.resolve(this.#logStore.getUnencryptedLogs(filter));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    try {
+      return Promise.resolve(this.#logStore.getContractClassLogs(filter));
     } catch (err) {
       return Promise.reject(err);
     }

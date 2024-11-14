@@ -1,4 +1,3 @@
-{{- if not .Values.bootNode.external }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -27,7 +26,7 @@ spec:
             - |
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
@@ -46,7 +45,7 @@ spec:
             [
               "/bin/sh",
               "-c",
-              "cp /scripts/deploy-contracts.sh /tmp/deploy-contracts.sh && chmod +x /tmp/deploy-contracts.sh && /tmp/deploy-contracts.sh \"{{ join "," .Values.validator.validatorAddresses }}\""
+              "cp /scripts/deploy-contracts.sh /tmp/deploy-contracts.sh && chmod +x /tmp/deploy-contracts.sh && /tmp/deploy-contracts.sh {{ .Values.ethereum.chainId }} \"{{ join "," .Values.validator.validatorAddresses }}\""
             ]
           volumeMounts:
             - name: scripts-output
@@ -58,6 +57,14 @@ spec:
               value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: INIT_VALIDATORS
               value: {{ not .Values.validator.external | quote }}
+            - name: ETHEREUM_SLOT_DURATION
+              value: "{{ .Values.ethereum.blockTime }}"
+            - name: AZTEC_SLOT_DURATION
+              value: "{{ .Values.aztec.slotDuration }}"
+            - name: AZTEC_EPOCH_DURATION
+              value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
+              value: "{{ .Values.aztec.epochProofClaimWindow }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -69,12 +76,16 @@ spec:
               "-c",
               "sleep 30 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
+          startupProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.bootNode.service.nodePort }}
+            periodSeconds: {{ .Values.bootNode.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.bootNode.startupProbe.failureThreshold }}
           livenessProbe:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
+            httpGet:
+              path: /status
+              port: {{ .Values.bootNode.service.nodePort }}
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 30
@@ -89,16 +100,10 @@ spec:
               subPath: contracts.env
           {{- end }}
           env:
-            - name: POD_NAME
+            - name: POD_IP
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_DNS_NAME
-              value: "$(POD_NAME).{{ include "aztec-network.fullname" . }}-boot-node.$(POD_NAMESPACE).svc.cluster.local"
+                  fieldPath: status.podIP
             - name: PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL
@@ -115,6 +120,8 @@ spec:
               value: "{{ .Values.bootNode.coinbaseAddress }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.bootNode.validator.disabled }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
               value: "{{ .Values.bootNode.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
@@ -123,13 +130,13 @@ spec:
               {{- if .Values.bootNode.externalTcpHost }}
               value: "{{ .Values.bootNode.externalTcpHost }}:{{ .Values.bootNode.service.p2pTcpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pTcpPort }}"
+              value: "$(POD_IP):{{ .Values.bootNode.service.p2pTcpPort }}"
               {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
               {{- if .Values.bootNode.externalUdpHost }}
               value: "{{ .Values.bootNode.externalUdpHost }}:{{ .Values.bootNode.service.p2pUdpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pUdpPort }}"
+              value: "$(POD_IP):{{ .Values.bootNode.service.p2pUdpPort }}"
               {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.bootNode.service.p2pTcpPort }}"
@@ -137,10 +144,24 @@ spec:
               value: "0.0.0.0:{{ .Values.bootNode.service.p2pUdpPort }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.bootNode.realProofs }}"
+            - name: ETHEREUM_SLOT_DURATION
+              value: "{{ .Values.ethereum.blockTime }}"
+            - name: AZTEC_SLOT_DURATION
+              value: "{{ .Values.aztec.slotDuration }}"
+            - name: AZTEC_EPOCH_DURATION
+              value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
+              value: "{{ .Values.aztec.epochProofClaimWindow }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
@@ -189,6 +210,7 @@ data:
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
 ---
+# Headless service for StatefulSet DNS entries
 apiVersion: v1
 kind: Service
 metadata:
@@ -196,7 +218,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
@@ -246,5 +268,5 @@ spec:
     - port: {{ .Values.bootNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
-{{ end }}
+---
 {{ end }}

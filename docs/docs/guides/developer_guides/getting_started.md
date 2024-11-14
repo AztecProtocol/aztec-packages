@@ -139,12 +139,12 @@ In the next step, let's mint some tokens!
 Call the public mint function like this:
 
 ```bash
-aztec-wallet send mint_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
+aztec-wallet send mint_to_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
 ```
 
 This takes
 
-- the function name as the argument, which is `mint_public`
+- the function name as the argument, which is `mint_to_public`
 - the `from` account (caller) which is `accounts:my-wallet`
 - the contract address, which is aliased as `contracts:testtoken` (or simply `testtoken`)
 - the args that the function takes, which is the account to mint the tokens into (`my-wallet`), and `amount` (`100`).
@@ -165,7 +165,7 @@ Transaction has been mined
  Status: success
  Block number: 17
  Block hash: 1e27d200600bc45ab94d467c230490808d1e7d64f5ee6cee5e94a08ee9580809
-Transaction hash stored in database with aliases last & mint_public-9044
+Transaction hash stored in database with aliases last & mint_to_public-9044
 ```
 
 You can double-check by calling the function that checks your public account balance:

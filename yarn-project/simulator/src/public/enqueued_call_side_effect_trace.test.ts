@@ -18,9 +18,12 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
   Nullifier,
+  NullifierLeafPreimage,
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
+  PublicCallRequest,
   PublicDataRead,
+  PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
@@ -28,17 +31,32 @@ import {
   SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
 import { randomBytes, randomInt } from 'crypto';
 
 import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { initExecutionEnvironment } from '../avm/fixtures/index.js';
 import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 
+/**
+ * Helper function to create a public execution request from an AVM execution environment
+ */
+function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
+  return new PublicCallRequest(
+    avmEnvironment.sender,
+    avmEnvironment.address,
+    avmEnvironment.functionSelector,
+    avmEnvironment.isStaticCall,
+    computeVarArgsHash(avmEnvironment.calldata),
+  );
+}
+
 describe('Enqueued-call Side Effect Trace', () => {
-  const address = Fr.random();
+  const address = AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
   const slot = Fr.random();
@@ -79,29 +97,40 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   const toVMCircuitPublicInputs = (trc: PublicEnqueuedCallSideEffectTrace) => {
-    return trc.toVMCircuitPublicInputs(constants, avmEnvironment, startGasLeft, endGasLeft, avmCallResults);
+    return trc.toVMCircuitPublicInputs(
+      constants,
+      createPublicCallRequest(avmEnvironment),
+      startGasLeft,
+      endGasLeft,
+      transactionFee,
+      avmCallResults,
+    );
   };
 
   it('Should trace storage reads', () => {
-    const exists = true;
-    const cached = false;
-    trace.tracePublicStorageRead(address, slot, value, exists, cached);
+    const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
+    trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().publicDataReads;
-    expectedArray[0] = new PublicDataRead(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataRead(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.validationRequests.publicDataReads).toEqual(expectedArray);
-    expect(trace.getAvmCircuitHints().storageValues.items).toEqual([{ key: startCounterFr, value: value }]);
+    expect(trace.getAvmCircuitHints().storageValues.items).toEqual([{ key: startCounterFr, value }]);
   });
 
   it('Should trace storage writes', () => {
-    trace.tracePublicStorageWrite(address, slot, value);
+    const lowLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
+    const newLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
+
+    trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().publicDataUpdateRequests;
-    expectedArray[0] = new PublicDataUpdateRequest(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.publicDataUpdateRequests).toEqual(expectedArray);
@@ -109,7 +138,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
   it('Should trace note hash checks', () => {
     const exists = true;
-    trace.traceNoteHashCheck(address, utxo, leafIndex, exists);
+    trace.traceNoteHashCheck(address, utxo, leafIndex, exists, []);
 
     const expectedArray = PublicValidationRequests.empty().noteHashReadRequests;
     expectedArray[0] = new TreeLeafReadRequest(utxo, leafIndex);
@@ -121,7 +150,7 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   it('Should trace note hashes', () => {
-    trace.traceNewNoteHash(address, utxo);
+    trace.traceNewNoteHash(address, utxo, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().noteHashes;
@@ -133,8 +162,8 @@ describe('Enqueued-call Side Effect Trace', () => {
 
   it('Should trace nullifier checks', () => {
     const exists = true;
-    const isPending = false;
-    trace.traceNullifierCheck(address, utxo, leafIndex, exists, isPending);
+    const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
+    trace.traceNullifierCheck(address, utxo, exists, lowLeafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().nullifierReadRequests;
@@ -151,8 +180,8 @@ describe('Enqueued-call Side Effect Trace', () => {
 
   it('Should trace non-existent nullifier checks', () => {
     const exists = false;
-    const isPending = false;
-    trace.traceNullifierCheck(address, utxo, leafIndex, exists, isPending);
+    const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
+    trace.traceNullifierCheck(address, utxo, exists, lowLeafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().nullifierNonExistentReadRequests;
@@ -168,11 +197,12 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   it('Should trace nullifiers', () => {
-    trace.traceNewNullifier(address, utxo);
+    const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
+    trace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().nullifiers;
-    expectedArray[0] = new Nullifier(utxo, startCounter, Fr.ZERO);
+    expectedArray[0] = new Nullifier(siloNullifier(address, utxo), startCounter, Fr.ZERO);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.nullifiers).toEqual(expectedArray);
@@ -180,7 +210,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
   it('Should trace L1ToL2 Message checks', () => {
     const exists = true;
-    trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists);
+    trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists, []);
 
     const expectedArray = PublicValidationRequests.empty().l1ToL2MsgReadRequests;
     expectedArray[0] = new TreeLeafReadRequest(utxo, leafIndex);
@@ -211,16 +241,13 @@ describe('Enqueued-call Side Effect Trace', () => {
     trace.traceUnencryptedLog(address, log);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expectedLog = new UnencryptedL2Log(
-      AztecAddress.fromField(address),
-      Buffer.concat(log.map(f => f.toBuffer())),
-    );
+    const expectedLog = new UnencryptedL2Log(address, Buffer.concat(log.map(f => f.toBuffer())));
     const expectedArray = PublicAccumulatedData.empty().unencryptedLogsHashes;
     expectedArray[0] = new LogHash(
       Fr.fromBuffer(expectedLog.hash()),
       startCounter,
       new Fr(expectedLog.length + 4),
-    ).scope(AztecAddress.fromField(address));
+    ).scope(address);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(trace.getUnencryptedLogs()).toEqual([expectedLog]);
@@ -246,101 +273,126 @@ describe('Enqueued-call Side Effect Trace', () => {
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of public storage reads', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; i++) {
-        trace.tracePublicStorageRead(new Fr(i), new Fr(i), new Fr(i), true, true);
+        const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
+        trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       }
-      expect(() => trace.tracePublicStorageRead(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+      const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
+      expect(() => trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, [])).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of public storage writes', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        trace.tracePublicStorageWrite(new Fr(i), new Fr(i), new Fr(i));
+        const lowLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
+        const newLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i + 1), new Fr(i + 1), Fr.ZERO, 0n);
+        trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
       }
-      expect(() => trace.tracePublicStorageWrite(new Fr(42), new Fr(42), new Fr(42))).toThrow(
-        SideEffectLimitReachedError,
-      );
+      const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
+      expect(() =>
+        trace.tracePublicStorageWrite(
+          AztecAddress.fromNumber(42),
+          new Fr(42),
+          value,
+          leafPreimage,
+          Fr.ZERO,
+          [],
+          leafPreimage,
+          [],
+        ),
+      ).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of note hash checks', () => {
       for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNoteHashCheck(new Fr(i), new Fr(i), new Fr(i), true);
+        trace.traceNoteHashCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true, []);
       }
-      expect(() => trace.traceNoteHashCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+      expect(() => trace.traceNoteHashCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, [])).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of new note hashes', () => {
       for (let i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        trace.traceNewNoteHash(new Fr(i), new Fr(i));
+        trace.traceNewNoteHash(AztecAddress.fromNumber(i), new Fr(i), Fr.ZERO, []);
       }
-      expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42), Fr.ZERO, [])).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of nullifier checks', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), true, true);
+        const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
+      expect(() =>
+        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), true, lowLeafPreimage, Fr.ZERO, []),
+      ).toThrow(SideEffectLimitReachedError);
       // NOTE: also cannot do a non-existent check once existent checks have filled up
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), false, true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() =>
+        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), false, lowLeafPreimage, Fr.ZERO, []),
+      ).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of nullifier non-existent checks', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), false, true);
+        const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), false, true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
+      expect(() =>
+        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), false, lowLeafPreimage, Fr.ZERO, []),
+      ).toThrow(SideEffectLimitReachedError);
       // NOTE: also cannot do a existent check once non-existent checks have filled up
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() =>
+        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), true, lowLeafPreimage, Fr.ZERO, []),
+      ).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of new nullifiers', () => {
       for (let i = 0; i < MAX_NULLIFIERS_PER_TX; i++) {
-        trace.traceNewNullifier(new Fr(i), new Fr(i));
+        const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i + 1), Fr.ZERO, 0n);
+        trace.traceNewNullifier(AztecAddress.fromNumber(i), new Fr(i), lowLeafPreimage, Fr.ZERO, [], []);
       }
-      expect(() => trace.traceNewNullifier(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
+      expect(() =>
+        trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42), lowLeafPreimage, Fr.ZERO, [], []),
+      ).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of L1 to L2 message checks', () => {
       for (let i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX; i++) {
-        trace.traceL1ToL2MessageCheck(new Fr(i), new Fr(i), new Fr(i), true);
+        trace.traceL1ToL2MessageCheck(AztecAddress.fromNumber(i), new Fr(i), new Fr(i), true, []);
       }
-      expect(() => trace.traceL1ToL2MessageCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() =>
+        trace.traceL1ToL2MessageCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true, []),
+      ).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of new l2 to l1 messages', () => {
       for (let i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX; i++) {
-        trace.traceNewL2ToL1Message(new Fr(i), new Fr(i), new Fr(i));
+        trace.traceNewL2ToL1Message(AztecAddress.fromNumber(i), new Fr(i), new Fr(i));
       }
-      expect(() => trace.traceNewL2ToL1Message(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of new logs hashes', () => {
       for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX; i++) {
-        trace.traceUnencryptedLog(new Fr(i), [new Fr(i), new Fr(i)]);
+        trace.traceUnencryptedLog(AztecAddress.fromNumber(i), [new Fr(i), new Fr(i)]);
       }
-      expect(() => trace.traceUnencryptedLog(new Fr(42), [new Fr(42), new Fr(42)])).toThrow(
+      expect(() => trace.traceUnencryptedLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
         SideEffectLimitReachedError,
       );
     });
 
     it('Should enforce maximum number of nullifier checks for GETCONTRACTINSTANCE', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), true, true);
+        const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ true, contractInstance)).toThrow(
         SideEffectLimitReachedError,
@@ -353,7 +405,8 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     it('Should enforce maximum number of nullifier non-existent checks for GETCONTRACTINSTANCE', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
-        trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), false, true);
+        const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
+        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
         SideEffectLimitReachedError,
@@ -385,30 +438,34 @@ describe('Enqueued-call Side Effect Trace', () => {
           0,
         ),
       );
-      expect(() => trace.tracePublicStorageRead(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+      expect(() => trace.tracePublicStorageRead(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.tracePublicStorageWrite(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNoteHashCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+      expect(() => trace.traceNoteHashCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), false, true)).toThrow(
+      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), false)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNewNullifier(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
-      expect(() => trace.traceL1ToL2MessageCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+      expect(() => trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNewL2ToL1Message(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceUnencryptedLog(new Fr(42), [new Fr(42), new Fr(42)])).toThrow(
+      expect(() => trace.traceL1ToL2MessageCheck(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceUnencryptedLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
         SideEffectLimitReachedError,
       );
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
@@ -423,26 +480,26 @@ describe('Enqueued-call Side Effect Trace', () => {
   describe.each([avmCallResults, avmCallRevertedResults])('Should trace & absorb nested calls', callResults => {
     it(`${callResults.reverted ? 'Reverted' : 'Successful'} calls should be traced and absorbed properly`, () => {
       const existsDefault = true;
-      const cached = false;
-      const isPending = false;
 
       const nestedTrace = new PublicEnqueuedCallSideEffectTrace(startCounter);
       let testCounter = startCounter;
-      nestedTrace.tracePublicStorageRead(address, slot, value, existsDefault, cached);
+      const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
+      const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
+      nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.tracePublicStorageWrite(address, slot, value);
+      nestedTrace.tracePublicStorageWrite(address, slot, value, leafPreimage, Fr.ZERO, [], leafPreimage, []);
       testCounter++;
-      nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault);
+      nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
       // counter does not increment for note hash checks
-      nestedTrace.traceNewNoteHash(address, utxo);
+      nestedTrace.traceNewNoteHash(address, utxo, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.traceNullifierCheck(address, utxo, leafIndex, /*exists=*/ true, isPending);
+      nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.traceNullifierCheck(address, utxo, leafIndex, /*exists=*/ false, isPending);
+      nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.traceNewNullifier(address, utxo);
+      nestedTrace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
       testCounter++;
-      nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault);
+      nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault, []);
       // counter does not increment for l1tol2 message checks
       nestedTrace.traceNewL2ToL1Message(address, recipient, content);
       testCounter++;
@@ -462,8 +519,8 @@ describe('Enqueued-call Side Effect Trace', () => {
       const parentSideEffects = trace.getSideEffects();
       const childSideEffects = nestedTrace.getSideEffects();
       if (callResults.reverted) {
-        expect(parentSideEffects.contractStorageReads).toEqual(childSideEffects.contractStorageReads);
-        expect(parentSideEffects.contractStorageUpdateRequests).toEqual(childSideEffects.contractStorageUpdateRequests);
+        expect(parentSideEffects.publicDataReads).toEqual(childSideEffects.publicDataReads);
+        expect(parentSideEffects.publicDataWrites).toEqual(childSideEffects.publicDataWrites);
         expect(parentSideEffects.noteHashReadRequests).toEqual(childSideEffects.noteHashReadRequests);
         expect(parentSideEffects.noteHashes).toEqual([]);
         expect(parentSideEffects.nullifierReadRequests).toEqual(childSideEffects.nullifierReadRequests);
