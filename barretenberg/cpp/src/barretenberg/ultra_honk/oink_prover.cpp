@@ -119,7 +119,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         transcript->send_to_verifier(domain_separator + wire_labels[idx], wire_comms[idx]);
     }
 
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
 
         // Commit to Goblin ECC op wires
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
@@ -211,7 +211,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                                  witness_commitments.lookup_inverses);
 
     // If Mega, commit to the databus inverse polynomials and send
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_inverses(),
                       proving_key->proving_key.polynomials.get_databus_inverses(),
@@ -232,8 +232,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
-    // Compute the permutation and lookup grand product polynomials
-    proving_key->proving_key.compute_grand_product_polynomials(proving_key->relation_parameters);
+    // Compute the permutation grand product polynomial
+    proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
+                                                              proving_key->final_active_wire_idx + 1);
 
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");

@@ -83,7 +83,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                libra_evaluations);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-
     return sumcheck_output.verified.value() && verified;
 }
 
