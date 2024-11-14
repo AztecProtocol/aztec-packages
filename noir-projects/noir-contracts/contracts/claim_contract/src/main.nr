@@ -52,7 +52,7 @@ contract Claim {
 
         // 4) Finally we mint the reward token to the sender of the transaction
         Token::at(storage.reward_token.read_private())
-            .mint_public(recipient, proof_note.value)
+            .mint_to_public(recipient, proof_note.value)
             .enqueue(&mut context);
     }
 }

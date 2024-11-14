@@ -5,7 +5,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { UniqueNote } from '../notes/extended_note.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -141,18 +140,6 @@ interface DebugInfo {
    * New L2 to L1 messages created by the transaction.
    */
   l2ToL1Msgs: Fr[];
-  /**
-   * Notes created in this tx which were successfully decoded with the incoming keys of accounts which are registered
-   * in the PXE which was used to submit the tx. You will not get notes of accounts which are not registered in
-   * the PXE here even though they were created in this tx.
-   */
-  visibleIncomingNotes: UniqueNote[];
-  /**
-   * Notes created in this tx which were successfully decoded with the outgoing keys of accounts which are registered
-   * in the PXE which was used to submit the tx. You will not get notes of accounts which are not registered in
-   * the PXE here even though they were created in this tx.
-   */
-  visibleOutgoingNotes: UniqueNote[];
 }
 
 const DebugInfoSchema = z.object({
@@ -160,6 +147,4 @@ const DebugInfoSchema = z.object({
   nullifiers: z.array(schemas.Fr),
   publicDataWrites: z.array(PublicDataWrite.schema),
   l2ToL1Msgs: z.array(schemas.Fr),
-  visibleIncomingNotes: z.array(UniqueNote.schema),
-  visibleOutgoingNotes: z.array(UniqueNote.schema),
 });

@@ -77,7 +77,7 @@ contract Crowdfunding {
         // 2) Transfer the donation tokens from donor to this contract
         let donor = context.msg_sender();
         Token::at(storage.donation_token.read_private())
-            .transfer_from(donor, context.this_address(), amount as Field, 0)
+            .transfer_in_private(donor, context.this_address(), amount as Field, 0)
             .call(&mut context);
         // docs:end:do-transfer
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim

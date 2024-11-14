@@ -1,6 +1,6 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2024 Aztec Labs.
+// Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
 /**
@@ -31,6 +31,7 @@ library Constants {
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_CALL = 16;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
+  uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_CALL = 1;
   uint256 internal constant ARCHIVE_HEIGHT = 29;
   uint256 internal constant VK_TREE_HEIGHT = 6;
   uint256 internal constant PROTOCOL_CONTRACT_TREE_HEIGHT = 3;
@@ -70,6 +71,7 @@ library Constants {
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_TX = 64;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
+  uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_TX = 1;
   uint256 internal constant MAX_PUBLIC_DATA_HINTS = 128;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
   uint256 internal constant EMPTY_NESTED_INDEX = 0;
@@ -97,7 +99,7 @@ library Constants {
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     19007378675971183768036762391356802220352606103602592933942074152320327194720;
-  uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
+  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
@@ -202,7 +204,7 @@ library Constants {
   uint256 internal constant TX_REQUEST_LENGTH = 12;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 499;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 490;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 866;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 37;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
@@ -214,20 +216,20 @@ library Constants {
   uint256 internal constant NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS = 5;
   uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 834;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 545;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 550;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 34;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 43;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1064;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1877;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1036;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1849;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1023;
   uint256 internal constant NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS = 8;
-  uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 576;
+  uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 548;
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
-  uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1196;
+  uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1140;
   uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2931;
   uint256 internal constant VM_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2340;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 600;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 605;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 30;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 90;

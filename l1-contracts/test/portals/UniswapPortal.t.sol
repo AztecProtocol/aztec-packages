@@ -94,6 +94,8 @@ contract UniswapPortalTest is Test {
     view
     returns (bytes32 l2ToL1MessageHash)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2TokenAddress, 1),
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
@@ -116,6 +118,8 @@ contract UniswapPortalTest is Test {
     view
     returns (bytes32 l2ToL1MessageHash)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2UniswapAddress, 1),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
@@ -143,6 +147,8 @@ contract UniswapPortalTest is Test {
    * Set to address(0) if anyone can call.
    */
   function _createUniswapSwapMessagePrivate(address _caller) internal view returns (bytes32) {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2UniswapAddress, 1),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),

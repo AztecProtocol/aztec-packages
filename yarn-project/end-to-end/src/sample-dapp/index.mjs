@@ -84,7 +84,7 @@ async function mintPublicFunds(pxe) {
   await showPublicBalances(pxe);
 
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods.mint_public(owner.getAddress(), 100).send().wait();
+  const receipt = await token.methods.mint_to_public(owner.getAddress(), 100).send().wait();
   console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
 
   await showPublicBalances(pxe);

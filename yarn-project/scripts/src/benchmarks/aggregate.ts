@@ -24,7 +24,6 @@ import {
   type L2BlockHandledStats,
   type MetricName,
   type NodeSyncedChainHistoryStats,
-  type NoteProcessorCaughtUpStats,
   type ProofConstructed,
   type PublicDBAccessStats,
   type Stats,
@@ -186,15 +185,6 @@ function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, r
     append(results, 'protocol_circuit_witness_generation_time_in_ms', bucket, entry.duration);
   }
 }
-/**
- * Processes an entry with event name 'note-processor-caught-up' and updates results
- */
-function processNoteProcessorCaughtUp(entry: NoteProcessorCaughtUpStats, results: BenchmarkCollectedResults) {
-  const { decryptedIncoming, decryptedOutgoing, blocks, dbSize } = entry;
-  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && (decryptedIncoming > 0 || decryptedOutgoing > 0)) {
-    append(results, 'pxe_database_size_in_bytes', blocks, dbSize);
-  }
-}
 
 /** Processes an entry with event name 'l2-block-built' and updates results where buckets are rollup sizes */
 function processL2BlockBuilt(entry: L2BlockBuiltStats, results: BenchmarkCollectedResults) {
@@ -267,8 +257,6 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
       return processCircuitWitnessGeneration(entry, results);
     case 'circuit-proving':
       return processCircuitProving(entry, results);
-    case 'note-processor-caught-up':
-      return processNoteProcessorCaughtUp(entry, results);
     case 'l2-block-built':
       return processL2BlockBuilt(entry, results);
     case 'node-synced-chain-history':

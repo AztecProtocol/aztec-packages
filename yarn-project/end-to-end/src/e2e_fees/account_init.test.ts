@@ -134,7 +134,7 @@ describe('e2e_fees account_init', () => {
 
     it('pays publicly through an FPC', async () => {
       const mintedBananas = BigInt(1e12);
-      await bananaCoin.methods.mint_public(bobsAddress, mintedBananas).send().wait();
+      await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send().wait();
 
       const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, bobsWallet);
       const tx = await bobsAccountManager
@@ -192,7 +192,11 @@ describe('e2e_fees account_init', () => {
       await expect(t.getGasBalanceFn(aliceAddress)).resolves.toEqual([alicesInitialGas - tx.transactionFee!]);
 
       // bob can now use his wallet for sending txs
-      await bananaCoin.withWallet(bobsWallet).methods.transfer_public(bobsAddress, aliceAddress, 0n, 0n).send().wait();
+      await bananaCoin
+        .withWallet(bobsWallet)
+        .methods.transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)
+        .send()
+        .wait();
     });
   });
 });

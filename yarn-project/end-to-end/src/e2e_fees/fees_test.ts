@@ -4,12 +4,8 @@ import {
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
-  ExtendedNote,
-  Fr,
-  Note,
   type PXE,
   SignerlessWallet,
-  type TxHash,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
@@ -124,22 +120,6 @@ export class FeesTest {
 
     const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
-  }
-
-  /** Adds a pending shield transparent node for the banana coin token contract to the pxe. */
-  // TODO(benesjan): nuke this
-  async addPendingShieldNoteToPXE(owner: AztecAddress | AccountWallet, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const ownerAddress = 'getAddress' in owner ? owner.getAddress() : owner;
-    const extendedNote = new ExtendedNote(
-      note,
-      ownerAddress,
-      this.bananaCoin.address,
-      BananaCoin.storage.pending_shields.slot,
-      BananaCoin.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.pxe.addNote(extendedNote, ownerAddress);
   }
 
   public async applyBaseSnapshots() {
@@ -290,7 +270,7 @@ export class FeesTest {
       'fund_alice',
       async () => {
         await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
-        await this.bananaCoin.methods.mint_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send().wait();
+        await this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send().wait();
       },
       () => Promise.resolve(),
     );

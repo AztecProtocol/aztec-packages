@@ -199,8 +199,8 @@ export class TokenContract extends ContractBase {
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public override methods!: {
-    /** transfer_public(from: struct, to: struct, amount: field, nonce: field) */
-    transfer_public: ((
+    /** transfer_in_public(from: struct, to: struct, amount: field, nonce: field) */
+    transfer_in_public: ((
       from: AztecAddressLike,
       to: AztecAddressLike,
       amount: FieldLike,
