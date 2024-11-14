@@ -60,7 +60,7 @@ pub enum Opcode<F> {
     /// specialized constraints.
     ///
     /// Often used for exposing more efficient implementations of
-    /// SNARK-unfriendly computations.  
+    /// SNARK-unfriendly computations.
     ///
     /// All black box functions take as input a tuple `(witness, num_bits)`,
     /// where `num_bits` is a constant representing the bit size of the input
@@ -158,17 +158,8 @@ impl<F: AcirField> std::fmt::Display for Opcode<F> {
             }
 
             Opcode::BlackBoxFuncCall(g) => write!(f, "{g}"),
-            Opcode::Directive(Directive::ToLeRadix { a, b, radix: _ }) => {
-                write!(f, "DIR::TORADIX ")?;
-                write!(
-                    f,
-                    // TODO (Note): this assumes that the decomposed bits have contiguous witness indices
-                    // This should be the case, however, we can also have a function which checks this
-                    "(_{}, [_{}..._{}] )",
-                    a,
-                    b.first().unwrap().witness_index(),
-                    b.last().unwrap().witness_index(),
-                )
+            Opcode::Directive(_) => {
+                unreachable!("directives no longer exist")
             }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 write!(f, "MEM ")?;
