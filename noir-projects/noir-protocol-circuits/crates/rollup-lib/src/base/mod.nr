@@ -1,4 +1,3 @@
-mod base_rollup_inputs;
 mod components;
 mod private_base_rollup;
 mod public_base_rollup;
