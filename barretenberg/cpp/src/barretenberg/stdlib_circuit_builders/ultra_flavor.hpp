@@ -476,6 +476,8 @@ class UltraFlavor {
                         const uint64_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
                         const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const bool contains_ipa_claim,
+                        const IPAClaimPubInputIndices& ipa_claim_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -503,6 +505,8 @@ class UltraFlavor {
                         const Commitment& table_4,
                         const Commitment& lagrange_first,
                         const Commitment& lagrange_last)
+            : contains_ipa_claim(contains_ipa_claim)
+            , ipa_claim_public_input_indices(ipa_claim_public_input_indices)
         {
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
@@ -546,6 +550,8 @@ class UltraFlavor {
                        pub_inputs_offset,
                        contains_pairing_point_accumulator,
                        pairing_point_accumulator_public_input_indices,
+                       contains_ipa_claim,
+                       ipa_claim_public_input_indices,
                        q_m,
                        q_c,
                        q_l,
