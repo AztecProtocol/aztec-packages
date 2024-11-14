@@ -11,7 +11,7 @@ import {
   type LogFilter,
   LogId,
   LogType,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -84,7 +84,15 @@ export class LogStore {
           }
           this.#log.verbose(`Found tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
           const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-          currentLogs.push(new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, log).toBuffer());
+          currentLogs.push(
+            new TxScopedL2Log(
+              txHash,
+              dataStartIndexForTx,
+              block.number,
+              logType === 'unencryptedLogs',
+              log.data,
+            ).toBuffer(),
+          );
           taggedLogs.set(tag.toString(), currentLogs);
         } catch (err) {
           this.#log.warn(`Failed to add tagged log to store: ${err}`);
@@ -103,8 +111,7 @@ export class LogStore {
     const taggedLogsToAdd = blocks
       .flatMap(block => [
         this.#extractTaggedLogs(block, 'noteEncryptedLogs'),
-        // TODO: process unencrypted logs in #9794
-        // this.#extractTaggedLogs(block, 'unencryptedLogs'),
+        this.#extractTaggedLogs(block, 'unencryptedLogs'),
       ])
       .reduce((acc, val) => {
         for (const [tag, logs] of val.entries()) {
@@ -209,14 +216,11 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.db.transaction(() =>
       tags
         .map(tag => this.#logsByTag.get(tag.toString()))
-        .map(
-          noteLogBuffers =>
-            noteLogBuffers?.map(noteLogBuffer => TxScopedEncryptedL2NoteLog.fromBuffer(noteLogBuffer)) ?? [],
-        ),
+        .map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
     );
   }
 

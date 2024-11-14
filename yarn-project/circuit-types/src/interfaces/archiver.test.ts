@@ -23,7 +23,7 @@ import { resolve } from 'path';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedEncryptedL2NoteLog } from '../logs/get_logs_response.js';
+import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
 import {
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
@@ -160,7 +160,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getLogsByTags', async () => {
     const result = await context.client.getLogsByTags([Fr.random()]);
-    expect(result).toEqual([[expect.any(TxScopedEncryptedL2NoteLog)]]);
+    expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getUnencryptedLogs', async () => {
@@ -306,9 +306,9 @@ class MockArchiver implements ArchiverApi {
         throw new Error(`Unexpected log type: ${logType}`);
     }
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedEncryptedL2NoteLog.random())]);
+    return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);

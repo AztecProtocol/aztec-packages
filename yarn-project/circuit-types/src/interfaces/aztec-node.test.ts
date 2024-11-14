@@ -30,7 +30,7 @@ import { resolve } from 'path';
 
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedEncryptedL2NoteLog } from '../logs/get_logs_response.js';
+import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
 import {
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
@@ -80,9 +80,9 @@ describe('AztecNodeApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('findLeafIndex', async () => {
-    const response = await context.client.findLeafIndex(1, MerkleTreeId.ARCHIVE, Fr.random());
-    expect(response).toBe(1n);
+  it('findLeavesIndexes', async () => {
+    const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
+    expect(response).toEqual([1n, undefined]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -217,7 +217,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getLogsByTags', async () => {
     const response = await context.client.getLogsByTags([Fr.random()]);
-    expect(response).toEqual([[expect.any(TxScopedEncryptedL2NoteLog)]]);
+    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('sendTx', async () => {
@@ -318,9 +318,15 @@ describe('AztecNodeApiSchema', () => {
 class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
 
-  findLeafIndex(blockNumber: number | 'latest', treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
-    expect(leafValue).toBeInstanceOf(Fr);
-    return Promise.resolve(1n);
+  findLeavesIndexes(
+    blockNumber: number | 'latest',
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]> {
+    expect(leafValues).toHaveLength(2);
+    expect(leafValues[0]).toBeInstanceOf(Fr);
+    expect(leafValues[1]).toBeInstanceOf(Fr);
+    return Promise.resolve([1n, undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',
@@ -453,10 +459,10 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([[TxScopedEncryptedL2NoteLog.random()]]);
+    return Promise.resolve([[TxScopedL2Log.random()]]);
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

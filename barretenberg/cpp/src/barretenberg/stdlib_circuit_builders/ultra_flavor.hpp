@@ -52,7 +52,6 @@ class UltraFlavor {
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
@@ -401,18 +400,19 @@ class UltraFlavor {
          * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
+         * @param size_override override the size of the domain over which to compute the grand product
          */
-        void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
+        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
         {
-            auto public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
-                                                                              relation_parameters.beta,
-                                                                              relation_parameters.gamma,
-                                                                              this->circuit_size,
-                                                                              this->pub_inputs_offset);
-            relation_parameters.public_input_delta = public_input_delta;
+            relation_parameters.public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
+                                                                                             relation_parameters.beta,
+                                                                                             relation_parameters.gamma,
+                                                                                             this->circuit_size,
+                                                                                             this->pub_inputs_offset);
 
-            // Compute permutation and lookup grand product polynomials
-            compute_grand_products<UltraFlavor>(this->polynomials, relation_parameters);
+            // Compute permutation grand product polynomial
+            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(
+                this->polynomials, relation_parameters, size_override);
         }
     };
 

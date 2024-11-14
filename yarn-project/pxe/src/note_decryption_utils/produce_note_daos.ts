@@ -1,12 +1,11 @@
-import { type L1NotePayload, type PublicKey, type TxHash, type UnencryptedTxL2Logs } from '@aztec/circuit-types';
+import { type L1NotePayload, type PublicKey, type TxHash } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { type AcirSimulator } from '@aztec/simulator';
 
-import { type DeferredNoteDao } from '../../database/deferred_note_dao.js';
-import { IncomingNoteDao } from '../../database/incoming_note_dao.js';
-import { OutgoingNoteDao } from '../../database/outgoing_note_dao.js';
-import { type PxeDatabase } from '../../database/pxe_database.js';
+import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { type PxeDatabase } from '../database/pxe_database.js';
 import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
 
 /**
@@ -39,12 +38,9 @@ export async function produceNoteDaos(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
   logger: Logger,
-  unencryptedLogs: UnencryptedTxL2Logs,
 ): Promise<{
   incomingNote: IncomingNoteDao | undefined;
   outgoingNote: OutgoingNoteDao | undefined;
-  incomingDeferredNote: DeferredNoteDao | undefined;
-  outgoingDeferredNote: DeferredNoteDao | undefined;
 }> {
   if (!addressPoint && !ovpkM) {
     throw new Error('Both addressPoint and ovpkM are undefined. Cannot create note.');
@@ -52,11 +48,9 @@ export async function produceNoteDaos(
 
   let incomingNote: IncomingNoteDao | undefined;
   let outgoingNote: OutgoingNoteDao | undefined;
-  let incomingDeferredNote: DeferredNoteDao | undefined;
-  let outgoingDeferredNote: DeferredNoteDao | undefined;
 
   if (addressPoint) {
-    [incomingNote, incomingDeferredNote] = await produceNoteDaosForKey(
+    incomingNote = await produceNoteDaosForKey(
       simulator,
       db,
       addressPoint,
@@ -66,7 +60,6 @@ export async function produceNoteDaos(
       dataStartIndexForTx,
       excludedIndices,
       logger,
-      unencryptedLogs,
       IncomingNoteDao.fromPayloadAndNoteInfo,
     );
   }
@@ -87,7 +80,7 @@ export async function produceNoteDaos(
         ovpkM,
       );
     } else {
-      [outgoingNote, outgoingDeferredNote] = await produceNoteDaosForKey(
+      outgoingNote = await produceNoteDaosForKey(
         simulator,
         db,
         ovpkM,
@@ -97,7 +90,6 @@ export async function produceNoteDaos(
         dataStartIndexForTx,
         excludedIndices,
         logger,
-        unencryptedLogs,
         OutgoingNoteDao.fromPayloadAndNoteInfo,
       );
     }
@@ -106,7 +98,5 @@ export async function produceNoteDaos(
   return {
     incomingNote,
     outgoingNote,
-    incomingDeferredNote,
-    outgoingDeferredNote,
   };
 }
