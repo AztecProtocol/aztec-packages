@@ -54,13 +54,12 @@ describe('AMM', () => {
 
   it('full flow', async () => {
     // ADDING LIQUIDITY
-    // Ideally we would like to deposit all the tokens from the liquidity provider
-    const amount0Desired = lpBalance0;
-    const amount1Desired = lpBalance1;
-    const amount0Min = lpBalance0 / 2n;
-    const amount1Min = lpBalance1 / 2n;
+    const amount0Desired = lpBalance0 / 2n;
+    const amount1Desired = lpBalance1 / 2n;
+    const amount0Min = lpBalance0 / 3n;
+    const amount1Min = lpBalance1 / 3n;
 
-    // First we need to add authwits such that the AMM can transfer the tokens from the liquidity provider
+    // First we need to add authwits such that the AMM can transfer the tokens from the liquidity provider (LP).
     // The only purpose of this nonce is to make the authwit unique (function args are part of authwit hash preimage)
     const nonceForAuthwits = Fr.random();
 
@@ -88,5 +87,69 @@ describe('AMM', () => {
       .methods.add_liquidity(amount0Desired, amount1Desired, amount0Min, amount1Min, nonceForAuthwits)
       .send()
       .wait();
+
+    // Since the LP was the first one to enter the pool, the desired amounts of tokens should have been deposited.
+    expect(await token0.methods.balance_of_private(liquidityProvider.getAddress()).simulate()).toEqual(
+      lpBalance0 - amount0Desired,
+    );
+    expect(await token1.methods.balance_of_private(liquidityProvider.getAddress()).simulate()).toEqual(
+      lpBalance1 - amount1Desired,
+    );
+
+    // The LP should now have liquidity token
+    expect(await liquidityToken.methods.balance_of_private(liquidityProvider.getAddress()).simulate()).toBeGreaterThan(
+      0n,
+    );
+
+    // SWAPPING EXACT TOKENS FOR TOKENS
+    // We try swapping half of swapper's token 0 balance for token 1
+    const amountIn = swapperBalance0 / 2n;
+
+    // We need to add authwit such that the AMM can transfer the tokens from the swapper
+    await swapper.createAuthWit({
+      caller: amm.address,
+      action: token0.methods.transfer_to_public(swapper.getAddress(), amm.address, amountIn, nonceForAuthwits),
+    });
+
+    // We don't care about the minimum amount of token 1 we get in this test as long as it's non-zero.
+    const amountOutMin = 1n;
+    await amm.methods
+      .swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits)
+      .send()
+      .wait();
+
+    // All the amountIn should have been swapped so LP balance0 should be decreased by that amount
+    const lpBalance0AfterSwap1 = await token0.methods.balance_of_private(liquidityProvider.getAddress()).simulate();
+    expect(lpBalance0AfterSwap1).toEqual(lpBalance0 - amountIn);
+
+    // At this point a user should have a non-zero balance of token 1
+    const lpBalance1AfterSwap1 = await token1.methods.balance_of_private(swapper.getAddress()).simulate();
+    expect(lpBalance1AfterSwap1).toBeGreaterThan(0n);
+
+    // SWAPPING TOKENS FOR EXACT TOKENS
+    const amount0Out = 1000n;
+    // We allow the AMM to take all our token1 balance (the difference will be refunded).
+    const amount1InMax = lpBalance1AfterSwap1;
+
+    // We need to add authwit such that the AMM can transfer the tokens from the swapper
+    await swapper.createAuthWit({
+      caller: amm.address,
+      action: token1.methods.transfer_to_public(swapper.getAddress(), amm.address, amount1InMax, nonceForAuthwits),
+    });
+
+    await amm.methods
+      .swap_tokens_for_exact_tokens(token1.address, token0.address, amount0Out, amount1InMax, nonceForAuthwits)
+      .send()
+      .wait();
+
+    // We should have received the exact amount of token0
+    expect(await token0.methods.balance_of_private(swapper.getAddress()).simulate()).toEqual(
+      lpBalance0AfterSwap1 + amount0Out,
+    );
+
+    // We should have received a refund of token 1 (meaning we should have more than "previous balance - amount1InMax")
+    expect(await token1.methods.balance_of_private(swapper.getAddress()).simulate()).toBeGreaterThan(
+      lpBalance1AfterSwap1 - amount1InMax,
+    );
   });
 });
