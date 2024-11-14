@@ -8,7 +8,7 @@ namespace bb {
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  */
-bool ECCVMVerifier::verify_proof(const HonkProof& proof)
+bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -16,7 +16,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     using OpeningClaim = OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof);
+    transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
+    ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -127,7 +128,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
     const bool batched_opening_verified =
-        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
+        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
     vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
     vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_verified.value() && batched_opening_verified;

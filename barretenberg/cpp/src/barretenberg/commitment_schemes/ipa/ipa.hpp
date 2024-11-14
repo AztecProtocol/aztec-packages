@@ -142,6 +142,7 @@ template <typename Curve_> class IPA {
 
         size_t poly_length = polynomial.size();
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
         // Step 1.
         // Send polynomial degree + 1 = d to the verifier
         transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_length));

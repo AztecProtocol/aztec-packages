@@ -951,11 +951,6 @@ class ECCVMFlavor {
         FF translation_eval_z1;
         FF translation_eval_z2;
         Commitment shplonk_q2_comm;
-        uint32_t ipa_poly_degree;
-        std::vector<Commitment> ipa_l_comms;
-        std::vector<Commitment> ipa_r_comms;
-        Commitment ipa_G_0_eval;
-        FF ipa_a_0_eval;
 
         Transcript() = default;
 
@@ -1188,20 +1183,6 @@ class ECCVMFlavor {
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
             shplonk_q2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-
-            ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-
-            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
-                ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-                ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-            }
-            ipa_G_0_eval = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                          num_frs_read);
-            ipa_a_0_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
         }
 
         void serialize_full_transcript()
@@ -1343,6 +1324,52 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(shplonk_q2_comm, NativeTranscript::proof_data);
+
+            ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
+        }
+    };
+
+    /**
+     * @brief Derived class that defines proof structure for ECCVM IPA proof, as well as supporting functions.
+     *
+     */
+    class IPATranscript : public NativeTranscript {
+      public:
+        uint32_t ipa_poly_degree;
+        std::vector<Commitment> ipa_l_comms;
+        std::vector<Commitment> ipa_r_comms;
+        Commitment ipa_G_0_eval;
+        FF ipa_a_0_eval;
+
+        IPATranscript() = default;
+
+        IPATranscript(const HonkProof& proof)
+            : NativeTranscript(proof)
+        {}
+
+        void deserialize_full_transcript()
+        {
+            // take current proof and put them into the struct
+            size_t num_frs_read = 0;
+            ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
+                                                                                           num_frs_read);
+
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
+                ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                    NativeTranscript::proof_data, num_frs_read));
+                ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                    NativeTranscript::proof_data, num_frs_read));
+            }
+            ipa_G_0_eval = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
+                                                                                          num_frs_read);
+            ipa_a_0_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
+        }
+
+        void serialize_full_transcript()
+        {
+            size_t old_proof_length = NativeTranscript::proof_data.size();
+            NativeTranscript::proof_data.clear();
 
             NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
