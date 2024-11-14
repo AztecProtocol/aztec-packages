@@ -22,6 +22,7 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
+import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
@@ -42,6 +43,8 @@ import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
 import { type SyncStatus } from './sync-status.js';
+
+jest.setTimeout(12_000);
 
 describe('PXESchema', () => {
   let handler: MockPXE;

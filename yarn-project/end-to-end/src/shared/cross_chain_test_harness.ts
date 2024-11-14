@@ -240,7 +240,7 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_public(this.ownerAddress, amount).send().wait();
+    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send().wait();
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
@@ -249,7 +249,7 @@ export class CrossChainTestHarness {
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
     // send a transfer tx to force through rollup with the message included
-    await this.l2Token.methods.transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
+    await this.l2Token.methods.transfer_in_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
   }
 
   async consumeMessageOnAztecAndMintPrivately(

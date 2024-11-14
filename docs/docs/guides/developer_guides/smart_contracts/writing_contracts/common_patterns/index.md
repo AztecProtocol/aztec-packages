@@ -21,7 +21,7 @@ We call this the "authentication witness" pattern or authwit for short.
 Here you approve a contract to burn funds on your behalf.
 
 - Approve in public domain:
-  #include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_public.test.ts typescript
+  #include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts typescript
 
 Here you approve someone to transfer funds publicly on your behalf
 
@@ -83,8 +83,6 @@ Let's say you have some storage in public and want to move them into the private
 2. So how do you control who can claim this note? Pass a hash of a secret instead of the address. And then in the private domain, pass the preimage (the secret) to later claim your funds
 
 So you have to create a custom note in the public domain that is not encrypted by some owner - we call such notes a "TransparentNote" since it is created in public, anyone can see the amount and the note is not encrypted by some owner.
-
-This pattern is discussed in detail in [the codealong token tutorial in the shield() method](../../../../../tutorials/codealong/contract_tutorials/token_contract.md#redeem_shield).
 
 ### Discovering my notes
 
