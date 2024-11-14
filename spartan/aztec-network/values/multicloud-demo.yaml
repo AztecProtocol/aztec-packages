@@ -1,8 +1,5 @@
 # deployment syntax: helm upgrade --install srp-test . -n srp-test --create-namespace --values "./values/multicloud-demo.yaml"
 
-network:
-  public: true
-
 telemetry:
   enabled: false
   otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
