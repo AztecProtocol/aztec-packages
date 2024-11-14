@@ -23,43 +23,43 @@ use crate::{
 
 // Public inputs to public app circuit.
 pub struct PublicCircuitPublicInputs {
-    call_context: CallContext,
+    pub call_context: CallContext,
 
-    args_hash: Field,
-    returns_hash: Field,
+    pub args_hash: Field,
+    pub returns_hash: Field,
 
-    note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-    nullifier_non_existent_read_requests: [ReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
-    l1_to_l2_msg_read_requests: [TreeLeafReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
-    contract_storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-    contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
+    pub note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+    pub nullifier_non_existent_read_requests: [ReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+    pub l1_to_l2_msg_read_requests: [TreeLeafReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
+    pub contract_storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+    pub contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
     // todo: add sideeffect ranges for the input to these hashes
-    public_call_requests: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_CALL],
-    note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_CALL],
-    nullifiers: [Nullifier; MAX_NULLIFIERS_PER_CALL],
-    l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub public_call_requests: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_CALL],
+    pub note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_CALL],
+    pub nullifiers: [Nullifier; MAX_NULLIFIERS_PER_CALL],
+    pub l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
 
-    start_side_effect_counter: u32,
-    end_side_effect_counter: u32,
+    pub start_side_effect_counter: u32,
+    pub end_side_effect_counter: u32,
 
-    unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
+    pub unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
 
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
     // previous to the one in which the tx is included.
-    historical_header: Header,
+    pub historical_header: Header,
 
     // Global variables injected into this circuit
-    global_variables: GlobalVariables,
+    pub global_variables: GlobalVariables,
 
-    prover_address: AztecAddress,
+    pub prover_address: AztecAddress,
 
-    revert_code: u8,
+    pub revert_code: u8,
 
-    start_gas_left: Gas,
-    end_gas_left: Gas,
-    transaction_fee: Field,
+    pub start_gas_left: Gas,
+    pub end_gas_left: Gas,
+    pub transaction_fee: Field,
 }
 
 impl Eq for PublicCircuitPublicInputs {

@@ -4,7 +4,6 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
-  PublicKernelPhase,
   type SimulationError,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
@@ -12,6 +11,7 @@ import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AztecAddress,
+  type CombinedConstantData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -34,17 +34,13 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
-  PublicAccumulatedDataArrayLengths,
-  PublicCallData,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
-  type PublicKernelCircuitPublicInputs,
   ReadRequest,
   RevertCode,
   TreeLeafReadRequest,
   type VMCircuitPublicInputs,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -86,7 +82,7 @@ export type EnqueuedCallResult = {
   newUnencryptedLogs: UnencryptedFunctionL2Logs;
   /** Return values of simulating complete callstack */
   returnValues: NestedProcessReturnValues;
-  /** Gas used during the execution this enqueued call */
+  /** Gas used during the execution of this enqueued call */
   gasUsed: Gas;
   /** Did call revert? */
   reverted: boolean;
@@ -110,10 +106,9 @@ export class EnqueuedCallSimulator {
   async simulate(
     callRequest: PublicCallRequest,
     executionRequest: PublicExecutionRequest,
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    constants: CombinedConstantData,
     availableGas: Gas,
     transactionFee: Fr,
-    phase: PublicKernelPhase,
     stateManager: AvmPersistableStateManager,
   ): Promise<EnqueuedCallResult> {
     // Gas allocated to an enqueued call can be different from the available gas
@@ -122,7 +117,6 @@ export class EnqueuedCallSimulator {
       /*daGas=*/ availableGas.daGas,
       /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
     );
-    const _pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
 
     const result = (await this.publicExecutor.simulate(
       stateManager,
@@ -155,16 +149,11 @@ export class EnqueuedCallSimulator {
         avmCallResult,
         fnName,
       );
-      const callData = await this.getPublicCallData(deprecatedFunctionCallResult);
-      avmProvingRequest = makeAvmProvingRequest(callData.publicInputs, deprecatedFunctionCallResult);
+      const publicInputs = await this.getPublicCircuitPublicInputs(deprecatedFunctionCallResult);
+      avmProvingRequest = makeAvmProvingRequest(publicInputs, deprecatedFunctionCallResult);
     } else {
       avmProvingRequest = emptyAvmProvingRequest();
     }
-
-    // If this is the first enqueued call in public, constants will be empty
-    // because private kernel does not expose them.
-    const constants = previousPublicKernelOutput.constants.clone();
-    constants.globalVariables = this.globalVariables;
 
     // TODO(dbanks12): Since AVM circuit will be at the level of all enqueued calls in a TX,
     // this public inputs generation will move up to the enqueued calls processor.
@@ -176,18 +165,6 @@ export class EnqueuedCallSimulator {
       transactionFee,
       avmCallResult,
     );
-    // FIXME(dbanks12): For now, override this because there is a disconnect with how the TS/simulator
-    // tracks "previous lengths" versus the kernel. The kernel uses "non revertible lengths" in SETUP
-    // and "revertible lengths" otherwise. TS also uses "non revertible lengths" in SETUP, but then
-    // uses _total_/combined lengths otherwise.
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
-    vmCircuitPublicInputs.previousAccumulatedDataArrayLengths = previousAccumulatedDataArrayLengths;
-    // END TEMPORARY
-    ///////////////////////////////////////////////////////////////////////////
 
     const gasUsed = allocatedGas.sub(Gas.from(result.endGasLeft));
 
@@ -200,23 +177,6 @@ export class EnqueuedCallSimulator {
       reverted: result.reverted,
       revertReason: result.revertReason,
     };
-  }
-
-  /** Returns all pending private and public nullifiers. */
-  private getSiloedPendingNullifiers(ko: PublicKernelCircuitPublicInputs) {
-    return [...ko.end.nullifiers, ...ko.endNonRevertibleData.nullifiers].filter(n => !n.isEmpty());
-  }
-
-  /**
-   * Calculates the PublicCircuitOutput for this execution result along with its proof,
-   * and assembles a PublicCallData object from it.
-   * @param result - The execution result.
-   * @returns A corresponding PublicCallData object.
-   */
-  private async getPublicCallData(result: PublicFunctionCallResult) {
-    const bytecodeHash = await this.getBytecodeHash(result);
-    const publicInputs = await this.getPublicCircuitPublicInputs(result);
-    return new PublicCallData(publicInputs, makeEmptyProof(), bytecodeHash);
   }
 
   private async getPublicCircuitPublicInputs(result: PublicFunctionCallResult) {
@@ -304,12 +264,5 @@ export class EnqueuedCallSimulator {
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
     });
-  }
-
-  private getBytecodeHash(_result: PublicFunctionCallResult) {
-    // TODO: Determine how to calculate bytecode hash. Circuits just check it isn't zero for now.
-    // See https://github.com/AztecProtocol/aztec3-packages/issues/378
-    const bytecodeHash = new Fr(1n);
-    return Promise.resolve(bytecodeHash);
   }
 }

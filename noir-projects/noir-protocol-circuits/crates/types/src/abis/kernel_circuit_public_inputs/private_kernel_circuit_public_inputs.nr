@@ -18,7 +18,7 @@ pub struct PrivateKernelCircuitPublicInputsArrayLengths {
     l2_to_l1_msgs: u32,
     note_encrypted_logs_hashes: u32,
     encrypted_logs_hashes: u32,
-    unencrypted_logs_hashes: u32,
+    contract_class_logs_hashes: u32,
     public_call_requests: u32,
     private_call_stack: u32,
 }
@@ -40,7 +40,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             l2_to_l1_msgs: array_length(public_inputs.end.l2_to_l1_msgs),
             note_encrypted_logs_hashes: array_length(public_inputs.end.note_encrypted_logs_hashes),
             encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
-            unencrypted_logs_hashes: array_length(public_inputs.end.unencrypted_logs_hashes),
+            contract_class_logs_hashes: array_length(public_inputs.end.contract_class_logs_hashes),
             public_call_requests: array_length(public_inputs.end.public_call_requests),
             private_call_stack: array_length(public_inputs.end.private_call_stack),
         }
@@ -56,7 +56,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             l2_to_l1_msgs: 0,
             note_encrypted_logs_hashes: 0,
             encrypted_logs_hashes: 0,
-            unencrypted_logs_hashes: 0,
+            contract_class_logs_hashes: 0,
             public_call_requests: 0,
             private_call_stack: 0,
         }
@@ -76,19 +76,19 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
-            & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
+            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & (self.public_call_requests == other.public_call_requests)
             & (self.private_call_stack == other.private_call_stack)
     }
 }
 
 pub struct PrivateKernelCircuitPublicInputs {
-    constants: TxConstantData,
-    min_revertible_side_effect_counter: u32,
-    validation_requests: PrivateValidationRequests,
-    end: PrivateAccumulatedData,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub min_revertible_side_effect_counter: u32,
+    pub validation_requests: PrivateValidationRequests,
+    pub end: PrivateAccumulatedData,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {

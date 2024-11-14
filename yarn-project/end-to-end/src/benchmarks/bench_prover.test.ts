@@ -112,10 +112,11 @@ describe('benchmarks/proving', () => {
       initialFpContract.address,
     );
 
+    const from = initialSchnorrWallet.getAddress(); // we are setting from to initial schnorr wallet here because of TODO(#9887)
     await Promise.all([
       initialGasContract.methods.claim(initialFpContract.address, 1e12, claimSecret, messageLeafIndex).send().wait(),
-      initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
-      initialTokenContract.methods.mint_to_private(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialTokenContract.methods.mint_to_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialTokenContract.methods.mint_to_private(from, initialSchnorrWallet.getAddress(), 1e12).send().wait(),
     ]);
   });
 
@@ -182,7 +183,7 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('+----------------------+');
 
     const fnCalls = [
-      (await getTokenContract(0)).methods.transfer_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(0)).methods.transfer_in_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
       (await getTokenContract(1)).methods.transfer(recipient.address, 1000),
       // (await getTestContractOnPXE(2)).methods.emit_unencrypted(43),
       // (await getTestContractOnPXE(3)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),

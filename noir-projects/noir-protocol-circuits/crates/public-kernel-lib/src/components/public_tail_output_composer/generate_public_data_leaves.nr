@@ -2,7 +2,7 @@ use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest},
     data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint, PublicDataTreeLeaf},
     traits::Empty,
-    utils::arrays::{get_sorted_result, SortedResult},
+    utils::arrays::get_sorted_result,
 };
 
 pub struct SlotIndex {
@@ -39,7 +39,7 @@ pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
     reads: [PublicDataRead; NUM_READS],
     writes: [PublicDataUpdateRequest; NUM_WRITES],
     hints: [PublicDataLeafHint; NUM_HINTS],
-) -> ([OverridablePublicDataTreeLeaf; NUM_HINTS], SortedResult<Field, NUM_HINTS>) {
+) -> [OverridablePublicDataTreeLeaf; NUM_HINTS] {
     // Combine reads and writes. The combined data has the slots and original indexes.
     // Original indexes for writes are modified to have an offset of NUM_READS, ensuring that writes are placed after reads.
     let mut combined_data: BoundedVec<SlotIndex, NUM_HINTS> = BoundedVec::new();
@@ -82,11 +82,10 @@ pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
             }
         }
     }
-    let sorted_unique_slots = data_with_unique_slot.storage.map(|d: SlotIndex| d.slot);
 
     // Sort the data by original index.
     let mut leaves = [OverridablePublicDataTreeLeaf::empty(); NUM_HINTS];
-    let sorted_result = get_sorted_result(data_with_unique_slot.storage, compare_by_index);
+    let sorted_result = get_sorted_result(data_with_unique_slot.storage(), compare_by_index);
     for i in 0..data_with_unique_slot.len() {
         let sorted = sorted_result.sorted_array[i];
         // The provided hints should've been sorted.
@@ -99,12 +98,5 @@ pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
         };
     }
 
-    (
-        leaves,
-        SortedResult {
-            sorted_array: sorted_unique_slots,
-            sorted_index_hints: sorted_result.original_index_hints, // We sort the sorted_unique_slots to get the hints so original_index_hints becomes the sorted_index_hints and vice versa.
-            original_index_hints: sorted_result.sorted_index_hints,
-        },
-    )
+    leaves
 }

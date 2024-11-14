@@ -24,7 +24,8 @@ export async function mintTokensToPrivate(
   amount: bigint,
 ) {
   const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
-  await tokenAsMinter.methods.mint_to_private(recipient, amount).send().wait();
+  const from = minterWallet.getAddress(); // we are setting from to minter here because of TODO(#9887)
+  await tokenAsMinter.methods.mint_to_private(from, recipient, amount).send().wait();
 }
 
 const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {

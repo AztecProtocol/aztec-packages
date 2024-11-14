@@ -33,7 +33,6 @@ pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_data;
 pub mod public_kernel_data;
-pub mod public_kernel_inner_data;
 
 pub mod private_call_request;
 pub mod public_call_request;
@@ -42,9 +41,7 @@ pub mod public_inner_call_request;
 pub mod call_context;
 
 pub mod enqueued_call_data;
-pub mod public_call_data;
 
-pub mod public_circuit_public_inputs;
 pub mod private_circuit_public_inputs;
 
 pub mod gas_fees;

@@ -38,10 +38,9 @@ export type L2Claim = {
 /** L1 to L2 message info that corresponds to an amount to claim. */
 export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: Fr };
 
-/** L1 to L2 message info that corresponds to an amount to claim with associated notes to be redeemed. */
-export type L2RedeemableAmountClaim = L2AmountClaim & {
-  /** Secret for redeeming the minted notes */ redeemSecret: Fr;
-  /** Hash of the redeem secret*/ redeemSecretHash: Fr;
+/** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
+export type L2AmountClaimWithRecipient = L2AmountClaim & {
+  /** Address that will receive the newly minted notes. */ recipient: AztecAddress;
 };
 
 /** Stringifies an eth address for logging. */
@@ -279,17 +278,15 @@ export class L1ToL2TokenPortalManager {
    * @param amount - Amount of tokens to send.
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
-  public async bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint = false): Promise<L2RedeemableAmountClaim> {
+  public async bridgeTokensPrivate(
+    to: AztecAddress,
+    amount: bigint,
+    mint = false,
+  ): Promise<L2AmountClaimWithRecipient> {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
-    const redeemSecret = Fr.random();
-    const redeemSecretHash = computeSecretHash(redeemSecret);
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
-    const { request } = await this.portal.simulate.depositToAztecPrivate([
-      redeemSecretHash.toString(),
-      amount,
-      claimSecretHash.toString(),
-    ]);
+    const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
 
     const txReceipt = await this.publicClient.waitForTransactionReceipt({
       hash: await this.walletClient.writeContract(request),
@@ -300,21 +297,19 @@ export class L1ToL2TokenPortalManager {
       this.portal.address,
       this.portal.abi,
       'DepositToAztecPrivate',
-      log =>
-        log.args.secretHashForRedeemingMintedNotes === redeemSecretHash.toString() &&
-        log.args.amount === amount &&
-        log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
+      log => log.args.amount === amount && log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
       this.logger,
     );
 
-    this.logger.info(`Redeem shield secret: ${redeemSecret.toString()}, secret hash: ${redeemSecretHash.toString()}`);
+    this.logger.info(
+      `Claim message secret: ${claimSecret.toString()}, claim message secret hash: ${claimSecretHash.toString()}`,
+    );
 
     return {
       claimAmount: new Fr(amount),
       claimSecret,
       claimSecretHash,
-      redeemSecret,
-      redeemSecretHash,
+      recipient: to,
       messageHash: log.args.key,
       messageLeafIndex: log.args.index,
     };
@@ -329,7 +324,7 @@ export class L1ToL2TokenPortalManager {
   }
 }
 
-/** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and briding to L2. */
+/** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and bridging to L2. */
 export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
   private readonly outbox: GetContractReturnType<typeof OutboxAbi, WalletClient<HttpTransport, Chain, Account>>;
 

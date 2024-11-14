@@ -62,7 +62,7 @@ export {
   type FunctionSelectorLike,
   type L2AmountClaim,
   type L2Claim,
-  type L2RedeemableAmountClaim,
+  type L2AmountClaimWithRecipient,
   type WrappedFieldLike,
 } from './utils/index.js';
 
@@ -112,6 +112,7 @@ export {
   Body,
   Comparator,
   CompleteAddress,
+  ContractClass2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   EncryptedLogPayload,
   EncryptedNoteL2BlockL2Logs,

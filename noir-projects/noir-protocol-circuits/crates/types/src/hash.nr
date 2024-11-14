@@ -9,12 +9,11 @@ use crate::{
     address::{AztecAddress, EthAddress},
     constants::{
         FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__VK,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    proof::verification_key::VerificationKey,
     traits::{is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
@@ -148,7 +147,7 @@ pub fn compute_l2_to_l1_hash(
         }
     }
 
-    sha256_to_field(bytes.storage)
+    sha256_to_field(bytes.storage())
 }
 
 pub fn silo_l2_to_l1_message(
@@ -200,34 +199,10 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 }
 
 // Computes the final logs hash for a tx.
-// NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-// to avoid doubling code, since we can't define the byte len to be 32*N directly.
-pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+pub fn compute_tx_logs_hash<let N: u32>(logs: [LogHash; N]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
-    for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        // TODO: This is not checking that the decomposition is smaller than P
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
-    }
-    // Ideally we would push to a slice then hash, but there is no sha_slice
-    // Hardcode to 256 bytes for now
-    let mut hash = sha256_to_field(hash_input_flattened);
-    // Not having a 0 value hash for empty logs causes issues with empty txs
-    // used for padding. Returning early is currently unsupported.
-    // We always provide sorted logs here, so 0 being empty means all are empty.
-    if is_empty(logs[0]) {
-        hash = 0;
-    }
-    hash
-}
-
-pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]) -> Field {
-    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
-    for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+    let mut hash_input_flattened = [0; N * 32];
+    for offset in 0..N {
         // TODO: This is not checking that the decomposition is smaller than P
         let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
         for byte_index in 0..32 {
