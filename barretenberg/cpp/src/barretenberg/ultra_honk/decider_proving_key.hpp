@@ -45,6 +45,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
 
+    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = TraceSettings{},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
@@ -75,10 +77,17 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         Trace::populate_public_inputs_block(circuit);
         circuit.blocks.compute_offsets(is_structured);
 
+        // Find index of last non-trivial wire value in the trace
+        for (auto& block : circuit.blocks.get()) {
+            if (block.size() > 0) {
+                final_active_wire_idx = block.trace_offset + block.size() - 1;
+            }
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
         // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
         // failure once https://github.com/AztecProtocol/barretenberg/issues/746 is resolved.
-        if constexpr (IsGoblinFlavor<Flavor>) {
+        if constexpr (IsMegaFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
         }
         {
@@ -88,7 +97,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
-            if ((IsGoblinFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
+            if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             } else { // Allocate only a correct amount of memory for each polynomial
@@ -129,7 +138,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                         selector = Polynomial(proving_key.circuit_size);
                     }
                 }
-                if constexpr (IsGoblinFlavor<Flavor>) {
+                if constexpr (IsMegaFlavor<Flavor>) {
                     PROFILE_THIS_NAME("allocating ecc op wires and selector");
 
                     // Allocate the ecc op wires and selector
@@ -238,8 +247,14 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     PROFILE_THIS_NAME("allocating lagrange polynomials");
 
                     // First and last lagrange polynomials (in the full circuit size)
-                    proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
-                    proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, dyadic_circuit_size - 1);
+                    proving_key.polynomials.lagrange_first = Polynomial(
+                        /* size=*/1, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
+
+                    // Even though lagrange_last has a singe non-zero element, we cannot set its size to 0 as different
+                    // keys being folded might have lagrange_last set at different indexes and folding does not work
+                    // correctly unless the polynomial is allocated in the correct range to accomodate this
+                    proving_key.polynomials.lagrange_last = Polynomial(
+                        /* size=*/dyadic_circuit_size, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
                 }
             }
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
@@ -256,7 +271,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
 
             // If Goblin, construct the databus polynomials
-            if constexpr (IsGoblinFlavor<Flavor>) {
+            if constexpr (IsMegaFlavor<Flavor>) {
                 PROFILE_THIS_NAME("constructing databus polynomials");
 
                 construct_databus_polynomials(circuit);
@@ -264,7 +279,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
         // Set the lagrange polynomials
         proving_key.polynomials.lagrange_first.at(0) = 1;
-        proving_key.polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+        proving_key.polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
@@ -293,7 +308,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             circuit.pairing_point_accumulator_public_input_indices;
         proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
-        if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
+        if constexpr (IsMegaFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
         auto end = std::chrono::steady_clock::now();
@@ -320,7 +335,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     size_t compute_structured_dyadic_size(Circuit& circuit) { return circuit.blocks.get_structured_dyadic_size(); }
 
     void construct_databus_polynomials(Circuit&)
-        requires IsGoblinFlavor<Flavor>;
+        requires IsMegaFlavor<Flavor>;
 
     static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
 };
