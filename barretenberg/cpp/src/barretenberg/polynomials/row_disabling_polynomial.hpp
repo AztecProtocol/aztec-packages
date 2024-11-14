@@ -36,7 +36,10 @@ namespace bb {
  * The partial eval \f$ L(u_0, u_1) \f$ is given by \f$ 1 - (1+u_0 + u_1 - u_0 \cdot u_1) L_0(X_2, X_3,\ldots,
  * X_{d-1})\f$, it is \f$ 1 \f$ outside of \f$ 0 \f$, and is equal to \f$ - u_0 - u_1 + u_0u_1 \f$.
  * In the subsequent rounds \f$L(u_0, \ldots, u_i)\f$ is \f$ 1\f$ outside of \f$ 0 \f$ ans is given as
- * \f$ 1 -  (1+u_0 + u_1 - u_0 \cdot u_1) (1-u_2)\cdots (1 - u_i) L_0(X_{i+1}, \ldots, X_{d-1})\f$
+ * \f$ 1 -  (1+u_0 + u_1 - u_0 \cdot u_1) (1-u_2)\cdots (1 - u_i) L_0(X_{i+1}, \ldots, X_{d-1})\f$.
+ *
+ * When the prover computes the first sumcheck univariate \f$S_0(X) = \sum L \cdot H(X_0,\ldots, X_{d-1})\f$,
+ *
  * @tparam FF
  */
 template <typename FF> struct RowDisablingPolynomial {
