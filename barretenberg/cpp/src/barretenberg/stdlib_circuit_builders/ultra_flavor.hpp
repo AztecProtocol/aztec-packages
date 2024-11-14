@@ -341,7 +341,7 @@ class UltraFlavor {
         using Base = ProvingKey_<FF, CommitmentKey>;
 
         bool contains_ipa_claim;
-        IPAClaimPubInputIndices ipa_claim_pub_input_indices;
+        IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
         ProvingKey() = default;
         ProvingKey(const size_t dyadic_circuit_size,
@@ -429,7 +429,7 @@ class UltraFlavor {
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         bool contains_ipa_claim;
-        IPAClaimPubInputIndices ipa_claim_pub_input_indices;
+        IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -438,7 +438,7 @@ class UltraFlavor {
         {}
         VerificationKey(ProvingKey& proving_key)
             : contains_ipa_claim(proving_key.contains_ipa_claim)
-            , ipa_claim_pub_input_indices(proving_key.ipa_claim_pub_input_indices)
+            , ipa_claim_public_input_indices(proving_key.ipa_claim_public_input_indices)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;

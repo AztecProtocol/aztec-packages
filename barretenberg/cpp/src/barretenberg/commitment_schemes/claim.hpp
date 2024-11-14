@@ -64,8 +64,8 @@ template <typename Curve> class OpeningClaim {
                  opening_pair.evaluation.binary_basis_limbs[1].element.normalize().witness_index,
                  opening_pair.evaluation.binary_basis_limbs[2].element.normalize().witness_index,
                  opening_pair.evaluation.binary_basis_limbs[3].element.normalize().witness_index,
-                 commitment.x,
-                 commitment.y };
+                 commitment.x.normalize().witness_index, // no idea if we need these normalize() calls...
+                 commitment.y.normalize().witness_index };
     }
     /**
      * @brief inefficiently check that the claim is correct by recomputing the commitment
