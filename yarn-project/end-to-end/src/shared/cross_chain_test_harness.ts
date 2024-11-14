@@ -1,5 +1,6 @@
 // docs:start:cross_chain_test_harness
 import {
+  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
@@ -138,7 +139,7 @@ export class CrossChainTestHarness {
     pxeService: PXE,
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: WalletClient<HttpTransport, Chain, Account>,
-    wallet: Wallet,
+    wallet: AccountWallet,
     logger: DebugLogger,
     underlyingERC20Address?: EthAddress,
   ): Promise<CrossChainTestHarness> {
@@ -207,7 +208,7 @@ export class CrossChainTestHarness {
     public readonly l1ContractAddresses: L1ContractAddresses,
 
     /** Wallet of the owner. */
-    public readonly ownerWallet: Wallet,
+    public readonly ownerWallet: AccountWallet,
   ) {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,

@@ -38,7 +38,6 @@ import { type IncomingNotesFilter, IncomingNotesFilterSchema } from '../notes/in
 import { ExtendedNote, type OutgoingNotesFilter, OutgoingNotesFilterSchema, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
-import { type NoteProcessorStats, NoteProcessorStatsSchema } from '../stats/stats.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
@@ -353,29 +352,12 @@ export interface PXE {
   isGlobalStateSynchronized(): Promise<boolean>;
 
   /**
-   * Checks if the specified account is synchronized.
-   * @param account - The aztec address for which to query the sync status.
-   * @returns True if the account is fully synched, false otherwise.
-   * @deprecated Use `getSyncStatus` instead.
-   * @remarks Checks whether all the notes from all the blocks have been processed. If it is not the case, the
-   * retrieved information from contracts might be old/stale (e.g. old token balance).
-   * @throws If checking a sync status of account which is not registered.
-   */
-  isAccountStateSynchronized(account: AztecAddress): Promise<boolean>;
-
-  /**
    * Returns the latest block that has been synchronized globally and for each account. The global block number
    * indicates whether global state has been updated up to that block, whereas each address indicates up to which
    * block the private state has been synced for that account.
    * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
    */
   getSyncStatus(): Promise<SyncStatus>;
-
-  /**
-   * Returns the note processor stats.
-   * @returns The note processor stats for notes for each public key being tracked.
-   */
-  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
 
   /**
    * Returns a Contract Instance given its address, which includes the contract class identifier,
@@ -549,9 +531,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getNodeInfo: z.function().returns(NodeInfoSchema),
   getPXEInfo: z.function().returns(PXEInfoSchema),
   isGlobalStateSynchronized: z.function().returns(z.boolean()),
-  isAccountStateSynchronized: z.function().args(schemas.AztecAddress).returns(z.boolean()),
   getSyncStatus: z.function().returns(SyncStatusSchema),
-  getSyncStats: z.function().returns(z.record(NoteProcessorStatsSchema)),
   getContractInstance: z
     .function()
     .args(schemas.AztecAddress)

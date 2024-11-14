@@ -3,8 +3,8 @@ import {
   type CompleteAddress,
   type ContractInstanceWithAddress,
   type Header,
+  type IndexedTaggingSecret,
   type PublicKey,
-  type TaggingSecret,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -12,7 +12,6 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type DeferredNoteDao } from './deferred_note_dao.js';
 import { type IncomingNoteDao } from './incoming_note_dao.js';
 import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
@@ -89,25 +88,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @remark - Will create a database for the scope if it does not already exist.
    */
   addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
-
-  /**
-   * Add notes to the database that are intended for us, but we don't yet have the contract.
-   * @param deferredNotes - An array of deferred notes.
-   */
-  addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
-
-  /**
-   * Get deferred notes for a given contract address.
-   * @param contractAddress - The contract address to get the deferred notes for.
-   */
-  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
-
-  /**
-   * Remove deferred notes for a given contract address.
-   * @param contractAddress - The contract address to remove the deferred notes for.
-   * @returns an array of the removed deferred notes
-   */
-  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
@@ -209,18 +189,29 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been seen.
-   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
-   * whether the index was used to tag a sent or received note.
    * @param appTaggingSecrets - The app siloed tagging secrets.
    * @returns The indexes for the provided secrets, 0 if they've never been seen.
    */
-  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]>;
+  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<number[]>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets.
-   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
-   * whether the index was used to tag a sent or received note.
+   * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been used
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   * @returns The indexes for the provided secrets, 0 if they've never been seen.
+   */
+  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
+
+  /**
+   * Increments the index for the provided app siloed tagging secrets in the senders database
+   * To be used when the generated tags have been used as sender
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void>;
+  incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
+
+  /**
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a recipient
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   */
+  setTaggingSecretsIndexesAsRecipient(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
 }
