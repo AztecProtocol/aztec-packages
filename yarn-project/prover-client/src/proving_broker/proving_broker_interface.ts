@@ -41,7 +41,9 @@ export interface ProvingJobConsumer {
    * Gets a proving job to work on
    * @param filter - Optional filter for the type of job to get
    */
-  getProvingJob<T extends ProvingRequestType[]>(filter?: ProvingJobFilter<T>): Promise<V2ProvingJob | undefined>;
+  getProvingJob<T extends ProvingRequestType[]>(
+    filter?: ProvingJobFilter<T>,
+  ): Promise<{ job: V2ProvingJob; time: number } | undefined>;
 
   /**
    * Marks a proving job as successful
@@ -61,10 +63,12 @@ export interface ProvingJobConsumer {
   /**
    * Sends a heartbeat to the broker to indicate that the agent is still working on the given proving job
    * @param id - The ID of the job to report progress for
+   * @param startedAt - The unix epoch when the job was started
    * @param filter - Optional filter for the type of job to get
    */
   reportProvingJobProgress<F extends ProvingRequestType[]>(
     id: V2ProvingJobId,
+    startedAt: number,
     filter?: ProvingJobFilter<F>,
-  ): Promise<V2ProvingJob | undefined>;
+  ): Promise<{ job: V2ProvingJob; time: number } | undefined>;
 }

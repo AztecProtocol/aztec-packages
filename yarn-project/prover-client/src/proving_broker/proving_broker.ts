@@ -22,8 +22,8 @@ type InProgressMetadata = {
 };
 
 type ProofRequestBrokerConfig = {
-  timeoutIntervalMs?: number;
-  jobTimeoutMs?: number;
+  timeoutIntervalSec?: number;
+  jobTimeoutSec?: number;
   maxRetries?: number;
 };
 
@@ -68,21 +68,17 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   private retries = new Map<V2ProvingJobId, number>();
 
   private timeoutPromise: RunningPromise;
-  private timeSource = Date.now;
-  private proofRequestTimeoutMs: number;
+  private timeSource = () => Math.floor(Date.now() / 1000);
+  private jobTimeoutSec: number;
   private maxRetries: number;
 
   public constructor(
     private database: ProvingBrokerDatabase,
-    {
-      jobTimeoutMs: proofRequestTimeoutMs = 30_000,
-      timeoutIntervalMs = 10_000,
-      maxRetries = 3,
-    }: ProofRequestBrokerConfig = {},
+    { jobTimeoutSec = 30, timeoutIntervalSec = 10, maxRetries = 3 }: ProofRequestBrokerConfig = {},
     private logger = createDebugLogger('aztec:prover-client:proof-request-broker'),
   ) {
-    this.timeoutPromise = new RunningPromise(this.timeoutCheck, timeoutIntervalMs);
-    this.proofRequestTimeoutMs = proofRequestTimeoutMs;
+    this.timeoutPromise = new RunningPromise(this.timeoutCheck, timeoutIntervalSec * 1000);
+    this.jobTimeoutSec = jobTimeoutSec;
     this.maxRetries = maxRetries;
   }
 
@@ -152,7 +148,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   // eslint-disable-next-line require-await
   async getProvingJob<T extends ProvingRequestType[]>(
     filter: ProvingJobFilter<T> = {},
-  ): Promise<V2ProvingJob | undefined> {
+  ): Promise<{ job: V2ProvingJob; time: number } | undefined> {
     const allowedProofs: ProvingRequestType[] = filter.allowList
       ? [...filter.allowList]
       : Object.values(ProvingRequestType).filter((x): x is ProvingRequestType => typeof x === 'number');
@@ -160,15 +156,22 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
     for (const proofType of allowedProofs) {
       const queue = this.queues[proofType];
-      const item = queue.getImmediate();
-      if (item) {
-        this.inProgress.set(item.id, {
-          id: item.id,
-          startedAt: this.timeSource(),
-          lastUpdatedAt: this.timeSource(),
-        });
+      let job: V2ProvingJob | undefined;
+      // exhaust the queue and make sure we're not sending a job that's already in progress
+      // or has already been completed
+      // this can happen if the broker crashes and restarts
+      // it's possible agents will report progress or results for jobs that are no longer in the queue
+      while ((job = queue.getImmediate())) {
+        if (!this.inProgress.has(job.id) && !this.resultsCache.has(job.id)) {
+          const time = this.timeSource();
+          this.inProgress.set(job.id, {
+            id: job.id,
+            startedAt: time,
+            lastUpdatedAt: time,
+          });
 
-        return item;
+          return { job, time };
+        }
       }
     }
 
@@ -186,36 +189,70 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
 
     if (!info) {
-      this.logger.warn(`Proving job id=${id} not in the in-progress set`);
+      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`);
     } else {
       this.inProgress.delete(id);
     }
 
     if (retry && retries + 1 < this.maxRetries) {
-      this.logger.info(`Retrying proving job id=${id} retry=${retries + 1}`);
+      this.logger.info(`Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1}`);
       this.retries.set(id, retries + 1);
       this.enqueueJobInternal(item);
       return;
     }
 
-    this.logger.debug(`Marking proving job id=${id} totalAttempts=${retries + 1} as failed`);
+    this.logger.debug(
+      `Marking proving job id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1} as failed`,
+    );
     await this.database.setProvingJobError(id, err);
     this.resultsCache.set(id, { error: String(err) });
   }
 
   reportProvingJobProgress<F extends ProvingRequestType[]>(
     id: V2ProvingJobId,
+    startedAt: number,
     filter?: ProvingJobFilter<F>,
-  ): Promise<V2ProvingJob | undefined> {
+  ): Promise<{ job: V2ProvingJob; time: number } | undefined> {
+    const job = this.jobsCache.get(id);
+    if (!job) {
+      this.logger.warn(`Proving job id=${id} does not exist`);
+      return filter ? this.getProvingJob(filter) : Promise.resolve(undefined);
+    }
+
     const metadata = this.inProgress.get(id);
-    if (metadata) {
-      metadata.lastUpdatedAt = this.timeSource();
+    const now = this.timeSource();
+    if (!metadata) {
+      this.logger.warn(
+        `Proving job id=${id} type=${ProvingRequestType[job.type]} not found in the in-progress cache, adding it`,
+      );
+      // the queue will still contain the item at this point!
+      // we need to be careful when popping off the queue to make sure we're not sending
+      // a job that's already in progress
+      this.inProgress.set(id, {
+        id,
+        startedAt,
+        lastUpdatedAt: this.timeSource(),
+      });
+      return Promise.resolve(undefined);
+    } else if (startedAt <= metadata.startedAt) {
+      if (startedAt < metadata.startedAt) {
+        this.logger.debug(
+          `Proving job id=${id} type=${ProvingRequestType[job.type]} startedAt=${startedAt} older agent has taken job`,
+        );
+      } else {
+        this.logger.debug(`Proving job id=${id} type=${ProvingRequestType[job.type]} heartbeat`);
+      }
+      metadata.startedAt = startedAt;
+      metadata.lastUpdatedAt = now;
       return Promise.resolve(undefined);
     } else if (filter) {
-      this.logger.warn(`Proving job id=${id} not found in the in-progress set. Sending new one`);
+      this.logger.warn(
+        `Proving job id=${id} type=${
+          ProvingRequestType[job.type]
+        } already being worked on by another agent. Sending new one`,
+      );
       return this.getProvingJob(filter);
     } else {
-      this.logger.warn(`Proving job id=${id} not found in the in-progress set`);
       return Promise.resolve(undefined);
     }
   }
@@ -230,12 +267,14 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
 
     if (!info) {
-      this.logger.warn(`Proving job id=${id} not in the in-progress set`);
+      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`);
     } else {
       this.inProgress.delete(id);
     }
 
-    this.logger.debug(`Proving job complete id=${id} totalAttempts=${retries + 1}`);
+    this.logger.debug(
+      `Proving job complete id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1}`,
+    );
     await this.database.setProvingJobResult(id, value);
     this.resultsCache.set(id, { value });
   }
@@ -249,8 +288,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
         continue;
       }
 
-      const elapsedSinceLastUpdate = this.timeSource() - metadata.lastUpdatedAt;
-      if (elapsedSinceLastUpdate >= this.proofRequestTimeoutMs) {
+      const secondsSinceLastUpdate = this.timeSource() - metadata.lastUpdatedAt;
+      if (secondsSinceLastUpdate >= this.jobTimeoutSec) {
         this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`);
         this.inProgress.delete(id);
         this.enqueueJobInternal(item);

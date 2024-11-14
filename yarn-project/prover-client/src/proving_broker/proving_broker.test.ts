@@ -26,16 +26,18 @@ beforeAll(() => {
 describe('ProvingBroker', () => {
   let database: InMemoryDatabase;
   let broker: ProvingBroker;
-  let timeoutMs: number;
+  let jobTimeoutSec: number;
   let maxRetries: number;
 
+  const now = () => Math.floor(Date.now() / 1000);
+
   beforeEach(() => {
-    timeoutMs = 300;
+    jobTimeoutSec = 10;
     maxRetries = 2;
     database = new InMemoryDatabase();
     broker = new ProvingBroker(database, {
-      jobTimeoutMs: timeoutMs,
-      timeoutIntervalMs: timeoutMs / 3,
+      jobTimeoutSec: jobTimeoutSec,
+      timeoutIntervalSec: jobTimeoutSec / 4,
       maxRetries,
     });
   });
@@ -326,8 +328,185 @@ describe('ProvingBroker', () => {
         inputs: makeBaseParityInputs(),
       });
       await expect(
-        broker.reportProvingJobProgress(id2, { allowList: [ProvingRequestType.BASE_PARITY] }),
-      ).resolves.toEqual(expect.objectContaining({ id: id2 }));
+        broker.reportProvingJobProgress(id, now(), { allowList: [ProvingRequestType.BASE_PARITY] }),
+      ).resolves.toEqual({ job: expect.objectContaining({ id: id2 }), time: expect.any(Number) });
+    });
+
+    it('returns a new job if job is already in progress elsewhere', async () => {
+      // this test simulates the broker crashing and when it comes back online it has two agents working the same job
+      const job1: V2ProvingJob = {
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        blockNumber: 1,
+        inputs: makeBaseParityInputs(),
+      };
+
+      const job2: V2ProvingJob = {
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        blockNumber: 2,
+        inputs: makeBaseParityInputs(),
+      };
+
+      await broker.enqueueProvingJob(job1);
+      await broker.enqueueProvingJob(job2);
+
+      const { job: firstAgentJob, time: firstAgentStartedAt } = (await broker.getProvingJob({
+        allowList: [ProvingRequestType.BASE_PARITY],
+      }))!;
+
+      expect(firstAgentJob).toEqual(job1);
+      await assertJobStatus(job1.id, 'in-progress');
+
+      await jest.advanceTimersByTimeAsync(jobTimeoutSec / 2);
+      await expect(
+        broker.reportProvingJobProgress(job1.id, firstAgentStartedAt, {
+          allowList: [ProvingRequestType.BASE_PARITY],
+        }),
+      ).resolves.toBeUndefined();
+
+      // restart the broker!
+      await broker.stop();
+
+      // fake some time passing while the broker restarts
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      broker = new ProvingBroker(database);
+      await broker.start();
+
+      await assertJobStatus(job1.id, 'in-queue');
+
+      const { job: secondAgentJob, time: secondAgentStartedAt } = (await broker.getProvingJob({
+        allowList: [ProvingRequestType.BASE_PARITY],
+      }))!;
+
+      // should be the same job!
+      expect(secondAgentJob).toEqual(job1);
+      await assertJobStatus(job1.id, 'in-progress');
+
+      // original agent should still be able to report progress
+      // and it should take over the job from the second agent
+      await expect(
+        broker.reportProvingJobProgress(job1.id, firstAgentStartedAt, {
+          allowList: [ProvingRequestType.BASE_PARITY],
+        }),
+      ).resolves.toBeUndefined();
+
+      // second agent should get a new job now
+      await expect(
+        broker.reportProvingJobProgress(job1.id, secondAgentStartedAt, {
+          allowList: [ProvingRequestType.BASE_PARITY],
+        }),
+      ).resolves.toEqual({ job: job2, time: expect.any(Number) });
+    });
+
+    it('avoids sending the same job to a new agent after a restart', async () => {
+      // this test simulates the broker crashing and when it comes back online it has two agents working the same job
+      const job1: V2ProvingJob = {
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        blockNumber: 1,
+        inputs: makeBaseParityInputs(),
+      };
+
+      const job2: V2ProvingJob = {
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        blockNumber: 2,
+        inputs: makeBaseParityInputs(),
+      };
+
+      await broker.enqueueProvingJob(job1);
+      await broker.enqueueProvingJob(job2);
+
+      const { job: firstAgentJob, time: firstAgentStartedAt } = (await broker.getProvingJob({
+        allowList: [ProvingRequestType.BASE_PARITY],
+      }))!;
+
+      expect(firstAgentJob).toEqual(job1);
+      await assertJobStatus(job1.id, 'in-progress');
+
+      // restart the broker!
+      await broker.stop();
+
+      // fake some time passing while the broker restarts
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      broker = new ProvingBroker(database);
+      await broker.start();
+
+      await assertJobStatus(job1.id, 'in-queue');
+
+      // original agent should still be able to report progress
+      // and it should take over the job from the second agent
+      await expect(
+        broker.reportProvingJobProgress(job1.id, firstAgentStartedAt, {
+          allowList: [ProvingRequestType.BASE_PARITY],
+        }),
+      ).resolves.toBeUndefined();
+
+      const { job: secondAgentJob } = (await broker.getProvingJob({
+        allowList: [ProvingRequestType.BASE_PARITY],
+      }))!;
+
+      // should be the same job!
+      expect(secondAgentJob).toEqual(job2);
+      await assertJobStatus(job1.id, 'in-progress');
+      await assertJobStatus(job2.id, 'in-progress');
+    });
+
+    it('avoids sending a completed job to a new agent after a restart', async () => {
+      // this test simulates the broker crashing and when it comes back online it has two agents working the same job
+      const job1: V2ProvingJob = {
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        blockNumber: 1,
+        inputs: makeBaseParityInputs(),
+      };
+
+      const job2: V2ProvingJob = {
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        blockNumber: 2,
+        inputs: makeBaseParityInputs(),
+      };
+
+      await broker.enqueueProvingJob(job1);
+      await broker.enqueueProvingJob(job2);
+
+      await getAndAssertNextJobId(job1.id);
+      await assertJobStatus(job1.id, 'in-progress');
+
+      // restart the broker!
+      await broker.stop();
+
+      // fake some time passing while the broker restarts
+      await jest.advanceTimersByTimeAsync(100 * jobTimeoutSec * 1000);
+
+      broker = new ProvingBroker(database);
+      await broker.start();
+      await assertJobStatus(job1.id, 'in-queue');
+
+      // after the restart the new broker thinks job1 is available
+      // inform the agent of the job completion
+
+      await expect(
+        broker.reportProvingJobSuccess(job1.id, {
+          type: ProvingRequestType.BASE_PARITY,
+          value: makePublicInputsAndRecursiveProof(
+            makeParityPublicInputs(),
+            makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+            VerificationKeyData.makeFake(),
+          ),
+        }),
+      ).resolves.toBeUndefined();
+      await assertJobStatus(job1.id, 'resolved');
+
+      // make sure the the broker sends the next job to the agent
+      await getAndAssertNextJobId(job2.id);
+
+      await assertJobStatus(job1.id, 'resolved');
+      await assertJobStatus(job2.id, 'in-progress');
     });
 
     it('tracks job result if in progress', async () => {
@@ -346,7 +525,7 @@ describe('ProvingBroker', () => {
         inputs: makeBaseParityInputs(),
       });
 
-      await expect(broker.getProvingJob()).resolves.toEqual(expect.objectContaining({ id: id1 }));
+      await getAndAssertNextJobId(id1);
       await assertJobStatus(id1, 'in-progress');
       await broker.reportProvingJobSuccess(id1, {
         type: ProvingRequestType.BASE_PARITY,
@@ -358,7 +537,7 @@ describe('ProvingBroker', () => {
       });
       await assertJobStatus(id1, 'resolved');
 
-      await expect(broker.getProvingJob()).resolves.toEqual(expect.objectContaining({ id: id2 }));
+      await getAndAssertNextJobId(id2);
       await assertJobStatus(id2, 'in-progress');
       await broker.reportProvingJobError(id2, new Error('test error'));
       await assertJobStatus(id2, 'rejected');
@@ -453,7 +632,7 @@ describe('ProvingBroker', () => {
       await assertJobStatus(id, 'in-progress');
 
       // advance time so job times out because of no heartbeats
-      await jest.advanceTimersByTimeAsync(timeoutMs);
+      await jest.advanceTimersByTimeAsync(jobTimeoutSec * 1000);
 
       // should be back in the queue now
       await assertJobStatus(id, 'in-queue');
@@ -469,25 +648,26 @@ describe('ProvingBroker', () => {
       });
 
       await assertJobStatus(id, 'in-queue');
-      await getAndAssertNextJobId(id);
+      const { job, time } = (await broker.getProvingJob())!;
+      expect(job.id).toEqual(id);
       await assertJobStatus(id, 'in-progress');
 
       // advance the time slightly, not enough for the request to timeout
-      await jest.advanceTimersByTimeAsync(timeoutMs / 2);
+      await jest.advanceTimersByTimeAsync((jobTimeoutSec * 1000) / 2);
 
       await assertJobStatus(id, 'in-progress');
 
       // send a heartbeat
-      await broker.reportProvingJobProgress(id);
+      await broker.reportProvingJobProgress(id, time);
 
       // advance the time again
-      await jest.advanceTimersByTimeAsync(timeoutMs);
+      await jest.advanceTimersByTimeAsync((jobTimeoutSec * 1000) / 2);
 
       // should still be our request to process
       await assertJobStatus(id, 'in-progress');
 
       // advance the time again and lose the request
-      await jest.advanceTimersByTimeAsync(timeoutMs);
+      await jest.advanceTimersByTimeAsync(jobTimeoutSec * 1000);
       await assertJobStatus(id, 'in-queue');
     });
   });
@@ -507,7 +687,7 @@ describe('ProvingBroker', () => {
         status: 'in-queue',
       });
 
-      await expect(broker.getProvingJob()).resolves.toEqual(provingJob);
+      await expect(broker.getProvingJob()).resolves.toEqual({ job: provingJob, time: expect.any(Number) });
 
       await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({
         status: 'in-progress',
@@ -590,17 +770,23 @@ describe('ProvingBroker', () => {
       await expect(broker.getProvingJobStatus(id2)).resolves.toEqual({ status: 'in-queue' });
 
       await expect(broker.getProvingJob({ allowList: [ProvingRequestType.BASE_PARITY] })).resolves.toEqual({
-        id: id1,
-        type: ProvingRequestType.BASE_PARITY,
-        blockNumber: 1,
-        inputs: expect.any(Object),
+        job: {
+          id: id1,
+          type: ProvingRequestType.BASE_PARITY,
+          blockNumber: 1,
+          inputs: expect.any(Object),
+        },
+        time: expect.any(Number),
       });
 
       await expect(broker.getProvingJob()).resolves.toEqual({
-        id: id2,
-        type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
-        blockNumber: 2,
-        inputs: expect.any(Object),
+        job: {
+          id: id2,
+          type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+          blockNumber: 2,
+          inputs: expect.any(Object),
+        },
+        time: expect.any(Number),
       });
 
       await expect(broker.getProvingJobStatus(id1)).resolves.toEqual({
@@ -694,7 +880,7 @@ describe('ProvingBroker', () => {
       });
 
       await expect(broker.getProvingJobStatus(id2)).resolves.toEqual({ status: 'in-queue' });
-      await expect(broker.getProvingJob()).resolves.toEqual(expect.objectContaining({ id: id2 }));
+      await getAndAssertNextJobId(id2);
     });
 
     it('clears job state when job is removed', async () => {
@@ -890,7 +1076,7 @@ describe('ProvingBroker', () => {
 
   async function getAndAssertNextJobId(id: V2ProvingJobId, ...allowList: ProvingRequestType[]) {
     await expect(broker.getProvingJob(allowList.length > 0 ? { allowList } : undefined)).resolves.toEqual(
-      expect.objectContaining({ id }),
+      expect.objectContaining({ job: expect.objectContaining({ id }) }),
     );
   }
 });
