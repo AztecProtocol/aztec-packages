@@ -30,10 +30,18 @@ export async function createPXEService(
   const logSuffix =
     typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
 
+  const l1Contracts = await aztecNode.getL1ContractAddresses();
+  const configWithContracts = {
+    ...config,
+    l1Contracts,
+  } as PXEServiceConfig;
+
   const keyStore = new KeyStore(
-    await createStore('pxe_key_store', config, createDebugLogger('aztec:pxe:keystore:lmdb')),
+    await createStore('pxe_key_store', configWithContracts, createDebugLogger('aztec:pxe:keystore:lmdb')),
   );
-  const db = new KVPxeDatabase(await createStore('pxe_data', config, createDebugLogger('aztec:pxe:data:lmdb')));
+  const db = new KVPxeDatabase(
+    await createStore('pxe_data', configWithContracts, createDebugLogger('aztec:pxe:data:lmdb')),
+  );
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
   const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);

@@ -15,8 +15,8 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
 
   log.info(
     dataDirectory
-      ? `Creating ${name} data store at directory ${dataDirectory}`
-      : `Creating ${name} ephemeral data store`,
+      ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
+      : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
   return initStoreForRollup(
     AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false),

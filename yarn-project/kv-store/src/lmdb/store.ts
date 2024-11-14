@@ -62,11 +62,11 @@ export class AztecLmdbStore implements AztecKVStore {
     ephemeral: boolean = false,
     log = createDebugLogger('aztec:kv-store:lmdb'),
   ): AztecLmdbStore {
-    log.debug(`Opening LMDB database at ${path || 'temporary location'}`);
     if (path) {
       mkdirSync(path, { recursive: true });
     }
     const mapSize = mapSizeKb === undefined ? undefined : 1024 * mapSizeKb;
+    log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
     const rootDb = open({ path, noSync: ephemeral, mapSize });
     return new AztecLmdbStore(rootDb, ephemeral, path);
   }
