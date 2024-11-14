@@ -75,7 +75,7 @@ resource "helm_release" "aztec-eks-cluster" {
   }
 
   # Setting timeout and wait conditions
-  timeout       = 1800 # 30 minutes in seconds
+  timeout       = 600 # 10 minutes in seconds
   wait          = true
   wait_for_jobs = true
 }
@@ -93,6 +93,11 @@ resource "helm_release" "aztec-gke-cluster" {
   values = [file("../../aztec-network/values/${var.values-file}")]
 
   # disabling all nodes except provers
+  set {
+    name  = "network.setupL2Contracts"
+    value = false
+  }
+
   set {
     name  = "proverNode.public"
     value = true
@@ -155,7 +160,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   # Setting timeout and wait conditions
-  timeout       = 1800 # 30 minutes in seconds
+  timeout       = 600 # 10 minutes in seconds
   wait          = true
   wait_for_jobs = true
 
