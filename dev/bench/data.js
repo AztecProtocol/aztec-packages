@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731609036760,
+  "lastUpdate": 1731609333434,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "747bff1acbca3d263a765db82baa6ef9ca58c372",
-          "message": "chore: bb sanitizers on master (#9564)\n\nThis is free QA, though sanitizers likely aren't clean. Let's enable\r\nthis and turn off what breaks",
-          "timestamp": "2024-10-31T00:13:29Z",
-          "tree_id": "d21944a326cc7b2b789c4892ad7ef89b77650e43",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/747bff1acbca3d263a765db82baa6ef9ca58c372"
-        },
-        "date": 1730335205935,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29072.96704999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27302.109651 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5341.850662999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5014.940085 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86621.50410800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86621506000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15083.171796,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15083171000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2507322254,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2507322254 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125933660,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125933660 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 143619617,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143619617 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e07cac7fee501a752d98ebf749f6cf31a3ff74af",
+          "message": "feat: removed redundant scalar muls from the verifiers using shplemini (#9392)\n\n* Reduced the number of scalar multiplications to be performed by the\r\nnative and recursive verifiers running shplemini\r\n* Slightly re-shuffled the entities in Translator and ECCVM, so that\r\nentitied to be shifted and their shifts form contiguous ranges\r\n* This is useful for amortizing the verification costs in the case of ZK\r\nsumcheck\r\n* The Translator recursive verifier circuit is now around 820K gates as\r\nopposed to 1700K. For other Flavors, the numbers are not as dramatic,\r\nbut there's still around -10% in scalar muls and the sizes of recursive\r\nverifiers.",
+          "timestamp": "2024-11-14T17:45:51Z",
+          "tree_id": "88d95ab9112c5bd711011c3a33009c7926db3dfe",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e07cac7fee501a752d98ebf749f6cf31a3ff74af"
+        },
+        "date": 1731609326434,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29040.74306000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27278.916879 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5395.3953219999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5050.462557999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85026.08741200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85026088000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15187.008895,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15187008000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3097128097,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3097128097 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145080746,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145080746 ns\nthreads: 1"
           }
         ]
       }
