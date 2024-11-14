@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731604933921,
+  "lastUpdate": 1731608974111,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "blorktronics@gmail.com",
-            "name": "Zachary James Williamson",
-            "username": "zac-williamson"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9211d8afbd0fe31043ea593675ce5a72c1dc7e4e",
-          "message": "feat: biggroup_goblin handles points at infinity + 1.8x reduction in ECCVM size (#9366)\n\nThis PR adds support for biggroup_goblin handling elliptic curve points\r\nat infinity\r\n\r\nThis feature is used to optimize the ECCVM instructions created when\r\nrunning a recursive protogalaxy verifier.\r\n\r\nInstead of performing size-2 scalar multiplications for every\r\nwitness/commitment, additional random challenges are generated in order\r\nto evaluate two large batch multiplications.\r\n\r\nThe technique implemented is described in\r\nhttps://hackmd.io/T1239dufTgO1v8Ie7EExlQ?view\r\n\r\nIn the case of ClientIVCRecursionTests.ClientTubeBase where the number\r\nof circuits is set to four, this reduces the size of the ECCVM execution\r\ntrace size by 45%, which is good enough to reduce the log dyadic size of\r\nthe ClientIVCVerifier by 1/2.",
-          "timestamp": "2024-10-30T15:51:29-04:00",
-          "tree_id": "7ee95de7b97c8ef0dba2446e00440f68d104ccc8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9211d8afbd0fe31043ea593675ce5a72c1dc7e4e"
-        },
-        "date": 1730320299950,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29271.485224000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27417.830350000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5419.456435000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5083.737690000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86281.51837499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86281520000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15209.479228999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15209479000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2516740076,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2516740076 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126019837,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126019837 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 136194915,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 136194915 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e587d6d43cc28174d807c255f5270212a0b1c98",
+          "message": "feat: Mega memory benchmarks (#9858)\n\nIt would be better to actually use Google Bench's memory manager\r\nfunctionality and count allocations. We already have something similar\r\nimplemented for Tracy. After striking out with that approach for a bit I\r\nreverted to just manually counting the size of the biggest vectors.\r\n\r\nThe PR uncovered this issue: some trace structures have unusable\r\ncapacity, not just due to using fewer than a dyadic number of gates, but\r\nalso because of coupling of certain gate types\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1149\r\n\r\nSee https://github.com/AztecProtocol/aztec-packages/pull/9858 for logs of benchmarks.",
+          "timestamp": "2024-11-14T12:55:05-05:00",
+          "tree_id": "01db0a68ecaf92f9c73639b8affcdb42b719c94d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e587d6d43cc28174d807c255f5270212a0b1c98"
+        },
+        "date": 1731608966181,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28809.260913000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27054.207663 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5348.5002859999895,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5004.099722 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85480.902133,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85480904000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15155.120836,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15155121000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3100063179,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3100063179 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143841826,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143841826 ns\nthreads: 1"
           }
         ]
       }
