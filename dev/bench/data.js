@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731530226133,
+  "lastUpdate": 1731604933921,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5f386963b06752087c2600949cbb4bb2910b25ef",
-          "message": "feat(avm)!: use 32 bit locations (#9596)\n\nContrary to what was expected months ago, we have to support contracts > 65 kB. So we need 32 bit locations in the upcoming move to byte-indexed PCs. This increseases bytecode ~8% in the short term. In the longer term, we might introduce relative jumps with 8 and 16 bit variants. That would likely leave us in an even better place than where we are today.\r\n\r\nPart of #9059.",
-          "timestamp": "2024-10-30T17:06:17Z",
-          "tree_id": "d69b174f994341af74ea4b06a9a284e4a18f829a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5f386963b06752087c2600949cbb4bb2910b25ef"
-        },
-        "date": 1730309688154,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30537.163948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28830.413115000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5378.605791999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5081.097699 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 90934.590223,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 90934592000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15165.98959,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15165989000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2706576734,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2706576734 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126468834,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126468834 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 144213471,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144213471 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f566503377298681ce8f1d9d9b8c3c026825e2a2",
+          "message": "feat: change definition of lagrange last (#9916)\n\nUpdate the `lagrange_last` polynomial to take 1 at the idx of the last\r\nactive wire in the execution trace. This effectively translates the\r\nexisting checks in the permutation relation to this index rather than\r\nthe dyadic size and allows the permutation grand product to be computed\r\nonly up to this point. This is a precursor for kernel VKs that are\r\nindependent of the ambient trace size.\r\n\r\n---------\r\n\r\nCo-authored-by: maramihali <mara@aztecprotocol.com>",
+          "timestamp": "2024-11-14T09:36:18-07:00",
+          "tree_id": "0829325c3fcf718e257c3e7d7b9146e2255214e0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f566503377298681ce8f1d9d9b8c3c026825e2a2"
+        },
+        "date": 1731604927055,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29002.258764000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27013.756824999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4945.2317020000155,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4643.803013999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91594.72820200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91594729000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16645.137584000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16645138000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3110300801,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3110300801 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136194915,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136194915 ns\nthreads: 1"
           }
         ]
       }
