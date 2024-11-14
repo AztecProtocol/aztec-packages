@@ -68,7 +68,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + labels.w_o);
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         // Receive ECC op wire commitments
         for (auto [commitment, label] : zip_view(commitments.get_ecc_op_wires(), labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
@@ -98,7 +98,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         transcript->template receive_from_prover<Commitment>(domain_separator + labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, label] : zip_view(commitments.get_databus_inverses(), labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
         }

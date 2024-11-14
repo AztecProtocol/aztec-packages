@@ -34,7 +34,6 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
-  TaggingSecret,
   computeContractClassId,
   computeTaggingSecret,
   deriveKeys,
@@ -785,47 +784,27 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  async incrementAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
-    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
-    await this.txeDatabase.incrementTaggingSecretsIndexes([directionalSecret]);
+  async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+    const directionalSecret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    await this.txeDatabase.incrementTaggingSecretsIndexesAsSender([directionalSecret]);
   }
 
-  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
-    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([directionalSecret]);
-    return IndexedTaggingSecret.fromTaggingSecret(directionalSecret, index);
+  async getAppTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    const secret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexesAsSender([secret]);
+    return new IndexedTaggingSecret(secret, index);
   }
 
-  async #calculateDirectionalSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+  async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    // Get the index of the secret, ensuring the directionality (sender -> recipient)
-    const directionalSecret = new TaggingSecret(siloedSecret, recipient);
-    return directionalSecret;
+    return siloedSecret;
   }
 
-  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
-    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
-    const completeAddresses = await this.txeDatabase.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const senders = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
-    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
-    const secrets = senders.map(({ address: sender }) => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
-      return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
-    });
-    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
-    const indexes = await this.txeDatabase.getTaggingSecretsIndexes(directionalSecrets);
-    return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
-  }
-
-  syncNotes(_recipient: AztecAddress) {
+  syncNotes() {
     // TODO: Implement
     return Promise.resolve();
   }

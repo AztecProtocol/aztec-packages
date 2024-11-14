@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
-import { GetUnencryptedLogsResponseSchema, TxScopedEncryptedL2NoteLog } from '../logs/get_logs_response.js';
+import { GetUnencryptedLogsResponseSchema, TxScopedL2Log } from '../logs/get_logs_response.js';
 import { L2BlockL2Logs } from '../logs/l2_block_l2_logs.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
@@ -56,7 +56,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
-    .returns(z.array(z.array(TxScopedEncryptedL2NoteLog.schema))),
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getPublicFunction: z

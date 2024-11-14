@@ -31,7 +31,7 @@ option(DISABLE_AZTEC_VM "Don't build Aztec VM (acceptable if iterating on core p
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)
-option(ENABLE_PAR_ALGOS "Enable parallel algorithms" ON)
+option(ENABLE_PAR_ALGOS "Enable parallel algorithms" OFF)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)

@@ -14,7 +14,7 @@ import {
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -302,10 +302,21 @@ export class ViewDataOracle extends TypedOracle {
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecret(
+  public override async getAppTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
+    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
+  }
+
+  public override async syncNotes() {
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+      this.contractAddress,
+      await this.aztecNode.getBlockNumber(),
+      this.scopes,
+    );
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
   }
 }

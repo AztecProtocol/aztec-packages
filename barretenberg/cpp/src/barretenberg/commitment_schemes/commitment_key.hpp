@@ -269,15 +269,15 @@ template <class Curve> class CommitmentKey {
         // Percentage of constant coefficients below which we resort to the conventional commit method
         constexpr size_t CONSTANT_THRESHOLD = 50;
 
-        // Compute the active range complement over which the polynomial is assumed to be constant within each range
+        // Compute the active range complement over which the polynomial is assumed to be constant within each range.
+        // Note: the range from the end of the last active range to the end of the polynomial is excluded from the
+        // complement since the polynomial is assumed to be zero there.
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
         for (size_t i = 0; i < active_ranges.size() - 1; ++i) {
             const size_t start = active_ranges[i].second;
             const size_t end = active_ranges[i + 1].first;
             active_ranges_complement.emplace_back(start, end);
         }
-        // Final complement range goes from end of last active range to the end of the polynomial
-        active_ranges_complement.emplace_back(active_ranges.back().second, polynomial.end_index());
 
         // Compute the total number of scalars in the constant regions
         size_t total_num_complement_scalars = 0;

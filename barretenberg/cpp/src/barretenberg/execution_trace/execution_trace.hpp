@@ -125,7 +125,7 @@ template <class Flavor> class ExecutionTrace_ {
      * @param proving_key
      */
     static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key)
-        requires IsGoblinFlavor<Flavor>;
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

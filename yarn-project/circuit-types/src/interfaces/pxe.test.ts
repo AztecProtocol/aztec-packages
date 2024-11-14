@@ -37,7 +37,6 @@ import { ExtendedNote, type OutgoingNotesFilter, UniqueNote } from '../notes/ind
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
-import { type NoteProcessorStats } from '../stats/stats.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
@@ -256,19 +255,9 @@ describe('PXESchema', () => {
     expect(result).toBe(true);
   });
 
-  it('isAccountStateSynchronized', async () => {
-    const result = await context.client.isAccountStateSynchronized(address);
-    expect(result).toBe(true);
-  });
-
   it('getSyncStatus', async () => {
     const result = await context.client.getSyncStatus();
     expect(result).toEqual(await handler.getSyncStatus());
-  });
-
-  it('getSyncStats', async () => {
-    const result = await context.client.getSyncStats();
-    expect(result).toEqual(await handler.getSyncStats());
   });
 
   it('getContractInstance', async () => {
@@ -504,28 +493,9 @@ class MockPXE implements PXE {
   isGlobalStateSynchronized(): Promise<boolean> {
     return Promise.resolve(true);
   }
-  isAccountStateSynchronized(account: AztecAddress): Promise<boolean> {
-    expect(account).toEqual(this.address);
-    return Promise.resolve(true);
-  }
   getSyncStatus(): Promise<SyncStatus> {
     return Promise.resolve({
       blocks: 1,
-      notes: { [this.address.toString()]: 1 },
-    });
-  }
-  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }> {
-    return Promise.resolve({
-      [this.address.toString()]: {
-        seen: 1,
-        deferredIncoming: 1,
-        deferredOutgoing: 1,
-        decryptedIncoming: 1,
-        decryptedOutgoing: 1,
-        failed: 1,
-        blocks: 1,
-        txs: 1,
-      },
     });
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

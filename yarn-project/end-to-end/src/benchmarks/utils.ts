@@ -1,15 +1,5 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AztecNode,
-  BatchCall,
-  type Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type PXE,
-  type PartialAddress,
-  type SentTx,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
@@ -119,17 +109,4 @@ export async function waitNewPXESynced(
   await pxe.registerContract(contract);
   await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;
-}
-
-/**
- * Registers a new account in a pxe and waits until it's synced all its notes.
- * @param pxe - PXE where to register the account.
- * @param secretKey - Secret key of the account to register.
- * @param partialAddress - Partial address of the account to register.
- */
-export async function waitRegisteredAccountSynced(pxe: PXE, secretKey: Fr, partialAddress: PartialAddress) {
-  const l2Block = await pxe.getBlockNumber();
-  const accountAddress = (await pxe.registerAccount(secretKey, partialAddress)).address;
-  const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[accountAddress.toString()] === l2Block;
-  await retryUntil(isAccountSynced, 'pxe-notes-sync');
 }
