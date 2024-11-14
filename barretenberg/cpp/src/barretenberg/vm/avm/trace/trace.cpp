@@ -563,6 +563,8 @@ AvmError AvmTraceBuilder::op_div(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
+    bool op_valid = tag_match && check_tag_integral(read_a.tag);
+
     // a / b = c
     FF a = read_a.val;
     FF b = read_b.val;
@@ -577,7 +579,7 @@ AvmError AvmTraceBuilder::op_div(
     if (!b.is_zero()) {
         // If b is not zero, we prove it is not by providing its inverse as well
         inv = b.invert();
-        c = tag_match ? alu_trace_builder.op_div(a, b, in_tag, clk) : FF(0);
+        c = op_valid ? alu_trace_builder.op_div(a, b, in_tag, clk) : FF(0);
     } else {
         inv = 1;
         c = 0;
@@ -605,7 +607,7 @@ AvmError AvmTraceBuilder::op_div(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_dst.direct_address),
-        .main_op_err = tag_match ? FF(static_cast<uint32_t>(div_error)) : FF(1),
+        .main_op_err = op_valid ? FF(static_cast<uint32_t>(div_error)) : FF(1),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -622,7 +624,7 @@ AvmError AvmTraceBuilder::op_div(
 
     ASSERT(op_code == OpCode::DIV_8 || op_code == OpCode::DIV_16);
     pc += Deserialization::get_pc_increment(op_code);
-    return !tag_match ? AvmError::TAG_ERROR : div_error ? AvmError::DIV_ZERO : AvmError::NO_ERROR;
+    return !op_valid ? AvmError::TAG_ERROR : div_error ? AvmError::DIV_ZERO : AvmError::NO_ERROR;
 }
 
 /**
