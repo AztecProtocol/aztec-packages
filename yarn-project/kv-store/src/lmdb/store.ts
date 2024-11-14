@@ -58,6 +58,7 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   static open(
     path?: string,
+    mapSizeKb?: number,
     ephemeral: boolean = false,
     log = createDebugLogger('aztec:kv-store:lmdb'),
   ): AztecLmdbStore {
@@ -65,7 +66,8 @@ export class AztecLmdbStore implements AztecKVStore {
     if (path) {
       mkdirSync(path, { recursive: true });
     }
-    const rootDb = open({ path, noSync: ephemeral });
+    const mapSize = mapSizeKb === undefined ? undefined : 1024 * mapSizeKb;
+    const rootDb = open({ path, noSync: ephemeral, mapSize });
     return new AztecLmdbStore(rootDb, ephemeral, path);
   }
 

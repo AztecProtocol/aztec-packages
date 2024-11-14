@@ -3,10 +3,9 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import { join } from 'path';
 
+import { type DataStoreConfig } from './config.js';
 import { type AztecKVStore } from './interfaces/store.js';
 import { AztecLmdbStore } from './lmdb/store.js';
-
-export type DataStoreConfig = { dataDirectory: string | undefined; l1Contracts: { rollupAddress: EthAddress } };
 
 export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
   let { dataDirectory } = config;
@@ -19,7 +18,11 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
       ? `Creating ${name} data store at directory ${dataDirectory}`
       : `Creating ${name} ephemeral data store`,
   );
-  return initStoreForRollup(AztecLmdbStore.open(dataDirectory, false), config.l1Contracts.rollupAddress, log);
+  return initStoreForRollup(
+    AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false),
+    config.l1Contracts.rollupAddress,
+    log,
+  );
 }
 
 /**
@@ -60,5 +63,6 @@ async function initStoreForRollup<T extends AztecKVStore>(
  * @returns A new store
  */
 export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
-  return AztecLmdbStore.open(undefined, ephemeral);
+  const mapSize = 1024 * 1024 * 1024 * 10; // 10 GB map size
+  return AztecLmdbStore.open(undefined, mapSize, ephemeral);
 }

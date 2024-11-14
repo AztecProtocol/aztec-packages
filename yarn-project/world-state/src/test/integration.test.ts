@@ -3,7 +3,7 @@ import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { EthAddress, type Fr } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type DataStoreConfig } from '@aztec/kv-store/utils';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 
 import { jest } from '@jest/globals';
 
@@ -38,11 +38,11 @@ describe('world-state integration', () => {
   beforeEach(async () => {
     config = {
       dataDirectory: undefined,
+      dataStoreMapSizeKB: 1024 * 1024,
       l1Contracts: { rollupAddress },
       worldStateBlockCheckIntervalMS: 20,
       worldStateProvenBlocksOnly: false,
       worldStateBlockRequestBatchSize: 5,
-      worldStateDbMapSizeKb: 1024 * 1024,
     };
 
     archiver = new MockPrefilledArchiver(blocks, messages);
