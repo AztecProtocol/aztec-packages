@@ -1,5 +1,6 @@
 [package]
-name = "comptime_apply_range_constraint"
+name = "double_verify_honk_proof"
 type = "bin"
 authors = [""]
+
 [dependencies]
