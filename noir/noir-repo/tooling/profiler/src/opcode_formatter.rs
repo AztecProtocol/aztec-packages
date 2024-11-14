@@ -67,10 +67,6 @@ fn format_acir_opcode_kind<F>(opcode: &AcirOpcode<F>) -> String {
         AcirOpcode::MemoryInit { .. } => "memory::init".to_string(),
         AcirOpcode::BrilligCall { id, .. } => format!("brillig_call({id})"),
         AcirOpcode::Call { .. } => "acir_call".to_string(),
-
-        AcirOpcode::Directive(_) => {
-            unreachable!("directives no longer exist")
-        }
     }
 }
 
