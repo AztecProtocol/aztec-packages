@@ -42,3 +42,5 @@ ark-bn254.workspace = true
 bn254_blackbox_solver.workspace = true
 proptest.workspace = true
 zkhash = { version = "^0.2.0", default-features = false }
+num-bigint.workspace = true
+

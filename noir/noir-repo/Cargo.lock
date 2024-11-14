@@ -49,6 +49,7 @@ dependencies = [
  "bn254_blackbox_solver",
  "brillig_vm",
  "indexmap 1.9.3",
+ "num-bigint",
  "proptest",
  "serde",
  "thiserror",
