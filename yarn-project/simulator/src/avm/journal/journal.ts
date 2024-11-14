@@ -428,18 +428,21 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Accept nested world state modifications
+   * Accept forked world state modifications & traced side effects / hints
    */
   public mergeForkedState(forkedState: AvmPersistableStateManager) {
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
-    this.trace.mergeSuccessfulForkedTrace(forkedState.trace);
+    this.trace.merge(forkedState.trace, /*reverted=*/ false);
   }
 
+  /**
+   * Reject forked world state modifications & traced side effects, keep traced hints
+   */
   public rejectForkedState(forkedState: AvmPersistableStateManager) {
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
-    this.trace.mergeRevertedForkedTrace(forkedState.trace);
+    this.trace.merge(forkedState.trace, /*reverted=*/ true);
   }
 
   /**

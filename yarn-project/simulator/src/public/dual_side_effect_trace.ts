@@ -34,6 +34,10 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     );
   }
 
+  public merge(nestedTrace: this, reverted: boolean = false) {
+    this.enqueuedCallTrace.merge(nestedTrace.enqueuedCallTrace, reverted);
+  }
+
   public getCounter() {
     assert(this.innerCallTrace.getCounter() == this.enqueuedCallTrace.getCounter());
     return this.innerCallTrace.getCounter();
@@ -230,14 +234,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     reverted: boolean,
   ) {
     this.enqueuedCallTrace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
-  }
-
-  public mergeSuccessfulForkedTrace(nestedTrace: this) {
-    this.enqueuedCallTrace.mergeSuccessfulForkedTrace(nestedTrace.enqueuedCallTrace);
-  }
-
-  public mergeRevertedForkedTrace(nestedTrace: this) {
-    this.enqueuedCallTrace.mergeRevertedForkedTrace(nestedTrace.enqueuedCallTrace);
   }
 
   /**

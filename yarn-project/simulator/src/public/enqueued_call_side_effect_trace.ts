@@ -178,6 +178,26 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
   }
 
+  public merge(nestedTrace: this, reverted: boolean = false) {
+    // TODO(dbanks12): accept & merge nested trace's hints!
+    this.sideEffectCounter = nestedTrace.sideEffectCounter;
+    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
+
+    if (!reverted) {
+      this.publicDataReads.push(...nestedTrace.publicDataReads);
+      this.publicDataWrites.push(...nestedTrace.publicDataWrites);
+      this.noteHashReadRequests.push(...nestedTrace.noteHashReadRequests);
+      this.noteHashes.push(...nestedTrace.noteHashes);
+      this.nullifierReadRequests.push(...nestedTrace.nullifierReadRequests);
+      this.nullifierNonExistentReadRequests.push(...nestedTrace.nullifierNonExistentReadRequests);
+      this.nullifiers.push(...nestedTrace.nullifiers);
+      this.l1ToL2MsgReadRequests.push(...nestedTrace.l1ToL2MsgReadRequests);
+      this.l2ToL1Messages.push(...nestedTrace.l2ToL1Messages);
+      this.unencryptedLogs.push(...nestedTrace.unencryptedLogs);
+      this.unencryptedLogsHashes.push(...nestedTrace.unencryptedLogsHashes);
+    }
+  }
+
   public getCounter() {
     return this.sideEffectCounter;
   }
@@ -523,38 +543,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.avmCircuitHints.enqueuedCalls.items.push(new AvmEnqueuedCallHint(publicCallRequest.contractAddress, calldata));
   }
 
-  public mergeSuccessfulForkedTrace(nestedTrace: this) {
-    // TODO(dbanks12): accept & merge nested trace's hints!
-    this.sideEffectCounter = nestedTrace.sideEffectCounter;
-
-    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
-
-    this.publicDataReads.push(...nestedTrace.publicDataReads);
-    this.publicDataWrites.push(...nestedTrace.publicDataWrites);
-    this.noteHashReadRequests.push(...nestedTrace.noteHashReadRequests);
-    this.noteHashes.push(...nestedTrace.noteHashes);
-    this.nullifierReadRequests.push(...nestedTrace.nullifierReadRequests);
-    this.nullifierNonExistentReadRequests.push(...nestedTrace.nullifierNonExistentReadRequests);
-    this.log.debug(`Merging nullifiers: ${nestedTrace.nullifiers.length}`);
-    this.log.debug(`Into parent nullifiers: ${this.nullifiers.length}`);
-    this.nullifiers.push(...nestedTrace.nullifiers);
-    this.log.debug(`After merge: ${JSON.stringify(this.nullifiers)}`);
-    this.l1ToL2MsgReadRequests.push(...nestedTrace.l1ToL2MsgReadRequests);
-    this.l2ToL1Messages.push(...nestedTrace.l2ToL1Messages);
-    this.unencryptedLogs.push(...nestedTrace.unencryptedLogs);
-    this.unencryptedLogsHashes.push(...nestedTrace.unencryptedLogsHashes);
-  }
-
-  /**
-   * Discard accumulated side effects, but keep hints.
-   */
-  public mergeRevertedForkedTrace(nestedTrace: this) {
-    // TODO(dbanks12): accept & merge nested trace's hints!
-    this.sideEffectCounter = nestedTrace.sideEffectCounter;
-
-    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
-  }
-
   public getSideEffects(): SideEffects {
     return {
       enqueuedCalls: this.enqueuedCalls,
@@ -617,7 +605,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** The call's results */
     avmCallResults: AvmContractCallResult,
   ): VMCircuitPublicInputs {
-    this.log.debug(`Creating public inputs with call result: ${avmCallResults.reverted}`);
     return new VMCircuitPublicInputs(
       /*constants=*/ constants,
       /*callRequest=*/ callRequest,

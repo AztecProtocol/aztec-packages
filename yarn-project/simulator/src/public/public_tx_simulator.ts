@@ -17,7 +17,7 @@ import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicKernelTailSimulator } from './public_kernel_tail_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
-import { generateAvmCircuitPublicInputs, runMergeKernelCircuit } from './utils.js';
+import { generateAvmCircuitPublicInputsDeprecated, runMergeKernelCircuit } from './utils.js';
 
 export type ProcessedPhase = {
   phase: TxExecutionPhase;
@@ -94,16 +94,15 @@ export class PublicTxSimulator {
       result => result !== undefined,
     ) as ProcessedPhase[];
 
-    const _endStateReference = await this.db.getStateReference();
-    const transactionFee = context.getTransactionFee();
+    const endStateReference = await this.db.getStateReference();
 
     const tailKernelOutput = await this.publicKernelTailSimulator.simulate(context.latestPublicKernelOutput);
 
-    context.avmProvingRequest!.inputs.output = generateAvmCircuitPublicInputs(
+    generateAvmCircuitPublicInputsDeprecated(
       tx,
       tailKernelOutput,
       context.getGasUsedForFee(),
-      transactionFee,
+      context.getFinalTransactionFee(),
     );
 
     const gasUsed = {
@@ -111,7 +110,7 @@ export class PublicTxSimulator {
       teardownGas: context.teardownGasUsed,
     };
     return {
-      avmProvingRequest: context.avmProvingRequest!,
+      avmProvingRequest: context.generateProvingRequest(endStateReference),
       gasUsed,
       revertCode: context.revertCode,
       revertReason: context.revertReason,
@@ -212,7 +211,7 @@ export class PublicTxSimulator {
         executionRequest,
         context.constants,
         /*availableGas=*/ context.getGasLeftForCurrentPhase(),
-        /*transactionFee=*/ context.getTransactionFeeAtCurrentPhase(),
+        /*transactionFee=*/ context.getTransactionFee(),
         enqueuedCallStateManager,
       );
 

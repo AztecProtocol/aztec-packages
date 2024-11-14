@@ -7,6 +7,7 @@ import {
   TxExecutionPhase,
 } from '@aztec/circuit-types';
 import {
+  type AvmCircuitPublicInputs,
   CombinedConstantData,
   Fr,
   Gas,
@@ -29,40 +30,12 @@ import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
-import { getCallRequestsByPhase, getExecutionRequestsByPhase, getPublicKernelCircuitPublicInputs } from './utils.js';
-
-class PhaseStateManager {
-  private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
-
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {}
-
-  fork() {
-    assert(!this.currentlyActiveStateManager, 'Cannot fork when already forked');
-    this.currentlyActiveStateManager = this.txStateManager.fork();
-  }
-
-  getActiveStateManager() {
-    return this.currentlyActiveStateManager || this.txStateManager;
-  }
-
-  isForked() {
-    return !!this.currentlyActiveStateManager;
-  }
-
-  mergeForkedState() {
-    assert(this.currentlyActiveStateManager, 'No forked state to merge');
-    this.txStateManager.mergeForkedState(this.currentlyActiveStateManager!);
-    // Drop the forked state manager now that it is merged
-    this.currentlyActiveStateManager = undefined;
-  }
-
-  discardForkedState() {
-    assert(this.currentlyActiveStateManager, 'No forked state to discard');
-    this.txStateManager.rejectForkedState(this.currentlyActiveStateManager!);
-    // Drop the forked state manager. We don't want it!
-    this.currentlyActiveStateManager = undefined;
-  }
-}
+import {
+  generateAvmCircuitPublicInputs,
+  getCallRequestsByPhase,
+  getExecutionRequestsByPhase,
+  getPublicKernelCircuitPublicInputs,
+} from './utils.js';
 
 export class PublicTxContext {
   private log: DebugLogger;
@@ -93,6 +66,7 @@ export class PublicTxContext {
     private readonly setupExecutionRequests: PublicExecutionRequest[],
     private readonly appLogicExecutionRequests: PublicExecutionRequest[],
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
+    private firstPublicKernelOutput: PublicKernelCircuitPublicInputs,
     public latestPublicKernelOutput: PublicKernelCircuitPublicInputs,
     public trace: PublicEnqueuedCallSideEffectTrace,
   ) {
@@ -107,19 +81,19 @@ export class PublicTxContext {
     globalVariables: GlobalVariables,
   ) {
     const privateKernelOutput = tx.data;
-    const latestPublicKernelOutput = getPublicKernelCircuitPublicInputs(privateKernelOutput, globalVariables);
+    const firstPublicKernelOutput = getPublicKernelCircuitPublicInputs(privateKernelOutput, globalVariables);
 
-    const nonRevertibleNullifiersFromPrivate = latestPublicKernelOutput.endNonRevertibleData.nullifiers
+    const nonRevertibleNullifiersFromPrivate = firstPublicKernelOutput.endNonRevertibleData.nullifiers
       .filter(n => !n.isEmpty())
       .map(n => n.value);
-    const _revertibleNullifiersFromPrivate = latestPublicKernelOutput.end.nullifiers
+    const _revertibleNullifiersFromPrivate = firstPublicKernelOutput.end.nullifiers
       .filter(n => !n.isEmpty())
       .map(n => n.value);
 
     // During SETUP, non revertible side effects from private are our "previous data"
-    const prevAccumulatedData = latestPublicKernelOutput.endNonRevertibleData;
+    const prevAccumulatedData = firstPublicKernelOutput.endNonRevertibleData;
     const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
-      latestPublicKernelOutput.validationRequests,
+      firstPublicKernelOutput.validationRequests,
     );
 
     const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
@@ -153,7 +127,8 @@ export class PublicTxContext {
       getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP),
       getExecutionRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
-      latestPublicKernelOutput,
+      firstPublicKernelOutput,
+      firstPublicKernelOutput,
       enqueuedCallTrace,
     );
   }
@@ -251,7 +226,7 @@ export class PublicTxContext {
   /**
    * Compute the gas used using the actual gas used during teardown instead
    * of the teardown gas limit.
-   * Note that this.startGasUsed comes from private and private includes
+   * Note that this.gasUsed comes from private and private includes
    * teardown gas limit in its output gasUsed.
    */
   getActualGasUsed(): Gas {
@@ -265,7 +240,7 @@ export class PublicTxContext {
     return this.gasUsed;
   }
 
-  getTransactionFeeAtCurrentPhase(): Fr {
+  getTransactionFee(): Fr {
     if (this.currentPhase === TxExecutionPhase.TEARDOWN) {
       return this.getTransactionFeeUnsafe();
     } else {
@@ -273,7 +248,7 @@ export class PublicTxContext {
     }
   }
 
-  getTransactionFee(): Fr {
+  getFinalTransactionFee(): Fr {
     assert(this.currentPhase === TxExecutionPhase.TEARDOWN, 'Transaction fee is only known during/after teardown');
     return this.getTransactionFeeUnsafe();
   }
@@ -286,5 +261,63 @@ export class PublicTxContext {
       gasFees: inspect(this.globalVariables.gasFees),
     });
     return txFee;
+  }
+
+  private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
+    assert(
+      this.currentPhase === TxExecutionPhase.TEARDOWN,
+      'Can only get AvmCircuitPublicInputs after teardown (tx done)',
+    );
+    return generateAvmCircuitPublicInputs(
+      this.tx,
+      this.trace,
+      this.globalVariables,
+      this.startStateReference,
+      endStateReference,
+      this.gasUsed,
+      this.getFinalTransactionFee(),
+      this.revertCode,
+      this.firstPublicKernelOutput,
+    );
+  }
+
+  generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
+    // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
+    // proving request for the first time
+    this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
+    return this.avmProvingRequest!;
+  }
+}
+
+class PhaseStateManager {
+  private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
+
+  constructor(private readonly txStateManager: AvmPersistableStateManager) {}
+
+  fork() {
+    assert(!this.currentlyActiveStateManager, 'Cannot fork when already forked');
+    this.currentlyActiveStateManager = this.txStateManager.fork();
+  }
+
+  getActiveStateManager() {
+    return this.currentlyActiveStateManager || this.txStateManager;
+  }
+
+  isForked() {
+    return !!this.currentlyActiveStateManager;
+  }
+
+  mergeForkedState() {
+    assert(this.currentlyActiveStateManager, 'No forked state to merge');
+    this.txStateManager.mergeForkedState(this.currentlyActiveStateManager!);
+    // Drop the forked state manager now that it is merged
+    this.currentlyActiveStateManager = undefined;
+  }
+
+  discardForkedState() {
+    assert(this.currentlyActiveStateManager, 'No forked state to discard');
+    this.txStateManager.rejectForkedState(this.currentlyActiveStateManager!);
+    // Drop the forked state manager. We don't want it!
+    this.currentlyActiveStateManager = undefined;
   }
 }

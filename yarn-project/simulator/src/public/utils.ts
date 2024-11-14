@@ -9,6 +9,11 @@ import {
   type Gas,
   type GlobalVariables,
   type KernelCircuitPublicInputs,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateToAvmAccumulatedData,
@@ -16,20 +21,27 @@ import {
   type PrivateToPublicAccumulatedData,
   PublicAccumulatedData,
   type PublicCallRequest,
+  PublicDataWrite,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicValidationRequests,
   RevertCode,
+  type StateReference,
   TreeSnapshots,
   type VMCircuitPublicInputs,
   VerificationKeyData,
   countAccumulatedItems,
   makeEmptyProof,
   makeEmptyRecursiveProof,
+  mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { assertLength } from '@aztec/foundation/serialize';
 import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
+import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 export function getExecutionRequestsByPhase(tx: Tx, phase: TxExecutionPhase): PublicExecutionRequest[] {
@@ -96,7 +108,7 @@ export function getPublicKernelCircuitPublicInputs(
 }
 
 // Temporary hack to create the AvmCircuitPublicInputs from public tail's public inputs.
-export function generateAvmCircuitPublicInputs(
+export function generateAvmCircuitPublicInputsDeprecated(
   tx: Tx,
   tailOutput: KernelCircuitPublicInputs,
   gasUsedForFee: Gas,
@@ -132,7 +144,7 @@ export function generateAvmCircuitPublicInputs(
   // Should fetch the updated roots from db.
   const endTreeSnapshots = startTreeSnapshots;
 
-  const avmCircuitpublicInputs = new AvmCircuitPublicInputs(
+  const avmCircuitPublicInputs = new AvmCircuitPublicInputs(
     tailOutput.constants.globalVariables,
     startTreeSnapshots,
     tx.data.gasUsed,
@@ -150,8 +162,8 @@ export function generateAvmCircuitPublicInputs(
     transactionFee,
     !tailOutput.revertCode.equals(RevertCode.OK),
   );
-  //console.log(`[FROM TAIL] AVM: ${inspect(avmCircuitpublicInputs, { depth: 5 })}`);
-  return avmCircuitpublicInputs;
+  //console.log(`Old AvmCircuitPublicInputs:\n${inspect(avmCircuitPublicInputs)}`);
+  return avmCircuitPublicInputs;
 }
 
 function getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
@@ -179,4 +191,149 @@ export async function runMergeKernelCircuit(
   const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
 
   return await publicKernelSimulator.publicKernelCircuitMerge(inputs);
+}
+
+export function generateAvmCircuitPublicInputs(
+  tx: Tx,
+  trace: PublicEnqueuedCallSideEffectTrace,
+  globalVariables: GlobalVariables,
+  startStateReference: StateReference,
+  endStateReference: StateReference,
+  endGasUsed: Gas,
+  transactionFee: Fr,
+  revertCode: RevertCode,
+  firstPublicKernelOutput: PublicKernelCircuitPublicInputs,
+): AvmCircuitPublicInputs {
+  const startTreeSnapshots = new TreeSnapshots(
+    startStateReference.l1ToL2MessageTree,
+    startStateReference.partial.noteHashTree,
+    startStateReference.partial.nullifierTree,
+    startStateReference.partial.publicDataTree,
+  );
+  const endTreeSnapshots = new TreeSnapshots(
+    endStateReference.l1ToL2MessageTree,
+    endStateReference.partial.noteHashTree,
+    endStateReference.partial.nullifierTree,
+    endStateReference.partial.publicDataTree,
+  );
+
+  const avmCircuitPublicInputs = trace.toAvmCircuitPublicInputs(
+    globalVariables,
+    startTreeSnapshots,
+    tx.data.gasUsed,
+    tx.data.constants.txContext.gasSettings,
+    tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests,
+    tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests,
+    tx.data.forPublic!.publicTeardownCallRequest,
+    endTreeSnapshots,
+    endGasUsed,
+    transactionFee,
+    !revertCode.isOK(),
+  );
+
+  const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+    new PrivateToAvmAccumulatedDataArrayLengths(
+      countAccumulatedItems(from.noteHashes),
+      countAccumulatedItems(from.nullifiers),
+      countAccumulatedItems(from.l2ToL1Msgs),
+    );
+  const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
+    new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
+  // Temporary overrides as these entries aren't yet populated in trace
+  avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths = getArrayLengths(
+    tx.data.forPublic!.nonRevertibleAccumulatedData,
+  );
+  avmCircuitPublicInputs.previousRevertibleAccumulatedDataArrayLengths = getArrayLengths(
+    tx.data.forPublic!.revertibleAccumulatedData,
+  );
+  avmCircuitPublicInputs.previousNonRevertibleAccumulatedData = convertAccumulatedData(
+    tx.data.forPublic!.nonRevertibleAccumulatedData,
+  );
+  avmCircuitPublicInputs.previousRevertibleAccumulatedData = convertAccumulatedData(
+    tx.data.forPublic!.revertibleAccumulatedData,
+  );
+
+  // merge all revertible & non-revertible side effects into output accumulated data
+  const noteHashesFromPrivate = revertCode.isOK()
+    ? mergeAccumulatedData(
+        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes,
+        avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes,
+      )
+    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes;
+  avmCircuitPublicInputs.accumulatedData.noteHashes = assertLength(
+    mergeAccumulatedData(noteHashesFromPrivate, avmCircuitPublicInputs.accumulatedData.noteHashes),
+    MAX_NOTE_HASHES_PER_TX,
+  );
+
+  const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
+
+  const scopedNoteHashesFromPublic = trace.getSideEffects().noteHashes;
+  for (let i = 0; i < scopedNoteHashesFromPublic.length; i++) {
+    const scopedNoteHash = scopedNoteHashesFromPublic[i];
+    const noteHash = scopedNoteHash.value;
+    if (!noteHash.isZero()) {
+      const noteHashIndexInTx = i + countAccumulatedItems(noteHashesFromPrivate);
+      const nonce = computeNoteHashNonce(txHash, noteHashIndexInTx);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
+      const siloedNoteHash = siloNoteHash(scopedNoteHash.contractAddress, uniqueNoteHash);
+      avmCircuitPublicInputs.accumulatedData.noteHashes[noteHashIndexInTx] = siloedNoteHash;
+    }
+  }
+
+  const nullifiersFromPrivate = revertCode.isOK()
+    ? mergeAccumulatedData(
+        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers,
+        avmCircuitPublicInputs.previousRevertibleAccumulatedData.nullifiers,
+      )
+    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers;
+  avmCircuitPublicInputs.accumulatedData.nullifiers = assertLength(
+    mergeAccumulatedData(nullifiersFromPrivate, avmCircuitPublicInputs.accumulatedData.nullifiers),
+    MAX_NULLIFIERS_PER_TX,
+  );
+  const msgsFromPrivate = revertCode.isOK()
+    ? mergeAccumulatedData(
+        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs,
+        avmCircuitPublicInputs.previousRevertibleAccumulatedData.l2ToL1Msgs,
+      )
+    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs;
+  avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs = assertLength(
+    mergeAccumulatedData(msgsFromPrivate, avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs),
+    MAX_L2_TO_L1_MSGS_PER_TX,
+  );
+  const ulogsFromPrivate = revertCode.isOK()
+    ? mergeAccumulatedData(
+        firstPublicKernelOutput.endNonRevertibleData.unencryptedLogsHashes,
+        firstPublicKernelOutput.end.unencryptedLogsHashes,
+      )
+    : firstPublicKernelOutput.endNonRevertibleData.unencryptedLogsHashes;
+  avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes = assertLength(
+    mergeAccumulatedData(ulogsFromPrivate, avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes),
+    MAX_UNENCRYPTED_LOGS_PER_TX,
+  );
+
+  const dedupedPublicDataWrites: Array<PublicDataWrite> = [];
+  const leafSlotOccurences: Map<bigint, number> = new Map();
+  for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
+    const slot = publicDataWrite.leafSlot.toBigInt();
+    const prevOccurrences = leafSlotOccurences.get(slot) || 0;
+    leafSlotOccurences.set(slot, prevOccurrences + 1);
+  }
+
+  for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
+    const slot = publicDataWrite.leafSlot.toBigInt();
+    const prevOccurrences = leafSlotOccurences.get(slot) || 0;
+    if (prevOccurrences === 1) {
+      dedupedPublicDataWrites.push(publicDataWrite);
+    } else {
+      leafSlotOccurences.set(slot, prevOccurrences - 1);
+    }
+  }
+
+  avmCircuitPublicInputs.accumulatedData.publicDataWrites = padArrayEnd(
+    dedupedPublicDataWrites,
+    PublicDataWrite.empty(),
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  );
+  //console.log(`New AvmCircuitPublicInputs:\n${inspect(avmCircuitPublicInputs)}`);
+  return avmCircuitPublicInputs;
 }
