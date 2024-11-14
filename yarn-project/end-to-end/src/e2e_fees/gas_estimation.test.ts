@@ -42,7 +42,7 @@ describe('e2e_fees gas_estimation', () => {
     await t.teardown();
   });
 
-  const makeTransferRequest = () => bananaCoin.methods.transfer_public(aliceAddress, bobAddress, 1n, 0n);
+  const makeTransferRequest = () => bananaCoin.methods.transfer_in_public(aliceAddress, bobAddress, 1n, 0n);
 
   // Sends two tx with transfers of public tokens: one with estimateGas on, one with estimateGas off
   const sendTransfers = (paymentMethod: FeePaymentMethod) =>

@@ -286,8 +286,14 @@ export class EnqueuedCallsProcessor {
       },
     );
 
+    const gasUsedForFee = this.getGasUsedForFee(tx, phaseGasUsed);
     const transactionFee = this.getTransactionFee(tx, phaseGasUsed);
-    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(tx, tailKernelOutput, transactionFee);
+    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(
+      tx,
+      tailKernelOutput,
+      gasUsedForFee,
+      transactionFee,
+    );
 
     const gasUsed = {
       totalGas: this.getActualGasUsed(tx, phaseGasUsed),
@@ -412,14 +418,17 @@ export class EnqueuedCallsProcessor {
 
   private getTransactionFee(tx: Tx, phaseGasUsed: PhaseGasUsed): Fr {
     const gasFees = this.globalVariables.gasFees;
-    const txFee = tx.data.gasUsed // This should've included teardown gas limits.
-      .add(phaseGasUsed[TxExecutionPhase.SETUP])
-      .add(phaseGasUsed[TxExecutionPhase.APP_LOGIC])
-      .computeFee(gasFees);
+    const txFee = this.getGasUsedForFee(tx, phaseGasUsed).computeFee(gasFees);
 
     this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(phaseGasUsed), gasFees: inspect(gasFees) });
 
     return txFee;
+  }
+
+  private getGasUsedForFee(tx: Tx, phaseGasUsed: PhaseGasUsed) {
+    return tx.data.gasUsed // This should've included teardown gas limits.
+      .add(phaseGasUsed[TxExecutionPhase.SETUP])
+      .add(phaseGasUsed[TxExecutionPhase.APP_LOGIC]);
   }
 
   private getActualGasUsed(tx: Tx, phaseGasUsed: PhaseGasUsed) {
@@ -470,7 +479,6 @@ export class EnqueuedCallsProcessor {
       to.l2ToL1Msgs.forEach((_, i) => (to.l2ToL1Msgs[i] = from.l2ToL1Msgs[i]));
       to.noteEncryptedLogsHashes.forEach((_, i) => (to.noteEncryptedLogsHashes[i] = from.noteEncryptedLogsHashes[i]));
       to.encryptedLogsHashes.forEach((_, i) => (to.encryptedLogsHashes[i] = from.encryptedLogsHashes[i]));
-      to.unencryptedLogsHashes.forEach((_, i) => (to.unencryptedLogsHashes[i] = from.unencryptedLogsHashes[i]));
       to.publicCallStack.forEach((_, i) => (to.publicCallStack[i] = from.publicCallRequests[i]));
       return to;
     };
@@ -488,7 +496,12 @@ export class EnqueuedCallsProcessor {
   }
 
   // Temporary hack to create the AvmCircuitPublicInputs from public tail's public inputs.
-  private generateAvmCircuitPublicInputs(tx: Tx, tailOutput: KernelCircuitPublicInputs, transactionFee: Fr) {
+  private generateAvmCircuitPublicInputs(
+    tx: Tx,
+    tailOutput: KernelCircuitPublicInputs,
+    gasUsedForFee: Gas,
+    transactionFee: Fr,
+  ) {
     const startTreeSnapshots = new TreeSnapshots(
       tailOutput.constants.historicalHeader.state.l1ToL2MessageTree,
       tailOutput.startState.noteHashTree,
@@ -532,6 +545,7 @@ export class EnqueuedCallsProcessor {
       convertAccumulatedData(tx.data.forPublic!.nonRevertibleAccumulatedData),
       convertAccumulatedData(tx.data.forPublic!.revertibleAccumulatedData),
       endTreeSnapshots,
+      gasUsedForFee,
       convertAvmAccumulatedData(tailOutput.end),
       transactionFee,
       !tailOutput.revertCode.equals(RevertCode.OK),

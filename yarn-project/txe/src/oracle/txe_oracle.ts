@@ -26,6 +26,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
@@ -33,7 +34,6 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
-  TaggingSecret,
   computeContractClassId,
   computeTaggingSecret,
   deriveKeys,
@@ -348,16 +348,16 @@ export class TXE implements TypedOracle {
   }
 
   async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
-    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    const db = await this.#getTreesAt(blockNumber);
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
     } else {
-      const preimage = (await committedDb.getLeafPreimage(
+      const preimage = (await db.getLeafPreimage(
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
+      const path = await db.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       );
@@ -531,7 +531,7 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
 
@@ -563,55 +563,53 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    try {
-      const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-        err.message = resolveAssertionMessageFromError(err, artifact);
+    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+      err.message = resolveAssertionMessageFromError(err, artifact);
 
-        const execError = new ExecutionError(
-          err.message,
-          {
-            contractAddress: targetContractAddress,
-            functionSelector,
-          },
-          extractCallStack(err, artifact.debug),
-          { cause: err },
-        );
-        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
-        throw createSimulationError(execError);
-      });
-      const duration = timer.ms();
-      const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
-
-      const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
-      this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
-        circuitName: 'app-circuit',
-        duration,
-        eventName: 'circuit-witness-generation',
-        inputSize: initialWitnessSize,
-        outputSize: publicInputs.toBuffer().length,
-        appCircuitName: 'noname',
-      } satisfies CircuitWitnessGenerationStats);
-
-      // Apply side effects
-      const endSideEffectCounter = publicInputs.endSideEffectCounter;
-      this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
-
-      await this.addNullifiers(
-        targetContractAddress,
-        publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+      const execError = new ExecutionError(
+        err.message,
+        {
+          contractAddress: targetContractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
       );
+      this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+      throw createSimulationError(execError);
+    });
+    const duration = timer.ms();
+    const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
-      await this.addNoteHashes(
-        targetContractAddress,
-        publicInputs.noteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
-      );
+    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
+      circuitName: 'app-circuit',
+      duration,
+      eventName: 'circuit-witness-generation',
+      inputSize: initialWitnessSize,
+      outputSize: publicInputs.toBuffer().length,
+      appCircuitName: 'noname',
+    } satisfies CircuitWitnessGenerationStats);
 
-      return { endSideEffectCounter, returnsHash: publicInputs.returnsHash };
-    } finally {
-      this.setContractAddress(currentContractAddress);
-      this.setMsgSender(currentMessageSender);
-      this.setFunctionSelector(currentFunctionSelector);
-    }
+    // Apply side effects
+    const endSideEffectCounter = publicInputs.endSideEffectCounter;
+    this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
+
+    await this.addNullifiers(
+      targetContractAddress,
+      publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+    );
+
+    await this.addNoteHashes(
+      targetContractAddress,
+      publicInputs.noteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
+    );
+
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    return { endSideEffectCounter, returnsHash: publicInputs.returnsHash };
   }
 
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
@@ -628,9 +626,12 @@ export class TXE implements TypedOracle {
       sideEffectCounter,
       isStaticCall,
     );
+    const privateContextInputsAsFields = privateContextInputs.toFields();
+    if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
+      throw new Error('Invalid private context inputs size');
+    }
 
-    const fields = [...privateContextInputs.toFields(), ...args];
-
+    const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -783,47 +784,27 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  async incrementAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
-    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
-    await this.txeDatabase.incrementTaggingSecretsIndexes([directionalSecret]);
+  async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+    const directionalSecret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    await this.txeDatabase.incrementTaggingSecretsIndexesAsSender([directionalSecret]);
   }
 
-  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
-    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([directionalSecret]);
-    return IndexedTaggingSecret.fromTaggingSecret(directionalSecret, index);
+  async getAppTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    const secret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexesAsSender([secret]);
+    return new IndexedTaggingSecret(secret, index);
   }
 
-  async #calculateDirectionalSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+  async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    // Get the index of the secret, ensuring the directionality (sender -> recipient)
-    const directionalSecret = new TaggingSecret(siloedSecret, recipient);
-    return directionalSecret;
+    return siloedSecret;
   }
 
-  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
-    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
-    const completeAddresses = await this.txeDatabase.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const senders = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
-    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
-    const secrets = senders.map(({ address: sender }) => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
-      return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
-    });
-    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
-    const indexes = await this.txeDatabase.getTaggingSecretsIndexes(directionalSecrets);
-    return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
-  }
-
-  syncNotes(_recipient: AztecAddress) {
+  syncNotes() {
     // TODO: Implement
     return Promise.resolve();
   }

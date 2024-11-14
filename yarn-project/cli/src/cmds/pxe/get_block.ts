@@ -19,9 +19,8 @@ export async function getBlock(
     setInterval(async () => {
       const newBlock = await client.getBlockNumber();
       if (newBlock > lastBlock) {
-        const { blocks, notes } = await client.getSyncStatus();
-        const areNotesSynced = blocks >= newBlock && Object.values(notes).every(block => block >= newBlock);
-        if (areNotesSynced) {
+        const { blocks } = await client.getSyncStatus();
+        if (blocks >= newBlock) {
           log('');
           await inspectBlock(client, newBlock, log, { showTxs: true });
           lastBlock = newBlock;

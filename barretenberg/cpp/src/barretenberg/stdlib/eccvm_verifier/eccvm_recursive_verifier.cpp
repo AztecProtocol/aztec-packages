@@ -16,11 +16,8 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
  *
- * Returns a transcript where the IPA proof has not been verified yet.
  */
-template <typename Flavor>
-std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript> ECCVMRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof)
+template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -29,8 +26,10 @@ std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript> ECCVMRecur
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof.pre_ipa_proof);
+    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_proof_to_witness(builder, proof.ipa_proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
+    ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -96,8 +95,10 @@ std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript> ECCVMRecur
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations);
+
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
@@ -145,7 +146,7 @@ std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript> ECCVMRecur
     builder->add_ipa_claim(batch_opening_claim.get_witness_indices());
     // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     // const typename PCS::VerifierAccumulator batched_opening_accumulator =
-    //     PCS::reduce_verify(batch_opening_claim, transcript);
+    //     PCS::reduce_verify(batch_opening_claim, ipa_transcript);
 
     ASSERT(sumcheck_verified);
     return transcript;

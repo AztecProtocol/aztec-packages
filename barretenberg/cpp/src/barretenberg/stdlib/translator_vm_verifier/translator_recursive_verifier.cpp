@@ -120,6 +120,9 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
+    // Execute ZeroMorph rounds followed by the univariate PCS. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a
+    // complete description of the unrolled protocol.
+
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
@@ -129,6 +132,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                multivariate_challenge,
                                                Commitment::one(builder),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations,
                                                commitments.get_groups_to_be_concatenated(),

@@ -31,7 +31,6 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
-import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
   type CompleteAddress,
@@ -115,31 +114,9 @@ export class PXEService implements PXE {
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
     await this.synchronizer.start(1, l2BlockPollingIntervalMS);
-    await this.restoreNoteProcessors();
     await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
-  }
-
-  private async restoreNoteProcessors() {
-    const accounts = await this.keyStore.getAccounts();
-    const accountsSet = new Set(accounts.map(k => k.toString()));
-
-    const registeredAddresses = await this.db.getCompleteAddresses();
-
-    let count = 0;
-    for (const completeAddress of registeredAddresses) {
-      if (!accountsSet.has(completeAddress.address.toString())) {
-        continue;
-      }
-
-      count++;
-      this.synchronizer.addAccount(completeAddress, this.keyStore, this.config.l2StartingBlock);
-    }
-
-    if (count > 0) {
-      this.log.info(`Restored ${count} accounts`);
-    }
   }
 
   /**
@@ -193,7 +170,6 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
@@ -293,7 +269,6 @@ export class PXEService implements PXE {
 
     this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
     await this.db.addContractInstance(instance);
-    await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
   }
 
   public getContracts(): Promise<AztecAddress[]> {
@@ -390,13 +365,15 @@ export class PXEService implements PXE {
         note.note,
       );
 
-      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
+      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
       if (index === undefined) {
         throw new Error('Note does not exist.');
       }
 
       const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
-      const nullifierIndex = await this.node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
+      const [nullifierIndex] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
+        siloedNullifier,
+      ]);
       if (nullifierIndex !== undefined) {
         throw new Error('The note has been destroyed.');
       }
@@ -439,7 +416,7 @@ export class PXEService implements PXE {
         throw new Error('Unexpectedly received non-zero nullifier.');
       }
 
-      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
+      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
       if (index === undefined) {
         throw new Error('Note does not exist.');
       }
@@ -631,6 +608,15 @@ export class PXEService implements PXE {
     return this.node.getUnencryptedLogs(filter);
   }
 
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  public getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.node.getContractClassLogs(filter);
+  }
+
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
@@ -695,7 +681,6 @@ export class PXEService implements PXE {
       const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
-      await this.synchronizer.reprocessDeferredNotesForContract(address);
       this.log.info(`Added protocol contract ${name} at ${address.toString()}`);
     }
   }
@@ -840,16 +825,8 @@ export class PXEService implements PXE {
     return await this.synchronizer.isGlobalStateSynchronized();
   }
 
-  public async isAccountStateSynchronized(account: AztecAddress) {
-    return await this.synchronizer.isAccountStateSynchronized(account);
-  }
-
   public getSyncStatus() {
     return Promise.resolve(this.synchronizer.getSyncStatus());
-  }
-
-  public getSyncStats(): Promise<{ [address: string]: NoteProcessorStats }> {
-    return Promise.resolve(this.synchronizer.getSyncStats());
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
