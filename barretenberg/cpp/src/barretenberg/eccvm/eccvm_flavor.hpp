@@ -59,8 +59,8 @@ class ECCVMFlavor {
     static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
-    // Container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
-    // first witness to be shifted. -1 appears because WitnessEntities contain
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
+    // first witness to be shifted.
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
                                     NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
