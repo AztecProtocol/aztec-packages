@@ -130,14 +130,14 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             return zero;
         });
 
-        auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
-                                                                            RefVector(stdlib_f_commitments),
-                                                                            RefVector(stdlib_g_commitments),
-                                                                            RefVector(stdlib_v_evaluations),
-                                                                            RefVector(stdlib_w_evaluations),
-                                                                            u_challenge_in_circuit,
-                                                                            Commitment::one(&builder),
-                                                                            stdlib_verifier_transcript);
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
+                                                                                  RefVector(stdlib_f_commitments),
+                                                                                  RefVector(stdlib_g_commitments),
+                                                                                  RefVector(stdlib_v_evaluations),
+                                                                                  RefVector(stdlib_w_evaluations),
+                                                                                  u_challenge_in_circuit,
+                                                                                  Commitment::one(&builder),
+                                                                                  stdlib_verifier_transcript);
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 

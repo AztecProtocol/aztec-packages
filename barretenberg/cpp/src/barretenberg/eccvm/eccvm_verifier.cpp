@@ -80,6 +80,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations);
 

@@ -94,8 +94,10 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations);
+
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
