@@ -18,6 +18,7 @@ import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunct
 
 export interface PublicSideEffectTraceInterface {
   fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
+  merge(nestedTrace: PublicSideEffectTraceInterface, reverted?: boolean): void;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
   tracePublicStorageRead(
@@ -101,8 +102,6 @@ export interface PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ): void;
-  mergeSuccessfulForkedTrace(nestedTrace: PublicSideEffectTraceInterface): void;
-  mergeRevertedForkedTrace(nestedTrace: PublicSideEffectTraceInterface): void;
   toPublicEnqueuedCallExecutionResult(
     /** How much gas was left after this public execution. */
     endGasLeft: Gas,
