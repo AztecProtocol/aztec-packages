@@ -1,6 +1,5 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
-// #include "barretenberg/benchmark_memory_manager/custom_allocator.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -283,10 +282,10 @@ void fill_lookup_block(Builder& builder)
     }
 }
 
-void fill_trace(State& state, TraceStructure structure)
+void fill_trace(State& state, TraceSettings settings)
 {
     Builder builder;
-    builder.blocks.set_fixed_block_sizes(structure);
+    builder.blocks.set_fixed_block_sizes(settings);
 
     fill_ecc_op_block(builder);
     fill_pub_inputs_block(builder);
@@ -320,7 +319,7 @@ void fill_trace(State& state, TraceStructure structure)
     builder.finalize_circuit(/* ensure_nonzero */ true);
     uint64_t builder_estimate = builder.estimate_memory();
     for (auto _ : state) {
-        DeciderProvingKey proving_key(builder, structure);
+        DeciderProvingKey proving_key(builder, settings);
         uint64_t memory_estimate = proving_key.proving_key.estimate_memory();
         state.counters["poly_mem_est"] = static_cast<double>(memory_estimate);
         state.counters["builder_mem_est"] = static_cast<double>(builder_estimate);
@@ -330,23 +329,17 @@ void fill_trace(State& state, TraceStructure structure)
 
 void fill_trace_client_ivc_bench(State& state)
 {
-    fill_trace(state, TraceStructure::CLIENT_IVC_BENCH);
+    fill_trace(state, { TraceStructure::CLIENT_IVC_BENCH, /*overflow_capacity=*/0 });
 }
 
 void fill_trace_e2e_full_test(State& state)
 {
-    fill_trace(state, TraceStructure::E2E_FULL_TEST);
+    fill_trace(state, { TraceStructure::E2E_FULL_TEST, /*overflow_capacity=*/0 });
 }
-
-// BenchmarkMemoryManager memory_manager;
 
 static void pk_mem(State& state, void (*test_circuit_function)(State&)) noexcept
 {
-    // BenchmarkMemoryManager memory_manager;
-    // benchmark::RegisterMemoryManager(&memory_manager);
     test_circuit_function(state);
-    // ::g_allocator.printStatistics();
-    // benchmark::RegisterMemoryManager(nullptr);
 }
 
 BENCHMARK_CAPTURE(pk_mem, E2E_FULL_TEST, &fill_trace_e2e_full_test)->Unit(kMillisecond)->Iterations(1);
@@ -354,14 +347,3 @@ BENCHMARK_CAPTURE(pk_mem, E2E_FULL_TEST, &fill_trace_e2e_full_test)->Unit(kMilli
 BENCHMARK_CAPTURE(pk_mem, CLIENT_IVC_BENCH, &fill_trace_client_ivc_bench)->Unit(kMillisecond)->Iterations(1);
 
 BENCHMARK_MAIN();
-
-// int main(int argc, char** argv)
-// {
-//     ::benchmark::RegisterMemoryManager(&memory_manager);
-//     info("registered memory manager");
-//     ::benchmark::Initialize(&argc, argv);
-//     info("initialized");
-//     ::benchmark::RunSpecifiedBenchmarks();
-//     info("ran specified benchmarks");
-//     ::benchmark::RegisterMemoryManager(nullptr);
-// }
