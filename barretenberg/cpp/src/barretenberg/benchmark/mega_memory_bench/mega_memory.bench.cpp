@@ -297,13 +297,13 @@ void fill_trace(State& state, TraceSettings settings)
     fill_poseidon2_external_block(builder);
     fill_poseidon2_internal_block(builder);
     fill_lookup_block(builder);
-    // builder.finalize_circuit(/* ensure_nonzero */ false);
 
     {
-        // finalize doesn't populate public inputs block, so copy to verify that the block is being filled well
+        // finalize doesn't populate public inputs block, so copy to verify that the block is being filled well.
         // otherwise the pk construction will overflow the block
         // alternative: add to finalize or add a flag to check whether PIs have already been populated
         auto builder_copy = builder;
+        builder_copy.finalize_circuit(/* ensure_nonzero */ false);
         DeciderProvingKey::Trace::populate_public_inputs_block(builder_copy);
 
         for (const auto [label, block] : zip_view(builder_copy.blocks.get_labels(), builder_copy.blocks.get())) {
