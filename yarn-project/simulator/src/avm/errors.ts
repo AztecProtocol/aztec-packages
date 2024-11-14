@@ -3,6 +3,7 @@ import { type AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } fro
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';
+import { Opcode } from './serialization/instruction_serialization.js';
 
 /**
  * Avm-specific errors should derive from this
@@ -36,6 +37,37 @@ export class InvalidProgramCounterError extends AvmExecutionError {
   constructor(pc: number, max: number) {
     super(`Invalid program counter ${pc}, max is ${max}`);
     this.name = 'InvalidProgramCounterError';
+  }
+}
+
+/**
+ * Error is thrown when the program counter points to a byte
+ * of an invalid opcode.
+ */
+export class InvalidOpcodeError extends AvmExecutionError {
+  constructor(opcode: Opcode) {
+    super(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
+    this.name = 'InvalidOpcodeError';
+  }
+}
+
+/**
+ * Error is thrown during parsing.
+ */
+export class AvmParsingError extends AvmExecutionError {
+  constructor(str: string) {
+    super(str);
+    this.name = 'AvmParsingError';
+  }
+}
+
+/**
+ * Error is thrown when the tag has an invalid value.
+ */
+export class InvalidTagValueError extends AvmExecutionError {
+  constructor(tagValue: number) {
+    super(`Tag value ${tagValue} is invalid.`);
+    this.name = 'InvalidTagValueError';
   }
 }
 

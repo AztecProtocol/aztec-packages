@@ -105,8 +105,14 @@ std::string to_name(AvmError error)
     switch (error) {
     case AvmError::NO_ERROR:
         return "NO ERROR";
-    case AvmError::TAG_ERROR:
-        return "TAG ERROR";
+    case AvmError::INVALID_PROGRAM_COUNTER:
+        return "INVALID PROGRAM COUNTER";
+    case AvmError::INVALID_OPCODE:
+        return "INVALIE OPCODE";
+    case AvmError::INVALID_TAG_VALUE:
+        return "INVALID TAG VALUE";
+    case AvmError::CHECK_TAG_ERROR:
+        return "TAG CHECKING ERROR";
     case AvmError::ADDR_RES_TAG_ERROR:
         return "ADDRESS RESOLUTION TAG ERROR";
     case AvmError::REL_ADDR_OUT_OF_RANGE:

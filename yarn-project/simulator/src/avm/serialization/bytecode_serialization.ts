@@ -1,3 +1,4 @@
+import { AvmParsingError, InvalidOpcodeError, InvalidProgramCounterError } from '../errors.js';
 import {
   Add,
   And,
@@ -179,18 +180,27 @@ export function decodeInstructionFromBytecode(
   instructionSet: InstructionSet = INSTRUCTION_SET(),
 ): [Instruction, number] {
   if (pc >= bytecode.length) {
-    throw new Error(`pc ${pc} is out of bounds for bytecode of length ${bytecode.length}`);
-  }
-  const cursor = new BufferCursor(bytecode, pc);
-  const startingPosition = cursor.position();
-  const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
-
-  const instructionDeserializerOrUndef = instructionSet.get(opcode);
-  if (instructionDeserializerOrUndef === undefined) {
-    throw new Error(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
+    throw new InvalidProgramCounterError(pc, bytecode.length);
   }
 
-  const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
-  const instruction = instructionDeserializer(cursor);
-  return [instruction, cursor.position() - startingPosition];
+  try {
+    const cursor = new BufferCursor(bytecode, pc);
+    const startingPosition = cursor.position();
+    const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
+
+    const instructionDeserializerOrUndef = instructionSet.get(opcode);
+    if (instructionDeserializerOrUndef === undefined) {
+      throw new InvalidOpcodeError(opcode);
+    }
+
+    const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
+    const instruction = instructionDeserializer(cursor);
+    return [instruction, cursor.position() - startingPosition];
+  } catch (error) {
+    if (error instanceof InvalidOpcodeError) {
+      throw error;
+    } else {
+      throw new AvmParsingError(`${error}`);
+    }
+  }
 }
