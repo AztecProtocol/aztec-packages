@@ -32,6 +32,10 @@ jobs:
   deployL1Verifier:
     enable: true
 
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+
 telemetry:
   enabled: true
   otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318

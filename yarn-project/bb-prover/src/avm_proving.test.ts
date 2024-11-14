@@ -9,8 +9,10 @@ import {
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
@@ -20,6 +22,8 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { MerkleTrees } from '@aztec/world-state';
 
 import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
@@ -79,7 +83,7 @@ const proveAndVerifyAvmTestContract = async (
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
-    deployer: new Fr(0x456),
+    deployer: new AztecAddress(new Fr(0x456)),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeys: new PublicKeys(
@@ -102,7 +106,10 @@ const proveAndVerifyAvmTestContract = async (
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
-  const persistableState = initPersistableStateManager({ worldStateDB, trace });
+  const telemetry = new NoopTelemetryClient();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
+  worldStateDB.getMerkleInterface.mockReturnValue(merkleTrees);
+  const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees, doMerkleOperations: true });
   const environment = initExecutionEnvironment({
     functionSelector,
     calldata,

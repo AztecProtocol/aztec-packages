@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 cd "$SCRIPT_DIR"
 
 # check if metrics is already installed
@@ -14,4 +14,5 @@ helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm dependency update
-helm upgrade metrics "$SCRIPT_DIR" -n metrics --install --create-namespace --atomic
+# need to disable node exporter for GKE autopilot to be happy
+helm upgrade metrics "$SCRIPT_DIR" -n metrics --install --create-namespace --atomic --set prometheus.prometheus-node-exporter.enabled=false

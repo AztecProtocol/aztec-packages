@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -10,6 +11,7 @@ import {
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
+  MAX_CONTRACT_CLASS_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
@@ -20,7 +22,6 @@ import {
   MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { Header } from '../structs/header.js';
@@ -124,10 +125,10 @@ export class PrivateCircuitPublicInputs {
      */
     public encryptedLogsHashes: Tuple<EncryptedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_CALL>,
     /**
-     * Hash of the unencrypted logs emitted in this function call.
+     * Hash of the contract class logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
@@ -178,7 +179,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
     );
@@ -206,7 +207,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
     );
@@ -237,7 +238,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
       Header.empty(),
       TxContext.empty(),
     );
@@ -262,7 +263,7 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.l2ToL1Msgs) &&
       isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
-      isEmptyArray(this.unencryptedLogsHashes) &&
+      isEmptyArray(this.contractClassLogsHashes) &&
       this.historicalHeader.isEmpty() &&
       this.txContext.isEmpty()
     );
@@ -294,7 +295,7 @@ export class PrivateCircuitPublicInputs {
       fields.endSideEffectCounter,
       fields.noteEncryptedLogsHashes,
       fields.encryptedLogsHashes,
-      fields.unencryptedLogsHashes,
+      fields.contractClassLogsHashes,
       fields.historicalHeader,
       fields.txContext,
     ] as const;
@@ -327,5 +328,13 @@ export class PrivateCircuitPublicInputs {
 
   public static fromJSON(value: any) {
     return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(value, 'hex'));
+  }
+
+  public static fromString(str: string) {
+    return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static get schema() {
+    return hexSchemaFor(PrivateCircuitPublicInputs);
   }
 }

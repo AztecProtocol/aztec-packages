@@ -257,20 +257,16 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.compute_section_label(self.current_section)
     }
 
-    /// Emits a stop instruction
-    pub(crate) fn stop_instruction(&mut self) {
-        self.debug_show.stop_instruction();
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 });
+    /// Emits a return instruction
+    pub(crate) fn return_instruction(&mut self) {
+        self.debug_show.return_instruction();
+        self.push_opcode(BrilligOpcode::Return);
     }
 
-    /// Emits a external stop instruction (returns data)
-    pub(crate) fn external_stop_instruction(
-        &mut self,
-        return_data_offset: usize,
-        return_data_size: usize,
-    ) {
-        self.debug_show.external_stop_instruction(return_data_offset, return_data_size);
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset, return_data_size });
+    /// Emits a stop instruction with return data
+    pub(crate) fn stop_instruction(&mut self, return_data: HeapVector) {
+        self.debug_show.stop_instruction(return_data);
+        self.push_opcode(BrilligOpcode::Stop { return_data });
     }
 
     /// Issues a blackbox operation.

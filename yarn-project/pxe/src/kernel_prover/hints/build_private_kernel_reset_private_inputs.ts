@@ -424,7 +424,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNoteHashes`.');
     }
 
-    const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.contractAddress.isEmpty()).length;
+    const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNoteHashes - this.numTransientData);
     this.requestedDimensions.NOTE_HASH_SILOING_AMOUNT = numToSilo;
 
@@ -436,7 +436,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNullifiers`.');
     }
 
-    const numNullifiers = this.previousKernel.end.nullifiers.filter(n => !n.contractAddress.isEmpty()).length;
+    const numNullifiers = this.previousKernel.end.nullifiers.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNullifiers - this.numTransientData);
     // Include the first nullifier if there's something to silo.
     // The reset circuit checks that capped_size must be greater than or equal to all non-empty nullifiers.
@@ -454,7 +454,17 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     const numLogs = this.previousKernel.end.encryptedLogsHashes.filter(l => !l.logHash.randomness.isZero()).length;
     const numToSilo = Math.max(0, numLogs - this.numTransientData);
-    this.requestedDimensions.ENCRYPTED_LOG_SILOING_AMOUNT = numToSilo;
+    // The reset circuit checks that capped_size must be greater than or equal to all non-empty logs.
+    // Since there is no current config with ENCRYPTED_LOG_SILOING_AMOUNT = 0 (only 1+), it defaults to 1,
+    // so the circuit fails when we have more than 1 log and require no siloing.
+    const numLogsNoSiloing = this.previousKernel.end.encryptedLogsHashes.filter(
+      l => !l.logHash.isEmpty() && l.logHash.randomness.isZero(),
+    ).length;
+    const cappedSize = !numToSilo && numLogsNoSiloing > 1 ? numLogsNoSiloing : numToSilo;
+    // NB: This is a little flimsy, and only works because we have either ENCRYPTED_LOG_SILOING_AMOUNT=1 or 8.
+    // e.g. if we have 2 logs that need siloing, and 2 that dont, then numLogs = ENCRYPTED_LOG_SILOING_AMOUNT = 2
+    // This would fail because the circuit thinks that cappedSize = 2, but we have 4 logs.
+    this.requestedDimensions.ENCRYPTED_LOG_SILOING_AMOUNT = cappedSize;
 
     return numToSilo > 0;
   }

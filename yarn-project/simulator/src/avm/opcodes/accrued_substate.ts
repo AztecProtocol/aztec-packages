@@ -70,7 +70,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(context.environment.address, noteHash);
+    await context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
   }
@@ -107,7 +107,7 @@ export class NullifierExists extends Instruction {
     memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
 
     const nullifier = memory.get(nullifierOffset).toFr();
-    const address = memory.get(addressOffset).toFr();
+    const address = memory.get(addressOffset).toAztecAddress();
     const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
@@ -255,6 +255,7 @@ export class SendL2ToL1Message extends Instruction {
     const operands = [this.recipientOffset, this.contentOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [recipientOffset, contentOffset] = addressing.resolve(operands, memory);
+    memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();

@@ -1,40 +1,49 @@
-import type {
+import {
   ARCHIVE_HEIGHT,
-  ContractClassPublic,
-  ContractInstanceWithAddress,
+  type ContractClassPublic,
+  ContractClassPublicSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NodeInfo,
   PUBLIC_DATA_TREE_HEIGHT,
-  ProtocolContractAddresses,
+  type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
-import type { L1ContractAddresses } from '@aztec/ethereum';
-import type { ContractArtifact } from '@aztec/foundation/abi';
+import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
+import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
+import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas';
 
-import type { L2Block } from '../l2_block.js';
-import type {
-  FromLogType,
-  GetUnencryptedLogsResponse,
+import { z } from 'zod';
+
+import { L2Block } from '../l2_block.js';
+import {
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  GetUnencryptedLogsResponseSchema,
   L2BlockL2Logs,
-  LogFilter,
+  type LogFilter,
+  LogFilterSchema,
   LogType,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
 } from '../logs/index.js';
-import type { MerkleTreeId } from '../merkle_tree_id.js';
-import type { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
-import type { PublicDataWitness } from '../public_data_witness.js';
-import type { SiblingPath } from '../sibling_path/index.js';
-import type { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../tx/index.js';
-import type { TxEffect } from '../tx_effect.js';
-import type { SequencerConfig } from './configs.js';
-import type { L2BlockNumber } from './l2_block_number.js';
-import type { NullifierMembershipWitness } from './nullifier_tree.js';
-import type { ProverConfig } from './prover-client.js';
-import { type ProverCoordination } from './prover-coordination.js';
+import { MerkleTreeId } from '../merkle_tree_id.js';
+import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
+import { PublicDataWitness } from '../public_data_witness.js';
+import { SiblingPath } from '../sibling_path/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
+import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
+import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
+import { NullifierMembershipWitness } from './nullifier_tree.js';
+import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
+import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
 
 /**
  * The aztec node.
@@ -42,13 +51,17 @@ import { type ProverCoordination } from './prover-coordination.js';
  */
 export interface AztecNode extends ProverCoordination {
   /**
-   * Find the index of the given leaf in the given tree.
+   * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The value to search for
-   * @returns The index of the given leaf in the given tree or undefined if not found.
+   * @param leafValue - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeavesIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
@@ -86,13 +99,9 @@ export interface AztecNode extends ProverCoordination {
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @param startL2BlockNumber - The block number after which we are interested in checking if the message was
-   * included.
-   * @remarks We pass in the minL2BlockNumber because there can be duplicate messages and the block number allow us
-   * to skip the duplicates (we know after which block a given message is to be included).
    * @returns Whether the message is synced and ready to be included in a block.
    */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber: number): Promise<boolean>;
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   /**
    * Returns a membership witness of an l2ToL1Message in an ephemeral l2 to l1 message tree.
@@ -261,12 +270,19 @@ export interface AztecNode extends ProverCoordination {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
    array implies no logs match that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -383,4 +399,131 @@ export interface AztecNode extends ProverCoordination {
    * @param epoch - The epoch for which to get the quotes
    */
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+}
+
+export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
+  ...ProverCoordinationApiSchema,
+
+  findLeavesIndexes: z
+    .function()
+    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
+    .returns(z.array(optional(schemas.BigInt))),
+
+  getNullifierSiblingPath: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.BigInt)
+    .returns(SiblingPath.schemaFor(NULLIFIER_TREE_HEIGHT)),
+
+  getNoteHashSiblingPath: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.BigInt)
+    .returns(SiblingPath.schemaFor(NOTE_HASH_TREE_HEIGHT)),
+
+  getL1ToL2MessageMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+
+  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
+
+  getL2ToL1MessageMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
+
+  getArchiveSiblingPath: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.BigInt)
+    .returns(SiblingPath.schemaFor(ARCHIVE_HEIGHT)),
+
+  getPublicDataSiblingPath: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.BigInt)
+    .returns(SiblingPath.schemaFor(PUBLIC_DATA_TREE_HEIGHT)),
+
+  getNullifierMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(NullifierMembershipWitness.schema.optional()),
+
+  getLowNullifierMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(NullifierMembershipWitness.schema.optional()),
+
+  getPublicDataTreeWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(PublicDataWitness.schema.optional()),
+
+  getBlock: z.function().args(z.number()).returns(L2Block.schema.optional()),
+
+  getBlockNumber: z.function().returns(z.number()),
+
+  getProvenBlockNumber: z.function().returns(z.number()),
+
+  isReady: z.function().returns(z.boolean()),
+
+  getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
+
+  getNodeVersion: z.function().returns(z.string()),
+
+  getVersion: z.function().returns(z.number()),
+
+  getChainId: z.function().returns(z.number()),
+
+  getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
+
+  getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
+
+  addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
+
+  getLogs: z.function().args(z.number(), z.number(), z.nativeEnum(LogType)).returns(z.array(L2BlockL2Logs.schema)),
+
+  getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+
+  getLogsByTags: z
+    .function()
+    .args(z.array(schemas.Fr))
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
+
+  sendTx: z.function().args(Tx.schema).returns(z.void()),
+
+  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+
+  getTxEffect: z.function().args(TxHash.schema).returns(TxEffect.schema.optional()),
+
+  getPendingTxs: z.function().returns(z.array(Tx.schema)),
+
+  getPendingTxCount: z.function().returns(z.number()),
+
+  getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+
+  getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
+
+  getHeader: z.function().args(optional(L2BlockNumberSchema)).returns(Header.schema),
+
+  simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
+
+  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(z.boolean()),
+
+  setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
+
+  getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+
+  getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
+
+  flushTxs: z.function().returns(z.void()),
+
+  getEncodedEnr: z.function().returns(z.string().optional()),
+
+  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
+
+  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
+};
+
+export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
+  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, false, 'node', fetch);
 }

@@ -27,11 +27,11 @@ impl PrivateValidationRequestsBuilder {
     pub fn finish(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
             for_rollup: self.for_rollup(),
-            note_hash_read_requests: self.note_hash_read_requests.storage,
-            nullifier_read_requests: self.nullifier_read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage(),
+            nullifier_read_requests: self.nullifier_read_requests.storage(),
             scoped_key_validation_requests_and_generators: self
                 .scoped_key_validation_requests_and_generators
-                .storage,
+                .storage(),
             split_counter: self.split_counter,
         }
     }

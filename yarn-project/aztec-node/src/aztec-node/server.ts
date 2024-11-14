@@ -21,15 +21,17 @@ import {
   PublicDataWitness,
   PublicSimulationOutput,
   type SequencerConfig,
+  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
   type TxHash,
   TxReceipt,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
+  tryStop,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -90,7 +92,7 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
-    protected readonly blockSource: L2BlockSource,
+    protected readonly blockSource: L2BlockSource & Partial<Service>,
     protected readonly encryptedLogsSource: L2LogsSource,
     protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
@@ -337,7 +339,7 @@ export class AztecNodeService implements AztecNode {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
@@ -348,6 +350,15 @@ export class AztecNodeService implements AztecNode {
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getContractClassLogs(filter);
   }
 
   /**
@@ -397,7 +408,7 @@ export class AztecNodeService implements AztecNode {
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
-    await this.blockSource.stop();
+    await tryStop(this.blockSource);
     await this.telemetry.stop();
     this.log.info(`Stopped`);
   }
@@ -424,19 +435,19 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Find the index of the given leaf in the given tree.
-   * @param blockNumber - The block number at which to get the data
+   * Find the indexes of the given leaves in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The value to search for
-   * @returns The index of the given leaf in the given tree or undefined if not found.
+   * @param leafValue - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  public async findLeafIndex(
+  public async findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<bigint | undefined> {
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return committedDb.findLeafIndex(treeId, leafValue.toBuffer());
+    return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
   }
 
   /**

@@ -1,4 +1,3 @@
-import { type AvmProvingRequest, type SimulationError, type Tx, TxEffect, TxHash } from '@aztec/circuit-types';
 import {
   ClientIvcProof,
   CombinedConstantData,
@@ -13,9 +12,14 @@ import {
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
+import { type AvmProvingRequest } from '../interfaces/proving-job.js';
+import { type SimulationError } from '../simulation_error.js';
+import { TxEffect } from '../tx_effect.js';
 import { type GasUsed } from './gas_used.js';
+import { type Tx } from './tx.js';
+import { TxHash } from './tx_hash.js';
 
-export enum PublicKernelPhase {
+export enum TxExecutionPhase {
   SETUP,
   APP_LOGIC,
   TEARDOWN,
@@ -164,13 +168,15 @@ export function makeProcessedTxFromPrivateOnlyTx(
     data.end.noteEncryptedLogPreimagesLength,
     data.end.encryptedLogPreimagesLength,
     data.end.unencryptedLogPreimagesLength,
+    data.end.contractClassLogPreimagesLength,
     tx.noteEncryptedLogs,
     tx.encryptedLogs,
     tx.unencryptedLogs,
+    tx.contractClassLogs,
   );
 
   const gasUsed = {
-    totalGas: tx.data.forRollup!.end.gasUsed,
+    totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
   };
 
@@ -213,6 +219,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
   const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
   // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
   const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
+  const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
 
   const txEffect = new TxEffect(
     revertCode,
@@ -226,9 +233,11 @@ export function makeProcessedTxFromTxWithPublicCalls(
     new Fr(noteEncryptedLogPreimagesLength),
     new Fr(encryptedLogPreimagesLength),
     new Fr(unencryptedLogPreimagesLength),
+    new Fr(contractClassLogPreimagesLength),
     tx.noteEncryptedLogs,
     tx.encryptedLogs,
     tx.unencryptedLogs,
+    tx.contractClassLogs,
   );
 
   return {
