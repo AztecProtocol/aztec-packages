@@ -2400,7 +2400,7 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    tx_effects: mapTuple(rootRollupInputs.txEffects, mapFieldToNoir),
+    blob_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
     blob_commitment: mapTuple(rootRollupInputs.blobCommitment, mapFieldToNoir),
     blob_hash: mapFieldToNoir(rootRollupInputs.blobHash),
   };

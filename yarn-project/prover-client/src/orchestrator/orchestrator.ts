@@ -889,7 +889,7 @@ export class ProvingOrchestrator implements EpochProver {
       previousBlockHash: provingState.previousBlockHash,
       proverId: this.proverId,
       // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      txEffects: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB),
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB),
       blobCommitment: blob.commitmentToFields(),
       blobHash: Fr.fromBuffer(blob.getEthBlobHash()),
     });

@@ -47,9 +47,10 @@ pub struct BlockRootRollupInputs {
     previous_block_hash: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
-    // Fields for blob verification - will likely change to be accumulated and sent up to the final root
-    // TODO(Miranda): Temporarily working with one blob to ensure things are working - will move to 3 before merging
-    tx_effects: [Field; FIELDS_PER_BLOB],
+    // Fields for blob verification made of all tx effects in this block
+    // (will likely change to be accumulated and sent up to the final root)
+    // TODO(Miranda): Temporarily working with one blob to ensure things run
+    blob_fields: [Field; FIELDS_PER_BLOB],
     // see blob/src/main.nr -> main() - this is used for creating the challenge z
     blob_commitment: [Field; 2],
     // The EVM blob hash, can be injected here as the contract check its validity vs the blob_public_inputs below
@@ -131,8 +132,11 @@ impl BlockRootRollupInputs {
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
         let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-        blob_public_inputs[0] =
-            evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
+        blob_public_inputs[0] = evaluate_blob(
+            self.blob_fields,
+            self.blob_commitment,
+            right.end_sponge_blob,
+        );
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
@@ -163,7 +167,7 @@ impl Empty for BlockRootRollupInputs {
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
             prover_id: 0,
-            tx_effects: [0; FIELDS_PER_BLOB],
+            blob_fields: [0; FIELDS_PER_BLOB],
             blob_commitment: [0; 2],
             blob_hash: 0,
         }

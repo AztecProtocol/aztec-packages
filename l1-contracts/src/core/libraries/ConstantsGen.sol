@@ -208,7 +208,7 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
   uint256 internal constant HEADER_LENGTH_BYTES = 616;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 499;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 490;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 866;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 37;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
@@ -296,6 +296,7 @@ library Constants {
   uint256 internal constant NOTE_ENCRYPTED_LOGS_PREFIX = 7;
   uint256 internal constant ENCRYPTED_LOGS_PREFIX = 8;
   uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 9;
+  uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 10;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;

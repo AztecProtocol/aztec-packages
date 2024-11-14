@@ -72,6 +72,7 @@ export class Body {
     noteEncryptedLogs?: EncryptedNoteL2BlockL2Logs,
     encryptedLogs?: EncryptedL2BlockL2Logs,
     unencryptedLogs?: UnencryptedL2BlockL2Logs,
+    contractClassLogs?: ContractClass2BlockL2Logs,
   ) {
     const txEffectsFields: Fr[][] = [];
     let checkedFields = 0;
@@ -91,6 +92,7 @@ export class Body {
           noteEncryptedLogs?.txLogs[i],
           encryptedLogs?.txLogs[i],
           unencryptedLogs?.txLogs[i],
+          contractClassLogs?.txLogs[i],
         ),
       );
     return new this(txEffects);

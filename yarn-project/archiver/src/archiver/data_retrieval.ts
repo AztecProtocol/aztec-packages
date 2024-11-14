@@ -166,6 +166,7 @@ async function getBlockFromRollupTx(
     blockBody.noteEncryptedLogs,
     blockBody.encryptedLogs,
     blockBody.unencryptedLogs,
+    blockBody.contractClassLogs,
   );
 
   if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {

@@ -58,8 +58,8 @@ pub fn default_block_root_rollup_inputs() -> BlockRootRollupInputs {
 
     inputs.previous_rollup_data = default_previous_rollup_data();
 
-    inputs.tx_effects[0] = 1;
-    inputs.tx_effects[1] = 2;
+    inputs.blob_fields[0] = 1;
+    inputs.blob_fields[1] = 2;
 
     inputs
 }

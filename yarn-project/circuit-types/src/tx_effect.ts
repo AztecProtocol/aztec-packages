@@ -1,4 +1,5 @@
 import {
+  CONTRACT_CLASS_LOGS_PREFIX,
   ENCRYPTED_LOGS_PREFIX,
   Fr,
   L2_L1_MSGS_PREFIX,
@@ -337,7 +338,6 @@ export class TxEffect {
 
   /**
    * Returns a flat packed array of prefixed fields of all tx effects, used for blobs.
-   * // TODO(MIRANDA) contract class logs
    */
   toBlobFields(): Fr[] {
     if (this.isEmpty()) {
@@ -382,6 +382,10 @@ export class TxEffect {
       flattened.push(this.toPrefix(UNENCRYPTED_LOGS_PREFIX, this.unencryptedLogs.unrollLogs().length));
       flattened.push(...this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
     }
+    if (this.contractClassLogs.unrollLogs().length) {
+      flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.unrollLogs().length));
+      flattened.push(...this.contractClassLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
+    }
 
     // The first value appended to each list of fields representing a tx effect is:
     // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
@@ -400,6 +404,7 @@ export class TxEffect {
     noteEncryptedLogs?: EncryptedNoteTxL2Logs,
     encryptedLogs?: EncryptedTxL2Logs,
     unencryptedLogs?: UnencryptedTxL2Logs,
+    contractClassLogs?: ContractClassTxL2Logs,
   ) {
     const ensureEmpty = <T>(arr: Array<T>) => {
       if (arr.length) {
@@ -475,6 +480,16 @@ export class TxEffect {
           effect.unencryptedLogs = unencryptedLogs;
           effect.unencryptedLogsLength = new Fr(unencryptedLogs.getKernelLength());
           break;
+        case CONTRACT_CLASS_LOGS_PREFIX:
+          // effect.contractClassLogs = ContractClassTxL2Logs.fromFields(reader.readFieldArray(length));
+          ensureEmpty(effect.contractClassLogs.functionLogs);
+          if (!contractClassLogs) {
+            throw new Error(`Tx effect has contractClassLogs logs, but they were not passed raw to .fromBlobFields()`);
+          }
+          this.checkInjectedLogs(contractClassLogs, reader.readFieldArray(length));
+          effect.contractClassLogs = contractClassLogs;
+          effect.contractClassLogsLength = new Fr(contractClassLogs.getKernelLength());
+          break;
         case REVERT_CODE_PREFIX:
         default:
           throw new Error(`Too many fields to decode given to TxEffect.fromBlobFields()`);
@@ -488,6 +503,8 @@ export class TxEffect {
       !effect.encryptedLogs.getTotalLogCount() && encryptedLogs ? encryptedLogs : effect.encryptedLogs;
     effect.unencryptedLogs =
       !effect.unencryptedLogs.getTotalLogCount() && unencryptedLogs ? unencryptedLogs : effect.unencryptedLogs;
+    effect.contractClassLogs =
+      !effect.contractClassLogs.getTotalLogCount() && contractClassLogs ? contractClassLogs : effect.contractClassLogs;
     return effect;
   }
 

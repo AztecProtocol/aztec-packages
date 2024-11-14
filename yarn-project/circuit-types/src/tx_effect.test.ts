@@ -14,7 +14,13 @@ describe('TxEffect', () => {
     const fields = txEffect.toBlobFields();
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
     expect(
-      TxEffect.fromBlobFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
+      TxEffect.fromBlobFields(
+        fields,
+        txEffect.noteEncryptedLogs,
+        txEffect.encryptedLogs,
+        txEffect.unencryptedLogs,
+        txEffect.contractClassLogs,
+      ),
     ).toEqual(txEffect);
   });
 
@@ -37,7 +43,13 @@ describe('TxEffect', () => {
     fields.push(new Fr(7));
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
     expect(() =>
-      TxEffect.fromBlobFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
+      TxEffect.fromBlobFields(
+        fields,
+        txEffect.noteEncryptedLogs,
+        txEffect.encryptedLogs,
+        txEffect.unencryptedLogs,
+        txEffect.contractClassLogs,
+      ),
     ).toThrow('Too many fields');
 
     txEffect = TxEffect.random();
@@ -50,7 +62,13 @@ describe('TxEffect', () => {
     fields.push(fakePrefix);
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
     expect(() =>
-      TxEffect.fromBlobFields(fields, txEffect.noteEncryptedLogs, txEffect.encryptedLogs, txEffect.unencryptedLogs),
+      TxEffect.fromBlobFields(
+        fields,
+        txEffect.noteEncryptedLogs,
+        txEffect.encryptedLogs,
+        txEffect.unencryptedLogs,
+        txEffect.contractClassLogs,
+      ),
     ).toThrow('Invalid fields');
   });
 });

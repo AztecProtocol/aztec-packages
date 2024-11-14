@@ -511,16 +511,17 @@ mod tests {
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
-            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX,
-            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
-            NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX,
-            PRIVATE_KERNEL_TAIL_INDEX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
-            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            NOTE_ENCRYPTED_LOGS_PREFIX, NOTE_HASH_SUBTREE_HEIGHT,
+            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
+            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
+            PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_SUBTREE_HEIGHT,
+            PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+            PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
+            UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -1166,7 +1167,7 @@ mod tests {
         );
         tx_effects[2] = field_from_bytes([NOTES_PREFIX, 0, 50 as u8], true);
         for i in 0..50 {
-            tx_effects[i + 3] = builder.kernel_data.note_hashes.storage[i].value();
+            tx_effects[i + 3] = builder.kernel_data.note_hashes.storage()[i].value();
         }
         let mut expected_sponge = outputs.start_sponge_blob;
 
@@ -1181,6 +1182,7 @@ mod tests {
         let NUM_MSGS = 5;
         let NUM_ENC_LOGS = 4;
         let NUM_UNENC_LOGS = 6;
+        let NUM_CC_LOGS = 1;
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
         let tx_fee = 100_000;
@@ -1206,16 +1208,18 @@ mod tests {
         ));
         builder.kernel_data.append_encrypted_log_hashes(NUM_ENC_LOGS);
         builder.kernel_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
+        // Below will only work with NUM_CC_LOGS=1
+        builder.kernel_data.add_contract_class_log_hash(1, 2);
         let outputs = builder.execute();
 
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0
-        // fields appended here = 129 = offset once appending complete
+        // fields appended here = 131 = offset once appending complete
         reconstructed_tx_effects[0] = field_from_bytes(
             array_concat(
                 TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, 129, 0, REVERT_CODE_PREFIX, 0, 0],
+                [0, 0, 131, 0, REVERT_CODE_PREFIX, 0, 0],
             ),
             true,
         );
@@ -1231,7 +1235,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_NOTES {
             reconstructed_tx_effects[offset + i] =
-                builder.kernel_data.note_hashes.storage[i].value();
+                builder.kernel_data.note_hashes.storage()[i].value();
         }
         offset += NUM_NOTES;
         // nullifiers
@@ -1240,7 +1244,7 @@ mod tests {
         reconstructed_tx_effects[offset] = nullifiers_prefix;
         offset += 1;
         for i in 0..NUM_NULLIFIERS {
-            reconstructed_tx_effects[offset + i] = builder.nullifiers.storage[i].value;
+            reconstructed_tx_effects[offset + i] = builder.nullifiers.storage()[i].value;
         }
         offset += NUM_NULLIFIERS;
         // l2 to l1 msgs
@@ -1249,7 +1253,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_MSGS {
             reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.kernel_data.l2_to_l1_msgs.storage[i],
+                builder.kernel_data.l2_to_l1_msgs.storage()[i],
                 builder.kernel_data.tx_context.version,
                 builder.kernel_data.tx_context.chain_id,
             );
@@ -1271,7 +1275,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_NOTES {
             reconstructed_tx_effects[offset + i] =
-                builder.kernel_data.note_encrypted_logs_hashes.storage[i].value();
+                builder.kernel_data.note_encrypted_logs_hashes.storage()[i].value();
         }
         offset += NUM_NOTES;
         // enc logs
@@ -1283,7 +1287,7 @@ mod tests {
             reconstructed_tx_effects[offset + i] = types::hash::silo_encrypted_log_hash(builder
                 .kernel_data
                 .encrypted_logs_hashes
-                .storage[i]
+                .storage()[i]
                 .expose_to_public());
         }
         offset += NUM_ENC_LOGS;
@@ -1294,10 +1298,24 @@ mod tests {
         offset += 1;
         for i in 0..NUM_UNENC_LOGS {
             reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
-                builder.kernel_data.unencrypted_logs_hashes.storage[i],
+                builder.kernel_data.unencrypted_logs_hashes.storage()[i],
             );
         }
         offset += NUM_UNENC_LOGS;
+        // cc logs
+        let contract_class_logs_prefix =
+            field_from_bytes([CONTRACT_CLASS_LOGS_PREFIX, 0, NUM_CC_LOGS as u8], true);
+        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_CC_LOGS {
+            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+                builder.kernel_data.contract_class_logs_hashes.storage()[i],
+            );
+        }
+        offset += NUM_CC_LOGS;
+
+        // Sanity check - if this fails change the above use of 131
+        assert(offset == 131);
 
         let mut expected_sponge = outputs.start_sponge_blob;
         expected_sponge.absorb(reconstructed_tx_effects, offset);

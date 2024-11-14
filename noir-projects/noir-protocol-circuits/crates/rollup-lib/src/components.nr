@@ -12,12 +12,13 @@ use dep::types::{
         sponge_blob::SpongeBlob,
     },
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX,
+        L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
-        UNENCRYPTED_LOGS_PREFIX, // TODO(MIRANDA) contract class logs
+        UNENCRYPTED_LOGS_PREFIX,
     },
     hash::{
         accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
@@ -269,19 +270,19 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
 // MAX_NOTE_ENCRYPTED_LOGS_PER_TX fields for note encrypted logs
 // MAX_ENCRYPTED_LOGS_PER_TX fields for encrypted logs
 // MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
-// TODO(MIRANDA) contract class logs
-// 7 fields for prefixes for each of the above categories
+// MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
+// 8 fields for prefixes for each of the above categories
 global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    // TODO(MIRANDA) contract class logs
     + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
     + MAX_ENCRYPTED_LOGS_PER_TX
     + MAX_UNENCRYPTED_LOGS_PER_TX
-    + 7;
+    + MAX_CONTRACT_CLASS_LOGS_PER_TX
+    + 8;
 pub fn append_tx_effects_for_blob(
     combined: CombinedAccumulatedData,
     revert_code: u8,
@@ -304,7 +305,9 @@ pub fn append_tx_effects_for_blob(
         combined.encrypted_logs_hashes.map(|log: ScopedLogHash| silo_encrypted_log_hash(log));
     let unencrypted_logs =
         combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
-        // TODO(MIRANDA) contract class logs
+    let contract_class_logs = combined.contract_class_logs_hashes.map(|log: ScopedLogHash| {
+        silo_unencrypted_log_hash(log)
+    });
 
     let mut offset = 0;
     let mut array_len = 0;
@@ -323,6 +326,10 @@ pub fn append_tx_effects_for_blob(
         true,
     );
     offset += 1;
+
+    // NB: The array_length function does NOT constrain we have a sorted left-packed array.
+    // We can use it because all inputs here come from the kernels which DO contrain left-packing.
+    // If that ever changes, we will have to constrain it by counting items differently.
 
     // NOTE HASHES
     array_len = array_length(note_hashes);
@@ -419,6 +426,20 @@ pub fn append_tx_effects_for_blob(
 
         for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
             tx_effects_hash_input[offset + j] = unencrypted_logs[j];
+        }
+        offset += array_len;
+    }
+
+    // CONTRACT CLASS LOGS
+    array_len = array_length(contract_class_logs);
+    if array_len != 0 {
+        let contract_class_logs_prefix =
+            field_from_bytes([CONTRACT_CLASS_LOGS_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = contract_class_logs_prefix;
+        offset += 1;
+
+        for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
+            tx_effects_hash_input[offset + j] = contract_class_logs[j];
         }
         offset += array_len;
     }
