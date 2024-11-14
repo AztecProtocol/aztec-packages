@@ -117,4 +117,8 @@ resource "helm_release" "aztec-gke-cluster" {
   timeout       = 1800 # 30 minutes in seconds
   wait          = true
   wait_for_jobs = true
+
+  depends_on = [
+    helm_release.aztec-eks-cluster
+  ]
 }

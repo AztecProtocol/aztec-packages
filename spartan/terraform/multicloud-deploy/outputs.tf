@@ -23,3 +23,18 @@ output "gke_cluster_deployment" {
     cluster     = var.gke_cluster_context
   }
 }
+
+# Get the LoadBalancer DNS name using a data source
+data "kubernetes_service" "eks_boot_node_lb" {
+  provider = kubernetes.eks-cluster
+  metadata {
+    name      = "${helm_release.aztec-eks-cluster.name}-boot-node-lb-tcp"
+    namespace = helm_release.aztec-eks-cluster.namespace
+  }
+  depends_on = [helm_release.aztec-eks-cluster]
+}
+
+output "eks_boot_node_lb_hostname" {
+  description = "DNS hostname of the EKS boot node LoadBalancer"
+  value       = data.kubernetes_service.eks_boot_node_lb.status.0.load_balancer.0.ingress.0.hostname
+}
