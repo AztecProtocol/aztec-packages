@@ -326,14 +326,13 @@ mod tests {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_unencrypted_log_hash(42, 5);
+        builder.previous_kernel.add_contract_class_log_hash(42, 12);
         builder.previous_kernel.end_setup();
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
-        builder.previous_kernel.add_unencrypted_log_hash(42, 7);
 
         let public_inputs = builder.execute();
 
-        let num_log_bytes = 3 + 4 + 5 + 6 + 7;
+        let num_log_bytes = 3 + 4 + 12 + 6;
         let da_gas = (1 * DA_BYTES_PER_FIELD + num_log_bytes) * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
             + 1 * L2_GAS_PER_NULLIFIER

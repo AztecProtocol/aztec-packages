@@ -225,20 +225,15 @@ fn new_from_previous_kernel_with_private_call_encrypted_log_hashes_succeeds() {
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_unencrypted_log_hashes_succeeds() {
+fn new_from_previous_kernel_with_private_call_contract_class_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_unencrypted_log_hashes(2);
-    let prev = builder.previous_kernel.unencrypted_logs_hashes.storage;
-    builder.private_call.append_unencrypted_log_hashes(2);
-    let curr = builder.private_call.unencrypted_logs_hashes.storage;
+    builder.private_call.add_contract_class_log_hash(2, 200);
+    let curr = builder.private_call.contract_class_logs_hashes.storage;
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_array_eq(
-        output.end.unencrypted_logs_hashes,
-        [prev[0], prev[1], curr[0], curr[1]],
-    );
+    assert_array_eq(output.end.contract_class_logs_hashes, [curr[0]]);
 }
 
 #[test]

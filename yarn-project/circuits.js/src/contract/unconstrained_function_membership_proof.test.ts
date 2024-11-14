@@ -40,6 +40,8 @@ describe('unconstrained_function_membership_proof', () => {
     expect(artifact.functions.filter(isUnconstrained).length).toBe(1);
 
     const unconstrainedFunction = unconstrainedFns[0];
+    const selector = FunctionSelector.fromNameAndParameters(unconstrainedFunction);
+
     const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
     expect(proof.artifactTreeSiblingPath.length).toBe(0);
 

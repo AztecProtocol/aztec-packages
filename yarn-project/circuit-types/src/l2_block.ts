@@ -222,6 +222,14 @@ export class L2Block {
         (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getSerializedLength(),
         0,
       ),
+      contractClassLogCount: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.contractClassLogs.getTotalLogCount(),
+        0,
+      ),
+      contractClassLogSize: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.contractClassLogs.getSerializedLength(),
+        0,
+      ),
     };
 
     return {

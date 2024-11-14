@@ -17,7 +17,7 @@ use dep::types::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
-        UNENCRYPTED_LOGS_PREFIX,
+        UNENCRYPTED_LOGS_PREFIX, // TODO(MIRANDA) contract class logs
     },
     hash::{
         accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
@@ -220,8 +220,8 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
     merkle_tree.get_root()
 }
 
-fn silo_and_hash_unencrypted_logs(
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+fn silo_and_hash_unencrypted_logs<let N: u32>(
+    unencrypted_logs_hashes: [ScopedLogHash; N],
 ) -> Field {
     let siloed_logs = unencrypted_logs_hashes.map(|log: ScopedLogHash| {
         LogHash {
@@ -269,6 +269,7 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
 // MAX_NOTE_ENCRYPTED_LOGS_PER_TX fields for note encrypted logs
 // MAX_ENCRYPTED_LOGS_PER_TX fields for encrypted logs
 // MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
+// TODO(MIRANDA) contract class logs
 // 7 fields for prefixes for each of the above categories
 global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
@@ -276,6 +277,7 @@ global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_NULLIFIERS_PER_TX
     + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
+    // TODO(MIRANDA) contract class logs
     + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
     + MAX_ENCRYPTED_LOGS_PER_TX
     + MAX_UNENCRYPTED_LOGS_PER_TX
@@ -297,12 +299,12 @@ pub fn append_tx_effects_for_blob(
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
         get_all_update_requests_for_tx_effects(all_public_data_update_requests);
-
     let note_encrypted_logs = combined.note_encrypted_logs_hashes.map(|log: LogHash| log.value);
     let encrypted_logs =
         combined.encrypted_logs_hashes.map(|log: ScopedLogHash| silo_encrypted_log_hash(log));
     let unencrypted_logs =
         combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
+        // TODO(MIRANDA) contract class logs
 
     let mut offset = 0;
     let mut array_len = 0;
@@ -370,7 +372,6 @@ pub fn append_tx_effects_for_blob(
         );
         tx_effects_hash_input[offset] = public_data_update_requests_prefix;
         offset += 1;
-
         for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
             tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].value;
@@ -462,3 +463,4 @@ fn get_all_update_requests_for_tx_effects(
     }
     all_update_requests.storage()
 }
+

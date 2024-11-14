@@ -329,6 +329,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getContractClassLogs(filter);
+  }
+
+  /**
    * Method to submit a transaction to the p2p pool.
    * @param tx - The transaction to be submitted.
    */

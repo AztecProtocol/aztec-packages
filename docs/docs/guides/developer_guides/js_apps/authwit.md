@@ -68,9 +68,9 @@ Then create the message hash by hashing the inner hash with the authwit receiver
 
 ## Create the authwit
 
-There are slightly different interfaces depending on whether your contract is checking the authwit in private or public. 
+There are slightly different interfaces depending on whether your contract is checking the authwit in private or public.
 
-Public authwits are stored in the account contract and batched with the authwit action call, so a user must send a transaction to update their account contract, authorizing an action before the authorized contract's public call will succeed. 
+Public authwits are stored in the account contract and batched with the authwit action call, so a user must send a transaction to update their account contract, authorizing an action before the authorized contract's public call will succeed.
 
 Private execution uses oracles and are executed locally by the PXE, so the authwit needs to be created by the authwit giver and then added to the authwit receiver's PXE.
 
@@ -107,7 +107,7 @@ Set a public authwit like this:
 Remember it is a transaction and calls a method in the account contract. In this example,
 
 - `wallets[0]` is the authwit giver
-- `wallets[1]` is the authwit reciever and caller of the function
+- `wallets[1]` is the authwit receiver and caller of the function
 - `action` was [defined previously](#define-the-action)
 - `true` sets the `authorized` boolean (`false` would revoke this authwit)
 

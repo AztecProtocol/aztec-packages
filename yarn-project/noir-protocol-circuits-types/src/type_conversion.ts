@@ -43,6 +43,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
   LogHash,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -1021,7 +1022,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
     note_encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.encryptedLogsHashes, mapEncryptedLogHashToNoir),
-    unencrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.unencryptedLogsHashes, mapLogHashToNoir),
+    contract_class_logs_hashes: mapTuple(privateCircuitPublicInputs.contractClassLogsHashes, mapLogHashToNoir),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -1414,8 +1415,8 @@ export function mapPrivateAccumulatedDataFromNoir(
       mapScopedEncryptedLogHashFromNoir,
     ),
     mapTupleFromNoir(
-      privateAccumulatedData.unencrypted_logs_hashes,
-      MAX_UNENCRYPTED_LOGS_PER_TX,
+      privateAccumulatedData.contract_class_logs_hashes,
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
     mapTupleFromNoir(
@@ -1438,7 +1439,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapScopedEncryptedLogHashToNoir),
-    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
+    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
     public_call_requests: mapTuple(data.publicCallRequests, mapCountedPublicCallRequestToNoir),
     private_call_stack: mapTuple(data.privateCallStack, mapPrivateCallRequestToNoir),
   };
@@ -1567,7 +1568,7 @@ function mapPrivateToPublicAccumulatedDataFromNoir(data: PrivateToPublicAccumula
     mapTupleFromNoir(data.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
     mapTupleFromNoir(data.note_encrypted_logs_hashes, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
     mapTupleFromNoir(data.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapScopedLogHashFromNoir),
-    mapTupleFromNoir(data.unencrypted_logs_hashes, MAX_UNENCRYPTED_LOGS_PER_TX, mapScopedLogHashFromNoir),
+    mapTupleFromNoir(data.contract_class_logs_hashes, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedLogHashFromNoir),
     mapTupleFromNoir(data.public_call_requests, MAX_ENQUEUED_CALLS_PER_TX, mapPublicCallRequestFromNoir),
   );
 }
@@ -1581,7 +1582,7 @@ function mapPrivateToPublicAccumulatedDataToNoir(
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapLogHashToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapScopedLogHashToNoir),
-    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
+    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
     public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
   };
 }
@@ -1641,9 +1642,15 @@ export function mapCombinedAccumulatedDataFromNoir(
       MAX_UNENCRYPTED_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
+    mapTupleFromNoir(
+      combinedAccumulatedData.contract_class_logs_hashes,
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      mapScopedLogHashFromNoir,
+    ),
     mapFieldFromNoir(combinedAccumulatedData.note_encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
+    mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
     mapTupleFromNoir(
       combinedAccumulatedData.public_data_writes,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1662,9 +1669,11 @@ export function mapCombinedAccumulatedDataToNoir(
     note_encrypted_logs_hashes: mapTuple(combinedAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
     encrypted_logs_hashes: mapTuple(combinedAccumulatedData.encryptedLogsHashes, mapScopedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(combinedAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
+    contract_class_logs_hashes: mapTuple(combinedAccumulatedData.contractClassLogsHashes, mapScopedLogHashToNoir),
     note_encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogPreimagesLength),
     encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
+    contract_class_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.contractClassLogPreimagesLength),
     public_data_writes: mapTuple(combinedAccumulatedData.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }

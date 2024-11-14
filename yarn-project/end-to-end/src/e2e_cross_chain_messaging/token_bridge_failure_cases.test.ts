@@ -52,7 +52,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     // Wrong message hash
     const wrongBridgeAmount = bridgeAmount + 1n;
     const wrongMessageContent = sha256ToField([
-      Buffer.from(toFunctionSelector('mint_private(uint256)').substring(2), 'hex'),
+      Buffer.from(toFunctionSelector('mint_to_private(uint256)').substring(2), 'hex'),
       new Fr(wrongBridgeAmount),
     ]);
 

@@ -32,6 +32,7 @@ import {
 import { inspect } from 'util';
 
 import {
+  ContractClassTxL2Logs,
   type EncryptedL2Log,
   EncryptedL2NoteLog,
   EncryptedNoteTxL2Logs,
@@ -80,9 +81,11 @@ export class TxEffect {
     public noteEncryptedLogsLength: Fr,
     public encryptedLogsLength: Fr,
     public unencryptedLogsLength: Fr,
+    public contractClassLogsLength: Fr,
     public noteEncryptedLogs: EncryptedNoteTxL2Logs,
     public encryptedLogs: EncryptedTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
+    public contractClassLogs: ContractClassTxL2Logs,
   ) {
     // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
     // functions (isZero and isEmpty)
@@ -136,9 +139,11 @@ export class TxEffect {
       this.noteEncryptedLogsLength,
       this.encryptedLogsLength,
       this.unencryptedLogsLength,
+      this.contractClassLogsLength,
       this.noteEncryptedLogs,
       this.encryptedLogs,
       this.unencryptedLogs,
+      this.contractClassLogs,
     ]);
   }
 
@@ -160,9 +165,11 @@ export class TxEffect {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readObject(EncryptedNoteTxL2Logs),
       reader.readObject(EncryptedTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
+      reader.readObject(ContractClassTxL2Logs),
     );
   }
 
@@ -203,6 +210,7 @@ export class TxEffect {
     const noteEncryptedLogs = EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const encryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
+    const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
@@ -213,9 +221,11 @@ export class TxEffect {
       new Fr(noteEncryptedLogs.getKernelLength()),
       new Fr(encryptedLogs.getKernelLength()),
       new Fr(unencryptedLogs.getKernelLength()),
+      new Fr(contractClassLogs.getKernelLength()),
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
+      contractClassLogs,
     );
   }
 
@@ -230,9 +240,11 @@ export class TxEffect {
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
+      Fr.ZERO,
       EncryptedNoteTxL2Logs.empty(),
       EncryptedTxL2Logs.empty(),
       UnencryptedTxL2Logs.empty(),
+      ContractClassTxL2Logs.empty(),
     );
   }
 
@@ -325,6 +337,7 @@ export class TxEffect {
 
   /**
    * Returns a flat packed array of prefixed fields of all tx effects, used for blobs.
+   * // TODO(MIRANDA) contract class logs
    */
   toBlobFields(): Fr[] {
     if (this.isEmpty()) {
@@ -516,9 +529,11 @@ export class TxEffect {
       noteEncryptedLogsLength: ${this.noteEncryptedLogsLength},
       encryptedLogsLength: ${this.encryptedLogsLength},
       unencryptedLogsLength: ${this.unencryptedLogsLength},
+      contractClassLogsLength: ${this.contractClassLogsLength},
       noteEncryptedLogs: ${JSON.stringify(this.noteEncryptedLogs.toJSON())},
       encryptedLogs: ${JSON.stringify(this.encryptedLogs.toJSON())},
       unencryptedLogs: ${JSON.stringify(this.unencryptedLogs.toJSON())}
+      contractClassLogs: ${JSON.stringify(this.contractClassLogs.toJSON())}
      }`;
   }
 

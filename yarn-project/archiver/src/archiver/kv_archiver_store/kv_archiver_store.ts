@@ -267,6 +267,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    try {
+      return Promise.resolve(this.#logStore.getContractClassLogs(filter));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
