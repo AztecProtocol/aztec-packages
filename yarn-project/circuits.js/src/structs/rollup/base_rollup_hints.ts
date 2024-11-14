@@ -1,4 +1,5 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -15,7 +16,97 @@ import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/index.j
 import { ConstantRollupData } from './constant_rollup_data.js';
 import { StateDiffHints } from './state_diff_hints.js';
 
-export class BaseRollupHints {
+export type BaseRollupHints = PrivateBaseRollupHints | PublicBaseRollupHints;
+
+export class PrivateBaseRollupHints {
+  constructor(
+    /** Partial state reference at the start of the rollup. */
+    public start: PartialStateReference,
+    /** Hints used while proving state diff validity. */
+    public stateDiffHints: StateDiffHints,
+    /** Public data read hint for accessing the balance of the fee payer. */
+    public feePayerFeeJuiceBalanceReadHint: PublicDataHint,
+
+    public feeWriteLowLeafPreimage: PublicDataTreeLeafPreimage,
+    public feeWriteLowLeafMembershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+    public feeWriteSiblingPath: Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
+
+    /**
+     * Membership witnesses of blocks referred by each of the 2 kernels.
+     */
+    public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
+    /**
+     * Data which is not modified by the base rollup circuit.
+     */
+    public constants: ConstantRollupData,
+  ) {}
+
+  static from(fields: FieldsOf<PrivateBaseRollupHints>): BaseRollupHints {
+    return new PrivateBaseRollupHints(...PrivateBaseRollupHints.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<PrivateBaseRollupHints>) {
+    return [
+      fields.start,
+      fields.stateDiffHints,
+      fields.feePayerFeeJuiceBalanceReadHint,
+      fields.feeWriteLowLeafPreimage,
+      fields.feeWriteLowLeafMembershipWitness,
+      fields.feeWriteSiblingPath,
+      fields.archiveRootMembershipWitness,
+      fields.constants,
+    ] as const;
+  }
+
+  /**
+   * Serializes the inputs to a buffer.
+   * @returns The inputs serialized to a buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(...PrivateBaseRollupHints.getFields(this));
+  }
+
+  /**
+   * Serializes the inputs to a hex string.
+   * @returns The instance serialized to a hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): BaseRollupHints {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateBaseRollupHints(
+      reader.readObject(PartialStateReference),
+      reader.readObject(StateDiffHints),
+      reader.readObject(PublicDataHint),
+      reader.readObject(PublicDataTreeLeafPreimage),
+      MembershipWitness.fromBuffer(reader, PUBLIC_DATA_TREE_HEIGHT),
+      reader.readArray(PUBLIC_DATA_TREE_HEIGHT, Fr),
+      MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
+      reader.readObject(ConstantRollupData),
+    );
+  }
+
+  static fromString(str: string) {
+    return PrivateBaseRollupHints.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new PrivateBaseRollupHints(
+      PartialStateReference.empty(),
+      StateDiffHints.empty(),
+      PublicDataHint.empty(),
+      PublicDataTreeLeafPreimage.empty(),
+      MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
+      makeTuple(PUBLIC_DATA_TREE_HEIGHT, Fr.zero),
+      MembershipWitness.empty(ARCHIVE_HEIGHT),
+      ConstantRollupData.empty(),
+    );
+  }
+}
+
+export class PublicBaseRollupHints {
   constructor(
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,
@@ -58,11 +149,11 @@ export class BaseRollupHints {
     public constants: ConstantRollupData,
   ) {}
 
-  static from(fields: FieldsOf<BaseRollupHints>): BaseRollupHints {
-    return new BaseRollupHints(...BaseRollupHints.getFields(fields));
+  static from(fields: FieldsOf<PublicBaseRollupHints>): BaseRollupHints {
+    return new PublicBaseRollupHints(...PublicBaseRollupHints.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<BaseRollupHints>) {
+  static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
     return [
       fields.start,
       fields.stateDiffHints,
@@ -81,7 +172,7 @@ export class BaseRollupHints {
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...BaseRollupHints.getFields(this));
+    return serializeToBuffer(...PublicBaseRollupHints.getFields(this));
   }
 
   /**
@@ -94,7 +185,7 @@ export class BaseRollupHints {
 
   static fromBuffer(buffer: Buffer | BufferReader): BaseRollupHints {
     const reader = BufferReader.asReader(buffer);
-    return new BaseRollupHints(
+    return new PublicBaseRollupHints(
       reader.readObject(PartialStateReference),
       reader.readObject(StateDiffHints),
       reader.readObject(PublicDataHint),
@@ -110,11 +201,11 @@ export class BaseRollupHints {
   }
 
   static fromString(str: string) {
-    return BaseRollupHints.fromBuffer(Buffer.from(str, 'hex'));
+    return PublicBaseRollupHints.fromBuffer(Buffer.from(str, 'hex'));
   }
 
   static empty() {
-    return new BaseRollupHints(
+    return new PublicBaseRollupHints(
       PartialStateReference.empty(),
       StateDiffHints.empty(),
       PublicDataHint.empty(),

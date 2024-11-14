@@ -115,44 +115,43 @@ where
     Value: Eq + Empty,
     Leaf: Hash + Empty,
 {
-    if !is_empty(value) {
-        assert(is_valid_low_leaf(low_leaf_preimage, value), "Invalid low leaf");
+    assert(is_valid_low_leaf(low_leaf_preimage, value), "Invalid low leaf");
 
-        // perform membership check for the low leaf against the original root
-        assert_check_membership(
-            low_leaf_preimage.hash(),
-            low_leaf_membership_witness.leaf_index,
-            low_leaf_membership_witness.sibling_path,
-            snapshot.root,
-        );
+    // perform membership check for the low leaf against the original root
+    assert_check_membership(
+        low_leaf_preimage.hash(),
+        low_leaf_membership_witness.leaf_index,
+        low_leaf_membership_witness.sibling_path,
+        snapshot.root,
+    );
 
-        // Calculate the new value of the low_leaf
-        let updated_low_leaf =
-            update_low_leaf(low_leaf_preimage, value, snapshot.next_available_leaf_index);
+    // Calculate the new value of the low_leaf
+    let updated_low_leaf =
+        update_low_leaf(low_leaf_preimage, value, snapshot.next_available_leaf_index);
 
-        snapshot.root = root_from_sibling_path(
-            updated_low_leaf.hash(),
-            low_leaf_membership_witness.leaf_index,
-            low_leaf_membership_witness.sibling_path,
-        );
+    snapshot.root = root_from_sibling_path(
+        updated_low_leaf.hash(),
+        low_leaf_membership_witness.leaf_index,
+        low_leaf_membership_witness.sibling_path,
+    );
 
-        let insertion_leaf = build_insertion_leaf(value, low_leaf_preimage);
+    let insertion_leaf = build_insertion_leaf(value, low_leaf_preimage);
 
-        assert_check_membership(
-            0,
-            snapshot.next_available_leaf_index as Field,
-            insertion_sibling_path,
-            snapshot.root,
-        );
+    assert_check_membership(
+        0,
+        snapshot.next_available_leaf_index as Field,
+        insertion_sibling_path,
+        snapshot.root,
+    );
 
-        // Calculate the new root
-        snapshot.root = root_from_sibling_path(
-            insertion_leaf.hash(),
-            snapshot.next_available_leaf_index as Field,
-            insertion_sibling_path,
-        );
+    // Calculate the new root
+    snapshot.root = root_from_sibling_path(
+        insertion_leaf.hash(),
+        snapshot.next_available_leaf_index as Field,
+        insertion_sibling_path,
+    );
 
-        snapshot.next_available_leaf_index += 1;
-    }
+    snapshot.next_available_leaf_index += 1;
+
     snapshot
 }

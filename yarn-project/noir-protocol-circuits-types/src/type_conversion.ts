@@ -2630,20 +2630,6 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
     state_diff_hints: mapStateDiffHintsToNoir(inputs.hints.stateDiffHints),
 
-    sorted_public_data_writes: mapTuple(inputs.hints.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
-
-    sorted_public_data_writes_indexes: mapTuple(inputs.hints.sortedPublicDataWritesIndexes, mapNumberToNoir),
-
-    low_public_data_writes_preimages: mapTuple(
-      inputs.hints.lowPublicDataWritesPreimages,
-      mapPublicDataTreePreimageToNoir,
-    ),
-
-    low_public_data_writes_witnesses: mapTuple(
-      inputs.hints.lowPublicDataWritesMembershipWitnesses,
-      (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
-    ),
-
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),

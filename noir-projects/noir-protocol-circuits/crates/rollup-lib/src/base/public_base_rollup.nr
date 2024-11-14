@@ -4,8 +4,12 @@ use crate::{
         constant_rollup_data::ConstantRollupData,
     },
     base::{
-        components::{avm_proof_data::AvmProofData, public_tube_data::PublicTubeData},
-        state_diff_hints::StateDiffHints,
+        components::{
+            avm_proof_data::AvmProofData, fees::compute_fee_payer_fee_juice_balance_leaf_slot,
+            nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
+            public_tube_data::PublicTubeData,
+        },
+        state_diff_hints::PublicBaseStateDiffHints,
     },
     components::{compute_kernel_out_hash, compute_tx_effects_hash},
 };
@@ -19,33 +23,20 @@ use dep::types::{
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_write::PublicDataWrite,
     },
-    address::AztecAddress,
     constants::{
-        ARCHIVE_HEIGHT, FEE_JUICE_ADDRESS, MAX_NOTE_HASHES_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-        PRIVATE_KERNEL_EMPTY_INDEX, PUBLIC_DATA_SUBTREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
     },
-    data::{
-        hash::{compute_public_data_tree_index, compute_public_data_tree_value},
-        public_data_hint::PublicDataHint,
-        PublicDataTreeLeaf,
-        PublicDataTreeLeafPreimage,
-    },
+    data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
     merkle_tree::{
         append_only_tree, assert_check_membership, calculate_empty_tree_root,
-        calculate_subtree_root, indexed_tree, MembershipWitness,
+        calculate_subtree_root, MembershipWitness,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
-    storage::map::derive_storage_slot_in_map,
     traits::is_empty,
-    utils::{
-        arrays::{array_merge, find_index_hint},
-        field::{full_field_greater_than, full_field_less_than},
-    },
+    utils::arrays::{array_merge, find_index_hint},
 };
 
 pub struct PublicBaseRollupInputs {
@@ -54,13 +45,8 @@ pub struct PublicBaseRollupInputs {
 
     start: PartialStateReference,
 
-    state_diff_hints: StateDiffHints,
+    state_diff_hints: PublicBaseStateDiffHints,
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
-
-    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes_indexes: [u32; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_witnesses: [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     constants: ConstantRollupData,
@@ -190,7 +176,7 @@ impl PublicBaseRollupInputs {
             );
         }
 
-        let commitments_tree_subroot = self.calculate_commitments_subtree(public_inputs);
+        let commitments_tree_subroot = self.calculate_commitments_subtree_root(public_inputs);
 
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
@@ -252,9 +238,7 @@ impl PublicBaseRollupInputs {
         }
     }
 
-    // TODO(Kev): This should say calculate_commitments_subtree_root
-    // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
-    fn calculate_commitments_subtree(self, public_inputs: KernelCircuitPublicInputs) -> Field {
+    fn calculate_commitments_subtree_root(self, public_inputs: KernelCircuitPublicInputs) -> Field {
         calculate_subtree_root(public_inputs.end.note_hashes)
     }
 
@@ -262,51 +246,14 @@ impl PublicBaseRollupInputs {
         self,
         public_inputs: KernelCircuitPublicInputs,
     ) -> AppendOnlyTreeSnapshot {
-        indexed_tree::batch_insert(
+        nullifier_tree_batch_insert(
             self.start.nullifier_tree,
             public_inputs.end.nullifiers,
             self.state_diff_hints.sorted_nullifiers,
             self.state_diff_hints.sorted_nullifier_indexes,
             self.state_diff_hints.nullifier_subtree_sibling_path,
             self.state_diff_hints.nullifier_predecessor_preimages,
-            self.state_diff_hints.nullifier_predecessor_membership_witnesses.map(
-                |witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>| {
-                    MembershipWitness {
-                        leaf_index: witness.leaf_index,
-                        sibling_path: witness.sibling_path,
-                    }
-                },
-            ),
-            |low_leaf: NullifierLeafPreimage, nullifier: Field| {
-                // Is valid low leaf
-                let is_less_than_nullifier = full_field_less_than(low_leaf.nullifier, nullifier);
-                let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
-
-                (!low_leaf.is_empty())
-                    & is_less_than_nullifier
-                    & (
-                        is_next_greater_than
-                            | ((low_leaf.next_index == 0) & (low_leaf.next_nullifier == 0))
-                    )
-            },
-            |low_leaf: NullifierLeafPreimage, nullifier: Field, nullifier_index: u32| {
-                // Update low leaf
-                NullifierLeafPreimage {
-                    nullifier: low_leaf.nullifier,
-                    next_nullifier: nullifier,
-                    next_index: nullifier_index,
-                }
-            },
-            |nullifier: Field, low_leaf: NullifierLeafPreimage| {
-                // Build insertion leaf
-                NullifierLeafPreimage {
-                    nullifier: nullifier,
-                    next_nullifier: low_leaf.next_nullifier,
-                    next_index: low_leaf.next_index,
-                }
-            },
-            [0; NULLIFIER_SUBTREE_HEIGHT],
-            [0; NULLIFIER_TREE_HEIGHT],
+            self.state_diff_hints.nullifier_predecessor_membership_witnesses,
         )
     }
 
@@ -336,19 +283,18 @@ impl PublicBaseRollupInputs {
         self,
         all_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     ) -> AppendOnlyTreeSnapshot {
-        let end_public_data_tree_snapshot = insert_public_data_update_requests(
-            self.start.public_data_tree,
-            all_update_requests.map(|w: PublicDataWrite| {
-                PublicDataTreeLeaf { slot: w.leaf_slot, value: w.value }
-            }),
-            self.sorted_public_data_writes,
-            self.sorted_public_data_writes_indexes,
-            self.low_public_data_writes_preimages,
-            self.low_public_data_writes_witnesses,
-            self.state_diff_hints.public_data_sibling_path,
-        );
-
-        end_public_data_tree_snapshot
+        let mut snapshot = self.start.public_data_tree;
+        for i in 0..all_update_requests.len() {
+            let update_request = all_update_requests[i];
+            snapshot = public_data_tree_insert(
+                update_request,
+                snapshot,
+                self.state_diff_hints.low_public_data_writes_preimages[i],
+                self.state_diff_hints.low_public_data_writes_witnesses[i],
+                self.state_diff_hints.public_data_tree_sibling_paths[i],
+            );
+        }
+        snapshot
     }
 
     // Returns an array with all public data update requests for this tx. This includes all update requests
@@ -456,91 +402,4 @@ impl PublicBaseRollupInputs {
             archive_root,
         );
     }
-}
-
-fn insert_public_data_update_requests(
-    prev_snapshot: AppendOnlyTreeSnapshot,
-    public_data_writes: [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes_indexes: [u32; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_witnesses: [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
-) -> AppendOnlyTreeSnapshot {
-    indexed_tree::batch_insert(
-        prev_snapshot,
-        public_data_writes,
-        sorted_public_data_writes,
-        sorted_public_data_writes_indexes,
-        public_data_writes_subtree_sibling_path,
-        low_public_data_writes_preimages,
-        low_public_data_writes_witnesses.map(
-            |witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>| {
-                MembershipWitness {
-                    leaf_index: witness.leaf_index,
-                    sibling_path: witness.sibling_path,
-                }
-            },
-        ),
-        |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf| {
-            // Is valid low preimage
-            let is_update = low_preimage.slot == write.slot;
-            let is_low_empty = low_preimage.is_empty();
-
-            let is_less_than_slot = full_field_less_than(low_preimage.slot, write.slot);
-            let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
-            let is_in_range = is_less_than_slot
-                & (
-                    is_next_greater_than
-                        | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0))
-                );
-
-            (!is_low_empty) & (is_update | is_in_range)
-        },
-        |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf, write_index: u32| {
-            // Update low leaf
-            let is_update = low_preimage.slot == write.slot;
-            if is_update {
-                PublicDataTreeLeafPreimage {
-                    slot: low_preimage.slot,
-                    value: write.value,
-                    next_slot: low_preimage.next_slot,
-                    next_index: low_preimage.next_index,
-                }
-            } else {
-                PublicDataTreeLeafPreimage {
-                    slot: low_preimage.slot,
-                    value: low_preimage.value,
-                    next_slot: write.slot,
-                    next_index: write_index,
-                }
-            }
-        },
-        |write: PublicDataTreeLeaf, low_preimage: PublicDataTreeLeafPreimage| {
-            // Build insertion leaf
-            let is_update = low_preimage.slot == write.slot;
-            if is_update {
-                PublicDataTreeLeafPreimage::empty()
-            } else {
-                PublicDataTreeLeafPreimage {
-                    slot: write.slot,
-                    value: write.value,
-                    next_slot: low_preimage.next_slot,
-                    next_index: low_preimage.next_index,
-                }
-            }
-        },
-        [0; PUBLIC_DATA_SUBTREE_HEIGHT],
-        [0; PUBLIC_DATA_TREE_HEIGHT],
-    )
-}
-
-fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
-    let balances_slot_in_fee_juice_contract = 1;
-    let fee_payer_balance_slot_in_fee_juice_contract =
-        derive_storage_slot_in_map(balances_slot_in_fee_juice_contract, fee_payer);
-    compute_public_data_tree_index(
-        FEE_JUICE_ADDRESS,
-        fee_payer_balance_slot_in_fee_juice_contract,
-    )
 }
