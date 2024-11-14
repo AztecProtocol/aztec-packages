@@ -35,6 +35,7 @@ pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Outputs.
     end_tree_snapshots: TreeSnapshots,
+    end_gas_used: Gas,
     accumulated_data: AvmAccumulatedData,
     transaction_fee: Field,
     reverted: bool,
@@ -55,6 +56,7 @@ impl Empty for AvmCircuitPublicInputs {
             previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData::empty(),
             previous_revertible_accumulated_data: PrivateToAvmAccumulatedData::empty(),
             end_tree_snapshots: TreeSnapshots::empty(),
+            end_gas_used: Gas::empty(),
             accumulated_data: AvmAccumulatedData::empty(),
             transaction_fee: 0,
             reverted: false,
@@ -88,6 +90,7 @@ impl Eq for AvmCircuitPublicInputs {
                     == other.previous_revertible_accumulated_data
             )
             & (self.end_tree_snapshots == other.end_tree_snapshots)
+            & (self.end_gas_used == other.end_gas_used)
             & (self.accumulated_data == other.accumulated_data)
             & (self.transaction_fee == other.transaction_fee)
             & (self.reverted == other.reverted)
@@ -116,6 +119,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.previous_non_revertible_accumulated_data.serialize());
         fields.extend_from_array(self.previous_revertible_accumulated_data.serialize());
         fields.extend_from_array(self.end_tree_snapshots.serialize());
+        fields.extend_from_array(self.end_gas_used.serialize());
         fields.extend_from_array(self.accumulated_data.serialize());
         fields.push(self.transaction_fee);
         fields.push(self.reverted as Field);
@@ -156,6 +160,7 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
                 PrivateToAvmAccumulatedData::deserialize,
             ),
             end_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
+            end_gas_used: reader.read_struct(Gas::deserialize),
             accumulated_data: reader.read_struct(AvmAccumulatedData::deserialize),
             transaction_fee: reader.read(),
             reverted: reader.read() as bool,

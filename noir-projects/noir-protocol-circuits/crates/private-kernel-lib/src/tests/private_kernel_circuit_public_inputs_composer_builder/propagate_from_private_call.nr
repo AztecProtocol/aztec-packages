@@ -161,15 +161,15 @@ fn propagate_from_private_call_encrypted_log_hashes_succeeds() {
 }
 
 #[test]
-fn propagate_from_private_call_unencrypted_log_hashes_succeeds() {
+fn propagate_from_private_call_contract_class_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_unencrypted_log_hashes(2);
-    let res = builder.private_call.unencrypted_logs_hashes.storage;
+    builder.private_call.add_contract_class_log_hash(2, 200);
+    let res = builder.private_call.contract_class_logs_hashes.storage;
 
     let output = builder.compose_from_tx_request();
 
-    assert_array_eq(output.end.unencrypted_logs_hashes, [res[0], res[1]]);
+    assert_array_eq(output.end.contract_class_logs_hashes, [res[0]]);
 }
 
 #[test]

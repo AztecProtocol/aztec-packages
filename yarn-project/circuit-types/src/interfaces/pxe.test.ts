@@ -22,6 +22,7 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
+import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
@@ -42,6 +43,8 @@ import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
 import { type SyncStatus } from './sync-status.js';
+
+jest.setTimeout(12_000);
 
 describe('PXESchema', () => {
   let handler: MockPXE;
@@ -220,6 +223,11 @@ describe('PXESchema', () => {
 
   it('getUnencryptedLogs', async () => {
     const result = await context.client.getUnencryptedLogs({ contractAddress: address });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
+  it('getContractClassLogs', async () => {
+    const result = await context.client.getContractClassLogs({ contractAddress: address });
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
@@ -456,6 +464,10 @@ class MockPXE implements PXE {
     return Promise.resolve(10n);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.contractAddress).toEqual(this.address);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }

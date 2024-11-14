@@ -156,7 +156,7 @@ export class BotFactory {
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(token.methods.mint_public(sender, MINT_BALANCE).request());
+      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE).request());
     }
     if (calls.length === 0) {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
