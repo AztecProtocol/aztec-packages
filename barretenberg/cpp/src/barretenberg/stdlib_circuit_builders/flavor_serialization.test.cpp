@@ -50,8 +50,7 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     // probably not needed
     if constexpr (DoesRecursiveIPA<TypeParam>) {
         original_vkey.contains_ipa_claim = 0;
-        original_vkey.ipa_claim_public_input_indices =
-            std::array<uint32_t, IPA_CLAIM_SIZE>{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        original_vkey.ipa_claim_public_input_indices = std::array<uint32_t, IPA_CLAIM_SIZE>{ 0, 0, 0, 0, 0, 0 };
     }
     // Populate some non-zero values in the databus_propagation_data to ensure its being handled
     if constexpr (IsMegaBuilder<Builder>) {

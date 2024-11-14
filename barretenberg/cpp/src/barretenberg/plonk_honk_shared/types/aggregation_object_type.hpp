@@ -14,7 +14,7 @@ using PairingPointAccumulatorIndices = std::array<uint32_t, PAIRING_POINT_ACCUMU
 // of the nested aggregation object.
 using PairingPointAccumulatorPubInputIndices = std::array<uint32_t, PAIRING_POINT_ACCUMULATOR_SIZE>;
 
-constexpr uint32_t IPA_CLAIM_SIZE = 10;
+constexpr uint32_t IPA_CLAIM_SIZE = 6;
 using IPAClaimIndices = std::array<uint32_t, IPA_CLAIM_SIZE>;
 using IPAClaimPubInputIndices = std::array<uint32_t, IPA_CLAIM_SIZE>;
 } // namespace bb
