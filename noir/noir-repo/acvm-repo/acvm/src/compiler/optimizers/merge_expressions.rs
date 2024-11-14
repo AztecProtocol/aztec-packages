@@ -295,6 +295,7 @@ mod tests {
             public_parameters: PublicInputs::default(),
             return_values: PublicInputs::default(),
             assert_messages: Default::default(),
+            recursive: false,
         };
         check_circuit(circuit);
     }
@@ -347,6 +348,7 @@ mod tests {
             public_parameters: PublicInputs::default(),
             return_values: PublicInputs::default(),
             assert_messages: Default::default(),
+            recursive: false,
         };
         check_circuit(circuit);
     }

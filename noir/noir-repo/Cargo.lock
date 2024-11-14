@@ -1511,6 +1511,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-lock"
+version = "2.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "040b48f80a749da50292d0f47a1e2d5bf1d772f52836c07f64bfccc62ba6e664"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2777,6 +2787,7 @@ dependencies = [
  "criterion",
  "dap",
  "dirs",
+ "file-lock",
  "fm",
  "iai",
  "iter-extended",
@@ -3038,7 +3049,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "proptest",
- "proptest-derive",
+ "proptest-derive 0.4.0",
  "serde",
  "serde_json",
  "strum",
@@ -3161,6 +3172,8 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "petgraph",
+ "proptest",
+ "proptest-derive 0.5.0",
  "rangemap",
  "regex",
  "rustc-hash",
@@ -3723,6 +3736,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "proptest-derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ff7ff745a347b87471d859a377a9a404361e7efc2a971d73424a6d183c0fc77"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
 ]
 
 [[package]]
