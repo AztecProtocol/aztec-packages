@@ -245,7 +245,7 @@ TEST_F(AvmSliceTests, indirectTwoCallsOverlap)
 
 TEST_F(AvmSliceTests, indirectFailedResolution)
 {
-    // TODO(#9131): Re-enable as part of #9131
+    // TODO(#9995): Re-enable as part of #9995
     GTEST_SKIP();
 
     gen_trace_builder({ 2, 3, 4, 5, 6 });
