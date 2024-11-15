@@ -390,7 +390,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             if (uint256_t(scalar).get_bit(0)) {
                 scalar -= fr(1); // make sure to add skew
             }
-
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
@@ -761,7 +760,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                     OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
                 tag_union = OriginTag(tag_union, circuit_scalars[i].get_origin_tag());
             }
-
             element_ct result_point =
                 element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
 
@@ -855,7 +853,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
-
             OriginTag tag_union{};
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));

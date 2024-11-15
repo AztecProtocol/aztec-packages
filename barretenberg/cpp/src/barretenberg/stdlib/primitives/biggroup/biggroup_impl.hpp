@@ -764,7 +764,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     for (size_t i = 0; i < scalars.size(); i++) {
         // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
         // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms even
-        // though the final result satisfies the secureity logic
+        // though the final result satisfies the security logic
         // For example result = submitted_in_round_0 *challenge_from_round_0 +submitted_in_round_1 *
         // challenge_in_round_1 will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is
         // dangerous by itself. To avoid this, we remove the tags, merge them separately and set the result
