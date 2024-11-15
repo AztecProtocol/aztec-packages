@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -30,7 +30,7 @@ class UltraFlavor {
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
-    using PCS = KZG<Curve>;
+    using PCS = IPA<Curve>;
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;

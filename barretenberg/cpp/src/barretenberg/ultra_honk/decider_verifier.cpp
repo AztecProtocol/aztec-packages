@@ -81,15 +81,17 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                transcript,
                                                RefVector(libra_commitments),
                                                libra_evaluations);
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-
+    // <IPA HACK>
+    bool verified = PCS::reduce_verify_batch_opening_claim(opening_claim, pcs_verification_key, transcript);
+    // </IPA HACK>
     return sumcheck_output.verified.value() && verified;
 }
 
 template class DeciderVerifier_<UltraFlavor>;
-template class DeciderVerifier_<UltraKeccakFlavor>;
-template class DeciderVerifier_<MegaFlavor>;
-template class DeciderVerifier_<MegaZKFlavor>;
+// <IPA HACK>
+// template class DeciderVerifier_<UltraKeccakFlavor>;
+// template class DeciderVerifier_<MegaFlavor>;
+// template class DeciderVerifier_<MegaZKFlavor>;
+// </IPA HACK>
 
 } // namespace bb
