@@ -94,8 +94,6 @@ export interface PublicSideEffectTraceInterface {
     functionName: string,
   ): void;
   traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -103,16 +101,8 @@ export interface PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ): void;
-  traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    reverted: boolean,
-  ): void;
+  mergeSuccessfulForkedTrace(nestedTrace: PublicSideEffectTraceInterface): void;
+  mergeRevertedForkedTrace(nestedTrace: PublicSideEffectTraceInterface): void;
   toPublicEnqueuedCallExecutionResult(
     /** How much gas was left after this public execution. */
     endGasLeft: Gas,

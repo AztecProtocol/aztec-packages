@@ -430,8 +430,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    _enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     _publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -442,16 +440,11 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     throw new Error('Not implemented');
   }
 
-  public traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    _appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    _publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    _calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    _reverted: boolean,
-  ) {
+  public mergeSuccessfulForkedTrace(_nestedTrace: this) {
+    throw new Error('Not implemented');
+  }
+
+  public mergeRevertedForkedTrace(_nestedTrace: this) {
     throw new Error('Not implemented');
   }
 
