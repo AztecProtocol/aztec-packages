@@ -167,28 +167,35 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_coefficients_tree(std::span<const FF> betas,
                                                        std::span<const FF> deltas,
-                                                       const std::vector<std::vector<FF>>& prev_level_coeffs,
+                                                       const std::vector<FF>& prev_level_coeffs,
+                                                       size_t width,
                                                        size_t level = 1)
     {
+        // We have reached the root
         if (level == betas.size()) {
-            return prev_level_coeffs[0];
+            return prev_level_coeffs;
         }
 
-        auto degree = level + 1;
-        auto prev_level_width = prev_level_coeffs.size();
-        std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
-        parallel_for_heuristic(
-            prev_level_width / 2,
-            [&](size_t parent) {
-                size_t node = parent * 2;
-                std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
-                for (size_t d = 0; d < degree; d++) {
-                    level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
-                    level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
-                }
-            },
-            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
-        return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
+        auto length = level + 2;
+        // auto prev_level_width = prev_level_coeffs.size();
+        auto new_width = width / 2;
+        std::vector<FF> level_coeffs(new_width * length, 0);
+        // parallel_for_heuristic(
+        //     prev_level_newwidth,
+        //     [&](size_t parent) {
+        size_t node = 0;
+        for (size_t parent = 0; parent < new_width * length; parent += length) {
+            // how do I do this?
+            // std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
+            for (size_t d = 0; d < length - 1; d++) {
+                level_coeffs[parent + d] += prev_level_coeffs[node + d];
+                level_coeffs[parent + d] += prev_level_coeffs[node + length - 1 + d] * betas[level];
+                level_coeffs[parent + d + 1] += prev_level_coeffs[node + length - 1 + d] * deltas[level];
+            }
+            node += 2 * (length - 1);
+        }
+        // /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
+        return construct_coefficients_tree(betas, deltas, level_coeffs, new_width, level + 1);
     }
 
     /**
@@ -203,20 +210,22 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
-                                                              const std::vector<FF>& full_honk_evaluations)
+                                                              std::vector<FF>& full_honk_evaluations)
     {
         auto width = full_honk_evaluations.size();
-        std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
-        parallel_for_heuristic(
-            width / 2,
-            [&](size_t parent) {
-                size_t node = parent * 2;
-                first_level_coeffs[parent][0] =
-                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
-            },
-            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
-        return construct_coefficients_tree(betas, deltas, first_level_coeffs);
+        // std::vector<FF> first_level_coeffs(width, 0);
+        // parallel_for_heuristic(
+        //     width / 2,
+        //     [&](size_t parent) {
+        size_t node = 0;
+        for (size_t parent = 0; parent < width; parent += 2) {
+            full_honk_evaluations[parent] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+            full_honk_evaluations[parent + 1] = full_honk_evaluations[node + 1] * deltas[0];
+            node += 2;
+        }
+        // },
+        // /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
+        return construct_coefficients_tree(betas, deltas, full_honk_evaluations, width / 2);
     }
 
     /**
@@ -339,15 +348,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     {
         PROFILE_THIS();
 
-        // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
+        // Whether to use univariates whose operators ignore some values which an honest prover would compute to be
+        // zero
         constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
         // Determine the number of threads over which to distribute the work
         const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
-        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
-        // doesn't skip computation), so we need to define types depending on the template instantiation
+        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version
+        // that doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
             std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
@@ -373,17 +383,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {
-                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
-                    // are still available for skipping relations, but all derived univariate will ignore those
-                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices
+                    // (they are still available for skipping relations, but all derived univariate will ignore
+                    // those evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
                     extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
 
                     const FF pow_challenge = gate_separators[idx];
 
-                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
-                    // this function have already been folded. Moreover, linear-dependent relations that act over the
-                    // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed
+                    // to this function have already been folded. Moreover, linear-dependent relations that act over
+                    // the entire execution trace rather than on rows, will not be multiplied by the pow challenge.
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                     extended_univariates[thread_idx],
                                                     relation_parameters, // these parameters have already been folded
