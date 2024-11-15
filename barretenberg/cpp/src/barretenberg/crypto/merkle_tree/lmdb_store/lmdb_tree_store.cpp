@@ -2,6 +2,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
@@ -44,14 +45,6 @@ int block_key_cmp(const MDB_val* a, const MDB_val* b)
 int index_key_cmp(const MDB_val* a, const MDB_val* b)
 {
     return value_cmp<uint64_t>(a, b);
-}
-
-std::ostream& operator<<(std::ostream& os, const StatsMap& stats)
-{
-    for (const auto& it : stats) {
-        os << it.second << std::endl;
-    }
-    return os;
 }
 
 LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
@@ -106,22 +99,23 @@ LMDBTreeStore::ReadTransaction::Ptr LMDBTreeStore::create_read_transaction()
     return std::make_unique<LMDBTreeReadTransaction>(_environment);
 }
 
-void LMDBTreeStore::get_stats(StatsMap& stats, ReadTransaction& tx)
+void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
 {
 
     MDB_stat stat;
     MDB_envinfo info;
     call_lmdb_func(mdb_env_info, _environment->underlying(), &info);
+    stats.mapSize = info.me_mapsize;
     call_lmdb_func(mdb_stat, tx.underlying(), _blockDatabase->underlying(), &stat);
-    stats["blocks"] = DBStats("block", info, stat);
+    stats.blocksDBStats = DBStats(BLOCKS_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafHashToPreImageDatabase->underlying(), &stat);
-    stats["leaf preimages"] = DBStats("leaf preimages", info, stat);
+    stats.leafPreimagesDBStats = DBStats(LEAF_PREIMAGES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafValueToIndexDatabase->underlying(), &stat);
-    stats["leaf indices"] = DBStats("leaf indices", info, stat);
+    stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
-    stats["nodes"] = DBStats("nodes", info, stat);
+    stats.nodesDBStats = DBStats(NODES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafIndexToKeyDatabase->underlying(), &stat);
-    stats["leaf keys"] = DBStats("leaf keys", info, stat);
+    stats.leafKeysDBStats = DBStats(LEAF_KEYS_DB, stat);
 }
 
 void LMDBTreeStore::write_block_data(uint64_t blockNumber,
@@ -237,7 +231,7 @@ void LMDBTreeStore::delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx
 
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
                                 Indices& indices,
-                                std::optional<index_t> sizeLimit,
+                                const std::optional<index_t>& sizeLimit,
                                 ReadTransaction& tx)
 {
     std::vector<uint8_t> data;
