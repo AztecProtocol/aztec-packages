@@ -10,7 +10,6 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
-#include <arpa/inet.h>
 #include <vector>
 
 using namespace bb;
