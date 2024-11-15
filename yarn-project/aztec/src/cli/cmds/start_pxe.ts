@@ -20,7 +20,7 @@ import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
 
-const contractAddressesUrl = 'http://static.aztec.network';
+const contractAddressesUrl = 'https://static.aztec.network';
 
 export async function startPXE(
   options: any,
