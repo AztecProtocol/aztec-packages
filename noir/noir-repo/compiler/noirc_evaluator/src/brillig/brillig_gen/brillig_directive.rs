@@ -173,8 +173,7 @@ pub(crate) fn directive_to_radix<F: AcirField>() -> GeneratedBrillig<F> {
     // address of the result array
     let result_base_adr = 10_usize;
 
-    let result_vector =
-        HeapVector { pointer: MemoryAddress::direct(result_base_adr), size: limbs_nb };
+    let result_vector = HeapVector { pointer: result_pointer, size: limbs_nb };
 
     let byte_code = vec![
         // Initialize registers
@@ -264,6 +263,12 @@ pub(crate) fn directive_to_radix<F: AcirField>() -> GeneratedBrillig<F> {
         },
         // loop back
         BrilligOpcode::JumpIf { condition: cond, location: 7 },
+        // reset result pointer to the start of the array
+        BrilligOpcode::Const {
+            destination: result_pointer,
+            bit_size: memory_adr_size,
+            value: F::from(result_base_adr),
+        },
         BrilligOpcode::Stop { return_data: result_vector },
     ];
 
