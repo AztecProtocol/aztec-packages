@@ -21,7 +21,7 @@ class UltraExecutionTrace;
 template <class FF> class StandardCircuitBuilder_;
 using StandardCircuitBuilder = StandardCircuitBuilder_<field<Bn254FrParams>>;
 using StandardGrumpkinCircuitBuilder = StandardCircuitBuilder_<field<Bn254FqParams>>;
-template <class Arithmetization> class UltraCircuitBuilder_;
+template <class ExecutionTrace> class UltraCircuitBuilder_;
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTrace>;
 template <class FF> class MegaCircuitBuilder_;
 using MegaCircuitBuilder = MegaCircuitBuilder_<field<Bn254FrParams>>;

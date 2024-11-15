@@ -4,7 +4,7 @@
 
 namespace bb {
 
-template <typename FF_> class StandardArith {
+template <typename FF_> class StandardExecutionTrace {
   public:
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t NUM_SELECTORS = 5;

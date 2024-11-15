@@ -12,7 +12,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     DataBus databus; // Container for public calldata/returndata
 
   public:
-    using Arithmetization = MegaExecutionTrace;
+    using ExecutionTrace = MegaExecutionTrace;
 
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =

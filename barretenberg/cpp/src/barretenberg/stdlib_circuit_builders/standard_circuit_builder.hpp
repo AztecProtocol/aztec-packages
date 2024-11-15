@@ -13,15 +13,15 @@ namespace bb {
 
 template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase<FF> {
   public:
-    using Arithmetization = StandardArith<FF>;
-    using GateBlocks = typename Arithmetization::TraceBlocks;
-    static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
+    using ExecutionTrace = StandardExecutionTrace<FF>;
+    using GateBlocks = typename ExecutionTrace::TraceBlocks;
+    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
-    static constexpr size_t program_width = Arithmetization::NUM_WIRES;
-    static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
-    std::vector<std::string> selector_names = Arithmetization::selector_names;
+    static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
+    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
+    std::vector<std::string> selector_names = ExecutionTrace::selector_names;
 
-    static constexpr std::string_view NAME_STRING = "StandardArithmetization";
+    static constexpr std::string_view NAME_STRING = "StandardExecutionTrace";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::STANDARD;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;

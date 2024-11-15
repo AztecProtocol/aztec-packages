@@ -317,7 +317,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<Fr, NUM_BINARY_LIMBS> v_cubed_limbs = { 0 };
         std::array<Fr, NUM_BINARY_LIMBS> v_quarted_limbs = { 0 };
     };
-    static constexpr std::string_view NAME_STRING = "TranslatorArithmetization";
+
+    static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
 
     // The challenge that is used for batching together evaluations of several polynomials
     Fq batching_challenge_v;
