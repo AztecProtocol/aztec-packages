@@ -7,6 +7,7 @@ import {
   EpochProofQuotePayload,
   TxStatus,
   createDebugLogger,
+  retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
@@ -402,6 +403,12 @@ describe('e2e_prover_coordination', () => {
 
     // Wait a bit for the sequencer / node to notice a re-org
     await sleep(2000);
+    await retryUntil(
+      async () => (await ctx.aztecNode.getTxReceipt(tx2BeforeReorg.txHash)).status === TxStatus.SUCCESS,
+      'wait for re-inclusion',
+      60,
+      1,
+    );
 
     // the sequencer will add valid txs again but in a new block
     const tx2AfterReorg = await ctx.aztecNode.getTxReceipt(tx2BeforeReorg.txHash);

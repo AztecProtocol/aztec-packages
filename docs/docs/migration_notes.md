@@ -6,6 +6,21 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.63.0
+### [Token contract] Partial notes related refactor
+We've decided to replace the old "shield" flow with one leveraging partial notes.
+This led to a removal of `shield` and `redeem_shield` functions and an introduction of `transfer_to_private`.
+An advantage of the new approach is that only 1 tx is required and the API of partial notes is generally nicer.
+For more information on partial notes refer to docs.
+
+### [Token contract] Function naming changes
+There have been a few naming changes done for improved consistency.
+These are the renamings:
+`transfer_public` --> `transfer_in_public`
+`transfer_from` --> `transfer_in_private`
+`mint_public` --> `mint_to_public`
+`burn` --> `burn_private`
+
 ## 0.62.0
 ### [TXE] Single execution environment
 Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.

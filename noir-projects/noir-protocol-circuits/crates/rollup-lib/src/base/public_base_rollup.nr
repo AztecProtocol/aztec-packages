@@ -74,10 +74,20 @@ impl PublicBaseRollupInputs {
                 from_private.revertible_accumulated_data.encrypted_logs_hashes,
             )
         };
+        let contract_class_logs_hashes = if reverted {
+            from_private.non_revertible_accumulated_data.contract_class_logs_hashes
+        } else {
+            array_merge(
+                from_private.non_revertible_accumulated_data.contract_class_logs_hashes,
+                from_private.revertible_accumulated_data.contract_class_logs_hashes,
+            )
+        };
         let note_encrypted_log_preimages_length =
             note_encrypted_logs_hashes.fold(0, |len, l: LogHash| len + l.length);
         let encrypted_log_preimages_length =
             encrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
+        let contract_class_log_preimages_length =
+            contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let unencrypted_log_preimages_length = from_public
             .accumulated_data
             .unencrypted_logs_hashes
@@ -89,9 +99,11 @@ impl PublicBaseRollupInputs {
             note_encrypted_logs_hashes,
             encrypted_logs_hashes,
             unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
+            contract_class_logs_hashes,
             note_encrypted_log_preimages_length,
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
+            contract_class_log_preimages_length,
             public_data_writes: from_public.accumulated_data.public_data_writes,
         };
 

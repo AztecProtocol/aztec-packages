@@ -80,7 +80,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_public(address, 200).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

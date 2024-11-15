@@ -130,6 +130,11 @@ export class ContractDataOracle {
     return tree.getFunctionMembershipWitness(selector);
   }
 
+  public async getDebugContractName(contractAddress: AztecAddress) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    return tree.getArtifact().name;
+  }
+
   public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTreeForAddress(contractAddress);
     const { name: contractName } = tree.getArtifact();

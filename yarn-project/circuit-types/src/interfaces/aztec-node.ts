@@ -30,7 +30,7 @@ import {
   type LogFilter,
   LogFilterSchema,
   LogType,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
@@ -50,13 +50,17 @@ import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-c
  */
 export interface AztecNode extends ProverCoordination {
   /**
-   * Find the index of the given leaf in the given tree.
+   * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The value to search for
-   * @returns The index of the given leaf in the given tree or undefined if not found.
+   * @param leafValue - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeavesIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
@@ -258,12 +262,19 @@ export interface AztecNode extends ProverCoordination {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
    array implies no logs match that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -385,10 +396,10 @@ export interface AztecNode extends ProverCoordination {
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   ...ProverCoordinationApiSchema,
 
-  findLeafIndex: z
+  findLeavesIndexes: z
     .function()
-    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), schemas.Fr)
-    .returns(schemas.BigInt.optional()),
+    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
+    .returns(z.array(optional(schemas.BigInt))),
 
   getNullifierSiblingPath: z
     .function()
@@ -463,10 +474,12 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
 
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
-    .returns(z.array(z.array(TxScopedEncryptedL2NoteLog.schema))),
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),
 

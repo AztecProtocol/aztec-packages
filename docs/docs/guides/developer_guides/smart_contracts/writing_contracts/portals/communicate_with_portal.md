@@ -53,7 +53,7 @@ The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Azt
 
 ### Token portal hash library
 
-#include_code mint_public_content_hash_nr /noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr rust
+#include_code mint_to_public_content_hash_nr /noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
 ### Token Portal contract
 

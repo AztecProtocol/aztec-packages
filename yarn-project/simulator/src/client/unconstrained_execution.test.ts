@@ -53,6 +53,8 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getHeader.mockResolvedValue(Header.empty());
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
