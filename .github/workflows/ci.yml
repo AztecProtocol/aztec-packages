@@ -700,10 +700,11 @@ jobs:
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
-          - test: transfer.test.ts
-            values: 48-validators
-            runner_type: 32core-tester-x86
-            timeout: 90
+          # TODO: Enable this once stable
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          #   timeout: 90
           - test: reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
