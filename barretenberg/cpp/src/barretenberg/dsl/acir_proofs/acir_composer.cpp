@@ -15,6 +15,8 @@ namespace acir_proofs {
 using namespace bb;
 using Composer = plonk::UltraComposer;
 
+constexpr size_t PROOF_SIZE_WITHOUT_PUBLIC_INPUTS = 2144;
+
 AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     : size_hint_(size_hint)
     , verbose_(verbose)
@@ -109,7 +111,7 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof)
     }
 
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
-    builder_.public_inputs.resize((proof.size() - 2144) / 32);
+    builder_.public_inputs.resize((proof.size() - PROOF_SIZE_WITHOUT_PUBLIC_INPUTS) / 32);
 
     if (verification_key_->is_recursive_circuit) {
         auto verifier = composer.create_verifier(builder_);
