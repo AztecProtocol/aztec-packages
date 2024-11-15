@@ -109,13 +109,3 @@ fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
 
     builder.validate();
 }
-
-#[test(should_fail_with = "invalid array")]
-fn validate_arrays_malformed_unencrypted_logs_hashes_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new();
-
-    builder.private_call.append_unencrypted_log_hashes(1);
-    unshift_empty_item(&mut builder.private_call.unencrypted_logs_hashes);
-
-    builder.validate();
-}

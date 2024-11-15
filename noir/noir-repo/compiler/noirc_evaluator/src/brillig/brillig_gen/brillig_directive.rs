@@ -73,8 +73,6 @@ pub(crate) fn directive_invert<F: AcirField>() -> GeneratedBrillig<F> {
                 return_data: HeapVector { pointer: zero_usize, size: one_usize },
             },
         ],
-        error_types: Default::default(),
-        locations: Default::default(),
         name: "directive_invert".to_string(),
         ..Default::default()
     }
@@ -144,8 +142,6 @@ pub(crate) fn directive_quotient<F: AcirField>() -> GeneratedBrillig<F> {
                 },
             },
         ],
-        error_types: Default::default(),
-        locations: Default::default(),
         name: "directive_integer_quotient".to_string(),
         ..Default::default()
     }

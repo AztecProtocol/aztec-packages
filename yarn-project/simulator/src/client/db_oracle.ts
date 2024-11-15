@@ -1,10 +1,11 @@
 import {
   type L2Block,
+  type L2BlockNumber,
   type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
@@ -146,7 +147,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param leafValue - The leaf value buffer.
    * @returns - The index of the leaf. Undefined if it does not exist in the tree.
    */
-  findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
    * Fetch the sibling path of the leaf in the respective tree
@@ -204,7 +205,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  getAppTaggingSecret(
+  getAppTaggingSecretAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -216,7 +217,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    */
-  incrementAppTaggingSecret(
+  incrementAppTaggingSecretIndexAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -229,12 +230,16 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The address of the recipient
    * @returns A list of encrypted logs tagged with the recipient's address
    */
-  syncTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<TxScopedEncryptedL2NoteLog[]>;
+  syncTaggedLogs(
+    contractAddress: AztecAddress,
+    maxBlockNumber: number,
+    scopes?: AztecAddress[],
+  ): Promise<Map<string, TxScopedL2Log[]>>;
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
    * @param logs - The logs to process.
    * @param recipient - The recipient of the logs.
    */
-  processTaggedLogs(logs: TxScopedEncryptedL2NoteLog[], recipient: AztecAddress): Promise<void>;
+  processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 }

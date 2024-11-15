@@ -117,6 +117,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;
     }
+    // Execute Shplemini
 
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -127,6 +128,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                Commitment::one(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations,
                                                commitments.get_groups_to_be_concatenated(),

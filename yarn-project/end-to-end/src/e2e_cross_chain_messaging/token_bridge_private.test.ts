@@ -72,7 +72,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     const nonce = Fr.random();
     await user1Wallet.createAuthWit({
       caller: l2Bridge.address,
-      action: l2Token.methods.burn(ownerAddress, withdrawAmount, nonce),
+      action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, nonce),
     });
     // docs:end:authwit_to_another_sc
 
