@@ -108,7 +108,6 @@ import {
   type PublicDataHint,
   type PublicDataLeafHint,
   PublicDataRead,
-  type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicDataWrite,
@@ -242,7 +241,6 @@ import type {
   PublicDataHint as PublicDataHintNoir,
   PublicDataLeafHint as PublicDataLeafHintNoir,
   PublicDataRead as PublicDataReadNoir,
-  PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   PublicDataWrite as PublicDataWriteNoir,
@@ -2529,16 +2527,6 @@ function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness
   return {
     leaf_index: witness.leafIndex.toString(),
     sibling_path: siblingPath,
-  };
-}
-
-/**
- * Maps a leaf of the public data tree to noir.
- */
-export function mapPublicDataTreeLeafToNoir(leaf: PublicDataTreeLeaf): PublicDataTreeLeafNoir {
-  return {
-    slot: mapFieldToNoir(leaf.slot),
-    value: mapFieldToNoir(leaf.value),
   };
 }
 

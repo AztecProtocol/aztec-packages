@@ -12,6 +12,7 @@
 #include "msgpack/assert.hpp"
 #include <cstdint>
 #include <exception>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -637,19 +638,15 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
 
+        std::cout << "Committed meta " << committedMeta << std::endl;
+        std::cout << "Uncommitted meta " << uncommittedMeta << std::endl;
         // if the meta datas are different, we have uncommitted data
         bool metaToCommit = committedMeta != uncommittedMeta;
-        if (!metaToCommit) {
-            return;
-        }
+        std::cout << "Meta to commit? " << metaToCommit << std::endl;
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
-        if (!dataPresent) {
-            // no uncommitted data present, if we were asked to commit as a block then we can't
-            if (asBlock) {
-                throw std::runtime_error("Can't commit as block if no data present");
-            }
-        } else {
+        std::cout << "Data present? " << dataPresent << std::endl;
+        if (dataPresent) {
             // data is present, hydrate persisted indices
             hydrate_indices_from_persisted_store(*tx);
         }
@@ -658,22 +655,26 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         WriteTransactionPtr tx = create_write_transaction();
         try {
             if (dataPresent) {
-                // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
+                std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
+                std::cout << "Persisted leaf indices" << std::endl;
                 persist_leaf_keys(uncommittedMeta.committedSize, *tx);
+                std::cout << "Persisted leaf keys" << std::endl;
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
-                if (asBlock) {
-                    ++uncommittedMeta.unfinalisedBlockHeight;
-                    if (uncommittedMeta.oldestHistoricBlock == 0) {
-                        uncommittedMeta.oldestHistoricBlock = 1;
-                    }
-                    // std::cout << "New root " << uncommittedMeta.root << std::endl;
-                    BlockPayload block{ .size = uncommittedMeta.size,
-                                        .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
-                                        .root = uncommittedMeta.root };
-                    dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
-                }
+                std::cout << "Persisted root" << std::endl;
             }
+            if (asBlock) {
+                ++uncommittedMeta.unfinalisedBlockHeight;
+                if (uncommittedMeta.oldestHistoricBlock == 0) {
+                    uncommittedMeta.oldestHistoricBlock = 1;
+                }
+                // std::cout << "New root " << uncommittedMeta.root << std::endl;
+                BlockPayload block{ .size = uncommittedMeta.size,
+                                    .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
+                                    .root = uncommittedMeta.root };
+                dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
+            }
+
             uncommittedMeta.committedSize = uncommittedMeta.size;
             persist_meta(uncommittedMeta, *tx);
             tx->commit();
@@ -1129,6 +1130,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         }
 
         if (meta_.unfinalisedBlockHeight < blockNumber) {
+            std::cout << "Unfinalised block height " << meta_.unfinalisedBlockHeight << std::endl;
+            std::cout << "Block number " << blockNumber << std::endl;
+            std::cout << "Meta " << meta_ << std::endl;
             throw std::runtime_error("Unable to initialise from future block");
         }
         if (meta_.oldestHistoricBlock > blockNumber && blockNumber != 0) {

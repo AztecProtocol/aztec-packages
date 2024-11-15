@@ -149,15 +149,18 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
     const batchesOfPaddedPublicDataWrites: PublicDataTreeLeaf[][] = [];
     for (const txEffect of paddedTxEffects) {
-      const batch: PublicDataTreeLeaf[] = Array(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX).fill(
-        PublicDataTreeLeaf.empty(),
+      batchesOfPaddedPublicDataWrites.push(
+        txEffect.publicDataWrites.map(write => {
+          if (write.isEmpty()) {
+            console.log(txEffect);
+            throw new Error('Public data write must not be empty when syncing');
+          }
+          return new PublicDataTreeLeaf(write.leafSlot, write.value);
+        }),
       );
-      for (const [i, write] of txEffect.publicDataWrites.entries()) {
-        batch[i] = new PublicDataTreeLeaf(write.leafSlot, write.value);
-      }
-
-      batchesOfPaddedPublicDataWrites.push(batch);
     }
+
+    console.log(batchesOfPaddedPublicDataWrites);
 
     const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
       blockNumber: l2Block.number,
