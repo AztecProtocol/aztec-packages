@@ -73,8 +73,9 @@ struct ExecutionTraceUsageTracker {
         size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
 
         // WORKTODO: should be able to use Range{ 0, max_databus_size } but this breaks for certain num_threads.. why
-        active_ranges.push_back(
-            Range{ 0, std::max(max_databus_size, fixed_sizes.busread.trace_offset + max_sizes.busread) });
+        size_t databus_end =
+            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
+        active_ranges.push_back(Range{ 0, databus_end });
         // active_ranges.push_back(Range{ 0, max_databus_size });
         active_ranges.push_back(Range{ dyadic_circuit_size - max_tables_size, dyadic_circuit_size });
     }
