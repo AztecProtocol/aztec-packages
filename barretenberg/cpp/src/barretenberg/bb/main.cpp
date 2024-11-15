@@ -357,9 +357,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     }
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Accumulate the entire program stack into the IVC
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
@@ -446,9 +444,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
@@ -499,9 +495,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     init_grumpkin_crs(1 << 16);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this

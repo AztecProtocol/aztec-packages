@@ -36,7 +36,7 @@ class MegaFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = CircuitBuilder::Arithmetization::TraceBlocks;
+    using TraceBlocks = MegaExecutionTraceBlocks;
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;

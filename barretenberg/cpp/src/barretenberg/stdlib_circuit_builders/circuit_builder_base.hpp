@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>

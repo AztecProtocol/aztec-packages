@@ -1,4 +1,4 @@
-#include "execution_trace.hpp"
+#include "trace_to_polynomials.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
@@ -6,7 +6,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 namespace bb {
 
-template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
+template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
 {
     PROFILE_THIS_NAME("populate_public_inputs_block");
 
@@ -26,7 +26,9 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 }
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
+void TraceToPolynomials<Flavor>::populate(Builder& builder,
+                                          typename Flavor::ProvingKey& proving_key,
+                                          bool is_structured)
 {
 
     PROFILE_THIS_NAME("trace populate");
@@ -62,9 +64,9 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
 }
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
-                                                                Builder& builder,
-                                                                typename Flavor::ProvingKey& proving_key)
+void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
+                                                                   Builder& builder,
+                                                                   typename Flavor::ProvingKey& proving_key)
     requires IsUltraPlonkOrHonk<Flavor>
 {
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
@@ -79,7 +81,7 @@ void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(TraceData& trace
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
+typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
 
@@ -151,8 +153,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 }
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                              typename Flavor::ProvingKey& proving_key)
+void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
+                                                                 typename Flavor::ProvingKey& proving_key)
     requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
@@ -170,11 +172,11 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
     }
 }
 
-template class ExecutionTrace_<UltraFlavor>;
-template class ExecutionTrace_<UltraKeccakFlavor>;
-template class ExecutionTrace_<MegaFlavor>;
-template class ExecutionTrace_<MegaZKFlavor>;
-template class ExecutionTrace_<plonk::flavor::Standard>;
-template class ExecutionTrace_<plonk::flavor::Ultra>;
+template class TraceToPolynomials<UltraFlavor>;
+template class TraceToPolynomials<UltraKeccakFlavor>;
+template class TraceToPolynomials<MegaFlavor>;
+template class TraceToPolynomials<MegaZKFlavor>;
+template class TraceToPolynomials<plonk::flavor::Standard>;
+template class TraceToPolynomials<plonk::flavor::Ultra>;
 
 } // namespace bb

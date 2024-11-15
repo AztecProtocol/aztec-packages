@@ -61,8 +61,7 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Confirm that the IVC proof can be natively verified
@@ -76,8 +75,7 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
 TEST_F(ClientIVCRecursionTests, Basic)
 {
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
@@ -98,8 +96,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 {
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
