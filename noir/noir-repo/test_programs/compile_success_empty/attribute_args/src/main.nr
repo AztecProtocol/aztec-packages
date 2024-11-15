@@ -13,7 +13,7 @@ comptime fn attr_with_args(s: StructDefinition, a: Field, b: Field) {
 
 #[varargs]
 comptime fn attr_with_varargs(s: StructDefinition, t: [Field]) {
-    let _: StructDefinition = s;
+    let _ = s;
     for _ in t {}
     assert(t.len() < 5);
 }
