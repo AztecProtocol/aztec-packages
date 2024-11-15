@@ -280,7 +280,7 @@ void fill_lookup_block(Builder& builder)
 void fill_trace(State& state, TraceSettings settings)
 {
     Builder builder;
-    builder.blocks.set_fixed_block_sizes(settings);
+    builder.blocks.set_fixed_sizes(settings);
 
     fill_ecc_op_block(builder);
     fill_pub_inputs_block(builder);
