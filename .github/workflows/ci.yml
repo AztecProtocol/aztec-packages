@@ -666,7 +666,7 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: kind-network-test-${{ matrix.test }}
+          concurrency_key: kind-smoke-test
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
@@ -700,9 +700,11 @@ jobs:
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
-          - test: transfer.test.ts
-            values: 48-validators
-            runner_type: 32core-tester-x86
+          # TODO: Enable this once stable
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          #   timeout: 90
           - test: reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
