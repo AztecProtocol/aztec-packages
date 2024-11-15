@@ -39,7 +39,7 @@ struct ExecutionTraceUsageTracker {
 
         if (trace_settings.structure) {
             info("yes trace structure");
-            fixed_sizes.set_fixed_sizes(trace_settings);
+            fixed_sizes.set_fixed_block_sizes(trace_settings);
         }
 
         fixed_sizes.compute_offsets(/*is_structured=*/true);

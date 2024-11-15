@@ -163,7 +163,7 @@ class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
         this->pub_inputs.is_pub_inputs = true;
     }
 
-    void set_fixed_sizes(const TraceSettings& settings)
+    void set_fixed_block_sizes(const TraceSettings& settings)
     {
         if (settings.structure) {
             for (auto [block, size] : zip_view(this->get(), settings.structure.value().get())) {
@@ -178,7 +178,7 @@ class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
     MegaExecutionTrace(const TraceSettings& settings)
         : MegaExecutionTrace()
     {
-        set_fixed_sizes(settings);
+        set_fixed_block_sizes(settings);
     }
 
     void compute_offsets(bool is_structured)
