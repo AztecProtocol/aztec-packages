@@ -1,11 +1,8 @@
 use crate::{test::utils, Token};
-use dep::aztec::{
-    keys::getters::get_public_keys, oracle::random::random,
-    protocol_types::storage::map::derive_storage_slot_in_map,
-};
+use dep::aztec::oracle::random::random;
 use std::test::OracleMock;
 
-/// Internal orchestration means that the calls to `prepare_transfer_to_private`
+/// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
 /// In this test's case this is done by the `Token::transfer_to_private(...)` function called
 /// in `utils::setup_mint_and_transfer_to_private`.
@@ -36,7 +33,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 
     // We prepare the transfer
     let hiding_point_slot: Field = Token::at(token_contract_address)
-        .prepare_transfer_to_private(recipient)
+        .prepare_private_balance_increase(recipient)
         .call(&mut env.private());
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
@@ -82,7 +79,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // as the token balance check is before we use the value but that would made the test less robust against changes
     // in the contract.)
     let hiding_point_slot: Field = Token::at(token_contract_address)
-        .prepare_transfer_to_private(not_owner)
+        .prepare_private_balance_increase(not_owner)
         .call(&mut env.private());
 
     // Try transferring someone else's token balance

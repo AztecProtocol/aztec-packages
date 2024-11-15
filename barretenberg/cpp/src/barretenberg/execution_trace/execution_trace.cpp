@@ -45,7 +45,7 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
     }
 
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
 
         PROFILE_THIS_NAME("add_ecc_op_wires_to_proving_key");
 
@@ -100,7 +100,9 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
         // Save ranges over which the blocks are "active" for use in structured commitments
         if constexpr (IsHonkFlavor<Flavor>) {
-            proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
+            if (block.size() > 0) {
+                proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
+            }
         }
 
         // Update wire polynomials and copy cycles
@@ -151,7 +153,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
                                                               typename Flavor::ProvingKey& proving_key)
-    requires IsGoblinFlavor<Flavor>
+    requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;

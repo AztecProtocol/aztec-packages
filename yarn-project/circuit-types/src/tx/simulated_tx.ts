@@ -7,14 +7,19 @@ import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,
 } from '../interfaces/private_kernel_prover.js';
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
+import {
+  ContractClassTxL2Logs,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
+  UnencryptedTxL2Logs,
+} from '../logs/tx_l2_logs.js';
 import {
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
+  collectSortedContractClassLogs,
   collectSortedEncryptedLogs,
   collectSortedNoteEncryptedLogs,
-  collectSortedUnencryptedLogs,
 } from '../private_execution_result.js';
 import { type GasUsed } from './gas_used.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
@@ -32,17 +37,19 @@ export class PrivateSimulationResult {
 
   toSimulatedTx(): Tx {
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
+    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
+    // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
     const tx = new Tx(
       this.publicInputs,
       ClientIvcProof.empty(),
       noteEncryptedLogs,
       encryptedLogs,
-      unencryptedLogs,
+      UnencryptedTxL2Logs.empty(), // *unencrypted logs
+      contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
@@ -146,17 +153,19 @@ export class TxProvingResult {
 
   toTx(): Tx {
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
+    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
+    // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
     const tx = new Tx(
       this.publicInputs,
       this.clientIvcProof,
       noteEncryptedLogs,
       encryptedLogs,
-      unencryptedLogs,
+      UnencryptedTxL2Logs.empty(), // *unencrypted logs
+      contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );

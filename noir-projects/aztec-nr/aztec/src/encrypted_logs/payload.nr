@@ -14,7 +14,10 @@ use std::{
 use crate::{
     encrypted_logs::header::EncryptedLogHeader,
     keys::point_to_symmetric_key::point_to_symmetric_key,
-    oracle::{notes::{get_app_tag_bytes, increment_app_tagging_secret}, random::random},
+    oracle::{
+        notes::{get_app_tag_bytes_as_sender, increment_app_tagging_secret_index_as_sender},
+        random::random,
+    },
     utils::point::point_to_bytes,
 };
 
@@ -128,8 +131,8 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
     // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
     // automatically.
-    let tag_bytes = unsafe { get_app_tag_bytes(sender, recipient) };
-    increment_app_tagging_secret(sender, recipient);
+    let tag_bytes = unsafe { get_app_tag_bytes_as_sender(sender, recipient) };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
 
     for i in 0..32 {
         encrypted_bytes[offset + i] = tag_bytes[i];
@@ -331,13 +334,9 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
-        let _ = OracleMock::mock("getAppTaggingSecret").returns([
-            69420,
-            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
-            1337,
-        ]);
+        let _ = OracleMock::mock("getAppTaggingSecretAsSender").returns([69420, 1337]);
 
-        let _ = OracleMock::mock("incrementAppTaggingSecret");
+        let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
         let log = compute_private_log_payload(
             contract_address,
