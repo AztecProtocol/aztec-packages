@@ -246,6 +246,7 @@ mod tests {
             public_parameters,
             return_values: PublicInputs::default(),
             assert_messages: Default::default(),
+            recursive: false,
         }
     }
 
