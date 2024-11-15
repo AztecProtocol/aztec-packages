@@ -16,7 +16,7 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
   dataStoreMapSizeKB: {
     env: 'DATA_STORE_MAP_SIZE_KB',
     description: 'DB mapping size to be applied to all key/value stores',
-    ...numberConfigHelper(1_024 * 1_024 * 1_024), // Defaulted to 1TB
+    ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
