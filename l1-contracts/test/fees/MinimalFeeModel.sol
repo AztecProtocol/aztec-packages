@@ -3,29 +3,21 @@
 pragma solidity >=0.8.27;
 
 import {FeeMath, OracleInput} from "@aztec/core/libraries/FeeMath.sol";
-import {Timestamp, TimeFns, Slot} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, TimeFns, Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {
+  ManaBaseFeeComponents, L1Fees, L1GasOracleValues, FeeHeader
+} from "./FeeModelTestPoints.t.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
-struct BaseFees {
-  uint256 baseFee;
-  uint256 blobFee;
-}
-
-// This actually behaves pretty close to the slow updates.
-struct L1BaseFees {
-  BaseFees pre;
-  BaseFees post;
-  Slot slotOfChange;
-}
-
-struct DataPoint {
-  uint256 provingCostNumerator;
-  uint256 feeAssetPriceNumerator;
-}
+// The data types are slightly messed up here, the reason is that
+// we just want to use the same structs from the test points making
+// is simpler to compare etc.
 
 contract MinimalFeeModel is TimeFns {
   using FeeMath for OracleInput;
   using FeeMath for uint256;
+  using SlotLib for Slot;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -36,30 +28,89 @@ contract MinimalFeeModel is TimeFns {
   Timestamp public immutable GENESIS_TIMESTAMP;
 
   uint256 public populatedThrough = 0;
-  mapping(uint256 _slotNumber => DataPoint _dataPoint) public dataPoints;
+  mapping(uint256 slotNumber => FeeHeader feeHeader) public feeHeaders;
 
-  L1BaseFees public l1BaseFees;
+  L1GasOracleValues public l1BaseFees;
 
   constructor(uint256 _slotDuration, uint256 _epochDuration) TimeFns(_slotDuration, _epochDuration) {
     GENESIS_TIMESTAMP = Timestamp.wrap(block.timestamp);
-    dataPoints[0] = DataPoint({provingCostNumerator: 0, feeAssetPriceNumerator: 0});
+    feeHeaders[0] = FeeHeader({
+      excess_mana: 0,
+      fee_asset_price_numerator: 0,
+      mana_used: 0,
+      proving_cost_per_mana_numerator: 0
+    });
 
-    l1BaseFees.pre = BaseFees({baseFee: 1 gwei, blobFee: 1});
-    l1BaseFees.post = BaseFees({baseFee: block.basefee, blobFee: _getBlobBaseFee()});
-    l1BaseFees.slotOfChange = LIFETIME;
+    l1BaseFees.pre = L1Fees({base_fee: 1 gwei, blob_fee: 1});
+    l1BaseFees.post = L1Fees({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
+    l1BaseFees.slot_of_change = LIFETIME.unwrap();
   }
 
-  // See the `add_slot` function in the `fee-model.ipynb` notebook for more context.
+  function getL1GasOracleValues() public view returns (L1GasOracleValues memory) {
+    return l1BaseFees;
+  }
+
+  // For all of the estimations we have been using `3` blobs.
+  function manaBaseFeeComponents(uint256 _blobsUsed, bool _inFeeAsset)
+    public
+    view
+    returns (ManaBaseFeeComponents memory)
+  {
+    L1Fees memory fees = getCurrentL1Fees();
+    uint256 dataCost =
+      Math.mulDiv(_blobsUsed * 2 ** 17, fees.blob_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 casUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * 50_000
+      + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
+    uint256 gasCost = Math.mulDiv(casUsed, fees.base_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 provingCost = getProvingCost();
+
+    uint256 congestionMultiplier = FeeMath.congestionMultiplier(calcExcessMana());
+
+    uint256 total = dataCost + gasCost + provingCost;
+    uint256 congestionCost =
+      (total * congestionMultiplier / FeeMath.MINIMUM_CONGESTION_MULTIPLIER) - total;
+
+    uint256 feeAssetPrice = _inFeeAsset ? getFeeAssetPrice() : 1e9;
+
+    return ManaBaseFeeComponents({
+      data_cost: Math.mulDiv(dataCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      gas_cost: Math.mulDiv(gasCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      proving_cost: Math.mulDiv(provingCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      congestion_cost: Math.mulDiv(congestionCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      congestion_multiplier: congestionMultiplier
+    });
+  }
+
+  function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeader memory) {
+    return feeHeaders[_slotNumber];
+  }
+
+  function calcExcessMana() internal view returns (uint256) {
+    FeeHeader storage parent = feeHeaders[populatedThrough];
+    return (parent.excess_mana + parent.mana_used).clampedAdd(-int256(FeeMath.MANA_TARGET));
+  }
+
   function addSlot(OracleInput memory _oracleInput) public {
+    addSlot(_oracleInput, 0);
+  }
+
+  // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
+  function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
     _oracleInput.assertValid();
 
-    DataPoint memory parent = dataPoints[populatedThrough];
+    FeeHeader memory parent = feeHeaders[populatedThrough];
 
-    dataPoints[++populatedThrough] = DataPoint({
-      provingCostNumerator: parent.provingCostNumerator.clampedAdd(_oracleInput.provingCostModifier),
-      feeAssetPriceNumerator: parent.feeAssetPriceNumerator.clampedAdd(
+    uint256 excessMana = calcExcessMana();
+
+    feeHeaders[++populatedThrough] = FeeHeader({
+      proving_cost_per_mana_numerator: parent.proving_cost_per_mana_numerator.clampedAdd(
+        _oracleInput.provingCostModifier
+      ),
+      fee_asset_price_numerator: parent.fee_asset_price_numerator.clampedAdd(
         _oracleInput.feeAssetPriceModifier
-      )
+      ),
+      mana_used: _manaUsed,
+      excess_mana: excessMana
     });
   }
 
@@ -72,7 +123,7 @@ contract MinimalFeeModel is TimeFns {
   function photograph() public {
     Slot slot = getCurrentSlot();
     // The slot where we find a new queued value acceptable
-    Slot acceptableSlot = l1BaseFees.slotOfChange + (LIFETIME - LAG);
+    Slot acceptableSlot = Slot.wrap(l1BaseFees.slot_of_change) + (LIFETIME - LAG);
 
     if (slot < acceptableSlot) {
       return;
@@ -80,21 +131,21 @@ contract MinimalFeeModel is TimeFns {
 
     // If we are at or beyond the scheduled change, we need to update the "current" value
     l1BaseFees.pre = l1BaseFees.post;
-    l1BaseFees.post = BaseFees({baseFee: block.basefee, blobFee: _getBlobBaseFee()});
-    l1BaseFees.slotOfChange = slot + LAG;
+    l1BaseFees.post = L1Fees({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
+    l1BaseFees.slot_of_change = (slot + LAG).unwrap();
   }
 
-  function getFeeAssetPrice(uint256 _slotNumber) public view returns (uint256) {
-    return FeeMath.feeAssetPriceModifier(dataPoints[_slotNumber].feeAssetPriceNumerator);
+  function getFeeAssetPrice() public view returns (uint256) {
+    return FeeMath.feeAssetPriceModifier(feeHeaders[populatedThrough].fee_asset_price_numerator);
   }
 
-  function getProvingCost(uint256 _slotNumber) public view returns (uint256) {
-    return FeeMath.provingCostPerMana(dataPoints[_slotNumber].provingCostNumerator);
+  function getProvingCost() public view returns (uint256) {
+    return FeeMath.provingCostPerMana(feeHeaders[populatedThrough].proving_cost_per_mana_numerator);
   }
 
-  function getCurrentL1Fees() public view returns (BaseFees memory) {
+  function getCurrentL1Fees() public view returns (L1Fees memory) {
     Slot slot = getCurrentSlot();
-    if (slot < l1BaseFees.slotOfChange) {
+    if (slot < Slot.wrap(l1BaseFees.slot_of_change)) {
       return l1BaseFees.pre;
     }
     return l1BaseFees.post;

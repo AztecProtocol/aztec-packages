@@ -2,8 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {OracleInput, FeeMath} from "@aztec/core/libraries/FeeMath.sol";
-import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
-import {MinimalFeeModel, BaseFees} from "./MinimalFeeModel.sol";
+import {
+  FeeModelTestPoints,
+  TestPoint,
+  ManaBaseFeeComponents,
+  L1Fees,
+  FeeHeader
+} from "./FeeModelTestPoints.t.sol";
+import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotLib, Slot} from "@aztec/core/libraries/TimeMath.sol";
 
@@ -38,16 +44,16 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     // Then check that we get the same proving costs as the python model
 
     for (uint256 i = 0; i < points.length; i++) {
+      assertEq(
+        model.getProvingCost(),
+        points[i].outputs.mana_base_fee_components_in_wei.proving_cost,
+        "Computed proving cost does not match expected value"
+      );
       model.addSlot(
         OracleInput({
           provingCostModifier: points[i].oracle_input.proving_cost_modifier,
           feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier
         })
-      );
-      assertEq(
-        model.getProvingCost(i),
-        points[i].outputs.mana_base_fee_components_in_wei.proving_cost,
-        "Computed proving cost does not match expected value"
       );
     }
   }
@@ -57,16 +63,16 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     // Then check that we get the same fee asset price as the python model
 
     for (uint256 i = 0; i < points.length; i++) {
+      assertEq(
+        model.getFeeAssetPrice(),
+        points[i].outputs.fee_asset_price_at_execution,
+        "Computed fee asset price does not match expected value"
+      );
       model.addSlot(
         OracleInput({
           provingCostModifier: points[i].oracle_input.proving_cost_modifier,
           feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier
         })
-      );
-      assertEq(
-        model.getFeeAssetPrice(i),
-        points[i].outputs.fee_asset_price_at_execution,
-        "Computed fee asset price does not match expected value"
       );
     }
   }
@@ -111,13 +117,71 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
 
       if (model.getCurrentSlot() == nextSlot) {
         TestPoint memory expected = points[nextSlot.unwrap() - 1];
-        BaseFees memory fees = model.getCurrentL1Fees();
+        L1Fees memory fees = model.getCurrentL1Fees();
 
         assertEq(expected.block_header.l1_block_number, block.number, "invalid l1 block number");
         assertEq(expected.block_header.block_number, nextSlot.unwrap(), "invalid l2 block number");
         assertEq(expected.block_header.slot_number, nextSlot.unwrap(), "invalid l2 slot number");
-        assertEq(expected.outputs.l1_fee_oracle_output.base_fee, fees.baseFee, "baseFee mismatch");
-        assertEq(expected.outputs.l1_fee_oracle_output.blob_fee, fees.blobFee, "blobFee mismatch");
+        assertEq(expected.outputs.l1_fee_oracle_output.base_fee, fees.base_fee, "baseFee mismatch");
+        assertEq(expected.outputs.l1_fee_oracle_output.blob_fee, fees.blob_fee, "blobFee mismatch");
+        nextSlot = nextSlot + Slot.wrap(1);
+      }
+    }
+  }
+
+  function test_full() public {
+    // Because of the time jump at the deployment, the first l1 block metadata
+    // should be at slot 1.
+    Slot nextSlot = Slot.wrap(1);
+
+    for (uint256 i = 0; i < l1Metadata.length; i++) {
+      _loadL1Metadata(i);
+      model.photograph();
+
+      if (model.getCurrentSlot() == nextSlot) {
+        TestPoint memory point = points[nextSlot.unwrap() - 1];
+
+        // Get a hold of the values that is used for the next block
+        L1Fees memory fees = model.getCurrentL1Fees();
+        uint256 feeAssetPrice = model.getFeeAssetPrice();
+        // We are assuming 3 blobs for all of these computations, as per the model.
+        // 3 blobs because that can fit ~360 txs, or 10 tps.
+        ManaBaseFeeComponents memory components = model.manaBaseFeeComponents(3, false);
+        ManaBaseFeeComponents memory componentsFeeAsset = model.manaBaseFeeComponents(3, true);
+        FeeHeader memory parentFeeHeader = model.getFeeHeader(point.block_header.slot_number - 1);
+
+        model.addSlot(
+          OracleInput({
+            provingCostModifier: point.oracle_input.proving_cost_modifier,
+            feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
+          }),
+          point.block_header.mana_spent
+        );
+
+        // The fee header is the state that we are storing, so it is the value written at the block submission.
+        FeeHeader memory feeHeader = model.getFeeHeader(point.block_header.slot_number);
+
+        // Ensure that we can reproduce the main parts of our test points.
+        // For now, most of the block header is not actually stored in the fee model
+        // but just needed to influence the other values and used for L1 state.
+
+        assertEq(point.block_header.block_number, nextSlot, "invalid l2 block number");
+        assertEq(point.block_header.l1_block_number, block.number, "invalid l1 block number");
+        assertEq(point.block_header.slot_number, nextSlot, "invalid l2 slot number");
+        assertEq(point.block_header.timestamp, block.timestamp, "invalid timestamp");
+
+        assertEq(point.fee_header, feeHeader);
+
+        assertEq(
+          point.outputs.fee_asset_price_at_execution, feeAssetPrice, "feeAssetPrice mismatch"
+        );
+        assertEq(point.outputs.l1_fee_oracle_output, fees, "l1 fee oracle output");
+        assertEq(point.outputs.l1_gas_oracle_values, model.getL1GasOracleValues());
+        assertEq(point.outputs.mana_base_fee_components_in_wei, components);
+        assertEq(point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset);
+
+        assertEq(point.parent_fee_header, parentFeeHeader);
+
         nextSlot = nextSlot + Slot.wrap(1);
       }
     }
