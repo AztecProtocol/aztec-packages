@@ -1,33 +1,22 @@
-// ONLY IMPORT ONE OF THESE CONFIGS! The big `config` takes 11 mins to compile.
-
-// SMALL CONFIG *********************************************************************************
-
-// mod smaller_config;
-
-// use crate::smaller_config::{
-//     BigNum, BLS12_381_Fr_Params, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-//     FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS, NEGATIVE_ROOTS
-// };
-
-//*********************************************************************************
-
-// BIG CONFIG *********************************************************************
-
+// TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
 use crate::{
-    blob_public_inputs::BlobPublicInputs,
-    config::{
-        D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
-        NOIR_FIELDS_PER_BLOB, ROOTS,
+    blob_public_inputs::{BlobPublicInputs, BlockBlobPublicInputs},
+    unconstrained_config::{
+        compute_roots_of_unity, D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB,
+        LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
     },
 };
 
-//*********************************************************************************
-use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+use bigint::BigNum;
 // Fixed hash method:
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
 // use types::hash::poseidon2_cheaper_variable_hash;
-use types::{abis::sponge_blob::SpongeBlob, constants::FIELDS_PER_BLOB};
+use types::{
+    abis::sponge_blob::SpongeBlob,
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    utils::arrays::array_splice,
+};
 
 global LIMB_MAX = 2.pow_32(120);
 
@@ -53,21 +42,6 @@ unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
         }
     }
     x
-}
-
-// Not used because it resulted in "stack too deep", so it's inlined instead.
-unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    let mut denoms: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
-    for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__add(ROOTS[i].neg()); // (z - omega^i)
-    }
-    let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
-    let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
-    for i in 0..FIELDS_PER_BLOB {
-        let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
-        fracs[i] = ys[i].__mul(inv_denom); // y_i / (z - omega^i)
-    }
-    fracs
 }
 
 unconstrained fn __field_to_bytes(x: Field) -> [u8; 32] {
@@ -99,117 +73,18 @@ fn field_to_bignum(x: Field) -> F {
     BigNum { limbs: __x_limbs }
 }
 
-// DANGER: this assumes the input bignum is <= the Noir field size.
-// Only use this if you _know_ the data being passed in is small enough.
-//
-// Or actually, maybe it's not unsafe, if Field catches overflows?
-fn unsafe_bignum_to_field(x: F) -> Field {
-    let mut result: Field = 0;
-    result += x.limbs[3 - 1];
-    for i in 1..3 {
-        result *= LIMB_MAX;
-        result += x.limbs[3 - i - 1];
-    }
-    result
-}
-
-fn bignum_to_bytes(x: F) -> [u8] {
-    let limb_0_bytes: [u8; 15] = x.limbs[0].to_be_bytes();
-    let limb_1_bytes: [u8; 15] = x.limbs[1].to_be_bytes();
-    let limb_2_bytes: [u8; 2] = x.limbs[2].to_be_bytes();
-    let mut out: [u8; 32] = [0; 32];
-    for i in 0..32 {
-        out[i] = limb_0_bytes[i];
-        out[i + 15] = limb_1_bytes[i];
-    }
-    for i in 0..1 {
-        out[30 + i] = limb_2_bytes[i];
-    }
-    std::static_assert(out.len() == 32, "bad byte decomposition of bignum");
-    out
-}
-
-// DANGER: this assumes the input bignum is <= the Noir field size.
-// Only use this if you _know_ the data being passed in is small enough.
-//
-// This is inefficient, in the sense that we discard ~1 bit of blob space per
-// 255-bit blob field, when converting it to a 245-bit noir field. Over the whole blob,
-// we end up discarding 1 bit * 4096 fields_per_blob = 512 bytes = 16 words of data.
-// BUT, it is much simpler to do this than to reconstitute 4096 disparate bits across
-// the whole blob into 16 words. Perhaps the more complex approach should only be
-// taken once aztec blobs are sufficiently full?
-fn unsafe_blob_to_fields(blob: [F; FIELDS_PER_BLOB]) -> [Field; FIELDS_PER_BLOB] {
-    let mut blob_as_fields: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        blob_as_fields[i] = unsafe_bignum_to_field(blob[i]);
+        blob[i] = field_to_bignum(blob_as_fields[i]);
     }
-    blob_as_fields
+    blob
 }
 
-unconstrained fn __unsafe_extract_top_bit(x: F) -> (Field, Field) {
-    let top_limb: Field = x.limbs[2];
-    // The top_limb is at most 2 bytes (16 bits).
-    // 0x8000 = 2^15 = 32768
-    let top_bit: Field = (top_limb as u16 / 0x8000) as Field;
-    let top_limb_with_top_bit_removed = top_limb - top_bit * 0x8000;
-    (top_bit, top_limb_with_top_bit_removed)
-}
-
-// DANGER: it's named as "unsafe" because the caller MUST already have checked that
-// each blob Field is formatted as (u1, Field). I.e. the "rhs" 254-bits should already
-// fit within a Field. If the "rhs" 254 bits is larger than the field modulus,
-// there will be an uncaught overflow of the 254-bits in the Field, resulting in
-// an unintended tiny value.
-//
-// For efficiency, the top_bit is kept as a Field throughout.
-fn unsafe_extract_top_bit(x: F) -> (Field, F) {
-    let (top_bit, top_limb_with_top_bit_removed) = __unsafe_extract_top_bit(x);
-    assert_eq(top_bit * 0x8000 + top_limb_with_top_bit_removed, x.limbs[2]);
-
-    (top_bit, BigNum { limbs: [x.limbs[0], x.limbs[1], top_limb_with_top_bit_removed] })
-}
-
-// TODO(#8955): Use the below to tightly pack nr fields into bls fields?
-// Not currently used because it adds a lot of complication to constructing/deconstructing blocks
-fn blob_to_fields__tightly_packed(blob: [F; FIELDS_PER_BLOB]) -> [Field; NOIR_FIELDS_PER_BLOB] {
-    let mut blob_as_fields: [Field; NOIR_FIELDS_PER_BLOB] = [0; NOIR_FIELDS_PER_BLOB];
-    let mut top_bits: [Field; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB] =
-        [0; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB];
-
-    // We start with [F; 4096].
-    // The first 4064 of these bls-fields have a 255th bit (counting from 1) which can contribute towards
-    // new 254-bit noir fields. That is, we extract 4064 top-bits from the first 4064 of the 4096 bls-fields,
-    // and reconstitute them into 4064 / 254 = 16 extra noir fields.
-    // So we end up with 4096 + 16 = 4112 noir fields.
-    // Here we compute top_bits[0:4064] and blob_as_fields[0:4064].
-    for i in 0..FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB {
-        let (top_bit, field_with_top_bit_removed): (Field, F) = unsafe_extract_top_bit(blob[i]);
-        top_bits[i] = top_bit;
-        blob_as_fields[i] = unsafe_bignum_to_field(field_with_top_bit_removed);
-    }
-    // Here we compute blob_as_fields[4064:4096].
-    for i in FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB..FIELDS_PER_BLOB {
-        blob_as_fields[i] = unsafe_bignum_to_field(blob[i]);
-    }
-    // Here we compute blob_as_fields[4096:4112] from top_bits[0:4064]
-    for i in FIELDS_PER_BLOB..NOIR_FIELDS_PER_BLOB {
-        // the top_bits are assumed to be big-endian bit arrays:
-        let mut reconstituted_field = top_bits[0];
-        for j in 1..254 {
-            let k = (i - FIELDS_PER_BLOB) * 254 + j;
-            reconstituted_field *= 2;
-            reconstituted_field += top_bits[k];
-            // std::as_witness(reconstituted_field); // this was costing 4048 gates
-        }
-        blob_as_fields[i] = reconstituted_field;
-    }
-    blob_as_fields
-}
-
-fn check_blob_sponge(
-    blob_as_fields: [Field; FIELDS_PER_BLOB],
+pub fn check_block_blob_sponge(
+    blob_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
-) -> ([F; FIELDS_PER_BLOB], Field) {
+) -> Field {
     // Check that we haven't overfilled the blob (checking here as we need to check once per blob)
     assert(sponge_blob.expected_fields <= FIELDS_PER_BLOB, "Attempted to overfill blob");
     // Check that the blob is full
@@ -217,21 +92,11 @@ fn check_blob_sponge(
         sponge_blob.expected_fields == sponge_blob.fields,
         "Incorrect number of tx effects added to blob",
     );
-    let txs_effects_hash = sponge_blob.squeeze();
+    let sponge_hash = sponge_blob.squeeze();
     let hash = poseidon2_hash_subarray(blob_as_fields, sponge_blob.fields);
-    assert(hash == txs_effects_hash, "Mismatched hashed tx effects");
-    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
-    for i in 0..FIELDS_PER_BLOB {
-        blob[i] = field_to_bignum(blob_as_fields[i]);
-        // In fixed hash method, below check happens in above subarray hash
-        // should_check |= i == sponge_blob.fields;
-        // // check that if we have not filled the blob, the remaining values are indeed 0
-        // // this ensures that we cannot add extra tx effects at the block-root stage from nowhere
-        // if should_check {
-        //     assert(blob_as_fields[i] == 0, "Found non-0 tx effect beyond claimed length");
-        // }
-    }
-    (blob, txs_effects_hash)
+    assert(hash == sponge_hash, "Mismatched hashed tx effects");
+
+    sponge_hash
 }
 
 fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> Field {
@@ -250,11 +115,11 @@ fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> F
 pub fn evaluate_blob(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: [Field; 2],
-    mut sponge_blob: SpongeBlob,
+    hashed_blob_fields: Field,
 ) -> BlobPublicInputs {
-    let (blob, txs_effects_hash) = check_blob_sponge(blob_as_fields, sponge_blob);
-    let challenge_z: Field = compute_challenge(txs_effects_hash, kzg_commitment);
+    let challenge_z: Field = compute_challenge(hashed_blob_fields, kzg_commitment);
     let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
+    let blob = convert_blob_fields(blob_as_fields);
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
     // TODO(Miranda): Since we are verifying a root proof, the below doesn't apply. We should be hashing ALL root public inputs, including the blob ones.
@@ -263,6 +128,25 @@ pub fn evaluate_blob(
     // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification.
     // On ethereum, the bytes will be sent along with the sha256-hash of the bytes. The bytes will be used in the point evaluation precompile. The sha256-hash will form a part of the public inputs of the zk-snark proof.
     BlobPublicInputs { z: challenge_z, y, kzg_commitment }
+}
+
+// Evaluates each blob required for a block
+pub fn evaluate_blobs(
+    blob_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    kzg_commitments: [[Field; 2]; BLOBS_PER_BLOCK],
+    mut sponge_blob: SpongeBlob,
+) -> BlockBlobPublicInputs {
+    // Note that with multiple blobs per block, each blob uses the same hashed_blob_fields in:
+    // challenge_z = H(hashed_blob_fields, kzg_commitment[0], kzg_commitment[1])
+    // This is ok, because each commitment is unique to the blob, and we need hashed_blob_fields to encompass
+    // all fields in the blob, which it does.
+    let hashed_blob_fields = check_block_blob_sponge(blob_as_fields, sponge_blob);
+    let mut result = BlockBlobPublicInputs::empty();
+    for i in 0..BLOBS_PER_BLOCK {
+        let single_blob_fields = array_splice(blob_as_fields, i * BLOBS_PER_BLOCK);
+        result.inner[i] = evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blob_fields);
+    }
+    result
 }
 
 /**
@@ -287,6 +171,8 @@ pub fn evaluate_blob(
  * @return y = p(z)
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
+    // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
+    let ROOTS = unsafe { compute_roots_of_unity() };
     // z ^ D:
     let mut t1 = z.__mul(z);
 
@@ -498,204 +384,260 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     y
 }
 
-use dep::types::tests::fixture_builder::FixtureBuilder;
-
-// Helper to return (z^d - 1)/d (unsafe - test only)
-fn z_d_helper(challenge_z: F) -> F {
-    let mut t1 = challenge_z.__mul(challenge_z);
-    let mut t2: F = BigNum::new();
-    for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
-        t2 = t1.__mul(t1);
-        t1 = t2;
-    }
-
-    let z_pow_d = t1;
-
-    let one: F = BigNum::one();
-
-    t1 = z_pow_d.__sub(one);
-    let factor = t1.__mul(D_INV);
-    factor
-}
-
-#[test]
-fn test_one_note() {
-    let mut tx_data = FixtureBuilder::new();
-    tx_data.add_new_note_hash(1);
-    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    let blob_fields = tx_data.to_combined_accumulated_data().serialize();
-    for i in 0..blob_fields.len() {
-        blob[i] = blob_fields[i];
-    }
-    let mut sponge_blob = SpongeBlob::new(blob_fields.len());
-    sponge_blob.absorb(blob_fields, blob_fields.len());
-
-    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-    let output = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
-    let challenge_z = field_to_bignum(output.z);
-    let y = output.y;
-    // Our blob is all 0s, apart from one commitment of value 1 at position 0
-    // It's in eval form => our barycentric formula to find p(z) becomes:
-    //
-    //         z^d - 1              omega^0      z^d - 1            1
-    // p(z) = --------- .   note . --------- =  --------- . 1 . ---------
-    //            d               z - omega^0       d             z - 1
-    //
-    //                               =>
-    // We check that:
-    //*                 z^d - 1
-    //* p(z).(z - 1) = ---------
-    //*                    d
-    //
-    let rhs = z_d_helper(challenge_z);
-    let z_minus_1 = challenge_z.__sub(BigNum::one());
-    let lhs = y.__mul(z_minus_1);
-    assert_eq(lhs, rhs);
-}
-
-#[test]
-fn test_base() {
-    let mut tx_data = FixtureBuilder::new();
-    // Add some random bits of state
-    tx_data.append_note_hashes_with_logs(50);
-    tx_data.set_first_nullifier();
-    tx_data.append_nullifiers(50);
-    tx_data.append_l2_to_l1_msgs(5);
-    tx_data.append_public_data_update_requests(5);
-    tx_data.append_unencrypted_log_hashes(5);
-    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    let blob_fields = tx_data.to_combined_accumulated_data().serialize();
-    for i in 0..blob_fields.len() {
-        blob[i] = blob_fields[i];
-    }
-    let mut sponge_blob = SpongeBlob::new(blob_fields.len());
-    sponge_blob.absorb(blob_fields, blob_fields.len());
-
-    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-    let output = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
-    let expected_z = std::hash::poseidon2::Poseidon2::hash(
-        [sponge_blob.squeeze(), kzg_commitment_in[0], kzg_commitment_in[1]],
-        3,
-    );
-    assert(expected_z == output.z);
-}
-
-// All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
-#[test]
-fn test_400() {
-    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    for i in 0..400 {
-        blob[i] = 3;
-    }
-    let mut sponge_blob = SpongeBlob::new(400);
-    sponge_blob.absorb(blob, 400);
-
-    let kzg_commitment_in = [
-        0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
-        0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
-    ];
-
-    let output = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
-
-    // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-    let expected_y: F = BigNum {
-        limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
+mod tests {
+    // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
+    use crate::{
+        blob::{
+            barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, field_to_bignum,
+        },
+        unconstrained_config::{
+            D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
+            NOIR_FIELDS_PER_BLOB,
+        },
     };
-    assert(expected_y == output.y);
-}
+    use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+    use types::{
+        abis::sponge_blob::SpongeBlob,
+        constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+        tests::{fixture_builder::FixtureBuilder, utils::pad_end},
+        utils::arrays::array_splice,
+    };
 
-#[test(should_fail_with = "Found non-zero field after breakpoint")]
-fn test_no_extra_blob_fields() {
-    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    // Fill fields with 50 inputs...
-    for i in 0..50 {
-        blob[i] = 3;
+    // Helper to return (z^d - 1)/d (unsafe - test only)
+    fn z_d_helper(challenge_z: F) -> F {
+        let mut t1 = challenge_z.__mul(challenge_z);
+        let mut t2: F = BigNum::new();
+        for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
+            t2 = t1.__mul(t1);
+            t1 = t2;
+        }
+
+        let z_pow_d = t1;
+
+        let one: F = BigNum::one();
+
+        t1 = z_pow_d.__sub(one);
+        let factor = t1.__mul(D_INV);
+        factor
     }
-    // ...but the rollup's sponge is only expecting 45...
-    let mut sponge_blob = SpongeBlob::new(45);
-    sponge_blob.absorb(blob, 45);
 
-    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-    // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
-    let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
-}
+    #[test]
+    unconstrained fn test_one_note() {
+        let mut tx_data = FixtureBuilder::new();
+        tx_data.add_new_note_hash(1);
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        for i in 0..blob_fields.len() {
+            blob[i] = blob_fields[i];
+        }
+        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+        sponge_blob.absorb(blob_fields, blob_fields.len());
 
-#[test(should_fail_with = "Incorrect number of tx effects added to blob")]
-fn test_absorbed_too_few_blob_fields() {
-    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    // Fill fields with 50 inputs...
-    for i in 0..50 {
-        blob[i] = 3;
+        let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let challenge_z = field_to_bignum(output.z);
+        let y = output.y;
+        // Our blob is all 0s, apart from one commitment of value 1 at position 0
+        // It's in eval form => our barycentric formula to find p(z) becomes:
+        //
+        //         z^d - 1              omega^0      z^d - 1            1
+        // p(z) = --------- .   note . --------- =  --------- . 1 . ---------
+        //            d               z - omega^0       d             z - 1
+        //
+        //                               =>
+        // We check that:
+        //*                 z^d - 1
+        //* p(z).(z - 1) = ---------
+        //*                    d
+        //
+        let rhs = z_d_helper(challenge_z);
+        let z_minus_1 = unsafe { challenge_z.__sub(BigNum::one()) };
+        let lhs = y.__mul(z_minus_1);
+        assert_eq(lhs, rhs);
     }
-    // ...but the rollup's sponge is expecting 100...
-    let mut sponge_blob = SpongeBlob::new(100);
-    sponge_blob.absorb(blob, 50);
 
-    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-    // ...so the below should fail as it detects we have not added all the tx effects.
-    let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
-}
+    #[test]
 
-#[test]
-fn test_empty_blob() {
-    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    let mut sponge_blob = SpongeBlob::new(0);
-    // The below should not throw
-    let _ = check_blob_sponge(blob, sponge_blob);
-}
+    // THIS TEST FAILS INSIDE compute_roots_of_unity
+    unconstrained fn test_base() {
+        let mut tx_data = FixtureBuilder::new();
+        // Add some random bits of state
+        tx_data.append_note_hashes_with_logs(50);
+        tx_data.set_first_nullifier();
+        tx_data.append_nullifiers(50);
+        tx_data.append_l2_to_l1_msgs(5);
+        tx_data.append_public_data_update_requests(5);
+        tx_data.append_unencrypted_log_hashes(5);
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        for i in 0..blob_fields.len() {
+            blob[i] = blob_fields[i];
+        }
+        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+        sponge_blob.absorb(blob_fields, blob_fields.len());
 
-#[test]
-fn test_barycentric() {
-    let z: F = BigNum { limbs: [2, 0, 0] };
-
-    // many y's form a blob:
-    let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
-
-    ys[0] = BigNum { limbs: [0x1234, 0, 0] };
-    ys[1] = BigNum { limbs: [0xabcd, 0, 0] };
-    ys[2] = BigNum { limbs: [0x69, 0, 0] };
-
-    // evaluate the blob at z = 2 to yield y:
-    let y = barycentric_evaluate_blob_at_z(z, ys);
-
-    let mut expected_y: [Field; 3] = [0; 3];
-    if (FIELDS_PER_BLOB == 4096) {
-        // Computed with the eth consensus specs py lib
-        expected_y = [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
-        // Also computed with cKzg, in the typescript tests:
-        // 0x049a902c5b4968d755b6f49c0231e15af80c62e352a428e8e9842eadc1c106bd
+        let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let expected_z = std::hash::poseidon2::Poseidon2::hash(
+            [sponge_blob.squeeze(), kzg_commitment_in[0], kzg_commitment_in[1]],
+            3,
+        );
+        assert(expected_z == output.z);
     }
-    if (FIELDS_PER_BLOB == 8) {
-        // Computed with the eth consensus specs py lib (after hacking it to cope with blobs of size 8 instead of 4096):
-        expected_y = [0xb04cdea4304000053abffffffb203a, 0x0000000002e30785c8afa4496f8e38, 0x000000];
+
+    // THIS TEST (AND ALL OTHERS) PASSES INSIDE compute_roots_of_unity
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
+    #[test]
+    unconstrained fn test_400() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        for i in 0..400 {
+            blob[i] = 3;
+        }
+        let mut sponge_blob = SpongeBlob::new(400);
+        sponge_blob.absorb(blob, 400);
+
+        let kzg_commitment_in = [
+            0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
+            0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
+        ];
+
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+
+        // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
+        let expected_y: F = BigNum {
+            limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
+        };
+        assert(expected_y == output.y);
     }
-    assert(y.limbs == expected_y);
-}
 
-// Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
-unconstrained fn compute_double_modulus() -> [Field; 3] {
-    let two_p = [0x7b4805fffcb7fdfffffffe00000002, 0x4ea6533afa906673b0101343b00aa7, 0x00e7db];
-    let NUM_LIMBS = 3; // must be >= 3
-    let two_pow_120 = 2.pow_32(120);
-    let mut double_modulus: [Field; 3] = [0; 3];
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a full blob'
+    #[test]
+    unconstrained fn test_full() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        for i in 0..FIELDS_PER_BLOB {
+            blob[i] = i as Field + 2;
+        }
+        let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB);
+        sponge_blob.absorb(blob, FIELDS_PER_BLOB);
 
-    double_modulus[0] = two_p[0] + two_pow_120;
-    for i in 1..NUM_LIMBS - 1 {
-        double_modulus[i] = two_p[i] + two_pow_120 - 1;
+        let kzg_commitment_in = [
+            0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
+            0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
+        ];
+
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+
+        // y is a BLS field with value 0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c
+        let expected_y: F = BigNum {
+            limbs: [0xecc38f478ced014b6ae860502a1b1c, 0x494e66a289c4509ecf97af4ff92aa7, 0x0365],
+        };
+        assert(expected_y == output.y);
     }
-    double_modulus[NUM_LIMBS - 1] = two_p[NUM_LIMBS - 1] - 1;
-    double_modulus
-}
 
-#[test]
-unconstrained fn test_compute_double_modulus() {
-    let double_modulus = BLS12_381_Fr_Params::get_params().double_modulus;
-    assert_eq(double_modulus, compute_double_modulus());
-}
+    #[test(should_fail_with = "Found non-zero field after breakpoint")]
+    unconstrained fn test_no_extra_blob_fields() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        // Fill fields with 50 inputs...
+        for i in 0..50 {
+            blob[i] = 3;
+        }
+        // ...but the rollup's sponge is only expecting 45...
+        let mut sponge_blob = SpongeBlob::new(45);
+        sponge_blob.absorb(blob, 45);
 
-#[test]
-unconstrained fn test_compute_d_inv() {
-    let d_inversed = D.__invmod();
-    assert_eq(d_inversed, D_INV);
+        // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
+        let padded_blob_fields = pad_end(blob, 0);
+        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+    }
+
+    #[test(should_fail_with = "Incorrect number of tx effects added to blob")]
+    unconstrained fn test_absorbed_too_few_blob_fields() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        // Fill fields with 50 inputs...
+        for i in 0..50 {
+            blob[i] = 3;
+        }
+        // ...but the rollup's sponge is expecting 100...
+        let mut sponge_blob = SpongeBlob::new(100);
+        sponge_blob.absorb(blob, 50);
+
+        // ...so the below should fail as it detects we have not added all the tx effects.
+        let padded_blob_fields = pad_end(blob, 0);
+        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+    }
+
+    #[test]
+    unconstrained fn test_empty_blob() {
+        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        let mut sponge_blob = SpongeBlob::new(0);
+        // The below should not throw
+        let _ = check_block_blob_sponge(blob, sponge_blob);
+    }
+
+    #[test]
+    unconstrained fn test_barycentric() {
+        let z: F = BigNum { limbs: [2, 0, 0] };
+
+        // many y's form a blob:
+        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+
+        ys[0] = BigNum { limbs: [0x1234, 0, 0] };
+        ys[1] = BigNum { limbs: [0xabcd, 0, 0] };
+        ys[2] = BigNum { limbs: [0x69, 0, 0] };
+
+        // evaluate the blob at z = 2 to yield y:
+        let y = barycentric_evaluate_blob_at_z(z, ys);
+
+        let mut expected_y: [Field; 3] = [0; 3];
+        if (FIELDS_PER_BLOB == 4096) {
+            // Computed with the eth consensus specs py lib
+            expected_y =
+                [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
+            // Also computed with cKzg, in the typescript tests:
+            // 0x049a902c5b4968d755b6f49c0231e15af80c62e352a428e8e9842eadc1c106bd
+        }
+        if (FIELDS_PER_BLOB == 8) {
+            // Computed with the eth consensus specs py lib (after hacking it to cope with blobs of size 8 instead of 4096):
+            expected_y =
+                [0xb04cdea4304000053abffffffb203a, 0x0000000002e30785c8afa4496f8e38, 0x000000];
+        }
+        assert(y.limbs == expected_y);
+    }
+
+    // Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
+    unconstrained fn compute_double_modulus() -> [Field; 3] {
+        let two_p = [0x7b4805fffcb7fdfffffffe00000002, 0x4ea6533afa906673b0101343b00aa7, 0x00e7db];
+        let NUM_LIMBS = 3; // must be >= 3
+        let two_pow_120 = 2.pow_32(120);
+        let mut double_modulus: [Field; 3] = [0; 3];
+
+        double_modulus[0] = two_p[0] + two_pow_120;
+        for i in 1..NUM_LIMBS - 1 {
+            double_modulus[i] = two_p[i] + two_pow_120 - 1;
+        }
+        double_modulus[NUM_LIMBS - 1] = two_p[NUM_LIMBS - 1] - 1;
+        double_modulus
+    }
+
+    #[test]
+    unconstrained fn test_compute_double_modulus() {
+        let double_modulus = BLS12_381_Fr_Params::get_params().double_modulus;
+        assert_eq(double_modulus, compute_double_modulus());
+    }
+
+    #[test]
+    unconstrained fn test_compute_d_inv() {
+        let d_inversed = D.__invmod();
+        assert_eq(d_inversed, D_INV);
+    }
 }
 

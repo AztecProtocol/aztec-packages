@@ -1,11 +1,16 @@
-use crate::config::F;
+use crate::unconstrained_config::F;
+// TODO(#9982): Replace unconstrained_config with config.
 use bigint::BigNum;
-use types::{constants::BLOB_PUBLIC_INPUTS, traits::{Deserialize, Empty, Serialize}};
+use types::{
+    constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
+};
 
 pub struct BlobPublicInputs {
-    z: Field,
-    y: F,
-    kzg_commitment: [Field; 2],
+    pub z: Field,
+    pub y: F,
+    pub kzg_commitment: [Field; 2],
 }
 
 impl BlobPublicInputs {
@@ -50,4 +55,54 @@ impl Eq for BlobPublicInputs {
     fn eq(self, other: Self) -> bool {
         (self.z == other.z) & (self.y.eq(other.y)) & (self.kzg_commitment.eq(other.kzg_commitment))
     }
+}
+
+// NB: it is much cleaner throughout the protocol circuits to define this struct rather than use a nested array.
+// Once we accumulate blob inputs, it should be removed, and we just use BlobPublicInputs::accumulate everywhere.
+pub struct BlockBlobPublicInputs {
+    pub inner: [BlobPublicInputs; BLOBS_PER_BLOCK],
+}
+
+impl Empty for BlockBlobPublicInputs {
+    fn empty() -> Self {
+        Self { inner: [BlobPublicInputs::empty(); BLOBS_PER_BLOCK] }
+    }
+}
+
+impl Serialize<BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK> for BlockBlobPublicInputs {
+    fn serialize(self) -> [Field; BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK] {
+        let mut fields: BoundedVec<Field, BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK> = BoundedVec::new();
+        for i in 0..BLOBS_PER_BLOCK {
+            fields.extend_from_array(self.inner[i].serialize());
+        }
+        fields.storage()
+    }
+}
+
+impl Deserialize<BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK> for BlockBlobPublicInputs {
+    fn deserialize(fields: [Field; BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK]) -> Self {
+        let mut reader = Reader::new(fields);
+        let item = Self {
+            inner: reader.read_struct_array(
+                BlobPublicInputs::deserialize,
+                [BlobPublicInputs::empty(); BLOBS_PER_BLOCK],
+            ),
+        };
+        reader.finish();
+        item
+    }
+}
+
+impl Eq for BlockBlobPublicInputs {
+    fn eq(self, other: Self) -> bool {
+        self.inner.eq(other.inner)
+    }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = BlockBlobPublicInputs::empty();
+    let serialized = item.serialize();
+    let deserialized = BlockBlobPublicInputs::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
