@@ -1,11 +1,11 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/standard_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
 

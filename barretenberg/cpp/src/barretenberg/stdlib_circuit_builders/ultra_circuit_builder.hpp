@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
@@ -8,6 +7,7 @@
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"

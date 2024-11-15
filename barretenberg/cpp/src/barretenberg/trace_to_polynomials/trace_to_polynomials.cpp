@@ -1,4 +1,4 @@
-#include "execution_trace.hpp"
+#include "trace_to_polynomials.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"

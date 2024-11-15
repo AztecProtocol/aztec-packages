@@ -1,7 +1,7 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
