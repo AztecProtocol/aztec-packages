@@ -5,15 +5,17 @@ import { type LogFn } from '@aztec/foundation/log';
 import { format } from 'util';
 
 function printProfileResult(result: ProfileResult, log: LogFn) {
-  log(format('Simulation result:'));
-  log(format('Return value: ', JSON.stringify(result.returnValues, null, 2)));
+  log(format('\nSimulation result:'));
+  log(format('Return value:', JSON.stringify(result.returnValues, null, 2)));
 
-  log(format('Gate count: '));
+  log(format('\nGate count per circuit:'));
   let acc = 0;
   result.gateCounts.forEach(r => {
     acc += r.gateCount;
-    log(format('  ', r.circuitName.padEnd(30), 'Gates:', r.gateCount, '\tAcc:', acc));
+    log(format('  ', r.circuitName.padEnd(50), 'Gates:', r.gateCount.toLocaleString(), '\tAcc:', acc.toLocaleString()));
   });
+
+  log(format('\nTotal gates:', acc.toLocaleString()));
 }
 
 export async function simulate(

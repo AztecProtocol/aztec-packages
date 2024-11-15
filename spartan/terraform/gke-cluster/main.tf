@@ -33,48 +33,17 @@ resource "google_project_iam_member" "gke_sa_roles" {
     "roles/monitoring.viewer",
     "roles/artifactregistry.reader"
   ])
-
   project = var.project
   role    = each.key
   member  = "serviceAccount:${google_service_account.gke_sa.email}"
 }
 
-# Create ingress firewall rule for UDP
-resource "google_compute_firewall" "udp_ingress" {
-  name    = "allow-udp-ingress-40400-40499"
-  network = "default"
-
-  allow {
-    protocol = "udp"
-    ports    = ["40400-40499"]
-  }
-
-  direction     = "INGRESS"
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["gke-node"]
-}
-
-# Create egress firewall rule for UDP
-resource "google_compute_firewall" "udp_egress" {
-  name    = "allow-udp-egress-40400-40499"
-  network = "default"
-
-  allow {
-    protocol = "udp"
-    ports    = ["40400-40499"]
-  }
-
-  direction          = "EGRESS"
-  destination_ranges = ["0.0.0.0/0"]
-  target_tags        = ["gke-node"]
-}
-
 # Create a GKE cluster
 resource "google_container_cluster" "primary" {
-  name               = "spartan-gke"
-  location           = var.zone
-  initial_node_count = 1
+  name     = "spartan-gke"
+  location = var.zone
 
+  initial_node_count = 1
   # Remove default node pool after cluster creation
   remove_default_node_pool = true
 
@@ -107,7 +76,7 @@ resource "google_container_node_pool" "primary_nodes" {
 
   # Node configuration
   node_config {
-    machine_type = "t2d-standard-16"
+    machine_type = "t2d-standard-32"
 
     service_account = google_service_account.gke_sa.email
     oauth_scopes = [
@@ -117,7 +86,6 @@ resource "google_container_node_pool" "primary_nodes" {
     labels = {
       env = "production"
     }
-
     tags = ["gke-node"]
   }
 
@@ -142,7 +110,7 @@ resource "google_container_node_pool" "spot_nodes" {
 
   # Node configuration
   node_config {
-    machine_type = "t2d-standard-16"
+    machine_type = "t2d-standard-32"
     spot         = true
 
     service_account = google_service_account.gke_sa.email
@@ -154,7 +122,6 @@ resource "google_container_node_pool" "spot_nodes" {
       env  = "production"
       pool = "spot"
     }
-
     tags = ["gke-node", "spot"]
 
     # Spot instance termination handler
