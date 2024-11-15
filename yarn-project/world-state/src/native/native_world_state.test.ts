@@ -83,9 +83,9 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the world state version is different', async () => {
       // open ws against the data again
-      let ws = await NativeWorldStateService.new(rollupAddress, dataDir);
+      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       // db should be empty
-      let emptyStatus = await ws.getStatus();
+      let emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalisedBlockNumber).toBe(0);
 
       // populate it and then close it
@@ -94,7 +94,7 @@ describe('NativeWorldState', () => {
       await fork.close();
 
       const status = await ws.handleL2BlockAndMessages(block, messages);
-      expect(status.unfinalisedBlockNumber).toBe(1);
+      expect(status.summary.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
       // we open up the version file that was created and modify the version to be older
       const fullPath = join(dataDir, WORLD_STATE_VERSION_FILE);
@@ -107,9 +107,9 @@ describe('NativeWorldState', () => {
       await modifiedVersion.writeVersionFile(fullPath);
 
       // Open the world state again and it should be empty
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       // db should be empty
-      emptyStatus = await ws.getStatus();
+      emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalisedBlockNumber).toBe(0);
       await ws.close();
     });
