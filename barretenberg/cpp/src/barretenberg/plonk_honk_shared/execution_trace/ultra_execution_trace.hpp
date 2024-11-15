@@ -39,7 +39,7 @@ template <typename T> struct UltraTraceBlockData {
     bool operator==(const UltraTraceBlockData& other) const = default;
 };
 
-class UltraTraceBlock : public ExecutionTraceBlock<fr, 4, 13> {
+class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 13> {
     using SelectorType = ExecutionTraceBlock<fr, 4, 13>::SelectorType;
 
   public:

@@ -38,7 +38,6 @@ struct ExecutionTraceUsageTracker {
         }
 
         if (trace_settings.structure) {
-            info("yes trace structure");
             fixed_sizes.set_fixed_block_sizes(trace_settings);
         }
 

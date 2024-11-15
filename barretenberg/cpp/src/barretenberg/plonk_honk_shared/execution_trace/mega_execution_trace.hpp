@@ -74,7 +74,7 @@ struct TraceSettings {
     uint32_t overflow_capacity = 0;
 };
 
-class MegaTraceBlock : public ExecutionTraceBlock<fr, 4, 14> {
+class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
     using SelectorType = ExecutionTraceBlock<fr, 4, 14>::SelectorType;
 
   public:
@@ -262,8 +262,8 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .overflow = 0 };
 
 /**
- * @brief A minimal structuring specifically tailored to the medium complexity transaction for the Cli: MentIVC
- * benchmark
+ * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
+ * benchmark.
  */
 static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .pub_inputs = 1 << 7,
