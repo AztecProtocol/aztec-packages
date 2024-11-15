@@ -17,7 +17,9 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
  *
  */
-template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
+template <typename Flavor>
+std::pair<OpeningClaim<typename Flavor::Curve>, std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript>>
+ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -143,12 +145,12 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    builder->add_ipa_claim(batch_opening_claim.get_witness_indices());
     // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     // const typename PCS::VerifierAccumulator batched_opening_accumulator =
     //     PCS::reduce_verify(batch_opening_claim, ipa_transcript);
 
     ASSERT(sumcheck_verified);
+    return { batch_opening_claim, ipa_transcript };
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

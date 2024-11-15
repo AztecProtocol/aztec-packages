@@ -12,8 +12,11 @@ void GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key };
-    eccvm_verifier.verify_proof(proof.eccvm_proof);
+    auto [opening_claim, ipa_transcript] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
+    // Assuming the GoblinRecursiveVerifier can only be called at most once per circuit, we can add the claim to the
+    // builder.
+    builder->add_ipa_claim(opening_claim.get_witness_indices());
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
