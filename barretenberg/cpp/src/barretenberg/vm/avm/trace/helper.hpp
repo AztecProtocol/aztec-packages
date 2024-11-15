@@ -233,6 +233,7 @@ std::string to_hex(bb::avm_trace::AvmMemoryTag tag);
 std::string to_name(bb::avm_trace::AvmMemoryTag tag);
 
 std::string to_name(AvmError error);
+bool is_valid(AvmError error);
 
 // Mutate the inputs
 void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace);

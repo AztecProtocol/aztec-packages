@@ -52,11 +52,13 @@ static const uint32_t MAX_MEM_TAG = MEM_TAG_U128;
 enum class AvmError : uint32_t {
     NO_ERROR,
     TAG_ERROR,
-    ADDR_RES_ERROR,
+    ADDR_RES_TAG_ERROR,
+    REL_ADDR_OUT_OF_RANGE,
     DIV_ZERO,
     PARSING_ERROR,
     ENV_VAR_UNKNOWN,
-    CONTRACT_INST_MEM_UNKNOWN
+    CONTRACT_INST_MEM_UNKNOWN,
+    RADIX_OUT_OF_BOUNDS,
 };
 
 static const size_t NUM_MEM_SPACES = 256;
