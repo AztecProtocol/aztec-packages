@@ -34,6 +34,7 @@ use crate::{
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::Counted,
         tree_leaf_read_request::TreeLeafReadRequest,
+        tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
@@ -1238,6 +1239,18 @@ impl FixtureBuilder {
 
     fn vk_tree_root() -> Field {
         fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
+
+    fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
     }
 }
 

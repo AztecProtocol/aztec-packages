@@ -2,7 +2,7 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import {
   PRIVATE_KERNEL_EMPTY_INDEX,
-  PrivateBaseRollupHints,
+  type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PrivateTubeData,

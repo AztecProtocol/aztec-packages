@@ -7,7 +7,6 @@ use crate::{
         components::{
             avm_proof_data::AvmProofData, fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
-            public_tube_data::PublicTubeData,
         },
         state_diff_hints::PublicBaseStateDiffHints,
     },
@@ -22,6 +21,7 @@ use dep::types::{
         log_hash::{LogHash, ScopedLogHash},
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_write::PublicDataWrite,
+        tube::PublicTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

@@ -9,7 +9,6 @@ describe('StateDiffHints', () => {
     expect(res).toEqual(expected);
   });
 
-
   it('serializes public hints to buffer and deserializes it back', () => {
     const expected = makePublicBaseStateDiffHints();
     const buffer = expected.toBuffer();
