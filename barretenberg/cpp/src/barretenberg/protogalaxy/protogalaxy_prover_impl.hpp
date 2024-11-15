@@ -135,7 +135,9 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     if (keys[1]->overflow_size > result.accumulator->overflow_size) {
         ASSERT(DeciderProvingKeys::NUM == 2);  // this mechanism is not supported for the folding of multiple keys
         std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
-        std::swap(result.accumulator->proving_key.polynomials, keys[1]->proving_key.polynomials); // swap the polys
+        std::swap(result.accumulator->proving_key.polynomials, keys[1]->proving_key.polynomials);   // swap the polys
+        std::swap(result.accumulator->proving_key.circuit_size, keys[1]->proving_key.circuit_size); // swap circuit size
+        std::swap(result.accumulator->proving_key.log_circuit_size, keys[1]->proving_key.log_circuit_size);
     }
 
     // Fold the proving key polynomials
@@ -171,13 +173,29 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     PROFILE_THIS_NAME("ProtogalaxyProver::prove");
 
     // Ensure keys are all of the same size
-    for (size_t idx = 0; idx < DeciderProvingKeys::NUM - 1; ++idx) {
-        if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {
-            info("ProtogalaxyProver: circuit size mismatch!");
-            info("DeciderPK ", idx, " size = ", keys_to_fold[idx]->proving_key.circuit_size);
-            info("DeciderPK ", idx + 1, " size = ", keys_to_fold[idx + 1]->proving_key.circuit_size);
-            ASSERT(false);
+    size_t max_circuit_size = 0;
+    for (size_t idx = 0; idx < DeciderProvingKeys::NUM; ++idx) {
+        max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->proving_key.circuit_size);
+        // if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {
+        //     info("ProtogalaxyProver: circuit size mismatch!");
+        //     info("DeciderPK ", idx, " size = ", keys_to_fold[idx]->proving_key.circuit_size);
+        //     info("DeciderPK ", idx + 1, " size = ", keys_to_fold[idx + 1]->proving_key.circuit_size);
+        //     // ASSERT(false);
+        // }
+    }
+    for (size_t idx = 0; idx < DeciderProvingKeys::NUM; ++idx) {
+        if (keys_to_fold[idx]->proving_key.circuit_size != max_circuit_size) {
+            info("ProtogalaxyProver: circuit size mismatch - increasing virtual size of key ",
+                 idx,
+                 " from ",
+                 keys_to_fold[idx]->proving_key.circuit_size,
+                 " to ",
+                 max_circuit_size);
+            keys_to_fold[idx]->proving_key.polynomials.increase_polynomials_virtual_size(max_circuit_size);
         }
+        // for (auto poly : keys_to_fold[idx]->proving_key.polynomials.get_all()) {
+        //     // info("poly.virtual_size = ", poly.virtual_size());
+        // }
     }
     run_oink_prover_on_each_incomplete_key();
     vinfo("oink prover on each incomplete key");

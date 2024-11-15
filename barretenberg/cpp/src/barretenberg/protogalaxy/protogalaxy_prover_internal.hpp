@@ -119,7 +119,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
-        const size_t polynomial_size = polynomials.get_polynomial_size();
+        // const size_t polynomial_size = polynomials.get_polynomial_size();
+        const size_t polynomial_size = polynomials.q_c.virtual_size(); // DEBUG
         std::vector<FF> aggregated_relation_evaluations(polynomial_size);
 
         const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
@@ -597,6 +598,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const size_t desired_num_threads = domain_size / min_iterations_per_thread;
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
+
+        // DEBUG:
+        num_threads = 1;
 
         return num_threads;
     }
