@@ -42,6 +42,7 @@ describe('world-state integration', () => {
       worldStateBlockCheckIntervalMS: 20,
       worldStateProvenBlocksOnly: false,
       worldStateBlockRequestBatchSize: 5,
+      worldStateDbMapSizeKb: 1024 * 1024,
     };
 
     archiver = new MockPrefilledArchiver(blocks, messages);
