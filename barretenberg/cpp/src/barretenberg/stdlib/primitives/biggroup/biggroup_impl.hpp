@@ -415,8 +415,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
     const Fq x_4 = minus_lambda_2.sqradd({ -x, -x_3 });
 
     const Fq y_4 = minus_lambda_2.madd(x_4 - x, { -y });
-    info("x_3 tag:", x_3.get_origin_tag());
-    info("minus_lambda_2 tag:", minus_lambda_2.get_origin_tag());
     return element(x_4, y_4);
 }
 
