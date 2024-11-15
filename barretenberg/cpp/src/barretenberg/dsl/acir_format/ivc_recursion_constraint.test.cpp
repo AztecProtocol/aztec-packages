@@ -189,8 +189,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -207,8 +206,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
 
@@ -239,8 +237,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -258,8 +255,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);

@@ -116,11 +116,11 @@ class ClientIVC {
     DataBusDepot bus_depot;
 
     // Settings related to the use of fixed block sizes for each gate in the execution trace
-    const TraceSettings trace_settings;
+    TraceSettings trace_settings;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
     // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
-    const bool auto_verify_mode;
+    bool auto_verify_mode;
 
     bool initialized = false; // Is the IVC accumulator initialized
 

@@ -15,11 +15,10 @@ namespace bb {
 struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
-    using MegaExecutionTraceizes = MegaTraceBlockData<size_t>;
     using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
     using MegaTraceFixedBlockSizes = MegaExecutionTrace;
 
-    MegaExecutionTraceizes max_sizes;     // max utilization of each block
+    TraceStructure max_sizes;             // max utilization of each block
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
     MegaTraceActiveRanges active_ranges;  // ranges utlized by the accumulator within the ambient structured trace
 
@@ -41,10 +40,8 @@ struct ExecutionTraceUsageTracker {
         if (trace_settings.structure) {
             info("yes trace structure");
             fixed_sizes.set_fixed_sizes(trace_settings);
-        } else {
-            info("no trace structure");
-            fixed_sizes.set_fixed_sizes({});
         }
+
         fixed_sizes.compute_offsets(/*is_structured=*/true);
     }
 
@@ -53,7 +50,7 @@ struct ExecutionTraceUsageTracker {
     {
         // Update the max utilization of each gate block
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
-            max_size = std::max(block.size(), max_size);
+            max_size = std::max(static_cast<uint32_t>(block.size()), max_size);
         }
 
         // update the max sixe of the databus and lookup tables

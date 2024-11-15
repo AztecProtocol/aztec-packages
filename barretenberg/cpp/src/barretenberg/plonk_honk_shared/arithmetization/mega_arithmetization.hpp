@@ -28,8 +28,6 @@ template <typename T> struct MegaTraceBlockData {
     T lookup;
     T overflow; // block gates of arbitrary type that overflow their designated block
 
-    std::string_view name = "none";
-
     std::vector<std::string_view> get_labels() const
     {
         return { "ecc_op",     "pub_inputs",         "busread",
