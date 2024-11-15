@@ -56,8 +56,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
         // Construct stdlib verifier transcript
-        auto recursive_verifier_transcript =
-            std::make_shared<StdlibTranscript>(bb::convert_proof_to_witness(&builder, prover_transcript->proof_data));
+        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>(
+            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
 

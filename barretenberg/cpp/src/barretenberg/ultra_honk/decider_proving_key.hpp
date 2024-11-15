@@ -306,6 +306,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         if constexpr (DoesRecursiveIPA<Flavor>) { // Set the IPA claim indices
             proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
             proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+            proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
         proving_key.pairing_point_accumulator_public_input_indices =

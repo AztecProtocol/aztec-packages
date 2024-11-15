@@ -331,6 +331,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     bool circuit_finalized = false;
 
+    std::vector<fr> ipa_proof;
+
     void process_non_native_field_multiplications();
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)

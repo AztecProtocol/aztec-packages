@@ -596,7 +596,8 @@ void prove_tube(const std::string& output_path)
     }
     ClientIVC verifier{ builder, input };
 
-    verifier.verify(proof);
+    stdlib::recursion::honk::ClientIVCRecursiveVerifier::ClientIVCRecursiveVerifierOutput
+        client_ivc_rec_verifier_output = verifier.verify(proof);
 
     PairingPointAccumulatorIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
@@ -604,6 +605,10 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
     builder->add_pairing_point_accumulator(current_aggregation_object);
+
+    // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
+    builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;

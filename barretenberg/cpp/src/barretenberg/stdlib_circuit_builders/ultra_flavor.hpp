@@ -354,6 +354,7 @@ class UltraFlavor {
 
         bool contains_ipa_claim;
         IPAClaimPubInputIndices ipa_claim_public_input_indices;
+        HonkProof ipa_proof;
 
         ProvingKey() = default;
         ProvingKey(const size_t dyadic_circuit_size,
