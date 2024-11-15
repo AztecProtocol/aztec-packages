@@ -70,7 +70,7 @@ template <typename T> struct MegaTraceBlockData {
 using TraceStructure = MegaTraceBlockData<uint32_t>;
 
 struct TraceSettings {
-    TraceStructure structure;
+    std::optional<TraceStructure> structure;
     // The size of the overflow block. Specified separately because it is allowed to be determined at runtime in the
     // context of VK computation
     uint32_t overflow_capacity = 0;
@@ -165,22 +165,22 @@ class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
         this->pub_inputs.is_pub_inputs = true;
     }
 
-    void set_fixed_sizes(const TraceStructure& structure)
+    void set_fixed_sizes(const TraceSettings& settings)
     {
-        for (auto [block, size] : zip_view(this->get(), structure.get())) {
-            block.fixed_size = size;
+        if (settings.structure) {
+            for (auto [block, size] : zip_view(this->get(), settings.structure.value().get())) {
+                block.fixed_size = size;
+            }
         }
 
-        for (auto& block : this->get()) {
-            info("size after setting: ", block.get_fixed_size());
-        }
+        this->overflow.fixed_size = settings.overflow_capacity;
     }
 
     // WORKTODO: use or remove
-    MegaExecutionTrace(const TraceStructure& structure)
+    MegaExecutionTrace(const TraceSettings& settings)
         : MegaExecutionTrace()
     {
-        set_fixed_sizes(structure);
+        set_fixed_sizes(settings);
     }
 
     void compute_offsets(bool is_structured)
@@ -246,8 +246,7 @@ static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
                                                      .poseidon2_external = 2,
                                                      .poseidon2_internal = 2,
                                                      .lookup = 2,
-                                                     .overflow = 0,
-                                                     .name = "tiny_test" };
+                                                     .overflow = 0 };
 
 /**
  * @brief An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
@@ -262,8 +261,7 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .poseidon2_external = 1 << 14,
                                                       .poseidon2_internal = 1 << 15,
                                                       .lookup = 1 << 14,
-                                                      .overflow = 0,
-                                                      .name = "small_test" };
+                                                      .overflow = 0 };
 
 /**
  * @brief A minimal structuring specifically tailored to the medium complexity transaction for the Cli: MentIVC
@@ -279,8 +277,7 @@ static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .poseidon2_external = 2500,
                                                             .poseidon2_internal = 14000,
                                                             .lookup = 72000,
-                                                            .overflow = 0,
-                                                            .name = "client_ivc_bench" };
+                                                            .overflow = 0 };
 
 /**
  * @brief An example structuring of size 2^18.
@@ -295,8 +292,7 @@ static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,
                                             .poseidon2_external = 2500,
                                             .poseidon2_internal = 14000,
                                             .lookup = 36000,
-                                            .overflow = 0,
-                                            .name = "example_18" };
+                                            .overflow = 0 };
 
 /**
  * @brief An example structuring of size 2^20.
@@ -311,24 +307,22 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
                                             .poseidon2_external = 5000,
                                             .poseidon2_internal = 28000,
                                             .lookup = 144000,
-                                            .overflow = 0,
-                                            .name = "example_20" };
+                                            .overflow = 0 };
 
 /**
  * @brief Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
  */
-static constexpr TraceStructure E2E_STRUCTURE{ .ecc_op = 1 << 10,
-                                               .pub_inputs = 4000,
-                                               .busread = 6000,
-                                               .arithmetic = 200000,
-                                               .delta_range = 25000,
-                                               .elliptic = 80000,
-                                               .aux = 100000,
-                                               .poseidon2_external = 30128,
-                                               .poseidon2_internal = 172000,
-                                               .lookup = 200000,
-                                               .overflow = 0,
-                                               .name = "e2e" };
+static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
+                                                         .pub_inputs = 4000,
+                                                         .busread = 6000,
+                                                         .arithmetic = 200000,
+                                                         .delta_range = 25000,
+                                                         .elliptic = 80000,
+                                                         .aux = 100000,
+                                                         .poseidon2_external = 30128,
+                                                         .poseidon2_internal = 172000,
+                                                         .lookup = 200000,
+                                                         .overflow = 0 };
 
 template <typename T>
 concept HasAdditionalSelectors = IsAnyOf<T, MegaExecutionTrace>;

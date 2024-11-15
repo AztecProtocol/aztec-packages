@@ -128,7 +128,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
     ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
 
     // construct a mock app_circuit
     Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -153,7 +153,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
     ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
 
     // construct a mock app_circuit
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
@@ -185,7 +185,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateVK)
 {
-    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    const TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
@@ -235,7 +235,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
 {
-    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    const TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;

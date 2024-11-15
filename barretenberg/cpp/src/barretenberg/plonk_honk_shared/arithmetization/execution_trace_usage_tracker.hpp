@@ -37,7 +37,14 @@ struct ExecutionTraceUsageTracker {
         for (auto& size : max_sizes.get()) {
             size = 0; // init max sizes to zero
         }
-        fixed_sizes.set_fixed_block_sizes(trace_settings);
+
+        if (trace_settings.structure) {
+            info("yes trace structure");
+            fixed_sizes.set_fixed_sizes(trace_settings);
+        } else {
+            info("no trace structure");
+            fixed_sizes.set_fixed_sizes({});
+        }
         fixed_sizes.compute_offsets(/*is_structured=*/true);
     }
 
@@ -78,7 +85,7 @@ struct ExecutionTraceUsageTracker {
     bool check_is_active(const size_t idx)
     {
         // If structured trace is not in use, assume the whole trace is active
-        if (trace_settings.structure == TraceStructure::NONE) {
+        if (!trace_settings.structure) {
             return true;
         }
         for (auto& range : active_ranges.get()) {
@@ -147,7 +154,7 @@ struct ExecutionTraceUsageTracker {
 
         // Convert the active ranges for each gate type into a set of sorted non-overlapping ranges (union of the input)
         std::vector<Range> simplified_active_ranges;
-        if (trace_settings.structure == TraceStructure::NONE) {
+        if (!trace_settings.structure) {
             // If not using a structured trace, set the active range to the whole domain
             simplified_active_ranges.push_back(Range{ 0, full_domain_size });
         } else {

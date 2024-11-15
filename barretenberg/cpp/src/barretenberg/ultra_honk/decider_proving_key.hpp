@@ -50,7 +50,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-        : is_structured(trace_settings.structure.name != "none")
+        : is_structured(trace_settings.structure.has_value())
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
@@ -63,7 +63,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
-                circuit.blocks.set_fixed_sizes(trace_settings.structure); // The structuring is set
+                circuit.blocks.set_fixed_sizes(trace_settings); // The structuring is set
                 circuit.blocks.summarize();
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly

@@ -37,7 +37,7 @@ class ClientIVCIntegrationTests : public ::testing::Test {
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
     ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::CLIENT_IVC_BENCH;
+    ivc.trace_settings.structure = CLIENT_IVC_BENCH_STRUCTURE;
 
     MockCircuitProducer circuit_producer;
 
@@ -61,7 +61,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 {
     ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::CLIENT_IVC_BENCH;
+    ivc.trace_settings.structure = CLIENT_IVC_BENCH_STRUCTURE;
 
     MockCircuitProducer circuit_producer;
 
@@ -89,7 +89,7 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
     ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::CLIENT_IVC_BENCH;
+    ivc.trace_settings.structure = CLIENT_IVC_BENCH_STRUCTURE;
 
     size_t NUM_CIRCUITS = 6;
 
@@ -123,7 +123,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
     ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::CLIENT_IVC_BENCH;
+    ivc.trace_settings.structure = CLIENT_IVC_BENCH_STRUCTURE;
 
     MockCircuitProducer circuit_producer;
 

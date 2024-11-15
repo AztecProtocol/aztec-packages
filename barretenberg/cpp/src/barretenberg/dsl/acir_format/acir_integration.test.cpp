@@ -402,7 +402,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
 
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();
