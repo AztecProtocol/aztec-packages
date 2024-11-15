@@ -1144,25 +1144,6 @@ struct BrilligOutputs {
     static BrilligOutputs bincodeDeserialize(std::vector<uint8_t>);
 };
 
-struct Directive {
-
-    struct ToLeRadix {
-        Program::Expression a;
-        std::vector<Program::Witness> b;
-        uint32_t radix;
-
-        friend bool operator==(const ToLeRadix&, const ToLeRadix&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static ToLeRadix bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    std::variant<ToLeRadix> value;
-
-    friend bool operator==(const Directive&, const Directive&);
-    std::vector<uint8_t> bincodeSerialize() const;
-    static Directive bincodeDeserialize(std::vector<uint8_t>);
-};
-
 struct MemOp {
     Program::Expression operation;
     Program::Expression index;
@@ -1189,14 +1170,6 @@ struct Opcode {
         friend bool operator==(const BlackBoxFuncCall&, const BlackBoxFuncCall&);
         std::vector<uint8_t> bincodeSerialize() const;
         static BlackBoxFuncCall bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    struct Directive {
-        Program::Directive value;
-
-        friend bool operator==(const Directive&, const Directive&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static Directive bincodeDeserialize(std::vector<uint8_t>);
     };
 
     struct MemoryOp {
@@ -1241,7 +1214,7 @@ struct Opcode {
         static Call bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    std::variant<AssertZero, BlackBoxFuncCall, Directive, MemoryOp, MemoryInit, BrilligCall, Call> value;
+    std::variant<AssertZero, BlackBoxFuncCall, MemoryOp, MemoryInit, BrilligCall, Call> value;
 
     friend bool operator==(const Opcode&, const Opcode&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -6812,112 +6785,6 @@ Program::ConstantOrWitnessEnum::Witness serde::Deserializable<Program::ConstantO
 
 namespace Program {
 
-inline bool operator==(const Directive& lhs, const Directive& rhs)
-{
-    if (!(lhs.value == rhs.value)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> Directive::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<Directive>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline Directive Directive::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<Directive>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::Directive>::serialize(const Program::Directive& obj, Serializer& serializer)
-{
-    serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
-    serializer.decrease_container_depth();
-}
-
-template <>
-template <typename Deserializer>
-Program::Directive serde::Deserializable<Program::Directive>::deserialize(Deserializer& deserializer)
-{
-    deserializer.increase_container_depth();
-    Program::Directive obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
-    deserializer.decrease_container_depth();
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const Directive::ToLeRadix& lhs, const Directive::ToLeRadix& rhs)
-{
-    if (!(lhs.a == rhs.a)) {
-        return false;
-    }
-    if (!(lhs.b == rhs.b)) {
-        return false;
-    }
-    if (!(lhs.radix == rhs.radix)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> Directive::ToLeRadix::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<Directive::ToLeRadix>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline Directive::ToLeRadix Directive::ToLeRadix::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<Directive::ToLeRadix>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::Directive::ToLeRadix>::serialize(const Program::Directive::ToLeRadix& obj,
-                                                                   Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.a)>::serialize(obj.a, serializer);
-    serde::Serializable<decltype(obj.b)>::serialize(obj.b, serializer);
-    serde::Serializable<decltype(obj.radix)>::serialize(obj.radix, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::Directive::ToLeRadix serde::Deserializable<Program::Directive::ToLeRadix>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::Directive::ToLeRadix obj;
-    obj.a = serde::Deserializable<decltype(obj.a)>::deserialize(deserializer);
-    obj.b = serde::Deserializable<decltype(obj.b)>::deserialize(deserializer);
-    obj.radix = serde::Deserializable<decltype(obj.radix)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
 inline bool operator==(const Expression& lhs, const Expression& rhs)
 {
     if (!(lhs.mul_terms == rhs.mul_terms)) {
@@ -8247,52 +8114,6 @@ Program::Opcode::BlackBoxFuncCall serde::Deserializable<Program::Opcode::BlackBo
     Deserializer& deserializer)
 {
     Program::Opcode::BlackBoxFuncCall obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const Opcode::Directive& lhs, const Opcode::Directive& rhs)
-{
-    if (!(lhs.value == rhs.value)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> Opcode::Directive::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<Opcode::Directive>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline Opcode::Directive Opcode::Directive::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<Opcode::Directive>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::Opcode::Directive>::serialize(const Program::Opcode::Directive& obj,
-                                                                Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::Opcode::Directive serde::Deserializable<Program::Opcode::Directive>::deserialize(Deserializer& deserializer)
-{
-    Program::Opcode::Directive obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }

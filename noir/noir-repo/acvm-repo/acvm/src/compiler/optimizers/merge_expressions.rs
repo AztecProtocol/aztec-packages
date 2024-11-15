@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use acir::{
     circuit::{
         brillig::{BrilligInputs, BrilligOutputs},
-        directives::Directive,
         opcodes::BlockId,
         Circuit, Opcode,
     },
@@ -157,7 +156,6 @@ impl MergeExpressionsOptimizer {
         match opcode {
             Opcode::AssertZero(expr) => CircuitSimulator::expr_wit(expr),
             Opcode::BlackBoxFuncCall(bb_func) => bb_func.get_input_witnesses(),
-            Opcode::Directive(Directive::ToLeRadix { a, .. }) => CircuitSimulator::expr_wit(a),
             Opcode::MemoryOp { block_id: _, op, predicate } => {
                 //index et value, et predicate
                 let mut witnesses = BTreeSet::new();
