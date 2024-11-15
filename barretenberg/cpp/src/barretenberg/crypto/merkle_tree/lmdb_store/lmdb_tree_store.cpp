@@ -69,7 +69,7 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _leafValueToIndexDatabase = std::make_unique<LMDBDatabase>(
+        _leafKeyToIndexDatabase = std::make_unique<LMDBDatabase>(
             _environment, tx, _name + std::string("leaf indices"), false, false, fr_key_cmp);
         tx.commit();
     }
@@ -110,7 +110,7 @@ void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
     stats.blocksDBStats = DBStats(BLOCKS_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafHashToPreImageDatabase->underlying(), &stat);
     stats.leafPreimagesDBStats = DBStats(LEAF_PREIMAGES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _leafValueToIndexDatabase->underlying(), &stat);
+    call_lmdb_func(mdb_stat, tx.underlying(), _leafKeyToIndexDatabase->underlying(), &stat);
     stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
     stats.nodesDBStats = DBStats(NODES_DB, stat);
@@ -170,14 +170,14 @@ void LMDBTreeStore::write_leaf_index(const fr& leafValue, const index_t& index, 
 {
     FrKeyType key(leafValue);
     // std::cout << "Writing leaf indices by key " << key << std::endl;
-    tx.put_value<FrKeyType>(key, index, *_leafValueToIndexDatabase);
+    tx.put_value<FrKeyType>(key, index, *_leafKeyToIndexDatabase);
 }
 
 void LMDBTreeStore::delete_leaf_index(const fr& leafValue, LMDBTreeStore::WriteTransaction& tx)
 {
     FrKeyType key(leafValue);
     // std::cout << "Deleting leaf indices by key " << key << std::endl;
-    tx.delete_value(key, *_leafValueToIndexDatabase);
+    tx.delete_value(key, *_leafKeyToIndexDatabase);
 }
 
 void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTransaction& tx)
@@ -238,9 +238,9 @@ fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
         return tmp < sizeLimit.value();
     };
     if (!sizeLimit.has_value()) {
-        tx.get_value_or_previous(key, index, *_leafValueToIndexDatabase);
+        tx.get_value_or_previous(key, index, *_leafKeyToIndexDatabase);
     } else {
-        tx.get_value_or_previous(key, index, *_leafValueToIndexDatabase, is_valid);
+        tx.get_value_or_previous(key, index, *_leafKeyToIndexDatabase, is_valid);
     }
     return key;
 }

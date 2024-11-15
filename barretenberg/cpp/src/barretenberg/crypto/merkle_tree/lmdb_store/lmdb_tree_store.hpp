@@ -134,7 +134,7 @@ class LMDBTreeStore {
     LMDBEnvironment::SharedPtr _environment;
     LMDBDatabase::Ptr _blockDatabase;
     LMDBDatabase::Ptr _nodeDatabase;
-    LMDBDatabase::Ptr _leafValueToIndexDatabase;
+    LMDBDatabase::Ptr _leafKeyToIndexDatabase;
     LMDBDatabase::Ptr _leafHashToPreImageDatabase;
     LMDBDatabase::Ptr _leafIndexToKeyDatabase;
 
@@ -144,7 +144,7 @@ class LMDBTreeStore {
 template <typename TxType> bool LMDBTreeStore::read_leaf_index(const fr& leafValue, index_t& leafIndex, TxType& tx)
 {
     FrKeyType key(leafValue);
-    return tx.template get_value<FrKeyType>(key, leafIndex, *_leafValueToIndexDatabase);
+    return tx.template get_value<FrKeyType>(key, leafIndex, *_leafKeyToIndexDatabase);
 }
 
 template <typename LeafType, typename TxType>

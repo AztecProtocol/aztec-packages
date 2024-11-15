@@ -256,7 +256,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void remove_leaf(const fr& hash, const std::optional<index_t>& maxIndex, WriteTransaction& tx);
 
-    void remove_leaf_indices(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
+    void remove_leaf_index(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
 
     void remove_leaf_indices_after_or_equal_index(const index_t& maxIndex, WriteTransaction& tx);
 
@@ -701,7 +701,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_keys(const ind
     for (auto& idx : indices_) {
         FrKeyType key = idx.first;
 
-        // write the leaf key against the indices, this is for the pending chain store of indices
+        // write the leaf key against the index, this is for the pending chain store of indices
         index_t indexForKey = idx.second;
         if (indexForKey < startIndex) {
             continue;
@@ -1027,38 +1027,23 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_indices_after_o
     std::vector<bb::fr> leafKeys;
     dataStore_->read_all_leaf_keys_after_or_equal_index(index, leafKeys, tx);
     for (const fr& key : leafKeys) {
-        remove_leaf_indices(key, index, tx);
+        remove_leaf_index(key, index, tx);
     }
     dataStore_->delete_all_leaf_keys_after_or_equal_index(index, tx);
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_indices(const fr& key,
-                                                                         const index_t& maxIndex,
-                                                                         WriteTransaction& tx)
+void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_index(const fr& key,
+                                                                       const index_t& maxIndex,
+                                                                       WriteTransaction& tx)
 {
-    // We now have the key, extract the indices
-    Indices indices;
-    // std::cout << "Reading indices for key " << key << std::endl;
-    dataStore_->read_leaf_indices(key, indices, tx);
-    // std::cout << "Indices length before removal " << indices.indices.size() << std::endl;
-
-    size_t lengthBefore = indices.indices.size();
-
-    indices.indices.erase(
-        std::remove_if(indices.indices.begin(), indices.indices.end(), [&](index_t& ind) { return ind >= maxIndex; }),
-        indices.indices.end());
-
-    size_t lengthAfter = indices.indices.size();
-    // std::cout << "Indices length after removal " << indices.indices.size() << std::endl;
-
-    if (lengthBefore != lengthAfter) {
-        if (indices.indices.empty()) {
-            // std::cout << "Deleting indices" << std::endl;
-            dataStore_->delete_leaf_indices(key, tx);
-        } else {
-            // std::cout << "Writing indices" << std::endl;
-            dataStore_->write_leaf_indices(key, indices, tx);
+    // We now have the key, extract the index
+    index_t index = 0;
+    // std::cout << "Reading index for key " << key << std::endl;
+    if (dataStore_->read_leaf_index(key, index, tx)) {
+        if (index >= maxIndex) {
+            // std::cout << "Deleting index" << std::endl;
+            dataStore_->delete_leaf_index(key, tx);
         }
     }
 }
@@ -1071,7 +1056,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
     // std::cout << "Removing leaf " << hash << std::endl;
     if (maxIndex.has_value()) {
         // std::cout << "Max Index" << std::endl;
-        //   We need to clear the entry from the leaf key to indices database as this leaf never existed
+        //   We need to clear the entry from the leaf key to index database as this leaf never existed
         IndexedLeafValueType leaf;
         fr key;
         if (requires_preimage_for_key<LeafValueType>()) {
@@ -1084,7 +1069,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
         } else {
             key = hash;
         }
-        remove_leaf_indices(key, maxIndex.value(), tx);
+        remove_leaf_index(key, maxIndex.value(), tx);
     }
     // std::cout << "Deleting leaf by hash " << std::endl;
     dataStore_->delete_leaf_by_hash(hash, tx);

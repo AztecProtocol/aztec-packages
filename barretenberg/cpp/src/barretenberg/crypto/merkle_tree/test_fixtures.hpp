@@ -56,13 +56,12 @@ void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
 void inline check_indices_data(
     LMDBTreeStore::SharedPtr db, fr leaf, index_t index, bool entryShouldBePresent, bool indexShouldBePresent)
 {
-    Indices indices;
+    index_t retrieved = 0;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    bool success = db->read_leaf_indices(leaf, indices, *tx);
+    bool success = db->read_leaf_index(leaf, retrieved, *tx);
     EXPECT_EQ(success, entryShouldBePresent);
     if (entryShouldBePresent) {
-        bool found = std::find(indices.indices.begin(), indices.indices.end(), index) != std::end(indices.indices);
-        EXPECT_EQ(found, indexShouldBePresent);
+        EXPECT_EQ(index == retrieved, indexShouldBePresent);
     }
 }
 
