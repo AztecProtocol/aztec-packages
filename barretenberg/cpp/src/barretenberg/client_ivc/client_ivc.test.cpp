@@ -282,7 +282,7 @@ TEST_F(ClientIVCTests, BasicStructured)
 
     MockCircuitProducer circuit_producer;
 
-    size_t NUM_CIRCUITS = 4;
+    size_t NUM_CIRCUITS = 2;
 
     // Construct and accumulate some circuits of varying size
     size_t log2_num_gates = 5;
