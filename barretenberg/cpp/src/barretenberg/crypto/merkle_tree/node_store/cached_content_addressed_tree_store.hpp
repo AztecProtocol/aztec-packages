@@ -638,14 +638,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
 
-        std::cout << "Committed meta " << committedMeta << std::endl;
-        std::cout << "Uncommitted meta " << uncommittedMeta << std::endl;
-        // if the meta datas are different, we have uncommitted data
-        bool metaToCommit = committedMeta != uncommittedMeta;
-        std::cout << "Meta to commit? " << metaToCommit << std::endl;
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
-        std::cout << "Data present? " << dataPresent << std::endl;
         if (dataPresent) {
             // data is present, hydrate persisted indices
             hydrate_indices_from_persisted_store(*tx);
@@ -655,13 +649,10 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         WriteTransactionPtr tx = create_write_transaction();
         try {
             if (dataPresent) {
-                std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
+                // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
-                std::cout << "Persisted leaf indices" << std::endl;
                 persist_leaf_keys(uncommittedMeta.committedSize, *tx);
-                std::cout << "Persisted leaf keys" << std::endl;
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
-                std::cout << "Persisted root" << std::endl;
             }
             if (asBlock) {
                 ++uncommittedMeta.unfinalisedBlockHeight;
