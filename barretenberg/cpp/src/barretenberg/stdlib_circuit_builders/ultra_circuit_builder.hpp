@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 
 namespace bb {
 

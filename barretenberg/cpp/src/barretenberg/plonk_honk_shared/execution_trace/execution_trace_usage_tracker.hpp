@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb {

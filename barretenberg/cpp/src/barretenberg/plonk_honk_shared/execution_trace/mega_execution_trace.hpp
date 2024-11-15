@@ -4,7 +4,7 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 
 namespace bb {

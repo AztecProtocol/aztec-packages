@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"

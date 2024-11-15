@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/plonk_honk_shared/arithmetization/standard_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/standard_execution_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 namespace bb::plonk {
 class settings_base {
