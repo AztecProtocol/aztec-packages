@@ -37,7 +37,5 @@
       "path": "../types"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
