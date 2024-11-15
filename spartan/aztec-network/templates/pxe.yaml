@@ -102,7 +102,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-pxe-lb
+  name: pxe-lb
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:

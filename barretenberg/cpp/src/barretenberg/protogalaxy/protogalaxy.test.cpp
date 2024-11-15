@@ -48,7 +48,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void construct_circuit(Builder& builder)
     {
         MockCircuits::add_arithmetic_gates(builder);
-        if constexpr (IsGoblinFlavor<Flavor>) {
+        if constexpr (IsMegaFlavor<Flavor>) {
             GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
     }
@@ -143,7 +143,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
                                                                      decider_pk->relation_parameters.eta_two,
                                                                      decider_pk->relation_parameters.eta_three);
         decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-        decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+        decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                                 decider_pk->final_active_wire_idx + 1);
 
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();

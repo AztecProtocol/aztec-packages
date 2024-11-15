@@ -405,22 +405,22 @@ export class Oracle {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
 
-  async getAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.typedOracle.getAppTaggingSecret(
+  async getAppTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.getAppTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async incrementAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]) {
-    await this.typedOracle.incrementAppTaggingSecret(
+  async incrementAppTaggingSecretIndexAsSender([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecretIndexAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
   }
 
-  async syncNotes([recipient]: ACVMField[]) {
-    await this.typedOracle.syncNotes(AztecAddress.fromString(recipient));
+  async syncNotes() {
+    await this.typedOracle.syncNotes();
   }
 }
