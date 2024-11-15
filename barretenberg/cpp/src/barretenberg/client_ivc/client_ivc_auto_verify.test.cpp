@@ -130,9 +130,7 @@ TEST_F(ClientIVCAutoVerifyTests, BasicLarge)
  */
 TEST_F(ClientIVCAutoVerifyTests, BasicStructured)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Construct some circuits of varying size
     Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false, /*log2_num_gates=*/5);
@@ -183,9 +181,7 @@ TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
  */
 TEST_F(ClientIVCAutoVerifyTests, StructuredPrecomputedVKs)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 4;

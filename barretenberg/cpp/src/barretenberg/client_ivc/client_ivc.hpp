@@ -116,13 +116,18 @@ class ClientIVC {
     DataBusDepot bus_depot;
 
     // Settings related to the use of fixed block sizes for each gate in the execution trace
-    TraceSettings trace_settings;
+    const TraceSettings trace_settings;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
     // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
-    bool auto_verify_mode = false;
+    const bool auto_verify_mode;
 
     bool initialized = false; // Is the IVC accumulator initialized
+
+    ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
+        : trace_settings(trace_settings)
+        , auto_verify_mode(auto_verify_mode)
+    {}
 
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});

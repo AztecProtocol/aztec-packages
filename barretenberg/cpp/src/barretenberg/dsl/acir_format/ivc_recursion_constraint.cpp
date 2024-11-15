@@ -16,8 +16,7 @@ using field_ct = stdlib::field_t<Builder>;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
-    ClientIVC ivc;
-    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     for (const auto& constraint : constraints) {
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {

@@ -127,8 +127,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
-    ClientIVC ivc;
-    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     // construct a mock app_circuit
     Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -152,8 +151,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
-    ClientIVC ivc;
-    ivc.trace_settings.structure = SMALL_TEST_STRUCTURE;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     // construct a mock app_circuit
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
