@@ -57,7 +57,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
     using VerificationKey = ClientIVC::VerificationKey;
     using FF = bb::fr;
 
-    MegaExecutionTrace blocks;
+    MegaExecutionTraceBlocks blocks;
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t structured_dyadic_size = blocks.get_structured_dyadic_size();

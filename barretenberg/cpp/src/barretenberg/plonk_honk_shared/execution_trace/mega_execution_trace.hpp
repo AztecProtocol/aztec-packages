@@ -139,7 +139,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, 4, 14> {
     void resize_additional(size_t new_size) { q_busread().resize(new_size); };
 };
 
-class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
+class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
   public:
     /**
      * @brief Defines the circuit block types for the Mega arithmetization
@@ -157,7 +157,7 @@ class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
 
     bool has_overflow = false; // indicates whether the overflow block has non-zero fixed or actual size
 
-    MegaExecutionTrace()
+    MegaExecutionTraceBlocks()
     {
         this->aux.has_ram_rom = true;
         this->pub_inputs.is_pub_inputs = true;
@@ -175,8 +175,8 @@ class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
     }
 
     // WORKTODO: use or remove
-    MegaExecutionTrace(const TraceSettings& settings)
-        : MegaExecutionTrace()
+    MegaExecutionTraceBlocks(const TraceSettings& settings)
+        : MegaExecutionTraceBlocks()
     {
         set_fixed_block_sizes(settings);
     }
@@ -225,7 +225,7 @@ class MegaExecutionTrace : public MegaTraceBlockData<MegaTraceBlock> {
         return 1UL << log2_n;
     }
 
-    bool operator==(const MegaExecutionTrace& other) const = default;
+    bool operator==(const MegaExecutionTraceBlocks& other) const = default;
 
     // Note: Unused. Needed only for consistency with Ultra arith (which is used by Plonk)
     inline static const std::vector<std::string> selector_names = {};
@@ -323,5 +323,5 @@ static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
                                                          .overflow = 0 };
 
 template <typename T>
-concept HasAdditionalSelectors = IsAnyOf<T, MegaExecutionTrace>;
+concept HasAdditionalSelectors = IsAnyOf<T, MegaExecutionTraceBlocks>;
 } // namespace bb

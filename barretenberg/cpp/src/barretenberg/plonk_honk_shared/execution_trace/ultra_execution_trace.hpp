@@ -81,7 +81,7 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, 4, 13> {
     }
 };
 
-class UltraExecutionTrace : public UltraTraceBlockData<UltraTraceBlock> {
+class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
 
   public:
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
@@ -90,7 +90,7 @@ class UltraExecutionTrace : public UltraTraceBlockData<UltraTraceBlock> {
 
     bool has_overflow = false;
 
-    UltraExecutionTrace()
+    UltraExecutionTraceBlocks()
     {
         this->aux.has_ram_rom = true;
         this->pub_inputs.is_pub_inputs = true;
@@ -137,7 +137,7 @@ class UltraExecutionTrace : public UltraTraceBlockData<UltraTraceBlock> {
         return 1UL << log2_n;
     }
 
-    bool operator==(const UltraExecutionTrace& other) const = default;
+    bool operator==(const UltraExecutionTraceBlocks& other) const = default;
 
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
     inline static const std::vector<std::string> selector_names = { "q_m",

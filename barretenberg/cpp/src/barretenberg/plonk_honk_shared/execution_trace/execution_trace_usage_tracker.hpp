@@ -16,7 +16,7 @@ struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
     using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
-    using MegaTraceFixedBlockSizes = MegaExecutionTrace;
+    using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
     TraceStructure max_sizes;             // max utilization of each block
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring

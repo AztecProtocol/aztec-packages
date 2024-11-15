@@ -2960,8 +2960,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     return buffer;
 }
 
-template class UltraCircuitBuilder_<UltraExecutionTrace>;
-template class UltraCircuitBuilder_<MegaExecutionTrace>;
+template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
+template class UltraCircuitBuilder_<MegaExecutionTraceBlocks>;
 // To enable this we need to template plookup
 // template class UltraCircuitBuilder_<grumpkin::fr>;
 
