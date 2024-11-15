@@ -1,9 +1,9 @@
 use crate::{
-    abis::{gas::Gas, log_hash::{LogHash, ScopedLogHash}, public_data_write::PublicDataWrite},
+    abis::{log_hash::{LogHash, ScopedLogHash}, public_data_write::PublicDataWrite},
     constants::{
-        COMBINED_ACCUMULATED_DATA_LENGTH, MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        COMBINED_ACCUMULATED_DATA_LENGTH, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
@@ -18,16 +18,16 @@ pub struct CombinedAccumulatedData {
     pub note_encrypted_logs_hashes: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     pub encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    pub contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
     pub note_encrypted_log_preimages_length: Field,
     pub encrypted_log_preimages_length: Field,
     pub unencrypted_log_preimages_length: Field,
+    pub contract_class_log_preimages_length: Field,
 
     pub public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-
-    pub gas_used: Gas,
 }
 
 impl Empty for CombinedAccumulatedData {
@@ -39,11 +39,12 @@ impl Empty for CombinedAccumulatedData {
             note_encrypted_logs_hashes: [LogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
             encrypted_logs_hashes: [ScopedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
             unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+            contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
+            contract_class_log_preimages_length: 0,
             public_data_writes: [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-            gas_used: Gas::empty(),
         }
     }
 }
@@ -66,15 +67,17 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         for i in 0..self.unencrypted_logs_hashes.len() {
             fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
         }
+        for i in 0..self.contract_class_logs_hashes.len() {
+            fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
+        }
         fields.push(self.note_encrypted_log_preimages_length);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
+        fields.push(self.contract_class_log_preimages_length);
 
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             fields.extend_from_array(self.public_data_writes[i].serialize());
         }
-
-        fields.extend_from_array(self.gas_used.serialize());
 
         assert_eq(fields.len(), COMBINED_ACCUMULATED_DATA_LENGTH);
 
@@ -105,14 +108,18 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
                 ScopedLogHash::deserialize,
                 [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             ),
+            contract_class_logs_hashes: reader.read_struct_array(
+                ScopedLogHash::deserialize,
+                [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+            ),
             note_encrypted_log_preimages_length: reader.read(),
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
+            contract_class_log_preimages_length: reader.read(),
             public_data_writes: reader.read_struct_array(
                 PublicDataWrite::deserialize,
                 [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             ),
-            gas_used: reader.read_struct(Gas::deserialize),
         };
         reader.finish();
         item
@@ -127,14 +134,18 @@ impl Eq for CombinedAccumulatedData {
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
             & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
+            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & (
                 self.note_encrypted_log_preimages_length
                     == other.note_encrypted_log_preimages_length
             )
             & (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length)
             & (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length)
+            & (
+                self.contract_class_log_preimages_length
+                    == other.contract_class_log_preimages_length
+            )
             & (self.public_data_writes == other.public_data_writes)
-            & (self.gas_used == other.gas_used)
     }
 }
 

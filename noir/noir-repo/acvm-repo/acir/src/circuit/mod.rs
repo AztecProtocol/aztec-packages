@@ -1,6 +1,5 @@
 pub mod black_box_functions;
 pub mod brillig;
-pub mod directives;
 pub mod opcodes;
 
 use crate::native_types::{Expression, Witness};

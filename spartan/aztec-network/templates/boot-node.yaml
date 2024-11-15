@@ -152,6 +152,8 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.bootNode.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -233,7 +235,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-boot-node-lb-tcp
+  name: boot-node-lb-tcp
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -250,7 +252,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-boot-node-lb-udp
+  name: boot-node-lb-udp
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"

@@ -4,7 +4,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { beforeEach } from '@jest/globals';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint32 } from '../avm_memory_types.js';
+import { Field, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { EcAdd } from './ec_add.js';
 
@@ -47,7 +47,7 @@ describe('EC Instructions', () => {
     it(`Should double correctly`, async () => {
       const x = new Field(grumpkin.generator().x);
       const y = new Field(grumpkin.generator().y);
-      const zero = new Uint32(0);
+      const zero = new Uint1(0);
 
       context.machineState.memory.set(0, x);
       context.machineState.memory.set(1, y);
@@ -81,7 +81,7 @@ describe('EC Instructions', () => {
 
     it('Should add correctly', async () => {
       const G2 = grumpkin.add(grumpkin.generator(), grumpkin.generator());
-      const zero = new Uint32(0);
+      const zero = new Uint1(0);
 
       const x1 = new Field(grumpkin.generator().x);
       const y1 = new Field(grumpkin.generator().y);

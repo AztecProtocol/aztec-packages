@@ -87,7 +87,7 @@ export async function getNonNullifiedL1ToL2MessageWitness(
 
   const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
 
-  const nullifierIndex = await node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, messageNullifier);
+  const [nullifierIndex] = await node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [messageNullifier]);
   if (nullifierIndex !== undefined) {
     throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
   }

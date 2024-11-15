@@ -1,11 +1,12 @@
 import {
   type AvmProvingRequest,
+  type GasUsed,
   type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
   type PublicExecutionRequest,
-  PublicKernelPhase,
   type SimulationError,
   type Tx,
+  TxExecutionPhase,
 } from '@aztec/circuit-types';
 import {
   AvmAccumulatedData,
@@ -55,10 +56,10 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
 import { PublicKernelTailSimulator } from './public_kernel_tail_simulator.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 
-const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
-  [PublicKernelPhase.SETUP]: false,
-  [PublicKernelPhase.APP_LOGIC]: true,
-  [PublicKernelPhase.TEARDOWN]: true,
+const PhaseIsRevertible: Record<TxExecutionPhase, boolean> = {
+  [TxExecutionPhase.SETUP]: false,
+  [TxExecutionPhase.APP_LOGIC]: true,
+  [TxExecutionPhase.TEARDOWN]: true,
 };
 
 type PublicPhaseResult = {
@@ -67,7 +68,7 @@ type PublicPhaseResult = {
   publicKernelOutput: PublicKernelCircuitPublicInputs;
   /** Return values of simulating complete callstack */
   returnValues: NestedProcessReturnValues[];
-  /** Gas used during the execution this phase */
+  /** Gas used during the execution of this phase */
   gasUsed: Gas;
   /** Time spent for the execution this phase */
   durationMs: number;
@@ -77,22 +78,21 @@ type PublicPhaseResult = {
   revertReason?: SimulationError;
 };
 
-type PublicPhaseGasUsed = Partial<Record<PublicKernelPhase, Gas>>;
+type PhaseGasUsed = Record<TxExecutionPhase, Gas>;
 
 export type ProcessedPhase = {
-  phase: PublicKernelPhase;
+  phase: TxExecutionPhase;
   durationMs: number;
+  returnValues: NestedProcessReturnValues[];
   revertReason?: SimulationError;
 };
 
 export type TxPublicCallsResult = {
   avmProvingRequest: AvmProvingRequest;
-  /** Return values of simulating complete callstack */
-  returnValues: NestedProcessReturnValues[];
-  /** Gas used during the execution this tx */
-  gasUsed: PublicPhaseGasUsed;
-  /** Revert reason, if any */
+  /** Gas used during the execution of this tx */
+  gasUsed: GasUsed;
   revertCode: RevertCode;
+  /** Revert reason, if any */
   revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
 };
@@ -139,13 +139,13 @@ export class EnqueuedCallsProcessor {
     );
   }
 
-  static getExecutionRequestsByPhase(tx: Tx, phase: PublicKernelPhase): PublicExecutionRequest[] {
+  static getExecutionRequestsByPhase(tx: Tx, phase: TxExecutionPhase): PublicExecutionRequest[] {
     switch (phase) {
-      case PublicKernelPhase.SETUP:
+      case TxExecutionPhase.SETUP:
         return tx.getNonRevertiblePublicExecutionRequests();
-      case PublicKernelPhase.APP_LOGIC:
+      case TxExecutionPhase.APP_LOGIC:
         return tx.getRevertiblePublicExecutionRequests();
-      case PublicKernelPhase.TEARDOWN: {
+      case TxExecutionPhase.TEARDOWN: {
         const request = tx.getPublicTeardownExecutionRequest();
         return request ? [request] : [];
       }
@@ -154,13 +154,13 @@ export class EnqueuedCallsProcessor {
     }
   }
 
-  static getCallRequestsByPhase(tx: Tx, phase: PublicKernelPhase): PublicCallRequest[] {
+  static getCallRequestsByPhase(tx: Tx, phase: TxExecutionPhase): PublicCallRequest[] {
     switch (phase) {
-      case PublicKernelPhase.SETUP:
+      case TxExecutionPhase.SETUP:
         return tx.data.getNonRevertiblePublicCallRequests();
-      case PublicKernelPhase.APP_LOGIC:
+      case TxExecutionPhase.APP_LOGIC:
         return tx.data.getRevertiblePublicCallRequests();
-      case PublicKernelPhase.TEARDOWN: {
+      case TxExecutionPhase.TEARDOWN: {
         const request = tx.data.getTeardownPublicCallRequest();
         return request ? [request] : [];
       }
@@ -172,17 +172,16 @@ export class EnqueuedCallsProcessor {
   async process(tx: Tx): Promise<TxPublicCallsResult> {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
 
-    const phases: PublicKernelPhase[] = [
-      PublicKernelPhase.SETUP,
-      PublicKernelPhase.APP_LOGIC,
-      PublicKernelPhase.TEARDOWN,
-    ];
+    const constants = CombinedConstantData.combine(tx.data.constants, this.globalVariables);
+    const phases: TxExecutionPhase[] = [TxExecutionPhase.SETUP, TxExecutionPhase.APP_LOGIC, TxExecutionPhase.TEARDOWN];
     const processedPhases: ProcessedPhase[] = [];
-    const gasUsed: PublicPhaseGasUsed = {};
+    let phaseGasUsed: PhaseGasUsed = {
+      [TxExecutionPhase.SETUP]: Gas.empty(),
+      [TxExecutionPhase.APP_LOGIC]: Gas.empty(),
+      [TxExecutionPhase.TEARDOWN]: Gas.empty(),
+    };
     let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = this.getPublicKernelCircuitPublicInputs(tx.data);
-    let isFromPrivate = true;
-    let returnValues: NestedProcessReturnValues[] = [];
     let revertReason: SimulationError | undefined;
 
     const nonRevertibleNullifiersFromPrivate = publicKernelOutput.endNonRevertibleData.nullifiers
@@ -218,7 +217,7 @@ export class EnqueuedCallsProcessor {
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
       let stateManagerForPhase: AvmPersistableStateManager;
-      if (phase === PublicKernelPhase.SETUP) {
+      if (phase === TxExecutionPhase.SETUP) {
         // don't need to fork for setup since it's non-revertible
         // (if setup fails, transaction is thrown out)
         stateManagerForPhase = txStateManager;
@@ -229,14 +228,19 @@ export class EnqueuedCallsProcessor {
       }
       const callRequests = EnqueuedCallsProcessor.getCallRequestsByPhase(tx, phase);
       if (callRequests.length) {
+        const allocatedGas = this.getAllocatedGasForPhase(phase, tx, phaseGasUsed);
+        const transactionFee = phase !== TxExecutionPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, phaseGasUsed);
+
         const executionRequests = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, phase);
         const result = await this.processPhase(
+          phase,
           tx,
+          constants,
           callRequests,
           executionRequests,
           publicKernelOutput,
-          phase,
-          isFromPrivate,
+          allocatedGas,
+          transactionFee,
           stateManagerForPhase,
         ).catch(async err => {
           await this.worldStateDB.rollbackToCommit();
@@ -244,17 +248,12 @@ export class EnqueuedCallsProcessor {
         });
 
         publicKernelOutput = result.publicKernelOutput;
-        isFromPrivate = false;
 
         // Propagate only one avmProvingRequest of a function call for now, so that we know it's still provable.
         // Eventually this will be the proof for the entire public call stack.
         avmProvingRequest = result.avmProvingRequest;
 
-        if (phase === PublicKernelPhase.APP_LOGIC) {
-          returnValues = result.returnValues;
-        }
-
-        if (phase !== PublicKernelPhase.SETUP) {
+        if (phase !== TxExecutionPhase.SETUP) {
           txStateManager.mergeStateForPhase(
             stateManagerForPhase,
             callRequests,
@@ -263,13 +262,17 @@ export class EnqueuedCallsProcessor {
           );
         }
 
-        gasUsed[phase] = result.gasUsed;
-
         processedPhases.push({
           phase,
           durationMs: result.durationMs,
+          returnValues: result.returnValues,
           revertReason: result.revertReason,
         });
+
+        phaseGasUsed = {
+          ...phaseGasUsed,
+          [phase]: result.gasUsed,
+        };
 
         revertReason ??= result.revertReason;
       }
@@ -283,12 +286,22 @@ export class EnqueuedCallsProcessor {
       },
     );
 
-    const transactionFee = this.getTransactionFee(tx, publicKernelOutput);
-    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(tx, tailKernelOutput, transactionFee);
+    const gasUsedForFee = this.getGasUsedForFee(tx, phaseGasUsed);
+    const transactionFee = this.getTransactionFee(tx, phaseGasUsed);
+    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(
+      tx,
+      tailKernelOutput,
+      gasUsedForFee,
+      transactionFee,
+    );
+
+    const gasUsed = {
+      totalGas: this.getActualGasUsed(tx, phaseGasUsed),
+      teardownGas: phaseGasUsed[TxExecutionPhase.TEARDOWN],
+    };
 
     return {
       avmProvingRequest: avmProvingRequest!,
-      returnValues,
       gasUsed,
       processedPhases,
       revertCode: tailKernelOutput.revertCode,
@@ -297,24 +310,30 @@ export class EnqueuedCallsProcessor {
   }
 
   private async processPhase(
+    phase: TxExecutionPhase,
     tx: Tx,
+    constants: CombinedConstantData,
     callRequests: PublicCallRequest[],
     executionRequests: PublicExecutionRequest[],
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    phase: PublicKernelPhase,
-    isFromPrivate: boolean,
+    allocatedGas: Gas,
+    transactionFee: Fr,
     txStateManager: AvmPersistableStateManager,
   ): Promise<PublicPhaseResult> {
-    this.log.debug(`Beginning processing in phase ${PublicKernelPhase[phase]} for tx ${tx.getTxHash()}`);
+    this.log.debug(`Beginning processing in phase ${TxExecutionPhase[phase]} for tx ${tx.getTxHash()}`);
 
     const phaseTimer = new Timer();
     const returnValues: NestedProcessReturnValues[] = [];
+    let availableGas = allocatedGas;
     let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = previousPublicKernelOutput;
-    let gasUsed = Gas.empty();
     let reverted: boolean = false;
     let revertReason: SimulationError | undefined;
-    for (let i = callRequests.length - 1; i >= 0 && !revertReason; i--) {
+    for (let i = callRequests.length - 1; i >= 0; i--) {
+      if (reverted) {
+        break;
+      }
+
       const callRequest = callRequests[i];
       const executionRequest = executionRequests[i];
 
@@ -326,19 +345,14 @@ export class EnqueuedCallsProcessor {
       // if so, this should only add contracts that were deployed during private app logic.
       await this.worldStateDB.addNewContracts(tx);
 
-      const availableGas = this.getAvailableGas(tx, publicKernelOutput, phase);
-      const transactionFee =
-        phase !== PublicKernelPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, publicKernelOutput);
-
       // each enqueued call starts with an incremented side effect counter
       const enqueuedCallStateManager = txStateManager.fork(/*incrementSideEffectCounter=*/ true);
       const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
         callRequest,
         executionRequest,
-        publicKernelOutput,
+        constants,
         availableGas,
         transactionFee,
-        phase,
         enqueuedCallStateManager,
       );
 
@@ -355,14 +369,14 @@ export class EnqueuedCallsProcessor {
         enqueuedCallResult.reverted!,
       );
 
+      availableGas = availableGas.sub(enqueuedCallResult.gasUsed);
       avmProvingRequest = enqueuedCallResult.avmProvingRequest;
       returnValues.push(enqueuedCallResult.returnValues);
-      gasUsed = gasUsed.add(enqueuedCallResult.gasUsed);
       reverted = enqueuedCallResult.reverted;
-      revertReason ??= enqueuedCallResult.revertReason;
+      revertReason = enqueuedCallResult.revertReason;
 
       // Instead of operating on worldStateDB here, do we do AvmPersistableStateManager.revert() or return()?
-      if (revertReason) {
+      if (reverted) {
         // TODO(#6464): Should we allow emitting contracts in the private setup phase?
         // if so, this is removing contracts deployed in private setup
         // You can't submit contracts in public, so this is only relevant for private-created
@@ -372,63 +386,64 @@ export class EnqueuedCallsProcessor {
         await this.worldStateDB.removeNewContracts(tx);
         tx.filterRevertedLogs(publicKernelOutput);
       } else {
-        // TODO(#6470): we should be adding contracts deployed in those logs to the publicContractsDB
         tx.unencryptedLogs.addFunctionLogs([enqueuedCallResult.newUnencryptedLogs]);
       }
 
-      const output = await this.runMergeKernelCircuit(
-        publicKernelOutput,
-        enqueuedCallResult.kernelOutput,
-        isFromPrivate,
-      );
+      const output = await this.runMergeKernelCircuit(publicKernelOutput, enqueuedCallResult.kernelOutput);
       publicKernelOutput = output;
-      isFromPrivate = false;
     }
 
     return {
       avmProvingRequest: avmProvingRequest!,
       publicKernelOutput,
       durationMs: phaseTimer.ms(),
-      gasUsed,
-      returnValues: returnValues,
-      reverted: reverted,
+      gasUsed: allocatedGas.sub(availableGas),
+      returnValues,
+      reverted,
       revertReason,
     };
   }
 
-  private getAvailableGas(
-    tx: Tx,
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    phase: PublicKernelPhase,
-  ) {
-    if (phase === PublicKernelPhase.TEARDOWN) {
-      return tx.data.constants.txContext.gasSettings.getTeardownLimits();
+  private getAllocatedGasForPhase(phase: TxExecutionPhase, tx: Tx, phaseGasUsed: PhaseGasUsed) {
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    if (phase === TxExecutionPhase.TEARDOWN) {
+      return gasSettings.teardownGasLimits;
     } else {
-      return tx.data.constants.txContext.gasSettings
-        .getLimits() // No need to subtract teardown limits since they are already included in end.gasUsed
-        .sub(previousPublicKernelOutput.end.gasUsed)
-        .sub(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
+      return gasSettings.gasLimits
+        .sub(tx.data.gasUsed)
+        .sub(phaseGasUsed[TxExecutionPhase.SETUP])
+        .sub(phaseGasUsed[TxExecutionPhase.APP_LOGIC]);
     }
   }
 
-  private getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
-    const gasSettings = tx.data.constants.txContext.gasSettings;
+  private getTransactionFee(tx: Tx, phaseGasUsed: PhaseGasUsed): Fr {
     const gasFees = this.globalVariables.gasFees;
-    // No need to add teardown limits since they are already included in end.gasUsed
-    const gasUsed = previousPublicKernelOutput.end.gasUsed
-      .add(previousPublicKernelOutput.endNonRevertibleData.gasUsed)
-      .add(gasSettings.teardownGasLimits);
-    const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
-    this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
+    const txFee = this.getGasUsedForFee(tx, phaseGasUsed).computeFee(gasFees);
+
+    this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(phaseGasUsed), gasFees: inspect(gasFees) });
+
     return txFee;
+  }
+
+  private getGasUsedForFee(tx: Tx, phaseGasUsed: PhaseGasUsed) {
+    return tx.data.gasUsed // This should've included teardown gas limits.
+      .add(phaseGasUsed[TxExecutionPhase.SETUP])
+      .add(phaseGasUsed[TxExecutionPhase.APP_LOGIC]);
+  }
+
+  private getActualGasUsed(tx: Tx, phaseGasUsed: PhaseGasUsed) {
+    const requireTeardown = tx.data.hasTeardownPublicCallRequest();
+    const teardownGasLimits = tx.data.constants.txContext.gasSettings.teardownGasLimits;
+    const privateGasUsed = tx.data.gasUsed.sub(requireTeardown ? teardownGasLimits : Gas.empty());
+    const publicGasUsed = Object.values(phaseGasUsed).reduce((accum, gasUsed) => accum.add(gasUsed), Gas.empty());
+    return privateGasUsed.add(publicGasUsed);
   }
 
   private async runMergeKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
     enqueuedCallData: VMCircuitPublicInputs,
-    isFromPrivate: boolean,
   ): Promise<PublicKernelCircuitPublicInputs> {
-    const previousKernel = this.getPreviousKernelData(previousOutput, isFromPrivate);
+    const previousKernel = this.getPreviousKernelData(previousOutput);
 
     // The proof is not used in simulation.
     const vmProof = makeEmptyProof();
@@ -439,10 +454,7 @@ export class EnqueuedCallsProcessor {
     return await this.publicKernelSimulator.publicKernelCircuitMerge(inputs);
   }
 
-  private getPreviousKernelData(
-    previousOutput: PublicKernelCircuitPublicInputs,
-    _isFromPrivate: boolean,
-  ): PublicKernelData {
+  private getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
     // The proof is not used in simulation.
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
@@ -467,9 +479,7 @@ export class EnqueuedCallsProcessor {
       to.l2ToL1Msgs.forEach((_, i) => (to.l2ToL1Msgs[i] = from.l2ToL1Msgs[i]));
       to.noteEncryptedLogsHashes.forEach((_, i) => (to.noteEncryptedLogsHashes[i] = from.noteEncryptedLogsHashes[i]));
       to.encryptedLogsHashes.forEach((_, i) => (to.encryptedLogsHashes[i] = from.encryptedLogsHashes[i]));
-      to.unencryptedLogsHashes.forEach((_, i) => (to.unencryptedLogsHashes[i] = from.unencryptedLogsHashes[i]));
       to.publicCallStack.forEach((_, i) => (to.publicCallStack[i] = from.publicCallRequests[i]));
-      (to.gasUsed as any) = from.gasUsed;
       return to;
     };
 
@@ -486,7 +496,12 @@ export class EnqueuedCallsProcessor {
   }
 
   // Temporary hack to create the AvmCircuitPublicInputs from public tail's public inputs.
-  private generateAvmCircuitPublicInputs(tx: Tx, tailOutput: KernelCircuitPublicInputs, transactionFee: Fr) {
+  private generateAvmCircuitPublicInputs(
+    tx: Tx,
+    tailOutput: KernelCircuitPublicInputs,
+    gasUsedForFee: Gas,
+    transactionFee: Fr,
+  ) {
     const startTreeSnapshots = new TreeSnapshots(
       tailOutput.constants.historicalHeader.state.l1ToL2MessageTree,
       tailOutput.startState.noteHashTree,
@@ -520,6 +535,7 @@ export class EnqueuedCallsProcessor {
     return new AvmCircuitPublicInputs(
       tailOutput.constants.globalVariables,
       startTreeSnapshots,
+      tx.data.gasUsed,
       tx.data.constants.txContext.gasSettings,
       tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests,
       tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests,
@@ -529,6 +545,7 @@ export class EnqueuedCallsProcessor {
       convertAccumulatedData(tx.data.forPublic!.nonRevertibleAccumulatedData),
       convertAccumulatedData(tx.data.forPublic!.revertibleAccumulatedData),
       endTreeSnapshots,
+      gasUsedForFee,
       convertAvmAccumulatedData(tailOutput.end),
       transactionFee,
       !tailOutput.revertCode.equals(RevertCode.OK),

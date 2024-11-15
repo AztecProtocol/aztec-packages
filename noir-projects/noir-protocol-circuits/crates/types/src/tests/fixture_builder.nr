@@ -44,8 +44,8 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
+        MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -118,12 +118,14 @@ pub struct FixtureBuilder {
     pub note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     pub encrypted_logs_hashes: BoundedVec<ScopedEncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
     pub unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub note_encrypted_logs_hash: Field,
     pub encrypted_logs_hash: Field,
     pub unencrypted_logs_hash: Field,
     pub note_encrypted_log_preimages_length: Field,
     pub encrypted_log_preimages_length: Field,
     pub unencrypted_log_preimages_length: Field,
+    pub contract_class_log_preimages_length: Field,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -375,7 +377,7 @@ impl FixtureBuilder {
             encrypted_logs_hashes: subarray(self.encrypted_logs_hashes.storage().map(
                 |l: ScopedEncryptedLogHash| l.log_hash,
             )),
-            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage().map(
+            contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.log_hash,
             )),
             historical_header: self.historical_header,
@@ -405,7 +407,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs,
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes,
             encrypted_logs_hashes: self.encrypted_logs_hashes,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
+            contract_class_logs_hashes: self.contract_class_logs_hashes,
             public_call_requests: self.public_call_requests,
             private_call_stack: vec_reverse(self.private_call_requests),
         }
@@ -473,13 +475,12 @@ impl FixtureBuilder {
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage().map(
                 |l: ScopedEncryptedLogHash| l.expose_to_public(),
             ),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
-                l.expose_to_public()
-            }),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
+                |l: ScopedLogHash| l.expose_to_public(),
+            ),
             public_call_requests: self.public_call_requests.storage().map(
                 |cr: Counted<PublicCallRequest>| cr.inner,
             ),
-            gas_used: self.gas_used,
         }
     }
 
@@ -499,11 +500,14 @@ impl FixtureBuilder {
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
                 l.expose_to_public()
             }),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage.map(
+                |l: ScopedLogHash| l.expose_to_public(),
+            ),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
+            contract_class_log_preimages_length: self.contract_class_log_preimages_length,
             public_data_writes: self.public_data_writes.storage(),
-            gas_used: self.gas_used,
         }
     }
 
@@ -568,6 +572,7 @@ impl FixtureBuilder {
             non_revertible_accumulated_data,
             revertible_accumulated_data,
             public_teardown_call_request: self.public_teardown_call_request,
+            gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
     }
@@ -659,6 +664,7 @@ impl FixtureBuilder {
             constants,
             start_state: self.start_state,
             revert_code: self.revert_code,
+            gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
     }
@@ -1028,6 +1034,12 @@ impl FixtureBuilder {
         self.unencrypted_logs_hash = compute_tx_logs_hash(log_hashes);
     }
 
+    pub fn add_contract_class_log_hash(&mut self, hash: Field, length: Field) {
+        let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
+        self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
+        self.contract_class_log_preimages_length += length;
+    }
+
     pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
         self.encrypted_logs_hash = hash;
         self.encrypted_log_preimages_length = preimages_length;
@@ -1247,12 +1259,14 @@ impl Empty for FixtureBuilder {
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
+            contract_class_logs_hashes: BoundedVec::new(),
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
             note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
+            contract_class_log_preimages_length: 0,
             public_data_writes: BoundedVec::new(),
             public_data_update_requests: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

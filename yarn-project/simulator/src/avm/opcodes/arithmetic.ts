@@ -1,5 +1,11 @@
 import type { AvmContext } from '../avm_context.js';
-import { type Field, type MemoryValue } from '../avm_memory_types.js';
+import {
+  type Field,
+  type MemoryValue,
+  TaggedMemory,
+  type TaggedMemoryInterface,
+  TypeTag,
+} from '../avm_memory_types.js';
 import { ArithmeticError } from '../errors.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -13,7 +19,7 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
-    memory.checkTagsAreSame(aOffset, bOffset);
+    this.checkTags(memory, aOffset, bOffset);
 
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
@@ -25,6 +31,9 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;
+  protected checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+  }
 }
 
 export class Add extends ThreeOperandArithmeticInstruction {
@@ -65,6 +74,11 @@ export class Div extends ThreeOperandArithmeticInstruction {
 
     return a.div(b);
   }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset)); // Follows that bOffset tag is also of integral type
+  }
 }
 
 export class FieldDiv extends ThreeOperandArithmeticInstruction {
@@ -74,5 +88,10 @@ export class FieldDiv extends ThreeOperandArithmeticInstruction {
   protected compute(a: Field, b: Field): Field {
     // return (a as Field).fdiv(b as Field);
     return a.fdiv(b);
+  }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    memory.checkTag(TypeTag.FIELD, aOffset); // Follows that bOffset has also tag of type Field
   }
 }
