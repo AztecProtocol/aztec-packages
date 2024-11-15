@@ -327,7 +327,7 @@ mod tests {
         if (!is_empty(fee_write)) {
             let low_leaf = pre_existing_public_data[low_leaf_index];
             let mut new_leaf = PublicDataTreeLeafPreimage::empty();
-            if low_leaf.slot == new_leaf.slot {
+            if low_leaf.slot == fee_write.slot {
                 pre_existing_public_data[low_leaf_index].value = fee_write.value;
             } else {
                 new_leaf = PublicDataTreeLeafPreimage {
@@ -975,80 +975,77 @@ mod tests {
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 
-    // #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
-    // unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
-    //     let fee_payer = AztecAddress::from_field(0x1234);
-    //     let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-    //     // Set low initial balance so it fails!
-    //     let initial_balance = 10_000;
-    //     let tx_fee = 100_000;
+    #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
+    unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
+        let fee_payer = AztecAddress::from_field(0x1234);
+        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
+        // Set low initial balance so it fails!
+        let initial_balance = 10_000;
+        let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
+        let gas_used = Gas::new(50_000, 25_000);
 
-    //     let mut builder = PrivateBaseRollupInputsBuilder::new();
+        let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-    //     // Set fee payer
-    //     builder.tube_data.fee_payer = fee_payer;
+        // Set gas
+        builder.tube_data.gas_used = gas_used;
+        builder.constants.global_variables.gas_fees = gas_fees;
 
-    //     // Set pre-existing balance
-    //     builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-    //         slot: balance_slot,
-    //         value: initial_balance,
-    //         next_slot: 0,
-    //         next_index: 0,
-    //     };
-    //     builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
+        // Set fee payer
+        builder.tube_data.fee_payer = fee_payer;
 
-    //     // Set values for computing exact tx_fee
-    //     builder.transaction_fee = tx_fee;
+        // Set pre-existing balance
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: initial_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
+        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
 
-    //     // Set expected protocol data update
-    //     builder.protocol_public_data_writes.push((
-    //         0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 },
-    //     ));
+        builder.fails();
+    }
 
-    //     builder.fails();
-    // }
+    #[test(should_fail_with = "Wrong leaf slot for Fee Juice balance read hint")]
+    unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
+        let fee_payer = AztecAddress::from_field(0x1234);
+        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
+        let initial_balance = 300_000;
+        let expected_balance = 200_000;
+        let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
+        let gas_used = Gas::new(50_000, 25_000);
 
-    // #[test(should_fail_with = "Wrong leaf slot for Fee Juice balance read hint")]
-    // unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
-    //     let fee_payer = AztecAddress::from_field(0x1234);
-    //     let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-    //     let initial_balance = 300_000;
-    //     let expected_balance = 200_000;
-    //     let tx_fee = 100_000;
+        let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-    //     let mut builder = PrivateBaseRollupInputsBuilder::new();
+        // Set gas
+        builder.tube_data.gas_used = gas_used;
+        builder.constants.global_variables.gas_fees = gas_fees;
 
-    //     // Set fee payer
-    //     builder.kernel_data.fee_payer = fee_payer;
+        // Set fee payer
+        builder.tube_data.fee_payer = fee_payer;
 
-    //     // Set pre-existing balance in index 0
-    //     builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-    //         slot: balance_slot,
-    //         value: initial_balance,
-    //         next_slot: 0,
-    //         next_index: 0,
-    //     };
+        // Set pre-existing balance in index 0
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: initial_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
 
-    //     builder.pre_existing_public_data[1] = PublicDataTreeLeafPreimage {
-    //         slot: 1,
-    //         value: initial_balance,
-    //         next_slot: balance_slot,
-    //         next_index: 0,
-    //     };
+        builder.pre_existing_public_data[1] = PublicDataTreeLeafPreimage {
+            slot: 1,
+            value: initial_balance,
+            next_slot: balance_slot,
+            next_index: 0,
+        };
 
-    //     // But point the read hint to the wrong one!
-    //     builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(1);
+        // But point the read hint to the wrong one!
+        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(1);
 
-    //     // Set values for computing exact tx_fee
-    //     builder.transaction_fee = tx_fee;
+        // Set expected protocol data update
+        builder.fee_write = (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance });
 
-    //     // Set expected protocol data update
-    //     builder.protocol_public_data_writes.push((
-    //         0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
-    //     ));
-
-    //     builder.fails();
-    // }
+        builder.fails();
+    }
 
     #[test]
     fn valid_previous_kernel_empty() {
