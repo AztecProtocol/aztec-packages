@@ -1,5 +1,4 @@
 import { strict as assert } from 'assert';
-import { maxUint32 } from 'viem';
 
 import { type TaggedMemoryInterface } from '../avm_memory_types.js';
 import { AddressOutOfRangeError } from '../errors.js';
@@ -67,7 +66,7 @@ export class Addressing {
         mem.checkIsValidMemoryOffsetTag(0);
         const baseAddr = Number(mem.get(0).toBigInt());
         resolved[i] += baseAddr;
-        if (resolved[i] > maxUint32) {
+        if (resolved[i] >= mem.getMaxMemorySize()) {
           throw new AddressOutOfRangeError(baseAddr, offset);
         }
       }

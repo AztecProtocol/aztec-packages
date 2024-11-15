@@ -118,13 +118,15 @@ std::string to_name(AvmError error)
         return "ENVIRONMENT VARIABLE UNKNOWN";
     case AvmError::CONTRACT_INST_MEM_UNKNOWN:
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
+    case AvmError::RADIX_OUT_OF_BOUNDS:
+        return "RADIX OUT OF BOUNDS";
     default:
         throw std::runtime_error("Invalid error type");
         break;
     }
 }
 
-bool is_valid(AvmError error)
+bool is_ok(AvmError error)
 {
     return error == AvmError::NO_ERROR;
 }

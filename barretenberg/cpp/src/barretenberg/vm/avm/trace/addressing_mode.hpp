@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/errors.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include <cstdint>
 

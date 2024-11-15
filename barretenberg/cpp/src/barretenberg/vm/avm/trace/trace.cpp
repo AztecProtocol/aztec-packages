@@ -346,7 +346,7 @@ AvmError AvmTraceBuilder::op_add(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -357,7 +357,7 @@ AvmError AvmTraceBuilder::op_add(
     // In case of a memory tag error, we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = is_valid(error) ? alu_trace_builder.op_add(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_add(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -379,7 +379,7 @@ AvmError AvmTraceBuilder::op_add(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -429,7 +429,7 @@ AvmError AvmTraceBuilder::op_sub(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -440,7 +440,7 @@ AvmError AvmTraceBuilder::op_sub(
     // In case of a memory tag error, we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = is_valid(error) ? alu_trace_builder.op_sub(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_sub(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -462,7 +462,7 @@ AvmError AvmTraceBuilder::op_sub(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -510,7 +510,7 @@ AvmError AvmTraceBuilder::op_mul(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -521,7 +521,7 @@ AvmError AvmTraceBuilder::op_mul(
     // In case of a memory tag error, we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = is_valid(error) ? alu_trace_builder.op_mul(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_mul(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -543,7 +543,7 @@ AvmError AvmTraceBuilder::op_mul(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -592,7 +592,7 @@ AvmError AvmTraceBuilder::op_div(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
-    if (is_valid(error) && !(tag_match && check_tag_integral(read_a.tag))) {
+    if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -609,11 +609,11 @@ AvmError AvmTraceBuilder::op_div(
     if (!b.is_zero()) {
         // If b is not zero, we prove it is not by providing its inverse as well
         inv = b.invert();
-        c = is_valid(error) ? alu_trace_builder.op_div(a, b, in_tag, clk) : FF(0);
+        c = is_ok(error) ? alu_trace_builder.op_div(a, b, in_tag, clk) : FF(0);
     } else {
         inv = 1;
         c = 0;
-        if (is_valid(error)) {
+        if (is_ok(error)) {
             error = AvmError::DIV_ZERO;
         }
     }
@@ -639,7 +639,7 @@ AvmError AvmTraceBuilder::op_div(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_dst.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -688,7 +688,7 @@ AvmError AvmTraceBuilder::op_fdiv(
         constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IB);
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -704,7 +704,7 @@ AvmError AvmTraceBuilder::op_fdiv(
     } else {
         inv = 1;
         c = 0;
-        if (is_valid(error)) {
+        if (is_ok(error)) {
             error = AvmError::DIV_ZERO;
         }
     }
@@ -730,7 +730,7 @@ AvmError AvmTraceBuilder::op_fdiv(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_rwc = FF(1),
@@ -782,7 +782,7 @@ AvmError AvmTraceBuilder::op_eq(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -792,7 +792,7 @@ AvmError AvmTraceBuilder::op_eq(
     // In case of a memory tag error, we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = is_valid(error) ? alu_trace_builder.op_eq(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_eq(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c =
@@ -815,7 +815,7 @@ AvmError AvmTraceBuilder::op_eq(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -853,14 +853,14 @@ AvmError AvmTraceBuilder::op_lt(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = is_valid(error) ? alu_trace_builder.op_lt(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_lt(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c =
@@ -883,7 +883,7 @@ AvmError AvmTraceBuilder::op_lt(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -922,14 +922,14 @@ AvmError AvmTraceBuilder::op_lte(
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = is_valid(error) ? alu_trace_builder.op_lte(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_lte(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c =
@@ -952,7 +952,7 @@ AvmError AvmTraceBuilder::op_lte(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -996,14 +996,14 @@ AvmError AvmTraceBuilder::op_and(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
-    if (is_valid(error) && !(tag_match && check_tag_integral(read_a.tag))) {
+    if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
         error = AvmError::TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = is_valid(error) ? bin_trace_builder.op_and(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? bin_trace_builder.op_and(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1025,11 +1025,11 @@ AvmError AvmTraceBuilder::op_and(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
-        .main_sel_bin = FF(static_cast<uint32_t>(is_valid(error))),
+        .main_sel_bin = FF(static_cast<uint32_t>(is_ok(error))),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -1066,14 +1066,14 @@ AvmError AvmTraceBuilder::op_or(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
-    if (is_valid(error) && !(tag_match && check_tag_integral(read_a.tag))) {
+    if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
         error = AvmError::TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = is_valid(error) ? bin_trace_builder.op_or(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? bin_trace_builder.op_or(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1095,11 +1095,11 @@ AvmError AvmTraceBuilder::op_or(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
-        .main_sel_bin = FF(static_cast<uint32_t>(is_valid(error))),
+        .main_sel_bin = FF(static_cast<uint32_t>(is_ok(error))),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -1136,14 +1136,14 @@ AvmError AvmTraceBuilder::op_xor(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
-    if (is_valid(error) && !(tag_match && check_tag_integral(read_a.tag))) {
+    if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
         error = AvmError::TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = is_valid(error) ? bin_trace_builder.op_xor(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? bin_trace_builder.op_xor(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1165,11 +1165,11 @@ AvmError AvmTraceBuilder::op_xor(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
-        .main_sel_bin = FF(static_cast<uint32_t>(is_valid(error))),
+        .main_sel_bin = FF(static_cast<uint32_t>(is_ok(error))),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -1210,7 +1210,7 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
     // Reading from memory and loading into ia
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
 
-    if (is_valid(error) && !check_tag_integral(read_a.tag)) {
+    if (is_ok(error) && !check_tag_integral(read_a.tag)) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -1220,7 +1220,7 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
     // In case of an error (tag of type FF), we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = is_valid(error) ? alu_trace_builder.op_not(a, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_not(a, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1239,7 +1239,7 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -1277,14 +1277,14 @@ AvmError AvmTraceBuilder::op_shl(
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
     auto read_b = unconstrained_read_from_memory(resolved_b);
 
-    if (is_valid(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
+    if (is_ok(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
         error = AvmError::TAG_ERROR;
     }
 
-    FF a = is_valid(error) ? read_a.val : FF(0);
-    FF b = is_valid(error) ? read_b : FF(0);
+    FF a = is_ok(error) ? read_a.val : FF(0);
+    FF b = is_ok(error) ? read_b : FF(0);
 
-    FF c = is_valid(error) ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1305,7 +1305,7 @@ AvmError AvmTraceBuilder::op_shl(
         .main_mem_addr_a = FF(read_a.direct_address),
         //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -1344,14 +1344,14 @@ AvmError AvmTraceBuilder::op_shr(
     // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
     auto read_b = unconstrained_read_from_memory(resolved_b);
-    if (is_valid(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
+    if (is_ok(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
         error = AvmError::TAG_ERROR;
     }
 
-    FF a = is_valid(error) ? read_a.val : FF(0);
-    FF b = is_valid(error) ? read_b : FF(0);
+    FF a = is_ok(error) ? read_a.val : FF(0);
+    FF b = is_ok(error) ? read_b : FF(0);
 
-    FF c = is_valid(error) ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
+    FF c = is_ok(error) ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1374,7 +1374,7 @@ AvmError AvmTraceBuilder::op_shr(
         // TODO(8603): uncomment
         //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -1441,7 +1441,7 @@ AvmError AvmTraceBuilder::op_cast(
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(resolved_a),
         .main_mem_addr_c = FF(resolved_c),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(res_error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(res_error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(memEntry.tag)),
         .main_rwc = FF(1),
@@ -1495,7 +1495,7 @@ RowWithError AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect,
                                  .main_ind_addr_a = FF(write_dst.indirect_address),
                                  .main_internal_return_ptr = internal_return_ptr,
                                  .main_mem_addr_a = FF(write_dst.direct_address),
-                                 .main_op_err = FF(static_cast<uint32_t>(!is_valid(res_error))),
+                                 .main_op_err = FF(static_cast<uint32_t>(!is_ok(res_error))),
                                  .main_pc = pc,
                                  .main_rwa = 1,
                                  .main_sel_mem_op_a = 1,
@@ -1776,8 +1776,8 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
-    if (is_valid(error) && !(check_tag(AvmMemoryTag::U32, cd_offset_resolved) &&
-                             check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
+    if (is_ok(error) && !(check_tag(AvmMemoryTag::U32, cd_offset_resolved) &&
+                          check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -1785,7 +1785,7 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         slice_trace_builder.create_calldata_copy_slice(
             calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
         mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
@@ -1801,11 +1801,11 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
         .main_ib = copy_size,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = dst_offset_resolved,
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_calldata_copy = 1,
-        .main_sel_slice_gadget = static_cast<uint32_t>(is_valid(error)),
+        .main_sel_slice_gadget = static_cast<uint32_t>(is_ok(error)),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
@@ -1827,7 +1827,7 @@ AvmError AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offs
     auto [resolved_dst_offset] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -1842,7 +1842,7 @@ AvmError AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offs
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_sel_op_returndata_size = FF(1),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
@@ -1870,8 +1870,8 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
-    if (is_valid(error) && !(check_tag(AvmMemoryTag::U32, rd_offset_resolved) &&
-                             check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
+    if (is_ok(error) && !(check_tag(AvmMemoryTag::U32, rd_offset_resolved) &&
+                          check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -1886,13 +1886,13 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_sel_op_returndata_copy = FF(1),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         // Write the return data to memory
         // TODO: validate bounds
         auto returndata_slice =
@@ -1945,7 +1945,7 @@ AvmError AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indir
         .main_ind_addr_a = FF(write_dst.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(write_dst.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(res_error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(res_error))),
         .main_pc = FF(pc),
         .main_rwa = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -2028,7 +2028,7 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t
     auto [resolved_cond_offset] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2051,7 +2051,7 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_inv = inv,
         .main_mem_addr_d = resolved_cond_offset,
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_r_in_tag = static_cast<uint32_t>(read_d.tag),
         .main_sel_mem_op_d = 1,
@@ -2189,7 +2189,7 @@ AvmError AvmTraceBuilder::op_set(
     auto write_c = constrained_write_to_memory(
         call_ptr, clk, resolved_dst_offset, val_ff, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
 
-    if (is_valid(error) && !write_c.tag_match) {
+    if (is_ok(error) && !write_c.tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2206,7 +2206,7 @@ AvmError AvmTraceBuilder::op_set(
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_rwc = 1,
         .main_sel_mem_op_c = 1,
@@ -2245,7 +2245,7 @@ AvmError AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t
     auto [resolved_src_offset, resolved_dst_offset] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2267,7 +2267,7 @@ AvmError AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = resolved_src_offset,
         .main_mem_addr_c = resolved_dst_offset,
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(tag),
         .main_rwc = 1,
@@ -2310,7 +2310,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_a.tag_match;
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2321,7 +2321,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint
                                  .main_ind_addr_a = FF(read_a.indirect_address),
                                  .main_internal_return_ptr = internal_return_ptr,
                                  .main_mem_addr_a = FF(read_a.direct_address),
-                                 .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+                                 .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
                                  .main_pc = pc,
                                  .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
                                  .main_rwa = 0,
@@ -2365,7 +2365,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
         call_ptr, clk, resolved_metadata, metadata_r_tag, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2379,7 +2379,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
                                  .main_internal_return_ptr = internal_return_ptr,
                                  .main_mem_addr_a = FF(read_a.direct_address),
                                  .main_mem_addr_b = FF(read_b.direct_address),
-                                 .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+                                 .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
                                  .main_pc = pc,
                                  .main_r_in_tag = static_cast<uint32_t>(data_r_tag),
                                  .main_rwa = 0,
@@ -2512,7 +2512,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hi
         call_ptr, clk, resolved_metadata, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = write_a.tag_match && read_b.tag_match;
 
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2526,7 +2526,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hi
                                  .main_internal_return_ptr = internal_return_ptr,
                                  .main_mem_addr_a = FF(write_a.direct_address),
                                  .main_mem_addr_b = FF(read_b.direct_address),
-                                 .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+                                 .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
                                  .main_pc = pc, // No PC increment here since we do it in the specific ops
                                  .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
                                  .main_rwa = 1,
@@ -2627,7 +2627,7 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
         write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
     }
 
-    if (is_valid(error) && !accumulated_tag_match) {
+    if (is_ok(error) && !accumulated_tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2712,7 +2712,7 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
         read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
     }
 
-    if (is_valid(error) && !accumulated_tag_match) {
+    if (is_ok(error) && !accumulated_tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2736,13 +2736,13 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     error = res_error;
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
-    if (is_valid(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
+    if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
         error = AvmError::TAG_ERROR;
     }
 
     Row row;
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         row = create_kernel_output_opcode_for_leaf_index(
             clk, resolved_note_hash, static_cast<uint32_t>(leaf_index), resolved_dest);
 
@@ -2751,7 +2751,7 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
                                                  row.main_ia,
                                                  /*safe*/ static_cast<uint32_t>(row.main_ib));
         row.main_sel_op_note_hash_exists = FF(1);
-        if (is_valid(error) && row.main_tag_err != FF(0)) {
+        if (is_ok(error) && row.main_tag_err != FF(0)) {
             error = AvmError::TAG_ERROR;
         }
     } else {
@@ -2809,19 +2809,19 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     auto [resolved_nullifier_offset, resolved_address, resolved_dest] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !check_tag(AvmMemoryTag::FF, resolved_address)) {
+    if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_address)) {
         error = AvmError::TAG_ERROR;
     }
 
     Row row;
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         row = create_kernel_output_opcode_with_set_metadata_output_from_hint(
             clk, resolved_nullifier_offset, resolved_address, resolved_dest);
         kernel_trace_builder.op_nullifier_exists(
             clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
         row.main_sel_op_nullifier_exists = FF(1);
-        if (is_valid(error) && row.main_tag_err != FF(0)) {
+        if (is_ok(error) && row.main_tag_err != FF(0)) {
             error = AvmError::TAG_ERROR;
         }
     } else {
@@ -2881,13 +2881,13 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     error = res_error;
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
-    if (is_valid(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
+    if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
         error = AvmError::TAG_ERROR;
     }
 
     Row row;
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         row = create_kernel_output_opcode_for_leaf_index(
             clk, resolved_log, static_cast<uint32_t>(leaf_index), resolved_dest);
         kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
@@ -2895,7 +2895,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
                                                     row.main_ia,
                                                     /*safe*/ static_cast<uint32_t>(row.main_ib));
         row.main_sel_op_l1_to_l2_msg_exists = FF(1);
-        if (is_valid(error) && row.main_tag_err != FF(0)) {
+        if (is_ok(error) && row.main_tag_err != FF(0)) {
             error = AvmError::TAG_ERROR;
         }
     } else {
@@ -2954,7 +2954,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
     auto read_address = constrained_read_from_memory(
         call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_address.tag_match;
-    if (is_valid(error) && !tag_match) {
+    if (is_ok(error) && !tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -2996,7 +2996,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
         //.main_ind_addr_d = FF(write_exists.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_address.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         //.main_mem_addr_c = FF(write_dst.direct_address),
         //.main_mem_addr_d = FF(write_exists.direct_address),
         .main_pc = FF(pc),
@@ -3055,7 +3055,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
                          std::make_move_iterator(contract_address_bytes.begin()),
                          std::make_move_iterator(contract_address_bytes.end()));
 
-    if (is_valid(error) &&
+    if (is_ok(error) &&
         !(check_tag(AvmMemoryTag::FF, resolved_log_offset) && check_tag(AvmMemoryTag::U32, resolved_log_size_offset))) {
         error = AvmError::TAG_ERROR;
     }
@@ -3065,7 +3065,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     AddressWithMode direct_field_addr;
     uint32_t num_bytes = 0;
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         log_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_log_size_offset));
 
         // The size is in fields of 32 bytes, the length used for the hash is in terms of bytes
@@ -3082,7 +3082,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
         };
     }
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         // We need to read the rest of the log_size number of elements
         for (uint32_t i = 0; i < log_size; i++) {
             FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
@@ -3195,13 +3195,13 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         call_ptr, clk, resolved_args_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
     bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
 
-    if (is_valid(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_args_size_offset))) {
+    if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_args_size_offset))) {
         error = AvmError::TAG_ERROR;
     }
 
     // TODO: constrain this
     auto args_size =
-        is_valid(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
+        is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
 
     gas_trace_builder.constrain_gas(clk,
                                     opcode,
@@ -3223,7 +3223,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_mem_addr_b = FF(read_gas_l2.direct_address + 1),
         .main_mem_addr_c = FF(read_addr.direct_address),
         .main_mem_addr_d = FF(read_args.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
@@ -3334,7 +3334,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     auto [resolved_ret_offset, resolved_ret_size_offset] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset))) {
+    if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset))) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -3348,7 +3348,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             .main_call_ptr = call_ptr,
             .main_ib = ret_size,
             .main_internal_return_ptr = FF(internal_return_ptr),
-            .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+            .main_op_err = static_cast<uint32_t>(!is_ok(error)),
             .main_pc = pc,
             .main_sel_op_external_return = 1,
         });
@@ -3376,7 +3376,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         .main_ib = ret_size,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = resolved_ret_offset,
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_external_return = 1,
@@ -3408,12 +3408,12 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     auto [resolved_ret_offset, resolved_ret_size_offset] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !(tag_match && check_tag(AvmMemoryTag::U32, ret_size_offset))) {
+    if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, ret_size_offset))) {
         error = AvmError::TAG_ERROR;
     }
 
     const auto ret_size =
-        is_valid(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
+        is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
 
     gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
 
@@ -3424,7 +3424,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             .main_call_ptr = call_ptr,
             .main_ib = ret_size,
             .main_internal_return_ptr = FF(internal_return_ptr),
-            .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
             .main_sel_op_external_return = 1,
         });
@@ -3451,7 +3451,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
         .main_ib = ret_size,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = resolved_ret_offset,
-        .main_op_err = static_cast<uint32_t>(!is_valid(error)),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_external_return = 1,
@@ -3489,18 +3489,18 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
     auto [resolved_message_offset, resolved_fields_offset, resolved_fields_size_offset] = resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !check_tag(AvmMemoryTag::U32, resolved_fields_size_offset)) {
+    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_fields_size_offset)) {
         error = AvmError::TAG_ERROR;
     }
 
     const uint32_t fields_size =
-        is_valid(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_fields_size_offset)) : 0;
+        is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_fields_size_offset)) : 0;
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
 
-    if (is_valid(error) && !(check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
-                             check_tag_range(AvmMemoryTag::FF, resolved_fields_offset, fields_size))) {
+    if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
+                          check_tag_range(AvmMemoryTag::FF, resolved_fields_offset, fields_size))) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -3508,7 +3508,7 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_sel_op_debug_log = FF(1),
     });
@@ -3584,11 +3584,11 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
 
     bool read_tag_valid = read_a.tag_match && read_b.tag_match && read_c.tag_match && read_d.tag_match;
 
-    if (is_valid(error) && !read_tag_valid) {
+    if (is_ok(error) && !read_tag_valid) {
         error = AvmError::TAG_ERROR;
     }
 
-    if (is_valid(error)) {
+    if (is_ok(error)) {
         std::array<FF, 4> input = { read_a.val, read_b.val, read_c.val, read_d.val };
         std::array<FF, 4> result = poseidon2_trace_builder.poseidon2_permutation(
             input, call_ptr, clk, resolved_input_offset, resolved_output_offset);
@@ -3634,7 +3634,7 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
                                                    AvmMemTraceBuilder::POSEIDON2);
 
         bool write_tag_valid = write_a.tag_match && write_b.tag_match && write_c.tag_match && write_d.tag_match;
-        if (is_valid(error) && !write_tag_valid) {
+        if (is_ok(error) && !write_tag_valid) {
             error = AvmError::TAG_ERROR;
         }
     }
@@ -3645,7 +3645,7 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = resolved_input_offset,
         .main_mem_addr_b = resolved_output_offset,
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_sel_op_poseidon2 = FF(1),
     });
@@ -3693,8 +3693,8 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_valid(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE) &&
-                             check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE))) {
+    if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE) &&
+                          check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE))) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -3718,7 +3718,7 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
         .main_sel_mem_op_a = FF(1),
@@ -3729,7 +3729,7 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    if (!is_valid(error)) {
+    if (!is_ok(error)) {
         return error;
     }
 
@@ -3792,7 +3792,7 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = input_read.tag_match;
 
-    if (is_valid(error) &&
+    if (is_ok(error) &&
         !(tag_match && check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE))) {
         error = AvmError::TAG_ERROR;
     }
@@ -3806,7 +3806,7 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
         .main_ind_addr_a = FF(input_read.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(input_read.direct_address),
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
         .main_sel_mem_op_a = FF(1),
@@ -3815,7 +3815,7 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    if (!is_valid(error)) {
+    if (!is_ok(error)) {
         return error;
     }
 
@@ -3878,13 +3878,13 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
         check_tag(AvmMemoryTag::U1, resolved_lhs_is_inf_offset) && check_tag(AvmMemoryTag::FF, resolved_rhs_x_offset) &&
         check_tag(AvmMemoryTag::FF, resolved_rhs_y_offset) && check_tag(AvmMemoryTag::U1, resolved_rhs_is_inf_offset);
 
-    if (is_valid(error) && !tags_valid) {
+    if (is_ok(error) && !tags_valid) {
         error = AvmError::TAG_ERROR;
     }
 
     gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
 
-    if (!is_valid(error)) {
+    if (!is_ok(error)) {
         main_trace.push_back(Row{
             .main_clk = clk,
             .main_internal_return_ptr = FF(internal_return_ptr),
@@ -3950,11 +3950,11 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         resolved_addrs;
     error = res_error;
 
-    if (is_valid(error) && !check_tag(AvmMemoryTag::U32, resolved_point_length_offset)) {
+    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_point_length_offset)) {
         error = AvmError::TAG_ERROR;
     }
 
-    const FF points_length = is_valid(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
+    const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
 
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
     const uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
@@ -3974,7 +3974,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     tags_valid = tags_valid && check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length);
 
-    if (is_valid(error) && !tags_valid) {
+    if (is_ok(error) && !tags_valid) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -3982,7 +3982,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     // run out of gas. Casting/truncating here is not secure.
     gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
-    if (!is_valid(error)) {
+    if (!is_ok(error)) {
         main_trace.push_back(Row{
             .main_clk = clk,
             .main_internal_return_ptr = FF(internal_return_ptr),
@@ -4103,7 +4103,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
 
-    if (is_valid(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset)) {
+    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset)) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -4111,7 +4111,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
 
     FF input = read_src.val;
 
-    if (is_valid(error) && !read_src.tag_match) {
+    if (is_ok(error) && !read_src.tag_match) {
         error = AvmError::TAG_ERROR;
     }
 
@@ -4120,13 +4120,13 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
     bool radix_out_of_bounds = radix > 256;
-    if (is_valid(error) && radix_out_of_bounds) {
+    if (is_ok(error) && radix_out_of_bounds) {
         error = AvmError::RADIX_OUT_OF_BOUNDS;
     }
 
     // In case of an error, we do not perform the computation.
     // Therefore, we do not create any entry in gadget table and we return a vector of 0.
-    std::vector<uint8_t> res = is_valid(error)
+    std::vector<uint8_t> res = is_ok(error)
                                    ? conversion_trace_builder.op_to_radix_be(input, radix, num_limbs, output_bits, clk)
                                    : std::vector<uint8_t>(num_limbs, 0);
 
@@ -4146,7 +4146,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
         .main_mem_addr_a = read_src.direct_address,
         // TODO(8603): uncomment
         //.main_mem_addr_b = read_radix.direct_address,
-        .main_op_err = FF(static_cast<uint32_t>(!is_valid(error))),
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
