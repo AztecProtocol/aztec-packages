@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <endian.h>
 #include <functional>
 #include <vector>
 
@@ -29,7 +30,7 @@ void deserialise_key(void* data, uint8_t& key)
 // 64 bit integers are stored in little endian byte order
 std::vector<uint8_t> serialise_key(uint64_t key)
 {
-    uint64_t le = key;
+    uint64_t le = htole64(key);
     const uint8_t* p = reinterpret_cast<uint8_t*>(&le);
     return std::vector<uint8_t>(p, p + sizeof(key));
 }
@@ -38,10 +39,10 @@ void deserialise_key(void* data, uint64_t& key)
 {
     uint64_t le = 0;
     std::memcpy(&le, data, sizeof(le));
-    key = le;
+    key = le64toh(le);
 }
 
-std::vector<uint8_t> serialise_key(uint256_t key)
+std::vector<uint8_t> serialise_key(const uint256_t& key)
 {
     std::vector<uint8_t> buf(32);
     std::memcpy(buf.data(), key.data, 32);
@@ -58,10 +59,7 @@ int size_cmp(const MDB_val* a, const MDB_val* b)
     if (a->mv_size < b->mv_size) {
         return -1;
     }
-    if (a->mv_size > b->mv_size) {
-        return 1;
-    }
-    return 0;
+    return (a->mv_size > b->mv_size) ? 1 : 0;
 }
 
 std::vector<uint8_t> mdb_val_to_vector(const MDB_val& dbVal)
