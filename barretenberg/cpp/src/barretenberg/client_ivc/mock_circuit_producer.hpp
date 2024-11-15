@@ -137,8 +137,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
      */
     auto precompute_verification_keys(const size_t num_circuits, TraceSettings trace_settings)
     {
-        ClientIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
         std::vector<std::shared_ptr<VerificationKey>> vkeys;
 
