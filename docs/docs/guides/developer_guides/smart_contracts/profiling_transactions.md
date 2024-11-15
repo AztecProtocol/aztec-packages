@@ -25,6 +25,7 @@ In this guide, we will look at how to profile the private execution of a transac
 The profiling tool is integrated into the `aztec-wallet`.
 
 In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L269) method in the token contract.
+If you want to follow along, you'll need to clone the Aztec [monorepo](https://github.com/AztecProtocol/aztec-packages) and [compile](./how_to_compile_contract.md) the `token_contract` in `noir-projects/noir-contracts` by running `aztec-nargo compile --package token_contract`.
 
 Let's deploy the necessary account and token contracts first:
 
