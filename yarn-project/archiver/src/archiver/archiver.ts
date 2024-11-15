@@ -1,4 +1,5 @@
 import {
+  type EncryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -14,7 +15,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -638,7 +639,7 @@ export class Archiver implements ArchiveSource {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
   }
 
@@ -649,6 +650,15 @@ export class Archiver implements ArchiveSource {
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getContractClassLogs(filter);
   }
 
   /**
@@ -789,7 +799,7 @@ class ArchiverStoreHelper
    * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateDeployedContractInstances(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
+  async #updateDeployedContractInstances(allLogs: EncryptedL2Log[], blockNum: number, operation: Operation) {
     const contractInstances = ContractInstanceDeployedEvent.fromLogs(allLogs).map(e => e.toContractInstance());
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
@@ -868,15 +878,18 @@ class ArchiverStoreHelper
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...(await Promise.all(
         blocks.map(async block => {
-          const blockLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+          const contractClassLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
             .flatMap(txLog => txLog.unrollLogs());
-
+          // ContractInstanceDeployed event logs are now broadcast in .encryptedLogs
+          const allEncryptedLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.encryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
           return (
             await Promise.all([
-              this.#updateRegisteredContractClasses(blockLogs, block.data.number, Operation.Store),
-              this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Store),
-              this.#storeBroadcastedIndividualFunctions(blockLogs, block.data.number),
+              this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
+              this.#updateDeployedContractInstances(allEncryptedLogs, block.data.number, Operation.Store),
+              this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
             ])
           ).every(Boolean);
         }),
@@ -898,11 +911,15 @@ class ArchiverStoreHelper
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...(await Promise.all(
         blocks.map(async block => {
-          const blockLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+          const contractClassLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
             .flatMap(txLog => txLog.unrollLogs());
-          await this.#updateRegisteredContractClasses(blockLogs, block.data.number, Operation.Delete);
-          await this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Delete);
+          // ContractInstanceDeployed event logs are now broadcast in .encryptedLogs
+          const allEncryptedLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.encryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
+          await this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete);
+          await this.#updateDeployedContractInstances(allEncryptedLogs, block.data.number, Operation.Delete);
         }),
       )),
       this.store.deleteLogs(blocks.map(b => b.data)),
@@ -938,11 +955,14 @@ class ArchiverStoreHelper
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);
+  }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<number> {
     return this.store.getSynchedL2BlockNumber();

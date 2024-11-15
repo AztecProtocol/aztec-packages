@@ -103,9 +103,9 @@ You should get a prompt to sign this transaction. You can now mint, transfer, an
 
 ```bash
 aztec-wallet create-account -a new_recipient # creating a schnorr account
-aztec-wallet send mint_public -ca last --args accounts:my-wallet 10 -f accounts:my-wallet # minting some tokens in public
+aztec-wallet send mint_to_public -ca last --args accounts:my-wallet 10 -f accounts:my-wallet # minting some tokens in public
 aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:my-wallet -f my-wallet # checking that my-wallet has 10 tokens
-aztec-wallet send transfer_public -ca contracts:devtoken --args accounts:my-wallet accounts:new_recipient 10 0 -f accounts:my-wallet # transferring some tokens in public
+aztec-wallet send transfer_in_public -ca contracts:devtoken --args accounts:my-wallet accounts:new_recipient 10 0 -f accounts:my-wallet # transferring some tokens in public
 aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:new_recipient -f my-wallet # checking that new_recipient has 10 tokens
 ```
 

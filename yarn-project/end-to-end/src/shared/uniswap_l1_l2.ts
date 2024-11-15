@@ -418,7 +418,7 @@ export const uniswapL1L2TestSuite = (
     //       {
     //         caller: uniswapL2Contract.address,
     //         action: wethCrossChainHarness.l2Token.methods
-    //           .transfer_public(
+    //           .transfer_in_public(
     //             ownerAddress,
     //             uniswapL2Contract.address,
     //             wethAmountToBridge,
@@ -690,7 +690,7 @@ export const uniswapL1L2TestSuite = (
           {
             caller: uniswapL2Contract.address,
             action: wethCrossChainHarness.l2Token.methods
-              .transfer_public(
+              .transfer_in_public(
                 ownerAddress,
                 uniswapL2Contract.address,
                 wethAmountToBridge,
@@ -762,7 +762,7 @@ export const uniswapL1L2TestSuite = (
           {
             caller: uniswapL2Contract.address,
             action: wethCrossChainHarness.l2Token.methods
-              .transfer_public(
+              .transfer_in_public(
                 ownerAddress,
                 uniswapL2Contract.address,
                 wethAmountToBridge,
@@ -932,7 +932,7 @@ export const uniswapL1L2TestSuite = (
           {
             caller: uniswapL2Contract.address,
             action: wethCrossChainHarness.l2Token.methods
-              .transfer_public(
+              .transfer_in_public(
                 ownerAddress,
                 uniswapL2Contract.address,
                 wethAmountToBridge,

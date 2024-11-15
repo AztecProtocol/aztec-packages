@@ -38,6 +38,14 @@ template <typename FF_> class MegaArith {
         T lookup;
         T overflow; // block gates of arbitrary type that overflow their designated block
 
+        std::vector<std::string_view> get_labels() const
+        {
+            return { "ecc_op",     "pub_inputs",         "busread",
+                     "arithmetic", "delta_range",        "elliptic",
+                     "aux",        "poseidon2_external", "poseidon2_internal",
+                     "lookup" };
+        }
+
         auto get()
         {
             return RefArray{ ecc_op,
@@ -52,6 +60,7 @@ template <typename FF_> class MegaArith {
                              lookup,
                              overflow };
         }
+
         auto get() const
         {
             return RefArray{ ecc_op,
@@ -297,7 +306,11 @@ template <typename FF_> class MegaArith {
         {
             info("Gate blocks summary: (actual gates / fixed capacity)");
             info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
-            info("pub inputs    :\t", this->pub_inputs.size(), "/", this->pub_inputs.get_fixed_size());
+            info("pub inputs    :\t",
+                 this->pub_inputs.size(),
+                 "/",
+                 this->pub_inputs.get_fixed_size(),
+                 " (populated in decider pk constructor)");
             info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
             info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
             info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
