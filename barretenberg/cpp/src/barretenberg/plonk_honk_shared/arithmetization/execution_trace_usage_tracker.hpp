@@ -15,11 +15,11 @@ namespace bb {
 struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
-    using MegaTraceBlockSizes = MegaArithmetization::MegaTraceBlocks<size_t>;
-    using MegaTraceActiveRanges = MegaArithmetization::MegaTraceBlocks<Range>;
-    using MegaTraceFixedBlockSizes = MegaArithmetization::TraceBlocks;
+    using MegaExecutionTraceizes = MegaTraceBlockData<size_t>;
+    using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
+    using MegaTraceFixedBlockSizes = MegaExecutionTrace;
 
-    MegaTraceBlockSizes max_sizes;        // max utilization of each block
+    MegaExecutionTraceizes max_sizes;     // max utilization of each block
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
     MegaTraceActiveRanges active_ranges;  // ranges utlized by the accumulator within the ambient structured trace
 

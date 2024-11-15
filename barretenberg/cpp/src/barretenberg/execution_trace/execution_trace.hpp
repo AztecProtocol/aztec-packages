@@ -5,11 +5,11 @@
 
 namespace bb {
 
-template <class Flavor> class ExecutionTrace_ {
+template <class Flavor> class TraceToPolynomials {
     using Builder = typename Flavor::CircuitBuilder;
     using Polynomial = typename Flavor::Polynomial;
     using FF = typename Flavor::FF;
-    using TraceBlocks = typename Builder::Arithmetization::TraceBlocks;
+    using TraceBlocks = typename Builder::Arithmetization;
     using Wires = std::array<SlabVector<uint32_t>, Builder::NUM_WIRES>;
     using ProvingKey = typename Flavor::ProvingKey;
 

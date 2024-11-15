@@ -2965,8 +2965,8 @@ template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithm
     return buffer;
 }
 
-template class UltraCircuitBuilder_<UltraArith<bb::fr>>;
-template class UltraCircuitBuilder_<MegaArith<bb::fr>>;
+template class UltraCircuitBuilder_<UltraExecutionTrace>;
+template class UltraCircuitBuilder_<MegaExecutionTrace>;
 // To enable this we need to template plookup
 // template class UltraCircuitBuilder_<grumpkin::fr>;
 

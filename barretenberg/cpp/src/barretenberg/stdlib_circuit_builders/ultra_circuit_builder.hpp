@@ -33,7 +33,7 @@ template <typename Arithmetization_>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_::FF> {
   public:
     using Arithmetization = Arithmetization_;
-    using GateBlocks = typename Arithmetization::TraceBlocks;
+    using GateBlocks = Arithmetization; // WORKTODO: rename here and in Mega; this is now a MegaExecutionTrace object
 
     using FF = typename Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
@@ -868,5 +868,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     msgpack::sbuffer export_circuit() override;
 };
-using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTrace>;
 } // namespace bb
