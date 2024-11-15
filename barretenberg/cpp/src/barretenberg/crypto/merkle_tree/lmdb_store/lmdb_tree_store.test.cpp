@@ -104,25 +104,23 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
 
 TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
 {
-    Indices indices;
-    indices.indices.push_back(47);
-    indices.indices.push_back(86);
+    index_t index = 47;
     bb::fr key = VALUES[5];
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.write_leaf_indices(key, indices, *transaction);
+        store.write_leaf_index(key, index, *transaction);
         transaction->commit();
     }
 
     {
         LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        Indices readBack;
-        bool success = store.read_leaf_indices(key, readBack, *transaction);
+        index_t readBack = 0;
+        bool success = store.read_leaf_index(key, readBack, *transaction);
         EXPECT_TRUE(success);
-        EXPECT_EQ(readBack, indices);
+        EXPECT_EQ(readBack, index);
 
-        success = store.read_leaf_indices(VALUES[6], readBack, *transaction);
+        success = store.read_leaf_index(VALUES[6], readBack, *transaction);
         EXPECT_FALSE(success);
     }
 }

@@ -215,9 +215,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     std::unordered_map<fr, NodePayload> nodes_;
 
     // This is a store mapping the leaf key (e.g. slot for public data or nullifier value for nullifier tree) to the
-    // indices in the tree For indexed tress there is only ever one index against the key, for append-only trees there
-    // can be multiple
-    std::map<uint256_t, Indices> indices_;
+    // index in the tree
+    std::map<uint256_t, index_t> indices_;
 
     // This is a mapping from leaf hash to leaf pre-image. This will contain entries that need to be omitted when
     // commiting updates
@@ -240,7 +239,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void persist_meta(TreeMeta& m, WriteTransaction& tx);
 
-    void hydrate_indices_from_persisted_store(ReadTransaction& tx);
+    // void hydrate_indices_from_persisted_store(ReadTransaction& tx);
 
     void persist_leaf_indices(WriteTransaction& tx);
 
@@ -314,14 +313,14 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     const fr& new_leaf_key, const RequestContext& requestContext, ReadTransaction& tx) const
 {
     auto new_value_as_number = uint256_t(new_leaf_key);
-    Indices committed;
+    index_t committed;
     std::optional<index_t> sizeLimit = std::nullopt;
     if (initialised_from_block_.has_value() || requestContext.blockNumber.has_value()) {
         sizeLimit = constrain_tree_size(requestContext, tx);
     }
 
     fr found_key = dataStore_->find_low_leaf(new_leaf_key, committed, sizeLimit, tx);
-    auto db_index = committed.indices[0];
+    index_t db_index = committed;
     uint256_t retrieved_value = found_key;
 
     // Accessing indices_ from here under a lock
@@ -338,12 +337,12 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
         --it;
         // we need to return the larger of the db value or the cached value
 
-        return std::make_pair(false, it->first > retrieved_value ? it->second.indices[0] : db_index);
+        return std::make_pair(false, it->first > retrieved_value ? it->second : db_index);
     }
 
     if (it->first == uint256_t(new_value_as_number)) {
         // the value is already present and the iterator points to it
-        return std::make_pair(true, it->second.indices[0]);
+        return std::make_pair(true, it->second);
     }
     // the iterator points to the element immediately larger than the requested value
     // We need to return the highest value from
@@ -355,7 +354,7 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     }
     --it;
     //  it now points to the value less than that requested
-    return std::make_pair(false, it->first > retrieved_value ? it->second.indices[0] : db_index);
+    return std::make_pair(false, it->first > retrieved_value ? it->second : db_index);
 }
 
 template <typename LeafValueType>
@@ -427,14 +426,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
     // std::cout << "update_index at index " << index << " leaf " << leaf << std::endl;
     //  Accessing indices_ under a lock
     std::unique_lock lock(mtx_);
-    auto it = indices_.find(uint256_t(leaf));
-    if (it == indices_.end()) {
-        Indices ind;
-        ind.indices.push_back(index);
-        indices_[uint256_t(leaf)] = ind;
-        return;
+    const auto [it, success] = indices_.insert({ uint256_t(leaf), index });
+    if (!success) {
+        std::cout << "FAILED TO INSERT LEAF INDEX" << std::endl;
     }
-    it->second.indices.push_back(index);
 }
 
 template <typename LeafValueType>
@@ -452,47 +447,35 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     ReadTransaction& tx,
     bool includeUncommitted) const
 {
-    Indices committed;
-    std::optional<index_t> result = std::nullopt;
-    FrKeyType key = leaf;
-    std::vector<uint8_t> value;
-    bool success = dataStore_->read_leaf_indices(key, committed, tx);
-    if (success) {
-        index_t sizeLimit = constrain_tree_size(requestContext, tx);
-        if (!committed.indices.empty()) {
-            for (index_t ind : committed.indices) {
-                if (ind < start_index) {
-                    continue;
-                }
-                if (ind >= sizeLimit) {
-                    continue;
-                }
-                if (!result.has_value()) {
-                    result = ind;
-                    continue;
-                }
-                result = std::min(ind, result.value());
-            }
-        }
-    }
     if (includeUncommitted) {
         // Accessing indices_ under a lock
         std::unique_lock lock(mtx_);
         auto it = indices_.find(uint256_t(leaf));
-        if (it != indices_.end() && !it->second.indices.empty()) {
-            for (index_t ind : it->second.indices) {
-                if (ind < start_index) {
-                    continue;
-                }
-                if (!result.has_value()) {
-                    result = ind;
-                    continue;
-                }
-                result = std::min(ind, result.value());
+        if (it != indices_.end()) {
+            // we have an uncommitted value, we will return from here
+            if (it->second >= start_index) {
+                // we have a qualifying value
+                return std::make_optional(it->second);
             }
+            return std::nullopt;
         }
     }
-    return result;
+
+    // we have been asked to not include uncommitted data, or there is none available
+    index_t committed;
+    FrKeyType key = leaf;
+    bool success = dataStore_->read_leaf_index(key, committed, tx);
+    if (success) {
+        index_t sizeLimit = constrain_tree_size(requestContext, tx);
+        if (committed < start_index) {
+            return std::nullopt;
+        }
+        if (committed >= sizeLimit) {
+            return std::nullopt;
+        }
+        return std::make_optional(committed);
+    }
+    return std::nullopt;
 }
 
 template <typename LeafValueType>
@@ -654,7 +637,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             }
         } else {
             // data is present, hydrate persisted indices
-            hydrate_indices_from_persisted_store(*tx);
+            // hydrate_indices_from_persisted_store(*tx);
         }
     }
     {
@@ -708,7 +691,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_indices(WriteT
 {
     for (auto& idx : indices_) {
         FrKeyType key = idx.first;
-        dataStore_->write_leaf_indices(key, idx.second, tx);
+        dataStore_->write_leaf_index(key, idx.second, tx);
     }
 }
 
@@ -719,12 +702,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_keys(const ind
         FrKeyType key = idx.first;
 
         // write the leaf key against the indices, this is for the pending chain store of indices
-        for (index_t indexForKey : idx.second.indices) {
-            if (indexForKey < startIndex) {
-                continue;
-            }
-            dataStore_->write_leaf_key_by_index(key, indexForKey, tx);
+        index_t indexForKey = idx.second;
+        if (indexForKey < startIndex) {
+            continue;
         }
+        dataStore_->write_leaf_key_by_index(key, indexForKey, tx);
     }
 }
 
@@ -777,20 +759,20 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
     persist_node(nodePayloadIter->second.right, level + 1, tx);
 }
 
-template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::hydrate_indices_from_persisted_store(ReadTransaction& tx)
-{
-    for (auto& idx : indices_) {
-        std::vector<uint8_t> value;
-        FrKeyType key = idx.first;
-        Indices persistedIndices;
-        bool success = dataStore_->read_leaf_indices(key, persistedIndices, tx);
-        if (success) {
-            idx.second.indices.insert(
-                idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
-        }
-    }
-}
+// template <typename LeafValueType>
+// void ContentAddressedCachedTreeStore<LeafValueType>::hydrate_indices_from_persisted_store(ReadTransaction& tx)
+// {
+//     for (auto& idx : indices_) {
+//         std::vector<uint8_t> value;
+//         FrKeyType key = idx.first;
+//         Indices persistedIndices;
+//         bool success = dataStore_->read_leaf_indices(key, persistedIndices, tx);
+//         if (success) {
+//             idx.second.indices.insert(
+//                 idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
+//         }
+//     }
+// }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::rollback()
 {
@@ -800,7 +782,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         read_persisted_meta(meta_, *tx);
     }
     nodes_ = std::unordered_map<fr, NodePayload>();
-    indices_ = std::map<uint256_t, Indices>();
+    nodes_.clear();
+    indices_ = std::map<uint256_t, index_t>();
     leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
     nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth_ + 1, std::unordered_map<index_t, fr>());
     leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();

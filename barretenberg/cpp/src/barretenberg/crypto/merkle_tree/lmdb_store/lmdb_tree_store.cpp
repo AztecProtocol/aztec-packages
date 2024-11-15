@@ -166,17 +166,14 @@ bool LMDBTreeStore::read_meta_data(TreeMeta& metaData, LMDBTreeStore::ReadTransa
     return success;
 }
 
-void LMDBTreeStore::write_leaf_indices(const fr& leafValue, const Indices& indices, LMDBTreeStore::WriteTransaction& tx)
+void LMDBTreeStore::write_leaf_index(const fr& leafValue, const index_t& index, LMDBTreeStore::WriteTransaction& tx)
 {
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, indices);
-    std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
     FrKeyType key(leafValue);
     // std::cout << "Writing leaf indices by key " << key << std::endl;
-    tx.put_value<FrKeyType>(key, encoded, *_leafValueToIndexDatabase);
+    tx.put_value<FrKeyType>(key, index, *_leafValueToIndexDatabase);
 }
 
-void LMDBTreeStore::delete_leaf_indices(const fr& leafValue, LMDBTreeStore::WriteTransaction& tx)
+void LMDBTreeStore::delete_leaf_index(const fr& leafValue, LMDBTreeStore::WriteTransaction& tx)
 {
     FrKeyType key(leafValue);
     // std::cout << "Deleting leaf indices by key " << key << std::endl;
@@ -230,23 +227,20 @@ void LMDBTreeStore::delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx
 }
 
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
-                                Indices& indices,
+                                index_t& index,
                                 const std::optional<index_t>& sizeLimit,
                                 ReadTransaction& tx)
 {
-    std::vector<uint8_t> data;
     FrKeyType key(leafValue);
-    auto is_valid = [&](const std::vector<uint8_t>& data) {
-        Indices tmp;
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(tmp);
-        return tmp.indices[0] < sizeLimit.value();
+    auto is_valid = [&](const MDB_val& data) {
+        index_t tmp = 0;
+        deserialise_key(data.mv_data, tmp);
+        return tmp < sizeLimit.value();
     };
     if (!sizeLimit.has_value()) {
-        tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase);
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
+        tx.get_value_or_previous(key, index, *_leafValueToIndexDatabase);
     } else {
-        tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase, is_valid);
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
+        tx.get_value_or_previous(key, index, *_leafValueToIndexDatabase, is_valid);
     }
     return key;
 }

@@ -43,14 +43,6 @@ inline std::ostream& operator<<(std::ostream& os, const BlockPayload& block)
     return os;
 }
 
-struct Indices {
-    std::vector<index_t> indices;
-
-    MSGPACK_FIELDS(indices);
-
-    bool operator==(const Indices& other) const { return indices == other.indices; }
-};
-
 struct NodePayload {
     std::optional<fr> left;
     std::optional<fr> right;
@@ -96,16 +88,13 @@ class LMDBTreeStore {
 
     bool read_meta_data(TreeMeta& metaData, ReadTransaction& tx);
 
-    template <typename TxType> bool read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx);
+    template <typename TxType> bool read_leaf_index(const fr& leafValue, index_t& leafIndex, TxType& tx);
 
-    fr find_low_leaf(const fr& leafValue,
-                     Indices& indices,
-                     const std::optional<index_t>& sizeLimit,
-                     ReadTransaction& tx);
+    fr find_low_leaf(const fr& leafValue, index_t& index, const std::optional<index_t>& sizeLimit, ReadTransaction& tx);
 
-    void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
+    void write_leaf_index(const fr& leafValue, const index_t& leafIndex, WriteTransaction& tx);
 
-    void delete_leaf_indices(const fr& leafValue, WriteTransaction& tx);
+    void delete_leaf_index(const fr& leafValue, WriteTransaction& tx);
 
     bool read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx);
 
@@ -152,15 +141,10 @@ class LMDBTreeStore {
     template <typename TxType> bool get_node_data(const fr& nodeHash, NodePayload& nodeData, TxType& tx);
 };
 
-template <typename TxType> bool LMDBTreeStore::read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx)
+template <typename TxType> bool LMDBTreeStore::read_leaf_index(const fr& leafValue, index_t& leafIndex, TxType& tx)
 {
     FrKeyType key(leafValue);
-    std::vector<uint8_t> data;
-    bool success = tx.template get_value<FrKeyType>(key, data, *_leafValueToIndexDatabase);
-    if (success) {
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
-    }
-    return success;
+    return tx.template get_value<FrKeyType>(key, leafIndex, *_leafValueToIndexDatabase);
 }
 
 template <typename LeafType, typename TxType>
