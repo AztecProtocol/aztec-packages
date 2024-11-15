@@ -32,13 +32,13 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type SimulationProvider } from '../providers/index.js';
-import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
 import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -91,7 +91,7 @@ export class PublicProcessor {
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected worldStateDB: WorldStateDB,
-    protected enqueuedCallsProcessor: EnqueuedCallsProcessor,
+    protected enqueuedCallsProcessor: PublicTxSimulator,
     telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
@@ -107,7 +107,7 @@ export class PublicProcessor {
     worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
   ) {
-    const enqueuedCallsProcessor = EnqueuedCallsProcessor.create(
+    const enqueuedCallsProcessor = PublicTxSimulator.create(
       db,
       publicExecutor,
       publicKernelSimulator,
@@ -316,7 +316,7 @@ export class PublicProcessor {
 
     this.metrics.recordClassRegistration(
       ...ContractClassRegisteredEvent.fromLogs(
-        tx.unencryptedLogs.unrollLogs(),
+        tx.contractClassLogs.unrollLogs(),
         ProtocolContractAddress.ContractClassRegisterer,
       ),
     );

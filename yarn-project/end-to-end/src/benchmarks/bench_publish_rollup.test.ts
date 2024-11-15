@@ -5,7 +5,7 @@ import { type BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type EndToEndContext } from '../fixtures/utils.js';
-import { benchmarkSetup, sendTxs, waitNewPXESynced, waitRegisteredAccountSynced } from './utils.js';
+import { benchmarkSetup, sendTxs, waitNewPXESynced } from './utils.js';
 
 describe('benchmarks/publish_rollup', () => {
   let context: EndToEndContext;
@@ -47,11 +47,11 @@ describe('benchmarks/publish_rollup', () => {
       context.logger.info(`Registering owner account on new pxe`);
       const partialAddress = context.wallet.getCompleteAddress().partialAddress;
       const secretKey = context.wallet.getSecretKey();
-      await waitRegisteredAccountSynced(pxe, secretKey, partialAddress);
+      await pxe.registerAccount(secretKey, partialAddress);
 
       // Repeat for another account that didn't receive any notes for them, so we measure trial-decrypts
       context.logger.info(`Registering fresh account on new pxe`);
-      await waitRegisteredAccountSynced(pxe, Fr.random(), Fr.random());
+      await pxe.registerAccount(Fr.random(), Fr.random());
 
       // Stop the external node and pxe
       await pxe.stop();

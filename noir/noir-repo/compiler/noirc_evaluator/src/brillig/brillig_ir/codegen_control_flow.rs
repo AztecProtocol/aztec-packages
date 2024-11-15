@@ -6,7 +6,7 @@ use acvm::{
     AcirField,
 };
 
-use crate::ErrorType;
+use crate::ssa::ir::instruction::ErrorType;
 
 use super::{
     artifact::BrilligParameter,

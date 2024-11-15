@@ -104,10 +104,10 @@ The authwit management in private is a two-step process: create and add. It's no
 
 #### Example
 
-An example for authorizing an operator (ex. a DeFi protocol) to call the transfer_from action (transfer on the user's behalf):
+An example for authorizing an operator (ex. a DeFi protocol) to call the transfer_in_private action (transfer on the user's behalf):
 
 ```bash
-aztec-wallet create-authwit transfer_from accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master -a secret_trade
+aztec-wallet create-authwit transfer_in_private accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master -a secret_trade
 
 aztec-wallet add-authwit authwits:secret_trade accounts:jedi_master -f accounts:coruscant_trader
 ```
@@ -117,7 +117,7 @@ aztec-wallet add-authwit authwits:secret_trade accounts:jedi_master -f accounts:
 A similar call to the above, but in public:
 
 ```bash
-aztec-wallet authorize-action transfer_public accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master
+aztec-wallet authorize-action transfer_in_public accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master
 ```
 
 ### Simulate

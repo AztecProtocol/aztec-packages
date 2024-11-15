@@ -155,6 +155,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 where
     Note: NoteInterface<N>,
 {
+    sync_notes_oracle_wrapper();
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -203,27 +204,30 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
-/// Same as `get_app_tagging_secret`, except it returns the derived tag as an array of bytes, ready to be included in a
+/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag as an array of bytes, ready to be included in a
 /// log.
-pub unconstrained fn get_app_tag_bytes(sender: AztecAddress, recipient: AztecAddress) -> [u8; 32] {
-    let tag = get_app_tagging_secret(sender, recipient).compute_tag();
+pub unconstrained fn get_app_tag_bytes_as_sender(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> [u8; 32] {
+    let tag = get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient);
     tag.to_be_bytes()
 }
 
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
-/// Includes the last known index used for tagging with this secret.
+/// Includes the last known index used to send a note tagged with this secret.
 /// For this to work, PXE must know the ivpsk_m of the sender.
 /// For the recipient's side, only the address is needed.
-pub unconstrained fn get_app_tagging_secret(
+pub unconstrained fn get_app_tagging_secret_as_sender(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> IndexedTaggingSecret {
-    let result = get_app_tagging_secret_oracle(sender, recipient);
+    let result = get_app_tagging_secret_as_sender_oracle(sender, recipient);
     IndexedTaggingSecret::deserialize(result)
 }
 
-#[oracle(getAppTaggingSecret)]
-unconstrained fn get_app_tagging_secret_oracle(
+#[oracle(getAppTaggingSecretAsSender)]
+unconstrained fn get_app_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
@@ -233,38 +237,38 @@ unconstrained fn get_app_tagging_secret_oracle(
 /// This change should only be persisted in a non-volatile database if the tagged log is found in an actual block -
 /// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
 /// that are not found by the recipient.
-pub fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
+pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
     unsafe {
-        increment_app_tagging_secret_wrapper(sender, recipient);
+        increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
     }
 }
 
-unconstrained fn increment_app_tagging_secret_wrapper(
+unconstrained fn increment_app_tagging_secret_index_as_sender_wrapper(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) {
-    increment_app_tagging_secret_oracle(sender, recipient);
+    increment_app_tagging_secret_index_as_sender_oracle(sender, recipient);
 }
 
-#[oracle(incrementAppTaggingSecret)]
-unconstrained fn increment_app_tagging_secret_oracle(
+#[oracle(incrementAppTaggingSecretIndexAsSender)]
+unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) {}
 
-/// Finds new notes that may have been sent to `recipient` in the current contract and makes them available
+/// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
-pub fn sync_notes(recipient: AztecAddress) {
+pub fn sync_notes() {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
     unsafe {
-        sync_notes_oracle_wrapper(recipient);
+        sync_notes_oracle_wrapper();
     }
 }
 
-unconstrained fn sync_notes_oracle_wrapper(recipient: AztecAddress) {
-    sync_notes_oracle(recipient);
+unconstrained fn sync_notes_oracle_wrapper() {
+    sync_notes_oracle();
 }
 
 #[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle(_recipient: AztecAddress) {}
+unconstrained fn sync_notes_oracle() {}

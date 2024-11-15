@@ -1,6 +1,6 @@
 import { type Fr } from '@aztec/circuits.js';
 
-import { type GetUnencryptedLogsResponse, type TxScopedEncryptedL2NoteLog } from './get_logs_response.js';
+import { type GetUnencryptedLogsResponse, type TxScopedL2Log } from './get_logs_response.js';
 import { type L2BlockL2Logs } from './l2_block_l2_logs.js';
 import { type LogFilter } from './log_filter.js';
 import { type FromLogType, type LogType } from './log_type.js';
@@ -28,7 +28,7 @@ export interface L2LogsSource {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -36,6 +36,13 @@ export interface L2LogsSource {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed by the implementation.
