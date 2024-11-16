@@ -77,7 +77,7 @@ if mount | grep -q "/var/lib/docker type ext4"; then
 fi
 
 # If no existing volume, create one
-if [ "$EXISTING_VOLUME" == "None" ]; then
+if [ "$EXISTING_VOLUME" = "None" ]; then
   VOLUME_ID=$(aws ec2 create-volume \
     --region $REGION \
     --availability-zone $AVAILABILITY_ZONE \
