@@ -182,7 +182,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
              ". \nActual overflow size: ",
              overflow_block.size(),
              "\n");
-        overflow_block.set_fixed_size(static_cast<uint32_t>(overflow_block.size()));
+        overflow_block.fixed_size = static_cast<uint32_t>(overflow_block.size());
         blocks.summarize();
     }
 }

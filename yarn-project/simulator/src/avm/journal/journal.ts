@@ -430,9 +430,16 @@ export class AvmPersistableStateManager {
   /**
    * Accept nested world state modifications
    */
-  public acceptForkedState(forkedState: AvmPersistableStateManager) {
+  public mergeForkedState(forkedState: AvmPersistableStateManager) {
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
+    this.trace.mergeSuccessfulForkedTrace(forkedState.trace);
+  }
+
+  public rejectForkedState(forkedState: AvmPersistableStateManager) {
+    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
+    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
+    this.trace.mergeRevertedForkedTrace(forkedState.trace);
   }
 
   /**
@@ -474,10 +481,8 @@ export class AvmPersistableStateManager {
       return undefined;
     }
   }
-  /**
-   * Accept the nested call's state and trace the nested call
-   */
-  public async processNestedCall(
+
+  public async traceNestedCall(
     forkedState: AvmPersistableStateManager,
     nestedEnvironment: AvmExecutionEnvironment,
     startGasLeft: Gas,
@@ -485,9 +490,6 @@ export class AvmPersistableStateManager {
     bytecode: Buffer,
     avmCallResults: AvmContractCallResult,
   ) {
-    if (!avmCallResults.reverted) {
-      this.acceptForkedState(forkedState);
-    }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
       nestedEnvironment.address,
@@ -495,7 +497,7 @@ export class AvmPersistableStateManager {
       nestedEnvironment.calldata,
     );
 
-    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
+    this.log.verbose(`[AVM] Tracing nested external contract call ${functionName}`);
 
     this.trace.traceNestedCall(
       forkedState.trace,
@@ -508,47 +510,8 @@ export class AvmPersistableStateManager {
     );
   }
 
-  public async mergeStateForEnqueuedCall(
-    forkedState: AvmPersistableStateManager,
-    /** The call request from private that enqueued this call. */
-    publicCallRequest: PublicCallRequest,
-    /** The call's calldata */
-    calldata: Fr[],
-    /** Did the call revert? */
-    reverted: boolean,
-  ) {
-    if (!reverted) {
-      this.acceptForkedState(forkedState);
-    }
-    const functionName = await getPublicFunctionDebugName(
-      this.worldStateDB,
-      publicCallRequest.contractAddress,
-      publicCallRequest.functionSelector,
-      calldata,
-    );
-
-    this.log.verbose(`[AVM] Encountered enqueued public call starting with function ${functionName}`);
-
-    this.trace.traceEnqueuedCall(forkedState.trace, publicCallRequest, calldata, reverted);
-  }
-
-  public mergeStateForPhase(
-    /** The forked state manager used by app logic */
-    forkedState: AvmPersistableStateManager,
-    /** The call requests for each enqueued call in app logic. */
-    publicCallRequests: PublicCallRequest[],
-    /** The calldatas for each enqueued call in app logic */
-    calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    reverted: boolean,
-  ) {
-    if (!reverted) {
-      this.acceptForkedState(forkedState);
-    }
-
-    this.log.verbose(`[AVM] Encountered app logic phase`);
-
-    this.trace.traceExecutionPhase(forkedState.trace, publicCallRequests, calldatas, reverted);
+  public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {
+    this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
   }
 }
 
