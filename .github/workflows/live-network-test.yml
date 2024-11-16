@@ -1,0 +1,172 @@
+name: Live network test
+on:
+  push:
+    branches:
+      - 9955-feat-point-tests-at-live-networks
+  workflow_call:
+    inputs:
+      test_name:
+        required: true
+        type: string
+      cloud:
+        required: true
+        type: string
+      cluster_name:
+        required: true
+        type: string
+      namespace:
+        required: true
+        type: string
+      helm_instance:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      test_name:
+        description: "Test to run (e.g., transfer, reorg)"
+        required: false
+        type: string
+        default: "smoke"
+      cloud:
+        description: "Cloud provider to use"
+        required: false
+        type: string
+        default: "aws"
+      cluster_name:
+        description: "Kubernetes cluster name"
+        required: false
+        type: string
+        default: "spartan"
+      namespace:
+        description: "Kubernetes namespace"
+        required: false
+        type: string
+        default: "devnet-1val"
+      helm_instance:
+        description: "Helm instance name"
+        required: false
+        type: string
+        default: "spartan"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_REGION: "us-east-1"
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  CLOUD: ${{ github.event.inputs.cloud || 'aws' }}
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'spartan' }}
+  BRANCH: ${{ github.event.inputs.branch || '9955-feat-point-tests-at-live-networks' }}
+  TEST_NAME: ${{ github.event.inputs.test_name || 'smoke' }}
+  NAMESPACE: ${{ github.event.inputs.namespace || 'devnet-1val' }}
+  HELM_INSTANCE: ${{ github.event.inputs.helm_instance || 'devnet-1val' }}
+  WAIT_FOR_RUNNERS: false
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ github.event.pull_request.user.login || github.actor }}
+      runner_type: builder-x86
+    secrets: inherit
+
+  build:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.BRANCH }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-x86
+      - name: "Build E2E Image"
+        timeout-minutes: 40
+        run: earthly-ci ./yarn-project+export-e2e-test-images
+
+  test:
+    needs: build
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Update kube config
+        run: aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 90
+        with:
+          runner_type: 16core-tester-x86
+          builder_type: builder-x86
+          builder_images_to_copy: aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: 90
+          run: |
+            set -eux
+            cd yarn-project/end-to-end
+            export FORCE_COLOR=1
+            export NAMESPACE=${{ env.NAMESPACE }}
+            export INSTANCE_NAME=${{ env.HELM_INSTANCE }}
+            export AZTEC_DOCKER_TAG=${{ env.GIT_COMMIT }}
+            export TEST_NAME="./src/spartan/${{ env.TEST_NAME }}.test.ts"
+            docker run --rm --network=host \
+              -v ~/.kube:/root/.kube \
+              -e K8S=true \
+              -e SPARTAN_DIR="/usr/src/spartan" \
+              -e NAMESPACE="$NAMESPACE" \
+              -e HOST_PXE_PORT=8080 \
+              -e CONTAINER_PXE_PORT=8080 \
+              -e HOST_ETHEREUM_PORT=8545 \
+              -e CONTAINER_ETHEREUM_PORT=8545 \
+              -e DEBUG="aztec:*" \
+              -e LOG_JSON=1 \
+              -e LOG_LEVEL=debug \
+              -e INSTANCE_NAME="$INSTANCE_NAME" \
+              aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST_NAME
+
+  success-check:
+    runs-on: ubuntu-20.04
+    needs: test
+    if: always()
+    steps:
+      - name: Report overall success
+        env:
+          FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "Test failed."
+              exit 1
+          fi
+
+  notify:
+    needs: success-check
+    runs-on: ubuntu-20.04
+    if: ${{ github.ref == 'refs/heads/master' && failure() }}
+    steps:
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}

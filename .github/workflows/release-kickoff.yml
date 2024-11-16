@@ -1,0 +1,59 @@
+name: Release kickoff
+on:
+  push:
+    branches:
+      - 9955-feat-point-tests-at-live-networks
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number with the release branch"
+        required: true
+        type: number
+
+env:
+  PR_NUMBER: ${{ github.event.inputs.pr_number || 9998 }}
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  start_network:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get existing running status comment
+        id: get_existing_comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: running_status
+          number: ${{ env.PR_NUMBER }}
+          only_create: true
+          message: "{}"
+
+      - name: Exit with success if comment already exists
+        if: steps.get_existing_comment.outputs.previous_comment_id != ''
+        run: |
+          echo "::notice::A test is already running"
+
+      - name: Create or update test status comment
+        id: create_comment
+        if: steps.get_existing_comment.outputs.previous_comment_id == ''
+        run: |
+          START_TIME=$(date +%s)
+          COMMENT_JSON=$(cat <<EOF
+          {
+            "start_time": "${START_TIME}",
+            "stop_time": null,
+            "status": "running",
+            "result": null,
+            "last_test_time": null
+          }
+          EOF)
+
+          COMMENT_BODY=$(echo "$COMMENT_JSON" | jq -c .)
+          echo "comment_body=$COMMENT_BODY" >> $GITHUB_OUTPUT
+
+      - name: Add running status to sticky comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: steps.get_existing_comment.outputs.previous_comment_id == ''
+        with:
+          header: running_status
+          number: ${{ env.PR_NUMBER }}
+          message: ${{ steps.create_comment.outputs.comment_body }}
