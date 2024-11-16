@@ -52,9 +52,8 @@ import {
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
-import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256, sha256Trunc } from '@aztec/foundation/crypto';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
@@ -226,9 +225,7 @@ export function buildHeaderFromCircuitOutputs(
   updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
   logger?: DebugLogger,
 ) {
-  const blobHash = sha256(rootRollupOutputs.blobPublicInputs[0].commitmentToBuffer());
-  // NB the truncation for blob hash differs from sha256Trunc, because we follow eth's blob hash rules:
-  blobHash[0] = 0;
+  const blobHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
     blobHash,
@@ -282,7 +279,7 @@ export async function buildHeaderFromTxEffects(
   const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
-  const blobHash = new Blob(body.toBlobFields()).getEthBlobHash();
+  const blobHash = body.getBlobsHash();
   const contentCommitment = new ContentCommitment(
     new Fr(body.numberOfTxsIncludingPadded),
     blobHash,

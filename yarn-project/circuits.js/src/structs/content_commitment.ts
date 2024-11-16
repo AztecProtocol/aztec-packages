@@ -9,12 +9,12 @@ import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
-  constructor(public numTxs: Fr, public blobHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
+  constructor(public numTxs: Fr, public blobsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
     // NB: we do not calculate blobHash in the circuit, but we still truncate it so it fits in a field
-    if (blobHash.length !== NUM_BYTES_PER_SHA256) {
+    if (blobsHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`blobHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
     }
-    if (blobHash[0] !== 0) {
+    if (blobsHash[0] !== 0) {
       throw new Error(`blobHash buffer should be truncated and left padded`);
     }
     if (inHash.length !== NUM_BYTES_PER_SHA256) {
@@ -35,17 +35,17 @@ export class ContentCommitment {
     return z
       .object({
         numTxs: schemas.Fr,
-        blobHash: schemas.BufferHex,
+        blobsHash: schemas.BufferHex,
         inHash: schemas.BufferHex,
         outHash: schemas.BufferHex,
       })
-      .transform(({ numTxs, blobHash, inHash, outHash }) => new ContentCommitment(numTxs, blobHash, inHash, outHash));
+      .transform(({ numTxs, blobsHash, inHash, outHash }) => new ContentCommitment(numTxs, blobsHash, inHash, outHash));
   }
 
   toJSON() {
     return {
       numTxs: this.numTxs,
-      blobHash: this.blobHash.toString('hex'),
+      blobsHash: this.blobsHash.toString('hex'),
       inHash: this.inHash.toString('hex'),
       outHash: this.outHash.toString('hex'),
     };
@@ -56,13 +56,13 @@ export class ContentCommitment {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.numTxs, this.blobHash, this.inHash, this.outHash);
+    return serializeToBuffer(this.numTxs, this.blobsHash, this.inHash, this.outHash);
   }
 
   toFields(): Fr[] {
     const serialized = [
       this.numTxs,
-      Fr.fromBuffer(this.blobHash),
+      Fr.fromBuffer(this.blobsHash),
       Fr.fromBuffer(this.inHash),
       Fr.fromBuffer(this.outHash),
     ];
@@ -107,7 +107,7 @@ export class ContentCommitment {
   isEmpty(): boolean {
     return (
       this.numTxs.isZero() &&
-      this.blobHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
+      this.blobsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))
     );
@@ -127,7 +127,7 @@ export class ContentCommitment {
       this.inHash.equals(other.inHash) &&
       this.outHash.equals(other.outHash) &&
       this.numTxs.equals(other.numTxs) &&
-      this.blobHash.equals(other.blobHash)
+      this.blobsHash.equals(other.blobsHash)
     );
   }
 }

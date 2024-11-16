@@ -11,9 +11,10 @@ import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   AZTEC_MAX_EPOCH_DURATION,
   type AppendOnlyTreeSnapshot,
+  BLOBS_PER_BLOCK,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BlobPublicInputs,
+  BlockBlobPublicInputs,
   BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EthAddress,
@@ -333,7 +334,8 @@ describe('LightBlockBuilder', () => {
     const previousBlockHashLeafIndex = BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1);
     const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
     const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-    const blob = new Blob(blobFields);
+    const blobs = Blob.getBlobs(blobFields);
+    const blobsHash = sha256ToField(blobs.map(b => b.getEthVersionedBlobHash()));
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
     const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
 
@@ -354,10 +356,13 @@ describe('LightBlockBuilder', () => {
       newArchiveSiblingPath,
       previousBlockHash,
       proverId: Fr.ZERO,
-      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB),
-      blobCommitment: blob.commitmentToFields(),
-      blobHash: Fr.fromBuffer(blob.getEthBlobHash()),
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+      blobCommitments: padArrayEnd(
+        blobs.map(b => b.commitmentToFields()),
+        [Fr.ZERO, Fr.ZERO],
+        BLOBS_PER_BLOCK,
+      ),
+      blobsHash,
     });
 
     // TODO(Miranda): the wasm simulator can't run block root due to the bignum-based blob lib (stack too deep).
@@ -378,7 +383,7 @@ describe('LightBlockBuilder', () => {
       ),
     ];
 
-    const blobPublicInputs = [BlobPublicInputs.fromBlob(blob)];
+    const blobPublicInputs = [BlockBlobPublicInputs.fromBlobs(blobs)];
     const outputs = new BlockRootOrBlockMergePublicInputs(
       inputs.startArchiveSnapshot,
       newArchiveSnapshot,
@@ -394,7 +399,7 @@ describe('LightBlockBuilder', () => {
       rollupLeft.baseOrMergeRollupPublicInputs.constants.vkTreeRoot,
       rollupLeft.baseOrMergeRollupPublicInputs.constants.protocolContractTreeRoot,
       inputs.proverId,
-      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), AZTEC_MAX_EPOCH_DURATION),
+      padArrayEnd(blobPublicInputs, BlockBlobPublicInputs.empty(), AZTEC_MAX_EPOCH_DURATION),
     );
 
     return outputs;

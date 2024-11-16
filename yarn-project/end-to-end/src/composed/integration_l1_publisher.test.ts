@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  BlockBlobPublicInputs,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
@@ -21,6 +22,7 @@ import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -214,7 +216,7 @@ describe('L1Publisher integration', () => {
     fileName: string,
     block: L2Block,
     l1ToL2Content: Fr[],
-    blob: Blob,
+    blobs: Blob[],
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
   ): void => {
@@ -243,7 +245,7 @@ describe('L1Publisher integration', () => {
         body: `0x${block.body.toBuffer().toString('hex')}`,
         decodedHeader: {
           contentCommitment: {
-            blobHash: `0x${block.header.contentCommitment.blobHash.toString('hex').padStart(64, '0')}`,
+            blobHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),
@@ -291,7 +293,7 @@ describe('L1Publisher integration', () => {
         },
         header: `0x${block.header.toBuffer().toString('hex')}`,
         publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
-        blobPublicInputs: blob.getEthBlobEvaluationInputs(),
+        blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         numTxs: block.body.txEffects.length,
       },
     };
@@ -364,10 +366,19 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blob = new Blob(block.body.toBlobFields());
-        expect(block.header.contentCommitment.blobHash).toEqual(blob.getEthBlobHash());
+        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        expect(block.header.contentCommitment.blobsHash).toEqual(
+          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+        );
 
-        writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, blob, recipientAddress, deployerAccount.address);
+        writeJson(
+          `mixed_block_${block.number}`,
+          block,
+          l1ToL2Content,
+          blobs,
+          recipientAddress,
+          deployerAccount.address,
+        );
 
         await publisher.proposeL2Block(block);
 
@@ -386,9 +397,9 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
-        expect(z).toEqual(blob.challengeZ.toString());
-        expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+        const blobPublicInputsHash = await rollup.read.blobPublicInputsHashes([BigInt(i + 1)]);
+        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
+        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
 
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
@@ -401,7 +412,7 @@ describe('L1Publisher integration', () => {
             [],
             // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
-            blob.getEthBlobEvaluationInputs(),
+            Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
@@ -470,10 +481,12 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
         blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-        const blob = new Blob(block.body.toBlobFields());
-        expect(block.header.contentCommitment.blobHash).toEqual(blob.getEthBlobHash());
+        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        expect(block.header.contentCommitment.blobsHash).toEqual(
+          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+        );
 
-        writeJson(`empty_block_${block.number}`, block, [], blob, AztecAddress.ZERO, deployerAccount.address);
+        writeJson(`empty_block_${block.number}`, block, [], blobs, AztecAddress.ZERO, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
 
@@ -492,9 +505,9 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
-        expect(z).toEqual(blob.challengeZ.toString());
-        expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+        const blobPublicInputsHash = await rollup.read.blobPublicInputsHashes([BigInt(i + 1)]);
+        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
+        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
 
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
@@ -507,7 +520,7 @@ describe('L1Publisher integration', () => {
             [],
             // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
-            blob.getEthBlobEvaluationInputs(),
+            Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);

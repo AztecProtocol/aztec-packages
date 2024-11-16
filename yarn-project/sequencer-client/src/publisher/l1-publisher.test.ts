@@ -140,9 +140,9 @@ describe('L1Publisher', () => {
 
     expect(result).toEqual(true);
 
-    const blob = new Blob(l2Block.body.toBlobFields());
+    const blobs = Blob.getBlobs(l2Block.body.toBlobFields());
 
-    const blobInput = blob.getEthBlobEvaluationInputs();
+    const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
 
     const args = [
       `0x${header.toString('hex')}`,
@@ -165,7 +165,7 @@ describe('L1Publisher', () => {
       data,
       account,
       to: rollupContract.address,
-      blobs: [blob.data],
+      blobs: blobs.map(blob => blob.data),
       kzg,
       maxFeePerBlobGas: 10000000000n,
     });

@@ -5,6 +5,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
+  BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -58,19 +59,19 @@ export class BlockRootRollupInputs {
     /**
      * Flat list of all tx effects which will be added to the blob.
      * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-     * Tuple<Fr, FIELDS_PER_BLOB>
+     * Tuple<Fr, FIELDS_PER_BLOB * BLOBS_PER_BLOCK>
      */
     public blobFields: Fr[],
     /**
-     * KZG commitment representing the blob (precomputed in ts, injected to use inside circuit).
+     * KZG commitments representing the blob (precomputed in ts, injected to use inside circuit).
      * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
      */
-    public blobCommitment: Tuple<Fr, 2>,
+    public blobCommitments: Tuple<Tuple<Fr, 2>, typeof BLOBS_PER_BLOCK>,
     /**
-     * The eth blob hash for this block (= last 31 bytes of sha256(blobCommitment))
-     * See yarn-project/foundation/src/blob/index.ts for calculation
+     * The hash of eth blob hashes for this block
+     * See yarn-project/foundation/src/blob/index.ts or body.ts for calculation
      */
-    public blobHash: Fr,
+    public blobsHash: Fr,
   ) {}
 
   /**
@@ -115,8 +116,8 @@ export class BlockRootRollupInputs {
       fields.previousBlockHash,
       fields.proverId,
       fields.blobFields,
-      fields.blobCommitment,
-      fields.blobHash,
+      fields.blobCommitments,
+      fields.blobsHash,
     ] as const;
   }
 
@@ -139,8 +140,8 @@ export class BlockRootRollupInputs {
       Fr.fromBuffer(reader),
       // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
       // reader.readArray(FIELDS_PER_BLOB, Fr),
-      Array.from({ length: FIELDS_PER_BLOB }, () => Fr.fromBuffer(reader)),
-      reader.readArray(2, Fr),
+      Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK }, () => Fr.fromBuffer(reader)),
+      reader.readArray(BLOBS_PER_BLOCK, { fromBuffer: () => reader.readArray(2, Fr) }),
       Fr.fromBuffer(reader),
     );
   }

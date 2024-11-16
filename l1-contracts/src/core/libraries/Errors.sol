@@ -62,6 +62,7 @@ library Errors {
   error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
   error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
+  error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NotClaimingCorrectEpoch(Epoch expected, Epoch actual); // 0xf0e0744d

@@ -10,6 +10,7 @@ import { Blob } from './index.js';
 
 const {
   BYTES_PER_BLOB,
+  FIELD_ELEMENTS_PER_BLOB,
   blobToKzgCommitment,
   computeBlobKzgProof,
   computeKzgProof,
@@ -96,5 +97,39 @@ describe('blob', () => {
       ourBlob.proof,
     );
     expect(isValid).toBe(true);
+  });
+
+  it('should evaluate full blobs', () => {
+    // This test ensures that the Blob class correctly matches the c-kzg lib
+    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blobs
+
+    const blobItems = [];
+    for (let j = 0; j < 3; j++) {
+      for (let i = 0; i < FIELD_ELEMENTS_PER_BLOB; i++) {
+        blobItems[j * FIELD_ELEMENTS_PER_BLOB + i] = new Fr(i + 2);
+      }
+    }
+    const blobItemsHash = poseidon2Hash(blobItems);
+    const blobs = Blob.getBlobs(blobItems);
+    blobs.forEach(ourBlob => {
+      // const ourBlob = new Blob(blobItems.slice(j * FIELD_ELEMENTS_PER_BLOB, (j + 1) * FIELD_ELEMENTS_PER_BLOB), blobItemsHash);
+      expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
+      expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
+
+      const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
+      expect(z).toEqual(ourBlob.challengeZ);
+
+      const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
+      expect(res[0]).toEqual(ourBlob.proof);
+      expect(res[1]).toEqual(ourBlob.evaluationY);
+
+      const isValid = verifyKzgProof(
+        ourBlob.commitment,
+        ourBlob.challengeZ.toBuffer(),
+        ourBlob.evaluationY,
+        ourBlob.proof,
+      );
+      expect(isValid).toBe(true);
+    });
   });
 });

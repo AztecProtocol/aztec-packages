@@ -133,6 +133,35 @@ contract RollupTest is DecoderBase, TimeFns {
     vm.store(address(rollup), bytes32(uint256(20)), 0);
   }
 
+  function getBlobPublicInputs(bytes calldata _blobsInput)
+    public
+    pure
+    returns (bytes memory blobPublicInputs)
+  {
+    uint8 numBlobs = uint8(_blobsInput[0]);
+    blobPublicInputs = abi.encodePacked(numBlobs, blobPublicInputs);
+    for (uint256 i = 0; i < numBlobs; i++) {
+      // Add 1 for the numBlobs prefix
+      uint256 blobInputStart = i * 192 + 1;
+      // We want to extract the bytes we use for public inputs:
+      //  * input[32:64]   - z
+      //  * input[64:96]   - y
+      //  * input[96:144]  - commitment C
+      // Out of 192 bytes per blob.
+      blobPublicInputs =
+        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
+    }
+  }
+
+  function getBlobPublicInputsHash(bytes calldata _blobPublicInputs)
+    public
+    pure
+    returns (bytes32 publicInputsHash)
+  {
+    uint8 numBlobs = uint8(_blobPublicInputs[0]);
+    publicInputsHash = sha256(abi.encodePacked(_blobPublicInputs[1:1 + numBlobs * 112]));
+  }
+
   function testClaimInTheFuture(uint256 _futureSlot) public setUpFor("mixed_block_1") {
     uint256 futureSlot = bound(_futureSlot, 1, 1e20);
     _testBlock("mixed_block_1", false, 1);
@@ -255,11 +284,8 @@ contract RollupTest is DecoderBase, TimeFns {
   function testProofReleasesBond() public setUpFor("mixed_block_1") {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
-    bytes32 archive = data.archive;
-    bytes32 blockHash = data.blockHash;
     bytes32 proverId = bytes32(uint256(42));
     bytes memory body = data.body;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -267,13 +293,7 @@ contract RollupTest is DecoderBase, TimeFns {
     skipBlobCheck();
 
     rollup.propose(
-      header,
-      archive,
-      blockHash,
-      txHashes,
-      signatures,
-      body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
+      header, data.archive, data.blockHash, new bytes32[](0), signatures, body, data.blobInputs
     );
 
     quote.epochToProve = Epoch.wrap(1);
@@ -286,7 +306,16 @@ contract RollupTest is DecoderBase, TimeFns {
       proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 9, "Invalid escrow balance"
     );
 
-    _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
+    _submitEpochProof(
+      rollup,
+      1,
+      preArchive,
+      data.archive,
+      preBlockHash,
+      data.blockHash,
+      proverId,
+      this.getBlobPublicInputs(data.blobInputs)
+    );
 
     assertEq(
       proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 10, "Invalid escrow balance"
@@ -431,11 +460,7 @@ contract RollupTest is DecoderBase, TimeFns {
   function testRevertProveTwice() public setUpFor("mixed_block_1") {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
-    bytes32 archive = data.archive;
-    bytes32 blockHash = data.blockHash;
-    bytes32 proverId = bytes32(uint256(42));
     bytes memory body = data.body;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -443,20 +468,32 @@ contract RollupTest is DecoderBase, TimeFns {
     skipBlobCheck();
 
     rollup.propose(
-      header,
-      archive,
-      blockHash,
-      txHashes,
-      signatures,
-      body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
+      header, data.archive, data.blockHash, new bytes32[](0), signatures, body, data.blobInputs
     );
 
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
-    _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
+    _submitEpochProof(
+      rollup,
+      1,
+      preArchive,
+      data.archive,
+      preBlockHash,
+      data.blockHash,
+      bytes32(uint256(42)),
+      this.getBlobPublicInputs(data.blobInputs)
+    );
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 2));
-    _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
+    _submitEpochProof(
+      rollup,
+      1,
+      preArchive,
+      data.archive,
+      preBlockHash,
+      data.blockHash,
+      bytes32(uint256(42)),
+      new bytes(112)
+    );
   }
 
   function testTimestamp() public setUpFor("mixed_block_1") {
@@ -484,28 +521,31 @@ contract RollupTest is DecoderBase, TimeFns {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
     rollup.propose(
-      header, data.archive, data.blockHash, txHashes, signatures, data.body, data.blobPublicInputs
+      header, data.archive, data.blockHash, txHashes, signatures, data.body, data.blobInputs
     );
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
+    bytes memory blobInput = data.blobInputs;
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We set the blobHash to the correct value
     bytes32[] memory blobHashes = new bytes32[](1);
-    blobHashes[0] = bytes32(data.blobPublicInputs);
+    // The below is the blob hash == bytes [1:33] of _blobInput
+    bytes32 blobHash;
+    assembly {
+      blobHash := mload(add(blobInput, 0x21))
+    }
+    blobHashes[0] = blobHash;
     vm.blobhashes(blobHashes);
 
     // We mess with the blob input bytes
-    bytes memory badBlobInput = data.blobPublicInputs;
-    badBlobInput[100] = 0x01;
+    blobInput[100] = 0x01;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(
-      header, data.archive, data.blockHash, txHashes, signatures, data.body, badBlobInput
-    );
+    rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -621,13 +661,7 @@ contract RollupTest is DecoderBase, TimeFns {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
     rollup.propose(
-      header,
-      data.archive,
-      data.blockHash,
-      txHashes,
-      signatures,
-      data.body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
+      header, data.archive, data.blockHash, txHashes, signatures, data.body, data.blobInputs
     );
   }
 
@@ -649,13 +683,7 @@ contract RollupTest is DecoderBase, TimeFns {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
     rollup.propose(
-      header,
-      data.archive,
-      data.blockHash,
-      txHashes,
-      signatures,
-      data.body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
+      header, data.archive, data.blockHash, txHashes, signatures, data.body, data.blobInputs
     );
   }
 
@@ -663,9 +691,8 @@ contract RollupTest is DecoderBase, TimeFns {
     uint256 feeAmount = 2e18;
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
-    bytes32[] memory txHashes = new bytes32[](0);
     uint256 portalBalance = testERC20.balanceOf(address(feeJuicePortal));
-    address coinbase = data.decodedHeader.globalVariables.coinbase;
+    // address coinbase = data.decodedHeader.globalVariables.coinbase;
 
     // Progress time as necessary
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -681,7 +708,7 @@ contract RollupTest is DecoderBase, TimeFns {
       // We jump to the time of the block. (unless it is in the past)
       vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-      uint256 coinbaseBalance = testERC20.balanceOf(coinbase);
+      uint256 coinbaseBalance = testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase);
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck();
@@ -691,12 +718,16 @@ contract RollupTest is DecoderBase, TimeFns {
         header,
         data.archive,
         data.blockHash,
-        txHashes,
+        new bytes32[](0),
         signatures,
         data.body,
-        abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
+        data.blobInputs
       );
-      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+      assertEq(
+        testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
+        0,
+        "invalid coinbase balance"
+      );
     }
 
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
@@ -709,6 +740,7 @@ contract RollupTest is DecoderBase, TimeFns {
     rollup.claimEpochProofRight(signedQuote);
 
     {
+      bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
       vm.expectRevert(
         abi.encodeWithSelector(
           IERC20Errors.ERC20InsufficientBalance.selector,
@@ -725,11 +757,16 @@ contract RollupTest is DecoderBase, TimeFns {
         preBlockHash,
         data.blockHash,
         bytes32(uint256(42)),
-        coinbase,
+        blobPublicInputs,
+        data.decodedHeader.globalVariables.coinbase,
         feeAmount
       );
     }
-    assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+    assertEq(
+      testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
+      0,
+      "invalid coinbase balance"
+    );
     assertEq(testERC20.balanceOf(address(quote.prover)), 0, "invalid prover balance");
 
     {
@@ -744,7 +781,8 @@ contract RollupTest is DecoderBase, TimeFns {
         preBlockHash,
         data.blockHash,
         bytes32(uint256(42)),
-        coinbase,
+        this.getBlobPublicInputs(data.blobInputs),
+        data.decodedHeader.globalVariables.coinbase,
         feeAmount
       );
 
@@ -752,7 +790,11 @@ contract RollupTest is DecoderBase, TimeFns {
       uint256 expectedProverReward = Math.mulDiv(expectedReward, quote.basisPointFee, 10_000);
       uint256 expectedSequencerReward = expectedReward - expectedProverReward;
 
-      assertEq(testERC20.balanceOf(coinbase), expectedSequencerReward, "invalid coinbase balance");
+      assertEq(
+        testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
+        expectedSequencerReward,
+        "invalid coinbase balance"
+      );
       assertEq(testERC20.balanceOf(quote.prover), expectedProverReward, "invalid prover balance");
     }
   }
@@ -782,7 +824,20 @@ contract RollupTest is DecoderBase, TimeFns {
 
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid initial proven block number");
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
-    _submitEpochProof(rollup, 2, preArchive, data.archive, preBlockHash, data.blockHash, bytes32(0));
+    bytes memory blobPublicInputs = abi.encodePacked(
+      this.getBlobPublicInputs(load("mixed_block_1").block.blobInputs),
+      this.getBlobPublicInputs(data.blobInputs)
+    );
+    _submitEpochProof(
+      rollup,
+      2,
+      preArchive,
+      data.archive,
+      preBlockHash,
+      data.blockHash,
+      bytes32(0),
+      blobPublicInputs
+    );
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 2, "Invalid proven block number");
@@ -804,18 +859,26 @@ contract RollupTest is DecoderBase, TimeFns {
       txHashes,
       signatures,
       data2.body,
-      abi.encodePacked(data2.decodedHeader.contentCommitment.blobHash, new bytes(112))
+      data2.blobInputs
     );
 
     // Skips proving of block 1
     (bytes32 preArchive,,) = rollup.blocks(0);
+    bytes memory blobPublicInputs = this.getBlobPublicInputs(data1.blobInputs);
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__InvalidPreviousArchive.selector, preArchive, data1.archive
       )
     );
     _submitEpochProof(
-      rollup, 1, data1.archive, data2.archive, data1.archive, data2.archive, bytes32(0)
+      rollup,
+      1,
+      data1.archive,
+      data2.archive,
+      data1.archive,
+      data2.archive,
+      bytes32(0),
+      blobPublicInputs
     );
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
@@ -850,15 +913,7 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck();
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    rollup.propose(
-      header,
-      archive,
-      data.blockHash,
-      txHashes,
-      signatures,
-      body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
-    );
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, data.blobInputs);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
@@ -873,15 +928,7 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck();
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    rollup.propose(
-      header,
-      archive,
-      data.blockHash,
-      txHashes,
-      signatures,
-      body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
-    );
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, data.blobInputs);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
@@ -896,15 +943,7 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck();
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    rollup.propose(
-      header,
-      archive,
-      data.blockHash,
-      txHashes,
-      signatures,
-      body,
-      abi.encodePacked(data.decodedHeader.contentCommitment.blobHash, new bytes(112))
-    );
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, data.blobInputs);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
@@ -960,7 +999,9 @@ contract RollupTest is DecoderBase, TimeFns {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, preArchive, wrong)
     );
-    _submitEpochProof(rollup, 1, wrong, data.archive, preBlockHash, data.blockHash, bytes32(0));
+    _submitEpochProof(
+      rollup, 1, wrong, data.archive, preBlockHash, data.blockHash, bytes32(0), new bytes(112)
+    );
 
     // TODO: Reenable when we setup proper initial block hash
     // vm.expectRevert(
@@ -979,7 +1020,9 @@ contract RollupTest is DecoderBase, TimeFns {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
     );
-    _submitEpochProof(rollup, 1, preArchive, wrongArchive, preBlockHash, data.blockHash, bytes32(0));
+    _submitEpochProof(
+      rollup, 1, preArchive, wrongArchive, preBlockHash, data.blockHash, bytes32(0), new bytes(112)
+    );
   }
 
   function testSubmitProofInvalidBlockHash() public setUpFor("empty_block_1") {
@@ -994,7 +1037,40 @@ contract RollupTest is DecoderBase, TimeFns {
         Errors.Rollup__InvalidBlockHash.selector, data.blockHash, wrongBlockHash
       )
     );
-    _submitEpochProof(rollup, 1, preArchive, data.archive, preBlockHash, wrongBlockHash, bytes32(0));
+    _submitEpochProof(
+      rollup, 1, preArchive, data.archive, preBlockHash, wrongBlockHash, bytes32(0), new bytes(112)
+    );
+  }
+
+  function testSubmitProofInvalidBlobPublicInput() public setUpFor("empty_block_1") {
+    _testBlock("empty_block_1", false);
+
+    DecoderBase.Data memory data = load("empty_block_1").block;
+    bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
+    // mess with the data
+    blobPublicInputs[100] = 0x01;
+
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+    bytes32 actualBlobPublicInputsHash =
+      rollup.blobPublicInputsHashes(data.decodedHeader.globalVariables.blockNumber);
+    bytes32 wrongBlobPublicInputsHash = this.getBlobPublicInputsHash(blobPublicInputs);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InvalidBlobPublicInputsHash.selector,
+        actualBlobPublicInputsHash,
+        wrongBlobPublicInputsHash
+      )
+    );
+    _submitEpochProof(
+      rollup,
+      1,
+      preArchive,
+      data.archive,
+      preBlockHash,
+      data.blockHash,
+      bytes32(0),
+      blobPublicInputs
+    );
   }
 
   function _testBlock(string memory name, bool _submitProof) public {
@@ -1005,9 +1081,8 @@ contract RollupTest is DecoderBase, TimeFns {
     DecoderBase.Full memory full = load(name);
     bytes memory header = full.block.header;
     bytes memory body = full.block.body;
-    bytes memory blobPublicInputs = full.block.blobPublicInputs;
+    bytes memory blobInputs = full.block.blobInputs;
     uint32 numTxs = full.block.numTxs;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     Slot slotNumber = Slot.wrap(_slotNumber);
 
@@ -1030,31 +1105,38 @@ contract RollupTest is DecoderBase, TimeFns {
 
     {
       bytes32[] memory blobHashes = new bytes32[](1);
-      blobHashes[0] = bytes32(blobPublicInputs);
+      // The below is the blob hash == bytes [1:33] of _blobInput
+      bytes32 blobHash;
+      assembly {
+        blobHash := mload(add(blobInputs, 0x21))
+      }
+      blobHashes[0] = blobHash;
       vm.blobhashes(blobHashes);
     }
 
     rollup.propose(
-      header, full.block.archive, full.block.blockHash, txHashes, signatures, body, blobPublicInputs
+      header,
+      full.block.archive,
+      full.block.blockHash,
+      new bytes32[](0),
+      signatures,
+      body,
+      blobInputs
     );
-
-    {
-      // The below is the blob challenge == bytes [32:64] of _blobInput
-      bytes32 z;
-      assembly {
-        z := mload(add(blobPublicInputs, 0x40))
-      }
-      (bytes32 expectedZ,) =
-        rollup.blobPublicInputs(full.block.decodedHeader.globalVariables.blockNumber);
-      assertEq(expectedZ, z, "Blob info not stored correctly");
-    }
 
     if (_submitProof) {
       uint256 pre = rollup.getProvenBlockNumber();
       (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(pre);
 
       _submitEpochProof(
-        rollup, 1, preArchive, full.block.archive, preBlockHash, full.block.blockHash, bytes32(0)
+        rollup,
+        1,
+        preArchive,
+        full.block.archive,
+        preBlockHash,
+        full.block.blockHash,
+        bytes32(0),
+        this.getBlobPublicInputs(blobInputs)
       );
       assertEq(pre + 1, rollup.getProvenBlockNumber(), "Block not proven");
     }
@@ -1115,7 +1197,8 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes32 _endArchive,
     bytes32 _previousBlockHash,
     bytes32 _endBlockHash,
-    bytes32 _proverId
+    bytes32 _proverId,
+    bytes memory _blobPublicInputs
   ) internal {
     _submitEpochProofWithFee(
       _rollup,
@@ -1125,6 +1208,7 @@ contract RollupTest is DecoderBase, TimeFns {
       _previousBlockHash,
       _endBlockHash,
       _proverId,
+      _blobPublicInputs,
       address(0),
       uint256(0)
     );
@@ -1138,6 +1222,7 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes32 _previousBlockHash,
     bytes32 _endBlockHash,
     bytes32 _proverId,
+    bytes memory _blobPublicInputs,
     address _feeRecipient,
     uint256 _feeAmount
   ) internal {
@@ -1159,7 +1244,9 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes memory aggregationObject = "";
     bytes memory proof = "";
 
-    _rollup.submitEpochRootProof(_epochSize, args, fees, aggregationObject, proof);
+    _rollup.submitEpochRootProof(
+      _epochSize, args, fees, abi.encodePacked(_blobPublicInputs, aggregationObject), proof
+    );
   }
 
   function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)

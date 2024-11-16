@@ -109,8 +109,8 @@ type L1ProcessArgs = {
   blockHash: Buffer;
   /** L2 block body. TODO(#9101): Remove block body once we can extract blobs. */
   body: Buffer;
-  /** L2 block blob containing all tx effects. */
-  blob: Blob;
+  /** L2 block blobs containing all tx effects. */
+  blobs: Blob[];
   /** L2 block tx hashes */
   txHashes: TxHash[];
   /** Attestations */
@@ -356,7 +356,7 @@ export class L1Publisher {
       formattedSignatures,
       `0x${attestationData.digest.toString('hex')}`,
       ts,
-      `0x${header.contentCommitment.blobHash.toString('hex')}`,
+      `0x${header.contentCommitment.blobsHash.toString('hex')}`,
       flags,
     ] as const;
 
@@ -483,7 +483,7 @@ export class L1Publisher {
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
-      blob: new Blob(block.body.toBlobFields()),
+      blobs: Blob.getBlobs(block.body.toBlobFields()),
       attestations,
       txHashes: txHashes ?? [],
     };
@@ -765,7 +765,7 @@ export class L1Publisher {
       attestations,
       // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
       `0x${encodedData.body.toString('hex')}`,
-      encodedData.blob.getEthBlobEvaluationInputs(),
+      Blob.getEthBlobEvaluationInputs(encodedData.blobs),
     ] as const;
 
     return { args, gasGuesstimate };
@@ -793,7 +793,9 @@ export class L1Publisher {
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),
       ),
-      `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
+      `0x${args.publicInputs.blobPublicInputs
+        .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
+        .map(b => b.toString())}${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 
@@ -819,7 +821,7 @@ export class L1Publisher {
           data,
           account: this.account,
           to: this.rollupContract.address,
-          blobs: [encodedData.blob.data],
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
           maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         }),
@@ -863,7 +865,7 @@ export class L1Publisher {
           data,
           account: this.account,
           to: this.rollupContract.address,
-          blobs: [encodedData.blob.data],
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
           maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         }),

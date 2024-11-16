@@ -228,7 +228,7 @@ contract SpartaTest is DecoderBase {
         txHashes,
         signatures,
         full.block.body,
-        full.block.blobPublicInputs
+        full.block.blobInputs
       );
 
       if (ree.shouldRevert) {
@@ -243,7 +243,7 @@ contract SpartaTest is DecoderBase {
         txHashes,
         signatures,
         full.block.body,
-        full.block.blobPublicInputs
+        full.block.blobInputs
       );
     }
 

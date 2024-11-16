@@ -17,6 +17,7 @@ import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  BLOBS_PER_BLOCK,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupHints,
@@ -45,6 +46,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -864,10 +866,11 @@ export class ProvingOrchestrator implements EpochProver {
     const blobFields = this.extractTxEffects(provingState)
       .map(tx => tx.toBlobFields())
       .flat();
-    const blob = new Blob(blobFields);
+    const blobs = Blob.getBlobs(blobFields);
+    const blobsHash = sha256ToField(blobs.map(b => b.getEthVersionedBlobHash()));
 
     logger.debug(
-      `Enqueuing block root rollup for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs`,
+      `Enqueuing block root rollup for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs and ${blobs.length} blobs.`,
     );
 
     const previousRollupData: BlockRootRollupInputs['previousRollupData'] = makeTuple(2, i =>
@@ -888,10 +891,13 @@ export class ProvingOrchestrator implements EpochProver {
       newArchiveSiblingPath: provingState.archiveTreeRootSiblingPath,
       previousBlockHash: provingState.previousBlockHash,
       proverId: this.proverId,
-      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB),
-      blobCommitment: blob.commitmentToFields(),
-      blobHash: Fr.fromBuffer(blob.getEthBlobHash()),
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+      blobCommitments: padArrayEnd(
+        blobs.map(b => b.commitmentToFields()),
+        [Fr.ZERO, Fr.ZERO],
+        BLOBS_PER_BLOCK,
+      ),
+      blobsHash: blobsHash,
     });
 
     this.deferredProving(
@@ -917,15 +923,16 @@ export class ProvingOrchestrator implements EpochProver {
         provingState.blockRootRollupPublicInputs = result.inputs;
         provingState.finalProof = result.proof.binaryProof;
         const blobOutputs = result.inputs.blobPublicInputs[0];
-
-        if (!blobOutputs.equals(BlobPublicInputs.fromBlob(blob))) {
-          throw new Error(
-            `Rollup circuits produced mismatched blob evaluation:
-            z: ${blobOutputs.z} == ${blob.challengeZ},
-            y: ${blobOutputs.y.toString(16)} == ${blob.evaluationY.toString('hex')},
-            C: ${blobOutputs.kzgCommitment} == ${blob.commitmentToFields()}`,
-          );
-        }
+        blobOutputs.inner.forEach((blobOutput, i) => {
+          if (!blobOutput.isEmpty() && !blobOutput.equals(BlobPublicInputs.fromBlob(blobs[i]))) {
+            throw new Error(
+              `Rollup circuits produced mismatched blob evaluation:
+              z: ${blobOutput.z} == ${blobs[i].challengeZ},
+              y: ${blobOutput.y.toString(16)} == ${blobs[i].evaluationY.toString('hex')},
+              C: ${blobOutput.kzgCommitment} == ${blobs[i].commitmentToFields()}`,
+            );
+          }
+        });
 
         logger.debug(`Completed proof for block root rollup for ${provingState.block?.number}`);
         // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)

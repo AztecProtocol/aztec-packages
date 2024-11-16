@@ -27,7 +27,7 @@ use dep::types::{
     traits::is_empty,
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
 };
-use blob::blob_public_inputs::BlobPublicInputs;
+use blob::blob_public_inputs::BlockBlobPublicInputs;
 
 /**
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
@@ -170,7 +170,7 @@ pub fn accumulate_blocks_fees(
 pub fn accumulate_blob_public_inputs(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
-) -> [BlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
+) -> [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
     let left_len = array_length(left.blob_public_inputs);
     let right_len = array_length(right.blob_public_inputs);
     assert(
@@ -179,7 +179,7 @@ pub fn accumulate_blob_public_inputs(
     );
     // NB: For some reason, the below is around 150k gates cheaper than array_merge
     let mut add_from_left = true;
-    let mut result = [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
+    let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
     for i in 0..result.len() {
         add_from_left &= i != left_len;
         if (add_from_left) {
@@ -330,7 +330,6 @@ pub fn append_tx_effects_for_blob(
     // NB: The array_length function does NOT constrain we have a sorted left-packed array.
     // We can use it because all inputs here come from the kernels which DO contrain left-packing.
     // If that ever changes, we will have to constrain it by counting items differently.
-
     // NOTE HASHES
     array_len = array_length(note_hashes);
     if array_len != 0 {
