@@ -97,9 +97,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec,
 
     ProgramStack program_stack{ constraint_systems, witness_stack };
 
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     bool is_kernel = false;
     while (!program_stack.empty()) {
@@ -238,9 +236,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     }
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Accumulate the entire program stack into the IVC
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
