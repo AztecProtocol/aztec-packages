@@ -25,18 +25,18 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type EnqueuedCallsProcessor, type TxPublicCallsResult } from './enqueued_calls_processor.js';
 import { computeFeePayerBalanceLeafSlot } from './fee_payment.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicProcessor } from './public_processor.js';
+import { type PublicTxResult, type PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeWriteOperations>;
   let worldStateDB: MockProxy<WorldStateDB>;
-  let enqueuedCallsProcessor: MockProxy<EnqueuedCallsProcessor>;
+  let publicTxProcessor: MockProxy<PublicTxSimulator>;
 
   let root: Buffer;
-  let mockedEnqueuedCallsResult: TxPublicCallsResult;
+  let mockedEnqueuedCallsResult: PublicTxResult;
   let mockedAvmOutput: AvmCircuitPublicInputs;
 
   let processor: PublicProcessor;
@@ -53,7 +53,7 @@ describe('public_processor', () => {
   beforeEach(() => {
     db = mock<MerkleTreeWriteOperations>();
     worldStateDB = mock<WorldStateDB>();
-    enqueuedCallsProcessor = mock();
+    publicTxProcessor = mock();
 
     root = Buffer.alloc(32, 5);
 
@@ -76,7 +76,7 @@ describe('public_processor', () => {
 
     worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
 
-    enqueuedCallsProcessor.process.mockImplementation(() => {
+    publicTxProcessor.process.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
     });
 
@@ -85,7 +85,7 @@ describe('public_processor', () => {
       globalVariables,
       Header.empty(),
       worldStateDB,
-      enqueuedCallsProcessor,
+      publicTxProcessor,
       new NoopTelemetryClient(),
     );
   });
@@ -131,7 +131,7 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      enqueuedCallsProcessor.process.mockRejectedValue(new SimulationError(`Failed`, []));
+      publicTxProcessor.process.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx], 1);

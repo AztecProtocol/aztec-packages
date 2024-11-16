@@ -1,14 +1,14 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 namespace bb {
 /**
@@ -34,7 +34,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     bool is_structured;
 
   public:
-    using Trace = ExecutionTrace_<Flavor>;
+    using Trace = TraceToPolynomials<Flavor>;
 
     ProvingKey proving_key;
 
@@ -48,9 +48,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
 
     DeciderProvingKey_(Circuit& circuit,
-                       TraceSettings trace_settings = TraceSettings{},
+                       TraceSettings trace_settings = {},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-        : is_structured(trace_settings.structure != TraceStructure::NONE)
+        : is_structured(trace_settings.structure.has_value())
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
@@ -59,13 +59,17 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
-        if (is_structured) {
-            circuit.blocks.set_fixed_block_sizes(trace_settings); // set the fixed sizes for each block
-            circuit.blocks.summarize();
-            move_structured_trace_overflow_to_overflow_block(circuit);
-            dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
-        } else {
+        if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+        } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
+            if (is_structured) {
+                circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
+                circuit.blocks.summarize();
+                move_structured_trace_overflow_to_overflow_block(circuit);
+                dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
+            } else {
+                dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+            }
         }
 
         info("Finalized circuit size: ",

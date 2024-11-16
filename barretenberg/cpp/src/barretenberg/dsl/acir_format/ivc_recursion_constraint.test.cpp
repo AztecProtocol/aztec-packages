@@ -127,8 +127,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
-    ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     // construct a mock app_circuit
     Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -152,8 +151,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
-    ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     // construct a mock app_circuit
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
@@ -185,14 +183,13 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateVK)
 {
-    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    const TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -209,8 +206,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
 
@@ -235,14 +231,13 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
 {
-    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    const TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -260,8 +255,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
-        ClientIVC ivc;
-        ivc.trace_settings = trace_settings;
+        ClientIVC ivc{ trace_settings };
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);

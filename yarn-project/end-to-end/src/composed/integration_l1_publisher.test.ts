@@ -145,6 +145,7 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateProvenBlocksOnly: false,
+      worldStateDbMapSizeKb: 10 * 1024 * 1024,
     };
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
