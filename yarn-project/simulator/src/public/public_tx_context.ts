@@ -5,6 +5,7 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
+  TxHash,
 } from '@aztec/circuit-types';
 import {
   type AvmCircuitPublicInputs,
@@ -13,16 +14,16 @@ import {
   Gas,
   type GasSettings,
   type GlobalVariables,
+  type PrivateToPublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
-  type PublicKernelCircuitPublicInputs,
   PublicValidationRequestArrayLengths,
   RevertCode,
   type StateReference,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
-import { assert } from 'console';
+import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
@@ -31,34 +32,35 @@ import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_t
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 import {
+  convertPrivateToPublicAccumulatedData,
   generateAvmCircuitPublicInputs,
   getCallRequestsByPhase,
   getExecutionRequestsByPhase,
-  getPublicKernelCircuitPublicInputs,
 } from './utils.js';
 
 export class PublicTxContext {
   private log: DebugLogger;
-
-  private currentPhase: TxExecutionPhase = TxExecutionPhase.SETUP;
 
   /* Gas used including private, teardown gas _limit_, setup and app logic */
   private gasUsed: Gas;
   /* Gas actually used during teardown (different from limit) */
   public teardownGasUsed: Gas = Gas.empty();
 
-  public revertCode: RevertCode = RevertCode.OK;
+  /* Entire transaction execution is done. */
+  private halted = false;
+  /* Where did reverts happen (if at all)? */
+  private revertCode: RevertCode = RevertCode.OK;
+  /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
 
   public avmProvingRequest: AvmProvingRequest | undefined; // tmp hack
 
   constructor(
     public readonly state: PhaseStateManager,
-    public readonly tx: Tx, // tmp hack
-    public readonly globalVariables: GlobalVariables,
-    public readonly constants: CombinedConstantData, // tmp hack
-    public readonly startStateReference: StateReference,
-    startGasUsed: Gas,
+    private readonly globalVariables: GlobalVariables,
+    public readonly constants: CombinedConstantData, // FIXME(dbanks12): remove
+    private readonly startStateReference: StateReference,
+    private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
     private readonly setupCallRequests: PublicCallRequest[],
     private readonly appLogicCallRequests: PublicCallRequest[],
@@ -66,9 +68,9 @@ export class PublicTxContext {
     private readonly setupExecutionRequests: PublicExecutionRequest[],
     private readonly appLogicExecutionRequests: PublicExecutionRequest[],
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
-    private firstPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    public latestPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    public trace: PublicEnqueuedCallSideEffectTrace,
+    private readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    private readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
     this.gasUsed = startGasUsed;
@@ -80,29 +82,25 @@ export class PublicTxContext {
     tx: Tx,
     globalVariables: GlobalVariables,
   ) {
-    const privateKernelOutput = tx.data;
-    const firstPublicKernelOutput = getPublicKernelCircuitPublicInputs(privateKernelOutput, globalVariables);
-
-    const nonRevertibleNullifiersFromPrivate = firstPublicKernelOutput.endNonRevertibleData.nullifiers
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
-    const _revertibleNullifiersFromPrivate = firstPublicKernelOutput.end.nullifiers
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
-
-    // During SETUP, non revertible side effects from private are our "previous data"
-    const prevAccumulatedData = firstPublicKernelOutput.endNonRevertibleData;
-    const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
-      firstPublicKernelOutput.validationRequests,
+    const nonRevertibleAccumulatedDataFromPrivate = convertPrivateToPublicAccumulatedData(
+      tx.data.forPublic!.nonRevertibleAccumulatedData,
+    );
+    const revertibleAccumulatedDataFromPrivate = convertPrivateToPublicAccumulatedData(
+      tx.data.forPublic!.revertibleAccumulatedData,
     );
 
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
+    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers
+      .filter(n => !n.isEmpty())
+      .map(n => n.value);
+    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers
+      .filter(n => !n.isEmpty())
+      .map(n => n.value);
 
     const innerCallTrace = new PublicSideEffectTrace();
     const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
       /*startSideEffectCounter=*/ 0,
-      previousValidationRequestArrayLengths,
-      previousAccumulatedDataArrayLengths,
+      PublicValidationRequestArrayLengths.empty(),
+      PublicAccumulatedDataArrayLengths.new(nonRevertibleAccumulatedDataFromPrivate),
     );
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
@@ -115,7 +113,6 @@ export class PublicTxContext {
 
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
-      tx,
       globalVariables,
       CombinedConstantData.combine(tx.data.constants, globalVariables),
       await db.getStateReference(),
@@ -127,17 +124,78 @@ export class PublicTxContext {
       getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP),
       getExecutionRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
-      firstPublicKernelOutput,
-      firstPublicKernelOutput,
+      tx.data.forPublic!.nonRevertibleAccumulatedData,
+      tx.data.forPublic!.revertibleAccumulatedData,
       enqueuedCallTrace,
     );
   }
 
-  getCurrentPhase(): TxExecutionPhase {
-    return this.currentPhase;
+  /**
+   * Signal that the entire transaction execution is done.
+   * All phases have been processed.
+   * Actual transaction fee and actual total consumed gas can now be queried.
+   */
+  halt() {
+    this.halted = true;
   }
 
-  hasPhase(phase: TxExecutionPhase = this.currentPhase): boolean {
+  /**
+   * Revert execution a phase. Populate revertReason & revertCode.
+   * If in setup, throw an error (transaction will be thrown out).
+   * NOTE: this does not "halt" the entire transaction execution.
+   */
+  revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
+    this.log.debug(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
+
+    if (revertReason && !this.revertReason) {
+      // don't override revertReason
+      // (if app logic and teardown both revert, we want app logic's reason)
+      this.revertReason = revertReason;
+    }
+    if (phase === TxExecutionPhase.SETUP) {
+      this.log.debug(`Setup phase reverted! The transaction will be thrown out.`);
+      if (revertReason) {
+        throw revertReason;
+      } else {
+        throw new Error(`Setup phase reverted! The transaction will be thrown out. ${culprit} failed`);
+      }
+    } else if (phase === TxExecutionPhase.APP_LOGIC) {
+      this.revertCode = RevertCode.APP_LOGIC_REVERTED;
+    } else if (phase === TxExecutionPhase.TEARDOWN) {
+      if (this.revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
+        this.revertCode = RevertCode.BOTH_REVERTED;
+      } else {
+        this.revertCode = RevertCode.TEARDOWN_REVERTED;
+      }
+    }
+  }
+
+  /**
+   * Get the revert code.
+   * @returns The revert code.
+   */
+  getFinalRevertCode(): RevertCode {
+    assert(this.halted, 'Cannot know the final revert code until tx execution ends');
+    return this.revertCode;
+  }
+
+  /**
+   * Construct & return transaction hash.
+   * @returns The transaction's hash.
+   */
+  getTxHash(): TxHash {
+    // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
+    const firstNullifier = this.nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
+    if (!firstNullifier || firstNullifier.isZero()) {
+      throw new Error(`Cannot get tx hash since first nullifier is missing`);
+    }
+    return new TxHash(firstNullifier.toBuffer());
+  }
+
+  /**
+   * Are there any call requests for the speciiied phase?
+   */
+  hasPhase(phase: TxExecutionPhase): boolean {
     if (phase === TxExecutionPhase.SETUP) {
       return this.setupCallRequests.length > 0;
     } else if (phase === TxExecutionPhase.APP_LOGIC) {
@@ -148,44 +206,11 @@ export class PublicTxContext {
     }
   }
 
-  progressToNextPhase() {
-    assert(this.currentPhase !== TxExecutionPhase.TEARDOWN, 'Cannot progress past teardown');
-    if (this.currentPhase === TxExecutionPhase.SETUP) {
-      this.currentPhase = TxExecutionPhase.APP_LOGIC;
-    } else {
-      this.currentPhase = TxExecutionPhase.TEARDOWN;
-    }
-  }
-
-  revert(revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.debug(
-      `${TxExecutionPhase[this.currentPhase]} phase reverted! ${culprit} failed with reason: ${revertReason}`,
-    );
-    if (revertReason && !this.revertReason) {
-      // don't override revertReason
-      // (if app logic and teardown both revert, we want app logic's reason)
-      this.revertReason = revertReason;
-    }
-    if (this.currentPhase === TxExecutionPhase.SETUP) {
-      this.log.debug(`Setup phase reverted! The transaction will be thrown out.`);
-      if (revertReason) {
-        throw revertReason;
-      } else {
-        throw new Error(`Setup phase reverted! The transaction will be thrown out. ${culprit} failed`);
-      }
-    } else if (this.currentPhase === TxExecutionPhase.APP_LOGIC) {
-      this.revertCode = RevertCode.APP_LOGIC_REVERTED;
-    } else if (this.currentPhase === TxExecutionPhase.TEARDOWN) {
-      if (this.revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
-        this.revertCode = RevertCode.BOTH_REVERTED;
-      } else {
-        this.revertCode = RevertCode.TEARDOWN_REVERTED;
-      }
-    }
-  }
-
-  getCallRequestsForCurrentPhase(): PublicCallRequest[] {
-    switch (this.currentPhase) {
+  /**
+   * Get the call requests for the specified phase (including args hashes).
+   */
+  getCallRequestsForPhase(phase: TxExecutionPhase): PublicCallRequest[] {
+    switch (phase) {
       case TxExecutionPhase.SETUP:
         return this.setupCallRequests;
       case TxExecutionPhase.APP_LOGIC:
@@ -195,8 +220,11 @@ export class PublicTxContext {
     }
   }
 
-  getExecutionRequestsForCurrentPhase(): PublicExecutionRequest[] {
-    switch (this.currentPhase) {
+  /**
+   * Get the call requests for the specified phase (including actual args).
+   */
+  getExecutionRequestsForPhase(phase: TxExecutionPhase): PublicExecutionRequest[] {
+    switch (phase) {
       case TxExecutionPhase.SETUP:
         return this.setupExecutionRequests;
       case TxExecutionPhase.APP_LOGIC:
@@ -206,17 +234,22 @@ export class PublicTxContext {
     }
   }
 
-  getGasLeftForCurrentPhase(): Gas {
-    if (this.currentPhase === TxExecutionPhase.TEARDOWN) {
+  /**
+   * How much gas is left for the specified phase?
+   */
+  getGasLeftForPhase(phase: TxExecutionPhase): Gas {
+    if (phase === TxExecutionPhase.TEARDOWN) {
       return this.gasSettings.teardownGasLimits;
     } else {
       return this.gasSettings.gasLimits.sub(this.gasUsed);
     }
   }
 
-  consumeGas(gas: Gas) {
-    if (this.currentPhase === TxExecutionPhase.TEARDOWN) {
-      // track teardown gas used separately
+  /**
+   * Consume gas. Track gas for teardown phase separately.
+   */
+  consumeGas(phase: TxExecutionPhase, gas: Gas) {
+    if (phase === TxExecutionPhase.TEARDOWN) {
       this.teardownGasUsed = this.teardownGasUsed.add(gas);
     } else {
       this.gasUsed = this.gasUsed.add(gas);
@@ -226,33 +259,39 @@ export class PublicTxContext {
   /**
    * Compute the gas used using the actual gas used during teardown instead
    * of the teardown gas limit.
-   * Note that this.gasUsed comes from private and private includes
-   * teardown gas limit in its output gasUsed.
+   * Note that this.gasUsed is initialized from private's gasUsed which includes
+   * teardown gas limit.
    */
   getActualGasUsed(): Gas {
-    assert(this.currentPhase === TxExecutionPhase.TEARDOWN, 'Can only compute actual gas used after app logic');
+    assert(this.halted, 'Can only compute actual gas used after tx execution ends');
     const requireTeardown = this.teardownCallRequests.length > 0;
     const teardownGasLimits = requireTeardown ? this.gasSettings.teardownGasLimits : Gas.empty();
     return this.gasUsed.sub(teardownGasLimits).add(this.teardownGasUsed);
   }
 
+  /**
+   * The gasUsed as if the entire teardown gas limit was consumed.
+   */
   getGasUsedForFee(): Gas {
     return this.gasUsed;
   }
 
-  getTransactionFee(): Fr {
-    if (this.currentPhase === TxExecutionPhase.TEARDOWN) {
+  /**
+   * Get the transaction fee as is available to the specified phase.
+   * Only teardown should have access to the actual transaction fee.
+   */
+  getTransactionFee(phase: TxExecutionPhase): Fr {
+    if (phase === TxExecutionPhase.TEARDOWN) {
       return this.getTransactionFeeUnsafe();
     } else {
       return Fr.zero();
     }
   }
 
-  getFinalTransactionFee(): Fr {
-    assert(this.currentPhase === TxExecutionPhase.TEARDOWN, 'Transaction fee is only known during/after teardown');
-    return this.getTransactionFeeUnsafe();
-  }
-
+  /**
+   * Compute the transaction fee.
+   * Should only be called during or after teardown.
+   */
   private getTransactionFeeUnsafe(): Fr {
     const txFee = this.gasUsed.computeFee(this.globalVariables.gasFees);
     this.log.debug(`Computed tx fee`, {
@@ -263,24 +302,32 @@ export class PublicTxContext {
     return txFee;
   }
 
+  /**
+   * Generate the public inputs for the AVM circuit.
+   */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
-    assert(
-      this.currentPhase === TxExecutionPhase.TEARDOWN,
-      'Can only get AvmCircuitPublicInputs after teardown (tx done)',
-    );
+    assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     return generateAvmCircuitPublicInputs(
-      this.tx,
       this.trace,
       this.globalVariables,
       this.startStateReference,
+      this.startGasUsed,
+      this.gasSettings,
+      this.setupCallRequests,
+      this.appLogicCallRequests,
+      this.teardownCallRequests,
+      this.nonRevertibleAccumulatedDataFromPrivate,
+      this.revertibleAccumulatedDataFromPrivate,
       endStateReference,
-      this.gasUsed,
-      this.getFinalTransactionFee(),
+      /*endGasUsed=*/ this.gasUsed,
+      this.getTransactionFeeUnsafe(),
       this.revertCode,
-      this.firstPublicKernelOutput,
     );
   }
 
+  /**
+   * Generate the proving request for the AVM circuit.
+   */
   generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
     // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
     // proving request for the first time
@@ -309,14 +356,14 @@ class PhaseStateManager {
 
   mergeForkedState() {
     assert(this.currentlyActiveStateManager, 'No forked state to merge');
-    this.txStateManager.mergeForkedState(this.currentlyActiveStateManager!);
+    this.txStateManager.merge(this.currentlyActiveStateManager!);
     // Drop the forked state manager now that it is merged
     this.currentlyActiveStateManager = undefined;
   }
 
   discardForkedState() {
     assert(this.currentlyActiveStateManager, 'No forked state to discard');
-    this.txStateManager.rejectForkedState(this.currentlyActiveStateManager!);
+    this.txStateManager.reject(this.currentlyActiveStateManager!);
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }

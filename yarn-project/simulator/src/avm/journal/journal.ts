@@ -39,6 +39,9 @@ export class AvmPersistableStateManager {
   /** Interface to perform merkle tree operations */
   public merkleTrees: MerkleTreeWriteOperations;
 
+  /** Make sure a forked state is never merged twice. */
+  private alreadyMergedIntoParent = false;
+
   constructor(
     /** Reference to node storage */
     private readonly worldStateDB: WorldStateDB,
@@ -79,14 +82,44 @@ export class AvmPersistableStateManager {
   /**
    * Create a new state manager forked from this one
    */
-  public fork(incrementSideEffectCounter: boolean = false) {
+  public fork() {
     return new AvmPersistableStateManager(
       this.worldStateDB,
-      this.trace.fork(incrementSideEffectCounter),
+      this.trace.fork(),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
       this.doMerkleOperations,
     );
+  }
+
+  /**
+   * Accept forked world state modifications & traced side effects / hints
+   */
+  public merge(forkedState: AvmPersistableStateManager) {
+    this._merge(forkedState, /*reverted=*/ false);
+  }
+
+  /**
+   * Reject forked world state modifications & traced side effects, keep traced hints
+   */
+  public reject(forkedState: AvmPersistableStateManager) {
+    this._merge(forkedState, /*reverted=*/ true);
+  }
+
+  /**
+   * Commit cached storage writes to the DB.
+   * Keeps public storage up to date from tx to tx within a block.
+   */
+  public async commitStorageWritesToDB() {
+    await this.publicStorage.commitToDB();
+  }
+
+  private _merge(forkedState: AvmPersistableStateManager, reverted: boolean) {
+    // sanity check to avoid merging the same forked trace twice
+    assert(!this.alreadyMergedIntoParent, 'Cannot merge forked state that has already been merged into its parent!');
+    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
+    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
+    this.trace.merge(forkedState.trace, reverted);
   }
 
   /**
@@ -425,24 +458,6 @@ export class AvmPersistableStateManager {
       this.trace.traceGetContractInstance(contractAddress, exists);
       return Promise.resolve(undefined);
     }
-  }
-
-  /**
-   * Accept forked world state modifications & traced side effects / hints
-   */
-  public mergeForkedState(forkedState: AvmPersistableStateManager) {
-    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
-    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
-    this.trace.merge(forkedState.trace, /*reverted=*/ false);
-  }
-
-  /**
-   * Reject forked world state modifications & traced side effects, keep traced hints
-   */
-  public rejectForkedState(forkedState: AvmPersistableStateManager) {
-    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
-    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
-    this.trace.merge(forkedState.trace, /*reverted=*/ true);
   }
 
   /**

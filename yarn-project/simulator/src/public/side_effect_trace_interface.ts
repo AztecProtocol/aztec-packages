@@ -17,7 +17,7 @@ import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.j
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
-  fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
+  fork(): PublicSideEffectTraceInterface;
   merge(nestedTrace: PublicSideEffectTraceInterface, reverted?: boolean): void;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError

@@ -27,11 +27,8 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     public readonly enqueuedCallTrace: PublicEnqueuedCallSideEffectTrace,
   ) {}
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new DualSideEffectTrace(
-      this.innerCallTrace.fork(incrementSideEffectCounter),
-      this.enqueuedCallTrace.fork(incrementSideEffectCounter),
-    );
+  public fork() {
+    return new DualSideEffectTrace(this.innerCallTrace.fork(), this.enqueuedCallTrace.fork());
   }
 
   public merge(nestedTrace: this, reverted: boolean = false) {
