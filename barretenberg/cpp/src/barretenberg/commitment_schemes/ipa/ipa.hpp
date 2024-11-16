@@ -794,9 +794,6 @@ template <typename Curve_> class IPA {
         for (Fr u_inv_i : pair_2.u_challenges_inv) {
             native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
-        // Add IPA Claim to public inputs of circuit
-        Builder* builder = r.get_context();
-        builder->add_ipa_claim(output_claim.get_witness_indices());
         
         // Compute proof for the claim
         auto prover_transcript = std::make_shared<NativeTranscript>();
@@ -807,6 +804,11 @@ template <typename Curve_> class IPA {
         ASSERT(challenge_poly.evaluate(opening_pair.challenge) == opening_pair.evaluation && "Opening claim does not hold for challenge polynomial.");
 
         IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
+
+        // Since we know this circuit will not have any more IPA claims to accumulate, add IPA Claim to public inputs of circuit and add the proof to the builder.
+        Builder* builder = r.get_context();
+        builder->add_ipa_claim(output_claim.get_witness_indices());
+        builder->ipa_proof = prover_transcript->proof_data;
 
         return {output_claim, prover_transcript->proof_data};
     }

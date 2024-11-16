@@ -22,6 +22,33 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
 
+    const auto recover_fq_from_public_inputs = [](std::array<FF, 4> limbs) {
+        const uint256_t limb = uint256_t(limbs[0]) +
+                               (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                               (uint256_t(limbs[2]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                               (uint256_t(limbs[3]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+        return fq(limb);
+    };
+
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices
+    if constexpr (DoesRecursiveIPA<Flavor>) {
+        if (verification_key->verification_key->contains_ipa_claim) {
+            OpeningClaim<curve::Grumpkin> ipa_claim;
+            std::array<FF, 4> bigfield_limbs;
+            for (size_t k = 0; k < 4; k++) {
+                bigfield_limbs[k] =
+                    verification_key
+                        ->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
+            }
+            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(bigfield_limbs);
+            ipa_claim.opening_pair.evaluation = 0;
+            ipa_claim.commitment = {
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[4]],
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[5]]
+            };
+        }
+    }
+
     DeciderVerifier decider_verifier{ verification_key, transcript };
 
     return decider_verifier.verify();
