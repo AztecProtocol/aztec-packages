@@ -1,13 +1,13 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
@@ -29,20 +29,19 @@ template <typename FF> struct non_native_field_witnesses {
     FF modulus;
 };
 
-template <typename Arithmetization_>
-class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_::FF> {
+template <typename ExecutionTrace_>
+class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
   public:
-    using Arithmetization = Arithmetization_;
-    using GateBlocks = typename Arithmetization::TraceBlocks;
+    using ExecutionTrace = ExecutionTrace_;
 
-    using FF = typename Arithmetization::FF;
-    static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
+    using FF = typename ExecutionTrace::FF;
+    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
-    static constexpr size_t program_width = Arithmetization::NUM_WIRES;
-    static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
-    std::vector<std::string> selector_names = Arithmetization::selector_names;
+    static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
+    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
+    std::vector<std::string> selector_names = ExecutionTrace::selector_names;
 
-    static constexpr std::string_view NAME_STRING = "UltraArithmetization";
+    static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::LOOKUP_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
@@ -221,7 +220,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
          * @param circuit_builder
          */
         static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec,
-                                UltraCircuitBuilder_<Arithmetization>* circuit_builder)
+                                UltraCircuitBuilder_<ExecutionTrace>* circuit_builder)
         {
             std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
 
@@ -293,7 +292,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     };
 
     // Storage for wires and selectors for all gate types
-    GateBlocks blocks;
+    ExecutionTrace blocks;
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -644,7 +643,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      */
     size_t get_num_gates_added_to_ensure_nonzero_polynomials()
     {
-        UltraCircuitBuilder_<Arithmetization> builder; // instantiate new builder
+        UltraCircuitBuilder_<ExecutionTrace> builder; // instantiate new builder
 
         size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
         builder.add_gates_to_ensure_all_polys_are_non_zero();
@@ -868,5 +867,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     msgpack::sbuffer export_circuit() override;
 };
-using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 } // namespace bb
