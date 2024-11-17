@@ -308,7 +308,7 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     const fr& new_leaf_key, const RequestContext& requestContext, ReadTransaction& tx) const
 {
     auto new_value_as_number = uint256_t(new_leaf_key);
-    index_t committed;
+    index_t committed = 0;
     std::optional<index_t> sizeLimit = std::nullopt;
     if (initialised_from_block_.has_value() || requestContext.blockNumber.has_value()) {
         sizeLimit = constrain_tree_size(requestContext, tx);
