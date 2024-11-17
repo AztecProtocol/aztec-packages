@@ -80,13 +80,6 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
             _environment, tx, _name + std::string("leaf pre-images"), false, false, fr_key_cmp);
         tx.commit();
     }
-
-    {
-        LMDBDatabaseCreationTransaction tx(_environment);
-        _leafIndexToKeyDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("leaf keys"), false, false, index_key_cmp);
-        tx.commit();
-    }
 }
 
 LMDBTreeStore::WriteTransaction::Ptr LMDBTreeStore::create_write_transaction() const
@@ -114,8 +107,6 @@ void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
     stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
     stats.nodesDBStats = DBStats(NODES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _leafIndexToKeyDatabase->underlying(), &stat);
-    stats.leafKeysDBStats = DBStats(LEAF_KEYS_DB, stat);
 }
 
 void LMDBTreeStore::write_block_data(uint64_t blockNumber,
@@ -243,25 +234,6 @@ fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
         tx.get_value_or_previous(key, index, *_leafKeyToIndexDatabase, is_valid);
     }
     return key;
-}
-
-void LMDBTreeStore::write_leaf_key_by_index(const fr& leafKey, const index_t& index, WriteTransaction& tx)
-{
-    std::vector<uint8_t> data = to_buffer(leafKey);
-    LeafIndexKeyType key(index);
-    tx.put_value<LeafIndexKeyType>(key, data, *_leafIndexToKeyDatabase);
-}
-
-void LMDBTreeStore::delete_all_leaf_keys_after_or_equal_index(const index_t& index, WriteTransaction& tx)
-{
-    LeafIndexKeyType key(index);
-    tx.delete_all_values_greater_or_equal_key(key, *_leafIndexToKeyDatabase);
-}
-
-void LMDBTreeStore::delete_all_leaf_keys_before_or_equal_index(const index_t& index, WriteTransaction& tx)
-{
-    LeafIndexKeyType key(index);
-    tx.delete_all_values_lesser_or_equal_key(key, *_leafIndexToKeyDatabase);
 }
 
 bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)

@@ -239,11 +239,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void persist_meta(TreeMeta& m, WriteTransaction& tx);
 
-    // void hydrate_indices_from_persisted_store(ReadTransaction& tx);
-
     void persist_leaf_indices(WriteTransaction& tx);
-
-    void persist_leaf_keys(const index_t& startIndex, WriteTransaction& tx);
 
     void persist_leaf_pre_image(const fr& hash, WriteTransaction& tx);
 
@@ -257,8 +253,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void remove_leaf(const fr& hash, const std::optional<index_t>& maxIndex, WriteTransaction& tx);
 
     void remove_leaf_index(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
-
-    void remove_leaf_indices_after_or_equal_index(const index_t& maxIndex, WriteTransaction& tx);
 
     void extract_db_stats(TreeDBStats& stats);
 
@@ -426,10 +420,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
     // std::cout << "update_index at index " << index << " leaf " << leaf << std::endl;
     //  Accessing indices_ under a lock
     std::unique_lock lock(mtx_);
-    const auto [it, success] = indices_.insert({ uint256_t(leaf), index });
-    if (!success) {
-        std::cout << "FAILED TO INSERT LEAF INDEX" << std::endl;
-    }
+    indices_.insert({ uint256_t(leaf), index });
+    // const auto [it, success] = indices_.insert({ uint256_t(leaf), index });
+    //  if (!success) {
+    //      std::cout << "Attempting to set leaf " << leaf << " at index " << index << " failed, leaf already found at
+    //      index " << it->second << std::endl;
+    //  }
 }
 
 template <typename LeafValueType>
@@ -462,7 +458,7 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     }
 
     // we have been asked to not include uncommitted data, or there is none available
-    index_t committed;
+    index_t committed = 0;
     FrKeyType key = leaf;
     bool success = dataStore_->read_leaf_index(key, committed, tx);
     if (success) {
@@ -646,7 +642,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             if (dataPresent) {
                 // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
-                persist_leaf_keys(uncommittedMeta.committedSize, *tx);
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
                 if (asBlock) {
                     ++uncommittedMeta.unfinalisedBlockHeight;
@@ -692,21 +687,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_indices(WriteT
     for (auto& idx : indices_) {
         FrKeyType key = idx.first;
         dataStore_->write_leaf_index(key, idx.second, tx);
-    }
-}
-
-template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_keys(const index_t& startIndex, WriteTransaction& tx)
-{
-    for (auto& idx : indices_) {
-        FrKeyType key = idx.first;
-
-        // write the leaf key against the index, this is for the pending chain store of indices
-        index_t indexForKey = idx.second;
-        if (indexForKey < startIndex) {
-            continue;
-        }
-        dataStore_->write_leaf_key_by_index(key, indexForKey, tx);
     }
 }
 
@@ -758,21 +738,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
     persist_node(nodePayloadIter->second.left, level + 1, tx);
     persist_node(nodePayloadIter->second.right, level + 1, tx);
 }
-
-// template <typename LeafValueType>
-// void ContentAddressedCachedTreeStore<LeafValueType>::hydrate_indices_from_persisted_store(ReadTransaction& tx)
-// {
-//     for (auto& idx : indices_) {
-//         std::vector<uint8_t> value;
-//         FrKeyType key = idx.first;
-//         Indices persistedIndices;
-//         bool success = dataStore_->read_leaf_indices(key, persistedIndices, tx);
-//         if (success) {
-//             idx.second.indices.insert(
-//                 idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
-//         }
-//     }
-// }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::rollback()
 {
@@ -836,11 +801,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
     // commit the new finalised block
     WriteTransactionPtr writeTx = create_write_transaction();
     try {
-        // determine where we need to prune the leaf keys store up to
-        index_t highestIndexToRemove = blockPayload.size - 1;
         committedMeta.finalisedBlockHeight = blockNumber;
-        // clean up the leaf keys index table
-        dataStore_->delete_all_leaf_keys_before_or_equal_index(highestIndexToRemove, *writeTx);
         // persist the new meta data
         persist_meta(committedMeta, *writeTx);
         writeTx->commit();
@@ -927,7 +888,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
         // remove the block from the block data table
         dataStore_->delete_block_data(blockNumber, *writeTx);
-        remove_leaf_indices_after_or_equal_index(previousBlockData.size, *writeTx);
         uncommittedMeta.unfinalisedBlockHeight = previousBlockData.blockNumber;
         uncommittedMeta.size = previousBlockData.size;
         uncommittedMeta.committedSize = previousBlockData.size;
@@ -1018,18 +978,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
     finalMeta = uncommittedMeta;
 
     extract_db_stats(dbStats);
-}
-
-template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_indices_after_or_equal_index(const index_t& index,
-                                                                                              WriteTransaction& tx)
-{
-    std::vector<bb::fr> leafKeys;
-    dataStore_->read_all_leaf_keys_after_or_equal_index(index, leafKeys, tx);
-    for (const fr& key : leafKeys) {
-        remove_leaf_index(key, index, tx);
-    }
-    dataStore_->delete_all_leaf_keys_after_or_equal_index(index, tx);
 }
 
 template <typename LeafValueType>

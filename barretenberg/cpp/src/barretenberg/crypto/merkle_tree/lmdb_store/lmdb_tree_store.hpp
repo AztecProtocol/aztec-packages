@@ -136,7 +136,6 @@ class LMDBTreeStore {
     LMDBDatabase::Ptr _nodeDatabase;
     LMDBDatabase::Ptr _leafKeyToIndexDatabase;
     LMDBDatabase::Ptr _leafHashToPreImageDatabase;
-    LMDBDatabase::Ptr _leafIndexToKeyDatabase;
 
     template <typename TxType> bool get_node_data(const fr& nodeHash, NodePayload& nodeData, TxType& tx);
 };
@@ -178,44 +177,5 @@ template <typename TxType> bool LMDBTreeStore::get_node_data(const fr& nodeHash,
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(nodeData);
     }
     return success;
-}
-
-template <typename TxType> bool LMDBTreeStore::read_leaf_key_by_index(const index_t& index, fr& leafKey, TxType& tx)
-{
-    LeafIndexKeyType key(index);
-    std::vector<uint8_t> data;
-    bool success = tx.template get_value<LeafIndexKeyType>(key, data, *_leafIndexToKeyDatabase);
-    if (success) {
-        leafKey = from_buffer<fr>(data);
-    }
-    return success;
-}
-
-template <typename TxType>
-void LMDBTreeStore::read_all_leaf_keys_after_or_equal_index(const index_t& index,
-                                                            std::vector<bb::fr>& leafKeys,
-                                                            TxType& tx)
-{
-    LeafIndexKeyType key(index);
-    std::vector<std::vector<uint8_t>> values;
-    tx.get_all_values_greater_or_equal_key(key, values, *_leafIndexToKeyDatabase);
-    for (const auto& value : values) {
-        fr leafKey = from_buffer<fr>(value);
-        leafKeys.push_back(leafKey);
-    }
-}
-
-template <typename TxType>
-void LMDBTreeStore::read_all_leaf_keys_before_or_equal_index(const index_t& index,
-                                                             std::vector<bb::fr>& leafKeys,
-                                                             TxType& tx)
-{
-    LeafIndexKeyType key(index);
-    std::vector<std::vector<uint8_t>> values;
-    tx.get_all_values_lesser_or_equal_key(key, values, *_leafIndexToKeyDatabase);
-    for (const auto& value : values) {
-        fr leafKey = from_buffer<fr>(value);
-        leafKeys.push_back(leafKey);
-    }
 }
 } // namespace bb::crypto::merkle_tree
