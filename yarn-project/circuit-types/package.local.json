@@ -4,9 +4,5 @@
     "generate": "./scripts/copy-test-artifacts.sh && run -T prettier -w ./src/test/artifacts --loglevel warn",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/test/artifacts"
   },
-  "files": [
-    "dest",
-    "src",
-    "!*.test.*"
-  ]
+  "files": ["dest", "src", "!*.test.*"]
 }

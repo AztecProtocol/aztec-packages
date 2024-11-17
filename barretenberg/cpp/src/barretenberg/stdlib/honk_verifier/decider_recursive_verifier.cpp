@@ -31,14 +31,15 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // Execute Shplemini rounds.
-    auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                                                commitments.get_unshifted(),
-                                                                commitments.get_to_be_shifted(),
-                                                                claimed_evaluations.get_unshifted(),
-                                                                claimed_evaluations.get_shifted(),
-                                                                multivariate_challenge,
-                                                                Commitment::one(builder),
-                                                                transcript);
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+                                                                      commitments.get_unshifted(),
+                                                                      commitments.get_to_be_shifted(),
+                                                                      claimed_evaluations.get_unshifted(),
+                                                                      claimed_evaluations.get_shifted(),
+                                                                      multivariate_challenge,
+                                                                      Commitment::one(builder),
+                                                                      transcript,
+                                                                      Flavor::REPEATED_COMMITMENTS);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;

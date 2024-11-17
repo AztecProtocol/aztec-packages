@@ -1,6 +1,6 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { DataStoreConfig } from '@aztec/kv-store/config';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/utils';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';

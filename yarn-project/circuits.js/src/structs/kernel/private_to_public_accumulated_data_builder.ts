@@ -2,13 +2,13 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
@@ -27,7 +27,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
   private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
   private noteEncryptedLogsHashes: LogHash[] = [];
   private encryptedLogsHashes: ScopedLogHash[] = [];
-  private unencryptedLogsHashes: ScopedLogHash[] = [];
+  private contractClassLogsHashes: ScopedLogHash[] = [];
   private publicCallStack: PublicCallRequest[] = [];
 
   pushNoteHash(newNoteHash: Fr) {
@@ -80,13 +80,13 @@ export class PrivateToPublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushUnencryptedLogsHash(unencryptedLogsHash: ScopedLogHash) {
-    this.unencryptedLogsHashes.push(unencryptedLogsHash);
+  pushContractClassLogsHash(contractClassLogsHash: ScopedLogHash) {
+    this.contractClassLogsHashes.push(contractClassLogsHash);
     return this;
   }
 
-  withUnencryptedLogsHashes(unencryptedLogsHashes: ScopedLogHash[]) {
-    this.unencryptedLogsHashes = unencryptedLogsHashes;
+  withContractClassLogsHashes(contractClassLogsHashes: ScopedLogHash[]) {
+    this.contractClassLogsHashes = contractClassLogsHashes;
     return this;
   }
 
@@ -107,7 +107,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
       padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
-      padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
+      padArrayEnd(this.contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
       padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
   }
@@ -119,7 +119,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
       .withL2ToL1Msgs(publicAccumulatedData.l2ToL1Msgs)
       .withNoteEncryptedLogsHashes(publicAccumulatedData.noteEncryptedLogsHashes)
       .withEncryptedLogsHashes(publicAccumulatedData.encryptedLogsHashes)
-      .withUnencryptedLogsHashes(publicAccumulatedData.unencryptedLogsHashes)
+      .withContractClassLogsHashes(publicAccumulatedData.contractClassLogsHashes)
       .withPublicCallStack(publicAccumulatedData.publicCallRequests);
   }
 }
