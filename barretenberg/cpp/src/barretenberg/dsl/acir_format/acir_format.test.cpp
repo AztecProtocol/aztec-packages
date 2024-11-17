@@ -39,7 +39,6 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 
     AcirFormat constraint_system{
         .varnum = 4,
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -52,8 +51,6 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -73,7 +70,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
     };
     mock_opcode_indices(constraint_system);
     WitnessVector witness{ 0, 0, 1 };
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -162,7 +159,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
 
     AcirFormat constraint_system{
         .varnum = 6,
-        .recursive = false,
         .num_acir_opcodes = 7,
         .public_inputs = { 1 },
         .logic_constraints = { logic_constraint },
@@ -175,8 +171,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -200,7 +194,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     WitnessVector witness{
         5, 10, 15, 5, inverse_of_five, 1,
     };
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -244,7 +238,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
 
     AcirFormat constraint_system{
         .varnum = 81,
-        .recursive = false,
         .num_acir_opcodes = 76,
         .public_inputs = {},
         .logic_constraints = {},
@@ -257,8 +250,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -308,7 +299,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         witness[i] = message_string[i];
     }
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -352,7 +343,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     };
     AcirFormat constraint_system{
         .varnum = 81,
-        .recursive = false,
         .num_acir_opcodes = 76,
         .public_inputs = {},
         .logic_constraints = {},
@@ -365,8 +355,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -417,7 +405,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     }
 
     // TODO: actually sign a schnorr signature!
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -463,7 +451,6 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
 
     AcirFormat constraint_system{
         .varnum = 51,
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -476,8 +463,6 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = { keccak_permutation },
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -501,7 +486,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
                            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 };
 
-    auto builder = create_circuit(constraint_system, /*size_hint=*/0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
     auto proof = prover.construct_proof();
@@ -539,7 +524,6 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
 
     AcirFormat constraint_system{
         .varnum = 4,
-        .recursive = false,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = {},
@@ -552,8 +536,6 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -573,8 +555,13 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
     };
     mock_opcode_indices(constraint_system);
     WitnessVector witness{ 5, 27, 32 };
-    auto builder =
-        create_circuit(constraint_system, /*size_hint*/ 0, witness, false, std::make_shared<bb::ECCOpQueue>(), true);
+    auto builder = create_circuit(constraint_system,
+                                  /*recursive*/ false,
+                                  /*size_hint*/ 0,
+                                  witness,
+                                  false,
+                                  std::make_shared<bb::ECCOpQueue>(),
+                                  true);
 
     EXPECT_EQ(constraint_system.gates_per_opcode, std::vector<size_t>({ 2, 1 }));
 }
@@ -667,7 +654,6 @@ TEST_F(AcirFormatTests, TestBigAdd)
     size_t num_variables = witness_values.size();
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables + 1),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -680,8 +666,6 @@ TEST_F(AcirFormatTests, TestBigAdd)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -701,7 +685,7 @@ TEST_F(AcirFormatTests, TestBigAdd)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);

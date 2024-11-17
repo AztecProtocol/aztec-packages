@@ -102,7 +102,6 @@ pub struct HeapVector {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Copy, PartialOrd, Ord)]
 pub enum IntegerBitSize {
-    U0, // Uninitialized
     U1,
     U8,
     U16,
@@ -114,7 +113,6 @@ pub enum IntegerBitSize {
 impl From<IntegerBitSize> for u32 {
     fn from(bit_size: IntegerBitSize) -> u32 {
         match bit_size {
-            IntegerBitSize::U0 => 0,
             IntegerBitSize::U1 => 1,
             IntegerBitSize::U8 => 8,
             IntegerBitSize::U16 => 16,
@@ -130,7 +128,6 @@ impl TryFrom<u32> for IntegerBitSize {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(IntegerBitSize::U0),
             1 => Ok(IntegerBitSize::U1),
             8 => Ok(IntegerBitSize::U8),
             16 => Ok(IntegerBitSize::U16),
@@ -145,7 +142,6 @@ impl TryFrom<u32> for IntegerBitSize {
 impl std::fmt::Display for IntegerBitSize {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            IntegerBitSize::U0 => write!(f, "null"),
             IntegerBitSize::U1 => write!(f, "bool"),
             IntegerBitSize::U8 => write!(f, "u8"),
             IntegerBitSize::U16 => write!(f, "u16"),
@@ -309,7 +305,7 @@ pub enum BrilligOpcode<F> {
     BlackBox(BlackBoxOp),
     /// Used to denote execution failure, returning data after the offset
     Trap {
-        revert_data: HeapArray,
+        revert_data: HeapVector,
     },
     /// Stop execution, returning data after the offset
     Stop {

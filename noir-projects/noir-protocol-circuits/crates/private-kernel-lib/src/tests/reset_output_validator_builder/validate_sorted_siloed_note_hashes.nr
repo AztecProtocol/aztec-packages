@@ -40,7 +40,8 @@ fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     builder.output.append_siloed_note_hashes(2);
     // Swap the hashes in the output.
     let tmp = builder.output.note_hashes.storage[0].note_hash.value;
-    builder.output.note_hashes.storage[0].note_hash.value = builder.output.note_hashes.storage[1].note_hash.value;
+    builder.output.note_hashes.storage[0].note_hash.value =
+        builder.output.note_hashes.storage[1].note_hash.value;
     builder.output.note_hashes.storage[1].note_hash.value = tmp;
 
     builder.validate();

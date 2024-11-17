@@ -19,7 +19,6 @@
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "multi_scalar_mul.hpp"
-#include "pedersen.hpp"
 #include "poseidon2_constraint.hpp"
 #include "range_constraint.hpp"
 #include "recursion_constraint.hpp"
@@ -48,8 +47,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> blake2s_constraints;
     std::vector<size_t> blake3_constraints;
     std::vector<size_t> keccak_permutations;
-    std::vector<size_t> pedersen_constraints;
-    std::vector<size_t> pedersen_hash_constraints;
     std::vector<size_t> poseidon2_constraints;
     std::vector<size_t> multi_scalar_mul_constraints;
     std::vector<size_t> ec_add_constraints;
@@ -78,7 +75,6 @@ struct AcirFormat {
     // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
     // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in order
     // to be able to verify SNARKs on Ethereum.
-    bool recursive;
 
     uint32_t num_acir_opcodes;
 
@@ -95,8 +91,6 @@ struct AcirFormat {
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
     std::vector<Keccakf1600> keccak_permutations;
-    std::vector<PedersenConstraint> pedersen_constraints;
-    std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
@@ -146,8 +140,6 @@ struct AcirFormat {
                    blake2s_constraints,
                    blake3_constraints,
                    keccak_permutations,
-                   pedersen_constraints,
-                   pedersen_hash_constraints,
                    poseidon2_constraints,
                    multi_scalar_mul_constraints,
                    ec_add_constraints,
@@ -207,6 +199,12 @@ struct AcirProgramStack {
 
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
+                       // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
+                       // The proof produced when this flag is true should be friendly for recursive verification inside
+                       // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
+                       // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in
+                       // order to be able to verify SNARKs on Ethereum.
+                       bool recursive,
                        const size_t size_hint = 0,
                        const WitnessVector& witness = {},
                        bool honk_recursion = false,

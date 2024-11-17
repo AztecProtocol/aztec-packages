@@ -37,10 +37,10 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     return [fields.proof, fields.verificationKey, fields.vkPath, fields.publicInputs] as const;
   }
 
-  static fromBuffer<PROOF_LENGTH extends number | undefined>(
+  static fromBuffer<PROOF_LENGTH extends number>(
     buffer: Buffer | BufferReader,
     expectedSize?: PROOF_LENGTH,
-  ): RootParityInput<PROOF_LENGTH extends number ? PROOF_LENGTH : number> {
+  ): RootParityInput<PROOF_LENGTH> {
     const reader = BufferReader.asReader(buffer);
     return new RootParityInput(
       RecursiveProof.fromBuffer<PROOF_LENGTH>(reader, expectedSize),
@@ -50,10 +50,10 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     );
   }
 
-  static fromString<PROOF_LENGTH extends number | undefined>(
+  static fromString<PROOF_LENGTH extends number>(
     str: string,
     expectedSize?: PROOF_LENGTH,
-  ): RootParityInput<PROOF_LENGTH extends number ? PROOF_LENGTH : number> {
+  ): RootParityInput<PROOF_LENGTH> {
     return RootParityInput.fromBuffer(Buffer.from(str, 'hex'), expectedSize);
   }
 }

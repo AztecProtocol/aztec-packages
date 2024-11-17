@@ -1,8 +1,11 @@
 // docs:start:token_types_all
 use dep::aztec::{
-    note::utils::compute_note_hash_for_nullify, prelude::{NoteHeader, NullifiableNote, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    macros::notes::note
+    macros::notes::note,
+    note::utils::compute_note_hash_for_nullify,
+    prelude::{NoteHeader, NullifiableNote, PrivateContext},
+    protocol_types::{
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+    },
 };
 
 use dep::std::mem::zeroed;
@@ -26,11 +29,15 @@ impl NullifiableNote for TransparentNote {
     //      3) the "get_notes" oracle constrains that the secret hash in the returned note matches the one computed in
     //         circuit.
     // This achieves that the note can only be spent by the party that knows the secret.
-    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(
+        self,
+        _context: &mut PrivateContext,
+        _note_hash_for_nullify: Field,
+    ) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 

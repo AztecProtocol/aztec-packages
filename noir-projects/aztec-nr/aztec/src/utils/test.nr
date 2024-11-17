@@ -30,7 +30,8 @@ unconstrained fn collapse_sparse_array() {
 
 #[test]
 unconstrained fn collapse_array_front_padding() {
-    let original = [Option::none(), Option::none(), Option::some(7), Option::none(), Option::some(3)];
+    let original =
+        [Option::none(), Option::none(), Option::some(7), Option::none(), Option::some(3)];
     let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 2);
@@ -40,7 +41,8 @@ unconstrained fn collapse_array_front_padding() {
 
 #[test]
 unconstrained fn collapse_array_back_padding() {
-    let original = [Option::some(7), Option::none(), Option::some(3), Option::none(), Option::none()];
+    let original =
+        [Option::some(7), Option::none(), Option::some(3), Option::none(), Option::none()];
     let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 2);

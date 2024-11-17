@@ -104,6 +104,9 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 DOCKER_ENV="-e HOME=$HOME"
+if ! [ -z "${DEBUG:-}" ] ; then
+  DOCKER_ENV="-e DEBUG=$DEBUG"
+fi
 for env in ${ENV_VARS_TO_INJECT:-}; do
   # SSH_AUTH_SOCK must be handled separately
   if [[ $env != "SSH_AUTH_SOCK" ]] && [[ -n "${!env:-}" ]]; then

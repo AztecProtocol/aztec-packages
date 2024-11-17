@@ -1,5 +1,6 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { ProvingRequestType, type ServerCircuitProver } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
+import { makeAvmCircuitInputs } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator';
@@ -34,37 +35,16 @@ describe('prover/orchestrator/failures', () => {
       orchestrator = new ProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
     });
 
-    it.each([
-      ['Base Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue(msg)],
-      ['Merge Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue(msg)],
-      [
-        'Block Root Rollup Failed',
-        (msg: string) => jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue(msg),
-      ],
-      [
-        'Block Merge Rollup Failed',
-        (msg: string) => jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue(msg),
-      ],
-      ['Root Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue(msg)],
-      ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
-      ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
-    ] as const)('handles a %s error', async (message: string, fn: (msg: string) => void) => {
-      /**
-       * NOTE: these tests start a new epoch with N blocks. Each block will have M txs in it.
-       * Txs are proven in parallel and as soon as one fails (which is what this test is setting up to happen)
-       * the orchestrator stops accepting txs in a block.
-       * This means we have to be careful with our assertions as the order in which things happen is non-deterministic.
-       * We need to expect
-       * - addTx to fail (because a block's provingState became invalid)
-       * - addTx to work fine (because we haven't hit the error in the test setup) but the epoch to fail
-       */
-      fn(message);
-
+    const run = async (message: string) => {
       orchestrator.startNewEpoch(1, 3);
 
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
         const txs = times(3, j => makeBloatedProcessedTx(context.actualDb, i * 10 + j + 1));
+        txs[1].avmProvingRequest = {
+          type: ProvingRequestType.PUBLIC_VM,
+          inputs: makeAvmCircuitInputs(i),
+        };
         const msgs = [new Fr(i + 100)];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
@@ -88,6 +68,47 @@ describe('prover/orchestrator/failures', () => {
           break;
         }
       }
+    };
+
+    it('succeeds without failed proof', async () => {
+      await run('successful case');
+      await expect(orchestrator.finaliseEpoch()).resolves.not.toThrow();
+    });
+
+    it.each([
+      [
+        'Private Base Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getPrivateBaseRollupProof').mockRejectedValue(msg),
+      ],
+      [
+        'Public Base Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getPublicBaseRollupProof').mockRejectedValue(msg),
+      ],
+      ['Merge Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue(msg)],
+      [
+        'Block Root Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue(msg),
+      ],
+      [
+        'Block Merge Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue(msg),
+      ],
+      ['Root Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue(msg)],
+      ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
+      ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
+    ] as const)('handles a %s error', async (message: string, makeFailedProof: (msg: string) => void) => {
+      /**
+       * NOTE: these tests start a new epoch with N blocks. Each block will have M txs in it.
+       * Txs are proven in parallel and as soon as one fails (which is what this test is setting up to happen)
+       * the orchestrator stops accepting txs in a block.
+       * This means we have to be careful with our assertions as the order in which things happen is non-deterministic.
+       * We need to expect
+       * - addTx to fail (because a block's provingState became invalid)
+       * - addTx to work fine (because we haven't hit the error in the test setup) but the epoch to fail
+       */
+      makeFailedProof(message);
+
+      await run(message);
 
       await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow();
     });

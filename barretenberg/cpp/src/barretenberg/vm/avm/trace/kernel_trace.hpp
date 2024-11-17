@@ -17,7 +17,6 @@ class AvmKernelTraceBuilder {
     enum class KernelTraceOpType {
         // IN
         ADDRESS,
-        STORAGE_ADDRESS,
         SENDER,
         FUNCTION_SELECTOR,
         TRANSACTION_FEE,
@@ -70,7 +69,6 @@ class AvmKernelTraceBuilder {
 
     // Context
     FF op_address(uint32_t clk);
-    FF op_storage_address(uint32_t clk);
     FF op_sender(uint32_t clk);
     FF op_function_selector(uint32_t clk);
     FF op_transaction_fee(uint32_t clk);

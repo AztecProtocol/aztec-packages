@@ -1,10 +1,10 @@
 use crate::{merkle_tree::leaf_preimage::IndexedTreeLeafPreimage, traits::{Empty, Hash}};
 
 pub struct PublicDataTreeLeafPreimage {
-    slot : Field,
+    slot: Field,
     value: Field,
-    next_slot :Field,
-    next_index : u32,
+    next_slot: Field,
+    next_index: u32,
 }
 
 impl Empty for PublicDataTreeLeafPreimage {
@@ -18,7 +18,12 @@ impl Hash for PublicDataTreeLeafPreimage {
         if self.is_empty() {
             0
         } else {
-            crate::hash::poseidon2_hash([self.slot, self.value, (self.next_index as Field), self.next_slot])
+            crate::hash::poseidon2_hash([
+                self.slot,
+                self.value,
+                (self.next_index as Field),
+                self.next_slot,
+            ])
         }
     }
 }

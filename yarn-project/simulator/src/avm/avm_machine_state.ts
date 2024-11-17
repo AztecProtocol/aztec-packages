@@ -21,6 +21,8 @@ export class AvmMachineState {
   public daGasLeft: number;
   /** program counter */
   public pc: number = 0;
+  /** return/revertdata of the last nested call. */
+  public nestedReturndata: Fr[] = [];
 
   /**
    * On INTERNALCALL, internal call stack is pushed to with the current pc + 1

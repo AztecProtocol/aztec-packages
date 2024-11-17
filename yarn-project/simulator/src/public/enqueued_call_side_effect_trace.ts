@@ -1,5 +1,6 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
@@ -7,7 +8,7 @@ import {
   AztecAddress,
   CallContext,
   type CombinedConstantData,
-  type ContractInstanceWithAddress,
+  type ContractClassIdPreimage,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -44,6 +45,7 @@ import {
   ScopedNoteHash,
   type ScopedNullifier,
   ScopedReadRequest,
+  SerializableContractInstance,
   TreeLeafReadRequest,
   VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -57,8 +59,6 @@ import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
-
-export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
 
 /**
  * A struct containing just the side effects as regular arrays
@@ -157,7 +157,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
+  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (
       this.contractStorageReads.length + this.previousValidationRequestArrayLengths.publicDataReads >=
@@ -167,7 +167,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     this.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(storageAddress)),
+      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(contractAddress)),
     );
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
@@ -176,7 +176,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
     if (
       this.contractStorageUpdateRequests.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -185,15 +185,15 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     this.contractStorageUpdateRequests.push(
-      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, storageAddress),
+      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, contractAddress),
     );
     this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
-    // NOTE: storageAddress is unused because noteHash is an already-siloed leaf
+  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+    // NOTE: contractAddress is unused because noteHash is an already-siloed leaf
     if (
       this.noteHashReadRequests.length + this.previousValidationRequestArrayLengths.noteHashReadRequests >=
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX
@@ -208,22 +208,22 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(storageAddress: Fr, noteHash: Fr) {
+  public traceNewNoteHash(contractAddress: Fr, noteHash: Fr) {
     if (this.noteHashes.length + this.previousAccumulatedDataArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
-    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(AztecAddress.fromField(storageAddress)));
+    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(AztecAddress.fromField(contractAddress)));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceNullifierCheck(storageAddress: Fr, nullifier: Fr, _leafIndex: Fr, exists: boolean, _isPending: boolean) {
+  public traceNullifierCheck(contractAddress: Fr, nullifier: Fr, _leafIndex: Fr, exists: boolean, _isPending: boolean) {
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     this.enforceLimitOnNullifierChecks();
 
     const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(
-      AztecAddress.fromField(storageAddress),
+      AztecAddress.fromField(contractAddress),
     );
     if (exists) {
       this.nullifierReadRequests.push(readRequest);
@@ -237,14 +237,14 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(storageAddress: Fr, nullifier: Fr) {
+  public traceNewNullifier(contractAddress: Fr, nullifier: Fr) {
     if (this.nullifiers.length + this.previousAccumulatedDataArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
     this.nullifiers.push(
       new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO).scope(
-        AztecAddress.fromField(storageAddress),
+        AztecAddress.fromField(contractAddress),
       ),
     );
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
@@ -307,23 +307,60 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractInstance(instance: TracedContractInstance) {
+  public traceGetContractInstance(
+    contractAddress: Fr,
+    exists: boolean,
+    instance: SerializableContractInstance = SerializableContractInstance.default(),
+  ) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
-    // TODO(dbanks12): should emit a nullifier read request
 
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
-        instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        contractAddress,
+        exists,
         instance.salt,
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys,
       ),
     );
     this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
+  }
+
+  // This tracing function gets called everytime we start simulation/execution.
+  // This happens both when starting a new top-level trace and the start of every nested trace
+  // We use this to collect the AvmContractBytecodeHints
+  public traceGetBytecode(
+    contractAddress: Fr,
+    exists: boolean,
+    bytecode: Buffer = Buffer.alloc(0),
+    contractInstance: SerializableContractInstance = SerializableContractInstance.default(),
+    contractClass: ContractClassIdPreimage = {
+      artifactHash: Fr.zero(),
+      privateFunctionsRoot: Fr.zero(),
+      publicBytecodeCommitment: Fr.zero(),
+    },
+  ) {
+    const instance = new AvmContractInstanceHint(
+      contractAddress,
+      exists,
+      contractInstance.salt,
+      contractInstance.deployer,
+      contractInstance.contractClassId,
+      contractInstance.initializationHash,
+      contractInstance.publicKeys,
+    );
+    // We need to deduplicate the contract instances based on addresses
+    this.avmCircuitHints.contractBytecodeHints.items.push(
+      new AvmContractBytecodeHints(bytecode, instance, contractClass),
+    );
+    this.log.debug(
+      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${JSON.stringify(
+        contractInstance,
+      )}`,
+    );
   }
 
   /**
@@ -334,7 +371,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** The trace of the nested call. */
     nestedCallTrace: this,
     /** The execution environment of the nested call. */
-    _nestedEnvironment: AvmExecutionEnvironment,
+    nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
@@ -368,6 +405,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         avmCallResults.output,
         gasUsed,
         endSideEffectCounter,
+        nestedEnvironment.address,
       ),
     );
   }
@@ -538,15 +576,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
-    storageContractAddress: avmEnvironment.storageAddress,
+    contractAddress: avmEnvironment.address,
     functionSelector: avmEnvironment.functionSelector,
-    isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
   });
-  return new PublicCallRequest(
-    avmEnvironment.address,
-    callContext,
-    computeVarArgsHash(avmEnvironment.calldata),
-    /*counter=*/ 0,
-  );
+  return new PublicCallRequest(callContext, computeVarArgsHash(avmEnvironment.calldata), /*counter=*/ 0);
 }

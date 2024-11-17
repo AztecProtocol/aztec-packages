@@ -20,10 +20,10 @@
       "error"
     ],
     "not-rely-on-time": "off",
-    "const-name-snakecase": [
-      "error",
+    "immutable-vars-naming": [
+      "warn",
       {
-        "treatImmutableVarAsConstant": true
+        "immutablesAsConstants": true
       }
     ],
     "var-name-mixedcase": [
@@ -47,6 +47,7 @@
     "func-param-name-leading-underscore": [
       "error"
     ],
+    "interface-starts-with-i": "warn",
     "func-param-name-mixedcase": [
       "error"
     ],
@@ -62,6 +63,7 @@
     "comprehensive-interface": [
       "error"
     ],
-    "custom-error-over-require": "off"
+    "custom-error-over-require": "off",
+    "no-unused-import": "error"
   }
 }

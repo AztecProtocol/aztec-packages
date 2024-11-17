@@ -11,6 +11,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { computeContractClassId } from '../contract/contract_class_id.js';
+import { PublicKeys } from '../types/public_keys.js';
 import {
   computeContractAddressFromInstance,
   computeInitializationHash,
@@ -26,7 +27,7 @@ export class SerializableContractInstance {
   public readonly deployer: AztecAddress;
   public readonly contractClassId: Fr;
   public readonly initializationHash: Fr;
-  public readonly publicKeysHash: Fr;
+  public readonly publicKeys: PublicKeys;
 
   constructor(instance: ContractInstance) {
     if (instance.version !== VERSION) {
@@ -36,7 +37,7 @@ export class SerializableContractInstance {
     this.deployer = instance.deployer;
     this.contractClassId = instance.contractClassId;
     this.initializationHash = instance.initializationHash;
-    this.publicKeysHash = instance.publicKeysHash;
+    this.publicKeys = instance.publicKeys;
   }
 
   public toBuffer() {
@@ -46,7 +47,7 @@ export class SerializableContractInstance {
       this.deployer,
       this.contractClassId,
       this.initializationHash,
-      this.publicKeysHash,
+      this.publicKeys,
     );
   }
 
@@ -63,7 +64,7 @@ export class SerializableContractInstance {
       deployer: reader.readObject(AztecAddress),
       contractClassId: reader.readObject(Fr),
       initializationHash: reader.readObject(Fr),
-      publicKeysHash: reader.readObject(Fr),
+      publicKeys: reader.readObject(PublicKeys),
     });
   }
 
@@ -74,19 +75,19 @@ export class SerializableContractInstance {
       deployer: AztecAddress.random(),
       contractClassId: Fr.random(),
       initializationHash: Fr.random(),
-      publicKeysHash: Fr.random(),
+      publicKeys: PublicKeys.random(),
       ...opts,
     });
   }
 
-  static empty() {
+  static default() {
     return new SerializableContractInstance({
       version: VERSION,
       salt: Fr.zero(),
       deployer: AztecAddress.zero(),
       contractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
-      publicKeysHash: Fr.zero(),
+      publicKeys: PublicKeys.default(),
     });
   }
 }
@@ -104,7 +105,7 @@ export function getContractInstanceFromDeployParams(
     constructorArgs?: any[];
     skipArgsDecoding?: boolean;
     salt?: Fr;
-    publicKeysHash?: Fr;
+    publicKeys?: PublicKeys;
     deployer?: AztecAddress;
   },
 ): ContractInstanceWithAddress {
@@ -121,12 +122,12 @@ export function getContractInstanceFromDeployParams(
           args,
         )
       : computeInitializationHash(constructorArtifact, args);
-  const publicKeysHash = opts.publicKeysHash ?? Fr.ZERO;
+  const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {
     contractClassId,
     initializationHash,
-    publicKeysHash,
+    publicKeys,
     salt,
     deployer,
     version: 1,

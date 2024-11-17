@@ -16,7 +16,7 @@ import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
-import { getPublicIp, resolveAddressIfNecessary, splitAddressPort } from '../util.js';
+import { configureP2PClientAddresses } from '../util.js';
 
 export * from './p2p_client.js';
 
@@ -67,50 +67,3 @@ export const createP2PClient = async (
   }
   return new P2PClient(store, l2BlockSource, mempools, p2pService, config.keepProvenTxsInPoolFor, telemetry);
 };
-
-async function configureP2PClientAddresses(_config: P2PConfig & DataStoreConfig): Promise<P2PConfig & DataStoreConfig> {
-  const config = { ..._config };
-  const {
-    tcpAnnounceAddress: configTcpAnnounceAddress,
-    udpAnnounceAddress: configUdpAnnounceAddress,
-    queryForIp,
-  } = config;
-
-  config.tcpAnnounceAddress = configTcpAnnounceAddress
-    ? await resolveAddressIfNecessary(configTcpAnnounceAddress)
-    : undefined;
-  config.udpAnnounceAddress = configUdpAnnounceAddress
-    ? await resolveAddressIfNecessary(configUdpAnnounceAddress)
-    : undefined;
-
-  // create variable for re-use if needed
-  let publicIp;
-
-  // check if no announce IP was provided
-  const splitTcpAnnounceAddress = splitAddressPort(configTcpAnnounceAddress || '', true);
-  if (splitTcpAnnounceAddress.length == 2 && splitTcpAnnounceAddress[0] === '') {
-    if (queryForIp) {
-      publicIp = await getPublicIp();
-      const tcpAnnounceAddress = `${publicIp}:${splitTcpAnnounceAddress[1]}`;
-      config.tcpAnnounceAddress = tcpAnnounceAddress;
-    } else {
-      throw new Error(
-        `Invalid announceTcpAddress provided: ${configTcpAnnounceAddress}. Expected format: <addr>:<port>`,
-      );
-    }
-  }
-
-  const splitUdpAnnounceAddress = splitAddressPort(configUdpAnnounceAddress || '', true);
-  if (splitUdpAnnounceAddress.length == 2 && splitUdpAnnounceAddress[0] === '') {
-    // If announceUdpAddress is not provided, use announceTcpAddress
-    if (!queryForIp && config.tcpAnnounceAddress) {
-      config.udpAnnounceAddress = config.tcpAnnounceAddress;
-    } else if (queryForIp) {
-      const udpPublicIp = publicIp || (await getPublicIp());
-      const udpAnnounceAddress = `${udpPublicIp}:${splitUdpAnnounceAddress[1]}`;
-      config.udpAnnounceAddress = udpAnnounceAddress;
-    }
-  }
-
-  return config;
-}

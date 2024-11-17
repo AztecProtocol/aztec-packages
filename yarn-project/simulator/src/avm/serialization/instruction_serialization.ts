@@ -41,9 +41,11 @@ export enum Opcode {
   // Execution environment
   GETENVVAR_16,
   CALLDATACOPY,
+  RETURNDATASIZE,
+  RETURNDATACOPY,
   // Control flow
-  JUMP_16,
-  JUMPI_16,
+  JUMP_32,
+  JUMPI_32,
   INTERNALCALL,
   INTERNALRETURN,
   // Memory
@@ -69,23 +71,19 @@ export enum Opcode {
   // External calls
   CALL,
   STATICCALL,
-  DELEGATECALL,
   RETURN,
   REVERT_8,
   REVERT_16,
   // Misc
   DEBUGLOG,
   // Gadgets
-  KECCAK,
   POSEIDON2,
   SHA256COMPRESSION,
   KECCAKF1600,
-  PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
-  PEDERSENCOMMITMENT,
   // Conversion
-  TORADIXLE,
+  TORADIXBE,
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.

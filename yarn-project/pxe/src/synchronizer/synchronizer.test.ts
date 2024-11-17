@@ -120,7 +120,7 @@ describe('Synchronizer', () => {
       const partialAddress = Fr.random();
       const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
-      await synchronizer.addAccount(completeAddress, keyStore, startingBlockNum);
+      synchronizer.addAccount(completeAddress, keyStore, startingBlockNum);
       return completeAddress;
     };
 

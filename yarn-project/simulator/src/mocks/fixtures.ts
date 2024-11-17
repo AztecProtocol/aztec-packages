@@ -79,7 +79,7 @@ export class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder(
-      new PublicExecutionRequest(tx.to, new CallContext(from, tx.to, tx.selector, false, false), tx.args),
+      new PublicExecutionRequest(new CallContext(from, tx.to, tx.selector, false), tx.args),
     );
 
     builder.withNestedExecutions(...nestedExecutions);

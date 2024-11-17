@@ -63,11 +63,13 @@ export class PublicExecutor {
     previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths = PublicValidationRequestArrayLengths.empty(),
     previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.empty(),
   ): Promise<PublicExecutionResult> {
-    const address = executionRequest.contractAddress;
+    const address = executionRequest.callContext.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
     const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
-    PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}@${address}.`);
+    PublicExecutor.log.verbose(
+      `[AVM] Executing public external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+    );
     const timer = new Timer();
 
     const innerCallTrace = new PublicSideEffectTrace(startSideEffectCounter);
@@ -132,6 +134,12 @@ export class PublicExecutor {
       avmResult,
     );
 
+    PublicExecutor.log.verbose(
+      `[AVM] ${fnName} simulation complete. Reverted=${avmResult.reverted}. Consumed ${
+        allocatedGas.l2Gas - avmContext.machineState.gasLeft.l2Gas
+      } L2 gas, ending with ${avmContext.machineState.gasLeft.l2Gas} L2 gas left.`,
+    );
+
     return publicExecutionResult;
   }
 }
@@ -149,15 +157,13 @@ function createAvmExecutionEnvironment(
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
-    executionRequest.contractAddress,
-    executionRequest.callContext.storageContractAddress,
+    executionRequest.callContext.contractAddress,
     executionRequest.callContext.msgSender,
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
     globalVariables,
     executionRequest.callContext.isStaticCall,
-    executionRequest.callContext.isDelegateCall,
     executionRequest.args,
   );
 }

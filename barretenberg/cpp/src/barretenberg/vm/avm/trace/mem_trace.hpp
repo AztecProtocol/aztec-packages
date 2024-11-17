@@ -56,7 +56,7 @@ class AvmMemTraceBuilder {
     // Structure representing an entry for the memory used in the simulation (not the trace).
     struct MemEntry {
         FF val{};
-        AvmMemoryTag tag = AvmMemoryTag::U0;
+        AvmMemoryTag tag = AvmMemoryTag::FF;
     };
 
     // Structure to return value and tag matching boolean after a memory read.
@@ -114,6 +114,8 @@ class AvmMemTraceBuilder {
 
     // Global Memory table (used for simulation): (space_id, (address, mem_entry))
     std::array<std::unordered_map<uint32_t, MemEntry>, NUM_MEM_SPACES> memory;
+
+    static void debug_mem_trace_entry(MemoryTraceEntry entry);
 
     void insert_in_mem_trace(uint8_t space_id,
                              uint32_t m_clk,

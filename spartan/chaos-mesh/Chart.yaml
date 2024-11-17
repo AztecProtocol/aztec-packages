@@ -1,0 +1,12 @@
+apiVersion: v2
+name: chaos
+description: A Helm chart for Kubernetes with chaos
+
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+
+dependencies:
+  - name: chaos-mesh
+    version: 2.7.0
+    repository: https://charts.chaos-mesh.org

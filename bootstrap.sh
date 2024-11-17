@@ -20,7 +20,8 @@ RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-source ./build-system/scripts/setup_env '' '' '' > /dev/null
+# setup env
+export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
@@ -73,7 +74,8 @@ function check_toolchains {
     if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
       encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.75)"
+      echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.79+)"
+      echo "  rustup toolchain install 1.79"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
       echo "  foundryup -b 25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
@@ -121,16 +123,10 @@ if [ "$CMD" = "clean" ]; then
   echo "Cleaning complete"
   exit 0
 elif [ "$CMD" = "full" ]; then
-  if can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-    echo
-  fi
+  echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
+  echo
 elif [ "$CMD" = "fast" ]; then
   export USE_CACHE=1
-  if ! can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: AWS credentials are missing. Note this is for internal aztec devs only.${RESET}"
-    exit 1
-  fi
 elif [ "$CMD" = "check" ]; then
   check_toolchains
   echo "Toolchains look good! 🎉"
@@ -159,12 +155,12 @@ PROJECTS=(
 )
 
 # Build projects locally
-for P in "${PROJECTS[@]}"; do
+for project in "${PROJECTS[@]}"; do
   echo "**************************************"
-  echo -e "\033[1mBootstrapping $P...\033[0m"
+  echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $P && ./bootstrap.sh)
+  (cd $project && ./bootstrap.sh)
   echo
   echo
 done

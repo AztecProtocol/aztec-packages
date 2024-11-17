@@ -2,10 +2,8 @@ import { PrivateExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   Fr,
-  FunctionData,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PrivateCallStackItem,
   PrivateCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
@@ -64,12 +62,6 @@ export async function executePrivateFunction(
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
 
-  const callStackItem = new PrivateCallStackItem(
-    contractAddress,
-    new FunctionData(functionSelector, true),
-    publicInputs,
-  );
-
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
@@ -85,7 +77,7 @@ export async function executePrivateFunction(
     acir,
     Buffer.from(artifact.verificationKey!, 'hex'),
     partialWitness,
-    callStackItem,
+    publicInputs,
     noteHashLeafIndexMap,
     newNotes,
     noteHashNullifierCounterMap,

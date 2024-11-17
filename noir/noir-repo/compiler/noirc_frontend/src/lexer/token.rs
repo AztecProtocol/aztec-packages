@@ -1,4 +1,4 @@
-use acvm::{acir::AcirField, FieldElement};
+use acvm::FieldElement;
 use noirc_errors::{Position, Span, Spanned};
 use std::fmt;
 
@@ -367,7 +367,7 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Token::Ident(ref s) => write!(f, "{s}"),
-            Token::Int(n) => write!(f, "{}", n.to_u128()),
+            Token::Int(n) => write!(f, "{}", n),
             Token::Bool(b) => write!(f, "{b}"),
             Token::Str(ref b) => write!(f, "{b:?}"),
             Token::FmtStr(ref b) => write!(f, "f{b:?}"),
@@ -377,7 +377,7 @@ impl fmt::Display for Token {
             }
             Token::Keyword(k) => write!(f, "{k}"),
             Token::Attribute(ref a) => write!(f, "{a}"),
-            Token::InnerAttribute(ref a) => write!(f, "#![{a}]"),
+            Token::InnerAttribute(ref a) => write!(f, "#![{}]", a.contents()),
             Token::LineComment(ref s, style) => match style {
                 Some(DocStyle::Inner) => write!(f, "//!{s}"),
                 Some(DocStyle::Outer) => write!(f, "///{s}"),
@@ -793,7 +793,6 @@ impl Attribute {
                 Attribute::Function(FunctionAttribute::Oracle(name.to_string()))
             }
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
-            ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["fold"] => Attribute::Function(FunctionAttribute::Fold),
             ["no_predicates"] => Attribute::Function(FunctionAttribute::NoPredicates),
             ["inline_always"] => Attribute::Function(FunctionAttribute::InlineAlways),
@@ -854,7 +853,6 @@ pub enum FunctionAttribute {
     Builtin(String),
     Oracle(String),
     Test(TestScope),
-    Recursive,
     Fold,
     NoPredicates,
     InlineAlways,
@@ -918,7 +916,6 @@ impl FunctionAttribute {
             FunctionAttribute::Builtin(_) => "builtin",
             FunctionAttribute::Oracle(_) => "oracle",
             FunctionAttribute::Test(_) => "test",
-            FunctionAttribute::Recursive => "recursive",
             FunctionAttribute::Fold => "fold",
             FunctionAttribute::NoPredicates => "no_predicates",
             FunctionAttribute::InlineAlways => "inline_always",
@@ -933,7 +930,6 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Foreign(ref k) => write!(f, "#[foreign({k})]"),
             FunctionAttribute::Builtin(ref k) => write!(f, "#[builtin({k})]"),
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
-            FunctionAttribute::Recursive => write!(f, "#[recursive]"),
             FunctionAttribute::Fold => write!(f, "#[fold]"),
             FunctionAttribute::NoPredicates => write!(f, "#[no_predicates]"),
             FunctionAttribute::InlineAlways => write!(f, "#[inline_always]"),
@@ -1010,25 +1006,29 @@ impl SecondaryAttribute {
     pub(crate) fn is_abi(&self) -> bool {
         matches!(self, SecondaryAttribute::Abi(_))
     }
+
+    pub(crate) fn contents(&self) -> String {
+        match self {
+            SecondaryAttribute::Deprecated(None) => "deprecated".to_string(),
+            SecondaryAttribute::Deprecated(Some(ref note)) => {
+                format!("deprecated({note:?})")
+            }
+            SecondaryAttribute::Tag(ref attribute) => format!("'{}", attribute.contents),
+            SecondaryAttribute::Meta(ref attribute) => attribute.contents.to_string(),
+            SecondaryAttribute::ContractLibraryMethod => "contract_library_method".to_string(),
+            SecondaryAttribute::Export => "export".to_string(),
+            SecondaryAttribute::Field(ref k) => format!("field({k})"),
+            SecondaryAttribute::Abi(ref k) => format!("abi({k})"),
+            SecondaryAttribute::Varargs => "varargs".to_string(),
+            SecondaryAttribute::UseCallersScope => "use_callers_scope".to_string(),
+            SecondaryAttribute::Allow(ref k) => format!("allow({k})"),
+        }
+    }
 }
 
 impl fmt::Display for SecondaryAttribute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SecondaryAttribute::Deprecated(None) => write!(f, "#[deprecated]"),
-            SecondaryAttribute::Deprecated(Some(ref note)) => {
-                write!(f, r#"#[deprecated({note:?})]"#)
-            }
-            SecondaryAttribute::Tag(ref attribute) => write!(f, "#['{}]", attribute.contents),
-            SecondaryAttribute::Meta(ref attribute) => write!(f, "#[{}]", attribute.contents),
-            SecondaryAttribute::ContractLibraryMethod => write!(f, "#[contract_library_method]"),
-            SecondaryAttribute::Export => write!(f, "#[export]"),
-            SecondaryAttribute::Field(ref k) => write!(f, "#[field({k})]"),
-            SecondaryAttribute::Abi(ref k) => write!(f, "#[abi({k})]"),
-            SecondaryAttribute::Varargs => write!(f, "#[varargs]"),
-            SecondaryAttribute::UseCallersScope => write!(f, "#[use_callers_scope]"),
-            SecondaryAttribute::Allow(ref k) => write!(f, "#[allow(#{k})]"),
-        }
+        write!(f, "#[{}]", self.contents())
     }
 }
 
@@ -1060,7 +1060,6 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Builtin(string) => string,
             FunctionAttribute::Oracle(string) => string,
             FunctionAttribute::Test { .. } => "",
-            FunctionAttribute::Recursive => "",
             FunctionAttribute::Fold => "",
             FunctionAttribute::NoPredicates => "",
             FunctionAttribute::InlineAlways => "",

@@ -10,15 +10,6 @@ fn validate_against_call_request_succeeds() {
 }
 
 #[test]
-fn validate_against_call_request_delegate_call_succeeds() {
-    let builder = PrivateCallDataValidatorBuilder::new().is_delegate_call();
-
-    let request = builder.private_call.build_private_call_request();
-
-    builder.validate_against_call_request(request);
-}
-
-#[test]
 fn validate_against_call_request_static_call_succeeds() {
     let builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -27,24 +18,13 @@ fn validate_against_call_request_static_call_succeeds() {
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with = "contract_address does not match call request")]
-fn validate_against_call_request_mismatch_contract_address_fails() {
+#[test(should_fail_with = "call_context does not match call request")]
+fn validate_against_call_request_mismatch_call_context_contract_address_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
     let mut request = builder.private_call.build_private_call_request();
     // Tweak the contract_address to be a different value.
-    request.contract_address.inner += 1;
-
-    builder.validate_against_call_request(request);
-}
-
-#[test(should_fail_with = "call_context does not match call request")]
-fn validate_against_call_request_mismatch_call_context_storage_contract_address_fails() {
-    let builder = PrivateCallDataValidatorBuilder::new();
-
-    let mut request = builder.private_call.build_private_call_request();
-    // Tweak the storage_contract_address to be a different value.
-    request.call_context.storage_contract_address.inner += 1;
+    request.call_context.contract_address.inner += 1;
 
     builder.validate_against_call_request(request);
 }

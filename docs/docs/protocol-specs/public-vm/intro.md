@@ -12,7 +12,7 @@ In order to execute public contract bytecode, the AVM requires some context. An 
 
 Instruction-by-instruction, the AVM [executes](./execution) the bytecode specified in its context. An **instruction** is a decoded bytecode entry that, when executed, modifies the AVM's execution context (in particular its [state](./state)) according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context ends when the AVM encounters a [**halt**](./execution#halting).
 
-During execution, additional contract calls may be made. While an [**initial contract call**](./context#initial-contract-calls) initializes a new execution context directly from a public execution request, a [**nested contract call**](./nested-calls) occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-staticcall), or [`DELEGATECALL`](./instruction-set#isa-section-delegatecall)). It initializes a new execution context (**nested context**) from the current one (**calling context**) and triggers execution within it. When nested call's execution completes, execution proceeds in the calling context.
+During execution, additional contract calls may be made. While an [**initial contract call**](./context#initial-contract-calls) initializes a new execution context directly from a public execution request, a [**nested contract call**](./nested-calls) occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), or [`STATICCALL`](./instruction-set#isa-section-staticcall)). It initializes a new execution context (**nested context**) from the current one (**calling context**) and triggers execution within it. When nested call's execution completes, execution proceeds in the calling context.
 
 A **caller** is a contract call's initiator. The caller of an initial contract call is an Aztec sequencer. The caller of a nested contract call is the AVM itself executing in the calling context.
 
@@ -41,6 +41,5 @@ The entirety of a contract's public code is represented as a single block of byt
 ::: warning
 Ultimately, function selectors _may_ be removed as an enshrined protocol mechanism as described above. For now, each public function on a contract has a distinct bytecode that can be selected for execution via a function selector.
 :::
- 
 
 > See the [Bytecode Validation Circuit](./bytecode-validation-circuit) to see how a contract's bytecode can be validated and committed to.

@@ -53,7 +53,8 @@ fn validate_sorted_siloed_nullifiers_mismatch_sorted_hash_fails() {
     builder.output.append_siloed_nullifiers(3);
     // Swap the hashes in the output.
     let tmp = builder.output.nullifiers.storage[0].nullifier.value;
-    builder.output.nullifiers.storage[0].nullifier.value = builder.output.nullifiers.storage[1].nullifier.value;
+    builder.output.nullifiers.storage[0].nullifier.value =
+        builder.output.nullifiers.storage[1].nullifier.value;
     builder.output.nullifiers.storage[1].nullifier.value = tmp;
 
     builder.validate();

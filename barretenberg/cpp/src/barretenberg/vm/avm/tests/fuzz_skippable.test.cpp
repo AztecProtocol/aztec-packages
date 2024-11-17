@@ -37,6 +37,8 @@ TEST(AvmSkippableTests, shouldSkipCorrectly)
 
         // Set the conditions for skippable to return true.
         row.poseidon2_sel_poseidon_perm = 0;
+        row.poseidon2_sel_poseidon_perm_mem_op = 0;
+        row.poseidon2_sel_poseidon_perm_immediate = 0;
     });
 
     // We build the polynomials needed to run "sumcheck".

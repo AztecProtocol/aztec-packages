@@ -31,7 +31,7 @@ struct Transcript {
 library TranscriptLib {
     function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (Transcript memory t)
     {
         Fr previousChallenge;

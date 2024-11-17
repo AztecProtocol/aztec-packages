@@ -1,16 +1,10 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 
 import { CallContext } from './call_context.js';
-import { type PrivateCallStackItem } from './index.js';
 
 export class PrivateCallRequest {
   constructor(
-    /**
-     * The address of the contract being called.
-     */
-    public contractAddress: AztecAddress,
     /**
      * The call context of the call.
      */
@@ -35,7 +29,6 @@ export class PrivateCallRequest {
 
   toFields(): Fr[] {
     return serializeToFields([
-      this.contractAddress,
       this.callContext,
       this.argsHash,
       this.returnsHash,
@@ -47,7 +40,6 @@ export class PrivateCallRequest {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new PrivateCallRequest(
-      reader.readObject(AztecAddress),
       reader.readObject(CallContext),
       reader.readField(),
       reader.readField(),
@@ -58,7 +50,6 @@ export class PrivateCallRequest {
 
   toBuffer() {
     return serializeToBuffer(
-      this.contractAddress,
       this.callContext,
       this.argsHash,
       this.returnsHash,
@@ -70,7 +61,6 @@ export class PrivateCallRequest {
   public static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateCallRequest(
-      reader.readObject(AztecAddress),
       reader.readObject(CallContext),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -81,7 +71,6 @@ export class PrivateCallRequest {
 
   isEmpty() {
     return (
-      this.contractAddress.isZero() &&
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       this.returnsHash.isZero() &&
@@ -91,12 +80,11 @@ export class PrivateCallRequest {
   }
 
   public static empty() {
-    return new PrivateCallRequest(AztecAddress.ZERO, CallContext.empty(), Fr.ZERO, Fr.ZERO, 0, 0);
+    return new PrivateCallRequest(CallContext.empty(), Fr.ZERO, Fr.ZERO, 0, 0);
   }
 
   equals(callRequest: PrivateCallRequest) {
     return (
-      callRequest.contractAddress.equals(this.contractAddress) &&
       callRequest.callContext.equals(this.callContext) &&
       callRequest.argsHash.equals(this.argsHash) &&
       callRequest.returnsHash.equals(this.returnsHash) &&
@@ -106,17 +94,6 @@ export class PrivateCallRequest {
   }
 
   toString() {
-    return `PrivateCallRequest(target: ${this.contractAddress}, callContext: ${this.callContext}, argsHash: ${this.argsHash}, returnsHash: ${this.returnsHash}, startSideEffectCounter: ${this.startSideEffectCounter}, endSideEffectCounter: ${this.endSideEffectCounter})`;
-  }
-
-  matchesStackItem(stackItem: PrivateCallStackItem) {
-    return (
-      stackItem.contractAddress.equals(this.contractAddress) &&
-      stackItem.publicInputs.callContext.equals(this.callContext) &&
-      stackItem.publicInputs.argsHash.equals(this.argsHash) &&
-      stackItem.publicInputs.returnsHash.equals(this.returnsHash) &&
-      stackItem.publicInputs.startSideEffectCounter.equals(new Fr(this.startSideEffectCounter)) &&
-      stackItem.publicInputs.endSideEffectCounter.equals(new Fr(this.endSideEffectCounter))
-    );
+    return `PrivateCallRequest(callContext: ${this.callContext}, argsHash: ${this.argsHash}, returnsHash: ${this.returnsHash}, startSideEffectCounter: ${this.startSideEffectCounter}, endSideEffectCounter: ${this.endSideEffectCounter})`;
   }
 }

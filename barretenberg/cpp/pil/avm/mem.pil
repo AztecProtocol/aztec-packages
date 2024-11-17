@@ -9,7 +9,7 @@ namespace mem(256);
     pol commit addr;
     pol commit space_id;
     pol commit glob_addr;
-    pol commit tag; // Memory tag (0: uninitialized, 1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7:field)
+    pol commit tag; // Memory tag (MEM_TAG enum defined in constants)
     pol commit val;
     pol commit rw; // Enum: 0 (read), 1 (write)
     pol commit lastAccess; // Boolean (1 when this row is the last of a given address)
@@ -175,13 +175,16 @@ namespace mem(256);
     #[MEM_READ_WRITE_TAG_CONSISTENCY]
     (1 - lastAccess) * (1 - rw') * (tag' - tag) = 0;
 
+    // If this is the last row that an address is accessed, the next row must be the first access of another address.
     // Constrain that the first load from a given address has value 0. (Consistency of memory initialization.)
-    // We do not constrain that the tag == 0 as the 0 value is compatible with any memory type.
     // As we enforce lastAccess = 1 on the first row, the following condition applies also for the first memory entry:
     #[MEM_ZERO_INIT]
     lastAccess * (1 - rw') * val' = 0;
+    // Constrain that reading an uninitialized cell creates tag error unless it is expected to be of type FF.
+    #[MEM_ZERO_INIT_TAG_FF]
+    lastAccess * (1 - rw') * (tag' - constants.MEM_TAG_FF) = 0;
 
-    // TODO: Verfiy that skip_check_tag cannot be enabled maliciously by the prover.
+    // TODO: Verify that skip_check_tag cannot be enabled maliciously by the prover.
     // Skip check tag enabled for some MOV opcodes and RETURN opcode (sel_op_slice)
     #[SKIP_CHECK_TAG]
     skip_check_tag = sel_op_slice;
@@ -199,14 +202,13 @@ namespace mem(256);
     // instead of (r_in_tag - tag)^(-1) as this allows to store zero by default (i.e., when tag_err == 0).
     // The new column one_min_inv is set to 1 - (r_in_tag - tag)^(-1) when tag_err == 1
     // but must be set to 0 when tags are matching and tag_err = 0
-    // Relaxation: This relation is relaxed when skip_check_tag is enabled or for
-    // uninitialized memory, i.e. tag == 0.
+    // Relaxation: This relation is relaxed when skip_check_tag is enabled
     #[MEM_IN_TAG_CONSISTENCY_1]
-    tag * (1 - skip_check_tag) * (1 - rw) * ((r_in_tag - tag) * (1 - one_min_inv) - tag_err) = 0;
+    (1 - skip_check_tag) * (1 - rw) * ((r_in_tag - tag) * (1 - one_min_inv) - tag_err) = 0;
     // TODO: Try to decrease the degree of the above relation, e.g., skip_check_tag might be consolidated
     // with tag == 0 and rw == 1.
     #[MEM_IN_TAG_CONSISTENCY_2]
-    tag * (1 - tag_err) * one_min_inv = 0;
+    (1 - tag_err) * one_min_inv = 0;
 
     #[NO_TAG_ERR_WRITE_OR_SKIP]
     (skip_check_tag + rw) * tag_err = 0;

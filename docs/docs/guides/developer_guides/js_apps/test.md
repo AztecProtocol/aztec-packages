@@ -59,7 +59,7 @@ You can use the `debug` option in the `wait` method to get more information abou
 
 This debug information will be populated in the transaction receipt. You can log it to the console or use it to make assertions about the transaction.
 
-#include_code debug /yarn-project/end-to-end/src/e2e_token_contract/minting.test.ts typescript
+#include_code debug /yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts typescript
 
 You can also log directly from Aztec contracts. Read [this guide](../../../reference/developer_references/debugging.md#logging-in-aztecnr) for some more information.
 

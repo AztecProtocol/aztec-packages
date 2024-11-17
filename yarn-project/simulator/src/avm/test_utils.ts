@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
+import { type ContractClassPublic, type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
 
 import { type jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -60,4 +60,8 @@ export function mockL1ToL2MessageExists(
 
 export function mockGetContractInstance(worldStateDB: WorldStateDB, contractInstance: ContractInstanceWithAddress) {
   (worldStateDB as jest.Mocked<WorldStateDB>).getContractInstance.mockResolvedValue(contractInstance);
+}
+
+export function mockGetContractClass(worldStateDB: WorldStateDB, contractClass: ContractClassPublic) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getContractClass.mockResolvedValue(contractClass);
 }

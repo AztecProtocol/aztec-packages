@@ -1,7 +1,7 @@
 #include "translator_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -162,27 +162,26 @@ void TranslatorProver::execute_relation_check_rounds()
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
- * Sumcheck and then produce an opening proof with a univariate PCS
- * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
+ * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
+ * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
+ * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
- * */
+ */
 void TranslatorProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim =
-        ZeroMorph::prove(key->circuit_size,
-                         key->polynomials.get_unshifted_without_concatenated(),
-                         key->polynomials.get_to_be_shifted(),
-                         sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
-                         sumcheck_output.claimed_evaluations.get_shifted(),
-                         sumcheck_output.challenge,
-                         key->commitment_key,
-                         transcript,
-                         key->polynomials.get_concatenated(),
-                         sumcheck_output.claimed_evaluations.get_concatenated(),
-                         key->polynomials.get_groups_to_be_concatenated());
+
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    const OpeningClaim prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(key->circuit_size,
+                                       key->polynomials.get_unshifted_without_concatenated(),
+                                       key->polynomials.get_to_be_shifted(),
+                                       sumcheck_output.challenge,
+                                       key->commitment_key,
+                                       transcript,
+                                       key->polynomials.get_concatenated(),
+                                       key->polynomials.get_groups_to_be_concatenated());
     PCS::compute_opening_proof(key->commitment_key, prover_opening_claim, transcript);
 }
 
@@ -211,7 +210,7 @@ HonkProof TranslatorProver::construct_proof()
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
+    // Execute Shplemini PCS
     execute_pcs_rounds();
 
     return export_proof();

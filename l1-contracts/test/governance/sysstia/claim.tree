@@ -2,8 +2,8 @@ ClaimTest
 ├── when caller is not canonical
 │   └── it reverts
 └── when caller is canonical
-    ├── given balance smaller than reward
-    │   └── it reverts
-    └── given balance larger or equal reward
-        ├── it transfers block reward of asset
-        └── it returns block reward value
+    ├── given balance is 0
+    │   └── it return 0
+    └── given balance gt 0
+        ├── it transfer min(balance, BLOCK_REWARD)
+        └── it return min(balance, BLOCK_REWARD)

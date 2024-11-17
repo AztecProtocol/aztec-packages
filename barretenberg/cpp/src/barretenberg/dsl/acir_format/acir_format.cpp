@@ -156,21 +156,6 @@ void build_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.keccak_permutations[i]);
     }
 
-    // Add pedersen constraints
-    for (size_t i = 0; i < constraint_system.pedersen_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.pedersen_constraints.at(i);
-        create_pedersen_constraint(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.pedersen_constraints.at(i));
-    }
-
-    for (size_t i = 0; i < constraint_system.pedersen_hash_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.pedersen_hash_constraints.at(i);
-        create_pedersen_hash_constraint(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.pedersen_hash_constraints.at(i));
-    }
-
     for (size_t i = 0; i < constraint_system.poseidon2_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poseidon2_constraints.at(i);
         create_poseidon2_permutations(builder, constraint);
@@ -414,15 +399,14 @@ AggregationObjectIndices process_avm_recursion_constraints(Builder& builder,
  */
 template <>
 UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
+                                   bool recursive,
                                    const size_t size_hint,
                                    const WitnessVector& witness,
                                    bool honk_recursion,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {
-    Builder builder{
-        size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
-    };
+    Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(
@@ -444,6 +428,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
  */
 template <>
 MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
+                                  [[maybe_unused]] bool recursive,
                                   [[maybe_unused]] const size_t size_hint,
                                   const WitnessVector& witness,
                                   bool honk_recursion,
@@ -485,6 +470,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
 
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
+                                                      /*recursive=*/false,
                                                       size_hint,
                                                       witness,
                                                       /*honk_recursion=*/false,

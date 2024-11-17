@@ -1,6 +1,5 @@
 import {
   type AuthWitness,
-  type EventMetadata,
   type EventType,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
@@ -34,7 +33,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import type { AbiType, ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -82,20 +81,20 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
-  registerRecipient(account: CompleteAddress): Promise<void> {
-    return this.pxe.registerRecipient(account);
-  }
   getRegisteredAccounts(): Promise<CompleteAddress[]> {
     return this.pxe.getRegisteredAccounts();
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
   }
-  getRecipients(): Promise<CompleteAddress[]> {
-    return this.pxe.getRecipients();
+  registerContact(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerContact(address);
   }
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.pxe.getRecipient(address);
+  getContacts(): Promise<AztecAddress[]> {
+    return this.pxe.getContacts();
+  }
+  async removeContact(address: AztecAddress): Promise<void> {
+    await this.pxe.removeContact(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -199,15 +198,22 @@ export abstract class BaseWallet implements Wallet {
   }
   getEvents<T>(
     type: EventType,
-    eventMetadata: EventMetadata<T>,
+    event: {
+      /** The event selector */
+      eventSelector: EventSelector;
+      /** The event's abi type */
+      abiType: AbiType;
+      /** The field names */
+      fieldNames: string[];
+    },
     from: number,
     limit: number,
     vpks: Point[] = [
       this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
       this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
     ],
-  ) {
-    return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
+  ): Promise<T[]> {
+    return this.pxe.getEvents(type, event, from, limit, vpks);
   }
   public getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,

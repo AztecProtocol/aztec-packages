@@ -1,0 +1,11 @@
+InitiateWithdrawTest
+├── when caller have insufficient deposits
+│   ├── given no checkpoints
+│   │   └── it revert
+│   └── given checkpoints
+│       └── it revert
+└── when caller have sufficient deposits
+    ├── it sub snapshot to user
+    ├── it sub snapshot to total
+    ├── it creates a pending withdrawal with time of unlock
+    └── it emits {WithdrawalInitiated} event

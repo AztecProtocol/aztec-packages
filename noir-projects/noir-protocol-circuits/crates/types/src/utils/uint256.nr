@@ -9,7 +9,7 @@ pub struct U256 {
     // This is in big-endian order, typically because
     // sha256 is usually in big endian order.
     // Note: this means that inner[0] has the most significant 64 bits.
-    inner : [u64; 4]
+    inner: [u64; 4],
 }
 
 impl U256 {
@@ -65,7 +65,7 @@ impl U256 {
         let two_pow_64 = 2.pow_32(64);
 
         let high = (self.inner[0] as Field) * two_pow_64 + self.inner[1] as Field;
-        let low  = (self.inner[2] as Field) * two_pow_64 + self.inner[3] as Field;
+        let low = (self.inner[2] as Field) * two_pow_64 + self.inner[3] as Field;
 
         [high, low]
     }
@@ -85,10 +85,8 @@ fn smoke_u256_from_bytes32_all_zeroes() {
 fn smoke_u256_from_bytes32_one_zero_zero_zero() {
     // We want to output [1,0,0,0]
     let input = [
-        0, 0, 0, 0, 0, 0, 0, 1,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0
+        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0,
     ];
     let result = U256::from_bytes32(input);
 
@@ -115,15 +113,10 @@ fn smoke_u256_from_bytes32_test() {
             inner[2]: 0x1122334455667788
             inner[3]: 0x99AABBCCDDEEFF00
     */
-    let input : [u8;32] = [
-        0xAA, 0xBB, 0xCC, 0xDD,
-        0xEE, 0xFF, 0x00, 0x11,
-        0x22, 0x33, 0x44, 0x55,
-        0x66, 0x77, 0x88, 0x99,
-        0x11, 0x22, 0x33, 0x44,
-        0x55, 0x66, 0x77, 0x88,
-        0x99, 0xAA, 0xBB, 0xCC,
-        0xDD, 0xEE, 0xFF, 0x00
+    let input: [u8; 32] = [
+        0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+        0x99, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE,
+        0xFF, 0x00,
     ];
     let result = U256::from_bytes32(input);
 

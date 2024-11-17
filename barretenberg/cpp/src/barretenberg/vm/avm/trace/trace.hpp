@@ -3,12 +3,12 @@
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
-#include "barretenberg/vm/avm/trace/gadgets/pedersen.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
@@ -35,7 +35,9 @@ class AvmTraceBuilder {
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
 
-    uint32_t getPc() const { return pc; }
+    uint32_t get_pc() const { return pc; }
+    uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
+    uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
     // Compute - Arithmetic
     void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
@@ -63,7 +65,6 @@ class AvmTraceBuilder {
     // Execution Environment
     void op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
     void op_address(uint8_t indirect, uint32_t dst_offset);
-    void op_storage_address(uint8_t indirect, uint32_t dst_offset);
     void op_sender(uint8_t indirect, uint32_t dst_offset);
     void op_function_selector(uint8_t indirect, uint32_t dst_offset);
     void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
@@ -79,6 +80,11 @@ class AvmTraceBuilder {
 
     // Execution Environment - Calldata
     void op_calldata_copy(uint8_t indirect, uint32_t cd_offset_address, uint32_t copy_size_offset, uint32_t dst_offset);
+    void op_returndata_size(uint8_t indirect, uint32_t dst_offset);
+    void op_returndata_copy(uint8_t indirect,
+                            uint32_t rd_offset_address,
+                            uint32_t copy_size_offset,
+                            uint32_t dst_offset);
 
     // Machine State - Gas
     void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
@@ -114,7 +120,8 @@ class AvmTraceBuilder {
                                 uint32_t log_offset,
                                 uint32_t leaf_index_offset,
                                 uint32_t dest_offset);
-    void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
+    void op_get_contract_instance(
+        uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset);
 
     // Accrued Substate
     void op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset);
@@ -126,31 +133,19 @@ class AvmTraceBuilder {
                  uint32_t addr_offset,
                  uint32_t args_offset,
                  uint32_t args_size,
-                 uint32_t ret_offset,
-                 uint32_t ret_size,
-                 uint32_t success_offset,
-                 uint32_t function_selector_offset);
+                 uint32_t success_offset);
     void op_static_call(uint16_t indirect,
                         uint32_t gas_offset,
                         uint32_t addr_offset,
                         uint32_t args_offset,
                         uint32_t args_size,
-                        uint32_t ret_offset,
-                        uint32_t ret_size,
-                        uint32_t success_offset,
-                        uint32_t function_selector_offset);
+                        uint32_t success_offset);
     std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // REVERT Opcode (that just call return under the hood for now)
-    std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
+    std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset);
 
     // Gadgets
-    void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
-    void op_pedersen_hash(uint8_t indirect,
-                          uint32_t gen_ctx_offset,
-                          uint32_t output_offset,
-                          uint32_t input_offset,
-                          uint32_t input_size_offset);
     void op_ec_add(uint16_t indirect,
                    uint32_t lhs_x_offset,
                    uint32_t lhs_y_offset,
@@ -164,13 +159,8 @@ class AvmTraceBuilder {
                          uint32_t scalars_offset,
                          uint32_t output_offset,
                          uint32_t point_length_offset);
-    void op_pedersen_commit(uint8_t indirect,
-                            uint32_t output_offset,
-                            uint32_t input_offset,
-                            uint32_t input_size_offset,
-                            uint32_t gen_ctx_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect,
+    void op_to_radix_be(uint8_t indirect,
                         uint32_t src_offset,
                         uint32_t dst_offset,
                         uint32_t radix_offset,
@@ -179,7 +169,7 @@ class AvmTraceBuilder {
 
     // Future Gadgets -- pending changes in noir
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t state_offset, uint32_t inputs_offset);
-    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
+    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset);
 
     std::vector<Row> finalize();
     void reset();
@@ -210,6 +200,10 @@ class AvmTraceBuilder {
 
     std::vector<FF> calldata;
     std::vector<FF> returndata;
+
+    // Return/revert data of the last nested call.
+    std::vector<FF> nested_returndata;
+
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
@@ -228,10 +222,10 @@ class AvmTraceBuilder {
     AvmSha256TraceBuilder sha256_trace_builder;
     AvmPoseidon2TraceBuilder poseidon2_trace_builder;
     AvmKeccakTraceBuilder keccak_trace_builder;
-    AvmPedersenTraceBuilder pedersen_trace_builder;
     AvmEccTraceBuilder ecc_trace_builder;
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;
+    AvmBytecodeTraceBuilder bytecode_trace_builder;
 
     Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
@@ -263,10 +257,7 @@ class AvmTraceBuilder {
                                  uint32_t addr_offset,
                                  uint32_t args_offset,
                                  uint32_t args_size_offset,
-                                 uint32_t ret_offset,
-                                 uint32_t ret_size,
-                                 uint32_t success_offset,
-                                 [[maybe_unused]] uint32_t function_selector_offset);
+                                 uint32_t success_offset);
 
     void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 

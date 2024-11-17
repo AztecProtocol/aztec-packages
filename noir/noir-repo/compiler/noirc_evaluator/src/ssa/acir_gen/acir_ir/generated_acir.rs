@@ -225,16 +225,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                     output: outputs[0],
                 }
             }
-            BlackBoxFunc::PedersenCommitment => BlackBoxFuncCall::PedersenCommitment {
-                inputs: inputs[0].clone(),
-                outputs: (outputs[0], outputs[1]),
-                domain_separator: constant_inputs[0].to_u128() as u32,
-            },
-            BlackBoxFunc::PedersenHash => BlackBoxFuncCall::PedersenHash {
-                inputs: inputs[0].clone(),
-                output: outputs[0],
-                domain_separator: constant_inputs[0].to_u128() as u32,
-            },
             BlackBoxFunc::EcdsaSecp256k1 => {
                 BlackBoxFuncCall::EcdsaSecp256k1 {
                     // 32 bytes for each public key co-ordinate
@@ -640,11 +630,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
 
         // All of the hash/cipher methods will take in a
         // variable number of inputs.
-        BlackBoxFunc::AES128Encrypt
-        | BlackBoxFunc::Blake2s
-        | BlackBoxFunc::Blake3
-        | BlackBoxFunc::PedersenCommitment
-        | BlackBoxFunc::PedersenHash => None,
+        BlackBoxFunc::AES128Encrypt | BlackBoxFunc::Blake2s | BlackBoxFunc::Blake3 => None,
 
         BlackBoxFunc::Keccakf1600 => Some(25),
         // The permutation takes a fixed number of inputs, but the inputs length depends on the proving system implementation.
@@ -699,12 +685,6 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::Poseidon2Permutation => None,
 
         BlackBoxFunc::Sha256Compression => Some(8),
-
-        // Pedersen commitment returns a point
-        BlackBoxFunc::PedersenCommitment => Some(2),
-
-        // Pedersen hash returns a field
-        BlackBoxFunc::PedersenHash => Some(1),
 
         // Can only apply a range constraint to one
         // witness at a time.

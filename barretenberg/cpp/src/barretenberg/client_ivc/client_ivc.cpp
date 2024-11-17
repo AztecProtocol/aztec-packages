@@ -54,6 +54,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     const std::shared_ptr<RecursiveVerificationKey>& vkey,
     const QUEUE_TYPE type)
 {
+    // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
+    std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
+
     switch (type) {
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
@@ -66,10 +69,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier.keys_to_fold[1]->witness_commitments,
-                          verifier.keys_to_fold[1]->public_inputs,
-                          verifier.keys_to_fold[1]->verification_key->databus_propagation_data);
+        decider_vk = verifier.keys_to_fold[1]; // decider vk for the incoming circuit
+
         break;
     }
     case QUEUE_TYPE::OINK: {
@@ -86,14 +87,20 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Initialize the gate challenges to zero for use in first round of folding
         verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier_accum->witness_commitments,
-                          verifier_accum->public_inputs,
-                          verifier_accum->verification_key->databus_propagation_data);
+        decider_vk = verifier_accum; // decider vk for the incoming circuit
 
         break;
     }
     }
+
+    // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
+    // checks between the calldata commitments and the return data commitments contained within the public inputs
+    bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
+        decider_vk->witness_commitments.return_data,
+        decider_vk->witness_commitments.calldata,
+        decider_vk->witness_commitments.secondary_calldata,
+        decider_vk->public_inputs,
+        decider_vk->verification_key->databus_propagation_data);
 }
 
 /**
@@ -132,6 +139,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         perform_recursive_verification_and_databus_consistency_checks(circuit, proof, vkey, type);
     }
     stdlib_verification_queue.clear();
+
+    // Propagate return data commitments via the public inputs for use in databus consistency checks
+    bus_depot.propagate_return_data_commitments(circuit);
 
     // Perform recursive merge verification for every merge proof in the queue
     process_recursive_merge_verification_queue(circuit);

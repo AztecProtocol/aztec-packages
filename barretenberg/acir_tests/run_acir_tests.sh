@@ -2,6 +2,7 @@
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
+#   RECURSIVE: to enable --recursive for each test.
 set -eu
 
 # Catch when running in parallel
@@ -19,6 +20,7 @@ VERBOSE=${VERBOSE:-}
 TEST_NAMES=("$@")
 # We get little performance benefit over 16 cores (in fact it can be worse).
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+RECURSIVE=${RECURSIVE:-false}
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
@@ -28,7 +30,7 @@ else
     BIN=$(realpath $(which $BIN))
 fi
 
-export BIN CRS_PATH VERBOSE BRANCH
+export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
 
 # copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
 ./clone_test_vectors.sh
@@ -47,12 +49,12 @@ SKIP_ARRAY+=(regression_5045)
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
     # Don't run programs with Honk recursive verifier
-    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof double_verify_honk_proof_recursive)
+    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof)
 fi
 
 if [ "$HONK" = true ]; then
     # Don't run programs with Plonk recursive verifier(s)
-    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_proof_recursive double_verify_nested_proof)
+    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_nested_proof)
 fi
 
 function test() {

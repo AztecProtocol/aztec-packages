@@ -37,7 +37,7 @@ Consider a user, Alice, who does not have FPA but wishes to interact with the ne
 
 Suppose there is a Fee Payment Contract (FPC) that has been deployed by another user to the network. Alice can structure her transaction as follows:
 
-0. Before the transaction, Alice creates a private authwit in her wallet, allowing the FPC to unshield a specified amount of BananaCoin from Alice's private balance to the FPC's public balance.
+0. Before the transaction, Alice creates a private authwit in her wallet, allowing the FPC to transfer to public a specified amount of BananaCoin from Alice's private balance to the FPC's public balance.
 1. Private setup:
    - Alice calls a private function on the FPC which is exposed for public fee payment in BananaCoin.
    - The FPC checks that the amount of teardown gas Alice has allocated is sufficient to cover the gas associated with the teardown function it will use to provide a refund to Alice.

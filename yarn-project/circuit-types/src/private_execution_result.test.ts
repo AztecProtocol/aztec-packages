@@ -1,5 +1,5 @@
 import { PublicExecutionRequest } from '@aztec/circuit-types';
-import { Fr, PrivateCallStackItem } from '@aztec/circuits.js';
+import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 
 import {
   PrivateExecutionResult,
@@ -13,7 +13,7 @@ function emptyExecutionResult(): PrivateExecutionResult {
     Buffer.from(''),
     Buffer.from(''),
     new Map(),
-    PrivateCallStackItem.empty(),
+    PrivateCircuitPublicInputs.empty(),
     new Map(),
     [],
     new Map(),
@@ -121,13 +121,13 @@ describe('execution_result', () => {
     });
 
     it('returns the actual counter', () => {
-      executionResult.callStackItem.publicInputs.minRevertibleSideEffectCounter = new Fr(123);
+      executionResult.publicInputs.minRevertibleSideEffectCounter = new Fr(123);
       const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });
 
     it('returns the actual counter in a nested call', () => {
-      executionResult.nestedExecutions[1].callStackItem.publicInputs.minRevertibleSideEffectCounter = new Fr(123);
+      executionResult.nestedExecutions[1].publicInputs.minRevertibleSideEffectCounter = new Fr(123);
       const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });

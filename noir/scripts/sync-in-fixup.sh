@@ -4,7 +4,7 @@ set -eu
 cd $(dirname $0)/../noir-repo
 
 tmp=$(mktemp)
-BACKEND_BARRETENBERG_PACKAGE_JSON=./tooling/noir_js_backend_barretenberg/package.json
+BACKEND_BARRETENBERG_PACKAGE_JSON=./compiler/integration-tests/package.json
 
 jq -r '.dependencies."@aztec/bb.js"' $BACKEND_BARRETENBERG_PACKAGE_JSON > ../bb-version
 jq '.dependencies."@aztec/bb.js" = "portal:../../../../barretenberg/ts"' $BACKEND_BARRETENBERG_PACKAGE_JSON > $tmp && mv $tmp $BACKEND_BARRETENBERG_PACKAGE_JSON

@@ -24,18 +24,13 @@ class Execution {
 
     static std::vector<FF> getDefaultPublicInputs();
 
-    // TODO: Clean these overloaded functions. We probably need less and confusing overloading.
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
+    static VmPublicInputs convert_public_inputs(std::vector<FF> const& public_inputs_vec);
+
+    // Bytecode is currently the bytecode of the top-level function call
+    // Eventually this will be the bytecode of the dispatch function of top-level contract
+    static std::vector<Row> gen_trace(std::vector<FF> const& calldata,
+                                      std::vector<FF> const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs,
-                                      ExecutionHints const& execution_hints = {});
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
-                                      std::vector<FF> const& calldata = {},
-                                      std::vector<FF> const& public_inputs = {});
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
-                                      std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs,
                                       ExecutionHints const& execution_hints);
 
     // For testing purposes only.
@@ -45,7 +40,6 @@ class Execution {
     }
 
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
-        std::vector<uint8_t> const& bytecode,
         std::vector<FF> const& calldata = {},
         std::vector<FF> const& public_inputs_vec = getDefaultPublicInputs(),
         ExecutionHints const& execution_hints = {});

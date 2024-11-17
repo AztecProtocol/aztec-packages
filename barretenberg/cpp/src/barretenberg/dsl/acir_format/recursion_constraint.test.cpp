@@ -87,7 +87,6 @@ Builder create_inner_circuit()
 
     AcirFormat constraint_system{
         .varnum = 6,
-        .recursive = true,
         .num_acir_opcodes = 7,
         .public_inputs = { 1, 2 },
         .logic_constraints = { logic_constraint },
@@ -100,8 +99,6 @@ Builder create_inner_circuit()
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -125,7 +122,7 @@ Builder create_inner_circuit()
     WitnessVector witness{
         5, 10, 15, 5, inverse_of_five, 1,
     };
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness);
 
     return builder;
 }
@@ -250,7 +247,6 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size()),
-        .recursive = false,
         .num_acir_opcodes = static_cast<uint32_t>(recursion_constraints.size()),
         .public_inputs = {},
         .logic_constraints = {},
@@ -263,8 +259,6 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -284,7 +278,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     };
     mock_opcode_indices(constraint_system);
 
-    auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto outer_circuit = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     return outer_circuit;
 }

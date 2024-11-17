@@ -139,7 +139,7 @@ export function checkValidStaticCall(
 export function resultToPublicCallRequest(result: PublicExecutionResult) {
   const request = result.executionRequest;
   const item = new PublicCallStackItemCompressed(
-    request.contractAddress,
+    request.callContext.contractAddress,
     request.callContext,
     computeVarArgsHash(request.args),
     computeVarArgsHash(result.returnValues),

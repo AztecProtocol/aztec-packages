@@ -92,9 +92,6 @@ namespace main(256);
     #[ADDRESS_KERNEL]
     sel_op_address * (kernel_in_offset - constants.ADDRESS_KERNEL_INPUTS_COL_OFFSET) = 0;
 
-    #[STORAGE_ADDRESS_KERNEL]
-    sel_op_storage_address * (kernel_in_offset - constants.STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET) = 0;
-
     #[SENDER_KERNEL]
     sel_op_sender * (kernel_in_offset - constants.SENDER_KERNEL_INPUTS_COL_OFFSET) = 0;
 
@@ -174,7 +171,7 @@ namespace main(256);
     //KERNEL_OUTPUT_SELECTORS * (side_effect_counter' - (side_effect_counter + 1)) = 0;
 
     //===== LOOKUPS INTO THE PUBLIC INPUTS ===========================================
-    pol KERNEL_INPUT_SELECTORS = sel_op_address + sel_op_storage_address + sel_op_sender
+    pol KERNEL_INPUT_SELECTORS = sel_op_address + sel_op_sender
                                + sel_op_function_selector + sel_op_transaction_fee + sel_op_chain_id
                                + sel_op_version + sel_op_block_number + sel_op_timestamp
                                + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_is_static_call;

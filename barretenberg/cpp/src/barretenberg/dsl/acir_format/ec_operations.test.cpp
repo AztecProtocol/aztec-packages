@@ -62,7 +62,6 @@ TEST_F(EcOperations, TestECOperations)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables + 1),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -75,8 +74,6 @@ TEST_F(EcOperations, TestECOperations)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = { ec_add_constraint },
@@ -96,7 +93,7 @@ TEST_F(EcOperations, TestECOperations)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);
@@ -200,7 +197,6 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     size_t num_variables = witness_values.size();
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables + 1),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -213,8 +209,6 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = { msm_constrain },
         .ec_add_constraints = {},
@@ -234,7 +228,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);

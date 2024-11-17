@@ -2,16 +2,20 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
 import {
   NESTED_RECURSIVE_PROOF_LENGTH,
+  PRIVATE_KERNEL_EMPTY_INDEX,
+  PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
+  PrivateTubeData,
+  VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
-import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js';
+import { buildBaseRollupHints } from '../orchestrator/block-building-helpers.js';
 
 const logger = createDebugLogger('aztec:bb-prover-base-rollup');
 
@@ -43,19 +47,25 @@ describe('prover/bb_prover/base-rollup', () => {
 
     logger.verbose('Building base rollup inputs');
     const baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    baseRollupInputProof.proof[0] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[0];
-    baseRollupInputProof.proof[1] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[1];
-    baseRollupInputProof.proof[2] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[2];
-    const baseRollupInputs = await buildBaseRollupInput(
-      tx,
-      baseRollupInputProof,
-      context.globalVariables,
-      context.actualDb,
-      paddingTxPublicInputsAndProof.verificationKey,
-    );
+    const verificationKey = paddingTxPublicInputsAndProof.verificationKey;
+    baseRollupInputProof.proof[0] = verificationKey.keyAsFields.key[0];
+    baseRollupInputProof.proof[1] = verificationKey.keyAsFields.key[1];
+    baseRollupInputProof.proof[2] = verificationKey.keyAsFields.key[2];
+
+    const vkIndex = PRIVATE_KERNEL_EMPTY_INDEX;
+    const vkPath = getVKSiblingPath(vkIndex);
+    const vkData = new VkWitnessData(verificationKey, vkIndex, vkPath);
+
+    const tubeData = new PrivateTubeData(tx.data, baseRollupInputProof, vkData);
+
+    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, context.actualDb);
+    const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints);
+
     logger.verbose('Proving base rollups');
-    const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
+    const proofOutputs = await context.prover.getPrivateBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
-    await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
+    await expect(
+      prover.verifyProof('PrivateBaseRollupArtifact', proofOutputs.proof.binaryProof),
+    ).resolves.not.toThrow();
   });
 });

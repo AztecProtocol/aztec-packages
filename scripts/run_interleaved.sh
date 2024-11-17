@@ -27,19 +27,18 @@ colors=(
   "\e[91m" # Bright Red
 )
 
+FINISHED=false
 main_cmd="$1"
 shift
 
-# pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
-function cleanup_function() {
-  kill $(jobs -p) 2>/dev/null || true
-  return
+function cleanup() {
+  # kill everything in our process group except our process
+  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
 }
+trap cleanup SIGINT SIGTERM EXIT
 
 # Function to run a command and prefix the output with color
 function run_command() {
-  # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
-  trap cleanup_function INT EXIT
   local cmd="$1"
   local color="$2"
   $cmd 2>&1 | while IFS= read -r line; do
@@ -50,9 +49,10 @@ function run_command() {
 # Run background commands without logging output
 i=0
 for cmd in "$@"; do
-  run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" &
+  (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || (echo "$cmd causing terminate" && kill 0) ) &
   ((i++)) || true # annoyingly considered a failure based on result
 done
 
 # Run the main command synchronously, piping output through the run_command function with green color
-run_command "$main_cmd" "\e[32m"
+run_command "$main_cmd" "\e[32m" || (echo "$main_cmd causing terminate" && kill 0)
+FINISHED=true

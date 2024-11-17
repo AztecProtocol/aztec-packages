@@ -74,6 +74,14 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 {{- end -}}
 {{- end -}}
 
+{{- define "aztec-network.validatorUrl" -}}
+{{- if .Values.validator.externalTcpHost -}}
+http://{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.nodePort }}
+{{- else -}}
+http://{{ include "aztec-network.fullname" . }}-validator-0.{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
+{{- end -}}
+{{- end -}}
+
 {{- define "aztec-network.metricsHost" -}}
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
@@ -94,6 +102,13 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 {{- end -}}
 
+{{- define "aztec-network.otelCollectorLogsEndpoint" -}}
+{{- if .Values.telemetry.enabled -}}
+{{- if .Values.telemetry.otelCollectorEndpoint -}}
+{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/logs
+{{- end -}}
+{{- end -}}
+{{- end -}}
 
 {{- define "helpers.flag" -}}
 {{- $name := index . 0 -}}

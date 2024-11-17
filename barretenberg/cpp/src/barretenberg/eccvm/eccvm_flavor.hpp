@@ -39,8 +39,8 @@ class ECCVMFlavor {
     using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
 
-    // Indicates that this flavor runs with non-ZK Sumcheck.
-    static constexpr bool HasZK = false;
+    // Indicates that this flavor runs with ZK Sumcheck.
+    static constexpr bool HasZK = true;
     static constexpr size_t NUM_WIRES = 85;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -67,7 +67,8 @@ class ECCVMFlavor {
                                   ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, HasZK>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -78,7 +79,9 @@ class ECCVMFlavor {
     // Instantiate the BarycentricData needed to extend each Relation Univariate
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using SumcheckTupleOfTuplesOfUnivariates =
+        decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations, HasZK>());
+
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
@@ -933,7 +936,9 @@ class ECCVMFlavor {
         Commitment transcript_msm_count_at_transition_inverse_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
+        FF libra_sum;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::vector<FF> libra_evaluations;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> gemini_fold_comms;
         std::vector<FF> gemini_fold_evals;
@@ -1137,10 +1142,19 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
                                                                                          num_frs_read);
+
+            libra_sum =
+                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 sumcheck_univariates.emplace_back(NativeTranscript::template deserialize_from_buffer<
                                                   bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     NativeTranscript::proof_data, num_frs_read));
+            }
+
+            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
+            for (size_t i = 0; i < log_circuit_size; i++) {
+                libra_evaluations.emplace_back(
+                    NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
             }
             sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
                 NativeTranscript::proof_data, num_frs_read);
@@ -1183,6 +1197,8 @@ class ECCVMFlavor {
         void serialize_full_transcript()
         {
             size_t old_proof_length = NativeTranscript::proof_data.size();
+            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
+
             NativeTranscript::proof_data.clear();
 
             NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
@@ -1285,8 +1301,15 @@ class ECCVMFlavor {
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
+
+            NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
+
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(sumcheck_univariates[i], NativeTranscript::proof_data);
+            }
+
+            for (size_t i = 0; i < log_circuit_size; ++i) {
+                NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
             }
             NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {

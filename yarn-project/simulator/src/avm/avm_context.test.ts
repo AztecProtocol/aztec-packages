@@ -15,7 +15,6 @@ describe('Avm Context', () => {
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
         address: newAddress,
-        storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
         calldata: newCalldata,
         isStaticCall: false,
@@ -45,7 +44,6 @@ describe('Avm Context', () => {
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
         address: newAddress,
-        storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
         calldata: newCalldata,
         isStaticCall: true,

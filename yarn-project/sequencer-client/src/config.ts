@@ -103,6 +103,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Whether to require every tx to have a fee payer',
     ...booleanConfigHelper(),
   },
+  gerousiaPayload: {
+    env: 'GEROUSIA_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the gerousia',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: EthAddress.ZERO,
+  },
 };
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {

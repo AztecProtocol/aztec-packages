@@ -3,7 +3,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract AvmInitializerTest {
     // Libs
-    use dep::aztec::{state_vars::PublicImmutable, macros::{storage::storage, functions::{initializer, public}}};
+    use dep::aztec::{
+        macros::{functions::{initializer, public}, storage::storage},
+        state_vars::PublicImmutable,
+    };
 
     #[storage]
     struct Storage<Context> {
@@ -14,14 +17,12 @@ contract AvmInitializerTest {
      * Storage
      ************************************************************************/
     #[public]
-    #['public]
-    #['initializer]
+    #[initializer]
     fn constructor() {
         storage.immutable.initialize(42);
     }
 
     #[public]
-    #['public]
     fn read_storage_immutable() -> pub Field {
         storage.immutable.read()
     }

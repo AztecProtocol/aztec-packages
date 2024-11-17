@@ -572,24 +572,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 });
                 af.original_opcode_indices.schnorr_constraints.push_back(opcode_index);
                 af.constrained_witness.insert(af.schnorr_constraints.back().result);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenCommitment>) {
-                af.pedersen_constraints.push_back(PedersenConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result_x = arg.outputs[0].value,
-                    .result_y = arg.outputs[1].value,
-                });
-                af.constrained_witness.insert(af.pedersen_constraints.back().result_x);
-                af.constrained_witness.insert(af.pedersen_constraints.back().result_y);
-                af.original_opcode_indices.pedersen_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenHash>) {
-                af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result = arg.output.value,
-                });
-                af.constrained_witness.insert(af.pedersen_hash_constraints.back().result);
-                af.original_opcode_indices.pedersen_hash_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =
@@ -818,7 +800,6 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
-    af.recursive = circuit.recursive;
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
