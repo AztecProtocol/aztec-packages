@@ -1448,23 +1448,15 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
 
         index_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
         check_finalised_block_height(tree, expectedFinalisedBlock);
-        // index_t expectedPresentStart = i < finalisedBlockDelay ? 0 : (expectedFinalisedBlock * blockSize);
-        // index_t expectedPresentEnd = ((i + 1) * blockSize) - 1;
-        // std::vector<fr> toTest(values.begin() + static_cast<int64_t>(expectedPresentStart),
-        //                        values.begin() + static_cast<int64_t>(expectedPresentEnd + 1));
-        // check_leaf_keys_are_present(db, expectedPresentStart, expectedPresentEnd, toTest);
 
         if (i >= finalisedBlockDelay) {
 
             index_t blockToFinalise = expectedFinalisedBlock + 1;
 
-            // attemnpting to finalise a block that doesn't exist should fail
+            // attempting to finalise a block that doesn't exist should fail
             finalise_block(tree, blockToFinalise + numBlocks, false);
 
             finalise_block(tree, blockToFinalise, true);
-
-            // index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-            // check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
         }
     }
 }
@@ -1499,12 +1491,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks
 
     index_t blockToFinalise = 8;
 
-    // check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
-
     finalise_block(tree, blockToFinalise);
-
-    // index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-    // check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyond_pending_chain)
@@ -1544,12 +1531,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyon
     // finalise the entire chain
     index_t blockToFinalise = numBlocks;
 
-    // check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
-
     finalise_block(tree, blockToFinalise);
-
-    // index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-    // check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_unwound_blocks)
