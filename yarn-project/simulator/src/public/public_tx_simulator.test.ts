@@ -163,7 +163,6 @@ describe('public_tx_simulator', () => {
       db,
       publicExecutor,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      Header.empty(),
       worldStateDB,
       /*realAvmProvingRequest=*/ false,
     );
@@ -174,7 +173,7 @@ describe('public_tx_simulator', () => {
       numberOfSetupCalls: 2,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -209,7 +208,7 @@ describe('public_tx_simulator', () => {
       numberOfAppLogicCalls: 2,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
@@ -244,7 +243,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
@@ -279,7 +278,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -357,7 +356,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
 
@@ -391,7 +390,7 @@ describe('public_tx_simulator', () => {
       PublicExecutionResultBuilder.empty().withReverted(setupFailure).build(),
     );
 
-    await expect(processor.process(tx)).rejects.toThrow(setupFailureMsg);
+    await expect(processor.simulate(tx)).rejects.toThrow(setupFailureMsg);
 
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
   });
@@ -426,7 +425,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -504,7 +503,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -586,7 +585,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([

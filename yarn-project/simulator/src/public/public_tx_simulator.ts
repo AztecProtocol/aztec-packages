@@ -2,17 +2,17 @@ import {
   type AvmProvingRequest,
   type GasUsed,
   type MerkleTreeReadOperations,
-  type NestedProcessReturnValues,
+  NestedProcessReturnValues,
   type SimulationError,
   type Tx,
   TxExecutionPhase,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header, type RevertCode } from '@aztec/circuits.js';
+import { Gas, type GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL, type RevertCode } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
-import { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
+import { type EnqueuedPublicCallExecutionResult } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
@@ -42,7 +42,8 @@ export class PublicTxSimulator {
     private db: MerkleTreeReadOperations,
     private globalVariables: GlobalVariables,
     private worldStateDB: WorldStateDB,
-    private enqueuedCallSimulator: EnqueuedCallSimulator,
+    private publicExecutor: PublicExecutor,
+    private realAvmProvingRequests: boolean = true,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
   }
@@ -51,23 +52,13 @@ export class PublicTxSimulator {
     db: MerkleTreeReadOperations,
     publicExecutor: PublicExecutor,
     globalVariables: GlobalVariables,
-    historicalHeader: Header,
     worldStateDB: WorldStateDB,
     realAvmProvingRequests: boolean = true,
   ) {
-    const enqueuedCallSimulator = new EnqueuedCallSimulator(
-      db,
-      worldStateDB,
-      publicExecutor,
-      globalVariables,
-      historicalHeader,
-      realAvmProvingRequests,
-    );
-
-    return new PublicTxSimulator(db, globalVariables, worldStateDB, enqueuedCallSimulator);
+    return new PublicTxSimulator(db, globalVariables, worldStateDB, publicExecutor, realAvmProvingRequests);
   }
 
-  async process(tx: Tx): Promise<PublicTxResult> {
+  async simulate(tx: Tx): Promise<PublicTxResult> {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
 
     const context = await PublicTxContext.create(this.db, this.worldStateDB, tx, this.globalVariables);
@@ -83,15 +74,15 @@ export class PublicTxSimulator {
 
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
-      const setupResult: ProcessedPhase = await this.processSetupPhase(context);
+      const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
-      const appLogicResult: ProcessedPhase = await this.processAppLogicPhase(context);
+      const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
     }
     if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
-      const teardownResult: ProcessedPhase = await this.processTeardownPhase(context);
+      const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
       processedPhases.push(teardownResult);
     }
     context.halt();
@@ -117,8 +108,6 @@ export class PublicTxSimulator {
     // FIXME(dbanks12): should not be changing immutable tx
     tx.unencryptedLogs.addFunctionLogs([new UnencryptedFunctionL2Logs(context.trace.getUnencryptedLogs())]);
 
-    await context.state.getActiveStateManager().commitStorageWritesToDB();
-
     return {
       avmProvingRequest,
       gasUsed: { totalGas: context.getActualGasUsed(), teardownGas: context.teardownGasUsed },
@@ -128,16 +117,16 @@ export class PublicTxSimulator {
     };
   }
 
-  private async processSetupPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    return await this.processPhase(TxExecutionPhase.SETUP, context);
+  private async simulateSetupPhase(context: PublicTxContext): Promise<ProcessedPhase> {
+    return await this.simulatePhase(TxExecutionPhase.SETUP, context);
   }
 
-  private async processAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase> {
+  private async simulateAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase> {
     // Fork the state manager so that we can rollback state if app logic or teardown reverts.
     // Don't need to fork for setup since it's non-revertible (if setup fails, transaction is thrown out).
     context.state.fork();
 
-    const result = await this.processPhase(TxExecutionPhase.APP_LOGIC, context);
+    const result = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
@@ -152,14 +141,14 @@ export class PublicTxSimulator {
     return result;
   }
 
-  private async processTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase> {
+  private async simulateTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase> {
     if (!context.state.isForked()) {
       // If state isn't forked (app logic was empty or reverted), fork now
       // so we can rollback to the end of setup if teardown reverts.
       context.state.fork();
     }
 
-    const result = await this.processPhase(TxExecutionPhase.TEARDOWN, context);
+    const result = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
@@ -172,7 +161,7 @@ export class PublicTxSimulator {
     return result;
   }
 
-  private async processPhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
+  private async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
     const callRequests = context.getCallRequestsForPhase(phase);
     const executionRequests = context.getExecutionRequestsForPhase(phase);
     const txStateManager = context.state.getActiveStateManager();
@@ -191,24 +180,38 @@ export class PublicTxSimulator {
       const callRequest = callRequests[i];
       const executionRequest = executionRequests[i];
 
-      const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
-        callRequest,
-        executionRequest,
-        context.constants,
-        /*availableGas=*/ context.getGasLeftForPhase(phase),
-        /*transactionFee=*/ context.getTransactionFee(phase),
-        txStateManager,
+      const availableGas = context.getGasLeftForPhase(phase);
+      // Gas allocated to an enqueued call can be different from the available gas
+      // if there is more gas available than the max allocation per enqueued call.
+      const allocatedGas = new Gas(
+        /*daGas=*/ availableGas.daGas,
+        /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
       );
-      if (context.avmProvingRequest === undefined) {
-        // Propagate the very first avmProvingRequest of the tx for now.
-        // Eventually this will be the proof for the entire public portion of the transaction.
-        context.avmProvingRequest = enqueuedCallResult.avmProvingRequest;
-      }
+
+      const enqueuedCallResult = (await this.publicExecutor.simulate(
+        txStateManager,
+        executionRequest,
+        this.globalVariables, // todo get from context
+        allocatedGas,
+        context.getTransactionFee(phase),
+      )) as EnqueuedPublicCallExecutionResult;
+
+      // TODO(dbanks12): remove once AVM proves entire public tx
+      await context.updateProvingRequest(
+        this.realAvmProvingRequests,
+        phase,
+        this.worldStateDB,
+        txStateManager,
+        executionRequest,
+        enqueuedCallResult,
+        allocatedGas,
+      );
 
       txStateManager.traceEnqueuedCall(callRequest, executionRequest.args, enqueuedCallResult.reverted!);
 
-      context.consumeGas(phase, enqueuedCallResult.gasUsed);
-      returnValues.push(enqueuedCallResult.returnValues);
+      const gasUsed = allocatedGas.sub(Gas.from(enqueuedCallResult.endGasLeft));
+      context.consumeGas(phase, gasUsed);
+      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.returnValues));
 
       if (enqueuedCallResult.reverted) {
         reverted = true;
