@@ -324,6 +324,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
                                                                               mle_opening_point,
                                                                               this->vk()->get_g1_identity(),
                                                                               verifier_transcript,
+                                                                              {},
                                                                               RefVector(libra_commitments),
                                                                               libra_evaluations);
 

@@ -106,6 +106,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
+        await token.methods.sync_notes().simulate();
         const notes = await pxe.getIncomingNotes({
           owner: owner.getAddress(),
           contractAddress: token.address,

@@ -11,7 +11,7 @@ fn split_to_public_succeeds() {
     builder.append_l2_to_l1_msgs(1);
     builder.append_note_encrypted_log_hashes(3);
     builder.append_encrypted_log_hashes(2);
-    builder.append_unencrypted_log_hashes(1);
+    builder.add_contract_class_log_hash(2, 200);
     builder.append_public_call_requests(1);
     builder.end_setup();
     // Revertibles.
@@ -20,7 +20,6 @@ fn split_to_public_succeeds() {
     builder.append_l2_to_l1_msgs(1);
     builder.append_note_encrypted_log_hashes(1);
     builder.append_encrypted_log_hashes(2);
-    builder.append_unencrypted_log_hashes(1);
     builder.append_public_call_requests(2);
 
     let combined_data = builder.to_private_to_public_accumulated_data();
@@ -65,10 +64,10 @@ fn split_to_public_succeeds() {
     );
     assert_array_eq(revertible.encrypted_logs_hashes, [expected[2], expected[3]]);
 
-    // unencrypted_logs_hashes
-    let expected = combined_data.unencrypted_logs_hashes;
-    assert_array_eq(non_revertible.unencrypted_logs_hashes, [expected[0]]);
-    assert_array_eq(revertible.unencrypted_logs_hashes, [expected[1]]);
+    // contract_class_logs_hashes
+    let expected = combined_data.contract_class_logs_hashes;
+    assert_array_eq(non_revertible.contract_class_logs_hashes, [expected[0]]);
+    assert_array_eq(revertible.contract_class_logs_hashes, []);
 
     // public_call_requests
     let call_requests = combined_data.public_call_requests;

@@ -12,8 +12,11 @@
 
 namespace bb {
 
-ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
+ECCVMProver::ECCVMProver(CircuitBuilder& builder,
+                         const std::shared_ptr<Transcript>& transcript,
+                         const std::shared_ptr<Transcript>& ipa_transcript)
     : transcript(transcript)
+    , ipa_transcript(ipa_transcript)
 {
     PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -183,7 +186,7 @@ void ECCVMProver::execute_pcs_rounds()
     const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, transcript);
+    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
@@ -191,13 +194,12 @@ void ECCVMProver::execute_pcs_rounds()
     vinfo("computed opening proof");
 }
 
-HonkProof ECCVMProver::export_proof()
+ECCVMProof ECCVMProver::export_proof()
 {
-    proof = transcript->export_proof();
-    return proof;
+    return { transcript->export_proof(), ipa_transcript->export_proof() };
 }
 
-HonkProof ECCVMProver::construct_proof()
+ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 

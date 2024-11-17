@@ -2,6 +2,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -9,7 +10,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash } from '../log_hash.js';
@@ -47,10 +47,10 @@ export class PrivateAccumulatedData {
      */
     public encryptedLogsHashes: Tuple<ScopedEncryptedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
-     * Accumulated unencrypted logs hashes from all the previous kernel iterations.
+     * Accumulated contract class logs from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Accumulated public call requests from all the previous kernel iterations.
      */
@@ -68,7 +68,7 @@ export class PrivateAccumulatedData {
       this.l2ToL1Msgs,
       this.noteEncryptedLogsHashes,
       this.encryptedLogsHashes,
-      this.unencryptedLogsHashes,
+      this.contractClassLogsHashes,
       this.publicCallRequests,
       this.privateCallStack,
     );
@@ -91,7 +91,7 @@ export class PrivateAccumulatedData {
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest),
     );
@@ -113,7 +113,7 @@ export class PrivateAccumulatedData {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest.empty),
     );

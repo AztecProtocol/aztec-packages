@@ -27,7 +27,8 @@ class ECCVMProver {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                         const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
@@ -37,10 +38,11 @@ class ECCVMProver {
     BB_PROFILE void execute_pcs_rounds();
     BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    HonkProof export_proof();
-    HonkProof construct_proof();
+    ECCVMProof export_proof();
+    ECCVMProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> ipa_transcript;
 
     TranslationEvaluations translation_evaluations;
 
@@ -62,9 +64,6 @@ class ECCVMProver {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 } // namespace bb
