@@ -211,9 +211,9 @@ template <typename FF_> class UltraPermutationRelationImpl {
         denominator *= Accumulator(t8);
 
         const ParameterMonomialAccumulator public_input_delta_m(params.public_input_delta);
-        const auto z_perm = View(in.z_perm);
+        const auto z_perm_m = MonomialAccumulator(in.z_perm);
         const MonomialAccumulator z_perm_shift_m(in.z_perm_shift);
-        const auto lagrange_first = View(in.lagrange_first);
+        const auto lagrange_first_m = MonomialAccumulator(in.lagrange_first);
         const MonomialAccumulator lagrange_last_m(in.lagrange_last);
 
         auto public_input_term_m = lagrange_last_m * public_input_delta_m;
@@ -221,15 +221,13 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const Accumulator public_input_term(public_input_term_m);
         // witness degree: deg 5 - deg 5 = deg 5
         // total degree: deg 9 - deg 10 = deg 10
-        std::get<0>(accumulators) += (((z_perm + lagrange_first) * numerator) - (public_input_term * denominator));
+        std::get<0>(accumulators) +=
+            ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
         // Contribution (2)
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-        using ShortView = typename ShortAccumulator::View;
-        auto z_perm_shift_short = ShortView(in.z_perm_shift);
-        auto lagrange_last_short = ShortView(in.lagrange_last);
 
-        std::get<1>(accumulators) += (lagrange_last_short * z_perm_shift_short) * scaling_factor;
+        std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
     };
 };
 

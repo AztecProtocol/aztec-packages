@@ -69,18 +69,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
-        const auto row_has_write = View(in.lookup_read_tags);
-        const auto row_has_read = View(in.q_lookup);
-        return row_has_write + row_has_read - (row_has_write * row_has_read);
+        const auto row_has_write = MonomialAccumulator(in.lookup_read_tags);
+        const auto row_has_read = MonomialAccumulator(in.q_lookup);
+        return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
     template <typename Accumulator, size_t index, typename AllEntities>
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
-        return Accumulator(View(in.lookup_read_counts));
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        return Accumulator(MonomialAccumulator(in.lookup_read_counts));
     }
 
     // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
@@ -230,31 +230,47 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
         // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
         // longest
+        using ShortAccumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+
         // allows to re-use the values accumulated by the accumulator of the size smaller than
         // the size of Accumulator declared above
-        using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
 
-        const auto inverses = View(in.lookup_inverses);                         // Degree 1
-        const auto read_counts = View(in.lookup_read_counts);                   // Degree 1
-        const auto read_selector = View(in.q_lookup);                           // Degree 1
+        const auto inverses_m = MonomialAccumulator(in.lookup_inverses); // Degree 1
+        const Accumulator inverses(inverses_m);
+        const auto read_counts_m = MonomialAccumulator(in.lookup_read_counts); // Degree 1
+        const auto read_selector_m = MonomialAccumulator(in.q_lookup);         // Degree 1
+
+        // const MonomialAccumulator row_has_write = MonomialAccumulator(in.lookup_read_tags);
+        // const MonomialAccumulator row_has_read = MonomialAccumulator(in.q_lookup);
+        // auto inverse_exists_m = -(row_has_write * row_has_read) + row_has_write + row_has_read;
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
         const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)
         const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1 (2)
-        const auto write_inverse = inverses * read_term;                        // Degree 3 (4)
-        const auto read_inverse = inverses * write_term;                        // Degree 2 (3)
+        // const auto write_inverse = Accumulator(inverses_m) * read_term;         // Degree 3 (4)
+        // const auto read_inverse = Accumulator(inverses_m) * write_term;         // Degree 2 (3)
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
         // Degrees:                     2 (3)       1 (2)        1              1
         std::get<0>(accumulator) +=
-            ShortView((read_term * write_term * inverses - inverse_exists) * scaling_factor); // Deg 4 (6)
+            ShortAccumulator((read_term * write_term * inverses - inverse_exists) * scaling_factor); // Deg 4 (6)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
         // Degrees:                       1            2 (3)            1            3 (4)
-        std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
+
+        // rs * I * w - rc * I * r
+
+        // (rs * w - rc * r) * I
+        Accumulator tmp = Accumulator(read_selector_m) * write_term;
+        tmp -= (Accumulator(read_counts_m) * read_term);
+        tmp *= inverses;                 // degree 4(5)
+        std::get<1>(accumulator) += tmp; // Deg 4 (5)
+
+        //  std::get<1>(accumulator) +=
+        //    Accumulator(read_selector_m) * read_inverse - Accumulator(read_counts_m) * write_inverse; // Deg 4 (5)
     }
 };
 

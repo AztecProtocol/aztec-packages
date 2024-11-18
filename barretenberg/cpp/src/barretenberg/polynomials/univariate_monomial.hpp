@@ -300,6 +300,10 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         UnivariateMonomial res;
         res.coefficients[0] = -coefficients[0];
         res.coefficients[1] = -coefficients[1];
+        if constexpr (domain_end == 3) {
+            res.coefficients[2] = -coefficients[2];
+        }
+
         return res;
     }
 

@@ -64,15 +64,10 @@ template <typename FF_> class EllipticRelationImpl {
 
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-        using View = typename Accumulator::View;
-        auto x_1 = View(in.w_r);
-        // auto y_1 = View(in.w_o);
 
-        auto x_2 = View(in.w_l_shift);
         // auto y_2 = View(in.w_4_shift);
         //   auto y_3 = View(in.w_o_shift);
-        auto x_3 = View(in.w_r_shift);
-        auto y_1 = View(in.w_o);
+        auto x_3_m = MonomialAccumulator(in.w_r_shift);
         auto y_1_m = MonomialAccumulator(in.w_o);
         auto y_2_m = MonomialAccumulator(in.w_4_shift);
 
@@ -94,21 +89,30 @@ template <typename FF_> class EllipticRelationImpl {
         // 2. (x3 - x1)
         // 3. (x3 + x2 + x1)
         // 4. (x1 + x1 + x1)
-        auto x2_sub_x1 = (x_2 - x_1);
-        auto x1_mul_3 = (x_1 + x_1 + x_1);
-        auto x3_sub_x1 = x_3 - x_1;
-        auto x3_plus_two_x1 = x3_sub_x1 + x1_mul_3;
-        auto x3_plus_x2_plus_x1 = x3_plus_two_x1 + x2_sub_x1;
+        auto x2_sub_x1_m = (x_2_m - x_1_m);
+        auto x1_mul_3_m = (x_1_m + x_1_m + x_1_m);                  // used
+        auto x3_sub_x1_m = x_3_m - x_1_m;                           // used
+        auto x3_plus_two_x1_m = x3_sub_x1_m + x1_mul_3_m;           // used
+        auto x3_plus_x2_plus_x1_m = x3_plus_two_x1_m + x2_sub_x1_m; // used
+        Accumulator x3_plus_x2_plus_x1(x3_plus_x2_plus_x1_m);
+        Accumulator x3_sub_x1(x3_sub_x1_m);
+        Accumulator x1_mul_3(x1_mul_3_m);
+        Accumulator x3_plus_two_x1(x3_plus_two_x1_m);
+        // (3x1 already made in monomial basis)
+        // x3 - x1 = 2 adds + covnvert
+        // x3 + x1 + x1 = 2 adds + convert
+        // x3 + x2 + x1 = 2 adds + convert
+        // 3 converts and 6 adds = 4 * 3 + 6 = 18 adds
 
+        // vs 6 add = 6 * 5 = 30 F adds
         // Contribution (1) point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-        auto x2_sub_x1_m = (x_2_m - x_1_m);
         auto y2_sqr_m = y_2_m.sqr();
         auto y1_sqr_m = y_1_m.sqr();
         // auto y1y2_m = y_1_m * y_2_m;
         auto y2_mul_q_sign_m = y_2_m * q_sign_m;
         auto x_add_identity = x3_plus_x2_plus_x1 * Accumulator(x2_sub_x1_m.sqr()) - Accumulator(y2_sqr_m + y1_sqr_m) +
-                              Accumulator(y2_mul_q_sign_m + y2_mul_q_sign_m) * y_1;
+                              Accumulator(y2_mul_q_sign_m + y2_mul_q_sign_m) * Accumulator(y_1_m);
 
         // q_elliptic - q_elliptic * q_double
         // (q_elliptic - 1) * q_double
@@ -152,7 +156,7 @@ template <typename FF_> class EllipticRelationImpl {
 
         // Contribution (4) point doubling, y-coordinate check
         // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
-        auto x1_sqr_mul_3 = Accumulator((x_1_m + x_1_m + x_1_m) * x_1_m);
+        auto x1_sqr_mul_3 = Accumulator(x1_mul_3_m * x_1_m);
         auto neg_y_double_identity = x1_sqr_mul_3 * (x3_sub_x1) + Accumulator((y_1_m + y_1_m) * (y1_plus_y3_m));
         std::get<1>(accumulators) -= neg_y_double_identity * q_elliptic_q_double_scaling;
     };

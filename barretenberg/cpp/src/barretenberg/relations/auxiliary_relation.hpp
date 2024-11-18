@@ -143,12 +143,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto q_4_m = MonomialAccumulator(in.q_4);
         auto q_m_m = MonomialAccumulator(in.q_m);
         auto q_c_m = MonomialAccumulator(in.q_c);
+        auto q_arith_m = MonomialAccumulator(in.q_arith);
 
-        auto q_2 = View(in.q_r);
-        auto q_3 = View(in.q_o);
-        auto q_4 = View(in.q_4);
-        auto q_m = View(in.q_m);
-        auto q_arith = View(in.q_arith);
         auto q_aux_m = MonomialAccumulator(in.q_aux);
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
@@ -168,21 +164,21 @@ template <typename FF_> class AuxiliaryRelationImpl {
         non_native_field_gate_2_m *= LIMB_SIZE;
         non_native_field_gate_2_m -= w_4_shift_m;
         non_native_field_gate_2_m += limb_subproduct;
-        auto non_native_field_gate_2 = Accumulator(non_native_field_gate_2_m) * q_4;
+        auto non_native_field_gate_2 = Accumulator(non_native_field_gate_2_m) * Accumulator(q_4_m);
 
         limb_subproduct *= LIMB_SIZE;
         limb_subproduct += (w_1_shift_m * w_2_shift_m);
         auto non_native_field_gate_1_m = limb_subproduct;
         non_native_field_gate_1_m -= (w_3_m + w_4_m);
-        auto non_native_field_gate_1 = Accumulator(non_native_field_gate_1_m) * q_3;
+        auto non_native_field_gate_1 = Accumulator(non_native_field_gate_1_m) * Accumulator(q_3_m);
 
         auto non_native_field_gate_3_m = limb_subproduct;
         non_native_field_gate_3_m += w_4_m;
         non_native_field_gate_3_m -= (w_3_shift_m + w_4_shift_m);
-        auto non_native_field_gate_3 = Accumulator(non_native_field_gate_3_m) * q_m;
+        auto non_native_field_gate_3 = Accumulator(non_native_field_gate_3_m) * Accumulator(q_m_m);
 
         auto non_native_field_identity = non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3;
-        non_native_field_identity *= q_2;
+        non_native_field_identity *= Accumulator(q_2_m);
 
         // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * qm
         // deg 2
@@ -286,7 +282,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto adjacent_values_match_if_adjacent_indices_match =
             ShortAccumulator(index_delta_is_zero_m * record_delta_m); // deg 2
 
-        auto q_aux_by_scaling = Accumulator(q_aux_m * scaling_factor);
+        auto q_aux_by_scaling_m = q_aux_m * scaling_factor;
+        auto q_aux_by_scaling = Accumulator(q_aux_by_scaling_m);
         auto q_one_by_two_m = q_1_m * q_2_m;
         auto q_one_by_two = ShortAccumulator(q_one_by_two_m);
         auto q_one_by_two_by_aux_by_scaling = q_one_by_two * q_aux_by_scaling;
@@ -316,8 +313,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * with a WRITE operation.
          */
         auto neg_access_type_m = (partial_record_check_m - w_4_m); // will be 0 or 1 for honest Prover; deg 1 or 2
-        Accumulator neg_access_type(neg_access_type_m);
-        auto access_check = neg_access_type * neg_access_type + neg_access_type; // check value is 0 or 1; deg 2 or 4
+        ShortAccumulator neg_access_type(neg_access_type_m);
+        auto access_check = neg_access_type.sqr() + neg_access_type; // check value is 0 or 1; deg 2 or 4
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
         // reverse order we could re-use `partial_record_check`  1 -  (w3' * eta_three + w2' * eta_two + w1' *
@@ -339,7 +336,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         // deg 2 or 4
         auto next_gate_access_type_is_boolean = neg_next_gate_access_type.sqr() + neg_next_gate_access_type;
 
-        auto q_arith_by_aux_and_scaling = q_arith * q_aux_by_scaling;
+        auto q_arith_by_aux_and_scaling = Accumulator(q_arith_m * q_aux_by_scaling_m);
         // Putting it all together...
         std::get<3>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
@@ -348,7 +345,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         std::get<5>(accumulators) +=
             ShortView(next_gate_access_type_is_boolean * q_arith_by_aux_and_scaling); // deg 4 or 6
 
-        auto RAM_consistency_check_identity = access_check * (q_arith); // deg 3 or 5
+        auto RAM_consistency_check_identity = access_check * q_arith_by_aux_and_scaling; // deg 3 or 5
 
         /**
          * RAM Timestamp Consistency Check
@@ -371,11 +368,12 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto memory_identity = ROM_consistency_check_identity;                             // deg 3 or 4
         memory_identity += RAM_timestamp_check_identity * ShortAccumulator(q_4_m * q_1_m); // deg 4
         memory_identity += memory_record_check * ShortAccumulator(q_m_m * q_1_m);          // deg 3 or 4
-        memory_identity += RAM_consistency_check_identity;                                 // deg 3 or 5
+        // memory_identity += RAM_consistency_check_identity;                                 // deg 3 or 5
 
         // (deg 3 or 5) + (deg 4) + (deg 3)
         auto auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
-        auxiliary_identity *= q_aux_by_scaling; // deg 5 or 6
+        auxiliary_identity *= q_aux_by_scaling;               // deg 5 or 6
+        auxiliary_identity += RAM_consistency_check_identity; // deg 3 or 5
         std::get<0>(accumulators) += ShortView(auxiliary_identity);
     };
 };

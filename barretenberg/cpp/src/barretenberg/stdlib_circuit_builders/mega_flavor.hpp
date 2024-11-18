@@ -779,7 +779,6 @@ class MegaFlavor {
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_read_tags = "RETURN_DATA_READ_TAGS";
             return_data_inverses = "RETURN_DATA_INVERSES";
-
             q_c = "Q_C";
             q_l = "Q_L";
             q_r = "Q_R";

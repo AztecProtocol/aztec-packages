@@ -43,6 +43,18 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
         Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + DeciderPKs::NUM - 1) * (DeciderPKs::NUM - 1) + 1>;
+    // TODO: use the Monomial type directly
+    // TODO: describe wtf is going on here
+    using ShortUnivariatesNoOptimisticSkipping = typename Flavor::template ProverUnivariates<3>;
+    using ShortUnivariates = typename Flavor::template ProverUnivariatesWithOptimisticSkipping<3, DeciderPKs::NUM - 1>;
+    static constexpr size_t SHORT_LENGTH = 3;
+
+    // using ShortUnivariatesNoOptimisticSkipping =
+    //     typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+    // using ShortUnivariates =
+    //     typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
+    //                                                                       /* SKIP_COUNT= */ DeciderPKs::NUM - 1>;
+    // static constexpr size_t SHORT_LENGTH = ExtendedUnivariate::LENGTH;
     using ExtendedUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
     using ExtendedUnivariates =
@@ -254,16 +266,24 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     template <size_t skip_count = 0>
     static void extend_univariates(
-        std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>&
+        std::conditional_t<
+            std::same_as<Flavor, MegaFlavor>,
+            std::conditional_t<skip_count != 0, ShortUnivariates, ShortUnivariatesNoOptimisticSkipping>,
+            std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>>&
             extended_univariates,
         const DeciderPKs& keys,
         const size_t row_idx)
     {
+        // we get the incoming univariates from the deciver proving key...
+        // we want to access, for each univariate, a parameter that defines the maximu mdegree
         PROFILE_THIS_NAME("PG::extend_univariates");
-        auto incoming_univariates = keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
+        static constexpr size_t len = std::same_as<Flavor, MegaFlavor> ? SHORT_LENGTH : ExtendedUnivariate::LENGTH;
+        auto incoming_univariates = keys.template row_to_univariates<len, skip_count>(row_idx);
         for (auto [extended_univariate, incoming_univariate] :
              zip_view(extended_univariates.get_all(), incoming_univariates)) {
+            //     if constexpr (!std::same_as<Flavor, MegaFlavor>) {
             incoming_univariate.template self_extend_from<NUM_KEYS>();
+            //     }
             extended_univariate = std::move(incoming_univariate);
         }
     }
@@ -350,7 +370,13 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
-            std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
+
+            std::conditional_t<
+                std::same_as<Flavor, MegaFlavor>,
+                std::conditional_t<skip_zero_computations, ShortUnivariates, ShortUnivariatesNoOptimisticSkipping>,
+                std::conditional_t<skip_zero_computations,
+                                   ExtendedUnivariates,
+                                   ExtendedUnivariatesNoOptimisticSkipping>>;
 
         // Construct univariate accumulator containers; one per thread
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);

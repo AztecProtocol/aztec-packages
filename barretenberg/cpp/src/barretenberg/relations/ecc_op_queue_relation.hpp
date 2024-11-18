@@ -67,17 +67,17 @@ template <typename FF_> class EccOpQueueRelationImpl {
     {
         PROFILE_THIS_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto op_wire_1 = View(in.ecc_op_wire_1);
-        auto op_wire_2 = View(in.ecc_op_wire_2);
-        auto op_wire_3 = View(in.ecc_op_wire_3);
-        auto op_wire_4 = View(in.ecc_op_wire_4);
-        auto lagrange_ecc_op = View(in.lagrange_ecc_op);
+        auto w_1 = Accumulator(MonomialAccumulator(in.w_l));
+        auto w_2 = Accumulator(MonomialAccumulator(in.w_r));
+        auto w_3 = Accumulator(MonomialAccumulator(in.w_o));
+        auto w_4 = Accumulator(MonomialAccumulator(in.w_4));
+        auto op_wire_1 = Accumulator(MonomialAccumulator(in.ecc_op_wire_1));
+        auto op_wire_2 = Accumulator(MonomialAccumulator(in.ecc_op_wire_2));
+        auto op_wire_3 = Accumulator(MonomialAccumulator(in.ecc_op_wire_3));
+        auto op_wire_4 = Accumulator(MonomialAccumulator(in.ecc_op_wire_4));
+        auto lagrange_ecc_op = Accumulator(MonomialAccumulator(in.lagrange_ecc_op));
 
         // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
         auto lagrange_by_scaling = lagrange_ecc_op * scaling_factor;

@@ -59,22 +59,21 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
-        using View = typename Accumulator::View;
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto w_1_shift = View(in.w_l_shift);
+        auto w_1 = MonomialAccumulator(in.w_l);
+        auto w_2 = MonomialAccumulator(in.w_r);
+        auto w_3 = MonomialAccumulator(in.w_o);
+        auto w_4 = MonomialAccumulator(in.w_4);
+        auto w_1_shift = MonomialAccumulator(in.w_l_shift);
         auto q_delta_range_m = MonomialAccumulator(in.q_delta_range);
 
         auto q_delta_range_scaled_m = q_delta_range_m * scaling_factor;
         Accumulator q_delta_range_scaled(q_delta_range_scaled_m);
 
         // Compute wire differences
-        auto delta_1 = w_2 - w_1;
-        auto delta_2 = w_3 - w_2;
-        auto delta_3 = w_4 - w_3;
-        auto delta_4 = w_1_shift - w_4;
+        auto delta_1 = Accumulator(w_2 - w_1);
+        auto delta_2 = Accumulator(w_3 - w_2);
+        auto delta_3 = Accumulator(w_4 - w_3);
+        auto delta_4 = Accumulator(w_1_shift - w_4);
 
         // Contribution (1)
         auto tmp_1 = (delta_1 - FF(3)) * delta_1;

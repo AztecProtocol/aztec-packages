@@ -64,19 +64,18 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
-        using View = typename Accumulator::View;
-        auto w_l = View(in.w_l);
+        auto w_l_m = MonomialAccumulator(in.w_l);
         auto w_l_shift_m = MonomialAccumulator(in.w_l_shift);
         auto w_r_shift_m = MonomialAccumulator(in.w_r_shift);
         auto w_o_shift_m = MonomialAccumulator(in.w_o_shift);
         auto w_4_shift_m = MonomialAccumulator(in.w_4_shift);
-        auto q_l = View(in.q_l);
+        auto q_l_m = MonomialAccumulator(in.q_l);
         auto q_poseidon2_internal_m = MonomialAccumulator(in.q_poseidon2_internal);
 
         // old 9 muls,  14 adds
         // new:
         // add round constants
-        auto s1 = w_l + q_l;
+        auto s1 = Accumulator(w_l_m + q_l_m);
 
         // apply s-box round
         auto u1 = s1.sqr();
