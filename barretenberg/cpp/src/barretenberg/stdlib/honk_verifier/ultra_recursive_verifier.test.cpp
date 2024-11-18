@@ -123,8 +123,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     static void test_independent_vk_hash()
     {
         // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-        auto get_blocks = [](size_t inner_size)
-            -> std::tuple<typename OuterBuilder::GateBlocks, std::shared_ptr<typename OuterFlavor::VerificationKey>> {
+        auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
+                                                              std::shared_ptr<typename OuterFlavor::VerificationKey>> {
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit(inner_size);
 
