@@ -1,4 +1,9 @@
-import { type ProvingRequestType, type ServerCircuitProver, type V2ProvingJob } from '@aztec/circuit-types';
+import {
+  ProvingError,
+  type ProvingRequestType,
+  type ServerCircuitProver,
+  type V2ProvingJob,
+} from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
@@ -71,7 +76,8 @@ export class ProvingAgent {
       const { job, time } = maybeJob;
       this.currentJobController = new ProvingJobController(job, time, this.circuitProver, (err, result) => {
         if (err) {
-          return this.jobSource.reportProvingJobError(job.id, err);
+          const retry = err.name === ProvingError.NAME ? (err as ProvingError).retry : false;
+          return this.jobSource.reportProvingJobError(job.id, err, retry);
         } else if (result) {
           return this.jobSource.reportProvingJobSuccess(job.id, result);
         }

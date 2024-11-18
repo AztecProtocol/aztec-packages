@@ -1,4 +1,5 @@
 import {
+  ProvingError,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type V2ProvingJob,
@@ -103,7 +104,19 @@ describe('ProvingAgent', () => {
     agent.start();
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(jobResponse.job.id, new Error('test error'));
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(jobResponse.job.id, new Error('test error'), false);
+  });
+
+  it('sets the retry flag on when reporting an error', async () => {
+    const jobResponse = makeBaseParityJob();
+    const err = new ProvingError('test error', undefined, true);
+    jest.spyOn(prover, 'getBaseParityProof').mockRejectedValueOnce(err);
+
+    jobSource.getProvingJob.mockResolvedValueOnce(jobResponse);
+    agent.start();
+
+    await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(jobResponse.job.id, err, true);
   });
 
   it('reports jobs in progress to the job source', async () => {
