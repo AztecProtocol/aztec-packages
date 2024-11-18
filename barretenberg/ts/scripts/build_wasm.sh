@@ -7,6 +7,7 @@ if [ -z "$SKIP_CPP_BUILD" ]; then
   cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads
   cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
   ./scripts/strip-wasm.sh
+  ./scripts/gzip-wasm.sh
   cd ../ts
 fi
 
