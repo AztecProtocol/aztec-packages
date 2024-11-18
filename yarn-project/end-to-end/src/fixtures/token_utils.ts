@@ -1,3 +1,4 @@
+// docs:start:token_utils
 import { type AztecAddress, type DebugLogger, type Wallet, retryUntil } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
@@ -34,6 +35,7 @@ const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
   };
   await retryUntil(isUserSynchronized, `synch of user ${owner.toString()}`, 10);
 };
+// docs:end:token_utils
 
 export async function expectTokenBalance(
   wallet: Wallet,

@@ -317,7 +317,7 @@ This private function prepares a partial `UintNote` at the recipients storage sl
 
 This private function allows a user to cancel an authwit that was previously granted. This is achieved by emitting the corresponding nullifier before it is used.
 
-#include_code cancel_autwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code cancel_authwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `burn_private`
 
