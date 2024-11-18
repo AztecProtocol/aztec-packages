@@ -76,7 +76,7 @@ resource "helm_release" "aztec-eks-cluster" {
 
   set {
     name  = "validator.replicas"
-    value = 1
+    value = 16
   }
 
   # removing prover nodes

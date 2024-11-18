@@ -19,7 +19,7 @@ variable "testnet_name" {
 variable "values-file" {
   description = "Name of the values file to use for deployment"
   type        = string
-  default     = "multicloud-demo.yaml"
+  default     = "16-validators.yaml"
 }
 
 variable "image" {
