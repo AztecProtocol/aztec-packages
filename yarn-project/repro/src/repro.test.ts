@@ -1,6 +1,10 @@
 import { UltraPlonkBackend } from '@aztec/bb.js';
 
+import createDebug from 'debug';
 import fs from 'fs';
+
+createDebug.log = console.error.bind(console);
+createDebug.enable('*');
 
 describe('Repro test', () => {
   it('Should show two vks are equal', async () => {
@@ -10,9 +14,6 @@ describe('Repro test', () => {
     const backend = new UltraPlonkBackend(circuitArtifact.default.bytecode);
     const generatedVkey = await backend.getVerificationKey();
     const generatedVkeyHex = Buffer.from(generatedVkey).toString('hex');
-
-    console.log(importedFromFileVk);
-    console.log(generatedVkeyHex);
 
     expect(importedFromFileVk).toEqual(generatedVkeyHex);
   });

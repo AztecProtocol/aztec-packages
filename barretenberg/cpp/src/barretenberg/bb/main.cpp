@@ -766,6 +766,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath, co
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
+    info("vk in main.cpp: ", vk->as_data());
     auto serialized_vk = to_buffer(*vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);

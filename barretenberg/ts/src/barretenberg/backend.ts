@@ -128,7 +128,7 @@ export class UltraPlonkBackend {
   /** @description Returns the verification key */
   async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
-    await this.api.acirInitVerificationKey(this.acirComposer);
+    // await this.api.acirInitVerificationKey(this.acirComposer);
     return await this.api.acirGetVerificationKey(this.acirComposer);
   }
 
