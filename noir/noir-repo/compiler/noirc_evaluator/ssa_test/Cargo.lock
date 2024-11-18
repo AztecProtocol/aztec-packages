@@ -957,6 +957,7 @@ dependencies = [
  "bn254_blackbox_solver",
  "cfg-if",
  "chrono",
+ "flate2",
  "fxhash",
  "im",
  "iter-extended",
