@@ -44,6 +44,7 @@ import {
   type PublicActions,
   type PublicClient,
   type PublicRpcSchema,
+  type TransactionReceipt,
   type WalletActions,
   type WalletClient,
   type WalletRpcSchema,
@@ -205,6 +206,7 @@ export class L1Publisher {
 
     this.gasUtils = new GasUtils(
       this.publicClient,
+      this.walletClient,
       this.log,
       {
         bufferPercentage: 20n,
@@ -216,7 +218,6 @@ export class L1Publisher {
         maxAttempts: 5,
         checkIntervalMs: 30_000,
         stallTimeMs: 120_000,
-        gasPriceIncrease: 75n,
       },
     );
   }
@@ -517,28 +518,24 @@ export class L1Publisher {
 
     this.log.verbose(`Submitting propose transaction`);
 
-    const tx = proofQuote
+    const result = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
 
-    if (!tx) {
+    if (!result || result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
 
-    const { hash: txHash, args, functionName, gasLimit } = tx;
-
-    const receipt = await this.getTransactionReceipt(txHash);
-    if (!receipt) {
-      this.log.info(`Failed to get receipt for tx ${txHash}`, ctx);
-      return false;
-    }
+    const { receipt, args, functionName } = result;
 
     // Tx was mined successfully
-    if (receipt.status) {
-      const tx = await this.getTransactionStats(txHash);
+    if (receipt.status === 'success') {
+      const tx = await this.getTransactionStats(receipt.transactionHash);
       const stats: L1PublishBlockStats = {
-        ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
+        gasPrice: receipt.effectiveGasPrice,
+        gasUsed: receipt.gasUsed,
+        transactionHash: receipt.transactionHash,
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
@@ -554,7 +551,6 @@ export class L1Publisher {
     const errorMsg = await this.tryGetErrorFromRevertedTx({
       args,
       functionName,
-      gasLimit,
       abi: RollupAbi,
       address: this.rollupContract.address,
       blockNumber: receipt.blockNumber,
@@ -570,7 +566,6 @@ export class L1Publisher {
   private async tryGetErrorFromRevertedTx(args: {
     args: any[];
     functionName: string;
-    gasLimit: bigint;
     abi: any;
     address: Hex;
     blockNumber: bigint | undefined;
@@ -721,59 +716,23 @@ export class L1Publisher {
       const txArgs = [...this.getSubmitEpochProofArgs(args), proofHex] as const;
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
 
-      // Estimate gas and get price
-      const gasLimit = await this.gasUtils.estimateGas(() =>
-        this.rollupContract.estimateGas.submitEpochRootProof(txArgs, { account: this.account }),
-      );
-      const maxFeePerGas = await this.gasUtils.getGasPrice();
-
-      const txHash = await this.rollupContract.write.submitEpochRootProof(txArgs, {
-        account: this.account,
-        gas: gasLimit,
-        maxFeePerGas,
-      });
-
-      // Monitor transaction
-      await this.gasUtils.monitorTransaction(txHash, this.walletClient, {
+      const txReceipt = await this.gasUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
         data: encodeFunctionData({
           abi: this.rollupContract.abi,
           functionName: 'submitEpochRootProof',
           args: txArgs,
         }),
-        nonce: await this.publicClient.getTransactionCount({ address: this.account.address }),
-        gasLimit,
-        maxFeePerGas,
       });
 
-      return txHash;
+      return txReceipt.transactionHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
       return undefined;
     }
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
-    // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-    const computeTxsEffectsHashGas = await this.gasUtils.estimateGas(() =>
-      this.publicClient.estimateGas({
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'computeTxsEffectsHash',
-          args: [`0x${encodedData.body.toString('hex')}`],
-        }),
-      }),
-    );
-
-    // @note  We perform this guesstimate instead of the usual `gasEstimate` since
-    //        viem will use the current state to simulate against, which means that
-    //        we will fail estimation in the case where we are simulating for the
-    //        first ethereum block within our slot (as current time is not in the
-    //        slot yet).
-    const gasGuesstimate = computeTxsEffectsHashGas + gasGuess;
-    const maxFeePerGas = await this.gasUtils.getGasPrice();
-
+  private prepareProposeTx(encodedData: L1ProcessArgs) {
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -787,7 +746,7 @@ export class L1Publisher {
       `0x${encodedData.body.toString('hex')}`,
     ] as const;
 
-    return { args, gasGuesstimate, maxFeePerGas };
+    return args;
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -818,40 +777,31 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
+  ): Promise<{ receipt: TransactionReceipt; args: any; functionName: string } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
     try {
-      const { args, gasGuesstimate, maxFeePerGas } = await this.prepareProposeTx(
-        encodedData,
-        L1Publisher.PROPOSE_GAS_GUESS,
+      const args = this.prepareProposeTx(encodedData);
+
+      const receipt = await this.gasUtils.sendAndMonitorTransaction(
+        {
+          to: this.rollupContract.address,
+          data: encodeFunctionData({
+            abi: this.rollupContract.abi,
+            functionName: 'propose',
+            args,
+          }),
+        },
+        {
+          bufferFixed: L1Publisher.PROPOSE_GAS_GUESS,
+        },
       );
 
-      const txHash = await this.rollupContract.write.propose(args, {
-        account: this.account,
-        gas: gasGuesstimate,
-        maxFeePerGas,
-      });
-
-      // Monitor the transaction and speed it up if needed
-      const receipt = await this.gasUtils.monitorTransaction(txHash, this.walletClient, {
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'propose',
-          args,
-        }),
-        nonce: await this.publicClient.getTransactionCount({ address: this.account.address }),
-        gasLimit: gasGuesstimate,
-        maxFeePerGas,
-      });
-
       return {
-        hash: receipt.transactionHash,
+        receipt,
         args,
         functionName: 'propose',
-        gasLimit: gasGuesstimate,
       };
     } catch (err) {
       prettyLogViemError(err, this.log);
@@ -863,27 +813,28 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
+  ): Promise<{ receipt: TransactionReceipt; args: any; functionName: string } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
     try {
-      const { args, gasGuesstimate, maxFeePerGas } = await this.prepareProposeTx(
-        encodedData,
-        L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
-      );
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      return {
-        hash: await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
-          account: this.account,
-          gas: gasGuesstimate,
-          maxFeePerGas,
+      const args = this.prepareProposeTx(encodedData);
+      const receipt = await this.gasUtils.sendAndMonitorTransaction({
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: this.rollupContract.abi,
+          functionName: 'proposeAndClaim',
+          args: [...args, quote.toViemArgs()],
         }),
-        functionName: 'proposeAndClaim',
+      });
+
+      return {
+        receipt,
         args,
-        gasLimit: gasGuesstimate,
+        functionName: 'proposeAndClaim',
       };
     } catch (err) {
       prettyLogViemError(err, this.log);

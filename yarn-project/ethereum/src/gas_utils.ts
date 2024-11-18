@@ -4,7 +4,9 @@ import { sleep } from '@aztec/foundation/sleep';
 import {
   type Account,
   type Address,
+  type Chain,
   type Hex,
+  type HttpTransport,
   type PublicClient,
   type TransactionReceipt,
   type WalletClient,
@@ -80,6 +82,7 @@ export class GasUtils {
 
   constructor(
     private readonly publicClient: PublicClient,
+    private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
     private readonly logger?: DebugLogger,
     gasConfig?: GasConfig,
     monitorConfig?: L1TxMonitorConfig,
@@ -102,15 +105,13 @@ export class GasUtils {
    * @returns The hash of the successful transaction
    */
   public async sendAndMonitorTransaction(
-    walletClient: WalletClient,
-    account: Account,
     request: L1TxRequest,
     _gasConfig?: Partial<GasConfig>,
     _monitorConfig?: Partial<L1TxMonitorConfig>,
   ): Promise<TransactionReceipt> {
     const monitorConfig = { ...this.monitorConfig, ..._monitorConfig };
     const gasConfig = { ...this.gasConfig, ..._gasConfig };
-
+    const account = this.walletClient.account;
     // Estimate gas
     const gasLimit = await this.estimateGas(account, request);
 
@@ -118,9 +119,7 @@ export class GasUtils {
     const nonce = await this.publicClient.getTransactionCount({ address: account.address });
 
     // Send initial tx
-    const txHash = await walletClient.sendTransaction({
-      chain: null,
-      account,
+    const txHash = await this.walletClient.sendTransaction({
       ...request,
       gas: gasLimit,
       maxFeePerGas: gasPrice,
@@ -163,15 +162,19 @@ export class GasUtils {
 
         // Check if current tx is pending
         const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
-        if (tx) {
-          this.logger?.debug(`L1 Transaction ${currentTxHash} pending`);
+
+        // Get time passed
+        const timePassed = Date.now() - lastSeen;
+
+        if (tx && timePassed < monitorConfig.stallTimeMs) {
+          this.logger?.debug(`L1 Transaction ${currentTxHash} pending. Time passed: ${timePassed}ms`);
           lastSeen = Date.now();
           await sleep(monitorConfig.checkIntervalMs);
           continue;
         }
 
-        // tx not found and enough time has passed - might be stuck
-        if (Date.now() - lastSeen > monitorConfig.stallTimeMs && attempts < monitorConfig.maxAttempts) {
+        // Enough time has passed - might be stuck
+        if (timePassed > monitorConfig.stallTimeMs && attempts < monitorConfig.maxAttempts) {
           attempts++;
           const newGasPrice = await this.getGasPrice();
 
@@ -181,9 +184,7 @@ export class GasUtils {
           );
 
           // Send replacement tx with higher gas price
-          currentTxHash = await walletClient.sendTransaction({
-            chain: null,
-            account,
+          currentTxHash = await this.walletClient.sendTransaction({
             ...request,
             nonce,
             gas: gasLimit,
@@ -211,7 +212,7 @@ export class GasUtils {
   private async getGasPrice(_gasConfig?: GasConfig): Promise<bigint> {
     const gasConfig = { ...this.gasConfig, ..._gasConfig };
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
-    const baseFee = block.baseFeePerGas ?? 0n; // Keep in Wei
+    const baseFee = block.baseFeePerGas ?? 0n;
     const priorityFee = gasConfig.priorityFeeGwei * WEI_CONST;
 
     // First ensure we're at least meeting the base fee

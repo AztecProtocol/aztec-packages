@@ -29,7 +29,6 @@ describe('GasUtils', () => {
   let gasUtils: GasUtils;
   let publicClient: any;
   let walletClient: any;
-  let account: any;
   let anvil: Anvil;
   let initialBaseFee: bigint;
   const logger = createDebugLogger('l1_gas_test');
@@ -43,7 +42,7 @@ describe('GasUtils', () => {
       throw new Error('Failed to get private key');
     }
     const privKey = Buffer.from(privKeyRaw).toString('hex');
-    account = privateKeyToAccount(`0x${privKey}`);
+    const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
       transport: http(rpcUrl),
@@ -58,6 +57,7 @@ describe('GasUtils', () => {
 
     gasUtils = new GasUtils(
       publicClient,
+      walletClient,
       logger,
       {
         bufferPercentage: 20n,
@@ -77,7 +77,7 @@ describe('GasUtils', () => {
   }, 5000);
 
   it('sends and monitors a simple transaction', async () => {
-    const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, account, {
+    const receipt = await gasUtils.sendAndMonitorTransaction({
       to: '0x1234567890123456789012345678901234567890',
       data: '0x',
       value: 0n,
@@ -92,7 +92,7 @@ describe('GasUtils', () => {
     initialBaseFee = initialBlock.baseFeePerGas ?? 0n;
 
     // Start a transaction
-    const sendPromise = gasUtils.sendAndMonitorTransaction(walletClient, account, {
+    const sendPromise = gasUtils.sendAndMonitorTransaction({
       to: '0x1234567890123456789012345678901234567890',
       data: '0x',
       value: 0n,
@@ -131,7 +131,7 @@ describe('GasUtils', () => {
       params: [],
     });
 
-    const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, account, {
+    const receipt = await gasUtils.sendAndMonitorTransaction({
       to: '0x1234567890123456789012345678901234567890',
       data: '0x',
       value: 0n,
@@ -154,6 +154,7 @@ describe('GasUtils', () => {
     // First deploy without any buffer
     const baselineGasUtils = new GasUtils(
       publicClient,
+      walletClient,
       logger,
       {
         bufferPercentage: 0n,
@@ -168,7 +169,7 @@ describe('GasUtils', () => {
       },
     );
 
-    const baselineTx = await baselineGasUtils.sendAndMonitorTransaction(walletClient, account, {
+    const baselineTx = await baselineGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
       data: SIMPLE_CONTRACT_BYTECODE,
     });
@@ -181,6 +182,7 @@ describe('GasUtils', () => {
     // Now deploy with 20% buffer
     const bufferedGasUtils = new GasUtils(
       publicClient,
+      walletClient,
       logger,
       {
         bufferPercentage: 20n,
@@ -195,7 +197,7 @@ describe('GasUtils', () => {
       },
     );
 
-    const bufferedTx = await bufferedGasUtils.sendAndMonitorTransaction(walletClient, account, {
+    const bufferedTx = await bufferedGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
       data: SIMPLE_CONTRACT_BYTECODE,
     });

@@ -8,7 +8,8 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  NodeInfo,
+  type NodeInfo,
+  NodeInfoSchema,
   PUBLIC_DATA_TREE_HEIGHT,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
@@ -463,6 +464,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getProvenBlockNumber: z.function().returns(z.number()),
 
   isReady: z.function().returns(z.boolean()),
+
+  getNodeInfo: z.function().returns(NodeInfoSchema),
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
 

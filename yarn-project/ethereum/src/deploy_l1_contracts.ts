@@ -617,7 +617,7 @@ export async function deployL1Contract(
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
 
-  const gasUtils = new GasUtils(publicClient, logger);
+  const gasUtils = new GasUtils(publicClient, walletClient, logger);
 
   if (libraries) {
     // @note  Assumes that we wont have nested external libraries.
@@ -667,7 +667,7 @@ export async function deployL1Contract(
     const existing = await publicClient.getBytecode({ address: resultingAddress });
 
     if (existing === undefined || existing === '0x') {
-      const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, walletClient.account!, {
+      const receipt = await gasUtils.sendAndMonitorTransaction({
         to: deployer,
         data: concatHex([salt, calldata]),
       });
@@ -680,7 +680,7 @@ export async function deployL1Contract(
   } else {
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, walletClient.account!, {
+    const receipt = await gasUtils.sendAndMonitorTransaction({
       to: '0x', // Contract creation
       data: deployData,
     });
