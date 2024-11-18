@@ -30,6 +30,8 @@ INSTALL_CHAOS_MESH="${INSTALL_CHAOS_MESH:-}"
 CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
+INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
+CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -50,6 +52,13 @@ kind load docker-image aztecprotocol/aztec:$AZTEC_DOCKER_TAG
 if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
+
+STERN_PID=""
+function copy_stern_to_log() {
+  ulimit -n 4096
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  STERN_PID=$!
+}
 
 function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
@@ -99,23 +108,34 @@ handle_network_shaping() {
     return 0
 }
 
+copy_stern_to_log
 show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) $STERN_PID &>/dev/null || true
+
+  if [ "$CLEANUP_CLUSTER" = "true" ]; then
+    kind delete cluster || true
+  fi
 }
 trap cleanup SIGINT SIGTERM EXIT
+
+# if we don't have a chaos values, remove any existing chaos experiments
+if [ -z "${CHAOS_VALUES:-}" ]; then
+  echo "Deleting existing network chaos experiments..."
+  kubectl delete networkchaos --all --all-namespaces
+fi
+
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set ingress.enabled=true \
       --wait \
       --wait-for-jobs=true \
-      --timeout=30m
+      --timeout="$INSTALL_TIMEOUT"
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
@@ -140,14 +160,16 @@ if ! handle_network_shaping; then
   fi
 fi
 
-# Start port-forwarding with dynamically allocated free ports
-(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe $PXE_PORT:8080 2>/dev/null >/dev/null || true) &
-(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-ethereum $ANVIL_PORT:8545 2>/dev/null >/dev/null || true) &
-
 docker run --rm --network=host \
-  -e PXE_URL=http://127.0.0.1:$PXE_PORT \
+  -v ~/.kube:/root/.kube \
+  -e K8S=true \
+  -e SPARTAN_DIR="/usr/src/spartan" \
+  -e NAMESPACE="$NAMESPACE" \
+  -e HOST_PXE_PORT=$PXE_PORT \
+  -e CONTAINER_PXE_PORT=8080 \
+  -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
+  -e CONTAINER_ETHEREUM_PORT=8545 \
   -e DEBUG="aztec:*" \
-  -e LOG_LEVEL=debug \
-  -e ETHEREUM_HOST=http://127.0.0.1:$ANVIL_PORT \
   -e LOG_JSON=1 \
+  -e LOG_LEVEL=debug \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST

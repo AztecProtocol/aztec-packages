@@ -4,7 +4,7 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type NoteInfo } from '../note_processor/utils/index.js';
+import { type NoteInfo } from '../note_decryption_utils/index.js';
 
 /**
  * A note with contextual data which was decrypted as outgoing.
@@ -39,7 +39,7 @@ export class OutgoingNoteDao {
     payload: L1NotePayload,
     noteInfo: NoteInfo,
     dataStartIndexForTx: number,
-    ivpkM: PublicKey,
+    ovpkM: PublicKey,
   ) {
     const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
     return new OutgoingNoteDao(
@@ -51,7 +51,7 @@ export class OutgoingNoteDao {
       noteInfo.nonce,
       noteInfo.noteHash,
       noteHashIndexInTheWholeTree,
-      ivpkM,
+      ovpkM,
     );
   }
 

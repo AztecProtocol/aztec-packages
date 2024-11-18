@@ -37,6 +37,7 @@ describe('benchmarks/proving', () => {
   let schnorrWalletAddress: CompleteAddress;
 
   let recipient: CompleteAddress;
+  let feeRecipient: CompleteAddress; // The address that receives the fees from the fee refund flow.
 
   let initialGasContract: FeeJuiceContract;
   let initialTestContract: TestContract;
@@ -65,6 +66,10 @@ describe('benchmarks/proving', () => {
     schnorrWalletSalt = Fr.random();
     schnorrWalletEncKey = Fr.random();
     schnorrWalletSigningKey = Fq.random();
+
+    feeRecipient = CompleteAddress.random();
+    recipient = CompleteAddress.random();
+
     const initialSchnorrWallet = await getSchnorrAccount(
       ctx.pxe,
       schnorrWalletEncKey,
@@ -89,7 +94,9 @@ describe('benchmarks/proving', () => {
       .send()
       .deployed();
     initialGasContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, initialSchnorrWallet);
-    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address).send().deployed();
+    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address, feeRecipient)
+      .send()
+      .deployed();
 
     const feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: ctx.aztecNode,
@@ -100,19 +107,17 @@ describe('benchmarks/proving', () => {
       logger: ctx.logger,
     });
 
-    const { secret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      1_000_000_000_000n,
+    const { claimSecret, messageLeafIndex } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
       1_000_000_000_000n,
       initialFpContract.address,
     );
 
+    const from = initialSchnorrWallet.getAddress(); // we are setting from to initial schnorr wallet here because of TODO(#9887)
     await Promise.all([
-      initialGasContract.methods.claim(initialFpContract.address, 1e12, secret).send().wait(),
-      initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
-      initialTokenContract.methods.privately_mint_private_note(1e12).send().wait(),
+      initialGasContract.methods.claim(initialFpContract.address, 1e12, claimSecret, messageLeafIndex).send().wait(),
+      initialTokenContract.methods.mint_to_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialTokenContract.methods.mint_to_private(from, initialSchnorrWallet.getAddress(), 1e12).send().wait(),
     ]);
-
-    recipient = CompleteAddress.random();
   });
 
   // remove the fake prover and setup the real one
@@ -154,8 +159,6 @@ describe('benchmarks/proving', () => {
       await pxe.registerContract(initialTestContract);
       await pxe.registerContract(initialFpContract);
 
-      await pxe.registerRecipient(recipient);
-
       provingPxes.push(pxe);
     }
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up 4 nodes.
@@ -180,7 +183,7 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('+----------------------+');
 
     const fnCalls = [
-      (await getTokenContract(0)).methods.transfer_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(0)).methods.transfer_in_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
       (await getTokenContract(1)).methods.transfer(recipient.address, 1000),
       // (await getTestContractOnPXE(2)).methods.emit_unencrypted(43),
       // (await getTestContractOnPXE(3)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),

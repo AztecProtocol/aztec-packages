@@ -4,13 +4,10 @@ use std::hash::{Hash, Hasher};
 
 use acvm::{
     acir::AcirField,
-    acir::{
-        circuit::{ErrorSelector, STRING_ERROR_SELECTOR},
-        BlackBoxFunc,
-    },
+    acir::{circuit::ErrorSelector, BlackBoxFunc},
     FieldElement,
 };
-use fxhash::FxHasher;
+use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
@@ -573,7 +570,7 @@ impl Instruction {
             Instruction::Constrain(lhs, rhs, assert_error) => {
                 f(*lhs);
                 f(*rhs);
-                if let Some(ConstrainError::Dynamic(_, values)) = assert_error.as_ref() {
+                if let Some(ConstrainError::Dynamic(_, _, values)) = assert_error.as_ref() {
                     values.iter().for_each(|&val| {
                         f(val);
                     });
@@ -958,18 +955,18 @@ fn try_optimize_array_set_from_previous_get(
     SimplifyResult::None
 }
 
-pub(crate) type ErrorType = HirType;
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum ErrorType {
+    String(String),
+    Dynamic(HirType),
+}
 
-pub(crate) fn error_selector_from_type(typ: &ErrorType) -> ErrorSelector {
-    match typ {
-        ErrorType::String(_) => STRING_ERROR_SELECTOR,
-        _ => {
-            let mut hasher = FxHasher::default();
-            typ.hash(&mut hasher);
-            let hash = hasher.finish();
-            assert!(hash != 0, "ICE: Error type {} collides with the string error type", typ);
-            ErrorSelector::new(hash)
-        }
+impl ErrorType {
+    pub fn selector(&self) -> ErrorSelector {
+        let mut hasher = FxHasher64::default();
+        self.hash(&mut hasher);
+        let hash = hasher.finish();
+        ErrorSelector::new(hash)
     }
 }
 
@@ -978,7 +975,8 @@ pub(crate) enum ConstrainError {
     // Static string errors are not handled inside the program as data for efficiency reasons.
     StaticString(String),
     // These errors are handled by the program as data.
-    Dynamic(ErrorSelector, Vec<ValueId>),
+    // We use a boolean to indicate if the error is a string for printing purposes.
+    Dynamic(ErrorSelector, /* is_string */ bool, Vec<ValueId>),
 }
 
 impl From<String> for ConstrainError {

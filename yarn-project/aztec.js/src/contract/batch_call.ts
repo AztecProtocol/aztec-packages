@@ -70,7 +70,10 @@ export class BatchCall extends BaseContractInteraction {
 
     const unconstrainedCalls = unconstrained.map(async indexedCall => {
       const call = indexedCall[0];
-      return [await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.from), indexedCall[1]];
+      return [
+        await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.from),
+        indexedCall[1],
+      ] as const;
     });
 
     const [unconstrainedResults, simulatedTx] = await Promise.all([

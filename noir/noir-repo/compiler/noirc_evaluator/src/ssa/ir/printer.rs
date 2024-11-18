@@ -4,7 +4,6 @@ use std::{
     fmt::{Formatter, Result},
 };
 
-use acvm::acir::circuit::{ErrorSelector, STRING_ERROR_SELECTOR};
 use acvm::acir::AcirField;
 use iter_extended::vecmap;
 
@@ -246,13 +245,24 @@ fn result_types(function: &Function, results: &[ValueId]) -> String {
     }
 }
 
+fn result_types(function: &Function, results: &[ValueId]) -> String {
+    let types = vecmap(results, |result| function.dfg.type_of_value(*result).to_string());
+    if types.is_empty() {
+        String::new()
+    } else if types.len() == 1 {
+        format!(" -> {}", types[0])
+    } else {
+        format!(" -> ({})", types.join(", "))
+    }
+}
+
 /// Tries to extract a constant string from an error payload.
 pub(crate) fn try_to_extract_string_from_error_payload(
-    error_selector: ErrorSelector,
+    is_string_type: bool,
     values: &[ValueId],
     dfg: &DataFlowGraph,
 ) -> Option<String> {
-    ((error_selector == STRING_ERROR_SELECTOR) && (values.len() == 1))
+    (is_string_type && (values.len() == 1))
         .then_some(())
         .and_then(|()| {
             let (values, _) = &dfg.get_array_constant(values[0])?;
@@ -279,9 +289,9 @@ fn display_constrain_error(
         ConstrainError::StaticString(assert_message_string) => {
             writeln!(f, " '{assert_message_string:?}'")
         }
-        ConstrainError::Dynamic(selector, values) => {
+        ConstrainError::Dynamic(_, is_string, values) => {
             if let Some(constant_string) =
-                try_to_extract_string_from_error_payload(*selector, values, &function.dfg)
+                try_to_extract_string_from_error_payload(*is_string, values, &function.dfg)
             {
                 writeln!(f, " '{}'", constant_string)
             } else {

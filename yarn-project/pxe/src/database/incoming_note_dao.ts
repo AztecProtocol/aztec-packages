@@ -5,7 +5,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type NoteData } from '@aztec/simulator';
 
-import { type NoteInfo } from '../note_processor/utils/index.js';
+import { type NoteInfo } from '../note_decryption_utils/index.js';
 
 /**
  * A note with contextual data which was decrypted as incoming.
@@ -37,7 +37,7 @@ export class IncomingNoteDao implements NoteData {
     /** The location of the relevant note in the note hash tree. */
     public index: bigint,
     /** The public key with which the note was encrypted. */
-    public ivpkM: PublicKey,
+    public addressPoint: PublicKey,
   ) {}
 
   static fromPayloadAndNoteInfo(
@@ -45,7 +45,7 @@ export class IncomingNoteDao implements NoteData {
     payload: L1NotePayload,
     noteInfo: NoteInfo,
     dataStartIndexForTx: number,
-    ivpkM: PublicKey,
+    addressPoint: PublicKey,
   ) {
     const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
     return new IncomingNoteDao(
@@ -58,7 +58,7 @@ export class IncomingNoteDao implements NoteData {
       noteInfo.noteHash,
       noteInfo.siloedNullifier,
       noteHashIndexInTheWholeTree,
-      ivpkM,
+      addressPoint,
     );
   }
 
@@ -73,7 +73,7 @@ export class IncomingNoteDao implements NoteData {
       this.noteHash,
       this.siloedNullifier,
       this.index,
-      this.ivpkM,
+      this.addressPoint,
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {

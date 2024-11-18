@@ -53,6 +53,7 @@ contract AppSubscription {
             &mut context,
             keys.ovpk_m,
             user_address,
+            user_address,
         ));
 
         context.set_as_fee_payer();
@@ -95,7 +96,7 @@ contract AppSubscription {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
         Token::at(storage.subscription_token_address.read_private())
-            .transfer_from(
+            .transfer_in_private(
                 context.msg_sender(),
                 storage.subscription_recipient_address.read_private(),
                 storage.subscription_price.read_private(),
@@ -116,7 +117,12 @@ contract AppSubscription {
         let mut subscription_note =
             SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
-            encode_and_encrypt_note(&mut context, msg_sender_ovpk_m, subscriber),
+            encode_and_encrypt_note(
+                &mut context,
+                msg_sender_ovpk_m,
+                subscriber,
+                context.msg_sender(),
+            ),
         );
     }
 

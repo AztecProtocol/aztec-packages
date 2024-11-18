@@ -612,16 +612,6 @@ mod test {
     // Regression for #4600
     #[test]
     fn array_get_regression() {
-        // fn main f0 {
-        //   b0(v0: u1, v1: u64):
-        //     enable_side_effects_if v0
-        //     v2 = make_array [Field 0, Field 1]
-        //     v3 = array_get v2, index v1
-        //     v4 = not v0
-        //     enable_side_effects_if v4
-        //     v5 = array_get v2, index v1
-        // }
-        //
         // We want to make sure after constant folding both array_gets remain since they are
         // under different enable_side_effects_if contexts and thus one may be disabled while
         // the other is not. If one is removed, it is possible e.g. v4 is replaced with v2 which

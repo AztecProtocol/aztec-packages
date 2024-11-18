@@ -15,8 +15,7 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
-import type { Instruction } from './opcodes/index.js';
-import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
+import { decodeInstructionFromBytecode } from './serialization/bytecode_serialization.js';
 
 type OpcodeTally = {
   count: number;
@@ -31,8 +30,8 @@ type PcTally = {
 export class AvmSimulator {
   private log: DebugLogger;
   private bytecode: Buffer | undefined;
-  public opcodeTallies: Map<string, OpcodeTally> = new Map();
-  public pcTallies: Map<number, PcTally> = new Map();
+  private opcodeTallies: Map<string, OpcodeTally> = new Map();
+  private pcTallies: Map<number, PcTally> = new Map();
 
   constructor(private context: AvmContext) {
     assert(
@@ -70,24 +69,17 @@ export class AvmSimulator {
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
     assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
+    assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
     this.bytecode = bytecode;
-    return await this.executeInstructions(decodeFromBytecode(bytecode));
-  }
 
-  /**
-   * Executes the provided instructions in the current context.
-   * This method is useful for testing and debugging.
-   */
-  public async executeInstructions(instructions: Instruction[]): Promise<AvmContractCallResult> {
-    assert(instructions.length > 0);
     const { machineState } = this.context;
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
       let instrCounter = 0;
       while (!machineState.getHalted()) {
-        const instruction = instructions[machineState.pc];
+        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc);
         assert(
           !!instruction,
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
@@ -104,7 +96,12 @@ export class AvmSimulator {
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
+        machineState.nextPc = machineState.pc + bytesRead;
         await instruction.execute(this.context);
+        if (!instruction.handlesPC()) {
+          // Increment PC if the instruction doesn't handle it itself
+          machineState.pc += bytesRead;
+        }
 
         // gas used by this instruction - used for profiling/tallying
         const gasUsed: Gas = {
@@ -113,9 +110,9 @@ export class AvmSimulator {
         };
         this.tallyInstruction(instrPc, instruction.constructor.name, gasUsed);
 
-        if (machineState.pc >= instructions.length) {
+        if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
-          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
+          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ bytecode.length);
         }
       }
 
@@ -136,7 +133,7 @@ export class AvmSimulator {
       }
 
       const revertReason = revertReasonFromExceptionalHalt(err, this.context);
-      // Note: "exceptional halts" cannot return data, hence []
+      // Note: "exceptional halts" cannot return data, hence [].
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 

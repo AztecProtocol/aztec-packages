@@ -8,6 +8,8 @@ import {
 } from '@aztec/bb-prover';
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AztecAddress,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -25,6 +27,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
@@ -35,6 +38,8 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import fs from 'fs/promises';
@@ -66,12 +71,13 @@ describe('AVM Integration', () => {
   async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
     const witnessFileName = path.join(bbWorkingDirectory, 'witnesses.gz');
     await fs.writeFile(witnessFileName, witness);
-
+    const recursive = false;
     const provingResult = await generateProof(
       bbBinaryPath,
       bbWorkingDirectory,
       'mock-public-kernel',
       Buffer.from(bytecode, 'base64'),
+      recursive,
       witnessFileName,
       'ultra_honk',
       logger.info,
@@ -170,7 +176,7 @@ const proveAvmTestContract = async (
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
-    deployer: new Fr(0x456),
+    deployer: AztecAddress.fromNumber(0x456),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeys: new PublicKeys(
@@ -194,7 +200,10 @@ const proveAvmTestContract = async (
   worldStateDB.storageRead.mockResolvedValue(storageValue);
 
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
-  const persistableState = initPersistableStateManager({ worldStateDB, trace });
+  const telemetry = new NoopTelemetryClient();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
+  worldStateDB.getMerkleInterface.mockReturnValue(merkleTrees);
+  const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees, doMerkleOperations: true });
   const environment = initExecutionEnvironment({
     functionSelector,
     calldata,
@@ -221,10 +230,12 @@ const proveAvmTestContract = async (
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
     expect(avmResult.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!, avmResult.output)).toContain(
+      assertionErrString,
+    );
   }
 
-  const pxResult = trace.toPublicExecutionResult(
+  const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
     /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
@@ -238,6 +249,7 @@ const proveAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

@@ -47,7 +47,7 @@ describe('benchmarks/tx_size_fees', () => {
   beforeAll(async () => {
     feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
-    fpc = await FPCContract.deploy(aliceWallet, token.address).send().deployed();
+    fpc = await FPCContract.deploy(aliceWallet, token.address, sequencerAddress).send().deployed();
   });
 
   // mint tokens
@@ -61,23 +61,19 @@ describe('benchmarks/tx_size_fees', () => {
       logger: ctx.logger,
     });
 
-    const { secret: fpcSecret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      100_000_000_000n,
-      100_000_000_000n,
-      fpc.address,
-    );
-    const { secret: aliceSecret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      100_000_000_000n,
-      100_000_000_000n,
-      aliceWallet.getAddress(),
-    );
+    const { claimSecret: fpcSecret, messageLeafIndex: fpcLeafIndex } =
+      await feeJuiceBridgeTestHarness.prepareTokensOnL1(100_000_000_000n, fpc.address);
+
+    const { claimSecret: aliceSecret, messageLeafIndex: aliceLeafIndex } =
+      await feeJuiceBridgeTestHarness.prepareTokensOnL1(100_000_000_000n, aliceWallet.getAddress());
 
     await Promise.all([
-      feeJuice.methods.claim(fpc.address, 100e9, fpcSecret).send().wait(),
-      feeJuice.methods.claim(aliceWallet.getAddress(), 100e9, aliceSecret).send().wait(),
+      feeJuice.methods.claim(fpc.address, 100e9, fpcSecret, fpcLeafIndex).send().wait(),
+      feeJuice.methods.claim(aliceWallet.getAddress(), 100e9, aliceSecret, aliceLeafIndex).send().wait(),
     ]);
-    await token.methods.privately_mint_private_note(100e9).send().wait();
-    await token.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait();
+    const from = aliceWallet.getAddress(); // we are setting from to Alice here because of TODO(#9887)
+    await token.methods.mint_to_private(from, aliceWallet.getAddress(), 100e9).send().wait();
+    await token.methods.mint_to_public(aliceWallet.getAddress(), 100e9).send().wait();
   });
 
   it.each<[string, () => FeePaymentMethod | undefined /*bigint*/]>([
@@ -99,7 +95,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'private fee',
-      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet),
+      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet, sequencerAddress),
       // DA:
       // non-rev: 3 nullifiers, overhead; rev: 2 note hashes, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:

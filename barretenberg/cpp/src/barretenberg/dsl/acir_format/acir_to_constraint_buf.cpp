@@ -2,7 +2,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
@@ -800,7 +800,6 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
-    af.recursive = circuit.recursive;
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });

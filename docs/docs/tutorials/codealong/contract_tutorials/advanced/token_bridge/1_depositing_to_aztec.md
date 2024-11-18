@@ -57,8 +57,8 @@ Here is an explanation of what it is doing:
    - The content is limited to a single field (~254 bits). So if the content is larger, we have to hash it and the hash can be passed along.
      - We use our utility method that creates a sha256 hash but truncates it to fit into a field
    - Since we want to mint tokens on Aztec publicly, the content here is the amount to mint and the address on Aztec who will receive the tokens.
-   - We encode this message as a mint_public function call, to specify the exact intentions and parameters we want to execute on L2.
-     - In reality the content can be constructed in any manner as long as the sister contract on L2 can also create it. But for clarity, we are constructing the content like a abi encoded function call.
+   - We encode this message as a mint_to_public function call, to specify the exact intentions and parameters we want to execute on L2.
+     - In reality the content can be constructed in any manner as long as the sister contract on L2 can also create it. But for clarity, we are constructing the content like an ABI encoded function call.
      - It is good practice to include all parameters used by L2 into this content (like the amount and to) so that a malicious actor can’t change the to to themselves when consuming the message.
 3. The tokens are transferred from the user to the portal using `underlying.safeTransferFrom()`. This puts the funds under the portal's control.
 4. Next we send the message to the inbox contract. The inbox expects the following parameters:
@@ -78,8 +78,7 @@ Let’s do the similar for the private flow:
 
 Here we want to send a message to mint tokens privately on Aztec! Some key differences from the previous method are:
 
-- The content hash uses a different function name - `mint_private`. This is done to make it easy to separate concerns. If the contentHash between the public and private message was the same, then an attacker could consume a private message publicly!
-- Since we want to mint tokens privately, we shouldn’t specify a `to` Aztec address (remember that Ethereum is completely public). Instead, we will use a secret hash - `secretHashForRedeemingMintedNotes`. Only he who knows the preimage to the secret hash can actually mint the notes. This is similar to the mechanism we use for message consumption on L2
+- The content hash uses a different function name - `mint_to_private`. This is done to make it easy to separate concerns. If the contentHash between the public and private message was the same, then an attacker could consume a private message publicly!
 - Like with the public flow, we move the user’s funds to the portal
 - We now send the message to the inbox with the `recipient` (the sister contract on L2 along with the version of aztec the message is intended for) and the `secretHashForL2MessageConsumption` (such that on L2, the consumption of the message can be private).
 

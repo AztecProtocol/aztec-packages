@@ -19,7 +19,6 @@ import { aliasedAddressParser } from './index.js';
 
 export type CliFeeArgs = {
   estimateGasOnly: boolean;
-  inclusionFee?: bigint;
   gasLimits?: string;
   payment?: string;
   estimateGas?: boolean;
@@ -36,9 +35,8 @@ export function printGasEstimates(
   gasEstimates: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
   log: LogFn,
 ) {
-  const inclusionFee = feeOpts.gasSettings.inclusionFee;
-  log(`Maximum total tx fee:   ${getEstimatedCost(gasEstimates, inclusionFee, GasSettings.default().maxFeesPerGas)}`);
-  log(`Estimated total tx fee: ${getEstimatedCost(gasEstimates, inclusionFee, GasFees.default())}`);
+  log(`Maximum total tx fee:   ${getEstimatedCost(gasEstimates, GasSettings.default().maxFeesPerGas)}`);
+  log(`Estimated total tx fee: ${getEstimatedCost(gasEstimates, GasFees.default())}`);
   log(`Estimated gas usage:    ${formatGasEstimate(gasEstimates)}`);
 }
 
@@ -46,12 +44,8 @@ function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGa
   return `da=${estimate.gasLimits.daGas},l2=${estimate.gasLimits.l2Gas},teardownDA=${estimate.teardownGasLimits.daGas},teardownL2=${estimate.teardownGasLimits.l2Gas}`;
 }
 
-function getEstimatedCost(
-  estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
-  inclusionFee: Fr,
-  fees: GasFees,
-) {
-  return GasSettings.from({ ...GasSettings.default(), ...estimate, inclusionFee, maxFeesPerGas: fees })
+function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, fees: GasFees) {
+  return GasSettings.from({ ...GasSettings.default(), ...estimate, maxFeesPerGas: fees })
     .getFeeLimit()
     .toBigInt();
 }
@@ -76,7 +70,7 @@ export class FeeOpts implements IFeeOpts {
 
   static paymentMethodOption() {
     return new Option(
-      '--payment <method=name,asset=address,fpc=address,claimSecret=string,claimAmount=string,rebateSecret=string>',
+      '--payment <method=name,asset=address,fpc=address,claimSecret=string,claimAmount=string,feeRecipient=string>',
       'Fee payment method and arguments. Valid methods are: none, fee_juice, fpc-public, fpc-private.',
     );
   }
@@ -93,13 +87,12 @@ export class FeeOpts implements IFeeOpts {
 
   static fromCli(args: CliFeeArgs, log: LogFn, db?: WalletDB) {
     const estimateOnly = args.estimateGasOnly;
-    if (!args.inclusionFee && !args.gasLimits && !args.payment) {
+    if (!args.gasLimits && !args.payment) {
       return new NoFeeOpts(estimateOnly);
     }
     const gasSettings = GasSettings.from({
       ...GasSettings.default(),
       ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
-      ...(args.inclusionFee ? { inclusionFee: new Fr(args.inclusionFee) } : {}),
       maxFeesPerGas: GasFees.default(),
     });
     return new FeeOpts(
@@ -141,10 +134,15 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
+    if (!parsed.feeRecipient) {
+      // Recipient of a fee in the refund flow
+      throw new Error('Missing "feeRecipient" in payment option');
+    }
 
     const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
+    const feeRecipient = AztecAddress.fromString(parsed.feeRecipient);
 
-    return [AztecAddress.fromString(parsed.asset), fpc];
+    return [AztecAddress.fromString(parsed.asset), fpc, feeRecipient];
   };
 
   return async (sender: AccountWallet) => {
@@ -153,19 +151,23 @@ export function parsePaymentMethod(
         log('Using no fee payment');
         return new NoFeePaymentMethod();
       case 'native':
-        if (parsed.claim || (parsed.claimSecret && parsed.claimAmount)) {
-          let claimAmount, claimSecret;
+        if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
+          let claimAmount, claimSecret, messageLeafIndex;
           if (parsed.claim && db) {
-            ({ amount: claimAmount, secret: claimSecret } = await db.popBridgedFeeJuice(sender.getAddress(), log));
+            ({
+              amount: claimAmount,
+              secret: claimSecret,
+              leafIndex: messageLeafIndex,
+            } = await db.popBridgedFeeJuice(sender.getAddress(), log));
           } else {
-            ({ claimAmount, claimSecret } = parsed);
+            ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
-          return new FeeJuicePaymentMethodWithClaim(
-            sender.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret),
-          );
+          return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
+            claimAmount: typeof claimAmount === 'string' ? Fr.fromString(claimAmount) : new Fr(claimAmount),
+            claimSecret: Fr.fromString(claimSecret),
+            messageLeafIndex: BigInt(messageLeafIndex),
+          });
         } else {
           log(`Using Fee Juice for fee payment`);
           return new FeeJuicePaymentMethod(sender.getAddress());
@@ -176,12 +178,11 @@ export function parsePaymentMethod(
         return new PublicFeePaymentMethod(asset, fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc] = getFpcOpts(parsed, db);
-        const rebateSecret = parsed.rebateSecret ? Fr.fromString(parsed.rebateSecret) : Fr.random();
+        const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
         log(
-          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${rebateSecret.toString()}`,
+          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient.toString()}`,
         );
-        return new PrivateFeePaymentMethod(asset, fpc, sender, rebateSecret);
+        return new PrivateFeePaymentMethod(asset, fpc, sender, feeRecipient);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');

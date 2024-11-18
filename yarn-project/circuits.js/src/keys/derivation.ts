@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
@@ -46,7 +46,7 @@ export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
   return poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
 }
 
-export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr) {
+export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): AztecAddress {
   // Given public keys and a partial address, we can compute our address in the following steps.
   // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
   // 2. addressPoint = (preaddress * G) + ivpk_m
@@ -57,7 +57,7 @@ export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr) {
     publicKeys.masterIncomingViewingPublicKey,
   );
 
-  return address.x;
+  return new AztecAddress(address.x);
 }
 
 export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
@@ -83,7 +83,7 @@ export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
 }
 
 export function computePoint(address: AztecAddress) {
-  return Point.fromXAndSign(address, true);
+  return Point.fromXAndSign(address.toField(), true);
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {
@@ -134,5 +134,8 @@ export function computeTaggingSecret(knownAddress: CompleteAddress, ivsk: Fq, ex
   const curve = new Grumpkin();
   // Given A (known complete address) -> B (external address) and h == preaddress
   // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
-  return curve.mul(externalAddressPoint, ivsk.add(new Fq(knownPreaddress.toBigInt())));
+
+  // Beware! h_a + ivsk_a (also known as the address secret) can lead to an address point with a negative y-coordinate, since there's two possible candidates
+  // computeAddressSecret takes care of selecting the one that leads to a positive y-coordinate, which is the only valid address point
+  return curve.mul(externalAddressPoint, computeAddressSecret(knownPreaddress, ivsk));
 }

@@ -24,7 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
@@ -62,7 +62,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
-  private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
+  private contractClassLogs: CountedLog<UnencryptedL2Log>[] = [];
   private nestedExecutions: PrivateExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
@@ -151,10 +151,10 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Return the encrypted logs emitted during this execution.
+   * Return the contract class logs emitted during this execution.
    */
-  public getUnencryptedLogs() {
-    return this.unencryptedLogs;
+  public getContractClassLogs() {
+    return this.contractClassLogs;
   }
 
   /**
@@ -361,29 +361,17 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Emit an unencrypted log.
-   * @param log - The unencrypted log to be emitted.
-   */
-  public override emitUnencryptedLog(log: UnencryptedL2Log, counter: number) {
-    this.unencryptedLogs.push(new CountedLog(log, counter));
-    const text = log.toHumanReadable();
-    this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
-  }
-
-  /**
    * Emit a contract class unencrypted log.
    * This fn exists separately from emitUnencryptedLog because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
    * See private_context.nr
    * @param log - The unencrypted log to be emitted.
    */
-  public override emitContractClassUnencryptedLog(log: UnencryptedL2Log, counter: number) {
-    this.unencryptedLogs.push(new CountedLog(log, counter));
+  public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {
+    this.contractClassLogs.push(new CountedLog(log, counter));
     const text = log.toHumanReadable();
     this.log.verbose(
-      `Emitted unencrypted log from ContractClassRegisterer: "${
-        text.length > 100 ? text.slice(0, 100) + '...' : text
-      }"`,
+      `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
     return Fr.fromBuffer(log.hash());
   }
@@ -394,7 +382,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
@@ -608,5 +596,20 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   public getDebugFunctionName() {
     return this.db.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+  }
+
+  public override async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
+    await this.db.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
+  }
+
+  public override async syncNotes() {
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+      this.contractAddress,
+      this.historicalHeader.globalVariables.blockNumber.toNumber(),
+      this.scopes,
+    );
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
   }
 }

@@ -22,10 +22,11 @@ class ECCVMVerifier {
     explicit ECCVMVerifier(const std::shared_ptr<ECCVMVerifier::ProvingKey>& proving_key)
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
-    bool verify_proof(const HonkProof& proof);
+    bool verify_proof(const ECCVMProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> ipa_transcript;
 };
 } // namespace bb

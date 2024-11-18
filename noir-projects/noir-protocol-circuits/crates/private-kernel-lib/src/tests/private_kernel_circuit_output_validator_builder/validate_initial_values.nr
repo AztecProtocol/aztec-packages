@@ -28,15 +28,6 @@ fn validate_initial_values_constants_mismatch_txs_effects_hash_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with = "constants.global_variables must be empty")]
-fn validate_initial_values_constants_non_empty_global_variables_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.global_variables.block_number += 1;
-
-    builder.validate_as_first_call();
-}
-
 /**
  * First nullifier.
  */

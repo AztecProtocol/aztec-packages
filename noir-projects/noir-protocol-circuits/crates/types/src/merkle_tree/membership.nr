@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub struct MembershipWitness<let N: u32> {
-    leaf_index: Field,
-    sibling_path: [Field; N],
+    pub leaf_index: Field,
+    pub sibling_path: [Field; N],
 }
 
 impl<let N: u32> Empty for MembershipWitness<N> {

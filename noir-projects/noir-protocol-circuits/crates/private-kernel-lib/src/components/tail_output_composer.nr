@@ -7,6 +7,8 @@ use crate::components::{
 use dep::types::{
     abis::{
         accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
+        combined_constant_data::CombinedConstantData,
+        global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
         log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
         note_hash::ScopedNoteHash,
@@ -33,7 +35,9 @@ impl TailOutputComposer {
         let mut output = KernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;
         output.end = self.build_combined_accumulated_data();
-        output.constants = source.constants;
+        output.gas_used = meter_gas_used(output.end);
+        output.constants =
+            CombinedConstantData::combine(source.constants, GlobalVariables::empty());
         output.fee_payer = source.fee_payer;
         output
     }
@@ -50,21 +54,17 @@ impl TailOutputComposer {
         data.encrypted_logs_hashes = source.encrypted_logs_hashes.storage.map(
             |l: ScopedEncryptedLogHash| l.expose_to_public(),
         );
-        data.unencrypted_logs_hashes =
-            source.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public());
+        data.contract_class_logs_hashes =
+            source.contract_class_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public());
         data.note_encrypted_log_preimages_length =
             source.note_encrypted_logs_hashes.storage.fold(0, |len, l: NoteLogHash| len + l.length);
         data.encrypted_log_preimages_length = source.encrypted_logs_hashes.storage.fold(
             0,
             |len, l: ScopedEncryptedLogHash| len + l.log_hash.length,
         );
-        data.unencrypted_log_preimages_length = source.unencrypted_logs_hashes.storage.fold(
+        data.contract_class_log_preimages_length = source.contract_class_logs_hashes.storage.fold(
             0,
             |len, l: ScopedLogHash| len + l.log_hash.length,
-        );
-        data.gas_used = meter_gas_used(
-            data,
-            self.output_composer.public_inputs.constants.tx_context.gas_settings,
         );
         data
     }

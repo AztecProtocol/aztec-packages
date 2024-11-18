@@ -3,6 +3,7 @@ import {
   type CompleteAddress,
   type ContractInstanceWithAddress,
   type Header,
+  type IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -11,7 +12,6 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type DeferredNoteDao } from './deferred_note_dao.js';
 import { type IncomingNoteDao } from './incoming_note_dao.js';
 import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
@@ -90,25 +90,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
-   * Add notes to the database that are intended for us, but we don't yet have the contract.
-   * @param deferredNotes - An array of deferred notes.
-   */
-  addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
-
-  /**
-   * Get deferred notes for a given contract address.
-   * @param contractAddress - The contract address to get the deferred notes for.
-   */
-  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
-
-  /**
-   * Remove deferred notes for a given contract address.
-   * @param contractAddress - The contract address to remove the deferred notes for.
-   * @returns an array of the removed deferred notes
-   */
-  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
-
-  /**
    * Remove nullified notes associated with the given account and nullifiers.
    *
    * @param nullifiers - An array of Fr instances representing nullifiers to be matched.
@@ -144,6 +125,26 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
   setHeader(header: Header): Promise<void>;
+
+  /**
+   * Adds contact address to the database.
+   * @param address - The address to add to the address book.
+   * @returns A promise resolving to true if the address was added, false if it already exists.
+   */
+  addContactAddress(address: AztecAddress): Promise<boolean>;
+
+  /**
+   * Retrieves the list of contact addresses in the address book.
+   * @returns An array of Aztec addresses.
+   */
+  getContactAddresses(): AztecAddress[];
+
+  /**
+   * Removes a contact address from the database.
+   * @param address - The address to remove from the address book.
+   * @returns A promise resolving to true if the address was removed, false if it does not exist.
+   */
+  removeContactAddress(address: AztecAddress): Promise<boolean>;
 
   /**
    * Adds complete address to the database.
@@ -186,7 +187,31 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    */
   estimateSize(): Promise<number>;
 
-  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]>;
+  /**
+   * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been seen.
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   * @returns The indexes for the provided secrets, 0 if they've never been seen.
+   */
+  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<number[]>;
 
-  incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void>;
+  /**
+   * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been used
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   * @returns The indexes for the provided secrets, 0 if they've never been seen.
+   */
+  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
+
+  /**
+   * Increments the index for the provided app siloed tagging secrets in the senders database
+   * To be used when the generated tags have been used as sender
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   */
+  incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
+
+  /**
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a recipient
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   */
+  setTaggingSecretsIndexesAsRecipient(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
 }

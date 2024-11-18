@@ -77,7 +77,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     {
         InnerBuilder builder = generate_circuit(&engine);
         InnerProver prover(builder);
-        auto proof = prover.construct_proof();
+        ECCVMProof proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
         info("ECCVM Recursive Verifier");
@@ -95,7 +95,6 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         InnerVerifier native_verifier(prover.key);
         bool native_result = native_verifier.verify_proof(proof);
         EXPECT_TRUE(native_result);
-
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
@@ -129,7 +128,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         InnerBuilder builder = generate_circuit(&engine);
         builder.op_queue->add_erroneous_equality_op_for_testing();
         InnerProver prover(builder);
-        auto proof = prover.construct_proof();
+        ECCVMProof proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
         OuterBuilder outer_circuit;

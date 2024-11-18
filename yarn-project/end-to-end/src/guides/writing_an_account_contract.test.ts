@@ -4,12 +4,9 @@ import {
   AuthWitness,
   type AuthWitnessProvider,
   type CompleteAddress,
-  ExtendedNote,
   Fr,
   GrumpkinScalar,
-  Note,
   Schnorr,
-  computeSecretHash,
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -66,24 +63,9 @@ describe('guides/writing_an_account_contract', () => {
     const token = await TokenContract.deploy(wallet, address, 'TokenName', 'TokenSymbol', 18).send().deployed();
     logger.info(`Deployed token contract at ${token.address}`);
 
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-
     const mintAmount = 50n;
-    const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
-
-    const note = new Note([new Fr(mintAmount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      address,
-      token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      receipt.txHash,
-    );
-    await wallet.addNote(extendedNote);
-
-    await token.methods.redeem_shield(address, mintAmount, secret).send().wait();
+    const from = address; // we are setting from to address here because of TODO(#9887)
+    await token.methods.mint_to_private(from, address, mintAmount).send().wait();
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);
@@ -98,7 +80,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_private(200, secretHash).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

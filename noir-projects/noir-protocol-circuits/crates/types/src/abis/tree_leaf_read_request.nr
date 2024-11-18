@@ -1,8 +1,8 @@
 use crate::{constants::TREE_LEAF_READ_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct TreeLeafReadRequest {
-    value: Field,
-    leaf_index: Field,
+    pub value: Field,
+    pub leaf_index: Field,
 }
 
 impl Eq for TreeLeafReadRequest {

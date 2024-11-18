@@ -1,8 +1,11 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Secp256k1Signer, keccak256 } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
@@ -13,6 +16,14 @@ export class EpochProofQuote extends Gossipable {
 
   constructor(public readonly payload: EpochProofQuotePayload, public readonly signature: Signature) {
     super();
+  }
+
+  static empty() {
+    return new EpochProofQuote(EpochProofQuotePayload.empty(), Signature.empty());
+  }
+
+  static random() {
+    return new EpochProofQuote(EpochProofQuotePayload.random(), Signature.random());
   }
 
   static getFields(fields: FieldsOf<EpochProofQuote>) {
@@ -40,8 +51,17 @@ export class EpochProofQuote extends Gossipable {
     };
   }
 
+  static get schema() {
+    return z
+      .object({
+        payload: EpochProofQuotePayload.schema,
+        signature: schemas.Signature,
+      })
+      .transform(({ payload, signature }) => new EpochProofQuote(payload, signature));
+  }
+
   static fromJSON(obj: any) {
-    return new EpochProofQuote(EpochProofQuotePayload.fromJSON(obj.payload), Signature.from0xString(obj.signature));
+    return EpochProofQuote.schema.parse(obj);
   }
 
   // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911

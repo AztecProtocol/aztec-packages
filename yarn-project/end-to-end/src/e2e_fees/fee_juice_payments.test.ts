@@ -43,21 +43,17 @@ describe('e2e_fees Fee Juice payments', () => {
     it('fails to send a tx', async () => {
       await expect(
         bananaCoin.methods
-          .transfer_public(aliceAddress, bobAddress, 1n, 0n)
+          .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
           .send({ fee: { gasSettings, paymentMethod } })
           .wait(),
       ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/i);
     });
 
     it('claims bridged funds and pays with them on the same tx', async () => {
-      const { secret } = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(
-        t.INITIAL_GAS_BALANCE,
-        t.INITIAL_GAS_BALANCE,
-        aliceAddress,
-      );
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(aliceAddress, t.INITIAL_GAS_BALANCE, secret);
+      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(t.INITIAL_GAS_BALANCE, aliceAddress);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(aliceAddress, claim);
       const receipt = await bananaCoin.methods
-        .transfer_public(aliceAddress, bobAddress, 1n, 0n)
+        .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
         .send({ fee: { gasSettings, paymentMethod } })
         .wait();
       const endBalance = await feeJuiceContract.methods.balance_of_public(aliceAddress).simulate();
@@ -76,7 +72,7 @@ describe('e2e_fees Fee Juice payments', () => {
     it('sends tx with payment in Fee Juice with public calls', async () => {
       const initialBalance = await feeJuiceContract.methods.balance_of_public(aliceAddress).simulate();
       const { transactionFee } = await bananaCoin.methods
-        .transfer_public(aliceAddress, bobAddress, 1n, 0n)
+        .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
         .send({ fee: { gasSettings, paymentMethod } })
         .wait();
       expect(transactionFee).toBeGreaterThan(0n);

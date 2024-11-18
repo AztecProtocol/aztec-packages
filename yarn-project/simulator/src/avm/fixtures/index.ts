@@ -1,6 +1,6 @@
-import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { GasFees, GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
-import { FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,7 +10,7 @@ import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { type WorldStateDB, resolveAssertionMessage, traverseCauseChain } from '../../index.js';
+import { type WorldStateDB, resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../index.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -42,6 +42,8 @@ export function initPersistableStateManager(overrides?: {
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
+  doMerkleOperations?: boolean;
+  merkleTrees?: MerkleTreeWriteOperations;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -49,6 +51,8 @@ export function initPersistableStateManager(overrides?: {
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
     overrides?.publicStorage || new PublicStorage(worldStateDB),
     overrides?.nullifiers || new NullifierManager(worldStateDB),
+    overrides?.doMerkleOperations || false,
+    overrides?.merkleTrees || mock<MerkleTreeWriteOperations>(),
   );
 }
 
@@ -124,33 +128,33 @@ export function getAvmTestContractFunctionSelector(functionName: string): Functi
   return FunctionSelector.fromNameAndParameters(artifact.name, params);
 }
 
-export function getAvmTestContractBytecode(functionName: string): Buffer {
+export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
     !!artifact?.bytecode,
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
   );
+  return artifact;
+}
+
+export function getAvmTestContractBytecode(functionName: string): Buffer {
+  const artifact = getAvmTestContractArtifact(functionName);
   return artifact.bytecode;
 }
 
 export function resolveAvmTestContractAssertionMessage(
   functionName: string,
   revertReason: AvmRevertReason,
+  output: Fr[],
 ): string | undefined {
-  const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-
   traverseCauseChain(revertReason, cause => {
     revertReason = cause as AvmRevertReason;
   });
 
+  const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName);
   if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
     return undefined;
   }
 
-  const debugMetadata = getFunctionDebugMetadata(AvmTestContractArtifact, functionArtifact);
-  if (!debugMetadata) {
-    return undefined;
-  }
-
-  return resolveAssertionMessage(revertReason.noirCallStack, debugMetadata);
+  return resolveAssertionMessageFromRevertData(output, functionArtifact);
 }

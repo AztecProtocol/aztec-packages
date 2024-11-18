@@ -183,7 +183,7 @@ export abstract class TypedOracle {
   }
 
   storageRead(
-    _contractAddress: Fr,
+    _contractAddress: AztecAddress,
     _startStorageSlot: Fr,
     _blockNumber: number,
     _numberOfElements: number,
@@ -212,7 +212,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('emitUnencryptedLog');
   }
 
-  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
 
@@ -254,11 +254,15 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('debugLog');
   }
 
-  getAppTaggingSecret(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    throw new OracleMethodNotAvailableError('getAppTaggingSecret');
+  getAppTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    throw new OracleMethodNotAvailableError('getAppTaggingSecretAsSender');
   }
 
-  getAppTaggingSecretsForSenders(_recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
-    throw new OracleMethodNotAvailableError('getAppTaggingSecretsForSenders');
+  incrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
+    throw new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender');
+  }
+
+  syncNotes(): Promise<void> {
+    throw new OracleMethodNotAvailableError('syncNotes');
   }
 }

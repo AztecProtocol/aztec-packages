@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
@@ -38,7 +38,8 @@ contract InboxTest is Test {
         version: version
       }),
       content: 0x2000000000000000000000000000000000000000000000000000000000000000,
-      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000
+      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
+      index: 0x01
     });
   }
 
@@ -46,7 +47,7 @@ contract InboxTest is Test {
     return (a + b - 1) / b;
   }
 
-  function _boundMessage(DataStructures.L1ToL2Msg memory _message)
+  function _boundMessage(DataStructures.L1ToL2Msg memory _message, uint256 _globalLeafIndex)
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -61,6 +62,8 @@ contract InboxTest is Test {
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
     // update version
     _message.recipient.version = version;
+    // set leaf index
+    _message.index = _globalLeafIndex;
 
     return _message;
   }
@@ -84,32 +87,40 @@ contract InboxTest is Test {
   }
 
   function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
-    DataStructures.L1ToL2Msg memory message = _boundMessage(_message);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
+    DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
     bytes32 leaf = message.sha256ToField();
     vm.expectEmit(true, true, true, true);
     // event we expect
-    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
     emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf);
     // event we will get
-    bytes32 insertedLeaf =
+    (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     assertEq(insertedLeaf, leaf);
+    assertEq(insertedIndex, globalLeafIndex);
   }
 
   function testSendDuplicateL2Messages() public checkInvariant {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 leaf1 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    bytes32 leaf2 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    bytes32 leaf3 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf1, uint256 index1) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf2, uint256 index2) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf3, uint256 index3) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
     assertEq(inbox.getNumTrees(), 1);
 
-    // All the leaves should be the same
-    assertEq(leaf1, leaf2);
-    assertEq(leaf2, leaf3);
+    // All the leaves should be different since the index gets mixed in
+    assertNotEq(leaf1, leaf2);
+    assertNotEq(leaf2, leaf3);
+
+    // Check indices
+    assertEq(index1 + 1, index2);
+    assertEq(index1 + 2, index3);
   }
 
   function testRevertIfActorTooLarge() public {
@@ -161,7 +172,8 @@ contract InboxTest is Test {
 
     // We send the messages and then check that toConsume root did not change.
     for (uint256 i = 0; i < _messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
+      DataStructures.L1ToL2Msg memory message =
+        _boundMessage(_messages[i], inbox.getNextMessageIndex());
 
       // We check whether a new tree is correctly initialized when the one in progress is full
       uint256 numTrees = inbox.getNumTrees();

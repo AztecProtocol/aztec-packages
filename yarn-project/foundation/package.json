@@ -25,6 +25,7 @@
     "./json-rpc": "./dest/json-rpc/index.js",
     "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
+    "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
     "./log": "./dest/log/index.js",
     "./mutex": "./dest/mutex/index.js",
@@ -40,13 +41,15 @@
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
     "./types": "./dest/types/index.js",
+    "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
-    "./promise": "./dest/promise/index.js"
+    "./promise": "./dest/promise/index.js",
+    "./string": "./dest/string/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -114,7 +117,7 @@
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
     "sha3": "^2.1.4",
-    "zod": "^3.22.4"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

@@ -3,7 +3,6 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -22,15 +21,17 @@ import {
   PublicDataWitness,
   PublicSimulationOutput,
   type SequencerConfig,
+  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
   type TxHash,
   TxReceipt,
+  type TxScopedL2Log,
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
-  partitionReverts,
+  tryStop,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -44,7 +45,6 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
   type ProtocolContractAddresses,
@@ -71,7 +71,7 @@ import {
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
@@ -91,7 +91,7 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
-    protected readonly blockSource: L2BlockSource,
+    protected readonly blockSource: L2BlockSource & Partial<Service>,
     protected readonly encryptedLogsSource: L2LogsSource,
     protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
@@ -315,7 +315,7 @@ export class AztecNodeService implements AztecNode {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
@@ -326,6 +326,15 @@ export class AztecNodeService implements AztecNode {
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getContractClassLogs(filter);
   }
 
   /**
@@ -375,7 +384,8 @@ export class AztecNodeService implements AztecNode {
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
-    await this.blockSource.stop();
+    await tryStop(this.blockSource);
+    await this.telemetry.stop();
     this.log.info(`Stopped`);
   }
 
@@ -401,19 +411,19 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Find the index of the given leaf in the given tree.
-   * @param blockNumber - The block number at which to get the data
+   * Find the indexes of the given leaves in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The value to search for
-   * @returns The index of the given leaf in the given tree or undefined if not found.
+   * @param leafValue - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  public async findLeafIndex(
+  public async findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<bigint | undefined> {
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return committedDb.findLeafIndex(treeId, leafValue.toBuffer());
+    return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
   }
 
   /**
@@ -448,15 +458,13 @@ export class AztecNodeService implements AztecNode {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   public async getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
-    startIndex = 0n,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     if (index === undefined) {
       return undefined;
     }
@@ -471,15 +479,10 @@ export class AztecNodeService implements AztecNode {
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @param startL2BlockNumber - The block number after which we are interested in checking if the message was
-   * included.
-   * @remarks We pass in the minL2BlockNumber because there can be duplicate messages and the block number allow us
-   * to skip the duplicates (we know after which block a given message is to be included).
    * @returns Whether the message is synced and ready to be included in a block.
    */
-  public async isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber = INITIAL_L2_BLOCK_NUM): Promise<boolean> {
-    const startIndex = BigInt(startL2BlockNumber - INITIAL_L2_BLOCK_NUM) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex)) !== undefined;
+  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message)) !== undefined;
   }
 
   /**
@@ -730,11 +733,7 @@ export class AztecNodeService implements AztecNode {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      new WASMSimulator(),
-      this.telemetry,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
 
     const fork = await this.worldStateSynchronizer.fork();
 
@@ -743,24 +742,19 @@ export class AztecNodeService implements AztecNode {
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
-      // REFACTOR: Consider returning the error/revert rather than throwing
+      // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
         throw failedTxs[0].error;
       }
-      const { reverted } = partitionReverts(processedTxs);
-      if (reverted.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
-        throw reverted[0].revertReason;
-      }
-      this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
+
       const [processedTx] = processedTxs;
+      this.log.debug(`Simulated tx ${tx.getTxHash()} ${processedTx.revertReason ? 'Reverts' : 'Succeeds'}`);
+
       return new PublicSimulationOutput(
-        processedTx.encryptedLogs,
-        processedTx.unencryptedLogs,
         processedTx.revertReason,
-        processedTx.data.constants,
-        processedTx.data.end,
+        processedTx.constants,
+        processedTx.txEffect,
         returns,
         processedTx.gasUsed,
       );

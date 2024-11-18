@@ -49,12 +49,14 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
-    const logs = tx.unencryptedLogs.unrollLogs();
+    const logs = tx.contractClassLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e => {
       this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
       this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
     });
-    ContractInstanceDeployedEvent.fromLogs(logs).forEach(e => {
+    // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
+    const encLogs = tx.encryptedLogs.unrollLogs();
+    ContractInstanceDeployedEvent.fromLogs(encLogs).forEach(e => {
       this.log.debug(
         `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to public execution contract cache`,
       );
@@ -72,11 +74,13 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
-    const logs = tx.unencryptedLogs.unrollLogs();
+    const logs = tx.contractClassLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e =>
       this.classCache.delete(e.contractClassId.toString()),
     );
-    ContractInstanceDeployedEvent.fromLogs(logs).forEach(e => this.instanceCache.delete(e.address.toString()));
+    // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
+    const encLogs = tx.encryptedLogs.unrollLogs();
+    ContractInstanceDeployedEvent.fromLogs(encLogs).forEach(e => this.instanceCache.delete(e.address.toString()));
     return Promise.resolve();
   }
 
@@ -129,6 +133,10 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
 
   constructor(private db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
     super(dataSource);
+  }
+
+  public getMerkleInterface(): MerkleTreeWriteOperations {
+    return this.db;
   }
 
   /**
@@ -203,24 +211,19 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    let nullifierIndex: bigint | undefined;
-    let messageIndex: bigint | undefined;
-    let startIndex = 0n;
-
-    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
-    // for nullifiers because messages can have duplicates.
     const timer = new Timer();
-    do {
-      messageIndex = (await this.db.findLeafIndexAfter(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash, startIndex))!;
-      if (messageIndex === undefined) {
-        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
-      }
 
-      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
-      nullifierIndex = await this.getNullifierIndex(messageNullifier);
+    const messageIndex = await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash);
+    if (messageIndex === undefined) {
+      throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
+    }
 
-      startIndex = messageIndex + 1n;
-    } while (nullifierIndex !== undefined);
+    const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
+    const nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+    if (nullifierIndex !== undefined) {
+      throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+    }
 
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,

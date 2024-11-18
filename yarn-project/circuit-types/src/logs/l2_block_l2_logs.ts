@@ -1,10 +1,18 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
+import { z } from 'zod';
 
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
 import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, type TxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
+import {
+  ContractClassTxL2Logs,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
+  type TxL2Logs,
+  UnencryptedTxL2Logs,
+} from './tx_l2_logs.js';
 import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
@@ -17,6 +25,20 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
      */
     public readonly txLogs: TxL2Logs<TLog>[],
   ) {}
+
+  public abstract get type(): string;
+
+  static get schema(): ZodFor<
+    L2BlockL2Logs<EncryptedL2NoteLog> | L2BlockL2Logs<EncryptedL2Log> | L2BlockL2Logs<UnencryptedL2Log>
+  > {
+    // TODO(palla/schemas): This should be a discriminated union, but the compiler refuses
+    return z.union([
+      EncryptedNoteL2BlockL2Logs.schema,
+      EncryptedL2BlockL2Logs.schema,
+      UnencryptedL2BlockL2Logs.schema,
+      ContractClass2BlockL2Logs.schema,
+    ]);
+  }
 
   /**
    * Serializes logs into a buffer.
@@ -56,9 +78,7 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
    * @returns A plain object with L2BlockL2Logs properties.
    */
   public toJSON() {
-    return {
-      txLogs: this.txLogs.map(log => log.toJSON()),
-    };
+    return { txLogs: this.txLogs, type: this.type };
   }
 
   /**
@@ -83,6 +103,16 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
 }
 
 export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog> {
+  static override get schema() {
+    return z
+      .object({ type: z.literal('EncryptedNote'), txLogs: z.array(EncryptedNoteTxL2Logs.schema) })
+      .transform(({ txLogs }) => new EncryptedNoteL2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'EncryptedNote';
+  }
+
   /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.
@@ -154,6 +184,16 @@ export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog
 }
 
 export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
+  static override get schema() {
+    return z
+      .object({ type: z.literal('Encrypted'), txLogs: z.array(EncryptedTxL2Logs.schema) })
+      .transform(({ txLogs }) => new EncryptedL2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'Encrypted';
+  }
+
   /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.
@@ -225,6 +265,16 @@ export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
 }
 
 export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
+  static override get schema() {
+    return z
+      .object({ type: z.literal('Unencrypted'), txLogs: z.array(UnencryptedTxL2Logs.schema) })
+      .transform(({ txLogs }) => new UnencryptedL2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'Unencrypted';
+  }
+
   /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.
@@ -283,6 +333,89 @@ export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
    * @returns Unrolled logs.
    */
   public static unrollLogs(blockLogs: (UnencryptedL2BlockL2Logs | undefined)[]): UnencryptedL2Log[] {
+    const logs: UnencryptedL2Log[] = [];
+    for (const blockLog of blockLogs) {
+      if (blockLog) {
+        for (const txLog of blockLog.txLogs) {
+          logs.push(...txLog.unrollLogs());
+        }
+      }
+    }
+    return logs;
+  }
+}
+
+export class ContractClass2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
+  // This class is identical in methods to UnencryptedL2BlockL2Logs, but its
+  // consistuent ContractClassTxL2Logs must be treated differently, hence new class.
+  static override get schema() {
+    return z
+      .object({ type: z.literal('ContractClass'), txLogs: z.array(ContractClassTxL2Logs.schema) })
+      .transform(({ txLogs }) => new ContractClass2BlockL2Logs(txLogs));
+  }
+
+  public get type() {
+    return 'ContractClass';
+  }
+
+  /**
+   * Convert a plain JSON object to a L2BlockL2Logs class object.
+   * @param obj - A plain L2BlockL2Logs JSON object.
+   * @returns A L2BlockL2Logs class object.
+   */
+  public static fromJSON(obj: any) {
+    const txLogs = obj.txLogs.map((log: any) => ContractClassTxL2Logs.fromJSON(log));
+    return new ContractClass2BlockL2Logs(txLogs);
+  }
+
+  /**
+   * Deserializes logs from a buffer.
+   * @param buffer - The buffer containing the serialized logs.
+   * @returns A new `L2BlockL2Logs` object.
+   */
+  public static fromBuffer(buffer: Buffer | BufferReader): ContractClass2BlockL2Logs {
+    const reader = BufferReader.asReader(buffer);
+
+    const logsBufLength = reader.readNumber();
+    const serializedTxLogs = reader.readBufferArray(logsBufLength);
+
+    const txLogs = serializedTxLogs.map(logs => ContractClassTxL2Logs.fromBuffer(logs, false));
+    return new ContractClass2BlockL2Logs(txLogs);
+  }
+
+  /**
+   * Deserializes logs from a string.
+   * @param data - The string containing the serialized logs.
+   * @returns A new `L2BlockL2Logs` object.
+   */
+  public static fromString(data: string): ContractClass2BlockL2Logs {
+    const buffer = Buffer.from(data, 'hex');
+    return ContractClass2BlockL2Logs.fromBuffer(buffer);
+  }
+
+  /**
+   * Creates a new `L2BlockL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each function
+   * call.
+   * @param numTxs - The number of txs in the block.
+   * @param numCalls - The number of function calls in the tx.
+   * @param numLogsPerCall - The number of logs emitted in each function call.
+   * @param logType - The type of logs to generate.
+   * @returns A new `L2BlockL2Logs` object.
+   */
+  public static random(numTxs: number, numCalls: number, numLogsPerCall: number): ContractClass2BlockL2Logs {
+    const txLogs: ContractClassTxL2Logs[] = [];
+    for (let i = 0; i < numTxs; i++) {
+      txLogs.push(ContractClassTxL2Logs.random(numCalls, numLogsPerCall));
+    }
+    return new ContractClass2BlockL2Logs(txLogs);
+  }
+
+  /**
+   * Unrolls logs from a set of blocks.
+   * @param blockLogs - Input logs from a set of blocks.
+   * @returns Unrolled logs.
+   */
+  public static unrollLogs(blockLogs: (ContractClass2BlockL2Logs | undefined)[]): UnencryptedL2Log[] {
     const logs: UnencryptedL2Log[] = [];
     for (const blockLog of blockLogs) {
       if (blockLog) {

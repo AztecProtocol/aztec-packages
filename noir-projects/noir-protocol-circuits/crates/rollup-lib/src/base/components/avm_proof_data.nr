@@ -1,11 +1,11 @@
 use dep::types::{
-    abis::kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
+    abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,
     constants::AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
 };
 
 pub struct AvmProofData {
-    public_inputs: VMCircuitPublicInputs,
+    public_inputs: AvmCircuitPublicInputs,
     proof: AvmProof,
     vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
 }

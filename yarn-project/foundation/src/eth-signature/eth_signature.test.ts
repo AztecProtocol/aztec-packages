@@ -42,6 +42,13 @@ describe('eth signature', () => {
     expect(sender).toEqual(signer.address);
   });
 
+  it('should serialize / deserialize to hex string with v=0', () => {
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 0, false);
+    const serialized = signature.to0xString();
+    const deserialized = Signature.from0xString(serialized);
+    checkEquivalence(signature, deserialized);
+  });
+
   it('should serialize / deserialize to hex string with 1-digit v', () => {
     const signature = new Signature(Buffer32.random(), Buffer32.random(), 1, false);
     const serialized = signature.to0xString();

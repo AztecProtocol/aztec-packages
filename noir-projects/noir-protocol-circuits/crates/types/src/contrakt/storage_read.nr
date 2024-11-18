@@ -1,9 +1,9 @@
 use crate::{constants::CONTRACT_STORAGE_READ_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct StorageRead {
-    storage_slot: Field,
-    current_value: Field,
-    counter: u32,
+    pub storage_slot: Field,
+    pub current_value: Field,
+    pub counter: u32,
 }
 
 impl Eq for StorageRead {

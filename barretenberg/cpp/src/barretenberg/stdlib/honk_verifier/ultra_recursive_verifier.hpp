@@ -4,6 +4,7 @@
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 

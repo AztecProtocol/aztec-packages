@@ -7,11 +7,11 @@ import { inspect } from 'util';
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS,
@@ -64,7 +64,7 @@ export class PublicAccumulatedData {
     /**
      * Current public call stack.
      */
-    public readonly publicCallStack: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public readonly publicCallStack: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
 
     /** Gas used so far by the transaction. */
     public readonly gasUsed: Gas,
@@ -170,7 +170,7 @@ export class PublicAccumulatedData {
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readObject(Gas),
     );
   }
@@ -185,7 +185,7 @@ export class PublicAccumulatedData {
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readObject(Gas),
     );
   }
@@ -208,7 +208,7 @@ export class PublicAccumulatedData {
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
+      makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       Gas.empty(),
     );
   }

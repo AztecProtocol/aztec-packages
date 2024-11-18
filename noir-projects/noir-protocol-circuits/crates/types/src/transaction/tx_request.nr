@@ -9,10 +9,10 @@ use crate::{
 };
 
 pub struct TxRequest {
-    origin: AztecAddress,
-    args_hash: Field,
-    tx_context: TxContext,
-    function_data: FunctionData,
+    pub origin: AztecAddress,
+    pub args_hash: Field,
+    pub tx_context: TxContext,
+    pub function_data: FunctionData,
 }
 
 impl Empty for TxRequest {
@@ -53,7 +53,7 @@ impl Serialize<TX_REQUEST_LENGTH> for TxRequest {
 
         assert_eq(fields.len(), TX_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -93,7 +93,7 @@ mod tests {
 
     #[test]
     fn compute_hash() {
-        let gas_settings = GasSettings::new(Gas::new(2, 2), Gas::new(1, 1), GasFees::new(3, 3), 10);
+        let gas_settings = GasSettings::new(Gas::new(2, 2), Gas::new(1, 1), GasFees::new(3, 3));
         let tx_request = TxRequest {
             origin: AztecAddress::from_field(1),
             args_hash: 3,
@@ -105,7 +105,7 @@ mod tests {
         };
         // Value from tx_request.test.ts "compute hash" test
         let test_data_tx_request_hash =
-            0x289d3f85f463f3449e2204433b860574d351e9fbd97a01a722239fdd9ce3ce9b;
+            0x1b15ac8432c3c35718075a277d86f11263f057e2325afa208d6b19e37ff59a8d;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

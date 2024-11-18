@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -10,7 +11,9 @@ import {
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
+  MAX_CONTRACT_CLASS_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_CALL,
+  MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
@@ -19,8 +22,6 @@ import {
   MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { Header } from '../structs/header.js';
@@ -33,7 +34,7 @@ import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { PrivateCallRequest } from './private_call_request.js';
-import { PublicCallRequest } from './public_call_request.js';
+import { CountedPublicCallRequest, PublicCallRequest } from './public_call_request.js';
 import { ReadRequest } from './read_request.js';
 import { TxContext } from './tx_context.js';
 
@@ -96,7 +97,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallRequests: Tuple<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_CALL>,
     /**
      * Hash of the public teardown function.
      */
@@ -124,10 +125,10 @@ export class PrivateCircuitPublicInputs {
      */
     public encryptedLogsHashes: Tuple<EncryptedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_CALL>,
     /**
-     * Hash of the unencrypted logs emitted in this function call.
+     * Hash of the contract class logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
@@ -171,14 +172,14 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
       reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
     );
@@ -199,14 +200,14 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
       reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
     );
@@ -230,14 +231,14 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest.empty),
+      makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest.empty),
       PublicCallRequest.empty(),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
       Header.empty(),
       TxContext.empty(),
     );
@@ -262,7 +263,7 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.l2ToL1Msgs) &&
       isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
-      isEmptyArray(this.unencryptedLogsHashes) &&
+      isEmptyArray(this.contractClassLogsHashes) &&
       this.historicalHeader.isEmpty() &&
       this.txContext.isEmpty()
     );
@@ -294,7 +295,7 @@ export class PrivateCircuitPublicInputs {
       fields.endSideEffectCounter,
       fields.noteEncryptedLogsHashes,
       fields.encryptedLogsHashes,
-      fields.unencryptedLogsHashes,
+      fields.contractClassLogsHashes,
       fields.historicalHeader,
       fields.txContext,
     ] as const;
@@ -327,5 +328,13 @@ export class PrivateCircuitPublicInputs {
 
   public static fromJSON(value: any) {
     return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(value, 'hex'));
+  }
+
+  public static fromString(str: string) {
+    return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static get schema() {
+    return hexSchemaFor(PrivateCircuitPublicInputs);
   }
 }

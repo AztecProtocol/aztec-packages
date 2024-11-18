@@ -3,7 +3,6 @@ import {
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-  PublicDataWrite,
   TxEffect,
 } from '@aztec/circuit-types';
 import {
@@ -15,7 +14,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
@@ -54,7 +53,7 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
 
       await fork.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+        publicDataWrites.map(write => write.toBuffer()),
         PUBLIC_DATA_SUBTREE_HEIGHT,
       );
 

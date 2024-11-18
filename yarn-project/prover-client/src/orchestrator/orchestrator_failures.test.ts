@@ -1,15 +1,17 @@
-import { ProvingRequestType, type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import { Fr } from '@aztec/circuits.js';
-import { makeAvmCircuitInputs } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { WASMSimulator } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
+import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -40,15 +42,21 @@ describe('prover/orchestrator/failures', () => {
 
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
-        const txs = times(3, j => makeBloatedProcessedTx(context.actualDb, i * 10 + j + 1));
-        txs[1].avmProvingRequest = {
-          type: ProvingRequestType.PUBLIC_VM,
-          inputs: makeAvmCircuitInputs(i),
-        };
+        const globalVariables = makeGlobals(i + 1);
+        const txs = times(3, j =>
+          makeBloatedProcessedTx({
+            db: context.actualDb,
+            globalVariables,
+            vkTreeRoot: getVKTreeRoot(),
+            protocolContractTreeRoot,
+            seed: i * 10 + j + 1,
+            privateOnly: j === 1,
+          }),
+        );
         const msgs = [new Fr(i + 100)];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(txs.length, makeGlobals(i + 1), msgs);
+          await orchestrator.startNewBlock(txs.length, globalVariables, msgs);
           let allTxsAdded = true;
           for (const tx of txs) {
             try {

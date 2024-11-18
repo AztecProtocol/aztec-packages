@@ -36,7 +36,6 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AccountWallet,
   type AccountWalletWithSecretKey,
   AnvilTestWatcher,
   BatchCall,
@@ -44,13 +43,13 @@ import {
   type DebugLogger,
   Fr,
   GrumpkinScalar,
-  computeSecretHash,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
+import { L2Block, LogType, tryStop } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -63,13 +62,14 @@ import * as fs from 'fs';
 import { getContract } from 'viem';
 
 import { addAccounts } from './fixtures/snapshot_manager.js';
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-
+const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -172,65 +172,15 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
         this.wallets.map(w =>
-          this.token.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
+          this.token.methods.mint_to_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
         ),
       );
     }
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      const secrets: Fr[] = this.wallets.map(() => Fr.random());
-
-      const txs = await Promise.all(
-        this.wallets.map((w, i) =>
-          this.token.methods.mint_private(MINT_AMOUNT, computeSecretHash(secrets[i])).send().wait({ timeout: 600 }),
-        ),
-      );
-
-      // We minted all of them and wait. Now we add them all. Do we need to wait for that to have happened?
-      await Promise.all(
-        this.wallets.map((wallet, i) =>
-          this.addPendingShieldNoteToPXE({
-            amount: MINT_AMOUNT,
-            secretHash: computeSecretHash(secrets[i]),
-            txHash: txs[i].txHash,
-            accountAddress: wallet.getAddress(),
-            assetAddress: this.token.address,
-            wallet: wallet,
-          }),
-        ),
-      );
-
-      await Promise.all(
-        this.wallets.map(async (w, i) =>
-          (await TokenContract.at(this.token.address, w)).methods
-            .redeem_shield(w.getAddress(), MINT_AMOUNT, secrets[i])
-            .send()
-            .wait({ timeout: 600 }),
-        ),
-      );
+      await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
     }
-  }
-
-  private async addPendingShieldNoteToPXE(args: {
-    amount: bigint;
-    secretHash: Fr;
-    txHash: TxHash;
-    accountAddress: AztecAddress;
-    assetAddress: AztecAddress;
-    wallet: AccountWallet;
-  }) {
-    const { accountAddress, assetAddress, amount, secretHash, txHash, wallet } = args;
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      accountAddress,
-      assetAddress,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await wallet.addNote(extendedNote);
   }
 
   async createAndSendTxs() {
@@ -269,7 +219,7 @@ class TestVariant {
         const sender = this.wallets[i].getAddress();
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer_public(sender, recipient, 1n, 0).send());
+        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send());
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.Spam) {
@@ -431,6 +381,7 @@ describe('e2e_synching', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       },
       new NoopTelemetryClient(),
     );
@@ -602,7 +553,7 @@ describe('e2e_synching', () => {
             .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
-          await archiver.stop();
+          await tryStop(archiver);
           await worldState.stop();
         },
         ASSUME_PROVEN_THROUGH,

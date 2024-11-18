@@ -1,5 +1,5 @@
 <div align="center">
-  <img height="210x" src="./assets/Aztec_banner.png" />
+  <img height="210" src="./assets/Aztec_banner.png" />
 
   <h1>Aztec.nr</h1>
 
@@ -15,12 +15,12 @@
   </p>
 </div>
 
-
 # Aztec.nr
 
 `Aztec-nr` is a [Noir](https://noir-lang.org) framework for smart contracts on [Aztec](aztec.network).
 
 ### Directory Structure
+
 ```
 .
 ├── aztec               // The core of the aztec framework
@@ -47,24 +47,26 @@ easy_private_state = { git = "https://github.com/AztecProtocol/aztec-nr", tag = 
 value_note = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master" , directory = "value-note" }
 ```
 
-
 ## Prerequisites
+
 To use `Aztec.nr` you must have [Noir](https://noir-lang.org/) installed. Noir is a general purpose programming language for creating zero-knowledge-proofs. `Aztec.nr` supercharges the Noir language with Aztec Smart Contract capabilities.
 
 ### Quick Installation
-The fastest way to install is with [noirup](https://noir-lang.org/docs/getting_started/installation/#installing-noirup).
+
+The fastest way to install is with [noirup](https://noir-lang.org/docs/getting_started/quick_start).
 
 To use `Aztec-nr` the `aztec` version of `Noir` is required (Note; this version is temporarily required if you would like to use `#[aztec()]` macros).
 
 Once noirup is installed, you can run the following:
+
 ```bash
 noirup -v NARGO_VERSION_COMPATIBLE_WITH_YOUR_SANDBOX
 ```
 
 Replace `NARGO_VERSION_COMPATIBLE_WITH_YOUR_SANDBOX` with the version from the output of `aztec-cli get-node-info`:
+
 ```bash
 aztec-cli get-node-info
 ```
 
 For more installation options, please view [Noir's getting started.](https://noir-lang.org/docs/getting_started/installation/other_install_methods)
-

@@ -106,9 +106,10 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                                                    ? std::make_shared<VerifierCommitmentKey>()
                                                    : verification_key->pcs_verification_key;
         native_honk_vk->pub_inputs_offset = verification_key->pub_inputs_offset;
-        native_honk_vk->contains_recursive_proof = verification_key->contains_recursive_proof;
-        native_honk_vk->recursive_proof_public_input_indices = verification_key->recursive_proof_public_input_indices;
-        if constexpr (IsGoblinFlavor<Flavor>) {
+        native_honk_vk->contains_pairing_point_accumulator = verification_key->contains_pairing_point_accumulator;
+        native_honk_vk->pairing_point_accumulator_public_input_indices =
+            verification_key->pairing_point_accumulator_public_input_indices;
+        if constexpr (IsMegaFlavor<Flavor>) {
             native_honk_vk->databus_propagation_data = verification_key->databus_propagation_data;
         }
 
