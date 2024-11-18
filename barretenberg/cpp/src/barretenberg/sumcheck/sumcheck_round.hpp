@@ -2,6 +2,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
+#include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/utils.hpp"
@@ -141,7 +142,8 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
         const RelationSeparator alpha,
-        ZKSumcheckData<Flavor> zk_sumcheck_data) // only populated when Flavor HasZK
+        ZKSumcheckData<Flavor> zk_sumcheck_data,
+        RowDisablingPolynomial<FF> row_disabling_poly) // only populated when Flavor HasZK
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -188,17 +190,79 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         if constexpr (Flavor::HasZK) {
+            const auto contribution_from_disabled_rows = compute_disabled_contribution(
+                round_idx, polynomials, relation_parameters, gate_sparators, alpha, row_disabling_poly);
             const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
             // Batch the univariate contributions from each sub-relation to obtain the round univariate
             const auto round_univariate =
                 batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
             // Mask the round univariate
-            return round_univariate + libra_round_univariate;
+            return round_univariate + libra_round_univariate - contribution_from_disabled_rows;
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         else {
             return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
         }
+    }
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_disabled_contribution(
+        const size_t round_idx,
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+        const RelationSeparator alpha,
+        const RowDisablingPolynomial<FF> row_disabling_poly) // only populated when Flavor HasZK
+    {
+        PROFILE_THIS_NAME("compute_univariate");
+        SumcheckRoundUnivariate result;
+
+        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
+        // size_t num_edges = (round_idx > 0) ? 2 : 1;
+        // Construct extended edge containers; one per thread
+        ExtendedEdges extended_edges;
+        if (round_idx == 0) {
+            // Compute H(X,0,...,0)  + H(X,1,0,...,0) or H(u_0,..., u_{i-1}, X, 0,...,0)
+            size_t edge_idx = 0;
+            extend_edges(extended_edges, polynomials, edge_idx);
+            accumulate_relation_univariates(univariate_accumulator,
+                                            extended_edges,
+                                            relation_parameters,
+                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+            // SumcheckRoundUnivariate first_contribution;
+
+            auto first_contribution =
+                batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+            // extend_and_batch_univariates<SumcheckRoundUnivariate>(
+            //     univariate_accumulator, first_contribution, gate_sparators);
+            auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
+            auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+            first_contribution *= row_disabler_extended;
+
+            Utils::zero_univariates(univariate_accumulator);
+
+            edge_idx += 2;
+            extend_edges(extended_edges, polynomials, edge_idx);
+            accumulate_relation_univariates(univariate_accumulator,
+                                            extended_edges,
+                                            relation_parameters,
+                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+            result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+            result += first_contribution;
+        } else {
+            size_t edge_idx = 0;
+            extend_edges(extended_edges, polynomials, edge_idx);
+            accumulate_relation_univariates(univariate_accumulator,
+                                            extended_edges,
+                                            relation_parameters,
+                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+
+            result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+            auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
+            auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+            result *= row_disabler_extended;
+        }
+        return result;
     }
 
     /**
@@ -207,12 +271,12 @@ template <typename Flavor> class SumcheckProverRound {
      * \f$\alpha\f$, extend to the correct degree, and take the sum multiplying by \f$pow_{\beta}\f$-contributions.
      *
      * @details This method receives as input the univariate accumulators computed by \ref
-     * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube and
-     * applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
-     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale univariates",
-     * extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
-     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0), \ldots,
-     * \tilde{S}^i(D))\f$.
+     * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube
+     * and applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
+     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale
+     * univariates", extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using
+     * \ref extend_and_batch_univariates "extend and batch univariates method" to return a vector
+     * \f$(\tilde{S}^i(0), \ldots, \tilde{S}^i(D))\f$.
      *
      * @param challenge Challenge \f$\alpha\f$.
      * @param gate_sparators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
@@ -233,17 +297,35 @@ template <typename Flavor> class SumcheckProverRound {
         return result;
     }
 
+    // template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
+    // static ExtendedUnivariate batch_disabled_rows_over_relations(ContainerOverSubrelations& univariate_accumulators,
+    //                                                              const RelationSeparator& challenge,
+    //                                                              const bb::GateSeparatorPolynomial<FF>&
+    //                                                              gate_sparators)
+    // {
+    //     auto running_challenge = FF(1);
+    //     Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
+
+    //     auto result = ExtendedUnivariate(0);
+    //     extend_and_batch_disabled_rows(univariate_accumulators, result, gate_sparators);
+
+    //     // Reset all univariate accumulators to 0 before beginning accumulation in the next round
+    //     Utils::zero_univariates(univariate_accumulators);
+    //     return result;
+    // }
+
     /**
      * @brief Extend Univariates then sum them multiplying by the current \f$ pow_{\beta} \f$-contributions.
-     * @details Since the sub-relations comprising full Honk relation are of different degrees, the computation of the
-     * evaluations of round univariate \f$ \tilde{S}_{i}(X_{i}) \f$ at points \f$ X_{i} = 0,\ldots, D \f$ requires to
-     * extend evaluations of individual relations to the domain \f$ 0,\ldots, D\f$. Moreover, linearly independent
-     * sub-relations, i.e. whose validity is being checked at every point of the hypercube, are multiplied by the
-     * constant \f$ c_i = pow_\beta(u_0,\ldots, u_{i-1}) \f$ and the current \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) +
-     * X_i\cdot \beta_i ) \vert_{X_i = k} \f$ for \f$ k = 0,\ldots, D\f$.
+     * @details Since the sub-relations comprising full Honk relation are of different degrees, the computation of
+     * the evaluations of round univariate \f$ \tilde{S}_{i}(X_{i}) \f$ at points \f$ X_{i} = 0,\ldots, D \f$
+     * requires to extend evaluations of individual relations to the domain \f$ 0,\ldots, D\f$. Moreover, linearly
+     * independent sub-relations, i.e. whose validity is being checked at every point of the hypercube, are
+     * multiplied by the constant \f$ c_i = pow_\beta(u_0,\ldots, u_{i-1}) \f$ and the current
+     * \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) + X_i\cdot \beta_i ) \vert_{X_i = k} \f$ for \f$ k = 0,\ldots, D\f$.
      * @tparam extended_size Size after extension
      * @param tuple A tuple of tuples of Univariates
-     * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\} \f$.
+     * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\}
+     * \f$.
      * @param gate_sparators Round \f$pow_{\beta}\f$-factor  \f$ ( (1−X_i) + X_i\cdot \beta_i )\f$.
      */
     template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
@@ -262,8 +344,8 @@ template <typename Flavor> class SumcheckProverRound {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const bool is_subrelation_linearly_independent =
                 bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
-            // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
+            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence
+            // we multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
             // verifier, we additionally need a univariate contribution from the pow polynomial which is the
             // extended_random_polynomial which is the
             if (!is_subrelation_linearly_independent) {
@@ -277,6 +359,33 @@ template <typename Flavor> class SumcheckProverRound {
         };
         Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
     }
+
+    // template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
+    // static void extend_and_batch_disabled_rows(const TupleOfTuplesOfUnivariates& tuple,
+    //                                            ExtendedUnivariate& result,
+    //                                            const bb::GateSeparatorPolynomial<FF>& gate_sparators)
+    // {
+    //     ExtendedUnivariate extended_random_polynomial;
+    //     ExtendedUnivariate extended_row_disabling_polynomial;
+
+    //     // Pow-Factor  \f$ (1-X) + X\beta_i \f$
+    //     auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_sparators.current_element() });
+    //     extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
+
+    //     auto row_disabling_polynomial = bb::Univariate<FF, 2>({ 1, 1 });
+    //     extended_row_disabling_polynomial = row_disabling_polynomial.template
+    //     extend_to<ExtendedUnivariate::LENGTH>();
+
+    //     auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+    //         auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
+    //         // Multiply by the pow polynomial univariate contribution and the partial
+    //         // evaluation result c_i (i.e. \f$ pow(u_0,...,u_{l-1})) \f$ where \f$(u_0,...,u_{i-1})\f$ are the
+    //         // verifier challenges from previous rounds.
+    //         result += extended * row_disabling_polynomial * extended_random_polynomial *
+    //                   gate_sparators.partial_evaluation_result;
+    //     };
+    //     Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
+    // }
 
     /**
      * @brief Compute Libra round univariate expressed given by the formula
@@ -306,26 +415,28 @@ template <typename Flavor> class SumcheckProverRound {
 
   private:
     /**
-     * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the contribution
-     * of each sub-relation to \f$ T^i(X_i) \f$.
+     * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the
+     *contribution of each sub-relation to \f$ T^i(X_i) \f$.
      *
      * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ deined in \ref
      *SumcheckProverContributionsofPow "this section". It is done  as follows:
-     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube \f$\{0,1\}\times
-     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend edges".
+     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube
+     *\f$\{0,1\}\times
+     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend
+     *edges".
      *   - Inner loop: iterate through the sub-relations, feeding each relation the "the group of edges", i.e. the
-     * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$. Each
-     *                 relation Flavor is endowed with \p accumulate method that computes its contribution to \f$
-     * T^i(X_{i}) \f$
-     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors, produces
-     *required evaluations of \f$ \tilde S^i \f$.
-     * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by \ref
-     *accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
-     * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right)
-     *\f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1 - i} \f$.
-     * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$ takes
-     *an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at index \f$
-     *2^{i+1}
+     * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$.
+     *Each relation Flavor is endowed with \p accumulate method that computes its contribution to \f$ T^i(X_{i}) \f$
+     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors,
+     *produces required evaluations of \f$ \tilde S^i \f$.
+     * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by
+     *\ref accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
+     * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell
+     *\right) \f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1
+     *- i} \f$.
+     * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$
+     *takes an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at
+     *index \f$ 2^{i+1}
      *(\ell_{i+1} 2^{i+1} +\ldots + \ell_{d-1} 2^{d-1})\f$.
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
@@ -406,9 +517,9 @@ template <typename Flavor> class SumcheckVerifierRound {
     };
     /**
      * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
-     * \f$
+     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i
+     * = 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
+     * \tilde{S}^i(1) \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
@@ -426,9 +537,9 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     /**
      * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
-     * \f$
+     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i
+     * = 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
+     * \tilde{S}^i(1) \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
@@ -497,7 +608,8 @@ template <typename Flavor> class SumcheckVerifierRound {
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_sparators,
                                              const RelationSeparator alpha,
-                                             std::optional<FF> full_libra_purported_value = std::nullopt)
+                                             const FF full_libra_purported_value = FF{ 0 },
+                                             FF correcting_factor = FF{ 1 })
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
@@ -507,12 +619,23 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
         if constexpr (Flavor::HasZK) {
-            output += full_libra_purported_value.value();
+            output = output * correcting_factor + full_libra_purported_value;
             if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
                 output.self_reduce();
             }
         };
         return output;
+    }
+
+    FF compute_correcting_factor(std::vector<FF> multilinear_challenge, const size_t log_circuit_size)
+    {
+        FF one = FF{ 1 };
+        FF result = (multilinear_challenge[0] * (one - multilinear_challenge[1]) + multilinear_challenge[1]);
+
+        for (size_t idx = 2; idx < log_circuit_size; idx++) {
+            result *= (one - multilinear_challenge[idx]);
+        }
+        return one - result;
     }
 };
 } // namespace bb

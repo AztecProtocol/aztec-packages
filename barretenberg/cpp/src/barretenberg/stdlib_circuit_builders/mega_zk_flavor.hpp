@@ -12,6 +12,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
   public:
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+
     /**
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.

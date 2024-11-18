@@ -25,7 +25,7 @@ class UltraFlavorWithZK : public bb::UltraFlavor {
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_total_relation_length<Relations, HasZK>();
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     // Construct the container for the subrelations' contributions
     using SumcheckTupleOfTuplesOfUnivariates =
         decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations, HasZK>());
