@@ -1,8 +1,8 @@
 import {
   ProvingRequestType,
   type ServerCircuitProver,
+  type V2ProofInput,
   type V2ProofOutput,
-  type V2ProvingJob,
   type V2ProvingJobId,
 } from '@aztec/circuit-types';
 
@@ -13,6 +13,8 @@ export enum ProvingJobStatus {
 }
 
 type ProvingJobCompletionCallback = (
+  jobId: V2ProvingJobId,
+  type: ProvingRequestType,
   error: Error | undefined,
   result: V2ProofOutput | undefined,
 ) => void | Promise<void>;
@@ -23,7 +25,8 @@ export class ProvingJobController {
   private abortController = new AbortController();
 
   constructor(
-    private job: V2ProvingJob,
+    private jobId: V2ProvingJobId,
+    private inputs: V2ProofInput,
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: ProvingJobCompletionCallback,
@@ -39,7 +42,7 @@ export class ProvingJobController {
       .then(
         result => {
           this.status = ProvingJobStatus.DONE;
-          return this.onComplete(undefined, result);
+          return this.onComplete(this.jobId, this.inputs.type, undefined, result);
         },
         error => {
           this.status = ProvingJobStatus.DONE;
@@ -47,7 +50,7 @@ export class ProvingJobController {
             // Ignore abort errors
             return;
           }
-          return this.onComplete(error, undefined);
+          return this.onComplete(this.jobId, this.inputs.type, error, undefined);
         },
       )
       .catch(_ => {
@@ -68,15 +71,19 @@ export class ProvingJobController {
   }
 
   public getJobId(): V2ProvingJobId {
-    return this.job.id;
+    return this.jobId;
   }
 
   public getStartedAt(): number {
     return this.startedAt;
   }
 
+  public getProofTypeName(): string {
+    return ProvingRequestType[this.inputs.type];
+  }
+
   private async generateProof(): Promise<V2ProofOutput> {
-    const { type, inputs } = this.job;
+    const { type, value: inputs } = this.inputs;
     const signal = this.abortController.signal;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {

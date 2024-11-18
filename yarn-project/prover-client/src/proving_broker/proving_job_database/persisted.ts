@@ -1,4 +1,4 @@
-import { type V2ProofOutput, V2ProvingJob, type V2ProvingJobId, V2ProvingJobResult } from '@aztec/circuit-types';
+import { type V2ProofOutputUri, V2ProvingJob, type V2ProvingJobId, V2ProvingJobResult } from '@aztec/circuit-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
@@ -38,7 +38,7 @@ export class PersistedProvingJobDatabase implements ProvingJobDatabase {
     await this.jobResults.set(id, jsonStringify(res));
   }
 
-  async setProvingJobResult(id: V2ProvingJobId, value: V2ProofOutput): Promise<void> {
+  async setProvingJobResult(id: V2ProvingJobId, value: V2ProofOutputUri): Promise<void> {
     const res: V2ProvingJobResult = { value };
     await this.jobResults.set(id, jsonStringify(res));
   }

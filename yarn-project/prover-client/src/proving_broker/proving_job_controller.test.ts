@@ -17,11 +17,10 @@ describe('ProvingJobController', () => {
     prover = new MockProver();
     onComplete = jest.fn();
     controller = new ProvingJobController(
+      '1' as V2ProvingJobId,
       {
         type: ProvingRequestType.BASE_PARITY,
-        blockNumber: 1,
-        id: '1' as V2ProvingJobId,
-        inputs: makeBaseParityInputs(),
+        value: makeBaseParityInputs(),
       },
       0,
       prover,
@@ -54,7 +53,7 @@ describe('ProvingJobController', () => {
 
     controller.start();
     await sleep(1); // give promises a chance to complete
-    expect(onComplete).toHaveBeenCalledWith(undefined, {
+    expect(onComplete).toHaveBeenCalledWith('1', undefined, {
       type: ProvingRequestType.BASE_PARITY,
       value: resp,
     });
@@ -66,7 +65,7 @@ describe('ProvingJobController', () => {
 
     controller.start();
     await sleep(1);
-    expect(onComplete).toHaveBeenCalledWith(err, undefined);
+    expect(onComplete).toHaveBeenCalledWith('1', err, undefined);
   });
 
   it('does not crash if onComplete throws', async () => {

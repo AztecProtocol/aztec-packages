@@ -1,5 +1,5 @@
 import {
-  type V2ProofOutput,
+  type V2ProofOutputUri,
   type V2ProvingJob,
   type V2ProvingJobId,
   type V2ProvingJobResult,
@@ -32,7 +32,7 @@ export interface ProvingJobDatabase {
    * @param ProvingRequestType - The type of proof that was requested
    * @param value - The result of the proof request
    */
-  setProvingJobResult(id: V2ProvingJobId, value: V2ProofOutput): Promise<void>;
+  setProvingJobResult(id: V2ProvingJobId, value: V2ProofOutputUri): Promise<void>;
 
   /**
    * Saves an error that occurred while processing a proof request

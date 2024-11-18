@@ -1,6 +1,6 @@
 import {
   ProvingRequestType,
-  type V2ProofOutput,
+  type V2ProofOutputUri,
   type V2ProvingJob,
   type V2ProvingJobId,
   type V2ProvingJobResult,
@@ -73,7 +73,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   public constructor(
     private database: ProvingJobDatabase,
     { jobTimeoutSec = 30, timeoutIntervalSec = 10, maxRetries = 3 }: ProofRequestBrokerConfig = {},
-    private logger = createDebugLogger('aztec:prover-client:proof-request-broker'),
+    private logger = createDebugLogger('aztec:prover-client:proving-broker'),
   ) {
     this.timeoutPromise = new RunningPromise(this.timeoutCheck, timeoutIntervalSec * 1000);
     this.jobTimeoutSec = jobTimeoutSec;
@@ -147,9 +147,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   async getProvingJob<T extends ProvingRequestType[]>(
     filter: ProvingJobFilter<T> = {},
   ): Promise<{ job: V2ProvingJob; time: number } | undefined> {
-    const allowedProofs: ProvingRequestType[] = filter.allowList
-      ? [...filter.allowList]
-      : Object.values(ProvingRequestType).filter((x): x is ProvingRequestType => typeof x === 'number');
+    const allowedProofs: ProvingRequestType[] =
+      Array.isArray(filter.allowList) && filter.allowList.length > 0
+        ? [...filter.allowList]
+        : Object.values(ProvingRequestType).filter((x): x is ProvingRequestType => typeof x === 'number');
     allowedProofs.sort(proofTypeComparator);
 
     for (const proofType of allowedProofs) {
@@ -255,7 +256,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
   }
 
-  async reportProvingJobSuccess(id: V2ProvingJobId, value: V2ProofOutput): Promise<void> {
+  async reportProvingJobSuccess(id: V2ProvingJobId, value: V2ProofOutputUri): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
