@@ -11,16 +11,14 @@ use acvm::acir::{
     native_types::Witness,
     BlackBoxFunc,
 };
-use acvm::{
-    acir::AcirField,
-    acir::{circuit::directives::Directive, native_types::Expression},
-};
+use acvm::{acir::native_types::Expression, acir::AcirField};
 
 use super::brillig_directive;
 use crate::{
     brillig::brillig_ir::artifact::GeneratedBrillig,
     errors::{InternalError, RuntimeError, SsaReport},
     ssa::ir::dfg::CallStack,
+    ErrorType,
 };
 
 use iter_extended::vecmap;

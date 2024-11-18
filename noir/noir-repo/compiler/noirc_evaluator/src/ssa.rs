@@ -30,9 +30,7 @@ use ir::instruction::ErrorType;
 use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVariables};
 
 use noirc_frontend::{
-    ast::Visibility,
-    hir_def::{function::FunctionSignature, types::Type as HirType},
-    monomorphization::ast::Program,
+    ast::Visibility, hir_def::function::FunctionSignature, monomorphization::ast::Program,
 };
 use ssa_gen::Ssa;
 use tracing::{span, Level};

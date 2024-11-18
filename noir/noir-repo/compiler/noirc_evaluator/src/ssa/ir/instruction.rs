@@ -495,10 +495,13 @@ impl Instruction {
                 let lhs = f(*lhs);
                 let rhs = f(*rhs);
                 let assert_message = assert_message.as_ref().map(|error| match error {
-                    ConstrainError::Dynamic(selector, payload_values) => ConstrainError::Dynamic(
-                        *selector,
-                        vecmap(payload_values.iter().copied(), f),
-                    ),
+                    ConstrainError::Dynamic(selector, is_string, payload_values) => {
+                        ConstrainError::Dynamic(
+                            *selector,
+                            *is_string,
+                            vecmap(payload_values.iter().copied(), f),
+                        )
+                    }
                     _ => error.clone(),
                 });
                 Instruction::Constrain(lhs, rhs, assert_message)
