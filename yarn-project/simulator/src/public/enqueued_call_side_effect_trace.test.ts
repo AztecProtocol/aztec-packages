@@ -508,11 +508,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
       testCounter++;
 
-      if (reverted) {
-        trace.mergeRevertedForkedTrace(nestedTrace);
-      } else {
-        trace.mergeSuccessfulForkedTrace(nestedTrace);
-      }
+      trace.merge(nestedTrace, reverted);
 
       // parent trace adopts nested call's counter
       expect(trace.getCounter()).toBe(testCounter);
