@@ -75,11 +75,11 @@ struct ExecutionTraceUsageTracker {
         // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start).
         size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
 
-        // WORKTODO: should be able to use Range{ 0, max_databus_size } but this breaks for certain num_threads.. why
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
+        // max_databus_size } but this breaks for certain choices of num_threads.
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
         active_ranges.push_back(Range{ 0, databus_end });
-        // active_ranges.push_back(Range{ 0, max_databus_size });
         active_ranges.push_back(Range{ dyadic_circuit_size - max_tables_size, dyadic_circuit_size });
     }
 
@@ -158,24 +158,9 @@ struct ExecutionTraceUsageTracker {
             simplified_active_ranges = use_prev_accumulator ? construct_union_of_ranges(previous_active_ranges)
                                                             : construct_union_of_ranges(active_ranges);
         }
-        // info("Active ranges: ");
-        // for (auto range : active_ranges) {
-        //     std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
-        // }
-        // info("");
-        // info("Simplified ranges: ");
-        // for (auto range : simplified_active_ranges) {
-        //     std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
-        // }
-        // info("");
 
         // Determine ranges in the structured trace that even distibute the active content across threads
         thread_ranges = construct_ranges_for_equal_content_distribution(simplified_active_ranges, num_threads);
-        // info("Thread ranges: ");
-        // for (auto range : thread_ranges) {
-        //     std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
-        // }
-        // info("");
     }
 
     /**

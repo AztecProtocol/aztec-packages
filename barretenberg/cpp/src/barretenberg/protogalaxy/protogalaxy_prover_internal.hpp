@@ -381,8 +381,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
                     const FF pow_challenge = gate_separators[idx];
 
-                    // auto prev_accum = thread_univariate_accumulators[thread_idx];
-
                     // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
                     // this function have already been folded. Moreover, linear-dependent relations that act over the
                     // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
@@ -391,11 +389,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                     relation_parameters, // these parameters have already been folded
                                                     pow_challenge);
                 }
-
-                // bool manual_active = prev_accum != thread_univariate_accumulators[thread_idx];
-                // if (manual_active && !trace_usage_tracker.check_is_active(idx)) {
-                //     info("Missed active row at idx: ", idx);
-                // }
             }
         });
 
@@ -604,11 +597,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const size_t desired_num_threads = domain_size / min_iterations_per_thread;
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
-
-        // // DEBUG
-        // num_threads = 127;
-
-        info("NUM THREADS = ", num_threads);
 
         return num_threads;
     }
