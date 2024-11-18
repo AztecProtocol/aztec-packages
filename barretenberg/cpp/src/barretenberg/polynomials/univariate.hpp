@@ -197,6 +197,10 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         if (!evaluations[0].is_zero()) {
             return false;
         }
+        // TODO: real nasty workaround hack for relation skipping bug
+        if constexpr (LENGTH == 2) {
+            return evaluations[1].is_zero();
+        }
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
             if (!evaluations[i].is_zero()) {
                 return false;

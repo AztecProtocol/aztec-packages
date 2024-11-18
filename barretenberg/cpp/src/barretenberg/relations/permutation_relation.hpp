@@ -212,9 +212,9 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
         const ParameterMonomialAccumulator public_input_delta_m(params.public_input_delta);
         const auto z_perm_m = MonomialAccumulator(in.z_perm);
-        const MonomialAccumulator z_perm_shift_m(in.z_perm_shift);
+        const auto z_perm_shift_m = MonomialAccumulator(in.z_perm_shift);
         const auto lagrange_first_m = MonomialAccumulator(in.lagrange_first);
-        const MonomialAccumulator lagrange_last_m(in.lagrange_last);
+        const auto lagrange_last_m = MonomialAccumulator(in.lagrange_last);
 
         auto public_input_term_m = lagrange_last_m * public_input_delta_m;
         public_input_term_m += z_perm_shift_m;
