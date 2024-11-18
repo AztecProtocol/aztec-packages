@@ -40,13 +40,13 @@ export class SequencerClient {
     contractDataSource: ContractDataSource,
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
-    simulationProvider: SimulationProvider,
+    _simulationProvider: SimulationProvider,
     telemetryClient: TelemetryClient,
   ) {
     const publisher = new L1Publisher(config, telemetryClient);
     const globalsBuilder = new GlobalVariableBuilder(config);
 
-    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, simulationProvider, telemetryClient);
+    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, telemetryClient);
 
     const rollup = publisher.getRollupContract();
     const [l1GenesisTime, slotDuration] = await Promise.all([
