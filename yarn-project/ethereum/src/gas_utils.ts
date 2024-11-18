@@ -37,9 +37,9 @@ export interface GasConfig {
    */
   minGwei: bigint;
   /**
-   * Priority fee in gwei
+   * How much to increase priority fee by each attempt (percentage)
    */
-  priorityFeeGwei: bigint;
+  priorityFeeBumpPercentage?: bigint;
 }
 
 export interface L1TxMonitorConfig {
@@ -67,7 +67,7 @@ const DEFAULT_GAS_CONFIG: GasConfig = {
   bufferPercentage: 20n,
   maxGwei: 500n,
   minGwei: 1n,
-  priorityFeeGwei: 2n,
+  priorityFeeBumpPercentage: 20n,
 };
 
 const DEFAULT_MONITOR_CONFIG: Required<L1TxMonitorConfig> = {
@@ -75,6 +75,11 @@ const DEFAULT_MONITOR_CONFIG: Required<L1TxMonitorConfig> = {
   checkIntervalMs: 30_000,
   stallTimeMs: 60_000,
 };
+
+interface GasPrice {
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}
 
 export class GasUtils {
   private readonly gasConfig: GasConfig;
@@ -122,12 +127,13 @@ export class GasUtils {
     const txHash = await this.walletClient.sendTransaction({
       ...request,
       gas: gasLimit,
-      maxFeePerGas: gasPrice,
+      maxFeePerGas: gasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
       nonce,
     });
 
     this.logger?.verbose(
-      `Sent L1 transaction ${txHash} with gas limit ${gasLimit} and price ${formatGwei(gasPrice)} gwei`,
+      `Sent L1 transaction ${txHash} with gas limit ${gasLimit} and price ${formatGwei(gasPrice.maxFeePerGas)} gwei`,
     );
 
     // Track all tx hashes we send
@@ -176,19 +182,19 @@ export class GasUtils {
         // Enough time has passed - might be stuck
         if (timePassed > monitorConfig.stallTimeMs && attempts < monitorConfig.maxAttempts) {
           attempts++;
-          const newGasPrice = await this.getGasPrice();
+          const newGasPrice = await this.getGasPrice(gasConfig, attempts);
 
           this.logger?.debug(
             `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${monitorConfig.maxAttempts} ` +
-              `with new gas price ${formatGwei(newGasPrice)} gwei`,
+              `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei`,
           );
 
-          // Send replacement tx with higher gas price
           currentTxHash = await this.walletClient.sendTransaction({
             ...request,
             nonce,
             gas: gasLimit,
-            maxFeePerGas: newGasPrice,
+            maxFeePerGas: newGasPrice.maxFeePerGas,
+            maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           });
 
           // Record new tx hash
@@ -209,31 +215,27 @@ export class GasUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(_gasConfig?: GasConfig): Promise<bigint> {
+  private async getGasPrice(_gasConfig?: GasConfig, attempt: number = 0): Promise<GasPrice> {
     const gasConfig = { ...this.gasConfig, ..._gasConfig };
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
-    const priorityFee = gasConfig.priorityFeeGwei * WEI_CONST;
 
-    // First ensure we're at least meeting the base fee
-    const minRequired = baseFee;
-    const maxAllowed = gasConfig.maxGwei * WEI_CONST;
-
-    // Our gas price must be at least the base fee
-    let finalGasPrice = minRequired;
-
-    // Add priority fee if we have room under the max
-    if (finalGasPrice + priorityFee <= maxAllowed) {
-      finalGasPrice += priorityFee;
+    // Get initial priority fee from the network
+    let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+    if (attempt > 0) {
+      // Bump priority fee by configured percentage for each attempt
+      priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage ?? 20n) * BigInt(attempt))) / 100n;
     }
 
+    const maxFeePerGas = gasConfig.maxGwei * WEI_CONST;
+    const maxPriorityFeePerGas = priorityFee;
+
     this.logger?.debug(
-      `Gas price calculation: baseFee=${formatGwei(baseFee)}, priority=${gasConfig.priorityFeeGwei}, final=${formatGwei(
-        finalGasPrice,
-      )}`,
+      `Gas price calculation (attempt ${attempt}): baseFee=${formatGwei(baseFee)}, ` +
+        `maxPriorityFee=${formatGwei(maxPriorityFeePerGas)}, maxFee=${formatGwei(maxFeePerGas)}`,
     );
 
-    return finalGasPrice;
+    return { maxFeePerGas, maxPriorityFeePerGas };
   }
 
   /**
