@@ -184,7 +184,7 @@ export class AztecLmdbStore implements AztecKVStore {
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
     const stats = this.#rootDb.getStats();
-    // The 'mapSize' is the total amount of vertual address space allocated to the DB (effectively the maximum possible size)
+    // The 'mapSize' is the total amount of virtual address space allocated to the DB (effectively the maximum possible size)
     // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
     let mapSize = 0;
     if ('mapSize' in stats && typeof stats.mapSize === 'number') {
@@ -207,9 +207,11 @@ export class AztecLmdbStore implements AztecKVStore {
     let pageSize = 0;
     let totalSize = 0;
     let numItems = 0;
+    // This is the total number of key/value pairs present in the DB
     if ('entryCount' in stats && typeof stats.entryCount === 'number') {
       numItems = stats.entryCount;
     }
+    // The closest value we can get to the actual size of the database is the number of consumed pages * the page size
     if (
       'treeBranchPageCount' in stats &&
       typeof stats.treeBranchPageCount === 'number' &&
