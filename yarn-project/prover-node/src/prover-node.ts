@@ -56,7 +56,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     private readonly contractDataSource: ContractDataSource,
     private readonly worldState: WorldStateSynchronizer,
     private readonly coordination: ProverCoordination & Maybe<Service>,
-    private readonly simulator: SimulationProvider,
+    private readonly _simulator: SimulationProvider,
     private readonly quoteProvider: QuoteProvider,
     private readonly quoteSigner: QuoteSigner,
     private readonly claimsMonitor: ClaimsMonitor,
@@ -243,11 +243,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     const proverDb = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      this.simulator,
-      this.telemetryClient,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
 
     const cleanUp = async () => {
       await publicDb.close();

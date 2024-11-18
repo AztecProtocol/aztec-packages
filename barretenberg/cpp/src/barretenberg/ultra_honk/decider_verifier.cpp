@@ -79,6 +79,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
