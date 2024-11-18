@@ -87,43 +87,6 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     }
 }
 
-// TYPED_TEST(UltraHonkTests, PolySwap)
-// {
-//     size_t num_gates = 3;
-//     TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
-
-//     // Construct a simple circuit and make a copy of it
-//     UltraCircuitBuilder builder;
-//     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
-//     auto builder_copy = builder;
-
-//     // Construct two identical proving keys
-//     auto proving_key_1 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_settings);
-//     auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
-
-//     // Tamper with the polys of pkey 1 in such a way that verification should fail
-//     proving_key_1->proving_key.polynomials.w_l.at(5) = 10;
-
-//     // Swap the polys of the two proving keys; result should be pkey 1 is valid and pkey 2 should fail
-//     std::swap(proving_key_1->proving_key.polynomials, proving_key_2->proving_key.polynomials);
-
-//     { // Verification based on pkey 1 should succeed
-//         typename TestFixture::Prover prover(proving_key_1);
-//         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->proving_key);
-//         typename TestFixture::Verifier verifier(verification_key);
-//         auto proof = prover.construct_proof();
-//         EXPECT_TRUE(verifier.verify_proof(proof));
-//     }
-
-//     { // Verification based on pkey 2 should fail
-//         typename TestFixture::Prover prover(proving_key_2);
-//         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->proving_key);
-//         typename TestFixture::Verifier verifier(verification_key);
-//         auto proof = prover.construct_proof();
-//         EXPECT_FALSE(verifier.verify_proof(proof));
-//     }
-// }
-
 /**
  * @brief Test simple circuit with public inputs
  *
