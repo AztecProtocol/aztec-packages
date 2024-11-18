@@ -196,7 +196,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     std::pair<bool, fr> sparse_batch_update(const index_t& start_index,
                                             const index_t& num_leaves_to_be_inserted,
                                             const uint32_t& root_level,
-                                            const std::vector<LeafUpdate>& insertions);
+                                            const std::vector<LeafUpdate>& updates);
 
     void sparse_batch_update(const std::vector<std::pair<index_t, fr>>& hashes_at_level, uint32_t level);
 
@@ -228,10 +228,10 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
 
     using UpdatesCompletionCallback = std::function<void(const TypedResponse<UpdatesCompletionResponse>&)>;
     void perform_updates(size_t total_leaves,
-                         std::shared_ptr<std::vector<LeafUpdate>> insertions,
+                         std::shared_ptr<std::vector<LeafUpdate>> updates,
                          const UpdatesCompletionCallback& completion);
     void perform_updates_without_witness(const index_t& highest_index,
-                                         std::shared_ptr<std::vector<LeafUpdate>> insertions,
+                                         std::shared_ptr<std::vector<LeafUpdate>> updates,
                                          const UpdatesCompletionCallback& completion);
 
     struct HashGenerationResponse {
@@ -701,11 +701,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
     // This signals the completion of the low leaf updates
     // If the append hash generation has also copleted then the hashes can be appended
     UpdatesCompletionCallback updates_completion =
-        [=, this](const TypedResponse<UpdatesCompletionResponse>& insertion_response) {
-            if (!insertion_response.success) {
-                results->status.set_failure(insertion_response.message);
+        [=, this](const TypedResponse<UpdatesCompletionResponse>& updates_response) {
+            if (!updates_response.success) {
+                results->status.set_failure(updates_response.message);
             } else if (capture_witness) {
-                results->low_leaf_witness_data = insertion_response.inner.update_witnesses;
+                results->low_leaf_witness_data = updates_response.inner.update_witnesses;
             }
 
             if (results->count.fetch_sub(1) == 1) {
@@ -726,7 +726,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
         };
 
     // This signals the completion of the insertion data generation
-    // Here we will enqueue both the generation of the appended hashes and the low leaf updates (insertions)
+    // Here we will enqueue both the generation of the appended hashes and the low leaf updates
     InsertionGenerationCallback insertion_generation_completed =
         [=, this](const TypedResponse<InsertionGenerationResponse>& insertion_response) {
             if (!insertion_response.success) {
@@ -756,7 +756,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
         total_leaves,
         LeafUpdateWitnessData<LeafValueType>{ IndexedLeafValueType::empty(), 0, fr_sibling_path(depth_, fr::zero()) });
 
-    // early return, no insertions to perform
+    // early return, no updates to perform
     if (updates->size() == 0) {
         TypedResponse<UpdatesCompletionResponse> response;
         response.success = true;
@@ -812,17 +812,17 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
 
         for (uint32_t i = 0; i < updates->size(); ++i) {
             std::function<void()> op = [=, this]() {
-                LeafUpdate& insertion = (*updates)[i];
+                LeafUpdate& update = (*updates)[i];
                 Signal& leaderSignal = (*signals)[i];
                 Signal& followerSignal = (*signals)[i + 1];
                 try {
                     auto& current_witness_data = update_witnesses->at(i);
-                    current_witness_data.leaf = insertion.original_leaf;
-                    current_witness_data.index = insertion.leaf_index;
+                    current_witness_data.leaf = update.original_leaf;
+                    current_witness_data.index = update.leaf_index;
                     current_witness_data.path.clear();
 
-                    update_leaf_and_hash_to_root(insertion.leaf_index,
-                                                 insertion.updated_leaf,
+                    update_leaf_and_hash_to_root(update.leaf_index,
+                                                 update.updated_leaf,
                                                  leaderSignal,
                                                  followerSignal,
                                                  current_witness_data.path);
@@ -865,7 +865,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates_without_
     std::shared_ptr<std::vector<LeafUpdate>> updates,
     const UpdatesCompletionCallback& completion)
 {
-    // early return, no insertions to perform
+    // early return, no updates to perform
     if (updates->size() == 0) {
         TypedResponse<UpdatesCompletionResponse> response;
         response.success = true;
@@ -978,7 +978,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
             // std::cout << "Generating insertions " << std::endl;
 
             // Now that we have the sorted values we need to identify the leaves that need updating.
-            // This is performed sequentially and is stored in this 'leaf_insertion' struct
+            // This is performed sequentially and is stored in this 'leaf_update' struct
             response.inner.highest_index = 0;
             response.inner.low_leaf_updates = std::make_shared<std::vector<LeafUpdate>>();
             response.inner.low_leaf_updates->reserve(values.size());
@@ -1255,7 +1255,7 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
     const index_t& start_index,
     const index_t& num_leaves_to_be_inserted,
     const uint32_t& root_level,
-    const std::vector<LeafUpdate>& insertions)
+    const std::vector<LeafUpdate>& updates)
 {
     auto get_optional_node = [&](uint32_t level, index_t index) -> std::optional<fr> {
         fr value = fr::zero();
@@ -1267,7 +1267,7 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
     uint32_t level = depth_;
 
     std::vector<index_t> indices;
-    indices.reserve(insertions.size());
+    indices.reserve(updates.size());
 
     fr new_hash = fr::zero();
 
@@ -1275,28 +1275,28 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
     std::unordered_map<index_t, fr> hashes;
     index_t end_index = start_index + num_leaves_to_be_inserted;
     // Insert the leaves
-    for (size_t i = 0; i < insertions.size(); ++i) {
+    for (size_t i = 0; i < updates.size(); ++i) {
 
-        const LeafUpdate& insertion = insertions[i];
-        if (insertion.leaf_index < start_index || insertion.leaf_index >= end_index) {
+        const LeafUpdate& update = updates[i];
+        if (update.leaf_index < start_index || update.leaf_index >= end_index) {
             continue;
         }
 
         // one of our leaves
-        new_hash = HashingPolicy::hash(insertion.updated_leaf.get_hash_inputs());
+        new_hash = HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
 
-        // std::cout << "Hashing leaf at level " << level << " index " << insertion.low_leaf_index << " batch start "
+        // std::cout << "Hashing leaf at level " << level << " index " << update.leaf_index << " batch start "
         //           << start_index << " hash " << leaf_hash << std::endl;
 
         // Write the new leaf hash in place
-        store_->put_cached_node_by_index(level, insertion.leaf_index, new_hash);
+        store_->put_cached_node_by_index(level, update.leaf_index, new_hash);
         // std::cout << "Writing leaf hash: " << new_hash << " at index " << index << std::endl;
-        store_->put_leaf_by_hash(new_hash, insertion.updated_leaf);
+        store_->put_leaf_by_hash(new_hash, update.updated_leaf);
         // std::cout << "Writing level: " << level << std::endl;
         store_->put_node_by_hash(new_hash, { .left = std::nullopt, .right = std::nullopt, .ref = 1 });
-        indices.push_back(insertion.leaf_index);
-        hashes[insertion.leaf_index] = new_hash;
-        // std::cout << "Leaf " << new_hash << " at index " << insertion.low_leaf_index << std::endl;
+        indices.push_back(update.leaf_index);
+        hashes[update.leaf_index] = new_hash;
+        // std::cout << "Leaf " << new_hash << " at index " << update.leaf_index << std::endl;
     }
 
     if (indices.empty()) {
