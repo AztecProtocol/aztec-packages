@@ -242,6 +242,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
             perturbator.emplace_back(FF(0));
         }
+        info("Perturbator coeffs:");
+        for (size_t idx = 0; idx < perturbator.size(); ++idx) {
+            info("idx = ", idx, ", val = ", perturbator[idx]);
+        }
         return Polynomial<FF>{ perturbator };
     }
 
