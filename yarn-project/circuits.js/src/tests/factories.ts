@@ -79,7 +79,6 @@ import {
   NoteLogHash,
   Nullifier,
   NullifierLeafPreimage,
-  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
@@ -1362,12 +1361,10 @@ export function makeAvmExecutionHints(
  * @returns the execution hints.
  */
 export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
-  const values = Array(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH).map((_, i) => seed + 0x2000 + i);
-  const publicInputs = PublicCircuitPublicInputs.fromBuffer(Buffer.from(values));
   return AvmCircuitInputs.from({
     functionName: `function${seed}`,
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
-    publicInputs,
+    publicInputs: PublicCircuitPublicInputs.empty(),
     avmHints: makeAvmExecutionHints(seed + 0x3000),
     output: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,

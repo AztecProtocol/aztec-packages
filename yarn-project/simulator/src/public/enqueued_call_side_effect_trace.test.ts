@@ -2,7 +2,6 @@ import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AztecAddress,
   EthAddress,
-  type IsEmpty,
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
@@ -24,7 +23,6 @@ import {
   ReadRequest,
   SerializableContractInstance,
   TreeLeafReadRequest,
-  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
@@ -50,12 +48,6 @@ describe('Enqueued-call Side Effect Trace', () => {
   let startCounterPlus1: number;
   let trace: PublicEnqueuedCallSideEffectTrace;
 
-  const expectNonEmptyItems = <T extends IsEmpty>(array: T[], expected: T[]) => {
-    const numNonEmptyItems = countAccumulatedItems(array);
-    expect(expected.length).toBe(numNonEmptyItems);
-    expect(array.slice(0, numNonEmptyItems)).toEqual(expected);
-  };
-
   beforeEach(() => {
     startCounter = randomInt(/*max=*/ 1000000);
     startCounterFr = new Fr(startCounter);
@@ -70,7 +62,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const leafSlot = computePublicDataTreeLeafSlot(address, slot);
     const expected = [new PublicDataRead(leafSlot, value, startCounter /*contractAddress*/)];
-    expectNonEmptyItems(trace.getSideEffects().publicDataReads, expected);
+    expect(trace.getSideEffects().publicDataReads).toEqual(expected);
 
     expect(trace.getAvmCircuitHints().storageValues.items).toEqual([{ key: startCounterFr, value }]);
   });
@@ -84,7 +76,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const leafSlot = computePublicDataTreeLeafSlot(address, slot);
     const expected = [new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/)];
-    expectNonEmptyItems(trace.getSideEffects().publicDataWrites, expected);
+    expect(trace.getSideEffects().publicDataWrites).toEqual(expected);
   });
 
   it('Should trace note hash checks', () => {
@@ -92,7 +84,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     trace.traceNoteHashCheck(address, utxo, leafIndex, exists, []);
 
     const expected = [new TreeLeafReadRequest(utxo, leafIndex)];
-    expectNonEmptyItems(trace.getSideEffects().noteHashReadRequests, expected);
+    expect(trace.getSideEffects().noteHashReadRequests).toEqual(expected);
 
     expect(trace.getAvmCircuitHints().noteHashExists.items).toEqual([{ key: leafIndex, value: new Fr(exists) }]);
   });
@@ -102,7 +94,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = [new NoteHash(utxo, startCounter).scope(address)];
-    expectNonEmptyItems(trace.getSideEffects().noteHashes, expected);
+    expect(trace.getSideEffects().noteHashes).toEqual(expected);
   });
 
   it('Should trace nullifier checks', () => {
@@ -113,8 +105,8 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const { nullifierReadRequests, nullifierNonExistentReadRequests } = trace.getSideEffects();
     const expected = [new ReadRequest(utxo, startCounter).scope(address)];
-    expectNonEmptyItems(nullifierReadRequests, expected);
-    expectNonEmptyItems(nullifierNonExistentReadRequests, []);
+    expect(nullifierReadRequests).toEqual(expected);
+    expect(nullifierNonExistentReadRequests).toEqual([]);
 
     expect(trace.getAvmCircuitHints().nullifierExists.items).toEqual([{ key: startCounterFr, value: new Fr(exists) }]);
   });
@@ -126,10 +118,10 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const { nullifierReadRequests, nullifierNonExistentReadRequests } = trace.getSideEffects();
-    expectNonEmptyItems(nullifierReadRequests, []);
+    expect(nullifierReadRequests).toEqual([]);
 
     const expected = [new ReadRequest(utxo, startCounter).scope(address)];
-    expectNonEmptyItems(nullifierNonExistentReadRequests, expected);
+    expect(nullifierNonExistentReadRequests).toEqual(expected);
 
     expect(trace.getAvmCircuitHints().nullifierExists.items).toEqual([{ key: startCounterFr, value: new Fr(exists) }]);
   });
@@ -140,7 +132,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = [new Nullifier(siloNullifier(address, utxo), startCounter, Fr.ZERO)];
-    expectNonEmptyItems(trace.getSideEffects().nullifiers, expected);
+    expect(trace.getSideEffects().nullifiers).toEqual(expected);
   });
 
   it('Should trace L1ToL2 Message checks', () => {
@@ -148,7 +140,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists, []);
 
     const expected = [new TreeLeafReadRequest(utxo, leafIndex)];
-    expectNonEmptyItems(trace.getSideEffects().l1ToL2MsgReadRequests, expected);
+    expect(trace.getSideEffects().l1ToL2MsgReadRequests).toEqual(expected);
 
     expect(trace.getAvmCircuitHints().l1ToL2MessageExists.items).toEqual([
       {
@@ -163,7 +155,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = [new L2ToL1Message(EthAddress.fromField(recipient), content, startCounter).scope(address)];
-    expectNonEmptyItems(trace.getSideEffects().l2ToL1Msgs, expected);
+    expect(trace.getSideEffects().l2ToL1Msgs).toEqual(expected);
   });
 
   it('Should trace new unencrypted logs', () => {
@@ -176,7 +168,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     ];
 
     expect(trace.getUnencryptedLogs()).toEqual([expectedLog]);
-    expectNonEmptyItems(trace.getSideEffects().unencryptedLogsHashes, expectedHashes);
+    expect(trace.getSideEffects().unencryptedLogsHashes).toEqual(expectedHashes);
   });
 
   it('Should trace get contract instance', () => {
