@@ -4,6 +4,7 @@ set -e
 # Run from within barretenberg/acir_tests
 
 # Initialize variables for flags
+# REBUILD_NARGO_FLAG="--rebuild-nargo" # supply empty string to avoid rebuilding
 REBUILD_NARGO_FLAG=""
 PROGRAMS=""
 
