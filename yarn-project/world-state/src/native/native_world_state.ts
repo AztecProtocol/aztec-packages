@@ -12,7 +12,6 @@ import {
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeaf,
   type NullifierLeafPreimage,
@@ -166,15 +165,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPaddedPublicDataWrites.push(
         txEffect.publicDataWrites.map(write => {
           if (write.isEmpty()) {
-            console.log(txEffect);
             throw new Error('Public data write must not be empty when syncing');
           }
           return new PublicDataTreeLeaf(write.leafSlot, write.value);
         }),
       );
     }
-
-    console.log(batchesOfPaddedPublicDataWrites);
 
     const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
       blockNumber: l2Block.number,
