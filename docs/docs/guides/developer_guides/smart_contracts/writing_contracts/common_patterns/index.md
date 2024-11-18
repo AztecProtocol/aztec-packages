@@ -93,8 +93,6 @@ When you send someone a note, the note hash gets added to the note hash tree. To
 
 #include_code pxe_add_note yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
 
-In the token contract, TransparentNotes are stored in a set called "pending_shields" which is in storage slot 5tutorials/tutorials/codealong/contract_tutorials/token_contract.md#contract-storage)
-
 ### Revealing encrypted logs conditionally
 
 An encrypted log can contain any information for a recipient, typically in the form of a note. One could think this log is emitted as part of the transaction execution, so it wouldn't be revealed if the transaction fails.

@@ -206,7 +206,7 @@ A hash of the note will be generated, and inserted into the note hash tree, allo
 
 ### `insert_from_public`
 
-The `insert_from_public` allow public function to insert notes into private storage. This is very useful when we want to support private function calls that have been initiated in public, such as shielding in the [token contract codealong tutorial](../../../../tutorials/codealong/contract_tutorials/token_contract.md).
+The `insert_from_public` allow public function to insert notes into private storage. This is very useful when we want to support private function calls that have been initiated in public.
 
 The usage is similar to using the `insert` method with the difference that this one is called in public functions.
 
