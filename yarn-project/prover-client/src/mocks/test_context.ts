@@ -16,7 +16,6 @@ import {
   PublicExecutionResultBuilder,
   type PublicExecutor,
   PublicProcessor,
-  RealPublicKernelCircuitSimulator,
   type SimulationProvider,
   WASMSimulator,
   type WorldStateDB,
@@ -68,7 +67,6 @@ export class TestContext {
 
     const publicExecutor = mock<PublicExecutor>();
     const worldStateDB = mock<WorldStateDB>();
-    const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
     // Separated dbs for public processor and prover - see public_processor for context
@@ -88,7 +86,6 @@ export class TestContext {
     const processor = PublicProcessor.create(
       publicDb,
       publicExecutor,
-      publicKernel,
       globalVariables,
       Header.empty(),
       worldStateDB,
