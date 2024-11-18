@@ -606,7 +606,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
 
         // // DEBUG
-        // num_threads = 128;
+        // num_threads = 127;
 
         info("NUM THREADS = ", num_threads);
 

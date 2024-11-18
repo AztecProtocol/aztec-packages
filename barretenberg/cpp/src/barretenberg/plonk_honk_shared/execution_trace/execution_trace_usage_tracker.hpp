@@ -67,9 +67,8 @@ struct ExecutionTraceUsageTracker {
             active_ranges.push_back(Range{ start_idx, end_idx });
         }
 
-        // The active ranges for the databus and lookup relations (both based on log-deriv lookup argument) must
-        // incorporate both the lookup/read gate blocks as well as the rows containing the data that is being read.
-        // Update the corresponding ranges accordingly. (Note: tables are constructed at the 'bottom' of the trace).
+        // The active ranges must also include the rows where the actual databus and lookup table data are stored.
+        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start).
         size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
 
         // WORKTODO: should be able to use Range{ 0, max_databus_size } but this breaks for certain num_threads.. why
@@ -87,12 +86,9 @@ struct ExecutionTraceUsageTracker {
         if (!trace_settings.structure) {
             return true;
         }
-        for (auto& range : active_ranges) {
-            if (idx >= range.first && idx < range.second) {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(active_ranges.begin(), active_ranges.end(), [idx](const auto& range) {
+            return idx >= range.first && idx < range.second;
+        });
     }
 
     // For printing only. Must match the order of the members in the arithmetization
