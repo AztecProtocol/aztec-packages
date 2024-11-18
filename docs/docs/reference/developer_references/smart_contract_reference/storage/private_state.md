@@ -184,7 +184,7 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_set.nr).
 
-And can be added to the `Storage` struct as follows. Here adding a set for a custom note, the TransparentNote (useful for public -> private communication).
+And can be added to the `Storage` struct as follows. Here adding a set for a custom note.
 
 #include_code storage-set-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
