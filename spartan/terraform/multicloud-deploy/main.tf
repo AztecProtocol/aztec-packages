@@ -130,6 +130,11 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "proverAgent.gke.spotEnabled"
+    value = true
+  }
+
+  set {
     name  = "network.setupL2Contracts"
     value = false
   }

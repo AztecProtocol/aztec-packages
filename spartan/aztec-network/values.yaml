@@ -202,6 +202,8 @@ ethereum:
 proverAgent:
   enabled: true
   replicas: 1
+  gke:
+    spotEnabled: false
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
   concurrency: 1
