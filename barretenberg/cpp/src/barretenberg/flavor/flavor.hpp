@@ -380,7 +380,7 @@ template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
 
 template <typename T>
-concept DoesRecursiveIPA = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK>;
+concept HasIPAAccumulatorFlavor = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK>;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,

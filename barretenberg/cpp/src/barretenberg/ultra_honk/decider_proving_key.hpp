@@ -307,7 +307,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        if constexpr (DoesRecursiveIPA<Flavor>) { // Set the IPA claim indices
+        if constexpr (HasIPAAccumulatorFlavor<Flavor>) { // Set the IPA claim indices
             proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
             proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
             proving_key.ipa_proof = circuit.ipa_proof;
