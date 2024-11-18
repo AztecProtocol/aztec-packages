@@ -106,8 +106,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
+  public fork() {
+    return new PublicSideEffectTrace(this.sideEffectCounter);
   }
 
   public getCounter() {
@@ -440,11 +440,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     throw new Error('Not implemented');
   }
 
-  public mergeSuccessfulForkedTrace(_nestedTrace: this) {
-    throw new Error('Not implemented');
-  }
-
-  public mergeRevertedForkedTrace(_nestedTrace: this) {
+  public merge(_nestedTrace: this, _reverted: boolean = false) {
     throw new Error('Not implemented');
   }
 

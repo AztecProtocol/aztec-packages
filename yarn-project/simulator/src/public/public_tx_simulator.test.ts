@@ -31,11 +31,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { PublicExecutionResultBuilder } from '../mocks/fixtures.js';
-import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -53,7 +50,6 @@ describe('public_tx_simulator', () => {
 
   let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicKernel: PublicKernelCircuitSimulator;
   let worldStateDB: MockProxy<WorldStateDB>;
 
   let root: Buffer;
@@ -163,12 +159,9 @@ describe('public_tx_simulator', () => {
     db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
     db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
 
-    publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-
     processor = PublicTxSimulator.create(
       db,
       publicExecutor,
-      publicKernel,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       Header.empty(),
       worldStateDB,
