@@ -71,6 +71,35 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         return verified;
     }
 
+    // WORKTODO: move this to instance inspector or something
+
+    /**
+     * @brief Check that a given relation is satified for a set of polynomials
+     *
+     * @tparam relation_idx Index into a tuple of provided relations
+     */
+    template <typename Relation> void check_relation(auto& polynomials, auto params)
+    {
+        for (size_t i = 0; i < polynomials.get_polynomial_size(); i++) {
+            // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to
+            // zero
+            using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+            SumcheckArrayOfValuesOverSubrelations result;
+            for (auto& element : result) {
+                element = 0;
+            }
+
+            // Evaluate each constraint in the relation and check that each is satisfied
+            Relation::accumulate(result, polynomials.get_row(i), params, 1);
+            for (auto& element : result) {
+                if (element != 0) {
+                    info("WARNING: Relation fails at row idx: ", i);
+                    ASSERT(false);
+                }
+            }
+        }
+    }
+
     /**
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
@@ -126,6 +155,57 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));
+}
+
+/**
+ * @brief Test proof construction/verification for a structured execution trace
+ *
+ */
+TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
+{
+    using Flavor = TypeParam;
+    typename Flavor::CircuitBuilder builder;
+    using FF = Flavor::FF;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    auto builder_copy = builder;
+
+    // Construct and verify Honk proof using a structured trace
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
+    auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
+    auto circuit_size = proving_key->proving_key.circuit_size;
+
+    auto doubled_circuit_size = 2 * circuit_size;
+    proving_key_copy->proving_key.polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
+    // WARNING: updating circuit_size here would public input delta perm argument!
+    // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
+
+    Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+
+    Prover prover_copy(proving_key_copy);
+    auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(proving_key_copy->proving_key);
+
+    for (auto [entry, entry_copy] : zip_view(verification_key->get_all(), verification_key_copy->get_all())) {
+        EXPECT_EQ(entry, entry_copy);
+    }
+
+    Verifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+
+    this->template check_relation<UltraPermutationRelation<FF>>(proving_key->proving_key.polynomials,
+                                                                proving_key->relation_parameters);
+    EXPECT_TRUE(verifier.verify_proof(proof));
+
+    Verifier verifier_copy(verification_key_copy);
+    auto proof_copy = prover_copy.construct_proof();
+    this->template check_relation<UltraPermutationRelation<FF>>(proving_key_copy->proving_key.polynomials,
+                                                                proving_key_copy->relation_parameters);
+    EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
 }
 
 /**
