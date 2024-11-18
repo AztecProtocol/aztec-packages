@@ -686,4 +686,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return Promise.resolve(this.contractArtifacts.get(address.toString()));
   }
+
+  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return { mappingSize: 0, actualSize: 0, numItems: 0 };
+  }
 }

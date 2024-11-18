@@ -53,6 +53,8 @@ export class AztecKVTxPool implements TxPool {
       }
       this.#metrics.recordRemovedObjects(deleted, 'pending');
       this.#metrics.recordAddedObjects(txHashes.length, 'mined');
+      const storeSizes = this.#store.estimateSize();
+      this.#metrics.recordDBMetrics(storeSizes.mappingSize, storeSizes.numItems, storeSizes.actualSize);
     });
   }
 

@@ -712,7 +712,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     }
     await this.#snapshot(l2Block.number);
 
-    this.metrics.recordDbSize(this.store.estimateSize().bytes);
+    this.metrics.recordDbSize(this.store.estimateSize().actualSize);
     this.metrics.recordSyncDuration('commit', timer);
     return buildEmptyWorldStateStatusFull();
   }

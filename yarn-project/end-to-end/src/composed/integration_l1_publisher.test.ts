@@ -146,7 +146,12 @@ describe('L1Publisher integration', () => {
       worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(
+      builderDb,
+      blockSource,
+      worldStateConfig,
+      new NoopTelemetryClient(),
+    );
     await worldStateSynchronizer.start();
     fork = await worldStateSynchronizer.fork();
     builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());

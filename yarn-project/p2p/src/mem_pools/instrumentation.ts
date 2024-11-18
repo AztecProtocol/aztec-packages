@@ -1,5 +1,12 @@
 import { type Gossipable } from '@aztec/circuit-types';
-import { Attributes, type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type Histogram,
+  LmdbMetrics,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+} from '@aztec/telemetry-client';
 
 /**
  * Instrumentation class for the Pools (TxPool, AttestationPool, etc).
@@ -9,6 +16,8 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   private objectsInMempool: UpDownCounter;
   /** Tracks tx size */
   private objectSize: Histogram;
+
+  private dbMetrics: LmdbMetrics;
 
   private defaultAttributes;
 
@@ -35,6 +44,26 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
         ],
       },
     });
+
+    this.dbMetrics = new LmdbMetrics(
+      meter,
+      {
+        name: Metrics.MEMPOOL_DB_MAP_SIZE,
+        description: 'Database map size for the Tx mempool',
+      },
+      {
+        name: Metrics.MEMPOOL_DB_USED_SIZE,
+        description: 'Database used size for the Tx mempool',
+      },
+      {
+        name: Metrics.MEMPOOL_DB_NUM_ITEMS,
+        description: 'Num items in database for the Tx mempool',
+      },
+    );
+  }
+
+  public recordDBMetrics(dbMapSize: number, dbNumItems: number, dbUsedSize: number) {
+    this.dbMetrics.recordDBMetrics(dbMapSize, dbNumItems, dbUsedSize);
   }
 
   public recordSize(poolObject: PoolObject) {
