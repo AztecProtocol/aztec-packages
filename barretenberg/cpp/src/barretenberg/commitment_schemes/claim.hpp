@@ -67,6 +67,16 @@ template <typename Curve> class OpeningClaim {
                  commitment.x.normalize().witness_index, // no idea if we need these normalize() calls...
                  commitment.y.normalize().witness_index };
     }
+
+    auto get_native_opening_claim() const
+        requires(Curve::is_stdlib_type)
+    {
+        return OpeningClaim<typename Curve::NativeCurve>{
+            { static_cast<typename Curve::NativeCurve::ScalarField>(opening_pair.challenge.get_value()),
+              static_cast<typename Curve::NativeCurve::ScalarField>(opening_pair.evaluation.get_value()) },
+            commitment.get_value()
+        };
+    }
     /**
      * @brief inefficiently check that the claim is correct by recomputing the commitment
      * and evaluating the polynomial in r.

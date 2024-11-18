@@ -125,9 +125,16 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    static_cast<void>(goblin_rec_verifier_output);
-    // EXPECT_DEBUG_DEATH(verifier.verify(proof), "(ipa_relation.get_value.* ==
-    // -opening_claim.commitment.get_value.*)");
+    auto crs_factory =
+        std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>("../srs_db/grumpkin", 1 << CONST_ECCVM_LOG_N);
+    auto grumpkin_verifier_commitment_key =
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
+    OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
+    auto native_ipa_transcript = std::make_shared<NativeTranscript>(
+        convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_transcript->proof_data));
+
+    EXPECT_FALSE(
+        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
 }
 
 /**
