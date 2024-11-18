@@ -214,8 +214,6 @@ struct ExecutionTraceUsageTracker {
         }
         size_t content_per_thread = total_content / num_threads;
 
-        // info("CONTENT PER THREAD = ", content_per_thread);
-
         std::vector<Range> thread_ranges;
         size_t start_idx = union_ranges.front().first;
         size_t thread_space_remaining = content_per_thread; // content space remaining in current thread
