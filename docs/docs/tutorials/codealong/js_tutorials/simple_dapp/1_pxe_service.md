@@ -21,7 +21,7 @@ Let's create our first file `src/index.mjs` with the following contents:
 
 #include_code all yarn-project/end-to-end/src/sample-dapp/connect.mjs javascript
 
-Make sure the [Sandbox is running](../../../guides/developer_guides/getting_started.md) and run the example
+Make sure the [Sandbox is running](../../../../guides/getting_started.md) and run the example
 
 ```bash
 node src/index.mjs
