@@ -336,7 +336,7 @@ template <typename TypeOfTree> void check_unfinalised_block_height(TypeOfTree& t
 template <typename TypeOfTree> void commit_tree(TypeOfTree& tree, bool expectedSuccess = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<CommitResponse>& response) -> void {
         EXPECT_EQ(response.success, expectedSuccess);
         signal.signal_level();
     };
@@ -387,7 +387,7 @@ template <typename TypeOfTree>
 void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -411,7 +411,7 @@ template <typename TypeOfTree>
 void unwind_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -505,10 +505,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_ove
     }
     add_values(tree, values);
 
+    std::stringstream ss;
+    ss << "Unable to insert values into tree " << name << " new size: 17 max size: 16";
+
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
         EXPECT_EQ(response.success, false);
-        EXPECT_EQ(response.message, "Tree is full");
+        EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
     tree.add_or_update_value(NullifierLeafValue(VALUES[16]), add_completion);
@@ -939,10 +942,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_conta
     }
     values[8] = values[0];
 
+    std::stringstream ss;
+    ss << "Duplicate key not allowed in same batch, key value: " << values[0].value << ", tree: " << name;
+
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
         EXPECT_EQ(response.success, false);
-        EXPECT_EQ(response.message, "Duplicate key not allowed in same batch");
+        EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
     tree.add_or_update_values(values, add_completion);
@@ -1205,7 +1211,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
         Signal signal(1 + num_reads);
 
         auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>&) {
-            auto commit_completion = [&](const Response&) { signal.signal_decrement(); };
+            auto commit_completion = [&](const TypedResponse<CommitResponse>&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
         tree.add_or_update_value(VALUES[0], add_completion);

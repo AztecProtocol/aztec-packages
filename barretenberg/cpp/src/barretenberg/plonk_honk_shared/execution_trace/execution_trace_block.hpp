@@ -27,18 +27,6 @@ struct StackTraces {
 };
 #endif
 
-// A set of fixed block size conigurations to be used with the structured execution trace. The actual block sizes
-// corresponding to these settings are defined in the corresponding arithmetization classes (Ultra/Mega). For efficiency
-// it is best to use the smallest possible block sizes to accommodate a given situation.
-enum class TraceStructure { NONE, TINY_TEST, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
-
-struct TraceSettings {
-    TraceStructure structure = TraceStructure::NONE;
-    // The size of the overflow block. Specified separately because it is allowed to be determined at runtime in the
-    // context of VK computation
-    uint32_t overflow_capacity = 0;
-};
-
 /**
  * @brief Basic structure for storing gate data in a builder
  *
@@ -46,8 +34,11 @@ struct TraceSettings {
  * @tparam NUM_WIRES
  * @tparam NUM_SELECTORS
  */
-template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTraceBlock {
+template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class ExecutionTraceBlock {
   public:
+    static constexpr size_t NUM_WIRES = NUM_WIRES_;
+    static constexpr size_t NUM_SELECTORS = NUM_SELECTORS_;
+
     using SelectorType = SlabVector<FF>;
     using WireType = SlabVector<uint32_t>;
     using Selectors = std::array<SelectorType, NUM_SELECTORS>;
@@ -97,7 +88,7 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     {
         return is_structured ? fixed_size : static_cast<uint32_t>(size());
     }
-    void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
+
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
     {
@@ -110,7 +101,6 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
         }
     }
 #endif
-  private:
     uint32_t fixed_size = 0; // Fixed size for use in structured trace
 };
 
