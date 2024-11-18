@@ -177,7 +177,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     // return_data.size() });
                     proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
-                size_t table_offset = 1;
+                size_t table_offset = Flavor::has_zero_row ? 1 : 0;
                 const size_t max_tables_size =
                     std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
                 {
@@ -206,8 +206,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
                     vinfo("allocating lookup read counts and tags");
-                    proving_key.polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_circuit_size);
-                    proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size);
+                    proving_key.polynomials.lookup_read_counts =
+                        Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                    proving_key.polynomials.lookup_read_tags =
+                        Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
