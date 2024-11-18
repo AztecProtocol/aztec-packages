@@ -211,10 +211,10 @@ export class PrivateExecutionResult {
      */
     public encryptedLogs: CountedLog<EncryptedL2Log>[],
     /**
-     * Unencrypted logs emitted during execution of this function call.
-     * Note: These are preimages to `unencryptedLogsHashes`.
+     * Contract class logs emitted during execution of this function call.
+     * Note: These are preimages to `contractClassLogsHashes`.
      */
-    public unencryptedLogs: CountedLog<UnencryptedL2Log>[],
+    public contractClassLogs: CountedLog<UnencryptedL2Log>[],
   ) {}
 
   static get schema(): ZodFor<PrivateExecutionResult> {
@@ -233,7 +233,7 @@ export class PrivateExecutionResult {
         publicTeardownFunctionCall: hexSchemaFor(PublicExecutionRequest), // TODO(palla/schema) Use PublicExecutionRequest.schema
         noteEncryptedLogs: z.array(CountedNoteLog.schema),
         encryptedLogs: z.array(CountedLog.schemaFor(EncryptedL2Log)),
-        unencryptedLogs: z.array(CountedLog.schemaFor(UnencryptedL2Log)),
+        contractClassLogs: z.array(CountedLog.schemaFor(UnencryptedL2Log)),
       })
       .transform(PrivateExecutionResult.from);
   }
@@ -253,7 +253,7 @@ export class PrivateExecutionResult {
       fields.publicTeardownFunctionCall,
       fields.noteEncryptedLogs,
       fields.encryptedLogs,
-      fields.unencryptedLogs,
+      fields.contractClassLogs,
     );
   }
 
@@ -278,7 +278,7 @@ export class PrivateExecutionResult {
         log: countedLog.log.toJSON(),
         counter: countedLog.counter,
       })),
-      unencryptedLogs: this.unencryptedLogs.map(countedLog => ({
+      contractClassLogs: this.contractClassLogs.map(countedLog => ({
         log: countedLog.log.toJSON(),
         counter: countedLog.counter,
       })),
@@ -335,8 +335,8 @@ export class PrivateExecutionResult {
             (json: any) => new CountedLog<EncryptedL2Log>(EncryptedL2Log.fromJSON(json.log), json.counter),
           )
         : [],
-      Array.isArray(json.unencryptedLogs)
-        ? json.unencryptedLogs.map(
+      Array.isArray(json.contractClassLogs)
+        ? json.contractClassLogs.map(
             (json: any) => new CountedLog<UnencryptedL2Log>(UnencryptedL2Log.fromJSON(json.log), json.counter),
           )
         : [],
@@ -419,21 +419,21 @@ export function collectSortedEncryptedLogs(execResult: PrivateExecutionResult): 
 }
 
 /**
- * Collect all unencrypted logs across all nested executions.
+ * Collect all contract class logs across all nested executions.
  * @param execResult - The topmost execution result.
- * @returns All unencrypted logs.
+ * @returns All contract class logs.
  */
-function collectUnencryptedLogs(execResult: PrivateExecutionResult): CountedLog<UnencryptedL2Log>[] {
-  return [execResult.unencryptedLogs, ...execResult.nestedExecutions.flatMap(collectUnencryptedLogs)].flat();
+function collectContractClassLogs(execResult: PrivateExecutionResult): CountedLog<UnencryptedL2Log>[] {
+  return [execResult.contractClassLogs, ...execResult.nestedExecutions.flatMap(collectContractClassLogs)].flat();
 }
 
 /**
- * Collect all unencrypted logs across all nested executions and sorts by counter.
+ * Collect all contract class logs across all nested executions and sorts by counter.
  * @param execResult - The topmost execution result.
- * @returns All unencrypted logs.
+ * @returns All contract class logs.
  */
-export function collectSortedUnencryptedLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
-  const allLogs = collectUnencryptedLogs(execResult);
+export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
+  const allLogs = collectContractClassLogs(execResult);
   const sortedLogs = sortByCounter(allLogs);
   return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
 }

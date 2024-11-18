@@ -27,7 +27,6 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
-  TaggingSecret,
   TxContext,
   computeAppNullifierSecretKey,
   computeOvskApp,
@@ -259,10 +258,10 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    oracle.getAppTaggingSecret.mockImplementation(
-      (_contractAddress: AztecAddress, _sender: AztecAddress, recipient: AztecAddress) => {
-        const directionalSecret = new TaggingSecret(Fr.random(), recipient);
-        return Promise.resolve(IndexedTaggingSecret.fromTaggingSecret(directionalSecret, 0));
+    oracle.getAppTaggingSecretAsSender.mockImplementation(
+      (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
+        const secret = Fr.random();
+        return Promise.resolve(new IndexedTaggingSecret(secret, 0));
       },
     );
 
@@ -414,6 +413,8 @@ describe('Private Execution test suite', () => {
         buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
         buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ];
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -479,6 +480,8 @@ describe('Private Execution test suite', () => {
       const storageSlot = deriveStorageSlotInMap(new Fr(1n), owner);
 
       const notes = [buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)];
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -812,6 +815,8 @@ describe('Private Execution test suite', () => {
       const secretHash = computeSecretHash(secret);
       const note = new Note([secretHash]);
       const storageSlot = TestContractArtifact.storageLayout['example_set'].slot;
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue([
         {
           contractAddress,
@@ -915,6 +920,8 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -976,6 +983,8 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1058,6 +1067,8 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1097,6 +1108,8 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'call_get_notes');
 
       const args = [2n, true];
+      oracle.syncTaggedLogs.mockResolvedValue(new Map());
+      oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue([]);
 
       await expect(() => runSimulator({ artifact, args })).rejects.toThrow(

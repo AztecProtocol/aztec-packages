@@ -433,8 +433,8 @@ contract Token {
         let from = context.msg_sender();
         let token = Token::at(context.this_address());
 
-        // We prepare the transfer.
-        let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
+        // We prepare the private balance increase (the partial note).
+        let hiding_point_slot = _prepare_private_balance_increase(from, to, &mut context, storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
@@ -444,23 +444,24 @@ contract Token {
     }
     // docs:end:transfer_to_private
 
-    // docs:start:prepare_transfer_to_private
-    /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
-    /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
+    // docs:start:prepare_private_balance_increase
+    /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
+    /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`).
+    /// Returns a hiding point slot.
     #[private]
-    fn prepare_transfer_to_private(to: AztecAddress) -> Field {
+    fn prepare_private_balance_increase(to: AztecAddress) -> Field {
         let from = context.msg_sender();
-        _prepare_transfer_to_private(from, to, &mut context, storage)
+        _prepare_private_balance_increase(from, to, &mut context, storage)
     }
-    // docs:end:prepare_transfer_to_private
+    // docs:end:prepare_private_balance_increase
 
-    /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
+    /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
     #[contract_library_method]
-    fn _prepare_transfer_to_private(
+    fn _prepare_private_balance_increase(
         from: AztecAddress, // recipient of the outgoing: TODO(#9887): this is not great?
         to: AztecAddress,
         context: &mut PrivateContext,
@@ -507,7 +508,7 @@ contract Token {
 
     // docs:start:finalize_transfer_to_private
     /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
     fn finalize_transfer_to_private(amount: Field, hiding_point_slot: Field) {
@@ -563,7 +564,7 @@ contract Token {
         let token = Token::at(context.this_address());
 
         // We prepare the partial note to which we'll "send" the minted amount.
-        let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
+        let hiding_point_slot = _prepare_private_balance_increase(from, to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that only a message sender with minter permissions
@@ -576,7 +577,7 @@ contract Token {
 
     // docs:start:finalize_mint_to_private
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
-    /// `prepare_transfer_to_private` first and the resulting
+    /// `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     ///
     /// Note: This function is only an optimization as it could be replaced by a combination of `mint_to_public`
@@ -676,62 +677,14 @@ contract Token {
             user,
         ));
 
-        // 4. Now we get the partial payloads
-        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
-        // notes we could just inject it in macros.
-        let fee_payer_randomness = unsafe { random() };
-        let user_randomness = unsafe { random() };
+        // 4. We prepare the partial notes
+        // TODO(#9887): In each `_prepare_private_balance_increase` call we fetch the user's ovpk_m 2 more times. This is
+        // very inefficient.
+        let fee_payer_point_slot =
+            _prepare_private_balance_increase(user, fee_payer, &mut context, storage);
+        let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
 
-        let fee_payer_setup_payload = UintNote::setup_payload().new(
-            fee_payer,
-            fee_payer_randomness,
-            storage.balances.at(fee_payer).set.storage_slot,
-        );
-
-        let user_setup_payload = UintNote::setup_payload().new(
-            user,
-            user_randomness,
-            storage.balances.at(user).set.storage_slot,
-        );
-
-        // 5. We get transient storage slots
-        // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
-        // we have a guarantee that the public functions of the transaction are executed right after the private ones
-        // and for this reason the protocol guarantees that nobody can front-run us in consuming the hiding point.
-        // This guarantee would break if `finalize_transfer_to_private` was not called in the same transaction. This
-        // however is not the flow we are currently concerned with. To support the multi-transaction flow we could
-        // introduce a `from` function argument, hash the x-coordinate with it and then repeat the hashing in
-        // `finalize_transfer_to_private`.
-        //
-        // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
-        // in our state variables we derive slots using a different hash function from multi scalar multiplication
-        // (MSM).
-        let fee_payer_point_slot = fee_payer_setup_payload.hiding_point.x;
-        let user_point_slot = user_setup_payload.hiding_point.x;
-
-        // 6. We compute setup logs
-        let fee_payer_setup_log =
-            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer, fee_payer);
-        let user_setup_log =
-            user_setup_payload.encrypt_log(&mut context, user_ovpk, user, fee_payer);
-
-        // 7. We store the hiding points an logs in transients storage
-        Token::at(context.this_address())
-            ._store_payload_in_transient_storage_unsafe(
-                fee_payer_point_slot,
-                fee_payer_setup_payload.hiding_point,
-                fee_payer_setup_log,
-            )
-            .enqueue(&mut context);
-        Token::at(context.this_address())
-            ._store_payload_in_transient_storage_unsafe(
-                user_point_slot,
-                user_setup_payload.hiding_point,
-                user_setup_log,
-            )
-            .enqueue(&mut context);
-
-        // 8. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),

@@ -1,3 +1,6 @@
+use noirc_errors::debug_info::ProcedureDebugId;
+use serde::{Deserialize, Serialize};
+
 mod array_copy;
 mod array_reverse;
 mod check_max_stack_depth;
@@ -14,11 +17,9 @@ use array_copy::compile_array_copy_procedure;
 use array_reverse::compile_array_reverse_procedure;
 use check_max_stack_depth::compile_check_max_stack_depth_procedure;
 use mem_copy::compile_mem_copy_procedure;
-use noirc_errors::debug_info::ProcedureDebugId;
 use prepare_vector_insert::compile_prepare_vector_insert_procedure;
 use prepare_vector_push::compile_prepare_vector_push_procedure;
 use revert_with_string::compile_revert_with_string_procedure;
-use serde::{Deserialize, Serialize};
 use vector_copy::compile_vector_copy_procedure;
 use vector_pop_back::compile_vector_pop_back_procedure;
 use vector_pop_front::compile_vector_pop_front_procedure;

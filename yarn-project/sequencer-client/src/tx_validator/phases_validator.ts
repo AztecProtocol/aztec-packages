@@ -7,7 +7,7 @@ import {
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, EnqueuedCallsProcessor } from '@aztec/simulator';
+import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
@@ -45,7 +45,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(

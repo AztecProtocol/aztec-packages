@@ -14,6 +14,7 @@ export class ProvenTx extends Tx {
       tx.noteEncryptedLogs,
       tx.encryptedLogs,
       tx.unencryptedLogs,
+      tx.contractClassLogs,
       tx.enqueuedPublicFunctionCalls,
       tx.publicTeardownFunctionCall,
     );
@@ -27,6 +28,7 @@ export class ProvenTx extends Tx {
       this.noteEncryptedLogs,
       this.encryptedLogs,
       this.unencryptedLogs,
+      this.contractClassLogs,
       this.enqueuedPublicFunctionCalls,
       this.publicTeardownFunctionCall,
     );
