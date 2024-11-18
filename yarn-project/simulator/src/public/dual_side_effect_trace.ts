@@ -27,11 +27,12 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     public readonly enqueuedCallTrace: PublicEnqueuedCallSideEffectTrace,
   ) {}
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new DualSideEffectTrace(
-      this.innerCallTrace.fork(incrementSideEffectCounter),
-      this.enqueuedCallTrace.fork(incrementSideEffectCounter),
-    );
+  public fork() {
+    return new DualSideEffectTrace(this.innerCallTrace.fork(), this.enqueuedCallTrace.fork());
+  }
+
+  public merge(nestedTrace: this, reverted: boolean = false) {
+    this.enqueuedCallTrace.merge(nestedTrace.enqueuedCallTrace, reverted);
   }
 
   public getCounter() {
@@ -222,8 +223,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -231,30 +230,7 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ) {
-    this.enqueuedCallTrace.traceEnqueuedCall(
-      enqueuedCallTrace.enqueuedCallTrace,
-      publicCallRequest,
-      calldata,
-      reverted,
-    );
-  }
-
-  public traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    reverted: boolean,
-  ) {
-    this.enqueuedCallTrace.traceExecutionPhase(
-      appLogicTrace.enqueuedCallTrace,
-      publicCallRequests,
-      calldatas,
-      reverted,
-    );
+    this.enqueuedCallTrace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
   }
 
   /**

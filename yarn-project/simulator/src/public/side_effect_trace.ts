@@ -106,8 +106,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
+  public fork() {
+    return new PublicSideEffectTrace(this.sideEffectCounter);
   }
 
   public getCounter() {
@@ -430,8 +430,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    _enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     _publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -442,16 +440,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     throw new Error('Not implemented');
   }
 
-  public traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    _appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    _publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    _calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    _reverted: boolean,
-  ) {
+  public merge(_nestedTrace: this, _reverted: boolean = false) {
     throw new Error('Not implemented');
   }
 

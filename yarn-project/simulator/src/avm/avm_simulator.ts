@@ -30,8 +30,8 @@ type PcTally = {
 export class AvmSimulator {
   private log: DebugLogger;
   private bytecode: Buffer | undefined;
-  public opcodeTallies: Map<string, OpcodeTally> = new Map();
-  public pcTallies: Map<number, PcTally> = new Map();
+  private opcodeTallies: Map<string, OpcodeTally> = new Map();
+  private pcTallies: Map<number, PcTally> = new Map();
 
   constructor(private context: AvmContext) {
     assert(
