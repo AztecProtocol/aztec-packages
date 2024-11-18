@@ -2,7 +2,7 @@ use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
         function_selector::FunctionSelector,
-        log_hash::{LogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log_hash::{LogHash, ScopedLogHash},
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
     },
@@ -10,7 +10,6 @@ use crate::{
     constants::{
         FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
         GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -88,27 +87,11 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     }
 }
 
-pub fn silo_encrypted_log_hash(log_hash: ScopedLogHash) -> Field {
-    // We assume contract address has already been masked
-    if log_hash.contract_address.is_zero() {
-        0
+pub fn mask_private_log_address(contract_address: AztecAddress, randomness: Field) -> Field {
+    if randomness == 0 {
+        contract_address.to_field()
     } else {
-        accumulate_sha256(
-            [log_hash.contract_address.to_field(), log_hash.log_hash.value],
-        )
-    }
-}
-
-pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddress {
-    if scoped_log.contract_address.is_zero() {
-        AztecAddress::from_field(0)
-    } else if (scoped_log.log_hash.randomness == 0) {
-        scoped_log.contract_address
-    } else {
-        AztecAddress::from_field(poseidon2_hash_with_separator(
-            [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
-            0,
-        ))
+        poseidon2_hash_with_separator([contract_address.to_field(), randomness], 0)
     }
 }
 

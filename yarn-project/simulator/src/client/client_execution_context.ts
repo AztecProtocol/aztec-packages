@@ -2,10 +2,9 @@ import {
   type AuthWitness,
   type AztecNode,
   CountedLog,
-  CountedNoteLog,
+  type CountedNoteLog,
   CountedPublicExecutionRequest,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
+  type EncryptedL2Log,
   Note,
   NoteAndSlot,
   type NoteStatus,
@@ -25,7 +24,6 @@ import {
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -327,42 +325,8 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Emit encrypted data
-   * @param contractAddress - The contract emitting the encrypted event.
-   * @param randomness - A value used to mask the contract address we are siloing with.
-   * @param encryptedEvent - The encrypted event data.
-   * @param counter - The effects counter.
-   */
-  public override emitEncryptedEventLog(
-    contractAddress: AztecAddress,
-    randomness: Fr,
-    encryptedEvent: Buffer,
-    counter: number,
-  ) {
-    // In some cases, we actually want to reveal the contract address we are siloing with:
-    // e.g. 'handshaking' contract w/ known address
-    // An app providing randomness = 0 signals to not mask the address.
-    const maskedContractAddress = randomness.isZero()
-      ? contractAddress.toField()
-      : poseidon2HashWithSeparator([contractAddress, randomness], 0);
-    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
-    this.encryptedLogs.push(encryptedLog);
-  }
-
-  /**
-   * Emit encrypted note data
-   * @param noteHashCounter - The note hash counter.
-   * @param encryptedNote - The encrypted note data.
-   * @param counter - The log counter.
-   */
-  public override emitEncryptedNoteLog(noteHashCounter: number, encryptedNote: Buffer, counter: number) {
-    const encryptedLog = new CountedNoteLog(new EncryptedL2NoteLog(encryptedNote), counter, noteHashCounter);
-    this.noteEncryptedLogs.push(encryptedLog);
-  }
-
-  /**
    * Emit a contract class unencrypted log.
-   * This fn exists separately from emitUnencryptedLog because sha hashing the preimage
+   * This fn exists because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
    * See private_context.nr
    * @param log - The unencrypted log to be emitted.

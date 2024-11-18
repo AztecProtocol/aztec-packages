@@ -57,11 +57,8 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas,
-            kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            log_hash::{LogHash, NoteLogHash},
-            note_hash::ScopedNoteHash,
-            nullifier::{Nullifier, ScopedNullifier},
+            gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
+            note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
         },
         address::{AztecAddress, EthAddress},
         point::Point,
@@ -70,7 +67,7 @@ mod tests {
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, FIXED_AVM_STARTUP_L2_GAS,
         GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -324,19 +321,19 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_contract_class_log_hash(42, 12);
+        builder.previous_kernel.append_private_logs_for_note(2, 11);
+        builder.previous_kernel.add_contract_class_log_hash(420, 12);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
+        builder.previous_kernel.append_private_logs_for_note(1, 33);
 
         let public_inputs = builder.execute();
 
-        let num_log_bytes = 3 + 4 + 12 + 6;
-        let da_gas = (1 * DA_BYTES_PER_FIELD + num_log_bytes) * DA_GAS_PER_BYTE;
+        let num_da_fields = 1 /* nullifier */ + 3 * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
             + 1 * L2_GAS_PER_NULLIFIER
-            + num_log_bytes * L2_GAS_PER_LOG_BYTE;
+            + 12 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 

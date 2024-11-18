@@ -50,20 +50,12 @@ impl PublicBaseRollupInputs {
         let from_public = self.avm_proof_data.public_inputs;
         let reverted = from_public.reverted;
 
-        let note_encrypted_logs_hashes = if reverted {
-            from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes
+        let private_logs = if reverted {
+            from_private.non_revertible_accumulated_data.private_logs
         } else {
             array_merge(
-                from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes,
-                from_private.revertible_accumulated_data.note_encrypted_logs_hashes,
-            )
-        };
-        let encrypted_logs_hashes = if reverted {
-            from_private.non_revertible_accumulated_data.encrypted_logs_hashes
-        } else {
-            array_merge(
-                from_private.non_revertible_accumulated_data.encrypted_logs_hashes,
-                from_private.revertible_accumulated_data.encrypted_logs_hashes,
+                from_private.non_revertible_accumulated_data.private_logs,
+                from_private.revertible_accumulated_data.private_logs,
             )
         };
         let contract_class_logs_hashes = if reverted {
@@ -74,10 +66,6 @@ impl PublicBaseRollupInputs {
                 from_private.revertible_accumulated_data.contract_class_logs_hashes,
             )
         };
-        let note_encrypted_log_preimages_length =
-            note_encrypted_logs_hashes.fold(0, |len, l: LogHash| len + l.length);
-        let encrypted_log_preimages_length =
-            encrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let contract_class_log_preimages_length =
             contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let unencrypted_log_preimages_length = from_public
@@ -88,12 +76,9 @@ impl PublicBaseRollupInputs {
             note_hashes: from_public.accumulated_data.note_hashes,
             nullifiers: from_public.accumulated_data.nullifiers,
             l2_to_l1_msgs: from_public.accumulated_data.l2_to_l1_msgs,
-            note_encrypted_logs_hashes,
-            encrypted_logs_hashes,
+            private_logs,
             unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
             contract_class_logs_hashes,
-            note_encrypted_log_preimages_length,
-            encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             contract_class_log_preimages_length,
             public_data_writes: from_public.accumulated_data.public_data_writes,

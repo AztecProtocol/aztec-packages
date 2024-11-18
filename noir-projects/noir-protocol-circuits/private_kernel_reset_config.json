@@ -40,7 +40,7 @@
       "standalone": [],
       "cost": 150
     },
-    "ENCRYPTED_LOG_SILOING_AMOUNT": {
+    "PRIVATE_LOG_SILOING_AMOUNT": {
       "variants": [1, 8],
       "standalone": [],
       "cost": 150

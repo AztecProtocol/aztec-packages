@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_BYTES},
+    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, MAX_PRIVATE_LOG_SIZE_IN_BYTES},
     hash::poseidon2_hash_with_separator,
     point::Point,
     public_keys::{AddressPoint, OvpkM},
@@ -21,25 +21,30 @@ use crate::{
     utils::point::point_to_bytes,
 };
 
-pub comptime global PRIVATE_LOG_OVERHEAD_IN_BYTES: u32 = 304;
+comptime global HEADER_SIZE: u32 = 48;
+
+comptime global OUTGOING_BODY_SIZE: u32 = 112;
+
+// Bytes padded to the overhead, so that the size of the incoming body ciphertext will be a multiple of 16.
+comptime global OVERHEAD_PADDING: u32 = 14;
+
+pub comptime global PRIVATE_LOG_OVERHEAD_IN_BYTES: u32 = 32 /* incoming_tag */
+    + 32 /* eph_pk */
+    + HEADER_SIZE /* incoming_header */
+    + HEADER_SIZE /* outgoing_header */
+    + OUTGOING_BODY_SIZE /* outgoing_body */
+    + OVERHEAD_PADDING /* padding */;
+
+global PLAINTEXT_SIZE_LENGTH = 2;
 
 // 1 byte for storage slot, 1 byte for note type id, allowing 6 bytes for custom note fields.
-global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = 8 * 32;
+global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = MAX_PRIVATE_LOG_SIZE_IN_BYTES
+    - PRIVATE_LOG_OVERHEAD_IN_BYTES
+    - PLAINTEXT_SIZE_LENGTH
+    - 1 /* aes padding */;
 
 global MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 =
     MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES - 32; // Reserve 1 field for address tag.
-
-// PRIVATE_LOG_SIZE_IN_BYTES
-// - PRIVATE_LOG_OVERHEAD_IN_BYTES, consisting of:
-//   - 32 bytes for incoming_tag
-//   - 32 bytes for eph_pk
-//   - 48 bytes for incoming_header
-//   - 48 bytes for outgoing_header
-//   - 144 bytes for outgoing_body
-// - 16 + MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES for incoming_body, consisting of:
-//   - 1 byte for plaintext length
-//   - MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES for the actual plaintext and padded random values
-//   - 15 bytes for AES padding
 
 // Note: Update PRIVATE_LOG_SIZE_IN_BYTES in `constants.nr` if any of the above fields change.
 // This value ideally should be set by the protocol, allowing users (or `aztec-nr`) to fit data within the defined size limits.
@@ -53,8 +58,12 @@ pub fn compute_private_log_payload<let P: u32>(
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
-) -> [u8; PRIVATE_LOG_SIZE_IN_BYTES] {
-    let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + 1] =
+) -> [u8; MAX_PRIVATE_LOG_SIZE_IN_BYTES] {
+    assert(
+        P < MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES,
+        f"plaintext for log must not exceed {MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES}",
+    );
+    let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_SIZE_LENGTH] =
         extend_private_log_plaintext(plaintext);
     compute_encrypted_log(
         contract_address,
@@ -73,8 +82,12 @@ pub fn compute_event_log_payload<let P: u32>(
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
-) -> [u8; PRIVATE_LOG_SIZE_IN_BYTES] {
-    let extended_plaintext: [u8; MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES + 1] =
+) -> [u8; MAX_PRIVATE_LOG_SIZE_IN_BYTES - 32] {
+    assert(
+        P < MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES,
+        f"plaintext for event log must not exceed {MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES}",
+    );
+    let extended_plaintext: [u8; MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_SIZE_LENGTH] =
         extend_private_log_plaintext(plaintext);
     compute_encrypted_log(
         contract_address,
@@ -94,7 +107,8 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
-    let extended_plaintext: [u8; P + 1] = extend_private_log_plaintext(plaintext);
+    let extended_plaintext: [u8; P + PLAINTEXT_SIZE_LENGTH] =
+        extend_private_log_plaintext(plaintext);
     compute_encrypted_log(
         contract_address,
         ovsk_app,
@@ -122,7 +136,7 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
     let incoming_body_ciphertext =
         compute_incoming_body_ciphertext(plaintext, eph_sk, recipient.to_address_point());
-    let outgoing_body_ciphertext: [u8; 144] =
+    let outgoing_body_ciphertext: [u8; 112] =
         compute_outgoing_body_ciphertext(recipient, fr_to_fq(ovsk_app), eph_sk, eph_pk);
 
     let mut encrypted_bytes = [0; M];
@@ -148,17 +162,20 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 
     // incoming_header
     // outgoing_header
-    for i in 0..48 {
+    for i in 0..HEADER_SIZE {
         encrypted_bytes[offset + i] = incoming_header_ciphertext[i];
         encrypted_bytes[offset + 48 + i] = outgoing_header_ciphertext[i];
     }
-    offset += 48 * 2;
+    offset += HEADER_SIZE * 2;
 
     // outgoing_body
-    for i in 0..144 {
+    for i in 0..OUTGOING_BODY_SIZE {
         encrypted_bytes[offset + i] = outgoing_body_ciphertext[i];
     }
-    offset += 144;
+    offset += OUTGOING_BODY_SIZE;
+
+    // Padding.
+    offset += OVERHEAD_PADDING;
 
     // incoming_body
     // Then we fill in the rest as the incoming body ciphertext
@@ -175,9 +192,10 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 // Fill the remaining bytes with random values to reach a fixed length of N.
 fn extend_private_log_plaintext<let P: u32, let N: u32>(plaintext: [u8; P]) -> [u8; N] {
     let mut padded = unsafe { get_random_bytes() };
-    padded[0] = P as u8;
+    padded[0] = (P >> 8) as u8;
+    padded[1] = P as u8;
     for i in 0..P {
-        padded[i + 1] = plaintext[i];
+        padded[i + PLAINTEXT_SIZE_LENGTH] = plaintext[i];
     }
     padded
 }
@@ -244,10 +262,10 @@ pub fn compute_outgoing_body_ciphertext(
     ovsk_app: Scalar,
     eph_sk: Scalar,
     eph_pk: Point,
-) -> [u8; 144] {
+) -> [u8; OUTGOING_BODY_SIZE] {
     // Again, we could compute `eph_pk` here, but we keep the interface more similar
     // and also make it easier to optimise it later as we just pass it along
-    let mut buffer = [0 as u8; 128];
+    let mut buffer = [0 as u8; 96];
 
     let serialized_eph_sk_high: [u8; 32] = eph_sk.hi.to_be_bytes();
     let serialized_eph_sk_low: [u8; 32] = eph_sk.lo.to_be_bytes();
@@ -256,13 +274,13 @@ pub fn compute_outgoing_body_ciphertext(
     let serialized_recipient_address_point =
         point_to_bytes(recipient.to_address_point().to_point());
 
-    for i in 0..32 {
-        buffer[i] = serialized_eph_sk_high[i];
-        buffer[i + 32] = serialized_eph_sk_low[i];
-        buffer[i + 64] = address_bytes[i];
+    for i in 0..16 {
+        buffer[i] = serialized_eph_sk_high[i + 16];
+        buffer[i + 16] = serialized_eph_sk_low[i + 16];
     }
     for i in 0..32 {
-        buffer[i + 96] = serialized_recipient_address_point[i];
+        buffer[i + 32] = address_bytes[i];
+        buffer[i + 64] = serialized_recipient_address_point[i];
     }
 
     // We compute the symmetric key using poseidon.
@@ -318,7 +336,7 @@ mod test {
             101, 153, 0, 0, 16, 39,
         ];
 
-        let randomness = 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
+        let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
         let _ = OracleMock::mock("getRandomField").returns(randomness).times(
             (MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES as u64 + 1 + 30) / 31,
         );
@@ -358,29 +376,28 @@ mod test {
             61, 232, 24, 146, 63, 133, 24, 120, 113, 217, 155, 223, 149, 214, 149, 239, 240, 169,
             224, 155, 161, 81, 83, 252, 155, 77, 34, 75, 110, 30, 113, 223, 189, 202, 171, 6, 192,
             157, 91, 60, 116, 155, 254, 190, 28, 4, 7, 236, 205, 4, 245, 27, 187, 89, 20, 38, 128,
-            200, 160, 145, 185, 127, 198, 203, 207, 97, 246, 194, 175, 155, 142, 188, 143, 120, 83,
-            122, 178, 63, 208, 197, 232, 24, 228, 212, 45, 69, 157, 38, 90, 219, 119, 194, 239, 130,
-            155, 246, 143, 135, 242, 196, 123, 71, 139, 181, 122, 231, 228, 26, 7, 100, 63, 101,
-            195, 83, 8, 61, 85, 123, 148, 227, 29, 164, 162, 161, 49, 39, 73, 141, 46, 179, 240, 52,
-            109, 165, 238, 210, 233, 188, 36, 90, 175, 2, 42, 149, 78, 208, 176, 145, 50, 180, 152,
-            245, 55, 112, 40, 153, 180, 78, 54, 102, 119, 98, 56, 235, 246, 51, 179, 86, 45, 127,
-            18, 77, 187, 168, 41, 24, 232, 113, 149, 138, 148, 33, 143, 215, 150, 188, 105, 131,
-            254, 236, 199, 206, 56, 44, 130, 134, 29, 99, 254, 69, 153, 146, 68, 234, 148, 148, 178,
-            38, 221, 182, 103, 252, 139, 7, 246, 132, 29, 232, 78, 102, 126, 28, 136, 8, 219, 180,
-            162, 14, 62, 71, 118, 40, 147, 93, 87, 188, 231, 32, 93, 56, 193, 194, 197, 120, 153,
-            164, 139, 114, 18, 149, 2, 226, 19, 170, 250, 249, 128, 56, 236, 93, 14, 101, 115, 20,
-            173, 73, 192, 53, 229, 7, 23, 59, 11, 176, 9, 147, 175, 168, 206, 48, 127, 126, 76, 51,
-            211, 66, 232, 16, 132, 243, 14, 196, 181, 118, 12, 71, 236, 250, 253, 71, 249, 122, 30,
-            23, 23, 19, 89, 47, 193, 69, 240, 164, 34, 128, 110, 13, 133, 198, 7, 165, 14, 31, 239,
-            210, 146, 78, 67, 86, 32, 159, 244, 214, 246, 121, 246, 233, 252, 20, 131, 221, 28, 146,
-            222, 119, 222, 162, 250, 252, 189, 18, 147, 12, 142, 177, 222, 178, 122, 248, 113, 197,
-            40, 199, 152, 251, 91, 81, 243, 25, 156, 241, 141, 60, 12, 99, 103, 169, 97, 32, 112,
-            37, 244, 255, 126, 46, 114, 226, 113, 223, 249, 27, 3, 31, 41, 233, 28, 8, 23, 84, 99,
-            25, 186, 65, 33, 9, 35, 74, 16, 52, 169, 48, 161, 134, 233, 242, 136, 39, 162, 105, 205,
-            43, 253, 183, 36, 138, 186, 87, 31, 7, 248, 125, 227, 193, 172, 155, 98, 33, 61, 186,
-            158, 241, 192, 23, 28, 186, 100, 222, 174, 19, 64, 224, 113, 251, 143, 45, 152, 81, 67,
-            116, 16, 95, 189, 83, 31, 124, 39, 155, 142, 66, 0, 120, 197, 221, 161, 62, 75, 192,
-            255, 186, 200, 10, 135, 7,
+            200, 160, 145, 185, 127, 198, 203, 207, 97, 93, 239, 89, 58, 176, 158, 91, 63, 127, 88,
+            246, 252, 35, 92, 144, 231, 199, 126, 216, 218, 219, 59, 5, 238, 69, 69, 167, 188, 97,
+            44, 145, 57, 71, 95, 238, 96, 112, 190, 71, 239, 204, 67, 165, 203, 188, 135, 54, 50,
+            241, 66, 143, 172, 149, 45, 249, 193, 129, 219, 95, 158, 133, 11, 33, 254, 17, 254, 222,
+            243, 123, 136, 202, 238, 149, 17, 27, 206, 119, 110, 72, 141, 242, 25, 115, 45, 10, 119,
+            209, 146, 1, 112, 71, 24, 111, 65, 68, 94, 205, 92, 96, 52, 135, 247, 251, 60, 143, 49,
+            1, 10, 34, 175, 105, 206, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 166, 0, 166, 31,
+            125, 89, 238, 175, 82, 235, 81, 188, 5, 146, 255, 152, 29, 155, 163, 234, 142, 110, 168,
+            186, 157, 192, 206, 200, 199, 11, 129, 232, 69, 86, 167, 124, 230, 195, 202, 71, 165,
+            39, 249, 159, 254, 123, 37, 36, 187, 136, 90, 35, 2, 11, 114, 149, 116, 138, 209, 156,
+            16, 131, 97, 138, 217, 98, 152, 183, 110, 224, 126, 177, 165, 109, 25, 204, 121, 135,
+            16, 233, 245, 222, 150, 80, 27, 213, 155, 55, 129, 201, 192, 42, 108, 149, 197, 145, 47,
+            137, 54, 177, 80, 13, 54, 42, 251, 240, 146, 44, 133, 177, 173, 161, 141, 184, 185, 81,
+            98, 166, 233, 208, 103, 101, 92, 223, 102, 158, 179, 135, 248, 224, 73, 42, 149, 253,
+            205, 179, 148, 41, 213, 52, 11, 75, 235, 194, 80, 186, 155, 246, 44, 47, 73, 245, 73,
+            243, 123, 238, 215, 90, 102, 138, 165, 25, 103, 224, 229, 117, 71, 229, 166, 85, 21,
+            123, 207, 56, 30, 34, 243, 14, 37, 136, 21, 72, 236, 150, 6, 161, 81, 181, 251, 251, 45,
+            20, 238, 75, 52, 191, 76, 29, 189, 113, 199, 190, 21, 173, 76, 99, 71, 75, 182, 248,
+            153, 112, 174, 179, 217, 72, 156, 142, 219, 223, 248, 10, 26, 58, 92, 40, 55, 14, 83,
+            74, 188, 135, 10, 133, 234, 67, 24, 50, 110, 161, 146, 34, 251, 16, 223, 53, 140, 118,
+            94, 218, 218, 73, 125, 180, 40, 74, 227, 5, 7, 162, 224, 62, 152, 61, 35, 207, 160, 189,
+            131, 21, 119, 232,
         ];
         assert_eq(encrypted_log_from_typescript, log);
     }
@@ -457,14 +474,12 @@ mod test {
         // The following value was generated by `encrypted_log_payload.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
         let outgoing_body_ciphertext_from_typescript = [
-            127, 182, 227, 75, 192, 197, 54, 47, 168, 134, 233, 148, 251, 46, 86, 12, 73, 50, 238,
-            50, 31, 174, 27, 202, 110, 77, 161, 197, 244, 124, 17, 100, 143, 150, 232, 14, 156, 248,
-            43, 177, 16, 82, 244, 103, 88, 74, 84, 200, 15, 65, 187, 14, 163, 60, 91, 22, 104, 31,
-            211, 190, 124, 121, 79, 92, 238, 182, 194, 225, 34, 71, 67, 116, 27, 231, 68, 161, 147,
-            94, 53, 195, 83, 237, 172, 52, 173, 229, 26, 234, 107, 43, 82, 68, 16, 105, 37, 125,
-            117, 86, 133, 50, 21, 92, 74, 229, 105, 141, 83, 229, 255, 251, 21, 61, 234, 61, 168,
-            221, 106, 231, 8, 73, 208, 60, 251, 46, 251, 228, 148, 144, 187, 195, 38, 18, 223, 153,
-            8, 121, 178, 84, 237, 148, 254, 219, 59, 62,
+            97, 221, 53, 168, 242, 56, 217, 184, 114, 127, 137, 98, 31, 63, 86, 179, 139, 198, 162,
+            162, 216, 158, 255, 205, 90, 212, 141, 55, 9, 245, 6, 146, 202, 137, 129, 36, 190, 31,
+            17, 89, 151, 203, 43, 196, 203, 233, 178, 79, 202, 70, 250, 182, 18, 191, 79, 42, 205,
+            204, 145, 14, 13, 35, 255, 139, 142, 66, 193, 240, 175, 233, 180, 37, 153, 235, 41, 88,
+            232, 52, 235, 213, 50, 26, 153, 227, 25, 242, 161, 92, 45, 152, 100, 106, 29, 192, 131,
+            101, 121, 126, 31, 118, 191, 90, 238, 43, 24, 82, 49, 18, 199, 107, 83, 7,
         ];
 
         assert_eq(outgoing_body_ciphertext_from_typescript, ciphertext);

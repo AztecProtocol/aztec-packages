@@ -2,6 +2,7 @@ use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_PRIVATE_LOGS_PER_TX,
     },
     utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
 };
@@ -9,6 +10,8 @@ use dep::types::{
 pub struct TailToPublicOutputHints {
     // L2 to l1 msgs.
     sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
+    // Private logs.
+    sorted_private_log_hints: SplitOrderHints<MAX_PRIVATE_LOGS_PER_TX>,
     // Contract class log hashes.
     sorted_contract_class_log_hash_hints: SplitOrderHints<MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     // Public call requests.
@@ -24,6 +27,10 @@ pub unconstrained fn generate_tail_to_public_output_hints(
     let sorted_l2_to_l1_msg_hints =
         get_split_order_hints_asc(previous_kernel.end.l2_to_l1_msgs, split_counter);
 
+    // private_logs
+    let sorted_private_log_hints =
+        get_split_order_hints_asc(previous_kernel.end.private_logs, split_counter);
+
     // contract_class_logs
     let sorted_contract_class_log_hash_hints = get_split_order_hints_asc(
         previous_kernel.end.contract_class_logs_hashes,
@@ -36,6 +43,7 @@ pub unconstrained fn generate_tail_to_public_output_hints(
 
     TailToPublicOutputHints {
         sorted_l2_to_l1_msg_hints,
+        sorted_private_log_hints,
         sorted_contract_class_log_hash_hints,
         sorted_public_call_request_hints,
     }

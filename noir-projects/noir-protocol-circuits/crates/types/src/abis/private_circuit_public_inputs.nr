@@ -1,22 +1,18 @@
 use crate::{
     abis::{
-        call_context::CallContext,
-        log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
-        max_block_number::MaxBlockNumber,
-        note_hash::NoteHash,
-        nullifier::Nullifier,
-        private_call_request::PrivateCallRequest,
-        public_call_request::PublicCallRequest,
-        read_request::ReadRequest,
-        side_effect::Counted,
+        call_context::CallContext, log_hash::LogHash, max_block_number::MaxBlockNumber,
+        note_hash::NoteHash, nullifier::Nullifier, private_call_request::PrivateCallRequest,
+        private_log::PrivateLogData, public_call_request::PublicCallRequest,
+        read_request::ReadRequest, side_effect::Counted,
         validation_requests::KeyValidationRequestAndGenerator,
     },
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
     header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -26,17 +22,16 @@ use crate::{
 };
 
 pub struct PrivateCircuitPublicInputsArrayLengths {
-    note_hash_read_requests: u32,
-    nullifier_read_requests: u32,
-    key_validation_requests_and_generators: u32,
-    note_hashes: u32,
-    nullifiers: u32,
-    l2_to_l1_msgs: u32,
-    private_call_requests: u32,
-    public_call_requests: u32,
-    note_encrypted_logs_hashes: u32,
-    encrypted_logs_hashes: u32,
-    contract_class_logs_hashes: u32,
+    pub note_hash_read_requests: u32,
+    pub nullifier_read_requests: u32,
+    pub key_validation_requests_and_generators: u32,
+    pub note_hashes: u32,
+    pub nullifiers: u32,
+    pub l2_to_l1_msgs: u32,
+    pub private_call_requests: u32,
+    pub public_call_requests: u32,
+    pub private_logs: u32,
+    pub contract_class_logs_hashes: u32,
 }
 
 impl PrivateCircuitPublicInputsArrayLengths {
@@ -52,8 +47,7 @@ impl PrivateCircuitPublicInputsArrayLengths {
             l2_to_l1_msgs: validate_array(public_inputs.l2_to_l1_msgs),
             private_call_requests: validate_array(public_inputs.private_call_requests),
             public_call_requests: validate_array(public_inputs.public_call_requests),
-            note_encrypted_logs_hashes: validate_array(public_inputs.note_encrypted_logs_hashes),
-            encrypted_logs_hashes: validate_array(public_inputs.encrypted_logs_hashes),
+            private_logs: validate_array(public_inputs.private_logs),
             contract_class_logs_hashes: validate_array(public_inputs.contract_class_logs_hashes),
         }
     }
@@ -84,8 +78,7 @@ pub struct PrivateCircuitPublicInputs {
 
     pub start_side_effect_counter: u32,
     pub end_side_effect_counter: u32,
-    pub note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
-    pub encrypted_logs_hashes: [EncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
+    pub private_logs: [PrivateLogData; MAX_PRIVATE_LOGS_PER_CALL],
     pub contract_class_logs_hashes: [LogHash; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
@@ -118,8 +111,7 @@ impl Eq for PrivateCircuitPublicInputs {
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
             & (self.start_side_effect_counter == other.start_side_effect_counter)
             & (self.end_side_effect_counter == other.end_side_effect_counter)
-            & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
-            & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
+            & (self.private_logs == other.private_logs)
             & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & self.historical_header.eq(other.historical_header)
             & self.tx_context.eq(other.tx_context)
@@ -165,11 +157,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         }
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
-        for i in 0..self.note_encrypted_logs_hashes.len() {
-            fields.extend_from_array(self.note_encrypted_logs_hashes[i].serialize());
-        }
-        for i in 0..self.encrypted_logs_hashes.len() {
-            fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
+        for i in 0..self.private_logs.len() {
+            fields.extend_from_array(self.private_logs[i].serialize());
         }
         for i in 0..self.contract_class_logs_hashes.len() {
             fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
@@ -229,13 +218,9 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             ),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
-            note_encrypted_logs_hashes: reader.read_struct_array(
-                NoteLogHash::deserialize,
-                [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
-            ),
-            encrypted_logs_hashes: reader.read_struct_array(
-                EncryptedLogHash::deserialize,
-                [EncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
+            private_logs: reader.read_struct_array(
+                PrivateLogData::deserialize,
+                [PrivateLogData::empty(); MAX_PRIVATE_LOGS_PER_CALL],
             ),
             contract_class_logs_hashes: reader.read_struct_array(
                 LogHash::deserialize,
@@ -274,8 +259,7 @@ impl Empty for PrivateCircuitPublicInputs {
             l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
-            note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
-            encrypted_logs_hashes: [EncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
+            private_logs: [PrivateLogData::empty(); MAX_PRIVATE_LOGS_PER_CALL],
             contract_class_logs_hashes: [LogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),

@@ -1,14 +1,16 @@
 use crate::{
-    context::PrivateContext, encrypted_logs::payload::compute_private_log_payload,
+    context::PrivateContext, encrypted_logs::payload::compute_event_log_payload,
     event::event_interface::EventInterface, keys::getters::get_ovsk_app, oracle::random::random,
+    utils::bytes::bytes_to_fields,
 };
 use dep::protocol_types::{
-    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_BYTES, hash::sha256_to_field,
-    public_keys::OvpkM,
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, public_keys::OvpkM,
 };
 
+global PRIVATE_EVENT_LOG_SIZE_IN_FIELDS = PRIVATE_LOG_SIZE_IN_FIELDS - 1;
+
 /// Computes private event log payload and a log hash
-fn compute_payload_and_hash<Event, let N: u32>(
+fn compute_payload<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
     randomness: Field,
@@ -16,14 +18,14 @@ fn compute_payload_and_hash<Event, let N: u32>(
     ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
-) -> ([u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
+) -> [Field; PRIVATE_EVENT_LOG_SIZE_IN_FIELDS]
 where
     Event: EventInterface<N>,
 {
     let contract_address: AztecAddress = context.this_address();
     let plaintext = event.private_to_be_bytes(randomness);
 
-    let encrypted_log = compute_private_log_payload(
+    let payload = compute_event_log_payload(
         contract_address,
         ovsk_app,
         ovpk,
@@ -31,23 +33,23 @@ where
         sender,
         plaintext,
     );
-    let log_hash = sha256_to_field(encrypted_log);
-    (encrypted_log, log_hash)
+
+    bytes_to_fields(payload)
 }
 
-unconstrained fn compute_payload_and_hash_unconstrained<Event, let N: u32>(
+unconstrained fn compute_payload_unconstrained<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
     randomness: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
-) -> ([u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
+) -> [Field; PRIVATE_EVENT_LOG_SIZE_IN_FIELDS]
 where
     Event: EventInterface<N>,
 {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_payload_and_hash(
+    compute_payload(
         context,
         event,
         randomness,
@@ -74,9 +76,9 @@ where
         // value generation.
         let randomness = unsafe { random() };
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-        let (encrypted_log, log_hash) =
-            compute_payload_and_hash(*context, e, randomness, ovsk_app, ovpk, recipient, sender);
-        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
+        let encrypted_log =
+            compute_payload(*context, e, randomness, ovsk_app, ovpk, recipient, sender);
+        context.emit_raw_event_log_with_masked_address(encrypted_log, randomness);
     }
 }
 
@@ -95,10 +97,10 @@ where
         // interested in disclosing this information. We can therefore assume that the sender will cooperate in the random
         // value generation.
         let randomness = unsafe { random() };
-        let (encrypted_log, log_hash) = unsafe {
-            compute_payload_and_hash_unconstrained(*context, e, randomness, ovpk, recipient, sender)
+        let encrypted_log = unsafe {
+            compute_payload_unconstrained(*context, e, randomness, ovpk, recipient, sender)
         };
-        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
+        context.emit_raw_event_log_with_masked_address(encrypted_log, randomness);
     }
 }
 
@@ -117,9 +119,9 @@ where
 {
     |e: Event| {
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-        let (encrypted_log, log_hash) =
-            compute_payload_and_hash(*context, e, randomness, ovsk_app, ovpk, recipient, sender);
-        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
+        let encrypted_log =
+            compute_payload(*context, e, randomness, ovsk_app, ovpk, recipient, sender);
+        context.emit_raw_event_log_with_masked_address(encrypted_log, randomness);
     }
 }
 
@@ -148,9 +150,9 @@ where
         // able to change the log before anyway, so the end result is the same. It's important here that we do not
         // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
         // be wrong.
-        let (encrypted_log, log_hash) = unsafe {
-            compute_payload_and_hash_unconstrained(*context, e, randomness, ovpk, recipient, sender)
+        let encrypted_log = unsafe {
+            compute_payload_unconstrained(*context, e, randomness, ovpk, recipient, sender)
         };
-        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
+        context.emit_raw_event_log_with_masked_address(encrypted_log, randomness);
     }
 }

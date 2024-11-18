@@ -68,6 +68,7 @@ mod tests {
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, GENERATOR_INDEX__IVSK_M,
         L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -115,42 +116,6 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
-    }
-
-    #[test]
-    fn measuring_of_log_lengths() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = 80;
-        let prev_encrypted_log_preimages_length = 13;
-        let prev_contract_class_logs_hash = 956;
-        let prev_contract_class_log_preimages_length = 24;
-        builder.previous_kernel.add_masked_encrypted_log_hash(
-            prev_encrypted_logs_hash,
-            prev_encrypted_log_preimages_length,
-        );
-        builder.previous_kernel.add_contract_class_log_hash(
-            prev_contract_class_logs_hash,
-            prev_contract_class_log_preimages_length,
-        );
-        // Logs for the current call stack.
-        let encrypted_logs_hash = 26;
-        let encrypted_log_preimages_length = 50;
-        builder.previous_kernel.add_masked_encrypted_log_hash(
-            encrypted_logs_hash,
-            encrypted_log_preimages_length,
-        );
-
-        let public_inputs = builder.execute();
-
-        assert_eq(
-            public_inputs.end.encrypted_log_preimages_length,
-            prev_encrypted_log_preimages_length + encrypted_log_preimages_length,
-        );
-        assert_eq(
-            public_inputs.end.contract_class_log_preimages_length,
-            prev_contract_class_log_preimages_length,
-        );
     }
 
     #[test]
@@ -273,19 +238,20 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_contract_class_log_hash(42, 12);
+        builder.previous_kernel.append_private_logs_for_note(1, 33);
+        builder.previous_kernel.add_contract_class_log_hash(999, 12);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
+        builder.previous_kernel.append_private_logs_for_note(2, 44);
 
         let public_inputs = builder.execute();
 
+        let log_bytes = (1 + 2) * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD /* private_logs */
+            + 12 /* contract_class_logs */;
         assert_eq(
             Gas::tx_overhead()
                 + Gas::new(
-                    (1 * DA_BYTES_PER_FIELD + 25) * DA_GAS_PER_BYTE,
-                    1 * L2_GAS_PER_NULLIFIER + 25 * L2_GAS_PER_LOG_BYTE,
+                    (1 * DA_BYTES_PER_FIELD + log_bytes) * DA_GAS_PER_BYTE,
+                    1 * L2_GAS_PER_NULLIFIER + 12 * L2_GAS_PER_LOG_BYTE,
                 ),
             public_inputs.gas_used,
         );

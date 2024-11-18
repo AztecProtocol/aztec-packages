@@ -137,27 +137,15 @@ fn propagate_from_private_call_l2_to_l1_msgs_succeeds() {
 }
 
 #[test]
-fn propagate_from_private_call_note_encrypted_log_hashes_succeeds() {
+fn propagate_from_private_call_private_logs_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_note_encrypted_log_hashes(2);
-    let res = builder.private_call.note_encrypted_logs_hashes.storage;
+    builder.private_call.append_private_logs(2);
+    let res = builder.private_call.private_logs.storage;
 
     let output = builder.compose_from_tx_request();
 
-    assert_array_eq(output.end.note_encrypted_logs_hashes, [res[0], res[1]]);
-}
-
-#[test]
-fn propagate_from_private_call_encrypted_log_hashes_succeeds() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.private_call.append_encrypted_log_hashes(2);
-    let res = builder.private_call.encrypted_logs_hashes.storage;
-
-    let output = builder.compose_from_tx_request();
-
-    assert_array_eq(output.end.encrypted_logs_hashes, [res[0], res[1]]);
+    assert_array_eq(output.end.private_logs, [res[0], res[1]]);
 }
 
 #[test]

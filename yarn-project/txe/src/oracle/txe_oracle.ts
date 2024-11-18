@@ -516,21 +516,6 @@ export class TXE implements TypedOracle {
     return publicDataWrites.map(write => write.value);
   }
 
-  emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
@@ -772,16 +757,6 @@ export class TXE implements TypedOracle {
 
   debugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
-  }
-
-  emitEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _encryptedEvent: Buffer,
-    counter: number,
-  ): void {
-    this.sideEffectCounter = counter + 1;
-    return;
   }
 
   async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {

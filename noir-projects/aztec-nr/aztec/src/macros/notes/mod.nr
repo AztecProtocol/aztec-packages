@@ -440,8 +440,8 @@ comptime fn generate_setup_payload(
     // Then we compute values for `encrypt_log(...)` function
     let encrypted_log_byte_length = PRIVATE_LOG_OVERHEAD_IN_BYTES
         + log_plaintext_length /* log_plaintext */
-        + 1 /* log_plaintext_length */
-        + 15 /* AES padding */;
+        + 2 /* log_plaintext_length */
+        + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;

@@ -11,11 +11,12 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
+        private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
-        side_effect::Counted,
+        side_effect::{Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
@@ -87,24 +88,6 @@ impl TailToPublicOutputValidator {
             |prev: ScopedNullifier, out: Field| out == prev.nullifier.value,
             split_counter,
         );
-
-        // note_encrypted_logs_hashes
-        assert_split_transformed_value_arrays(
-            prev_data.note_encrypted_logs_hashes,
-            output_non_revertible.note_encrypted_logs_hashes,
-            output_revertible.note_encrypted_logs_hashes,
-            |prev: NoteLogHash, out: LogHash| out == prev.expose_to_public(),
-            split_counter,
-        );
-
-        // encrypted_logs_hashes
-        assert_split_transformed_value_arrays(
-            prev_data.encrypted_logs_hashes,
-            output_non_revertible.encrypted_logs_hashes,
-            output_revertible.encrypted_logs_hashes,
-            |prev: ScopedEncryptedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
-            split_counter,
-        );
     }
 
     fn validate_propagated_sorted_values(self) {
@@ -122,6 +105,16 @@ impl TailToPublicOutputValidator {
             output_non_revertible.l2_to_l1_msgs,
             output_revertible.l2_to_l1_msgs,
             hints.sorted_l2_to_l1_msg_hints,
+        );
+
+        // private_logs
+        assert_split_sorted_transformed_value_arrays_asc(
+            prev_data.private_logs,
+            prev_data.private_logs.map(|l: Scoped<PrivateLogData>| l.inner.log),
+            split_counter,
+            output_non_revertible.private_logs,
+            output_revertible.private_logs,
+            hints.sorted_private_log_hints,
         );
 
         // contract_class_logs_hashes
