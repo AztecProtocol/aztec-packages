@@ -5,18 +5,18 @@
 
 namespace bb {
 
-template <class Flavor> class ExecutionTrace_ {
+template <class Flavor> class TraceToPolynomials {
     using Builder = typename Flavor::CircuitBuilder;
     using Polynomial = typename Flavor::Polynomial;
     using FF = typename Flavor::FF;
-    using TraceBlocks = typename Builder::Arithmetization::TraceBlocks;
+    using ExecutionTrace = typename Builder::ExecutionTrace;
     using Wires = std::array<SlabVector<uint32_t>, Builder::NUM_WIRES>;
     using ProvingKey = typename Flavor::ProvingKey;
 
   public:
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
-    static constexpr size_t NUM_SELECTORS = Builder::Arithmetization::NUM_SELECTORS;
+    static constexpr size_t NUM_SELECTORS = Builder::ExecutionTrace::NUM_SELECTORS;
 
     struct TraceData {
         std::array<Polynomial, NUM_WIRES> wires;
@@ -50,7 +50,7 @@ template <class Flavor> class ExecutionTrace_ {
 
                     PROFILE_THIS_NAME("selector initialization");
 
-                    for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
+                    for (size_t idx = 0; idx < Builder::ExecutionTrace::NUM_SELECTORS; ++idx) {
                         selectors[idx] = Polynomial(proving_key.circuit_size);
                         std::string selector_tag = builder.selector_names[idx] + "_lagrange";
                         proving_key.polynomial_store.put(selector_tag, selectors[idx].share());

@@ -1,4 +1,4 @@
-#include "barretenberg/plonk_honk_shared/arithmetization/execution_trace_usage_tracker.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 
 #include <gtest/gtest.h>
 
