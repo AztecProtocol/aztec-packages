@@ -101,6 +101,7 @@ validator:
   storage: "8Gi"
 
 proverNode:
+  public: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1

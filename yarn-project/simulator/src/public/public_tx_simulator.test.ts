@@ -31,14 +31,11 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { PublicExecutionResultBuilder } from '../mocks/fixtures.js';
-import { WASMSimulator } from '../providers/acvm_wasm.js';
-import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
-describe('enqueued_calls_processor', () => {
+describe('public_tx_simulator', () => {
   // Gas settings.
   const gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
   const gasLimits = Gas.from({ daGas: 100, l2Gas: 150 });
@@ -53,13 +50,12 @@ describe('enqueued_calls_processor', () => {
 
   let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicKernel: PublicKernelCircuitSimulator;
   let worldStateDB: MockProxy<WorldStateDB>;
 
   let root: Buffer;
   let publicDataTree: AppendOnlyTree<Fr>;
 
-  let processor: EnqueuedCallsProcessor;
+  let processor: PublicTxSimulator;
 
   const mockTxWithPublicCalls = ({
     numberOfSetupCalls = 0,
@@ -163,14 +159,10 @@ describe('enqueued_calls_processor', () => {
     db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
     db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
 
-    publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-
-    processor = EnqueuedCallsProcessor.create(
+    processor = PublicTxSimulator.create(
       db,
       publicExecutor,
-      publicKernel,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      Header.empty(),
       worldStateDB,
       /*realAvmProvingRequest=*/ false,
     );
@@ -181,7 +173,7 @@ describe('enqueued_calls_processor', () => {
       numberOfSetupCalls: 2,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -216,7 +208,7 @@ describe('enqueued_calls_processor', () => {
       numberOfAppLogicCalls: 2,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
@@ -251,7 +243,7 @@ describe('enqueued_calls_processor', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
@@ -286,7 +278,7 @@ describe('enqueued_calls_processor', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -364,7 +356,7 @@ describe('enqueued_calls_processor', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
 
@@ -376,6 +368,7 @@ describe('enqueued_calls_processor', () => {
       // squashed
       // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x101)),
       new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
+
       new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)),
       // squashed
       // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x201)),
@@ -397,12 +390,12 @@ describe('enqueued_calls_processor', () => {
       PublicExecutionResultBuilder.empty().withReverted(setupFailure).build(),
     );
 
-    await expect(processor.process(tx)).rejects.toThrow(setupFailureMsg);
+    await expect(processor.simulate(tx)).rejects.toThrow(setupFailureMsg);
 
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
   });
 
-  it('includes a transaction that reverts in app logic', async function () {
+  it('includes a transaction that reverts in app logic only', async function () {
     const tx = mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
@@ -432,7 +425,7 @@ describe('enqueued_calls_processor', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -480,7 +473,7 @@ describe('enqueued_calls_processor', () => {
     ]);
   });
 
-  it('includes a transaction that reverts in teardown', async function () {
+  it('includes a transaction that reverts in teardown only', async function () {
     const tx = mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
@@ -510,7 +503,7 @@ describe('enqueued_calls_processor', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -592,7 +585,7 @@ describe('enqueued_calls_processor', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([

@@ -48,7 +48,7 @@ describe('NativeWorldState', () => {
   });
 
   beforeAll(async () => {
-    nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir);
+    nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir, 1024 * 1024);
     legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
   });
 

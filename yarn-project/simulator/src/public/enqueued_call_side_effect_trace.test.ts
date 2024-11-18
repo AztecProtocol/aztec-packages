@@ -34,7 +34,7 @@ import {
 import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
-import { randomBytes, randomInt } from 'crypto';
+import { randomInt } from 'crypto';
 
 import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
@@ -70,7 +70,6 @@ describe('Enqueued-call Side Effect Trace', () => {
   const endGasLeft = Gas.fromFields([new Fr(randomInt(10000)), new Fr(randomInt(10000))]);
   const transactionFee = Fr.random();
   const calldata = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
-  const bytecode = randomBytes(100);
   const returnValues = [Fr.random(), Fr.random()];
 
   const constants = CombinedConstantData.empty();
@@ -80,7 +79,6 @@ describe('Enqueued-call Side Effect Trace', () => {
     transactionFee,
   });
   const avmCallResults = new AvmContractCallResult(/*reverted=*/ false, returnValues);
-  const avmCallRevertedResults = new AvmContractCallResult(/*reverted=*/ true, returnValues);
 
   const emptyValidationRequests = PublicValidationRequests.empty();
 
@@ -477,8 +475,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     });
   });
 
-  describe.each([avmCallResults, avmCallRevertedResults])('Should trace & absorb nested calls', callResults => {
-    it(`${callResults.reverted ? 'Reverted' : 'Successful'} calls should be traced and absorbed properly`, () => {
+  describe.each([false, true])('Should merge forked traces', reverted => {
+    it(`${reverted ? 'Reverted' : 'Successful'} forked trace should be merged properly`, () => {
       const existsDefault = true;
 
       const nestedTrace = new PublicEnqueuedCallSideEffectTrace(startCounter);
@@ -510,7 +508,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
       testCounter++;
 
-      trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, endGasLeft, bytecode, callResults);
+      trace.merge(nestedTrace, reverted);
 
       // parent trace adopts nested call's counter
       expect(trace.getCounter()).toBe(testCounter);
@@ -518,17 +516,16 @@ describe('Enqueued-call Side Effect Trace', () => {
       // parent absorbs child's side effects
       const parentSideEffects = trace.getSideEffects();
       const childSideEffects = nestedTrace.getSideEffects();
-      if (callResults.reverted) {
-        expect(parentSideEffects.publicDataReads).toEqual(childSideEffects.publicDataReads);
-        expect(parentSideEffects.publicDataWrites).toEqual(childSideEffects.publicDataWrites);
-        expect(parentSideEffects.noteHashReadRequests).toEqual(childSideEffects.noteHashReadRequests);
+      // TODO(dbanks12): confirm that all hints were merged from child
+      if (reverted) {
+        expect(parentSideEffects.publicDataReads).toEqual([]);
+        expect(parentSideEffects.publicDataWrites).toEqual([]);
+        expect(parentSideEffects.noteHashReadRequests).toEqual([]);
         expect(parentSideEffects.noteHashes).toEqual([]);
-        expect(parentSideEffects.nullifierReadRequests).toEqual(childSideEffects.nullifierReadRequests);
-        expect(parentSideEffects.nullifierNonExistentReadRequests).toEqual(
-          childSideEffects.nullifierNonExistentReadRequests,
-        );
-        expect(parentSideEffects.nullifiers).toEqual(childSideEffects.nullifiers);
-        expect(parentSideEffects.l1ToL2MsgReadRequests).toEqual(childSideEffects.l1ToL2MsgReadRequests);
+        expect(parentSideEffects.nullifierReadRequests).toEqual([]);
+        expect(parentSideEffects.nullifierNonExistentReadRequests).toEqual([]);
+        expect(parentSideEffects.nullifiers).toEqual([]);
+        expect(parentSideEffects.l1ToL2MsgReadRequests).toEqual([]);
         expect(parentSideEffects.l2ToL1Msgs).toEqual([]);
         expect(parentSideEffects.unencryptedLogs).toEqual([]);
         expect(parentSideEffects.unencryptedLogsHashes).toEqual([]);
