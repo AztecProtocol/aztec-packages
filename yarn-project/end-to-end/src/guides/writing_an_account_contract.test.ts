@@ -3,7 +3,6 @@ import {
   AccountManager,
   AuthWitness,
   type AuthWitnessProvider,
-  BatchCall,
   type CompleteAddress,
   Fr,
   GrumpkinScalar,
@@ -64,15 +63,9 @@ describe('guides/writing_an_account_contract', () => {
     const token = await TokenContract.deploy(wallet, address, 'TokenName', 'TokenSymbol', 18).send().deployed();
     logger.info(`Deployed token contract at ${token.address}`);
 
-    // We don't have the functionality to mint to private so we mint to the minter address in public and transfer
-    // the tokens to the recipient in private. We use BatchCall to speed the process up.
     const mintAmount = 50n;
-    await new BatchCall(wallet, [
-      token.methods.mint_public(address, mintAmount).request(),
-      token.methods.transfer_to_private(address, mintAmount).request(),
-    ])
-      .send()
-      .wait();
+    const from = address; // we are setting from to address here because of TODO(#9887)
+    await token.methods.mint_to_private(from, address, mintAmount).send().wait();
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);
@@ -87,7 +80,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_public(address, 200).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

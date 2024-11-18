@@ -1,15 +1,11 @@
-import {
-  type IncomingNotesFilter,
-  MerkleTreeId,
-  NoteStatus,
-  type OutgoingNotesFilter,
-  type PublicKey,
-} from '@aztec/circuit-types';
+import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
   Header,
+  type IndexedTaggingSecret,
+  type PublicKey,
   SerializableContractInstance,
   computePoint,
 } from '@aztec/circuits.js';
@@ -26,7 +22,6 @@ import {
 } from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
 
-import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
 import { OutgoingNoteDao } from './outgoing_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
@@ -36,8 +31,9 @@ import { type PxeDatabase } from './pxe_database.js';
  */
 export class KVPxeDatabase implements PxeDatabase {
   #synchronizedBlock: AztecSingleton<Buffer>;
-  #addresses: AztecArray<Buffer>;
-  #addressIndex: AztecMap<string, number>;
+  #completeAddresses: AztecArray<Buffer>;
+  #completeAddressIndex: AztecMap<string, number>;
+  #addressBook: AztecSet<string>;
   #authWitnesses: AztecMap<string, Buffer[]>;
   #capsules: AztecArray<Buffer[]>;
   #notes: AztecMap<string, Buffer>;
@@ -48,8 +44,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
   #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
   #nullifiedNotesByAddressPoint: AztecMultiMap<string, string>;
-  #deferredNotes: AztecArray<Buffer | null>;
-  #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
   #contractArtifacts: AztecMap<string, Buffer>;
   #contractInstances: AztecMap<string, Buffer>;
@@ -67,13 +61,19 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByAddressPointAndScope: Map<string, AztecMultiMap<string, string>>;
 
-  #taggingSecretIndexes: AztecMap<string, number>;
+  // Stores the last index used for each tagging secret, taking direction into account
+  // This is necessary to avoid reusing the same index for the same secret, which happens if
+  // sender and recipient are the same
+  #taggingSecretIndexesForSenders: AztecMap<string, number>;
+  #taggingSecretIndexesForRecipients: AztecMap<string, number>;
 
   constructor(private db: AztecKVStore) {
     this.#db = db;
 
-    this.#addresses = db.openArray('addresses');
-    this.#addressIndex = db.openMap('address_index');
+    this.#completeAddresses = db.openArray('complete_addresses');
+    this.#completeAddressIndex = db.openMap('complete_address_index');
+
+    this.#addressBook = db.openSet('address_book');
 
     this.#authWitnesses = db.openMap('auth_witnesses');
     this.#capsules = db.openArray('capsules');
@@ -92,9 +92,6 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
     this.#nullifiedNotesByAddressPoint = db.openMultiMap('nullified_notes_by_address_point');
-
-    this.#deferredNotes = db.openArray('deferred_notes');
-    this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
 
     this.#outgoingNotes = db.openMap('outgoing_notes');
     this.#outgoingNotesByContract = db.openMultiMap('outgoing_notes_by_contract');
@@ -115,7 +112,8 @@ export class KVPxeDatabase implements PxeDatabase {
       this.#notesByAddressPointAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_address_point`));
     }
 
-    this.#taggingSecretIndexes = db.openMap('tagging_secret_indices');
+    this.#taggingSecretIndexesForSenders = db.openMap('tagging_secret_indexes_for_senders');
+    this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
   }
 
   public async getContract(
@@ -213,56 +211,6 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#outgoingNotesByTxHash.set(dao.txHash.toString(), noteIndex);
         void this.#outgoingNotesByOvpkM.set(dao.ovpkM.toString(), noteIndex);
       }
-    });
-  }
-
-  async addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void> {
-    const newLength = await this.#deferredNotes.push(...deferredNotes.map(note => note.toBuffer()));
-    for (const [index, note] of deferredNotes.entries()) {
-      const noteId = newLength - deferredNotes.length + index;
-      await this.#deferredNotesByContract.set(note.payload.contractAddress.toString(), noteId);
-    }
-  }
-
-  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
-    const noteIds = this.#deferredNotesByContract.getValues(contractAddress.toString());
-    const notes: DeferredNoteDao[] = [];
-    for (const noteId of noteIds) {
-      const serializedNote = this.#deferredNotes.at(noteId);
-      if (!serializedNote) {
-        continue;
-      }
-
-      const note = DeferredNoteDao.fromBuffer(serializedNote);
-      notes.push(note);
-    }
-
-    return Promise.resolve(notes);
-  }
-
-  /**
-   * Removes all deferred notes for a given contract address.
-   * @param contractAddress - the contract address to remove deferred notes for
-   * @returns an array of the removed deferred notes
-   */
-  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
-    return this.#db.transaction(() => {
-      const deferredNotes: DeferredNoteDao[] = [];
-      const indices = Array.from(this.#deferredNotesByContract.getValues(contractAddress.toString()));
-
-      for (const index of indices) {
-        const deferredNoteBuffer = this.#deferredNotes.at(index);
-        if (!deferredNoteBuffer) {
-          continue;
-        } else {
-          deferredNotes.push(DeferredNoteDao.fromBuffer(deferredNoteBuffer));
-        }
-
-        void this.#deferredNotesByContract.deleteValue(contractAddress.toString(), index);
-        void this.#deferredNotes.setAt(index, null);
-      }
-
-      return deferredNotes;
     });
   }
 
@@ -509,15 +457,15 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.#db.transaction(() => {
       const addressString = completeAddress.address.toString();
       const buffer = completeAddress.toBuffer();
-      const existing = this.#addressIndex.get(addressString);
+      const existing = this.#completeAddressIndex.get(addressString);
       if (typeof existing === 'undefined') {
-        const index = this.#addresses.length;
-        void this.#addresses.push(buffer);
-        void this.#addressIndex.set(addressString, index);
+        const index = this.#completeAddresses.length;
+        void this.#completeAddresses.push(buffer);
+        void this.#completeAddressIndex.set(addressString, index);
 
         return true;
       } else {
-        const existingBuffer = this.#addresses.at(existing);
+        const existingBuffer = this.#completeAddresses.at(existing);
 
         if (existingBuffer?.equals(buffer)) {
           return false;
@@ -531,12 +479,12 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   #getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
-    const index = this.#addressIndex.get(address.toString());
+    const index = this.#completeAddressIndex.get(address.toString());
     if (typeof index === 'undefined') {
       return undefined;
     }
 
-    const value = this.#addresses.at(index);
+    const value = this.#completeAddresses.at(index);
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
@@ -545,7 +493,31 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
+    return Promise.resolve(Array.from(this.#completeAddresses).map(v => CompleteAddress.fromBuffer(v)));
+  }
+
+  async addContactAddress(address: AztecAddress): Promise<boolean> {
+    if (this.#addressBook.has(address.toString())) {
+      return false;
+    }
+
+    await this.#addressBook.add(address.toString());
+
+    return true;
+  }
+
+  getContactAddresses(): AztecAddress[] {
+    return [...this.#addressBook.entries()].map(AztecAddress.fromString);
+  }
+
+  async removeContactAddress(address: AztecAddress): Promise<boolean> {
+    if (!this.#addressBook.has(address.toString())) {
+      return false;
+    }
+
+    await this.#addressBook.delete(address.toString());
+
+    return true;
   }
 
   getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
@@ -570,25 +542,43 @@ export class KVPxeDatabase implements PxeDatabase {
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
       0,
     );
-    const addressesSize = this.#addresses.length * CompleteAddress.SIZE_IN_BYTES;
+    const addressesSize = this.#completeAddresses.length * CompleteAddress.SIZE_IN_BYTES;
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
-    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+  async incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void> {
+    await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
+  }
+
+  async #incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<void> {
+    const indexes = await this.#getTaggingSecretsIndexes(appTaggingSecrets, storageMap);
     await this.db.transaction(() => {
-      indexes.forEach(index => {
-        const nextIndex = index ? index + 1 : 1;
-        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
+      indexes.forEach((taggingSecretIndex, listIndex) => {
+        const nextIndex = taggingSecretIndex + 1;
+        void storageMap.set(appTaggingSecrets[listIndex].toString(), nextIndex);
       });
     });
   }
 
-  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
-    return this.db.transaction(() =>
-      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
-    );
+  async setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
+    await this.db.transaction(() => {
+      indexedSecrets.forEach(indexedSecret => {
+        void this.#taggingSecretIndexesForRecipients.set(indexedSecret.secret.toString(), indexedSecret.index);
+      });
+    });
+  }
+
+  async getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]) {
+    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients);
+  }
+
+  async getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]) {
+    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
+  }
+
+  #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<number[]> {
+    return this.db.transaction(() => appTaggingSecrets.map(secret => storageMap.get(`${secret.toString()}`) ?? 0));
   }
 }

@@ -1,4 +1,4 @@
-import { BackendOptions, Barretenberg } from './index.js';
+import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import { decompressSync as gunzip } from 'fflate';
 import {
@@ -21,22 +21,30 @@ export class UltraPlonkBackend {
 
   protected acirUncompressedBytecode: Uint8Array;
 
-  constructor(acirBytecode: string, protected options: BackendOptions = { threads: 1 }) {
+  constructor(
+    acirBytecode: string,
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
 
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.options);
+      const api = await Barretenberg.new(this.backendOptions);
 
       const honkRecursion = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode, honkRecursion);
+      const [_total, subgroupSize] = await api.acirGetCircuitSizes(
+        this.acirUncompressedBytecode,
+        this.circuitOptions.recursive,
+        honkRecursion,
+      );
 
       await api.initSRSForCircuitSize(subgroupSize);
       this.acirComposer = await api.acirNewAcirComposer(subgroupSize);
-      await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
+      await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode, this.circuitOptions.recursive);
       this.api = api;
     }
   }
@@ -47,6 +55,7 @@ export class UltraPlonkBackend {
     const proofWithPublicInputs = await this.api.acirCreateProof(
       this.acirComposer,
       this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
       gunzip(compressedWitness),
     );
 
@@ -69,8 +78,8 @@ export class UltraPlonkBackend {
    * Instead of passing the proof and verification key as a byte array, we pass them
    * as fields which makes it cheaper to verify in a circuit.
    *
-   * The proof that is passed here will have been created using a circuit
-   * that has the #[recursive] attribute on its `main` method.
+   * The proof that is passed here will have been created by passing the `recursive`
+   * parameter to a backend.
    *
    * The number of public inputs denotes how many public inputs are in the inner proof.
    *
@@ -116,10 +125,18 @@ export class UltraPlonkBackend {
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
 
+  /** @description Returns the verification key */
   async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);
     return await this.api.acirGetVerificationKey(this.acirComposer);
+  }
+
+  /** @description Returns a solidity verifier */
+  async getSolidityVerifier(): Promise<string> {
+    await this.instantiate();
+    await this.api.acirInitVerificationKey(this.acirComposer);
+    return await this.api.acirGetSolidityVerifier(this.acirComposer);
   }
 
   async destroy(): Promise<void> {
@@ -145,15 +162,19 @@ export class UltraHonkBackend {
   protected api!: Barretenberg;
   protected acirUncompressedBytecode: Uint8Array;
 
-  constructor(acirBytecode: string, protected options: BackendOptions = { threads: 1 }) {
+  constructor(
+    acirBytecode: string,
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.options);
+      const api = await Barretenberg.new(this.backendOptions);
       const honkRecursion = true;
-      await api.acirInitSRS(this.acirUncompressedBytecode, honkRecursion);
+      await api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
 
       // We don't init a proving key here in the Honk API
       // await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
@@ -165,6 +186,7 @@ export class UltraHonkBackend {
     await this.instantiate();
     const proofWithPublicInputs = await this.api.acirProveUltraHonk(
       this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
       gunzip(compressedWitness),
     );
 
@@ -194,14 +216,21 @@ export class UltraHonkBackend {
   async verifyProof(proofData: ProofData): Promise<boolean> {
     await this.instantiate();
     const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
-    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
 
     return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(vkBuf));
   }
 
   async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
-    return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+    return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+  }
+
+  /** @description Returns a solidity verifier */
+  async getSolidityVerifier(): Promise<string> {
+    await this.instantiate();
+    await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    return await this.api.getHonkSolidityVerifier(this.acirUncompressedBytecode, this.circuitOptions.recursive);
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
@@ -222,7 +251,7 @@ export class UltraHonkBackend {
 
     // TODO: perhaps we should put this in the init function. Need to benchmark
     // TODO how long it takes.
-    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
     const vk = await this.api.acirVkAsFieldsUltraHonk(vkBuf);
 
     return {
@@ -234,6 +263,38 @@ export class UltraHonkBackend {
       // they expect
       vkHash: '',
     };
+  }
+
+  async destroy(): Promise<void> {
+    if (!this.api) {
+      return;
+    }
+    await this.api.destroy();
+  }
+}
+
+export class AztecClientBackend {
+  // These type assertions are used so that we don't
+  // have to initialize `api` in the constructor.
+  // These are initialized asynchronously in the `init` function,
+  // constructors cannot be asynchronous which is why we do this.
+
+  protected api!: Barretenberg;
+
+  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+
+  /** @ignore */
+  async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.options);
+      await api.initSRSClientIVC();
+      this.api = api;
+    }
+  }
+
+  async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
+    await this.instantiate();
+    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
   }
 
   async destroy(): Promise<void> {

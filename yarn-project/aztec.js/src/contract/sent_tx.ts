@@ -1,11 +1,4 @@
-import {
-  type ExtendedNote,
-  type GetUnencryptedLogsResponse,
-  type PXE,
-  type TxHash,
-  type TxReceipt,
-  TxStatus,
-} from '@aztec/circuit-types';
+import { type GetUnencryptedLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -20,10 +13,10 @@ export type WaitOpts = {
   /** Whether to wait for the tx to be proven. */
   proven?: boolean;
   /**
-   * Whether to wait for the PXE Service to sync all notes up to the block in which this tx was mined.
+   * Whether to wait for the node to notify that the block in which this tx was mined is available to fetch notes from.
    * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
    **/
-  waitForNotesSync?: boolean;
+  waitForNotesAvailable?: boolean;
   /** Whether to include information useful for debugging/testing in the receipt. */
   debug?: boolean;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
@@ -34,8 +27,8 @@ export const DefaultWaitOpts: WaitOpts = {
   timeout: 60,
   provenTimeout: 600,
   interval: 1,
-  waitForNotesSync: true,
   debug: false,
+  waitForNotesAvailable: true,
 };
 
 /**
@@ -74,9 +67,6 @@ export class SentTx {
    * @returns The transaction receipt.
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
-    if (opts?.debug && opts.waitForNotesSync === false) {
-      throw new Error('Cannot set debug to true if waitForNotesSync is false');
-    }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.SUCCESS && !opts?.dontThrowOnRevert) {
       throw new Error(
@@ -89,15 +79,11 @@ export class SentTx {
     if (opts?.debug) {
       const txHash = await this.getTxHash();
       const tx = (await this.pxe.getTxEffect(txHash))!;
-      const visibleIncomingNotes = await this.pxe.getIncomingNotes({ txHash });
-      const visibleOutgoingNotes = await this.pxe.getOutgoingNotes({ txHash });
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
         nullifiers: tx.nullifiers,
         publicDataWrites: tx.publicDataWrites,
         l2ToL1Msgs: tx.l2ToL1Msgs,
-        visibleIncomingNotes,
-        visibleOutgoingNotes,
       };
     }
     return receipt;
@@ -111,16 +97,6 @@ export class SentTx {
   public async getUnencryptedLogs(): Promise<GetUnencryptedLogsResponse> {
     await this.wait();
     return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
-  }
-
-  /**
-   * Get notes of accounts registered in the provided PXE/Wallet created in this tx.
-   * @remarks This function will wait for the tx to be mined if it hasn't been already.
-   * @returns The requested notes.
-   */
-  public async getVisibleNotes(): Promise<ExtendedNote[]> {
-    await this.wait();
-    return this.pxe.getIncomingNotes({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {
@@ -137,15 +113,15 @@ export class SentTx {
           return txReceipt;
         }
         // If we don't care about waiting for notes to be synced, return the receipt
-        const waitForNotesSync = opts?.waitForNotesSync ?? DefaultWaitOpts.waitForNotesSync;
-        if (!waitForNotesSync) {
+        const waitForNotesAvailable = opts?.waitForNotesAvailable ?? DefaultWaitOpts.waitForNotesAvailable;
+        if (!waitForNotesAvailable) {
           return txReceipt;
         }
         // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
-        const { blocks, notes } = await this.pxe.getSyncStatus();
+        const { blocks } = await this.pxe.getSyncStatus();
         const targetBlock = txReceipt.blockNumber!;
-        const areNotesSynced = blocks >= targetBlock && Object.values(notes).every(block => block >= targetBlock);
-        return areNotesSynced ? txReceipt : undefined;
+        const areNotesAvailable = blocks >= targetBlock;
+        return areNotesAvailable ? txReceipt : undefined;
       },
       'isMined',
       opts?.timeout ?? DefaultWaitOpts.timeout,

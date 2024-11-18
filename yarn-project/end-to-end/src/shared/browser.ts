@@ -251,9 +251,9 @@ export const browserTestSuite = (
 
           console.log(`Contract Deployed: ${token.address}`);
 
-          // We don't use the `mintTokensToPrivate` util as it is not available here
-          await token.methods.mint_public(owner.getAddress(), initialBalance).send().wait();
-          await token.methods.transfer_to_private(owner.getAddress(), initialBalance).send().wait();
+          // We mint tokens to the owner
+          const from = owner.getAddress(); // we are setting from to owner here because of TODO(#9887)
+          await token.methods.mint_to_private(from, owner.getAddress(), initialBalance).send().wait();
 
           return [txHash.toString(), token.address.toString()];
         },

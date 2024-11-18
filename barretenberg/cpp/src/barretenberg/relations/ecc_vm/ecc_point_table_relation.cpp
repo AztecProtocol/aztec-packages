@@ -4,6 +4,6 @@
 
 namespace bb {
 template class ECCVMPointTableRelationImpl<grumpkin::fr>;
-DEFINE_ZK_SUMCHECK_RELATION_CLASS(ECCVMPointTableRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMPointTableRelationImpl, ECCVMFlavor);
 
 } // namespace bb

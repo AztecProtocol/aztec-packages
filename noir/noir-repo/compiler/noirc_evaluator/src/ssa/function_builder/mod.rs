@@ -4,6 +4,7 @@ use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use acvm::{acir::circuit::ErrorSelector, FieldElement};
 use noirc_errors::Location;
+use noirc_frontend::hir_def::types::Type as HirType;
 use noirc_frontend::monomorphization::ast::InlineType;
 
 use crate::ssa::ir::{
@@ -19,7 +20,7 @@ use super::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
         function::RuntimeType,
-        instruction::{ConstrainError, ErrorType, InstructionId, Intrinsic},
+        instruction::{ConstrainError, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
 };
@@ -36,7 +37,7 @@ pub(crate) struct FunctionBuilder {
     current_block: BasicBlockId,
     finished_functions: Vec<Function>,
     call_stack: CallStack,
-    error_types: BTreeMap<ErrorSelector, ErrorType>,
+    error_types: BTreeMap<ErrorSelector, HirType>,
 }
 
 impl FunctionBuilder {
@@ -327,6 +328,16 @@ impl FunctionBuilder {
             .first()
     }
 
+    pub(crate) fn insert_mutable_array_set(
+        &mut self,
+        array: ValueId,
+        index: ValueId,
+        value: ValueId,
+    ) -> ValueId {
+        self.insert_instruction(Instruction::ArraySet { array, index, value, mutable: true }, None)
+            .first()
+    }
+
     /// Insert an instruction to increment an array's reference count. This only has an effect
     /// in unconstrained code where arrays are reference counted and copy on write.
     pub(crate) fn insert_inc_rc(&mut self, value: ValueId) {
@@ -461,7 +472,7 @@ impl FunctionBuilder {
         }
     }
 
-    pub(crate) fn record_error_type(&mut self, selector: ErrorSelector, typ: ErrorType) {
+    pub(crate) fn record_error_type(&mut self, selector: ErrorSelector, typ: HirType) {
         self.error_types.insert(selector, typ);
     }
 }

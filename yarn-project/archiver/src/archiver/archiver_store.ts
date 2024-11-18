@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,6 +9,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -142,7 +142,7 @@ export interface ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -150,6 +150,13 @@ export interface ArchiverDataStore {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed.

@@ -1,18 +1,25 @@
 import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmAppendTreeHint,
   AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
-  AztecAddress,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+  type AztecAddress,
   CallContext,
+  type CombinedConstantData,
   type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
   Gas,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
@@ -25,24 +32,42 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
   NoteHash,
   Nullifier,
+  NullifierLeafPreimage,
+  PUBLIC_DATA_TREE_HEIGHT,
+  type PublicCallRequest,
+  PublicDataTreeLeafPreimage,
   type PublicInnerCallRequest,
   ReadRequest,
   SerializableContractInstance,
   TreeLeafReadRequest,
+  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { assert } from 'console';
+
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
+import {
+  type EnqueuedPublicCallExecutionResultWithSideEffects,
+  type PublicFunctionCallResult,
+  resultToPublicCallRequest,
+} from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
 export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
+
+const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());
+const emptyNoteHashPath = () => new Array(NOTE_HASH_TREE_HEIGHT).fill(Fr.zero());
+const emptyNullifierPath = () => new Array(NULLIFIER_TREE_HEIGHT).fill(Fr.zero());
+const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.zero());
 
 export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   public log = createDebugLogger('aztec:public_side_effect_trace');
@@ -69,7 +94,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
   private publicCallRequests: PublicInnerCallRequest[] = [];
 
-  private nestedExecutions: PublicExecutionResult[] = [];
+  private nestedExecutions: PublicFunctionCallResult[] = [];
 
   private avmCircuitHints: AvmExecutionHints;
 
@@ -93,60 +118,111 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
-    // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
+  public tracePublicStorageRead(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    value: Fr,
+    leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
+    leafIndex: Fr = Fr.zero(),
+    path: Fr[] = emptyPublicDataPath(),
+  ) {
+    if (!leafIndex.equals(Fr.zero())) {
+      // if we have real merkle hint content, make sure the value matches the the provided preimage
+      assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
+    }
     if (this.contractStorageReads.length >= MAX_PUBLIC_DATA_READS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
-    this.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(contractAddress)),
-    );
+
+    this.contractStorageReads.push(new ContractStorageRead(slot, value, this.sideEffectCounter, contractAddress));
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
     );
+
+    // New hinting
+    this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
+
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    value: Fr,
+    lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyPublicDataPath(),
+    newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
+    insertionPath: Fr[] = emptyPublicDataPath(),
+  ) {
+    if (!lowLeafIndex.equals(Fr.zero())) {
+      // if we have real merkle hint content, make sure the value matches the the provided preimage
+      assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
+    }
     if (this.contractStorageUpdateRequests.length >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage write', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
     }
+
     this.contractStorageUpdateRequests.push(
       new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, contractAddress),
+    );
+
+    // New hinting
+    const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.avmCircuitHints.storageUpdateRequest.items.push(
+      new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
     );
     this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+  public traceNoteHashCheck(
+    _contractAddress: AztecAddress,
+    noteHash: Fr,
+    leafIndex: Fr,
+    exists: boolean,
+    path: Fr[] = emptyNoteHashPath(),
+  ) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.noteHashReadRequests.length >= MAX_NOTE_HASH_READ_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('note hash read request', MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
     }
+    // Temp for backward compatibility
     this.noteHashReadRequests.push(new TreeLeafReadRequest(noteHash, leafIndex));
     this.avmCircuitHints.noteHashExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
+    // New Hinting
+    this.avmCircuitHints.noteHashReadRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr) {
+  public traceNewNoteHash(
+    _contractAddress: AztecAddress,
+    noteHash: Fr,
+    leafIndex: Fr,
+    path: Fr[] = emptyNoteHashPath(),
+  ) {
     if (this.noteHashes.length >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
+
+    // New Hinting
+    this.avmCircuitHints.noteHashWriteRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
   }
 
   public traceNullifierCheck(
-    _contractAddress: Fr,
+    _contractAddress: AztecAddress,
     nullifier: Fr,
-    _leafIndex: Fr,
     exists: boolean,
-    _isPending: boolean,
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
@@ -162,22 +238,43 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.nullifierExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
     );
+
+    // New Hints
+    this.avmCircuitHints.nullifierReadRequest.items.push(
+      new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
+    );
     this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(_contractAddress: Fr, nullifier: Fr) {
+  public traceNewNullifier(
+    _contractAddress: AztecAddress,
+    nullifier: Fr,
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
+    insertionPath: Fr[] = emptyNullifierPath(),
+  ) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.nullifiers.length >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
     this.nullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+    // New hinting
+    const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
+  public traceL1ToL2MessageCheck(
+    _contractAddress: AztecAddress,
+    msgHash: Fr,
+    msgLeafIndex: Fr,
+    exists: boolean,
+    path: Fr[] = emptyL1ToL2MessagePath(),
+  ) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.l1ToL2MsgReadRequests.length >= MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('l1 to l2 message read request', MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX);
@@ -186,10 +283,13 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.l1ToL2MessageExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
+
+    // New Hinting
+    this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
     // NOTE: counter does not increment for l1tol2 message checks (because it doesn't rely on pending messages)
   }
 
-  public traceNewL2ToL1Message(_contractAddress: Fr, recipient: Fr, content: Fr) {
+  public traceNewL2ToL1Message(_contractAddress: AztecAddress, recipient: Fr, content: Fr) {
     if (this.newL2ToL1Messages.length >= MAX_L2_TO_L1_MSGS_PER_TX) {
       throw new SideEffectLimitReachedError('l2 to l1 message', MAX_L2_TO_L1_MSGS_PER_TX);
     }
@@ -199,14 +299,11 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceUnencryptedLog(contractAddress: Fr, log: Fr[]) {
+  public traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
     if (this.unencryptedLogs.length >= MAX_UNENCRYPTED_LOGS_PER_TX) {
       throw new SideEffectLimitReachedError('unencrypted log', MAX_UNENCRYPTED_LOGS_PER_TX);
     }
-    const ulog = new UnencryptedL2Log(
-      AztecAddress.fromField(contractAddress),
-      Buffer.concat(log.map(f => f.toBuffer())),
-    );
+    const ulog = new UnencryptedL2Log(contractAddress, Buffer.concat(log.map(f => f.toBuffer())));
     const basicLogHash = Fr.fromBuffer(ulog.hash());
     this.unencryptedLogs.push(ulog);
     this.allUnencryptedLogs.push(ulog);
@@ -218,7 +315,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceGetContractInstance(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
   ) {
@@ -242,8 +339,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   // This tracing function gets called everytime we start simulation/execution.
   // This happens both when starting a new top-level trace and the start of every nested trace
   // We use this to collect the AvmContractBytecodeHints
+  // We need to trace teh merkle tree as well here
   public traceGetBytecode(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     exists: boolean,
     bytecode: Buffer = Buffer.alloc(0),
     contractInstance: SerializableContractInstance = SerializableContractInstance.default(),
@@ -298,7 +396,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // one for max unique contract calls, and another based on max nullifier reads.
     // Since this trace function happens _after_ a nested call, such threshold limits must take
     // place in another trace function that occurs _before_ a nested call.
-    const result = nestedCallTrace.toPublicExecutionResult(
+    const result = nestedCallTrace.toPublicFunctionCallResult(
       nestedEnvironment,
       startGasLeft,
       endGasLeft,
@@ -331,10 +429,25 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     );
   }
 
+  public traceEnqueuedCall(
+    /** The call request from private that enqueued this call. */
+    _publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    _calldata: Fr[],
+    /** Did the call revert? */
+    _reverted: boolean,
+  ) {
+    throw new Error('Not implemented');
+  }
+
+  public merge(_nestedTrace: this, _reverted: boolean = false) {
+    throw new Error('Not implemented');
+  }
+
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
-  public toPublicExecutionResult(
+  public toPublicFunctionCallResult(
     /** The execution environment of the nested call. */
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
@@ -347,7 +460,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
-  ): PublicExecutionResult {
+  ): PublicFunctionCallResult {
     return {
       executionRequest: createPublicExecutionRequest(avmEnvironment),
 
@@ -361,7 +474,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       calldata: avmEnvironment.calldata,
       returnValues: avmCallResults.output,
       reverted: avmCallResults.reverted,
-      revertReason: avmCallResults.revertReason ? createSimulationError(avmCallResults.revertReason) : undefined,
+      revertReason: avmCallResults.revertReason
+        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
+        : undefined,
 
       contractStorageReads: this.contractStorageReads,
       contractStorageUpdateRequests: this.contractStorageUpdateRequests,
@@ -386,6 +501,32 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     };
   }
 
+  public toPublicEnqueuedCallExecutionResult(
+    /** How much gas was left after this public execution. */
+    _endGasLeft: Gas,
+    /** The call's results */
+    _avmCallResults: AvmContractCallResult,
+  ): EnqueuedPublicCallExecutionResultWithSideEffects {
+    throw new Error('Not implemented');
+  }
+
+  public toVMCircuitPublicInputs(
+    /** Constants. */
+    _constants: CombinedConstantData,
+    /** The call request that triggered public execution. */
+    _callRequest: PublicCallRequest,
+    /** How much gas was available for this public execution. */
+    _startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    _endGasLeft: Gas,
+    /** Transaction fee. */
+    _transactionFee: Fr,
+    /** The call's results */
+    _avmCallResults: AvmContractCallResult,
+  ): VMCircuitPublicInputs {
+    throw new Error('Not implemented');
+  }
+
   private enforceLimitOnNullifierChecks(errorMsgOrigin: string = '') {
     // NOTE: Why error if _either_ limit was reached? If user code emits either an existent or non-existent
     // nullifier read request (NULLIFIEREXISTS, GETCONTRACTINSTANCE, *CALL), and one of the limits has been
@@ -405,6 +546,10 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
       );
     }
+  }
+
+  public getUnencryptedLogs(): UnencryptedL2Log[] {
+    throw new Error('Not implemented');
   }
 }
 

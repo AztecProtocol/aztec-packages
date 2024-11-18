@@ -8,15 +8,15 @@ use crate::{
         private_call_request::PrivateCallRequest,
         public_call_request::PublicCallRequest,
         read_request::ReadRequest,
+        side_effect::Counted,
         validation_requests::KeyValidationRequestAndGenerator,
     },
     constants::{
-        MAX_ENCRYPTED_LOGS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_UNENCRYPTED_LOGS_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
     header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -36,7 +36,7 @@ pub struct PrivateCircuitPublicInputsArrayLengths {
     public_call_requests: u32,
     note_encrypted_logs_hashes: u32,
     encrypted_logs_hashes: u32,
-    unencrypted_logs_hashes: u32,
+    contract_class_logs_hashes: u32,
 }
 
 impl PrivateCircuitPublicInputsArrayLengths {
@@ -54,47 +54,47 @@ impl PrivateCircuitPublicInputsArrayLengths {
             public_call_requests: validate_array(public_inputs.public_call_requests),
             note_encrypted_logs_hashes: validate_array(public_inputs.note_encrypted_logs_hashes),
             encrypted_logs_hashes: validate_array(public_inputs.encrypted_logs_hashes),
-            unencrypted_logs_hashes: validate_array(public_inputs.unencrypted_logs_hashes),
+            contract_class_logs_hashes: validate_array(public_inputs.contract_class_logs_hashes),
         }
     }
 }
 
 // Public inputs to private app circuit.
 pub struct PrivateCircuitPublicInputs {
-    call_context: CallContext,
+    pub call_context: CallContext,
 
-    args_hash: Field,
-    returns_hash: Field,
+    pub args_hash: Field,
+    pub returns_hash: Field,
 
-    min_revertible_side_effect_counter: u32,
-    is_fee_payer: bool,
+    pub min_revertible_side_effect_counter: u32,
+    pub is_fee_payer: bool,
 
-    max_block_number: MaxBlockNumber,
+    pub max_block_number: MaxBlockNumber,
 
-    note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-    key_validation_requests_and_generators: [KeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
+    pub note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+    pub key_validation_requests_and_generators: [KeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
 
-    note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_CALL],
-    nullifiers: [Nullifier; MAX_NULLIFIERS_PER_CALL],
-    private_call_requests: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-    public_call_requests: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    public_teardown_call_request: PublicCallRequest,
-    l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_CALL],
+    pub nullifiers: [Nullifier; MAX_NULLIFIERS_PER_CALL],
+    pub private_call_requests: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    pub public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_CALL],
+    pub public_teardown_call_request: PublicCallRequest,
+    pub l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
 
-    start_side_effect_counter: u32,
-    end_side_effect_counter: u32,
-    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
-    encrypted_logs_hashes: [EncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
-    unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
+    pub start_side_effect_counter: u32,
+    pub end_side_effect_counter: u32,
+    pub note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
+    pub encrypted_logs_hashes: [EncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
+    pub contract_class_logs_hashes: [LogHash; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    historical_header: Header,
+    pub historical_header: Header,
 
     // Note: The chain_id and version here are not redundant to the values in self.historical_header.global_variables because
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
-    tx_context: TxContext,
+    pub tx_context: TxContext,
 }
 
 impl Eq for PrivateCircuitPublicInputs {
@@ -120,7 +120,7 @@ impl Eq for PrivateCircuitPublicInputs {
             & (self.end_side_effect_counter == other.end_side_effect_counter)
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
-            & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
+            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & self.historical_header.eq(other.historical_header)
             & self.tx_context.eq(other.tx_context)
     }
@@ -171,15 +171,15 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         for i in 0..self.encrypted_logs_hashes.len() {
             fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
         }
-        for i in 0..self.unencrypted_logs_hashes.len() {
-            fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
+        for i in 0..self.contract_class_logs_hashes.len() {
+            fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
         }
         fields.extend_from_array(self.historical_header.serialize());
         fields.extend_from_array(self.tx_context.serialize());
 
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -219,8 +219,8 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
                 [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
             ),
             public_call_requests: reader.read_struct_array(
-                PublicCallRequest::deserialize,
-                [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+                Counted::deserialize,
+                [Counted::empty(); MAX_ENQUEUED_CALLS_PER_CALL],
             ),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             l2_to_l1_msgs: reader.read_struct_array(
@@ -237,9 +237,9 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
                 EncryptedLogHash::deserialize,
                 [EncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
             ),
-            unencrypted_logs_hashes: reader.read_struct_array(
+            contract_class_logs_hashes: reader.read_struct_array(
                 LogHash::deserialize,
-                [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
+                [LogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
             ),
             historical_header: reader.read_struct(Header::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
@@ -269,16 +269,14 @@ impl Empty for PrivateCircuitPublicInputs {
             private_call_requests: [
                 PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL
             ],
-            public_call_requests: [
-                PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
-            ],
+            public_call_requests: [Counted::empty(); MAX_ENQUEUED_CALLS_PER_CALL],
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
             note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
             encrypted_logs_hashes: [EncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
-            unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
+            contract_class_logs_hashes: [LogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
         }

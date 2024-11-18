@@ -1,4 +1,4 @@
-mod interfaces;
+pub mod interfaces;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
@@ -141,7 +141,12 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     };
 
     let storage_init = if module_has_storage {
-        quote { let storage = Storage::init(&mut context); }
+        quote {
+            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
+            // referenced. We instead ignore 'unused variable' warnings for it.
+            #[allow(unused_variables)]
+            let storage = Storage::init(&mut context);
+        }
     } else {
         quote {}
     };
@@ -213,7 +218,6 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     };
     let modified_body = modify_fn_body(body, to_prepend, to_append);
     f.set_body(modified_body);
-    f.add_attribute("recursive");
     f.set_return_type(
         quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }
             .as_type(),
@@ -248,11 +252,13 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         .fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
+    let context_creation = quote {
+        let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
         // We start from 1 because we skip the selector for the dispatch function.
         let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);
         dep::aztec::hash::hash_args_array(serialized_args)
-     }); };
+        });
+    };
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {
@@ -274,7 +280,12 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     };
 
     let storage_init = if module_has_storage {
-        quote { let storage = Storage::init(&mut context); }
+        // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
+        // referenced. We instead ignore 'unused variable' warnings for it.
+        quote {
+            #[allow(unused_variables)]
+            let storage = Storage::init(&mut context);
+        }
     } else {
         quote {}
     };

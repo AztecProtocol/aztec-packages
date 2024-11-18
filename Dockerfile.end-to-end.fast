@@ -1,0 +1,25 @@
+# Use an ARG to define the architecture, defaulting to amd64
+ARG ARCH=amd64
+# aztec must be built from Dockerfile.fast
+FROM aztecprotocol/aztec AS aztec
+FROM aztecprotocol/build:1.0-${ARCH}
+
+# Install additional dependencies
+RUN apt-get update && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
+    && apt-get install -y wget gnupg \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+    && apt update && apt install -y curl chromium netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CHROME_BIN="/usr/bin/chromium"
+ENV PATH=/opt/foundry/bin:$PATH
+ENV HARDWARE_CONCURRENCY=""
+ENV FAKE_PROOFS=""
+ENV PROVER_AGENT_CONCURRENCY=8
+
+COPY --from=aztec /usr/src/ /usr/src/
+WORKDIR /usr/src/yarn-project/end-to-end
+
+ENTRYPOINT ["yarn", "test"]

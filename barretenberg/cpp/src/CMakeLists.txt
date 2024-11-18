@@ -63,6 +63,7 @@ endif()
 
 add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
@@ -72,7 +73,7 @@ add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
-add_subdirectory(barretenberg/execution_trace)
+add_subdirectory(barretenberg/trace_to_polynomials)
 add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
@@ -127,7 +128,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-    $<TARGET_OBJECTS:execution_trace_objects>
+    $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>

@@ -5,7 +5,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type NoteData } from '@aztec/simulator';
 
-import { type NoteInfo } from '../note_processor/utils/index.js';
+import { type NoteInfo } from '../note_decryption_utils/index.js';
 
 /**
  * A note with contextual data which was decrypted as incoming.

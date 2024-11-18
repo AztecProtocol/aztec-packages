@@ -39,6 +39,12 @@ pub struct PrivateBaseRollupInputs {
 }
 
 impl PrivateBaseRollupInputs {
+    fn compute_transaction_fee(self) -> Field {
+        let gas_fees = self.constants.global_variables.gas_fees;
+        let gas_used = self.tube_data.public_inputs.gas_used;
+        gas_used.compute_fee(gas_fees)
+    }
+
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         if !dep::std::runtime::is_unconstrained() {
             self.tube_data.verify();
@@ -46,10 +52,13 @@ impl PrivateBaseRollupInputs {
             // self.tube_data.vk_data.validate_in_vk_tree(self.tube_data.public_inputs.constants.vk_tree_root, ALLOWED_PREVIOUS_CIRCUITS);
         }
 
+        let transaction_fee = self.compute_transaction_fee();
+
         BaseRollupInputs {
             kernel_data: KernelData { public_inputs: self.tube_data.public_inputs },
             start: self.start,
             state_diff_hints: self.state_diff_hints,
+            transaction_fee,
             fee_payer_fee_juice_balance_read_hint: self.fee_payer_fee_juice_balance_read_hint,
             sorted_public_data_writes: self.sorted_public_data_writes,
             sorted_public_data_writes_indexes: self.sorted_public_data_writes_indexes,

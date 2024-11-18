@@ -1,4 +1,5 @@
 import {
+  AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
@@ -50,10 +51,6 @@ async function clearDestDir() {
   await fs.mkdir(destArtifactsDir, { recursive: true });
 }
 
-function getPrivateFunctionNames(artifact: NoirCompiledContract) {
-  return artifact.functions.filter(fn => fn.custom_attributes.includes('private')).map(fn => fn.name);
-}
-
 async function copyArtifact(srcName: string, destName: string) {
   const src = path.join(srcPath, `${srcName}.json`);
   const artifact = JSON.parse(await fs.readFile(src, 'utf8')) as NoirCompiledContract;
@@ -62,24 +59,16 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-async function copyVks(srcName: string, destName: string, fnNames: string[]) {
-  const deskVksDir = path.join(destArtifactsDir, 'keys', destName);
-  await fs.mkdir(deskVksDir, { recursive: true });
-
-  for (const fnName of fnNames) {
-    const src = path.join(srcPath, 'keys', `${srcName}-${fnName}.vk.data.json`);
-    const dest = path.join(deskVksDir, `${fnName}.vk.data.json`);
-    await fs.copyFile(src, dest);
-  }
-}
-
 function computeContractLeaf(artifact: NoirCompiledContract) {
   const instance = getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
   return instance.address;
 }
 
 function computeRoot(names: string[], leaves: Fr[]) {
-  const data = names.map((name, i) => ({ address: new Fr(contractAddressMapping[name]), leaf: leaves[i] }));
+  const data = names.map((name, i) => ({
+    address: new AztecAddress(new Fr(contractAddressMapping[name])),
+    leaf: leaves[i],
+  }));
   const tree = buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
@@ -191,10 +180,8 @@ async function main() {
     const srcName = srcNames[i];
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
-    const fnNames = getPrivateFunctionNames(artifact);
-    await copyVks(srcName, destName, fnNames);
     await generateDeclarationFile(destName);
-    leaves.push(computeContractLeaf(artifact));
+    leaves.push(computeContractLeaf(artifact).toField());
   }
 
   await generateOutputFile(destNames, leaves);

@@ -234,16 +234,16 @@ class GoblinProver {
 
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
-
             PROFILE_THIS_NAME("prove_eccvm");
-
+            vinfo("prove eccvm...");
             prove_eccvm();
+            vinfo("finished eccvm proving.");
         }
         {
-
             PROFILE_THIS_NAME("prove_translator");
-
+            vinfo("prove translator...");
             prove_translator();
+            vinfo("finished translator proving.");
         }
         return goblin_proof;
     };
@@ -297,6 +297,11 @@ class GoblinVerifier {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+
+        vinfo("merge verified?: ", merge_verified);
+        vinfo("eccvm verified?: ", eccvm_verified);
+        vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
+        vinfo("translation verified?: ", translation_verified);
 
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };

@@ -112,7 +112,7 @@ contract Lending {
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(collateral_asset)
-            .unshield(from, context.this_address(), amount, nonce)
+            .transfer_to_public(from, context.this_address(), amount, nonce)
             .call(&mut context);
         // docs:start:enqueue_public
         Lending::at(context.this_address())
@@ -129,7 +129,7 @@ contract Lending {
         collateral_asset: AztecAddress,
     ) {
         let _ = Token::at(collateral_asset)
-            .transfer_public(context.msg_sender(), context.this_address(), amount, nonce)
+            .transfer_in_public(context.msg_sender(), context.this_address(), amount, nonce)
             .call(&mut context);
         let _ = Lending::at(context.this_address())
             ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
@@ -199,7 +199,7 @@ contract Lending {
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = storage.collateral_asset.read();
         let _ = Token::at(collateral_asset)
-            .transfer_public(context.this_address(), recipient, amount, 0)
+            .transfer_in_public(context.this_address(), recipient, amount, 0)
             .call(&mut context);
     }
 
@@ -248,7 +248,7 @@ contract Lending {
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
-        let _ = Token::at(stable_coin).mint_public(to, amount).call(&mut context);
+        let _ = Token::at(stable_coin).mint_to_public(to, amount).call(&mut context);
     }
 
     #[private]
@@ -263,7 +263,7 @@ contract Lending {
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         // docs:start:private_call
-        let _ = Token::at(stable_coin).burn(from, amount, nonce).call(&mut context);
+        let _ = Token::at(stable_coin).burn_private(from, amount, nonce).call(&mut context);
         // docs:end:private_call
         let _ = Lending::at(context.this_address())
             ._repay(AztecAddress::from_field(on_behalf_of), amount, stable_coin)

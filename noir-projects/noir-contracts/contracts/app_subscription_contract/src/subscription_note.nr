@@ -10,7 +10,6 @@ use dep::aztec::{
 
 #[note]
 pub struct SubscriptionNote {
-    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     owner: AztecAddress,
     expiry_block_number: Field,
     remaining_txs: Field,

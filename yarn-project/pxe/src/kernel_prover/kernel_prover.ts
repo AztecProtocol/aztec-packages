@@ -23,7 +23,9 @@ import {
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { hashVK } from '@aztec/circuits.js/hash';
 import { makeTuple } from '@aztec/foundation/array';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -45,6 +47,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
   outputWitness: new Map(),
   bytecode: Buffer.from([]),
 };
+
 /**
  * The KernelProver class is responsible for generating kernel proofs.
  * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
@@ -64,17 +67,29 @@ export class KernelProver {
    *
    * @param txRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
+   * @param profile - Set true to profile the gate count for each circuit
+   * @param dryRun - Set true to skip the IVC proof generation (only simulation is run). Useful for profiling gate count without proof gen.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    * TODO(#7368) this should be refactored to not recreate the ACIR bytecode now that it operates on a program stack
    */
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
+    profile: boolean = false,
+    dryRun: boolean = false,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
 
     let output = NULL_PROVE_OUTPUT;
+
+    const gateCounts: { circuitName: string; gateCount: number }[] = [];
+    const addGateCount = async (circuitName: string, bytecode: Buffer) => {
+      const gateCount = (await this.proofCreator.computeGateCountForCircuit(bytecode, circuitName)) as number;
+      gateCounts.push({ circuitName, gateCount });
+
+      this.log.info(`Tx ${txRequest.hash()}: bb gates for ${circuitName} - ${gateCount}`);
+    };
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
@@ -100,6 +115,9 @@ export class KernelProver {
           // TODO(#7368) consider refactoring this redundant bytecode pushing
           acirs.push(output.bytecode);
           witnessStack.push(output.outputWitness);
+          if (profile) {
+            await addGateCount('private_kernel_reset', output.bytecode);
+          }
 
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,
@@ -111,6 +129,7 @@ export class KernelProver {
       }
 
       const currentExecution = executionStack.pop()!;
+
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
 
       const functionName = await this.oracle.getDebugFunctionName(
@@ -118,13 +137,15 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
       // TODO(#7368): This used to be associated with getDebugFunctionName
       // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
       witnessStack.push(currentExecution.partialWitness);
+      if (profile) {
+        await addGateCount(functionName as string, currentExecution.acir);
+      }
 
-      const privateCallData = await this.createPrivateCallData(currentExecution, appVk.verificationKey);
+      const privateCallData = await this.createPrivateCallData(currentExecution);
 
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
@@ -135,8 +156,12 @@ export class KernelProver {
         );
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.simulateProofInit(proofInput);
+
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
+        if (profile) {
+          await addGateCount('private_kernel_init', output.bytecode);
+        }
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
@@ -148,8 +173,12 @@ export class KernelProver {
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.simulateProofInner(proofInput);
+
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
+        if (profile) {
+          await addGateCount('private_kernel_inner', output.bytecode);
+        }
       }
       firstIteration = false;
     }
@@ -164,8 +193,12 @@ export class KernelProver {
     while (resetBuilder.needsReset()) {
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
       output = await this.proofCreator.simulateProofReset(privateInputs);
+
       acirs.push(output.bytecode);
       witnessStack.push(output.outputWitness);
+      if (profile) {
+        await addGateCount('private_kernel_reset', output.bytecode);
+      }
 
       resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
         output,
@@ -192,17 +225,28 @@ export class KernelProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
+
     acirs.push(tailOutput.bytecode);
     witnessStack.push(tailOutput.outputWitness);
+    if (profile) {
+      await addGateCount('private_kernel_tail', tailOutput.bytecode);
+      tailOutput.profileResult = { gateCounts };
+    }
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
-    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-    tailOutput.clientIvcProof = ivcProof;
+    if (!dryRun) {
+      const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+      tailOutput.clientIvcProof = ivcProof;
+    }
+
     return tailOutput;
   }
 
-  private async createPrivateCallData({ publicInputs }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
+  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
+
+    const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
+    const vk = new VerificationKeyAsFields(vkAsFields, hashVK(vkAsFields));
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,

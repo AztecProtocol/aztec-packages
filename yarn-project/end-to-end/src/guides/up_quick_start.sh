@@ -23,13 +23,7 @@ echo "Deployed contract at $TOKEN_ADDRESS"
 
 # docs:start:mint-private
 MINT_AMOUNT=69
-aztec-wallet create-secret -a shield
-
-aztec-wallet send mint_private -ca last --args $MINT_AMOUNT secrets:shield:hash -f alice
-
-aztec-wallet add-note TransparentNote pending_shields -ca last -t last -a alice -b $MINT_AMOUNT secrets:shield:hash
-
-aztec-wallet send redeem_shield -ca last --args accounts:alice $MINT_AMOUNT secrets:shield -f alice
+aztec-wallet send mint_to_private -ca last --args accounts:alice accounts:alice $MINT_AMOUNT -f alice
 # docs:end:mint-private
 
 # docs:start:get-balance

@@ -3,7 +3,7 @@
  * The exact `emit` logic is passed in by the application code
  */
 pub struct NoteEmission<Note> {
-    note: Note,
+    pub note: Note,
 }
 
 impl<Note> NoteEmission<Note> {

@@ -17,7 +17,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
@@ -37,6 +37,8 @@ describe('e2e_block_building', () => {
   let minter: Wallet;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
+
+  const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
 
   describe('multi-txs block', () => {
     const artifact = StatefulTestContractArtifact;
@@ -398,7 +400,7 @@ describe('e2e_block_building', () => {
       logger.info('Spamming the network with public txs');
       const txs = [];
       for (let i = 0; i < 30; i++) {
-        const tx = token.methods.mint_public(owner.getAddress(), 10n);
+        const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
         txs.push(tx.send({ skipPublicSimulation: false }));
       }
 
@@ -446,7 +448,7 @@ describe('e2e_block_building', () => {
       // Now move to a new epoch and past the proof claim window to cause a reorg
       logger.info('Advancing past the proof claim window');
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 1); // off-by-one?
+      await cheatCodes.rollup.advanceSlots(aztecEpochProofClaimWindowInL2Slots + 1); // off-by-one?
 
       // Wait a bit before spawning a new pxe
       await sleep(2000);

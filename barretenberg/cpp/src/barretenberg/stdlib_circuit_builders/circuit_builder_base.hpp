@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>
@@ -37,11 +37,11 @@ template <typename FF_> class CircuitBuilderBase {
     std::map<uint32_t, uint32_t> tau;
 
     // Public input indices which contain recursive proof information
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
-    bool contains_recursive_proof = false;
+    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
+    bool contains_pairing_point_accumulator = false;
 
-    // We only know from the circuit description whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. However, a verifier does not need a full circuit
+    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
     // description and should be able to verify a proof with just the verification key and the proof.
     // This field exists to later set the same field in the verification key, and make sure
     // that we are using the correct prover/verifier.
@@ -206,17 +206,18 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_output_witness_indices);
 
     /**
-     * TODO: We can remove this and use `add_recursive_proof` once my question has been addressed
-     * TODO: using `add_recursive_proof` also means that we will need to remove the cde which is
+     * TODO: We can remove this and use `add_pairing_point_accumulator` once my question has been addressed
+     * TODO: using `add_pairing_point_accumulator` also means that we will need to remove the cde which is
      * TODO: adding the public_inputs
-     * @brief Update recursive_proof_public_input_indices with existing public inputs that represent a recursive proof
+     * @brief Update pairing_point_accumulator_public_input_indices with existing public inputs that represent a
+     * recursive proof
      *
      * @param proof_output_witness_indices
      */
-    void set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
+    void set_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_output_witness_indices);
 
     bool failed() const;
     const std::string& err() const;

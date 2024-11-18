@@ -1,3 +1,4 @@
+export * from './gas_used.js';
 export * from './processed_tx.js';
 export * from './public_simulation_output.js';
 export * from './simulated_tx.js';

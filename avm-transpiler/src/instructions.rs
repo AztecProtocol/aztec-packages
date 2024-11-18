@@ -8,7 +8,7 @@ use crate::opcodes::AvmOpcode;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
-/// Note: this does structure not impose rules like "ADD instruction must have 3 operands"
+/// Note: this structure does not impose rules like "ADD instruction must have 3 operands"
 /// That job is left to the instruction decoder, not this thin transpiler.
 pub struct AvmInstruction {
     pub opcode: AvmOpcode,
@@ -18,7 +18,7 @@ pub struct AvmInstruction {
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
     pub indirect: Option<AvmOperand>,
 
-    /// Some instructions have a destination xor input tag
+    /// Some instructions have a tag, its usage will depend on the instruction.
     /// Its usage will depend on the instruction.
     pub tag: Option<AvmTypeTag>,
 
@@ -64,6 +64,10 @@ impl AvmInstruction {
         }
         bytes
     }
+
+    pub fn size(&self) -> usize {
+        self.to_bytes().len()
+    }
 }
 
 impl Debug for AvmInstruction {
@@ -101,6 +105,7 @@ pub enum AvmTypeTag {
 /// Operands are usually 32 bits (offsets or jump destinations)
 /// Constants (as used by the SET instruction) can have size
 /// different from 32 bits
+#[allow(non_camel_case_types)]
 pub enum AvmOperand {
     U8 { value: u8 },
     U16 { value: u16 },
@@ -108,6 +113,8 @@ pub enum AvmOperand {
     U64 { value: u64 },
     U128 { value: u128 },
     FF { value: FieldElement },
+    // Unresolved brillig pc that needs translation to a 16 bit byte-indexed PC.
+    BRILLIG_LOCATION { brillig_pc: u32 },
 }
 
 impl Display for AvmOperand {
@@ -119,6 +126,9 @@ impl Display for AvmOperand {
             AvmOperand::U64 { value } => write!(f, " U64:{}", value),
             AvmOperand::U128 { value } => write!(f, " U128:{}", value),
             AvmOperand::FF { value } => write!(f, " FF:{}", value),
+            AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
+                write!(f, " BRILLIG_LOCATION:{}", brillig_pc)
+            }
         }
     }
 }
@@ -132,6 +142,7 @@ impl AvmOperand {
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::FF { value } => value.to_be_bytes(),
+            AvmOperand::BRILLIG_LOCATION { brillig_pc } => brillig_pc.to_be_bytes().to_vec(),
         }
     }
 }

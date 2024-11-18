@@ -83,13 +83,10 @@ describe('e2e_blacklist_token_contract mint', () => {
     });
 
     describe('Mint flow', () => {
-      it('mint_private as minter', async () => {
+      it('mint_private as minter and redeem as recipient', async () => {
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
-        tokenSim.mintPrivate(amount);
         txHash = receipt.txHash;
-      });
 
-      it('redeem as recipient', async () => {
         await t.addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
 
         const receiptClaim = await asset.methods
@@ -97,9 +94,11 @@ describe('e2e_blacklist_token_contract mint', () => {
           .send()
           .wait({ debug: true });
 
-        tokenSim.redeemShield(wallets[0].getAddress(), amount);
-        // 1 note should be created containing `amount` of tokens
-        const { visibleIncomingNotes } = receiptClaim.debugInfo!;
+        tokenSim.mintPrivate(wallets[0].getAddress(), amount);
+        // Trigger a note sync
+        await asset.methods.sync_notes().simulate();
+        // 1 note should have been created containing `amount` of tokens
+        const visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receiptClaim.txHash });
         expect(visibleIncomingNotes.length).toBe(1);
         expect(visibleIncomingNotes[0].note.items[0].toBigInt()).toBe(amount);
       });

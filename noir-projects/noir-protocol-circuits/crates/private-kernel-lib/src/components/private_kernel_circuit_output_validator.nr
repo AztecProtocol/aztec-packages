@@ -85,10 +85,6 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.historical_header,
             "mismatch historical_header",
         );
-        assert(
-            is_empty(self.output.constants.global_variables),
-            "constants.global_variables must be empty",
-        );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
             self.output.constants.protocol_contract_tree_root,
@@ -246,9 +242,9 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.encrypted_logs_hashes,
         );
         assert_array_prepended(
-            self.output.end.unencrypted_logs_hashes,
-            previous_kernel.end.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
+            previous_kernel.end.contract_class_logs_hashes,
+            array_lengths.contract_class_logs_hashes,
         );
         assert_array_prepended(
             self.output.end.public_call_requests,
@@ -328,10 +324,10 @@ impl PrivateKernelCircuitOutputValidator {
             contract_address,
         );
         assert_array_appended_scoped(
-            self.output.end.unencrypted_logs_hashes,
-            private_call.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes,
-            offsets.unencrypted_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
+            private_call.contract_class_logs_hashes,
+            array_lengths.contract_class_logs_hashes,
+            offsets.contract_class_logs_hashes,
             contract_address,
         );
         assert_array_appended(

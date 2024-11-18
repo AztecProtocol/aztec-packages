@@ -203,38 +203,6 @@ export type L2BlockHandledStats = {
   oldestHistoricBlock: bigint;
 } & L2BlockStats;
 
-/** Stats for a note processor that has caught up with the chain. */
-export type NoteProcessorCaughtUpStats = {
-  /** Name of the event. */
-  eventName: 'note-processor-caught-up';
-  /** Account the note processor belongs to. */
-  account: string;
-  /** Total time to catch up with the tip of the chain from scratch in ms. */
-  duration: number;
-  /** Size of the notes db. */
-  dbSize: number;
-} & NoteProcessorStats;
-
-/** Accumulated rolling stats for a note processor.  */
-export type NoteProcessorStats = {
-  /** How many notes have been seen and trial-decrypted. */
-  seen: number;
-  /** How many notes had decryption deferred due to a missing contract */
-  deferredIncoming: number;
-  /** How many notes had decryption deferred due to a missing contract */
-  deferredOutgoing: number;
-  /** How many incoming notes were successfully decrypted. */
-  decryptedIncoming: number;
-  /** How many outgoing notes were successfully decrypted. */
-  decryptedOutgoing: number;
-  /** How many notes failed processing. */
-  failed: number;
-  /** How many blocks were spanned.  */
-  blocks: number;
-  /** How many txs were spanned.  */
-  txs: number;
-};
-
 /** Stats for a tx. */
 export type TxStats = {
   /** Hash of the tx. */
@@ -261,6 +229,8 @@ export type TxStats = {
   newNullifierCount: number;
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
+  /** Serialized size of contract class logs. */
+  contractClassLogSize: number;
   /** How this tx pays for its fee */
   feePaymentMethod: 'none' | 'fee_juice' | 'fpc_public' | 'fpc_private';
 };
@@ -305,7 +275,6 @@ export type Stats =
   | L2BlockBuiltStats
   | L2BlockHandledStats
   | NodeSyncedChainHistoryStats
-  | NoteProcessorCaughtUpStats
   | ProofConstructed
   | TreeInsertionStats
   | TxAddedToPoolStats;

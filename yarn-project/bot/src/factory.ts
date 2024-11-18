@@ -147,15 +147,16 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
+      const from = sender; // we are setting from to sender here because of TODO(#9887)
       calls.push(
         isStandardToken
-          ? token.methods.privately_mint_private_note(MINT_BALANCE).request()
+          ? token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
           : token.methods.mint(MINT_BALANCE, sender, sender).request(),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(token.methods.mint_public(sender, MINT_BALANCE).request());
+      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE).request());
     }
     if (calls.length === 0) {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);

@@ -28,6 +28,7 @@ describe('e2e_fees dapp_subscription', () => {
   let aliceAddress: AztecAddress; // Dapp subscriber.
   let bobAddress: AztecAddress; // Dapp owner.
   let sequencerAddress: AztecAddress;
+  let feeRecipient: AztecAddress; // Account that receives the fees from the fee refund flow.
 
   let bananaCoin: BananaCoin;
   let counterContract: CounterContract;
@@ -59,6 +60,9 @@ describe('e2e_fees dapp_subscription', () => {
       counterContract,
       pxe,
     } = await t.setup());
+
+    // We like sequencer so we send him the fees.
+    feeRecipient = sequencerAddress;
   });
 
   afterAll(async () => {
@@ -99,17 +103,18 @@ describe('e2e_fees dapp_subscription', () => {
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**
     PRIVATE SETUP
-    we first unshield `MAX_FEE` BC from alice's private balance to the FPC's public balance
+    we first deduct `MAX_FEE` BC from alice's private balance
+    we setup partial notes for the fee going to the fee recipient and the refund going to alice
 
     PUBLIC APP LOGIC
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    the FPC publicly sends `REFUND` BC to alice
+    the FPC finalizes the partial notes for the fee and the refund
     */
 
     const { transactionFee } = await subscribe(
-      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient),
     );
 
     // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
@@ -122,8 +127,8 @@ describe('e2e_fees dapp_subscription', () => {
     );
 
     // alice, bob, fpc
-    await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - t.maxFee, t.SUBSCRIPTION_AMOUNT, 0n);
-    await expectBananasPublicDelta(0n, 0n, transactionFee!);
+    await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - transactionFee!, t.SUBSCRIPTION_AMOUNT, 0n);
+    await expectBananasPublicDelta(0n, 0n, 0n);
 
     // REFUND_AMOUNT is a transparent note note
   });
@@ -131,13 +136,14 @@ describe('e2e_fees dapp_subscription', () => {
   it('should allow Alice to subscribe by paying with bananas in public', async () => {
     /**
     PRIVATE SETUP
-    we publicly transfer `MAX_FEE` BC from alice's public balance to the FPC's public balance
+    we first deduct `MAX_FEE` BC from alice's private balance
+    we setup partial notes for the fee going to the fee recipient and the refund going to alice
 
     PUBLIC APP LOGIC
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    the FPC publicly sends `REFUND` BC to alice
+    the FPC finalizes the partial notes for the fee and the refund
     */
     const { transactionFee } = await subscribe(
       new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
@@ -159,7 +165,7 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should call dapp subscription entrypoint', async () => {
     // Subscribe again, so this test does not depend on the previous ones being run.
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet));
+    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient));
 
     expect(await subscriptionContract.methods.is_initialized(aliceAddress).simulate()).toBe(true);
 
@@ -183,21 +189,25 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), 0);
+    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient), 0);
     // TODO(#6651): Change back to /(context.block_number()) as u64 < expiry_block_number as u64/ when fixed
     await expect(dappIncrement()).rejects.toThrow(/Note encrypted logs hash mismatch/);
   });
 
   it('should reject after the txs run out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), 5, 1);
+    await subscribe(
+      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient),
+      5,
+      1,
+    );
     await expect(dappIncrement()).resolves.toBeDefined();
     await expect(dappIncrement()).rejects.toThrow(/note.remaining_txs as u64 > 0/);
   });
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
     const nonce = Fr.random();
-    const action = bananaCoin.methods.transfer_from(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
+    const action = bananaCoin.methods.transfer_in_private(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
     await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract

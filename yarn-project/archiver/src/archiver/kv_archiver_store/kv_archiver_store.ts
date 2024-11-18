@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,6 +9,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -245,7 +245,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     try {
       return this.#logStore.getLogsByTags(tags);
     } catch (err) {
@@ -261,6 +261,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     try {
       return Promise.resolve(this.#logStore.getUnencryptedLogs(filter));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    try {
+      return Promise.resolve(this.#logStore.getContractClassLogs(filter));
     } catch (err) {
       return Promise.reject(err);
     }
