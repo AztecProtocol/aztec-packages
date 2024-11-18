@@ -313,9 +313,10 @@ mod tests {
         value: Field,
     }
 
-    global MAX_nullifiers_PER_TEST: u32 = 4;
+    global MAX_NULLIFIERS_PER_TEST: u32 = 4;
     global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST = 64;
     global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST = 6;
+    global PRE_EXISTING_PUBLIC_DATA_LEAVES = 10;
 
     fn update_public_data_tree<let AVAILABLE_LEAVES: u32, let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<AVAILABLE_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
@@ -340,7 +341,7 @@ mod tests {
                     slot: low_leaf.slot,
                     value: low_leaf.value,
                     next_slot: fee_write.slot,
-                    next_index: MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+                    next_index: PRE_EXISTING_PUBLIC_DATA_LEAVES,
                 };
             }
             let low_public_data_writes_witness = MembershipWitness {
@@ -372,11 +373,11 @@ mod tests {
         pre_existing_notes: [Field; MAX_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
-        pre_existing_public_data: [PublicDataTreeLeafPreimage; 10],
+        pre_existing_public_data: [PublicDataTreeLeafPreimage; PRE_EXISTING_PUBLIC_DATA_LEAVES],
         pre_existing_blocks: [Field; 2],
         fee_write: (u32, PublicDataTreeLeaf),
 
-        nullifiers: BoundedVec<NullifierInsertion, MAX_nullifiers_PER_TEST>,
+        nullifiers: BoundedVec<NullifierInsertion, MAX_NULLIFIERS_PER_TEST>,
         constants: ConstantRollupData,
         // Index of the item in the pre_existing_public_data array that contains the fee payer's Fee Juice balance.
         // Used for building the public data hint read for the payment update request. If set to none, no hint is built.
@@ -459,7 +460,7 @@ mod tests {
             let mut sorted_nullifiers_indexes = [0; MAX_NULLIFIERS_PER_TX];
 
             for i in 0..MAX_NULLIFIERS_PER_TX {
-                if (i as u32) < (MAX_nullifiers_PER_TEST as u32) {
+                if (i as u32) < (MAX_NULLIFIERS_PER_TEST as u32) {
                     sorted_nullifiers[i] = sorted_new_nullifier_tuples[i].elem;
                     sorted_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
                 } else {
@@ -470,7 +471,7 @@ mod tests {
 
             let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
 
-            for i in 0..MAX_nullifiers_PER_TEST {
+            for i in 0..MAX_NULLIFIERS_PER_TEST {
                 if i < self.nullifiers.len() {
                     let sorted_tuple = sorted_new_nullifier_tuples[i];
                     let new_nullifier = sorted_tuple.elem;
@@ -635,7 +636,9 @@ mod tests {
                 pre_existing_notes: [0; MAX_NOTE_HASHES_PER_TX],
                 pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX],
                 pre_existing_contracts: [0; 2],
-                pre_existing_public_data: [PublicDataTreeLeafPreimage::empty(); 10],
+                pre_existing_public_data: [
+                    PublicDataTreeLeafPreimage::empty(); PRE_EXISTING_PUBLIC_DATA_LEAVES
+                ],
                 fee_write: (0, PublicDataTreeLeaf::empty()),
                 pre_existing_blocks: [0; 2],
                 nullifiers: BoundedVec::new(),

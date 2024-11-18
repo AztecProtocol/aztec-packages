@@ -1,10 +1,11 @@
 use crate::{
     abis::{
         accumulated_data::{
-            CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-            PrivateToPublicAccumulatedData, PublicAccumulatedData,
-            PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder,
+            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
+            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder,
         },
+        avm::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
         enqueued_call_data::{EnqueuedCallData, Proof},
@@ -1250,6 +1251,26 @@ impl FixtureBuilder {
     fn to_public_tube_data(self) -> PublicTubeData {
         let mut result: PublicTubeData = std::mem::zeroed();
         result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
         result
     }
 }

@@ -1,5 +1,5 @@
 pub mod append_only_tree_snapshot;
-pub mod avm_circuit_public_inputs;
+pub mod avm;
 
 pub mod contract_class_function_leaf_preimage;
 
