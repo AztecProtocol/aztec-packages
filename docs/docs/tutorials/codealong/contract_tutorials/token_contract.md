@@ -69,10 +69,10 @@ These are functions that have transparent logic, will execute in a publicly veri
 - `set_minter` enables accounts to be added / removed from the approved minter list
 - `mint_to_public` enables tokens to be minted to the public balance of an account
 - `mint_to_private` enables tokens to be minted to the private balance of an account (with some caveats we will dig into)
-- `transfer_to_public` enables tokens to be moved from a public balance to a private balance, not necessarily the same account (step 1 of a 2 step process)
 - `transfer_in_public` enables users to transfer tokens from one account's public balance to another account's public balance
 - `burn_public` enables users to burn tokens
 - `finalize_mint_to_private` finalizes a `prepare_transfer_to_private` call
+- `finalize_transfer_to_private` finalizes a `prepare_transfer_to_private` call
 
 ### Private functions
 
@@ -224,14 +224,6 @@ First, a partial note is prepared by the call to `_prepare_transfer_to_private` 
 
 #include_code mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `transfer_to_private`
-
-This public function enables an account to send tokens from its `public_balance` to a private balance of an arbitrary recipient.
-
-First a partial note is prepared then a call to `_finalize_transfer_to_private_unsafe` is enqueued. The enqueued public call subtracts the `amount` from public balance of `msg_sender` and finalizes the partial note with the `amount`.
-
-#include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
 #### `transfer_in_public`
 
 This public function enables public transfers between Aztec accounts. The sender's public balance will be debited the specified `amount` and the recipient's public balances will be credited with that amount.
@@ -251,6 +243,18 @@ This public function enables public burning (destroying) of tokens from the send
 After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender's public balance and the `total_supply` are updated and saved to storage.
 
 #include_code burn_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `finalize_mint_to_private`
+
+This public function finalizes a transfer that has been set up by a call to `prepare_transfer_to_private` by reducing the public balance of the associated account and emitting the note for the intended recipient.
+
+#include_code finalize_mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `finalize_transfer_to_private`
+
+Similar to `finalize_mint_to_private`, this public function finalizes a transfer that has been set up by a call to `prepare_transfer_to_private` by reducing the public balance of the associated account and emitting the note for the intended recipient.
+
+#include_code finalize_transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### Private function implementations
 
@@ -289,6 +293,32 @@ This private function enables an account to transfer tokens on behalf of another
 
 #include_code transfer_in_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
+#### `transfer_to_private`
+
+This function execution flow starts in the private context and is completed with a call to a public internal function. It enables an account to send tokens from its `public_balance` to a private balance of an arbitrary recipient.
+
+First a partial note is prepared then a call to the public, internal `_finalize_transfer_to_private_unsafe` is enqueued. The enqueued public call subtracts the `amount` from public balance of `msg_sender` and finalizes the partial note with the `amount`.
+
+#include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `transfer_to_public`
+
+This private function asserts that the account making the call is transferring it's own balance, or is authorized to make the call and decrements the specified private balance and increments the specified public balance. Note that the decremented and incremented accounts are not necessarily the same account.
+
+#include_code transfer_to_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `mint_to_private`
+
+This private function prepares a partial `UintNote` at the recipients storage slot in the contract and enqueues a public call to `_finalize_mint_to_private_unsafe`, which asserts that the `msg_sender` is an authorized minter and finalized the mint by incrementing the total supply and emitting the complete, encrypted `UintNote` to the intended recipient. Note that the `amount` and the minter (`from`) are public, but the recipient is private.
+
+#include_code mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `cancel_authwit`
+
+This private function allows a user to cancel an authwit that was previously granted. This is achieved by emitting the corresponding nullifier before it is used.
+
+#include_code cancel_autwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
 #### `burn_private`
 
 This private function enables accounts to privately burn (destroy) tokens.
@@ -296,6 +326,18 @@ This private function enables accounts to privately burn (destroy) tokens.
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. Then it gets the sender's current balance and decrements it. Finally it stages a public function call to [`_reduce_total_supply`](#_reduce_total_supply).
 
 #include_code burn_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `setup_refund`
+
+This private function may be called by a Fee Paying Contract (FPC) in order to allow users to pay transaction fees privately on the network. This function ensures that the user has enough funds in their account to pay the transaction fees for the transaction, sets up partial notes for paying the fees to the `fee_payer` and sending any unspent fees back to the user, and enqueues a call to the internal, public [`complete_refund`](#complete_refund) function to be run as part of the public execution step.
+
+#include_code setup_refund /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `prepare_transfer_to_private`
+
+This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `hiding_point_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the hiding point slot.
+
+#include_code prepare_transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### Internal function implementations
 
@@ -312,6 +354,26 @@ This function is called from [`transfer_to_public`](#transfer_to_public). The ac
 This function is called from [`burn`](#burn). The account's private balance is decremented in `burn` and the public `total_supply` is reduced in this function.
 
 #include_code reduce_total_supply /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `complete_refund`
+
+This public function is intended to be called during the public teardown at the end of public transaction execution. The call to this function is staged in [`setup_refund`](#setup_refund). This function ensures that the user has sufficient funds to cover the transaction costs and emits encrypted notes to the fee payer and the remaining, unused transaction fee back to the user.
+
+#include_code complete_refund /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `_finalize_transfer_to_private_unsafe`
+
+This public internal function decrements the public balance of the `from` account and finalizes the partial note for the recipient, which is hidden in the `hiding_point_slot`.
+
+This function is called by the private function [`transfer_to_private`](#transfer_to_private) to finalize the transfer. The `transfer_to_private` enforces the `from` argument, which is why using it `unsafe` is okay.
+
+#include_code finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `_finalize_mint_to_private_unsafe`
+
+Similar to `_finalize_transfer_to_private_unsafe`, this public internal function increments the private balance of the recipient by finalizing the partial note and emitting the encrypted note. It also increments the public total supply and ensures that the sender of the transaction is authorized to mint tokens on the contract.
+
+#include_code finalize_mint_to_private_unsafe /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### View function implementations
 

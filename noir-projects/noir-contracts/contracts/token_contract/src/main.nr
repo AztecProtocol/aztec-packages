@@ -444,6 +444,7 @@ contract Token {
     }
     // docs:end:transfer_to_private
 
+    // docs:start:prepare_transfer_to_private
     /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
     /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
     #[private]
@@ -451,6 +452,7 @@ contract Token {
         let from = context.msg_sender();
         _prepare_transfer_to_private(from, to, &mut context, storage)
     }
+    // docs:end:prepare_transfer_to_private
 
     /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
@@ -503,6 +505,7 @@ contract Token {
         hiding_point_slot
     }
 
+    // docs:start:finalize_transfer_to_private
     /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
@@ -511,7 +514,9 @@ contract Token {
         let from = context.msg_sender();
         _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_transfer_to_private
 
+    // docs:start:finalize_transfer_to_private_unsafe
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
@@ -521,6 +526,7 @@ contract Token {
     ) {
         _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_transfer_to_private_unsafe
 
     #[contract_library_method]
     fn _finalize_transfer_to_private(
@@ -568,6 +574,7 @@ contract Token {
     }
     // docs:end:mint_to_private
 
+    // docs:start:finalize_mint_to_private
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
     /// `prepare_transfer_to_private` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
@@ -581,7 +588,9 @@ contract Token {
 
         _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_mint_to_private
 
+    // docs:start:finalize_mint_to_private_unsafe
     #[public]
     #[internal]
     fn _finalize_mint_to_private_unsafe(
@@ -593,6 +602,7 @@ contract Token {
         assert(storage.minters.at(from).read(), "caller is not minter");
         _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_mint_to_private_unsafe
 
     #[contract_library_method]
     fn _finalize_mint_to_private(
