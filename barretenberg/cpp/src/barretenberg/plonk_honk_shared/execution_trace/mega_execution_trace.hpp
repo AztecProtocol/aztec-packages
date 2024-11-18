@@ -122,13 +122,13 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_S
     auto& q_3() { return this->selectors[4]; };
     auto& q_4() { return this->selectors[5]; };
     auto& q_busread() { return this->selectors[6]; };
-    auto& q_lookup_type() { return this->selectors[13]; };
-    auto& q_arith() { return this->selectors[7]; };
-    auto& q_delta_range() { return this->selectors[8]; };
-    auto& q_elliptic() { return this->selectors[9]; };
-    auto& q_aux() { return this->selectors[10]; };
-    auto& q_poseidon2_external() { return this->selectors[11]; };
-    auto& q_poseidon2_internal() { return this->selectors[12]; };
+    auto& q_lookup_type() { return this->selectors[7]; };
+    auto& q_arith() { return this->selectors[8]; };
+    auto& q_delta_range() { return this->selectors[9]; };
+    auto& q_elliptic() { return this->selectors[10]; };
+    auto& q_aux() { return this->selectors[11]; };
+    auto& q_poseidon2_external() { return this->selectors[12]; };
+    auto& q_poseidon2_internal() { return this->selectors[13]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
