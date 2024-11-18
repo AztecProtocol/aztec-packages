@@ -4,7 +4,6 @@ type = "lib"
 authors = [""]
 compiler_version = ">=0.30.0"
 
-#TODO(Miranda) CHANGE BELOW BACK (currently 0.4.2 is the only working version with noir, its not released)
 [dependencies]
-bigint = {tag = "release-please--branches--main", git = "https://github.com/noir-lang/noir-bignum" }
+bigint = {tag = "v0.4.2", git = "https://github.com/noir-lang/noir-bignum" }
 types = { path = "../types" }

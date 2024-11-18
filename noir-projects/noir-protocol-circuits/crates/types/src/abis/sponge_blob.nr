@@ -22,9 +22,9 @@ use std::hash::poseidon2::Poseidon2;
 global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * 18446744073709551616;
 
 pub struct SpongeBlob {
-    sponge: Poseidon2,
-    fields: u32,
-    expected_fields: u32, // The hinted number of tx effects this will absorb
+    pub sponge: Poseidon2,
+    pub fields: u32,
+    pub expected_fields: u32, // The hinted number of tx effects this will absorb
 }
 
 impl SpongeBlob {

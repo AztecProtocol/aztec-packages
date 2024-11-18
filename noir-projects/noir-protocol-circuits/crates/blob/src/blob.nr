@@ -18,7 +18,9 @@ use types::{
     utils::arrays::array_splice,
 };
 
-global LIMB_MAX = 2.pow_32(120);
+global LIMB_MAX = 0x1000000000000000000000000000000; // 2^120
+global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
+global TWO_POW_64: Field = 0x10000000000000000;
 
 unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
     let mut accumulator: F = BigNum::one();
@@ -44,24 +46,35 @@ unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
     x
 }
 
-unconstrained fn __field_to_bytes(x: Field) -> [u8; 32] {
-    x.to_be_bytes()
-}
-
-unconstrained fn __field_to_bignum(x: Field) -> F {
-    let x_bytes = __field_to_bytes(x);
-
-    BigNum::from_be_bytes(x_bytes)
-}
-
+// Taken from https://github.com/iAmMichaelConnor/blob-lib/blob/main/noir-circuits/blob/src/main.nr
 unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
-    __field_to_bignum(x).limbs
+    // Here we're taking advantage of truncating 64 bit limbs from the input field
+    // and then subtracting them from the input such that the field division is equivalent to integer division.
+    let low_120_lower_64 = (x as u64) as Field;
+    let x_shifted_64 = (x - low_120_lower_64) / TWO_POW_64;
+    let low_120_upper_56 = ((x_shifted_64 as u64) % TWO_POW_56) as Field;
+    let low_120 = low_120_lower_64 + TWO_POW_64 * low_120_upper_56;
+
+    let x_shifted_120 = (x_shifted_64 - low_120_upper_56) / (TWO_POW_56 as Field);
+
+    let mid_120_lower_64 = (x_shifted_120 as u64) as Field;
+    let x_shifted_184 = (x_shifted_120 - mid_120_lower_64) / TWO_POW_64;
+    let mid_120_upper_56 = ((x_shifted_184 as u64) % TWO_POW_56) as Field;
+    let mid_120 = mid_120_lower_64 + TWO_POW_64 * mid_120_upper_56;
+
+    let x_shifted_240 = (x_shifted_184 - mid_120_upper_56) / (TWO_POW_56 as Field);
+
+    let hi_120_lower_64 = (x_shifted_240 as u64) as Field;
+    // We don't need to go further, as we've reached 304 bits, and a Field is 254 bits.
+    let hi_120 = hi_120_lower_64;
+
+    [low_120, mid_120, hi_120]
 }
 
 // Only works for bignums with modulus larger than the BN Fr size (which is true
 // for the bls12-381 Fr field).
 fn field_to_bignum(x: Field) -> F {
-    let __x_limbs = __field_to_bignum_limbs(x);
+    let __x_limbs = unsafe { __field_to_bignum_limbs(x) };
 
     let mut check = __x_limbs[3 - 1];
     for i in 1..3 {
@@ -411,7 +424,6 @@ mod tests {
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
-        utils::arrays::array_splice,
     };
 
     // Helper to return (z^d - 1)/d (unsafe - test only)
@@ -469,9 +481,9 @@ mod tests {
         assert_eq(lhs, rhs);
     }
 
-    // TODO(Miranda) Make this test unconstrained when noir fix has been synced
+    // TODO(Miranda): Uncomment this test when noir fix has been synced
     // #[test]
-    // fn test_base() {
+    // unconstrained fn test_base() {
     //     let mut tx_data = FixtureBuilder::new();
     //     // Add some random bits of state
     //     tx_data.append_note_hashes_with_logs(50);
