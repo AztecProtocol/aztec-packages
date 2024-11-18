@@ -615,7 +615,7 @@ export async function deployL1Contract(
   logger?: DebugLogger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
-  let address: Hex | null | undefined = undefined;
+  let resultingAddress: Hex | null | undefined = undefined;
 
   const gasUtils = new GasUtils(publicClient, logger);
 
@@ -663,79 +663,31 @@ export async function deployL1Contract(
     const salt = padHex(maybeSalt, { size: 32 });
     const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
     const calldata = encodeDeployData({ abi, bytecode, args });
-    address = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
-    const existing = await publicClient.getBytecode({ address });
+    resultingAddress = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const existing = await publicClient.getBytecode({ address: resultingAddress });
 
     if (existing === undefined || existing === '0x') {
-      const { request } = await publicClient.simulateContract({
-        account: walletClient.account,
-        address: deployer,
-        abi: deployerAbi,
-        functionName: 'deploy',
-        args: [salt, calldata],
+      const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, walletClient.account!, {
+        to: deployer,
+        data: concatHex([salt, calldata]),
       });
+      txHash = receipt.transactionHash;
 
-      console.log('REQUEST', request);
-
-      txHash = await walletClient.writeContract(request);
-
-      // Add gas estimation and price buffering for CREATE2 deployment
-      // const deployData = encodeDeployData({ abi, bytecode, args });
-      // const gasEstimate = await gasUtils.estimateGas(() =>
-      //   publicClient.estimateGas({
-      //     account: walletClient.account?.address,
-      //     data: deployData,
-      //   }),
-      // );
-      // const gasPrice = await gasUtils.getGasPrice();
-
-      // txHash = await walletClient.sendTransaction({
-      //   to: deployer,
-      //   data: concatHex([salt, calldata]),
-      //   gas: gasEstimate,
-      //   maxFeePerGas: gasPrice,
-      // });
-      // logger?.verbose(
-      //   `Deploying contract with salt ${salt} to address ${address} in tx ${txHash} (gas: ${gasEstimate}, price: ${gasPrice})`,
-      // );
+      logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
     } else {
-      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
+      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
     }
   } else {
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const gasEstimate = await gasUtils.estimateGas(() =>
-      publicClient.estimateGas({
-        account: walletClient.account?.address,
-        data: deployData,
-      }),
-    );
-    const gasPrice = await gasUtils.getGasPrice();
-
-    txHash = await walletClient.deployContract({
-      abi,
-      bytecode,
-      args,
-      gas: gasEstimate,
-      maxFeePerGas: gasPrice,
-    });
-
-    // Monitor deployment transaction
-    await gasUtils.monitorTransaction(txHash, walletClient, {
+    const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, walletClient.account!, {
       to: '0x', // Contract creation
       data: deployData,
-      nonce: await publicClient.getTransactionCount({ address: walletClient.account!.address }),
-      gasLimit: gasEstimate,
-      maxFeePerGas: gasPrice,
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
-      pollingInterval: 100,
-      timeout: 60_000, // 1min
-    });
-    address = receipt.contractAddress;
-    if (!address) {
+    txHash = receipt.transactionHash;
+    resultingAddress = receipt.contractAddress;
+    if (!resultingAddress) {
       throw new Error(
         `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
           typeof val === 'bigint' ? String(val) : val,
@@ -744,6 +696,6 @@ export async function deployL1Contract(
     }
   }
 
-  return { address: EthAddress.fromString(address!), txHash };
+  return { address: EthAddress.fromString(resultingAddress!), txHash };
 }
 // docs:end:deployL1Contract

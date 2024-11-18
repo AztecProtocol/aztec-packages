@@ -1,8 +1,8 @@
 import { type DebugLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
 import {
+  type Account,
   type Address,
   type Hex,
   type PublicClient,
@@ -21,7 +21,11 @@ export interface GasConfig {
   /**
    * How much to increase gas price by each attempt (percentage)
    */
-  bufferPercentage: bigint;
+  bufferPercentage?: bigint;
+  /**
+   * Fixed buffer to add to gas price
+   */
+  bufferFixed?: bigint;
   /**
    * Maximum gas price in gwei
    */
@@ -36,7 +40,7 @@ export interface GasConfig {
   priorityFeeGwei: bigint;
 }
 
-export interface TransactionMonitorConfig {
+export interface L1TxMonitorConfig {
   /**
    * Maximum number of speed-up attempts
    */
@@ -49,10 +53,12 @@ export interface TransactionMonitorConfig {
    * How long before considering tx stalled
    */
   stallTimeMs: number;
-  /**
-   * How much to increase gas price by each attempt (percentage)
-   */
-  gasPriceIncrease: bigint;
+}
+
+export interface L1TxRequest {
+  to: Address;
+  data: Hex;
+  value?: bigint;
 }
 
 const DEFAULT_GAS_CONFIG: GasConfig = {
@@ -62,153 +68,185 @@ const DEFAULT_GAS_CONFIG: GasConfig = {
   priorityFeeGwei: 2n,
 };
 
-const DEFAULT_MONITOR_CONFIG: Required<TransactionMonitorConfig> = {
+const DEFAULT_MONITOR_CONFIG: Required<L1TxMonitorConfig> = {
   maxAttempts: 3,
   checkIntervalMs: 30_000,
-  stallTimeMs: 180_000,
-  gasPriceIncrease: 50n,
+  stallTimeMs: 60_000,
 };
 
 export class GasUtils {
   private readonly gasConfig: GasConfig;
-  private readonly monitorConfig: TransactionMonitorConfig;
+  private readonly monitorConfig: L1TxMonitorConfig;
 
   constructor(
     private readonly publicClient: PublicClient,
     private readonly logger?: DebugLogger,
     gasConfig?: GasConfig,
-    monitorConfig?: TransactionMonitorConfig,
+    monitorConfig?: L1TxMonitorConfig,
   ) {
-    this.gasConfig! = gasConfig ?? DEFAULT_GAS_CONFIG;
-    this.monitorConfig! = monitorConfig ?? DEFAULT_MONITOR_CONFIG;
+    this.gasConfig! = {
+      ...DEFAULT_GAS_CONFIG,
+      ...(gasConfig || {}),
+    };
+    this.monitorConfig! = {
+      ...DEFAULT_MONITOR_CONFIG,
+      ...(monitorConfig || {}),
+    };
   }
 
   /**
-   * Gets the current gas price with safety buffer and bounds checking
+   * Sends a transaction and monitors it until completion, handling gas estimation and price bumping
+   * @param walletClient - The wallet client for sending the transaction
+   * @param request - The transaction request (to, data, value)
+   * @param monitorConfig - Optional monitoring configuration
+   * @returns The hash of the successful transaction
    */
-  public async getGasPrice(): Promise<bigint> {
+  public async sendAndMonitorTransaction(
+    walletClient: WalletClient,
+    account: Account,
+    request: L1TxRequest,
+    _gasConfig?: Partial<GasConfig>,
+    _monitorConfig?: Partial<L1TxMonitorConfig>,
+  ): Promise<TransactionReceipt> {
+    const monitorConfig = { ...this.monitorConfig, ..._monitorConfig };
+    const gasConfig = { ...this.gasConfig, ..._gasConfig };
+
+    // Estimate gas
+    const gasLimit = await this.estimateGas(account, request);
+
+    const gasPrice = await this.getGasPrice(gasConfig);
+    const nonce = await this.publicClient.getTransactionCount({ address: account.address });
+
+    // Send initial tx
+    const txHash = await walletClient.sendTransaction({
+      chain: null,
+      account,
+      ...request,
+      gas: gasLimit,
+      maxFeePerGas: gasPrice,
+      nonce,
+    });
+
+    this.logger?.verbose(
+      `Sent L1 transaction ${txHash} with gas limit ${gasLimit} and price ${formatGwei(gasPrice)} gwei`,
+    );
+
+    // Track all tx hashes we send
+    const txHashes = new Set<Hex>([txHash]);
+    let currentTxHash = txHash;
+    let attempts = 0;
+    let lastSeen = Date.now();
+    while (true) {
+      try {
+        const currentNonce = await this.publicClient.getTransactionCount({ address: account.address });
+        if (currentNonce > nonce) {
+          // A tx with this nonce has been mined - check all our tx hashes
+          for (const hash of txHashes) {
+            try {
+              const receipt = await this.publicClient.getTransactionReceipt({ hash });
+              if (receipt) {
+                this.logger?.debug(`L1 Transaction ${hash} confirmed`);
+                if (receipt.status === 'reverted') {
+                  this.logger?.error(`L1 Transaction ${hash} reverted`);
+                  throw new Error(`Transaction ${hash} reverted`);
+                }
+                return receipt;
+              }
+            } catch (err) {
+              if (err instanceof Error && err.message.includes('reverted')) {
+                throw err;
+              }
+              // We can ignore other errors - just try the next hash
+            }
+          }
+        }
+
+        // Check if current tx is pending
+        const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
+        if (tx) {
+          this.logger?.debug(`L1 Transaction ${currentTxHash} pending`);
+          lastSeen = Date.now();
+          await sleep(monitorConfig.checkIntervalMs);
+          continue;
+        }
+
+        // tx not found and enough time has passed - might be stuck
+        if (Date.now() - lastSeen > monitorConfig.stallTimeMs && attempts < monitorConfig.maxAttempts) {
+          attempts++;
+          const newGasPrice = await this.getGasPrice();
+
+          this.logger?.debug(
+            `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${monitorConfig.maxAttempts} ` +
+              `with new gas price ${formatGwei(newGasPrice)} gwei`,
+          );
+
+          // Send replacement tx with higher gas price
+          currentTxHash = await walletClient.sendTransaction({
+            chain: null,
+            account,
+            ...request,
+            nonce,
+            gas: gasLimit,
+            maxFeePerGas: newGasPrice,
+          });
+
+          // Record new tx hash
+          txHashes.add(currentTxHash);
+          lastSeen = Date.now();
+        }
+        await sleep(monitorConfig.checkIntervalMs);
+      } catch (err: any) {
+        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, err);
+        if (err.message?.includes('reverted')) {
+          throw err;
+        }
+        await sleep(monitorConfig.checkIntervalMs);
+      }
+    }
+  }
+
+  /**
+   * Gets the current gas price with bounds checking
+   */
+  private async getGasPrice(_gasConfig?: GasConfig): Promise<bigint> {
+    const gasConfig = { ...this.gasConfig, ..._gasConfig };
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
-    const baseFee = block.baseFeePerGas ?? 0n;
-    const priorityFee = this.gasConfig.priorityFeeGwei * WEI_CONST;
+    const baseFee = block.baseFeePerGas ?? 0n; // Keep in Wei
+    const priorityFee = gasConfig.priorityFeeGwei * WEI_CONST;
 
-    const baseWithBuffer = baseFee + (baseFee * this.gasConfig.bufferPercentage) / 100n;
-    const totalGasPrice = baseWithBuffer + priorityFee;
+    // First ensure we're at least meeting the base fee
+    const minRequired = baseFee;
+    const maxAllowed = gasConfig.maxGwei * WEI_CONST;
 
-    const maxGasPrice = this.gasConfig.maxGwei * WEI_CONST;
-    const minGasPrice = this.gasConfig.minGwei * WEI_CONST;
+    // Our gas price must be at least the base fee
+    let finalGasPrice = minRequired;
 
-    let finalGasPrice: bigint;
-    if (totalGasPrice < minGasPrice) {
-      finalGasPrice = minGasPrice;
-    } else if (totalGasPrice > maxGasPrice) {
-      finalGasPrice = maxGasPrice;
-    } else {
-      finalGasPrice = totalGasPrice;
+    // Add priority fee if we have room under the max
+    if (finalGasPrice + priorityFee <= maxAllowed) {
+      finalGasPrice += priorityFee;
     }
 
     this.logger?.debug(
-      `Gas price calculation: baseFee=${baseFee}, withBuffer=${baseWithBuffer}, priority=${priorityFee}, final=${finalGasPrice}`,
+      `Gas price calculation: baseFee=${formatGwei(baseFee)}, priority=${gasConfig.priorityFeeGwei}, final=${formatGwei(
+        finalGasPrice,
+      )}`,
     );
 
     return finalGasPrice;
   }
 
   /**
-   * Estimates gas with retries and adds buffer
+   * Estimates gas and adds buffer
    */
-  public estimateGas<T extends (...args: any[]) => Promise<bigint>>(estimator: T): Promise<bigint> {
-    return retry(
-      async () => {
-        const gas = await estimator();
-        return gas + (gas * this.gasConfig.bufferPercentage) / 100n;
-      },
-      'gas estimation',
-      makeBackoff([1, 2, 3]),
-      this.logger,
-      false,
-    );
-  }
+  private async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: GasConfig): Promise<bigint> {
+    const gasConfig = { ...this.gasConfig, ..._gasConfig };
+    const initialEstimate = await this.publicClient.estimateGas({ account, ...request });
 
-  /**
-   * Monitors a transaction and attempts to speed it up if it gets stuck
-   * @param txHash - The hash of the transaction to monitor
-   * @param walletClient - The wallet client for sending replacement tx
-   * @param originalTx - The original transaction data for replacement
-   * @param config - Monitor configuration
-   */
-  public async monitorTransaction(
-    txHash: Hex,
-    walletClient: WalletClient,
-    originalTx: {
-      to: Address;
-      data: Hex;
-      nonce: number;
-      gasLimit: bigint;
-      maxFeePerGas: bigint;
-    },
-    txMonitorConfig?: TransactionMonitorConfig,
-  ): Promise<TransactionReceipt> {
-    const config = { ...this.monitorConfig, ...txMonitorConfig };
-    let attempts = 0;
-    let lastSeen = Date.now();
-    let currentTxHash = txHash;
+    // Add buffer based on either fixed amount or percentage
+    const withBuffer = gasConfig.bufferFixed
+      ? initialEstimate + gasConfig.bufferFixed
+      : initialEstimate + (initialEstimate * (gasConfig.bufferPercentage ?? 0n)) / 100n;
 
-    // Flag to use for first run to avoid logging errors.
-    let firstRun = true;
-
-    while (true) {
-      try {
-        // Check transaction status
-        const receipt = await this.publicClient.getTransactionReceipt({ hash: currentTxHash });
-        if (receipt) {
-          this.logger?.info(`Transaction ${currentTxHash} confirmed`);
-          return receipt;
-        }
-
-        if (firstRun) {
-          firstRun = false;
-          // Wait a second for tx to be broadcast
-          await sleep(1000);
-        }
-
-        // Check if transaction is pending
-        const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
-        this.logger?.info(`Transaction ${currentTxHash} pending`);
-        if (tx) {
-          lastSeen = Date.now();
-          await sleep(config.checkIntervalMs);
-          continue;
-        }
-
-        // Transaction not found and enough time has passed - might be stuck
-        if (Date.now() - lastSeen > config.stallTimeMs && attempts < config.maxAttempts) {
-          attempts++;
-          const newGasPrice = (originalTx.maxFeePerGas * (100n + config.gasPriceIncrease)) / 100n;
-
-          this.logger?.info(
-            `Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${config.maxAttempts} ` +
-              `with new gas price ${formatGwei(newGasPrice)} gwei`,
-          );
-
-          // Send replacement transaction with higher gas price
-          const account = await walletClient.getAddresses().then(addresses => addresses[0]);
-          currentTxHash = await walletClient.sendTransaction({
-            chain: null,
-            account,
-            to: originalTx.to,
-            data: originalTx.data,
-            nonce: originalTx.nonce,
-            gas: originalTx.gasLimit,
-            maxFeePerGas: newGasPrice,
-          });
-
-          lastSeen = Date.now();
-        }
-        await sleep(config.checkIntervalMs);
-      } catch (err: any) {
-        this.logger?.warn(`Error monitoring transaction ${currentTxHash}:`, err);
-        await new Promise(resolve => setTimeout(resolve, config.checkIntervalMs));
-      }
-    }
+    return withBuffer;
   }
 }

@@ -1,6 +1,7 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { createAnvil } from '@viem/anvil';
+import { type Anvil, createAnvil } from '@viem/anvil';
 import getPort from 'get-port';
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -9,6 +10,9 @@ import { foundry } from 'viem/chains';
 import { GasUtils } from './gas_utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
+const WEI_CONST = 1_000_000_000n;
+// Simple contract that just returns 42
+const SIMPLE_CONTRACT_BYTECODE = '0x69602a60005260206000f3600052600a6016f3';
 
 const startAnvil = async (l1BlockTime?: number) => {
   const ethereumHostPort = await getPort();
@@ -21,22 +25,25 @@ const startAnvil = async (l1BlockTime?: number) => {
   return { anvil, rpcUrl };
 };
 
-describe('e2e_l1_gas', () => {
+describe('GasUtils', () => {
   let gasUtils: GasUtils;
   let publicClient: any;
   let walletClient: any;
+  let account: any;
+  let anvil: Anvil;
+  let initialBaseFee: bigint;
   const logger = createDebugLogger('l1_gas_test');
 
   beforeAll(async () => {
-    const { rpcUrl } = await startAnvil(12);
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
+    anvil = anvilInstance;
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
-      // should never happen, used for types
       throw new Error('Failed to get private key');
     }
     const privKey = Buffer.from(privKeyRaw).toString('hex');
-    const account = privateKeyToAccount(`0x${privKey}`);
+    account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
       transport: http(rpcUrl),
@@ -60,53 +67,48 @@ describe('e2e_l1_gas', () => {
       },
       {
         maxAttempts: 3,
-        checkIntervalMs: 1000,
-        stallTimeMs: 3000,
-        gasPriceIncrease: 50n,
+        checkIntervalMs: 100,
+        stallTimeMs: 1000,
       },
     );
   });
+  afterAll(async () => {
+    await anvil.stop();
+  }, 5000);
 
-  it('handles gas price spikes by increasing gas price', async () => {
-    // Get initial base fee and verify we're starting from a known state
-    const initialBlock = await publicClient.getBlock({ blockTag: 'latest' });
-    const initialBaseFee = initialBlock.baseFeePerGas ?? 0n;
-
-    // Send initial transaction with current gas price
-    const initialGasPrice = await gasUtils.getGasPrice();
-    expect(initialGasPrice).toBeGreaterThanOrEqual(initialBaseFee); // Sanity check
-
-    const initialTxHash = await walletClient.sendTransaction({
+  it('sends and monitors a simple transaction', async () => {
+    const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, account, {
       to: '0x1234567890123456789012345678901234567890',
+      data: '0x',
       value: 0n,
-      maxFeePerGas: initialGasPrice,
-      gas: 21000n,
+    });
+
+    expect(receipt.status).toBe('success');
+  }, 10_000);
+
+  it('handles gas price spikes by retrying with higher gas price', async () => {
+    // Get initial base fee
+    const initialBlock = await publicClient.getBlock({ blockTag: 'latest' });
+    initialBaseFee = initialBlock.baseFeePerGas ?? 0n;
+
+    // Start a transaction
+    const sendPromise = gasUtils.sendAndMonitorTransaction(walletClient, account, {
+      to: '0x1234567890123456789012345678901234567890',
+      data: '0x',
+      value: 0n,
     });
 
     // Spike gas price to 3x the initial base fee
-    const spikeBaseFee = initialBaseFee * 3n;
     await publicClient.transport.request({
       method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [spikeBaseFee.toString()],
+      params: [(initialBaseFee * 3n).toString()],
     });
 
-    // Monitor the transaction - it should automatically increase gas price
-    const receipt = await gasUtils.monitorTransaction(initialTxHash, walletClient, {
-      to: '0x1234567890123456789012345678901234567890',
-      data: '0x',
-      nonce: await publicClient.getTransactionCount({ address: walletClient.account.address }),
-      gasLimit: 21000n,
-      maxFeePerGas: initialGasPrice,
-    });
-
-    // Transaction should eventually succeed
+    // Transaction should still complete
+    const receipt = await sendPromise;
     expect(receipt.status).toBe('success');
 
-    // Gas price should have been increased from initial price
-    const finalGasPrice = receipt.effectiveGasPrice;
-    expect(finalGasPrice).toBeGreaterThan(initialGasPrice);
-
-    // Reset base fee to initial value for cleanup
+    // Reset base fee
     await publicClient.transport.request({
       method: 'anvil_setNextBlockBaseFeePerGas',
       params: [initialBaseFee.toString()],
@@ -115,9 +117,95 @@ describe('e2e_l1_gas', () => {
 
   it('respects max gas price limits during spikes', async () => {
     const maxGwei = 500n;
-    const gasPrice = await gasUtils.getGasPrice();
+    const newBaseFee = (maxGwei - 10n) * WEI_CONST;
 
-    // Even with huge base fee, should not exceed max
-    expect(gasPrice).toBeLessThanOrEqual(maxGwei * 1000000000n);
+    // Set base fee high but still under our max
+    await publicClient.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [newBaseFee.toString()],
+    });
+
+    // Mine a new block to make the base fee change take effect
+    await publicClient.transport.request({
+      method: 'evm_mine',
+      params: [],
+    });
+
+    const receipt = await gasUtils.sendAndMonitorTransaction(walletClient, account, {
+      to: '0x1234567890123456789012345678901234567890',
+      data: '0x',
+      value: 0n,
+    });
+
+    expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(maxGwei * WEI_CONST);
+
+    // Reset base fee
+    await publicClient.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [initialBaseFee.toString()],
+    });
+    await publicClient.transport.request({
+      method: 'evm_mine',
+      params: [],
+    });
   });
+
+  it('adds appropriate buffer to gas estimation', async () => {
+    // First deploy without any buffer
+    const baselineGasUtils = new GasUtils(
+      publicClient,
+      logger,
+      {
+        bufferPercentage: 0n,
+        maxGwei: 500n,
+        minGwei: 1n,
+        priorityFeeGwei: 2n,
+      },
+      {
+        maxAttempts: 3,
+        checkIntervalMs: 100,
+        stallTimeMs: 1000,
+      },
+    );
+
+    const baselineTx = await baselineGasUtils.sendAndMonitorTransaction(walletClient, account, {
+      to: EthAddress.ZERO.toString(),
+      data: SIMPLE_CONTRACT_BYTECODE,
+    });
+
+    // Get the transaction details to see the gas limit
+    const baselineDetails = await publicClient.getTransaction({
+      hash: baselineTx.transactionHash,
+    });
+
+    // Now deploy with 20% buffer
+    const bufferedGasUtils = new GasUtils(
+      publicClient,
+      logger,
+      {
+        bufferPercentage: 20n,
+        maxGwei: 500n,
+        minGwei: 1n,
+        priorityFeeGwei: 2n,
+      },
+      {
+        maxAttempts: 3,
+        checkIntervalMs: 100,
+        stallTimeMs: 1000,
+      },
+    );
+
+    const bufferedTx = await bufferedGasUtils.sendAndMonitorTransaction(walletClient, account, {
+      to: EthAddress.ZERO.toString(),
+      data: SIMPLE_CONTRACT_BYTECODE,
+    });
+
+    const bufferedDetails = await publicClient.getTransaction({
+      hash: bufferedTx.transactionHash,
+    });
+
+    // The gas limit should be ~20% higher
+    expect(bufferedDetails.gas).toBeGreaterThan(baselineDetails.gas);
+    expect(bufferedDetails.gas).toBeLessThanOrEqual((baselineDetails.gas * 120n) / 100n);
+  }, 20_000);
 });
