@@ -28,8 +28,8 @@ pub fn meter_gas_used(data: CombinedAccumulatedData) -> Gas {
     metered_da_bytes += data.encrypted_log_preimages_length as u32;
     metered_l2_gas += data.encrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
-    metered_da_bytes += data.unencrypted_log_preimages_length as u32;
-    metered_l2_gas += data.unencrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
+    metered_da_bytes += data.contract_class_log_preimages_length as u32;
+    metered_l2_gas += data.contract_class_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
     Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas) + Gas::tx_overhead()
 }

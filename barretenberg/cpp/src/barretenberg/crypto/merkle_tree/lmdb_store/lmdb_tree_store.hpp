@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <optional>
@@ -62,51 +63,6 @@ struct NodePayload {
         return left == other.left && right == other.right && ref == other.ref;
     }
 };
-
-struct DBStats {
-    std::string name;
-    uint64_t mapSize;
-    uint64_t numDataItems;
-    uint64_t totalUsedSize;
-
-    DBStats() = default;
-    DBStats(const DBStats& other) = default;
-    DBStats(DBStats&& other) noexcept
-        : name(std::move(other.name))
-        , mapSize(other.mapSize)
-        , numDataItems(other.numDataItems)
-        , totalUsedSize(other.totalUsedSize)
-    {}
-    ~DBStats() = default;
-    DBStats(std::string name, MDB_envinfo& env, MDB_stat& stat)
-        : name(std::move(name))
-        , mapSize(env.me_mapsize)
-        , numDataItems(stat.ms_entries)
-        , totalUsedSize(stat.ms_psize * (stat.ms_branch_pages + stat.ms_leaf_pages + stat.ms_overflow_pages))
-    {}
-
-    MSGPACK_FIELDS(name, mapSize, numDataItems, totalUsedSize)
-
-    bool operator==(const DBStats& other) const
-    {
-        return name == other.name && mapSize == other.mapSize && numDataItems == other.numDataItems &&
-               totalUsedSize == other.totalUsedSize;
-    }
-
-    DBStats& operator=(const DBStats& other) = default;
-
-    friend std::ostream& operator<<(std::ostream& os, const DBStats& stats)
-    {
-        os << "DB " << stats.name << ", map size: " << stats.mapSize << ", num items: " << stats.numDataItems
-           << ", total used size: " << stats.totalUsedSize;
-        return os;
-    }
-};
-
-using StatsMap = std::unordered_map<std::string, DBStats>;
-
-std::ostream& operator<<(std::ostream& os, const StatsMap& stats);
-
 /**
  * Creates an abstraction against a collection of LMDB databases within a single environment used to store merkle tree
  * data
@@ -128,7 +84,7 @@ class LMDBTreeStore {
     WriteTransaction::Ptr create_write_transaction() const;
     ReadTransaction::Ptr create_read_transaction();
 
-    void get_stats(StatsMap& stats, ReadTransaction& tx);
+    void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
     void write_block_data(uint64_t blockNumber, const BlockPayload& blockData, WriteTransaction& tx);
 
@@ -142,7 +98,10 @@ class LMDBTreeStore {
 
     template <typename TxType> bool read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx);
 
-    fr find_low_leaf(const fr& leafValue, Indices& indices, std::optional<index_t> sizeLimit, ReadTransaction& tx);
+    fr find_low_leaf(const fr& leafValue,
+                     Indices& indices,
+                     const std::optional<index_t>& sizeLimit,
+                     ReadTransaction& tx);
 
     void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
 

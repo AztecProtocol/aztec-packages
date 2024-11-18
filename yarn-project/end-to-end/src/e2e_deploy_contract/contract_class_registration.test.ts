@@ -71,7 +71,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     const selector = FunctionSelector.fromNameAndParameters(constructorArtifact.name, constructorArtifact.parameters);
 
     const tx = await (await broadcastPrivateFunction(wallet, artifact, selector)).send().wait();
-    const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
     const logData = logs.logs[0].log.data;
     writeTestData('yarn-project/circuits.js/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
 
@@ -85,7 +85,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
     const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
     const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
-    const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
     const logData = logs.logs[0].log.data;
     writeTestData('yarn-project/circuits.js/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
 

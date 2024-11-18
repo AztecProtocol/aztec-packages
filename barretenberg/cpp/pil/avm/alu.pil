@@ -147,6 +147,7 @@ namespace alu(256);
 
     // This holds the product over the integers
     // (u1 multiplication only cares about a_lo and b_lo)
+    // TODO(9937): The following is not well constrained as this expression overflows the field.
     pol PRODUCT = a_lo * b_lo + (1 - u1_tag) * (LIMB_BITS_POW * partial_prod_lo + MAX_BITS_POW * (partial_prod_hi + a_hi * b_hi));
 
     // =============== ADDITION/SUBTRACTION Operation Constraints ================================================= 

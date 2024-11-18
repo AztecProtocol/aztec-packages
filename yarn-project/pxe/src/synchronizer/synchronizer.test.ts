@@ -1,9 +1,8 @@
 import { type AztecNode, L2Block } from '@aztec/circuit-types';
-import { Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { type Header } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -82,66 +81,6 @@ describe('Synchronizer', () => {
     expect(header5).not.toEqual(headerBlock3);
     expect(header5).toEqual(block5.header);
   });
-
-  it('note processor successfully catches up', async () => {
-    const blocks = [L2Block.random(1, 4), L2Block.random(2, 4)];
-
-    aztecNode.getLogs
-      // called by synchronizer.work
-      .mockResolvedValueOnce([blocks[0].body.encryptedLogs])
-      .mockResolvedValueOnce([blocks[0].body.unencryptedLogs])
-      .mockResolvedValueOnce([blocks[1].body.encryptedLogs])
-      .mockResolvedValueOnce([blocks[1].body.encryptedLogs])
-      // called by synchronizer.workNoteProcessorCatchUp
-      .mockResolvedValueOnce([blocks[0].body.encryptedLogs])
-      .mockResolvedValueOnce([blocks[1].body.encryptedLogs]);
-
-    aztecNode.getBlocks
-      // called by synchronizer.work,
-      .mockResolvedValueOnce([blocks[0]])
-      .mockResolvedValueOnce([blocks[1]])
-      // called by synchronizer.workNoteProcessorCatchUp
-      .mockResolvedValueOnce([blocks[0]])
-      .mockResolvedValueOnce([blocks[1]]);
-
-    aztecNode.getBlockNumber.mockResolvedValue(INITIAL_L2_BLOCK_NUM + 1);
-
-    // Sync the synchronizer so that note processor has something to catch up to
-    // There are two blocks, and we have a limit of 1 block per work call
-    await synchronizer.work(1);
-    expect(await synchronizer.isGlobalStateSynchronized()).toBe(false);
-    await synchronizer.work(1);
-    expect(await synchronizer.isGlobalStateSynchronized()).toBe(true);
-
-    // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new KeyStore(openTmpStore());
-    const addAddress = async (startingBlockNum: number) => {
-      const secretKey = Fr.random();
-      const partialAddress = Fr.random();
-      const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
-      await database.addCompleteAddress(completeAddress);
-      synchronizer.addAccount(completeAddress, keyStore, startingBlockNum);
-      return completeAddress;
-    };
-
-    const [completeAddressA, completeAddressB, completeAddressC] = await Promise.all([
-      addAddress(INITIAL_L2_BLOCK_NUM),
-      addAddress(INITIAL_L2_BLOCK_NUM),
-      addAddress(INITIAL_L2_BLOCK_NUM + 1),
-    ]);
-
-    await synchronizer.workNoteProcessorCatchUp();
-
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(false);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(false);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressC.address)).toBe(false);
-
-    await synchronizer.workNoteProcessorCatchUp();
-
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(true);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(true);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressC.address)).toBe(true);
-  });
 });
 
 class TestSynchronizer extends Synchronizer {
@@ -151,9 +90,5 @@ class TestSynchronizer extends Synchronizer {
 
   public override initialSync(): Promise<void> {
     return super.initialSync();
-  }
-
-  public override workNoteProcessorCatchUp(limit = 1): Promise<boolean> {
-    return super.workNoteProcessorCatchUp(limit);
   }
 }

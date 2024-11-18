@@ -55,9 +55,6 @@ describe('e2e_token_contract transfer private', () => {
       .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce)
       .send();
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-
-    // We let wallets[0] see wallets[1]'s notes because the check uses wallets[0]'s wallet to interact with the contracts to "get" state.
-    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   describe('failure cases', () => {
