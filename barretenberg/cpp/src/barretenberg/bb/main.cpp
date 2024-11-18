@@ -590,8 +590,7 @@ void prove_tube(const std::string& output_path)
     }
     ClientIVC verifier{ builder, input };
 
-    stdlib::recursion::honk::ClientIVCRecursiveVerifier::ClientIVCRecursiveVerifierOutput
-        client_ivc_rec_verifier_output = verifier.verify(proof);
+    ClientIVC::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
     PairingPointAccumulatorIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);

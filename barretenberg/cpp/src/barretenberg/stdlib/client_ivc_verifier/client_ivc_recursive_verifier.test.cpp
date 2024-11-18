@@ -74,6 +74,8 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
  */
 TEST_F(ClientIVCRecursionTests, Basic)
 {
+    using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
+
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
@@ -83,7 +85,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
     ClientIVCVerifier verifier{ builder, verifier_input };
 
     // Generate the recursive verification circuit
-    ClientIVCRecursiveVerifier::ClientIVCRecursiveVerifierOutput output = verifier.verify(proof);
+    CIVCRecVerifierOutput output = verifier.verify(proof);
 
     EXPECT_EQ(builder->failed(), false) << builder->err();
 
@@ -95,6 +97,8 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 {
+    using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
+
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
@@ -104,8 +108,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     ClientIVCVerifier verifier{ tube_builder, verifier_input };
 
     // Generate the recursive verification circuit
-    ClientIVCRecursiveVerifier::ClientIVCRecursiveVerifierOutput client_ivc_rec_verifier_output =
-        verifier.verify(proof);
+    CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
     // just using default.
