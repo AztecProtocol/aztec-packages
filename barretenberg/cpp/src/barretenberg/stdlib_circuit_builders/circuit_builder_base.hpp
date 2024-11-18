@@ -44,8 +44,6 @@ template <typename FF_> class CircuitBuilderBase {
     IPAClaimPubInputIndices ipa_claim_public_input_indices;
     bool contains_ipa_claim = false;
 
-    uint32_t ipa_verifier_count = 0;
-
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
     // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
     // description and should be able to verify a proof with just the verification key and the proof.

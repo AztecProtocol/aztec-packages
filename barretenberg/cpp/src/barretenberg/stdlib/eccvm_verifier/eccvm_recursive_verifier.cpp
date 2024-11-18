@@ -145,10 +145,6 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
-    // const typename PCS::VerifierAccumulator batched_opening_accumulator =
-    //     PCS::reduce_verify(batch_opening_claim, ipa_transcript);
-
     ASSERT(sumcheck_verified);
     return { batch_opening_claim, ipa_transcript };
 }
