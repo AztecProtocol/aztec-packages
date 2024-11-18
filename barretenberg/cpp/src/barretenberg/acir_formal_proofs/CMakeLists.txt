@@ -1,0 +1,1 @@
+barretenberg_module(acir_formal_proofs dsl)
