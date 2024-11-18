@@ -1,4 +1,5 @@
 #include "./ultra_verifier.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -9,7 +10,7 @@ namespace bb {
  * @brief This function verifies an Ultra Honk proof for a given Flavor.
  *
  */
-template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
 {
     using FF = typename Flavor::FF;
 
@@ -46,6 +47,18 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
                 verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[4]],
                 verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[5]]
             };
+
+            // verify the ipa_proof with this claim
+            auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
+                "../srs_db/grumpkin", (1 << CONST_ECCVM_LOG_N));
+            auto grumpkin_verifier_commitment_key =
+                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>((1 << CONST_ECCVM_LOG_N), crs_factory);
+            auto ipa_transcript = std::make_shared<Transcript>(ipa_proof);
+            bool ipa_result =
+                IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, ipa_claim, ipa_transcript);
+            if (!ipa_result) {
+                return false;
+            }
         }
     }
 

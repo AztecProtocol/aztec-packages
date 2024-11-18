@@ -126,8 +126,13 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     UltraProver tube_prover{ proving_key };
     auto native_tube_proof = tube_prover.construct_proof();
 
-    Builder base_builder;
+    // Natively verify the tube proof
     auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    UltraVerifier native_verifier(native_vk);
+    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
+
+    // Construct a base rollup circuit that recursively verifies the tube proof.
+    Builder base_builder;
     auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
     auto tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, vk };
