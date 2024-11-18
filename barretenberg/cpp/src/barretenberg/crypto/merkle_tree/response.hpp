@@ -27,7 +27,7 @@ struct GetSiblingPathResponse {
     fr_sibling_path path;
 };
 
-template <typename LeafType> struct LowLeafWitnessData {
+template <typename LeafType> struct LeafUpdateWitnessData {
     IndexedLeaf<LeafType> leaf;
     index_t index;
     fr_sibling_path path;
@@ -39,7 +39,7 @@ template <typename LeafValueType> struct AddIndexedDataResponse {
     AddDataResponse add_data_result;
     fr_sibling_path subtree_path;
     std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> sorted_leaves;
-    std::shared_ptr<std::vector<LowLeafWitnessData<LeafValueType>>> low_leaf_witness_data;
+    std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> low_leaf_witness_data;
 };
 
 struct FindLeafIndexResponse {

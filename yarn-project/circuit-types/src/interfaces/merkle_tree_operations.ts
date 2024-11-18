@@ -19,19 +19,19 @@ export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DA
 export type FrTreeId = Exclude<MerkleTreeId, IndexedTreeId>;
 
 /**
- * All of the data to be return during batch insertion.
+ * Witness data for a leaf update.
  */
-export interface LowLeafWitnessData<N extends number> {
+export interface LeafUpdateWitnessData<N extends number> {
   /**
-   * Preimage of the low nullifier that proves non membership.
+   * Preimage of the leaf before updating.
    */
   leafPreimage: IndexedTreeLeafPreimage;
   /**
-   * Sibling path to prove membership of low nullifier.
+   * Sibling path to prove membership of the leaf.
    */
   siblingPath: SiblingPath<N>;
   /**
-   * The index of low nullifier.
+   * The index of the leaf.
    */
   index: bigint;
 }
@@ -43,7 +43,7 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
   /**
    * Data for the leaves to be updated when inserting the new ones.
    */
-  lowLeavesWitnessData?: LowLeafWitnessData<TreeHeight>[];
+  lowLeavesWitnessData?: LeafUpdateWitnessData<TreeHeight>[];
   /**
    * Sibling path "pointing to" where the new subtree should be inserted into the tree.
    */
