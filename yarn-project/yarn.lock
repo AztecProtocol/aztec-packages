@@ -1071,6 +1071,29 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/repro-test@workspace:repro":
+  version: 0.0.0-use.local
+  resolution: "@aztec/repro-test@workspace:repro"
+  dependencies:
+    "@aztec/bb.js": ../../ts
+    debug: ^4.3.4
+    html-webpack-plugin: ^5.6.0
+    jest: ^29.5.0
+    jest-mock-extended: ^4.0.0-beta1
+    levelup: ^5.1.1
+    memdown: ^6.1.1
+    resolve-typescript-plugin: ^2.0.1
+    serve: ^14.2.1
+    ts-loader: ^9.5.1
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    webpack: ^5.90.3
+    webpack-cli: ^5.1.4
+    webpack-dev-server: ^5.0.3
+  languageName: unknown
+  linkType: soft
+
 "@aztec/scripts@workspace:scripts":
   version: 0.0.0-use.local
   resolution: "@aztec/scripts@workspace:scripts"

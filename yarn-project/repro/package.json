@@ -1,0 +1,83 @@
+{
+  "name": "@aztec/repro-test",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./dest/index.js",
+    "./types": "./dest/types/index.js"
+  },
+  "scripts": {
+    "build": "yarn clean && tsc -b",
+    "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
+    "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
+    "generate": "yarn generate:noir-circuits",
+    "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testPathIgnorePatterns=browser --passWithNoTests "
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
+    ]
+  },
+  "dependencies": {
+    "@aztec/bb.js": "../../ts",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "debug": "^4.3.4",
+    "html-webpack-plugin": "^5.6.0",
+    "jest": "^29.5.0",
+    "jest-mock-extended": "^4.0.0-beta1",
+    "levelup": "^5.1.1",
+    "memdown": "^6.1.1",
+    "resolve-typescript-plugin": "^2.0.1",
+    "serve": "^14.2.1",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*",
+    "artifacts"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=18"
+  }
+}

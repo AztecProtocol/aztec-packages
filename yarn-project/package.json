@@ -59,7 +59,8 @@
     "types",
     "txe",
     "world-state",
-    "telemetry-client"
+    "telemetry-client",
+    "repro"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
