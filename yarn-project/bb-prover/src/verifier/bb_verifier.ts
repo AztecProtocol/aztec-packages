@@ -103,16 +103,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
-      const logFunction = (message: string) => {
-        this.logger.debug(`${circuit} BB out - ${message}`);
-      };
-
       const result = await verifyProof(
         this.config.bbBinaryPath,
         proofFileName,
         verificationKeyPath!,
         getUltraHonkFlavorForCircuit(circuit),
-        logFunction,
+        this.logger,
       );
 
       if (result.status === BB_RESULT.FAILURE) {

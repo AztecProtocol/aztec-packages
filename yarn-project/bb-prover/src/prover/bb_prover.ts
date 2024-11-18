@@ -680,13 +680,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger.debug),
+      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger),
     );
   }
 
   public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger.debug),
+      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger),
     );
   }
 
