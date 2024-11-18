@@ -1,5 +1,4 @@
 export * from './db_interfaces.js';
-export { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
 export * from './public_tx_simulator.js';
 export {
   type EnqueuedPublicCallExecutionResult as PublicExecutionResult,
