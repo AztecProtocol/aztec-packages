@@ -1,8 +1,41 @@
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 
 namespace bb::proving_key_inspector {
+
+// WORKTODO: add a check_relations method templated on Flavor that checks all realtions
+
+/**
+ * @brief Check that a given relation is satisfied for a set of polynomials
+ *
+ * @tparam Relation a linearly independent Relation to be checked
+ * @param polynomials prover polynomials
+ * @param params a RelationParameters instance
+ */
+template <typename Relation> static void check_relation(auto& polynomials, auto params)
+{
+    for (size_t i = 0; i < polynomials.get_polynomial_size(); i++) {
+        // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for the relation and initialize to zero
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+        SumcheckArrayOfValuesOverSubrelations result;
+        for (auto& element : result) {
+            element = 0;
+        }
+
+        // Evaluate each constraint in the relation and check that each is satisfied
+        Relation::accumulate(result, polynomials.get_row(i), params, 1);
+        size_t subrelation_idx = 0;
+        for (auto& element : result) {
+            if (element != 0) {
+                info("WARNING: Relation fails subrelation: ", subrelation_idx, " at row idx: ", i);
+                ASSERT(false);
+            }
+            subrelation_idx++;
+        }
+    }
+}
 
 // Determine whether a polynomial has at least one non-zero coefficient
 bool is_non_zero(auto& polynomial)

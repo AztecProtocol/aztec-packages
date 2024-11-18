@@ -5,6 +5,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -69,35 +70,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         bool verified = verifier.verify_proof(proof);
 
         return verified;
-    }
-
-    // WORKTODO: move this to instance inspector or something
-
-    /**
-     * @brief Check that a given relation is satified for a set of polynomials
-     *
-     * @tparam relation_idx Index into a tuple of provided relations
-     */
-    template <typename Relation> void check_relation(auto& polynomials, auto params)
-    {
-        for (size_t i = 0; i < polynomials.get_polynomial_size(); i++) {
-            // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to
-            // zero
-            using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-            SumcheckArrayOfValuesOverSubrelations result;
-            for (auto& element : result) {
-                element = 0;
-            }
-
-            // Evaluate each constraint in the relation and check that each is satisfied
-            Relation::accumulate(result, polynomials.get_row(i), params, 1);
-            for (auto& element : result) {
-                if (element != 0) {
-                    info("WARNING: Relation fails at row idx: ", i);
-                    ASSERT(false);
-                }
-            }
-        }
     }
 
     /**
@@ -197,14 +169,14 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
-    this->template check_relation<UltraPermutationRelation<FF>>(proving_key->proving_key.polynomials,
-                                                                proving_key->relation_parameters);
+    bb::proving_key_inspector::check_relation<UltraPermutationRelation<FF>>(proving_key->proving_key.polynomials,
+                                                                            proving_key->relation_parameters);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
-    this->template check_relation<UltraPermutationRelation<FF>>(proving_key_copy->proving_key.polynomials,
-                                                                proving_key_copy->relation_parameters);
+    bb::proving_key_inspector::check_relation<UltraPermutationRelation<FF>>(proving_key_copy->proving_key.polynomials,
+                                                                            proving_key_copy->relation_parameters);
     EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
 }
 
