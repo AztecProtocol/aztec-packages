@@ -23,6 +23,9 @@ contract MinimalFeeModel is TimeFns {
   // with the block.blobbasefee value if using cheatcodes to alter it.
   Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
+  uint256 internal constant BLOB_GAS_PER_BLOB = 2 ** 17;
+  uint256 internal constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
+
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
   Timestamp public immutable GENESIS_TIMESTAMP;
@@ -57,11 +60,12 @@ contract MinimalFeeModel is TimeFns {
     returns (ManaBaseFeeComponents memory)
   {
     L1Fees memory fees = getCurrentL1Fees();
-    uint256 dataCost =
-      Math.mulDiv(_blobsUsed * 2 ** 17, fees.blob_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
-    uint256 casUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * 50_000
+    uint256 dataCost = Math.mulDiv(
+      _blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil
+    );
+    uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * GAS_PER_BLOB_POINT_EVALUATION
       + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
-    uint256 gasCost = Math.mulDiv(casUsed, fees.base_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 gasCost = Math.mulDiv(gasUsed, fees.base_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
     uint256 provingCost = getProvingCost();
 
     uint256 congestionMultiplier = FeeMath.congestionMultiplier(calcExcessMana());
