@@ -21,3 +21,15 @@ variable "values-file" {
   type        = string
   default     = "multicloud-demo.yaml"
 }
+
+variable "image" {
+  description = "Aztec node image"
+  type        = string
+  default     = "telecomsteve/aztec:b36c1376ee009f3b1ac5003592cfd1185d17e1ed"
+}
+
+variable "telemetry" {
+  description = "Toogle telemetry on/off"
+  type        = bool
+  default     = false
+}
