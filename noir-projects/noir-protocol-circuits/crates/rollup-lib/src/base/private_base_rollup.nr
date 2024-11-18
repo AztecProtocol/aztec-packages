@@ -293,7 +293,7 @@ mod tests {
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
             PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_SUBTREE_HEIGHT,
-            PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+            PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -386,7 +386,7 @@ mod tests {
     impl PrivateBaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = PrivateBaseRollupInputsBuilder::empty();
-            inputs.tube_data = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+            inputs.tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX);
             inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
             inputs.constants.global_variables.version = fixtures::VERSION;
             inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
