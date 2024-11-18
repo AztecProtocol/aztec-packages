@@ -82,7 +82,7 @@ fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_P
 }
 
 pub fn check_block_blob_sponge(
-    blob_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
 ) -> Field {
     // Check that we haven't overfilled the blobs
@@ -96,14 +96,14 @@ pub fn check_block_blob_sponge(
         "Incorrect number of tx effects added to blob",
     );
     let sponge_hash = sponge_blob.squeeze();
-    let hash = poseidon2_hash_subarray(blob_as_fields, sponge_blob.fields);
+    let hash = poseidon2_hash_subarray(blobs_as_fields, sponge_blob.fields);
     assert(hash == sponge_hash, "Mismatched hashed tx effects");
 
     sponge_hash
 }
 
-fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> Field {
-    let preimage = [hashed_blob_fields, kzg_commitment[0], kzg_commitment[1]];
+fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
     let challenge = std::hash::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
@@ -118,9 +118,9 @@ fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> F
 fn evaluate_blob(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: [Field; 2],
-    hashed_blob_fields: Field,
+    hashed_blobs_fields: Field,
 ) -> BlobPublicInputs {
-    let challenge_z: Field = compute_challenge(hashed_blob_fields, kzg_commitment);
+    let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
     let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
     let blob = convert_blob_fields(blob_as_fields);
 
@@ -135,19 +135,20 @@ fn evaluate_blob(
 
 // Evaluates each blob required for a block
 pub fn evaluate_blobs(
-    blob_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     kzg_commitments: [[Field; 2]; BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
 ) -> BlockBlobPublicInputs {
-    // Note that with multiple blobs per block, each blob uses the same hashed_blob_fields in:
-    // challenge_z = H(hashed_blob_fields, kzg_commitment[0], kzg_commitment[1])
-    // This is ok, because each commitment is unique to the blob, and we need hashed_blob_fields to encompass
+    // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
+    // challenge_z = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
+    // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
     // all fields in the blob, which it does.
-    let hashed_blob_fields = check_block_blob_sponge(blob_as_fields, sponge_blob);
+    let hashed_blobs_fields = check_block_blob_sponge(blobs_as_fields, sponge_blob);
     let mut result = BlockBlobPublicInputs::empty();
     for i in 0..BLOBS_PER_BLOCK {
-        let single_blob_fields = array_splice(blob_as_fields, i * FIELDS_PER_BLOB);
-        result.inner[i] = evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blob_fields);
+        let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
+        result.inner[i] =
+            evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blobs_fields);
         if (result.inner[i].is_zero()) & (single_blob_fields[0] == 0) {
             // We use empty PIs for empty blobs, to make it simpler to verify on L1.
             // Since our fields come from the base rollup, we know they are tightly packed

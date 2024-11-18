@@ -694,12 +694,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // vk_tree_root
     publicInputs[offset] = vkTreeRoot;
+    offset += 1;
 
     // protocol_contract_tree_root
-    publicInputs[offset++] = protocolContractTreeRoot;
+    publicInputs[offset] = protocolContractTreeRoot;
+    offset += 1;
 
     // prover_id: id of current epoch's prover
-    publicInputs[offset++] = _args[6];
+    publicInputs[offset] = _args[6];
+    offset += 1;
 
     // blob_public_inputs
     uint256 blobOffset = 0;
@@ -707,6 +710,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       uint8 blobsInBlock = uint8(_blobPublicInputsAndAggregationObject[blobOffset++]);
       // asserting here to avoid looping twice in one fn
       {
+        // Blob public inputs are 112 bytes long - see _validateBlobs() for explanation
         bytes32 calcBlobPublicInputsHash = sha256(
           abi.encodePacked(
             _blobPublicInputsAndAggregationObject[blobOffset:blobOffset + 112 * blobsInBlock]
@@ -1121,7 +1125,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       // Since an invalid blob hash here would fail the consensus checks of
       // the header, the `blobInput` is implicitly accepted by consensus as well.
       blobHashes[i] = _validateBlob(_blobsInput[blobInputStart:blobInputStart + 192], i);
-      // We want to extract the bytes we use for public inputs:
+      // We want to extract the 112 bytes we use for public inputs:
       //  * input[32:64]   - z
       //  * input[64:96]   - y
       //  * input[96:144]  - commitment C

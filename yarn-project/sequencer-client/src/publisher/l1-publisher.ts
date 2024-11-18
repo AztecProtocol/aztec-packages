@@ -795,7 +795,8 @@ export class L1Publisher {
       ),
       `0x${args.publicInputs.blobPublicInputs
         .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
-        .map(b => b.toString())}${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
+        .map(b => b.toString())
+        .join(``)}${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 
