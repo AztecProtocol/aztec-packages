@@ -174,11 +174,11 @@ async function startWithGithubRunners(config: ActionConfig) {
       return false;
     }
     await setupGithubRunners(ip, config);
-    if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
-    else {
-      core.error("Instance failed to register with Github Actions");
-      throw Error("Instance failed to register with Github Actions");
-    }
+    // if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
+    // else {
+    //  core.error("Instance failed to register with Github Actions");
+    //  throw Error("Instance failed to register with Github Actions");
+    // }
     core.info("Done setting up runner.")
   }
   // Export to github environment
