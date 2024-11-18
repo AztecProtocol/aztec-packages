@@ -73,6 +73,9 @@ library FeeMath {
   /**
    * @notice An approximation of the exponential function: factor * e ** (numerator / denominator)
    *
+   *         The function is the same as used in EIP-4844
+   *         https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md
+   *
    *         Approximated using a taylor series.
    *         For shorthand below, let `a = factor`, `x = numerator`, `d = denominator`
    *
