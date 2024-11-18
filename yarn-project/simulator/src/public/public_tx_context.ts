@@ -9,11 +9,11 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AvmCircuitPublicInputs,
-  CombinedConstantData,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
+  type Header,
   type PrivateToPublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
@@ -29,15 +29,15 @@ import { inspect } from 'util';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
+import { type EnqueuedPublicCallExecutionResult } from './execution.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
-import {
-  convertPrivateToPublicAccumulatedData,
-  generateAvmCircuitPublicInputs,
-  getCallRequestsByPhase,
-  getExecutionRequestsByPhase,
-} from './utils.js';
+import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
+import { convertPrivateToPublicAccumulatedData, getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
+/**
+ * The transaction-level context for public execution.
+ */
 export class PublicTxContext {
   private log: DebugLogger;
 
@@ -53,12 +53,12 @@ export class PublicTxContext {
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
 
-  public avmProvingRequest: AvmProvingRequest | undefined; // tmp hack
+  public avmProvingRequest: AvmProvingRequest | undefined; // FIXME(dbanks12): remove
 
   constructor(
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
-    public readonly constants: CombinedConstantData, // FIXME(dbanks12): remove
+    private readonly historicalHeader: Header, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
     private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
@@ -114,7 +114,7 @@ export class PublicTxContext {
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
       globalVariables,
-      CombinedConstantData.combine(tx.data.constants, globalVariables),
+      tx.data.constants.historicalHeader,
       await db.getStateReference(),
       tx.data.gasUsed,
       tx.data.constants.txContext.gasSettings,
@@ -334,8 +334,45 @@ export class PublicTxContext {
     this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
     return this.avmProvingRequest!;
   }
+
+  // TODO(dbanks12): remove once AVM proves entire public tx
+  async updateProvingRequest(
+    real: boolean,
+    phase: TxExecutionPhase,
+    worldStateDB: WorldStateDB,
+    stateManager: AvmPersistableStateManager,
+    executionRequest: PublicExecutionRequest,
+    result: EnqueuedPublicCallExecutionResult,
+    allocatedGas: Gas,
+  ) {
+    if (this.avmProvingRequest === undefined) {
+      // Propagate the very first avmProvingRequest of the tx for now.
+      // Eventually this will be the proof for the entire public portion of the transaction.
+      this.avmProvingRequest = await generateAvmProvingRequest(
+        real,
+        worldStateDB,
+        stateManager,
+        this.historicalHeader,
+        this.globalVariables,
+        executionRequest,
+        result,
+        allocatedGas,
+        this.getTransactionFee(phase),
+      );
+    }
+  }
 }
 
+/**
+ * Thin wrapper around the state manager to handle forking and merging for phases.
+ *
+ * This lets us keep track of whether the state has already been forked
+ * so that we can conditionally fork at the start of a phase.
+ *
+ * There is a state manager that lives at the level of the entire transaction,
+ * but for setup and teardown the active state manager will be a fork of the
+ * transaction level one.
+ */
 class PhaseStateManager {
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 

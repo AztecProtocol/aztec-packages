@@ -97,13 +97,7 @@ export class PublicProcessor {
     worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
   ) {
-    const publicTxSimulator = PublicTxSimulator.create(
-      db,
-      publicExecutor,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-    );
+    const publicTxSimulator = PublicTxSimulator.create(db, publicExecutor, globalVariables, worldStateDB);
 
     return new PublicProcessor(db, globalVariables, historicalHeader, worldStateDB, publicTxSimulator, telemetryClient);
   }
@@ -281,7 +275,7 @@ export class PublicProcessor {
     const timer = new Timer();
 
     const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
-      await this.publicTxSimulator.process(tx);
+      await this.publicTxSimulator.simulate(tx);
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
