@@ -1,3 +1,9 @@
+import {
+  type ConfigMappingsType,
+  bigintConfigHelper,
+  getDefaultConfig,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -19,9 +25,9 @@ import {
 
 const WEI_CONST = 1_000_000_000n;
 
-export interface GasConfig {
+export interface GasUtilsConfig {
   /**
-   * How much to increase gas price by each attempt (percentage)
+   * How much to increase calculated gas limit.
    */
   bufferPercentage?: bigint;
   /**
@@ -31,31 +37,73 @@ export interface GasConfig {
   /**
    * Maximum gas price in gwei
    */
-  maxGwei: bigint;
+  maxGwei?: bigint;
   /**
    * Minimum gas price in gwei
    */
-  minGwei: bigint;
+  minGwei?: bigint;
   /**
    * How much to increase priority fee by each attempt (percentage)
    */
   priorityFeeBumpPercentage?: bigint;
-}
-
-export interface L1TxMonitorConfig {
   /**
    * Maximum number of speed-up attempts
    */
-  maxAttempts: number;
+  maxAttempts?: number;
   /**
    * How often to check tx status
    */
-  checkIntervalMs: number;
+  checkIntervalMs?: number;
   /**
    * How long before considering tx stalled
    */
-  stallTimeMs: number;
+  stallTimeMs?: number;
 }
+
+export const gasUtilsConfigMappings: ConfigMappingsType<GasUtilsConfig> = {
+  bufferPercentage: {
+    description: 'How much to increase gas price by each attempt (percentage)',
+    env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
+    ...bigintConfigHelper(20n),
+  },
+  bufferFixed: {
+    description: 'Fixed buffer to add to gas price',
+    env: 'L1_GAS_LIMIT_BUFFER_FIXED',
+    ...bigintConfigHelper(),
+  },
+  minGwei: {
+    description: 'Minimum gas price in gwei',
+    env: 'L1_GAS_PRICE_MIN',
+    ...bigintConfigHelper(1n),
+  },
+  maxGwei: {
+    description: 'Maximum gas price in gwei',
+    env: 'L1_GAS_PRICE_MAX',
+    ...bigintConfigHelper(100n),
+  },
+  priorityFeeBumpPercentage: {
+    description: 'How much to increase priority fee by each attempt (percentage)',
+    env: 'L1_PRIORITY_FEE_BUMP_PERCENTAGE',
+    ...bigintConfigHelper(20n),
+  },
+  maxAttempts: {
+    description: 'Maximum number of speed-up attempts',
+    env: 'L1_TX_MONITOR_MAX_ATTEMPTS',
+    ...numberConfigHelper(3),
+  },
+  checkIntervalMs: {
+    description: 'How often to check tx status',
+    env: 'L1_TX_MONITOR_CHECK_INTERVAL_MS',
+    ...numberConfigHelper(30_000),
+  },
+  stallTimeMs: {
+    description: 'How long before considering tx stalled',
+    env: 'L1_TX_MONITOR_STALL_TIME_MS',
+    ...numberConfigHelper(60_000),
+  },
+};
+
+export const defaultGasUtilsConfig = getDefaultConfig<GasUtilsConfig>(gasUtilsConfigMappings);
 
 export interface L1TxRequest {
   to: Address;
@@ -63,42 +111,23 @@ export interface L1TxRequest {
   value?: bigint;
 }
 
-const DEFAULT_GAS_CONFIG: GasConfig = {
-  bufferPercentage: 20n,
-  maxGwei: 500n,
-  minGwei: 1n,
-  priorityFeeBumpPercentage: 20n,
-};
-
-const DEFAULT_MONITOR_CONFIG: Required<L1TxMonitorConfig> = {
-  maxAttempts: 3,
-  checkIntervalMs: 30_000,
-  stallTimeMs: 60_000,
-};
-
 interface GasPrice {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
 }
 
 export class GasUtils {
-  private readonly gasConfig: GasConfig;
-  private readonly monitorConfig: L1TxMonitorConfig;
+  private readonly config: GasUtilsConfig;
 
   constructor(
     private readonly publicClient: PublicClient,
     private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
     private readonly logger?: DebugLogger,
-    gasConfig?: GasConfig,
-    monitorConfig?: L1TxMonitorConfig,
+    config?: Partial<GasUtilsConfig>,
   ) {
-    this.gasConfig! = {
-      ...DEFAULT_GAS_CONFIG,
-      ...(gasConfig || {}),
-    };
-    this.monitorConfig! = {
-      ...DEFAULT_MONITOR_CONFIG,
-      ...(monitorConfig || {}),
+    this.config = {
+      ...defaultGasUtilsConfig,
+      ...(config || {}),
     };
   }
 
@@ -111,11 +140,9 @@ export class GasUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<GasConfig>,
-    _monitorConfig?: Partial<L1TxMonitorConfig>,
+    _gasConfig?: Partial<GasUtilsConfig>,
   ): Promise<TransactionReceipt> {
-    const monitorConfig = { ...this.monitorConfig, ..._monitorConfig };
-    const gasConfig = { ...this.gasConfig, ..._gasConfig };
+    const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
     // Estimate gas
     const gasLimit = await this.estimateGas(account, request);
@@ -172,20 +199,20 @@ export class GasUtils {
         // Get time passed
         const timePassed = Date.now() - lastSeen;
 
-        if (tx && timePassed < monitorConfig.stallTimeMs) {
+        if (tx && timePassed < gasConfig.stallTimeMs!) {
           this.logger?.debug(`L1 Transaction ${currentTxHash} pending. Time passed: ${timePassed}ms`);
           lastSeen = Date.now();
-          await sleep(monitorConfig.checkIntervalMs);
+          await sleep(gasConfig.checkIntervalMs!);
           continue;
         }
 
         // Enough time has passed - might be stuck
-        if (timePassed > monitorConfig.stallTimeMs && attempts < monitorConfig.maxAttempts) {
+        if (timePassed > gasConfig.stallTimeMs! && attempts < gasConfig.maxAttempts!) {
           attempts++;
           const newGasPrice = await this.getGasPrice(gasConfig, attempts);
 
           this.logger?.debug(
-            `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${monitorConfig.maxAttempts} ` +
+            `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
               `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei`,
           );
 
@@ -201,13 +228,13 @@ export class GasUtils {
           txHashes.add(currentTxHash);
           lastSeen = Date.now();
         }
-        await sleep(monitorConfig.checkIntervalMs);
+        await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
         this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, err);
         if (err.message?.includes('reverted')) {
           throw err;
         }
-        await sleep(monitorConfig.checkIntervalMs);
+        await sleep(gasConfig.checkIntervalMs!);
       }
     }
   }
@@ -215,8 +242,8 @@ export class GasUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(_gasConfig?: GasConfig, attempt: number = 0): Promise<GasPrice> {
-    const gasConfig = { ...this.gasConfig, ..._gasConfig };
+  private async getGasPrice(_gasConfig?: GasUtilsConfig, attempt: number = 0): Promise<GasPrice> {
+    const gasConfig = { ...this.config, ..._gasConfig };
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
@@ -227,7 +254,7 @@ export class GasUtils {
       priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage ?? 20n) * BigInt(attempt))) / 100n;
     }
 
-    const maxFeePerGas = gasConfig.maxGwei * WEI_CONST;
+    const maxFeePerGas = gasConfig.maxGwei! * WEI_CONST;
     const maxPriorityFeePerGas = priorityFee;
 
     this.logger?.debug(
@@ -241,8 +268,8 @@ export class GasUtils {
   /**
    * Estimates gas and adds buffer
    */
-  private async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: GasConfig): Promise<bigint> {
-    const gasConfig = { ...this.gasConfig, ..._gasConfig };
+  private async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: GasUtilsConfig): Promise<bigint> {
+    const gasConfig = { ...this.config, ..._gasConfig };
     const initialEstimate = await this.publicClient.estimateGas({ account, ...request });
 
     // Add buffer based on either fixed amount or percentage

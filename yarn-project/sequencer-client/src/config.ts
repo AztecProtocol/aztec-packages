@@ -1,8 +1,10 @@
 import { type AllowedElement } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
+  type GasUtilsConfig,
   type L1ContractsConfig,
   type L1ReaderConfig,
+  gasUtilsConfigMappings,
   l1ContractsConfigMappings,
   l1ReaderConfigMappings,
 } from '@aztec/ethereum';

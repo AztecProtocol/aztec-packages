@@ -55,22 +55,14 @@ describe('GasUtils', () => {
       account,
     });
 
-    gasUtils = new GasUtils(
-      publicClient,
-      walletClient,
-      logger,
-      {
-        bufferPercentage: 20n,
-        maxGwei: 500n,
-        minGwei: 1n,
-        priorityFeeGwei: 2n,
-      },
-      {
-        maxAttempts: 3,
-        checkIntervalMs: 100,
-        stallTimeMs: 1000,
-      },
-    );
+    gasUtils = new GasUtils(publicClient, walletClient, logger, {
+      bufferPercentage: 20n,
+      maxGwei: 500n,
+      minGwei: 1n,
+      maxAttempts: 3,
+      checkIntervalMs: 100,
+      stallTimeMs: 1000,
+    });
   });
   afterAll(async () => {
     await anvil.stop();
@@ -152,22 +144,14 @@ describe('GasUtils', () => {
 
   it('adds appropriate buffer to gas estimation', async () => {
     // First deploy without any buffer
-    const baselineGasUtils = new GasUtils(
-      publicClient,
-      walletClient,
-      logger,
-      {
-        bufferPercentage: 0n,
-        maxGwei: 500n,
-        minGwei: 1n,
-        priorityFeeGwei: 2n,
-      },
-      {
-        maxAttempts: 3,
-        checkIntervalMs: 100,
-        stallTimeMs: 1000,
-      },
-    );
+    const baselineGasUtils = new GasUtils(publicClient, walletClient, logger, {
+      bufferPercentage: 0n,
+      maxGwei: 500n,
+      minGwei: 1n,
+      maxAttempts: 3,
+      checkIntervalMs: 100,
+      stallTimeMs: 1000,
+    });
 
     const baselineTx = await baselineGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
@@ -180,22 +164,14 @@ describe('GasUtils', () => {
     });
 
     // Now deploy with 20% buffer
-    const bufferedGasUtils = new GasUtils(
-      publicClient,
-      walletClient,
-      logger,
-      {
-        bufferPercentage: 20n,
-        maxGwei: 500n,
-        minGwei: 1n,
-        priorityFeeGwei: 2n,
-      },
-      {
-        maxAttempts: 3,
-        checkIntervalMs: 100,
-        stallTimeMs: 1000,
-      },
-    );
+    const bufferedGasUtils = new GasUtils(publicClient, walletClient, logger, {
+      bufferPercentage: 20n,
+      maxGwei: 500n,
+      minGwei: 1n,
+      maxAttempts: 3,
+      checkIntervalMs: 100,
+      stallTimeMs: 1000,
+    });
 
     const bufferedTx = await bufferedGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),

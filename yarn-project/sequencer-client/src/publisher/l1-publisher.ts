@@ -17,7 +17,7 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { GasUtils, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
+import { GasUtils, type GasUtilsConfig, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -166,7 +166,7 @@ export class L1Publisher {
   private readonly gasUtils: GasUtils;
 
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'> & GasUtilsConfig,
     client: TelemetryClient,
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -204,22 +204,7 @@ export class L1Publisher {
       });
     }
 
-    this.gasUtils = new GasUtils(
-      this.publicClient,
-      this.walletClient,
-      this.log,
-      {
-        bufferPercentage: 20n,
-        maxGwei: 500n,
-        minGwei: 1n,
-        priorityFeeGwei: 15n / 10n,
-      },
-      {
-        maxAttempts: 5,
-        checkIntervalMs: 30_000,
-        stallTimeMs: 120_000,
-      },
-    );
+    this.gasUtils = new GasUtils(this.publicClient, this.walletClient, this.log, config);
   }
 
   public getPayLoad() {
