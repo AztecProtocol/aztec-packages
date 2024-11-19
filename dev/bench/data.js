@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732040051517,
+  "lastUpdate": 1732041895661,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "aakoshh@gmail.com",
-            "name": "Akosh Farkash",
-            "username": "aakoshh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d2a84c405291b5a04576c133b0e74327d9092db1",
-          "message": "chore!: Remove `recursive` from ACIR format; add them to API and CLI (#9479)\n\nResolves https://github.com/noir-lang/noir/issues/6185\r\n\r\n* Remove the `recursive` field from ACIR formats and the `Circuit`\r\ndefinition\r\n* Add `--recursive` to `bb` CLI\r\n* Add `recursive` to `main.ts`, the backend API and Wasm\r\n\r\nThis is effectively undoing a lot of what was done\r\n[here](https://github.com/AztecProtocol/aztec-packages/commit/9c965a7c9e652dfeaba2f09152e5db287407473d#diff-2b9fe3a6f248b96aefc37782cc4c321567eed5dd10ab24472620a68c0fb4506bR29).\r\nInterestingly there many more Wasm methods that need the `recursive`\r\nparameter now: whereas previously only `acir_create_proof` and\r\n`acir_verify_proof` used it, now anything that calls `create_circuit`\r\nneeds it because circuit creation builds all the constraints already,\r\nwhich depend on this.\r\n\r\nTODO:\r\n- [x] Remove the `#[recursive]` attribute from Noir\r\n- [x] Should the \"prove and verify\" methods that return nothing have a\r\nrecursive parameter?\r\n- [x] Remove `#[recursive]` from `noir-protocol-circuits`\r\n- [x] Update `bb-prover` where it uses uses `noir-protocol-circuits` to\r\nuse the correct `recursive` flag\r\n- [x] Add `--recursive` to `cli.ts` under `bb-prover`\r\n- [x] Check all calls to `executeBB` and pass `--recursive` if it calls\r\na `bb` command that needs it\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>\r\nCo-authored-by: Tom French <tom@tomfren.ch>",
-          "timestamp": "2024-11-01T19:58:00Z",
-          "tree_id": "9be19d37b0941b763219f85bcd53ec9b720ce4d1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d2a84c405291b5a04576c133b0e74327d9092db1"
-        },
-        "date": 1730492756523,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29166.27423700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27761.464621000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5401.584049999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5093.1545510000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86413.061053,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86413063000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15172.872389999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15172872000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2509396337,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2509396337 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128267024,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128267024 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 142485989,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142485989 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b10f7f46755814cb8633cf55621faa8e9b37344",
+          "message": "chore: Revert \"feat: IPA Accumulator in Builder\" (#10036)\n\nReverts AztecProtocol/aztec-packages#9846 due to a failure in the\r\nprover-full test",
+          "timestamp": "2024-11-19T18:11:17Z",
+          "tree_id": "012c7b28f2a006125323501e13d42088d13c0537",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9b10f7f46755814cb8633cf55621faa8e9b37344"
+        },
+        "date": 1732041887710,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28686.36669899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27100.854763 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5340.372875999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5030.757033 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84108.95021899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84108951000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15130.150371,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15130151000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3057516737,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3057516737 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140582209,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140582209 ns\nthreads: 1"
           }
         ]
       }
