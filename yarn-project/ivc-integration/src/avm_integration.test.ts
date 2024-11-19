@@ -49,7 +49,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { MockPublicKernelCircuit, witnessGenMockPublicKernelCircuit } from './index.js';
+import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.js';
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
@@ -75,7 +75,7 @@ describe('AVM Integration', () => {
     const provingResult = await generateProof(
       bbBinaryPath,
       bbWorkingDirectory,
-      'mock-public-kernel',
+      'mock-public-base',
       Buffer.from(bytecode, 'base64'),
       recursive,
       witnessFileName,
@@ -127,7 +127,7 @@ describe('AVM Integration', () => {
     const vk = vkReader.readArray(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr);
     expect(vk.length).toBe(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
 
-    const witGenResult = await witnessGenMockPublicKernelCircuit({
+    const witGenResult = await witnessGenMockPublicBaseCircuit({
       verification_key: vk.map(x => x.toString()) as FixedLengthArray<
         string,
         typeof AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS
@@ -139,7 +139,7 @@ describe('AVM Integration', () => {
       >,
     });
 
-    await createHonkProof(witGenResult.witness, MockPublicKernelCircuit.bytecode);
+    await createHonkProof(witGenResult.witness, MockPublicBaseCircuit.bytecode);
 
     const verifyResult = await verifyProof(
       bbBinaryPath,

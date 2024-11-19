@@ -5,6 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, getProverEnvVars, proverClientConfigMappings } from '@aztec/prover-client';
 import {
@@ -30,6 +31,7 @@ export type ProverNodeConfig = ArchiverConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
+  DataStoreConfig &
   ProverCoordinationConfig &
   ProverBondManagerConfig &
   QuoteProviderConfig & {
@@ -77,6 +79,7 @@ const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
+  ...dataConfigMappings,
   ...archiverConfigMappings,
   ...proverClientConfigMappings,
   ...p2pConfigMappings,
@@ -91,6 +94,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
   return {
+    ...getDataConfigFromEnv(),
     ...getArchiverConfigFromEnv(),
     ...getProverEnvVars(),
     ...getP2PConfigFromEnv(),

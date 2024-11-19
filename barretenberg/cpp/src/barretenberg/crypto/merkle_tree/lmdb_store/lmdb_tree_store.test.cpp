@@ -102,6 +102,86 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
     }
 }
 
+TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
+{
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
+    uint64_t start_block = 647810461952355;
+    uint64_t num_blocks = 1000;
+    for (size_t i = 0; i < num_blocks; i++) {
+        BlockPayload blockData;
+        blockData.blockNumber = i + start_block;
+        blockData.root = VALUES[i];
+        blockData.size = 45 + (i * 97);
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        store.write_block_data(i + start_block, blockData, *transaction);
+
+        TreeMeta meta;
+        meta.committedSize = blockData.size;
+        meta.size = blockData.size;
+        meta.root = blockData.root;
+        meta.depth = 32;
+        meta.unfinalisedBlockHeight = i + start_block;
+        meta.name = "NullifierTree";
+        store.write_meta_data(meta, *transaction);
+        transaction->commit();
+    }
+
+    BlockPayload blockData;
+    for (size_t i = 0; i < num_blocks; i++) {
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        BlockPayload readBack;
+        bool success = store.read_block_data(i + start_block, readBack, *transaction);
+        EXPECT_TRUE(success);
+
+        blockData.blockNumber = i + start_block;
+        blockData.root = VALUES[i];
+        blockData.size = 45 + (i * 97);
+        EXPECT_EQ(readBack, blockData);
+    }
+
+    {
+        TreeMeta meta;
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        store.read_meta_data(meta, *transaction);
+
+        EXPECT_EQ(meta.committedSize, blockData.size);
+        EXPECT_EQ(meta.size, blockData.size);
+        EXPECT_EQ(meta.root, blockData.root);
+        EXPECT_EQ(meta.depth, 32);
+        EXPECT_EQ(meta.unfinalisedBlockHeight, blockData.blockNumber);
+        EXPECT_EQ(meta.name, "NullifierTree");
+    }
+}
+
+uint64_t serde_value(uint64_t value)
+{
+    std::vector<uint8_t> data = serialise_key(value);
+    uint64_t return_value = 0;
+    deserialise_key(data.data(), return_value);
+    return return_value;
+}
+
+TEST_F(LMDBTreeStoreTest, can_serde_64bit_values)
+{
+    union mapped {
+        uint64_t u64;
+        uint8_t arr[8];
+    };
+    mapped value1;
+    mapped value2;
+    value1.arr[0] = value2.arr[7] = 0x11;
+    value1.arr[1] = value2.arr[6] = 0x22;
+    value1.arr[2] = value2.arr[5] = 0x33;
+    value1.arr[3] = value2.arr[4] = 0x44;
+    value1.arr[4] = value2.arr[3] = 0x55;
+    value1.arr[5] = value2.arr[2] = 0x66;
+    value1.arr[6] = value2.arr[1] = 0x77;
+    value1.arr[7] = value2.arr[0] = 0x88;
+
+    EXPECT_EQ(value1.u64, serde_value(value1.u64));
+    EXPECT_EQ(value2.u64, serde_value(value2.u64));
+}
+
 TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
 {
     Indices indices;

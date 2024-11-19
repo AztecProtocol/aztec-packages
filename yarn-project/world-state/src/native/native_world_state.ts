@@ -24,7 +24,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import assert from 'assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -40,8 +40,16 @@ import {
   worldStateRevision,
 } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
+import { WorldStateVersion } from './world_state_version.js';
 
-const ROLLUP_ADDRESS_FILE = 'rollup_address';
+export const WORLD_STATE_VERSION_FILE = 'version';
+
+// A crude way of maintaining DB versioning
+// We don't currently have any method of performing data migrations
+// should the world state db structure change
+// For now we will track versions using this hardcoded value and delete
+// the state if a change is detected
+export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: Header | undefined;
@@ -59,19 +67,27 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     log = createDebugLogger('aztec:world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
-    const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
-    const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr.trim()) : undefined;
+    const worldStateDirectory = join(dataDir, 'world_state');
+    const versionFile = join(worldStateDirectory, WORLD_STATE_VERSION_FILE);
+    const storedWorldStateVersion = await WorldStateVersion.readVersion(versionFile);
 
-    if (currentRollupAddress && !rollupAddress.equals(currentRollupAddress)) {
-      log.warn('Rollup address changed, deleting database');
-      await rm(dataDir, { recursive: true, force: true });
+    if (!storedWorldStateVersion) {
+      log.warn('No world state version found, deleting world state directory');
+      await rm(worldStateDirectory, { recursive: true, force: true });
+    } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
+      log.warn('Rollup address changed, deleting world state directory');
+      await rm(worldStateDirectory, { recursive: true, force: true });
+    } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
+      log.warn('World state version change detected, deleting world state directory');
+      await rm(worldStateDirectory, { recursive: true, force: true });
     }
 
-    await mkdir(dataDir, { recursive: true });
-    await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
+    const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
 
-    const instance = new NativeWorldState(dataDir, dbMapSizeKb);
+    await mkdir(worldStateDirectory, { recursive: true });
+    await newWorldStateVersion.writeVersionFile(versionFile);
+
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb);
     const worldState = new this(instance, log, cleanup);
     try {
       await worldState.init();
