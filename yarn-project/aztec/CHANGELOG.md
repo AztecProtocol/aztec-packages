@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.63.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.62.0...aztec-package-v0.63.0) (2024-11-19)
+
+
+### Features
+
+* Extract gossipsub / discv5 dependency gauge prometheus metrics ([#9710](https://github.com/AztecProtocol/aztec-packages/issues/9710)) ([58e75cd](https://github.com/AztecProtocol/aztec-packages/commit/58e75cdcc13de19bf5c1aedf7e66ce16e8cd4aaf))
+
+
+### Bug Fixes
+
+* Telemetry stopping on shutdown ([#9740](https://github.com/AztecProtocol/aztec-packages/issues/9740)) ([23b8d8b](https://github.com/AztecProtocol/aztec-packages/commit/23b8d8b15e2a8f5473e6bfedf62e9f1b35c9919c))
+
+
+### Miscellaneous
+
+* Clean up data configuration ([#9973](https://github.com/AztecProtocol/aztec-packages/issues/9973)) ([b660739](https://github.com/AztecProtocol/aztec-packages/commit/b66073986827731ce59e6f962ff1fb051677a094))
+* Move epoch and slot durations to config ([#9861](https://github.com/AztecProtocol/aztec-packages/issues/9861)) ([bfd4f2c](https://github.com/AztecProtocol/aztec-packages/commit/bfd4f2ce49393c4629563c07a89f19ebaf9aaab2))
+* Revert "chore: Validate RPC inputs" ([#9875](https://github.com/AztecProtocol/aztec-packages/issues/9875)) ([dd83d52](https://github.com/AztecProtocol/aztec-packages/commit/dd83d520c9925f00de155bddf0cf95852c971995))
+* Token partial notes refactor pt. 2 - bridging ([#9600](https://github.com/AztecProtocol/aztec-packages/issues/9600)) ([d513099](https://github.com/AztecProtocol/aztec-packages/commit/d51309954ab4a5ae1c829c86185b02c156baf3c7))
+* Validate RPC inputs ([#9672](https://github.com/AztecProtocol/aztec-packages/issues/9672)) ([6554122](https://github.com/AztecProtocol/aztec-packages/commit/6554122bdcd6d3840d03fdf1e7896f3961021e1f)), closes [#9455](https://github.com/AztecProtocol/aztec-packages/issues/9455)
+* Validate RPC inputs reloaded ([#9878](https://github.com/AztecProtocol/aztec-packages/issues/9878)) ([70ab7c4](https://github.com/AztecProtocol/aztec-packages/commit/70ab7c4a905a33b518c773aa244f4a85064cfde3))
+
 ## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.61.0...aztec-package-v0.62.0) (2024-11-01)
 
 
