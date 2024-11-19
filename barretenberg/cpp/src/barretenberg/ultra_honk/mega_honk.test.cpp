@@ -5,7 +5,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -137,7 +137,6 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 {
     using Flavor = TypeParam;
     typename Flavor::CircuitBuilder builder;
-    using FF = Flavor::FF;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
 
@@ -169,14 +168,13 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
-    bb::proving_key_inspector::check_relation<UltraPermutationRelation<FF>>(proving_key->proving_key.polynomials,
-                                                                            proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
-    bb::proving_key_inspector::check_relation<UltraPermutationRelation<FF>>(proving_key_copy->proving_key.polynomials,
-                                                                            proving_key_copy->relation_parameters);
+
+    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
 }
 
