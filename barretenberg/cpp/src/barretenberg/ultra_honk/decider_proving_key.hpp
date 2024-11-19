@@ -20,7 +20,7 @@ namespace bb {
  * @details This is the equivalent of ω in the paper.
  */
 
-template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
+template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -186,7 +186,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     ASSERT(dyadic_circuit_size > max_tables_size);
 
                     // Allocate the table polynomials
-                    if constexpr (IsHonkFlavor<Flavor>) {
+                    if constexpr (IsUltraFlavor<Flavor>) {
                         for (auto& poly : proving_key.polynomials.get_tables()) {
                             poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                         }
