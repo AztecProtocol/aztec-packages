@@ -100,7 +100,7 @@ describe('e2e_lending_contract', () => {
       const mintAmount = 10000n;
       for (const asset of assets) {
         await Promise.all([
-          asset.methods.mint_public(lendingAccount.address, mintAmount).send().wait(),
+          asset.methods.mint_to_public(lendingAccount.address, mintAmount).send().wait(),
           mintTokensToPrivate(asset, wallet, lendingAccount.address, mintAmount),
         ]);
       }
@@ -201,7 +201,7 @@ describe('e2e_lending_contract', () => {
         .setPublicAuthWit(
           {
             caller: lendingContract.address,
-            action: collateralAsset.methods.transfer_public(
+            action: collateralAsset.methods.transfer_in_public(
               lendingAccount.address,
               lendingContract.address,
               depositAmount,
@@ -271,7 +271,7 @@ describe('e2e_lending_contract', () => {
       const nonce = Fr.random();
       await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce),
+        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP);
@@ -295,7 +295,7 @@ describe('e2e_lending_contract', () => {
       const nonce = Fr.random();
       await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce),
+        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP);

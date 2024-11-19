@@ -12,7 +12,6 @@ import {
   AvmPublicDataWriteTreeHint,
   type AztecAddress,
   CallContext,
-  type CombinedConstantData,
   type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
@@ -44,7 +43,6 @@ import {
   ReadRequest,
   SerializableContractInstance,
   TreeLeafReadRequest,
-  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -106,8 +104,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
+  public fork() {
+    return new PublicSideEffectTrace(this.sideEffectCounter);
   }
 
   public getCounter() {
@@ -430,8 +428,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    _enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     _publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -442,16 +438,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     throw new Error('Not implemented');
   }
 
-  public traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    _appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    _publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    _calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    _reverted: boolean,
-  ) {
+  public merge(_nestedTrace: this, _reverted: boolean = false) {
     throw new Error('Not implemented');
   }
 
@@ -518,23 +505,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     /** The call's results */
     _avmCallResults: AvmContractCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects {
-    throw new Error('Not implemented');
-  }
-
-  public toVMCircuitPublicInputs(
-    /** Constants. */
-    _constants: CombinedConstantData,
-    /** The call request that triggered public execution. */
-    _callRequest: PublicCallRequest,
-    /** How much gas was available for this public execution. */
-    _startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    _endGasLeft: Gas,
-    /** Transaction fee. */
-    _transactionFee: Fr,
-    /** The call's results */
-    _avmCallResults: AvmContractCallResult,
-  ): VMCircuitPublicInputs {
     throw new Error('Not implemented');
   }
 

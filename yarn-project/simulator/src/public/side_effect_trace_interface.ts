@@ -1,13 +1,11 @@
 import { type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
-  type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
   type NullifierLeafPreimage,
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   type SerializableContractInstance,
-  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -17,7 +15,8 @@ import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.j
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
-  fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
+  fork(): PublicSideEffectTraceInterface;
+  merge(nestedTrace: PublicSideEffectTraceInterface, reverted?: boolean): void;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
   tracePublicStorageRead(
@@ -94,23 +93,11 @@ export interface PublicSideEffectTraceInterface {
     functionName: string,
   ): void;
   traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,
     /** The call's calldata */
     calldata: Fr[],
     /** Did the call revert? */
-    reverted: boolean,
-  ): void;
-  traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
     reverted: boolean,
   ): void;
   toPublicEnqueuedCallExecutionResult(
@@ -133,19 +120,5 @@ export interface PublicSideEffectTraceInterface {
     /** Function name for logging */
     functionName: string,
   ): PublicFunctionCallResult;
-  toVMCircuitPublicInputs(
-    /** Constants. */
-    constants: CombinedConstantData,
-    /** The call request that triggered public execution. */
-    callRequest: PublicCallRequest,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
-    /** Transaction fee. */
-    transactionFee: Fr,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-  ): VMCircuitPublicInputs;
   getUnencryptedLogs(): UnencryptedL2Log[];
 }

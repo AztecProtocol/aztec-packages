@@ -27,7 +27,7 @@ template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, AggregationObject agg_obj)
 {
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     return verify_proof(stdlib_proof, agg_obj);
 }
 
@@ -117,8 +117,10 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
                                                libra_evaluations);
+
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();

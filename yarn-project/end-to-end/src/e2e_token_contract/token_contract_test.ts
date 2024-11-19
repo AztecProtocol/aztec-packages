@@ -46,7 +46,6 @@ export class TokenContractTest {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
     await this.snapshotManager.snapshot(
@@ -122,7 +121,7 @@ export class TokenContractTest {
         const amount = 10000n;
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(wallets[0].getAddress(), amount).send().wait();
+        await asset.methods.mint_to_public(wallets[0].getAddress(), amount).send().wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
         await mintTokensToPrivate(asset, wallets[0], wallets[0].getAddress(), amount);

@@ -1,13 +1,17 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
+import { ContractClassTxL2Logs, EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
 
 function shouldBehaveLikeTxL2Logs(
-  TxL2Logs: typeof EncryptedNoteTxL2Logs | typeof UnencryptedTxL2Logs | typeof EncryptedTxL2Logs,
+  TxL2Logs:
+    | typeof EncryptedNoteTxL2Logs
+    | typeof UnencryptedTxL2Logs
+    | typeof EncryptedTxL2Logs
+    | typeof ContractClassTxL2Logs,
 ) {
   describe(TxL2Logs.name, () => {
     it('can encode TxL2Logs to buffer and back', () => {
-      const l2Logs = TxL2Logs.random(4, 2);
+      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
 
       const buffer = l2Logs.toBuffer();
       const recovered = TxL2Logs.fromBuffer(buffer);
@@ -16,7 +20,7 @@ function shouldBehaveLikeTxL2Logs(
     });
 
     it('can encode TxL2Logs to JSON and back', () => {
-      const l2Logs = TxL2Logs.random(4, 2);
+      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
 
       const buffer = jsonStringify(l2Logs.toJSON());
       const recovered = TxL2Logs.fromJSON(JSON.parse(buffer));
@@ -25,7 +29,7 @@ function shouldBehaveLikeTxL2Logs(
     });
 
     it('getSerializedLength returns the correct length', () => {
-      const l2Logs = TxL2Logs.random(4, 2);
+      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
 
       const buffer = l2Logs.toBuffer();
       const recovered = TxL2Logs.fromBuffer(buffer);
@@ -39,7 +43,7 @@ function shouldBehaveLikeTxL2Logs(
     });
 
     it('getKernelLength returns the correct length', () => {
-      const l2Logs = TxL2Logs.random(4, 2);
+      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
 
       const expectedLength = l2Logs.functionLogs.map(l => l.getKernelLength()).reduce((a, b) => a + b, 0);
 
@@ -51,3 +55,4 @@ function shouldBehaveLikeTxL2Logs(
 shouldBehaveLikeTxL2Logs(EncryptedNoteTxL2Logs);
 shouldBehaveLikeTxL2Logs(UnencryptedTxL2Logs);
 shouldBehaveLikeTxL2Logs(EncryptedTxL2Logs);
+shouldBehaveLikeTxL2Logs(ContractClassTxL2Logs);

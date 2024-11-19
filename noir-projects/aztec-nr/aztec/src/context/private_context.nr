@@ -33,12 +33,11 @@ use dep::protocol_types::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_ENCRYPTED_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
-        PUBLIC_DISPATCH_SELECTOR,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PUBLIC_DISPATCH_SELECTOR,
     },
     header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -77,7 +76,7 @@ pub struct PrivateContext {
 
     pub note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
     pub encrypted_logs_hashes: BoundedVec<EncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
-    pub unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
@@ -107,7 +106,7 @@ impl PrivateContext {
             l2_to_l1_msgs: BoundedVec::new(),
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
+            contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }
@@ -196,7 +195,7 @@ impl PrivateContext {
             end_side_effect_counter: self.side_effect_counter,
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage(),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
         }
@@ -605,7 +604,7 @@ impl Empty for PrivateContext {
             historical_header: Header::empty(),
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
+            contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }

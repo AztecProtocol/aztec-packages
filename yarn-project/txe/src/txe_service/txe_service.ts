@@ -601,16 +601,16 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async getAppTaggingSecret(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
-    const secret = await this.typedOracle.getAppTaggingSecret(
+  async getAppTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
+    const secret = await this.typedOracle.getAppTaggingSecretAsSender(
       AztecAddress.fromField(fromSingle(sender)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
     return toForeignCallResult([toArray(secret.toFields())]);
   }
 
-  async syncNotes(recipient: ForeignCallSingle) {
-    await this.typedOracle.syncNotes(AztecAddress.fromField(fromSingle(recipient)));
+  async syncNotes() {
+    await this.typedOracle.syncNotes();
     return toForeignCallResult([]);
   }
 

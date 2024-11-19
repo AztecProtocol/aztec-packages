@@ -3,6 +3,7 @@ import { type ProverCoordination } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
@@ -25,7 +26,7 @@ import { QuoteSigner } from './quote-signer.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
-  config: ProverNodeConfig,
+  config: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
     log?: DebugLogger;

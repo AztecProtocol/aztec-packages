@@ -7,7 +7,6 @@ import {
   type Header,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
-  type PublicKernelCircuitPublicInputs,
   RevertCode,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
@@ -67,32 +66,6 @@ export type ProcessedTx = {
    */
   isEmpty: boolean;
 };
-
-export type RevertedTx = ProcessedTx & {
-  data: PublicKernelCircuitPublicInputs & {
-    reverted: true;
-  };
-
-  revertReason: SimulationError;
-};
-
-export function isRevertedTx(tx: ProcessedTx): tx is RevertedTx {
-  return !tx.txEffect.revertCode.isOK();
-}
-
-export function partitionReverts(txs: ProcessedTx[]): { reverted: RevertedTx[]; nonReverted: ProcessedTx[] } {
-  return txs.reduce(
-    ({ reverted, nonReverted }, tx) => {
-      if (isRevertedTx(tx)) {
-        reverted.push(tx);
-      } else {
-        nonReverted.push(tx);
-      }
-      return { reverted, nonReverted };
-    },
-    { reverted: [], nonReverted: [] } as ReturnType<typeof partitionReverts>,
-  );
-}
 
 /**
  * Represents a tx that failed to be processed by the sequencer public processor.
@@ -168,9 +141,11 @@ export function makeProcessedTxFromPrivateOnlyTx(
     data.end.noteEncryptedLogPreimagesLength,
     data.end.encryptedLogPreimagesLength,
     data.end.unencryptedLogPreimagesLength,
+    data.end.contractClassLogPreimagesLength,
     tx.noteEncryptedLogs,
     tx.encryptedLogs,
     tx.unencryptedLogs,
+    tx.contractClassLogs,
   );
 
   const gasUsed = {
@@ -217,6 +192,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
   const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
   // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
   const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
+  const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
 
   const txEffect = new TxEffect(
     revertCode,
@@ -230,9 +206,11 @@ export function makeProcessedTxFromTxWithPublicCalls(
     new Fr(noteEncryptedLogPreimagesLength),
     new Fr(encryptedLogPreimagesLength),
     new Fr(unencryptedLogPreimagesLength),
+    new Fr(contractClassLogPreimagesLength),
     tx.noteEncryptedLogs,
     tx.encryptedLogs,
     tx.unencryptedLogs,
+    tx.contractClassLogs,
   );
 
   return {

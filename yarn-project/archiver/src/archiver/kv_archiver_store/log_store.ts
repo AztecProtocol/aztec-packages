@@ -1,5 +1,6 @@
 import {
   type Body,
+  ContractClass2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -10,7 +11,7 @@ import {
   type LogFilter,
   LogId,
   LogType,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -30,6 +31,7 @@ export class LogStore {
   #logTagsByBlock: AztecMap<number, string[]>;
   #encryptedLogsByBlock: AztecMap<number, Buffer>;
   #unencryptedLogsByBlock: AztecMap<number, Buffer>;
+  #contractClassLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
   #log = createDebugLogger('aztec:archiver:log_store');
 
@@ -39,6 +41,8 @@ export class LogStore {
     this.#logTagsByBlock = db.openMap('archiver_log_tags_by_block');
     this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs_by_block');
     this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs_by_block');
+    this.#contractClassLogsByBlock = db.openMap('archiver_contract_class_logs_by_block');
+
     this.#logsMaxPageSize = logsMaxPageSize;
   }
 
@@ -80,7 +84,15 @@ export class LogStore {
           }
           this.#log.verbose(`Found tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
           const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-          currentLogs.push(new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, log).toBuffer());
+          currentLogs.push(
+            new TxScopedL2Log(
+              txHash,
+              dataStartIndexForTx,
+              block.number,
+              logType === 'unencryptedLogs',
+              log.data,
+            ).toBuffer(),
+          );
           taggedLogs.set(tag.toString(), currentLogs);
         } catch (err) {
           this.#log.warn(`Failed to add tagged log to store: ${err}`);
@@ -99,8 +111,7 @@ export class LogStore {
     const taggedLogsToAdd = blocks
       .flatMap(block => [
         this.#extractTaggedLogs(block, 'noteEncryptedLogs'),
-        // TODO: process unencrypted logs in #9794
-        // this.#extractTaggedLogs(block, 'unencryptedLogs'),
+        this.#extractTaggedLogs(block, 'unencryptedLogs'),
       ])
       .reduce((acc, val) => {
         for (const [tag, logs] of val.entries()) {
@@ -132,6 +143,7 @@ export class LogStore {
         void this.#noteEncryptedLogsByBlock.set(block.number, block.body.noteEncryptedLogs.toBuffer());
         void this.#encryptedLogsByBlock.set(block.number, block.body.encryptedLogs.toBuffer());
         void this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
+        void this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
       });
 
       return true;
@@ -204,14 +216,11 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.db.transaction(() =>
       tags
         .map(tag => this.#logsByTag.get(tag.toString()))
-        .map(
-          noteLogBuffers =>
-            noteLogBuffers?.map(noteLogBuffer => TxScopedEncryptedL2NoteLog.fromBuffer(noteLogBuffer)) ?? [],
-        ),
+        .map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
     );
   }
 
@@ -268,6 +277,72 @@ export class LogStore {
       const unencryptedLogsInBlock = UnencryptedL2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
+        maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+        if (maxLogsHit) {
+          this.#log.debug(`Max logs hit at block ${blockNumber}`);
+          break loopOverBlocks;
+        }
+      }
+    }
+
+    return { logs, maxLogsHit };
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): GetUnencryptedLogsResponse {
+    if (filter.afterLog) {
+      return this.#filterContractClassLogsBetweenBlocks(filter);
+    } else if (filter.txHash) {
+      return this.#filterContractClassLogsOfTx(filter);
+    } else {
+      return this.#filterContractClassLogsBetweenBlocks(filter);
+    }
+  }
+
+  #filterContractClassLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+    if (!filter.txHash) {
+      throw new Error('Missing txHash');
+    }
+
+    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
+    if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
+      return { logs: [], maxLogsHit: false };
+    }
+    const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber);
+    const contractClassLogsInBlock = contractClassLogsBuffer
+      ? ContractClass2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
+      : new ContractClass2BlockL2Logs([]);
+    const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
+
+    return { logs, maxLogsHit };
+  }
+
+  #filterContractClassLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+    const start =
+      filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
+    const end = filter.toBlock;
+
+    if (typeof end === 'number' && end < start) {
+      return {
+        logs: [],
+        maxLogsHit: true,
+      };
+    }
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+
+    let maxLogsHit = false;
+    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({ start, end })) {
+      const contractClassLogsInBlock = ContractClass2BlockL2Logs.fromBuffer(logBuffer);
+      for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.txLogs.length; txIndex++) {
+        const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);

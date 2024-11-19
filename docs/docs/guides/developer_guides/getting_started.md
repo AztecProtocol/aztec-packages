@@ -139,12 +139,12 @@ In the next step, let's mint some tokens!
 Call the public mint function like this:
 
 ```bash
-aztec-wallet send mint_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
+aztec-wallet send mint_to_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
 ```
 
 This takes
 
-- the function name as the argument, which is `mint_public`
+- the function name as the argument, which is `mint_to_public`
 - the `from` account (caller) which is `accounts:my-wallet`
 - the contract address, which is aliased as `contracts:testtoken` (or simply `testtoken`)
 - the args that the function takes, which is the account to mint the tokens into (`my-wallet`), and `amount` (`100`).
@@ -165,7 +165,7 @@ Transaction has been mined
  Status: success
  Block number: 17
  Block hash: 1e27d200600bc45ab94d467c230490808d1e7d64f5ee6cee5e94a08ee9580809
-Transaction hash stored in database with aliases last & mint_public-9044
+Transaction hash stored in database with aliases last & mint_to_public-9044
 ```
 
 You can double-check by calling the function that checks your public account balance:
@@ -182,25 +182,16 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll shield a token (moving it from public to private state), and check our private and public balance.
-
-First we need to generate a secret and secret hash with the alias `shield`:
+In the following steps, we'll moving some tokens from public to private state, and check our private and public balance.
 
 ```bash
-aztec-wallet create-secret -a shield
+aztec-wallet send transfer_to_private --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 25
 ```
 
-Call the `shield` function like this:
+The arguments for `transfer_to_private` function are:
 
-```bash
-aztec-wallet send shield --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 25 secrets:shield:hash 0
-```
-
-This takes the same parameters as our previous `send` call, with the arguments for `shield` function which are:
-
-- the number of tokens to shield (`25`)
-- a `secret_hash` (`SECRET_HASH` which has been derived from a secret that you generated in the CLI)
-- a `nonce` (`0` in this case).
+- the account address to transfer to
+- the amount of tokens to send to private
 
 A successful call should print something similar to what you've seen before.
 
@@ -214,30 +205,6 @@ This should print
 
 ```bash
 Simulation result:  75n
-```
-
-Now we will need to add these shielded tokens into our account's environment so that we have the correct information to claim them.
-
-```bash
-aztec-wallet add-note TransparentNote pending_shields --contract-address testtoken --transaction-hash last --address accounts:my-wallet --body 25 secrets:shield:hash
-```
-
-This takes
-
-- the type of note you are claiming (`TransparentNote`)
-- the name of the storage (`pending_shields`)
-- the contract address
-- the transaction hash the note was created in (automatically aliased as `last`)
-- the address to claim the note into (`accounts:my-wallet`)
-
-Don't worry if you don't understand what `TransparentNote` or `add-note` mean just yet. When you follow the tutorials, you'll learn more.
-
-A successful result will not print anything.
-
-Now you can redeem the shielded tokens:
-
-```bash
-aztec-wallet send redeem_shield --contract-address testtoken --args accounts:my-wallet 25 secrets:shield --from accounts:my-wallet
 ```
 
 And then call `balance_of_private` to check that you have your tokens!

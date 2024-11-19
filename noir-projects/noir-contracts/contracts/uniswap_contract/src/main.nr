@@ -62,7 +62,7 @@ contract Uniswap {
 
         // Transfer funds to this contract
         Token::at(input_asset)
-            .transfer_public(
+            .transfer_in_public(
                 sender,
                 context.this_address(),
                 input_amount,
