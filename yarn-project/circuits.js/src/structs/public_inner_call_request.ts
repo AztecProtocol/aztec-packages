@@ -6,6 +6,7 @@ import { inspect } from 'util';
 
 import { PublicCallStackItemCompressed } from './public_call_stack_item_compressed.js';
 
+// TO BE REMOVED
 /**
  * Represents a request to call a public function.
  */

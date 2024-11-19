@@ -137,7 +137,7 @@ impl PublicBaseRollupInputs {
         // }
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
         // TODO: Deprecate KernelData.
-        // Temporary workaround to create KernelCircuitPublicInputs from PublicKernelCircuitPublicInputs and AvmCircuitPublicInputs
+        // Temporary workaround to create KernelCircuitPublicInputs from PrivateToPublicKernelCircuitPublicInputs and AvmCircuitPublicInputs
         // so that we don't have to modify base_rollup_inputs.
         let public_inputs = self.generate_kernel_circuit_public_inputs();
 

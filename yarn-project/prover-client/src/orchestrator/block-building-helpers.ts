@@ -59,7 +59,7 @@ import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/seri
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -100,11 +100,10 @@ export async function buildBaseRollupHints(
 
   // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
-  const hintsBuilder = new HintsBuilder(db);
   const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
   const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
     ? PublicDataHint.empty()
-    : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
+    : await getPublicDataHint(db, leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -186,6 +185,26 @@ export async function buildBaseRollupHints(
     archiveRootMembershipWitness,
     constants,
   });
+}
+
+async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint) {
+  const { index } = (await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot)) ?? {};
+  if (index === undefined) {
+    throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
+  }
+
+  const siblingPath = await db.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(MerkleTreeId.PUBLIC_DATA_TREE, index);
+  const membershipWitness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, siblingPath.toTuple());
+
+  const leafPreimage = (await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, index)) as PublicDataTreeLeafPreimage;
+  if (!leafPreimage) {
+    throw new Error(`Cannot find the leaf preimage for public data tree at index ${index}.`);
+  }
+
+  const exists = leafPreimage.slot.toBigInt() === leafSlot;
+  const value = exists ? leafPreimage.value : Fr.ZERO;
+
+  return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
 
 export function createMergeRollupInputs(

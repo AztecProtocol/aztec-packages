@@ -1,5 +1,4 @@
 pub mod note_hash_read_request_hints_builder;
-pub mod nullifier_non_existent_read_request_hints_builder;
 pub mod nullifier_read_request_hints_builder;
 
 pub use note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder;
