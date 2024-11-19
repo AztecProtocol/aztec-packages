@@ -626,8 +626,9 @@ void prove_tube(const std::string& output_path)
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
-    Verifier tube_verifier(tube_verification_key);
-    bool verified = tube_verifier.verify_proof(tube_proof);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    Verifier tube_verifier(tube_verification_key, ipa_verification_key);
+    bool verified = tube_verifier.verify_proof(tube_proof, builder->ipa_proof);
     info("Tube proof verification: ", verified);
 }
 
@@ -1146,6 +1147,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     Verifier verifier{ vk, ipa_verification_key };
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
+    // verifier.
+    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+        vk->contains_ipa_claim = false;
+    }
     bool verified = verifier.verify_proof(proof);
 
     vinfo("verified: ", verified);
@@ -1492,6 +1498,7 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target");
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
+            init_grumpkin_crs(1 << 16);
             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
             gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);

@@ -131,7 +131,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Natively verify the tube proof
     auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
-    UltraVerifier native_verifier(native_vk);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    UltraVerifier native_verifier(native_vk, ipa_verification_key);
     EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
 
     // Construct a base rollup circuit that recursively verifies the tube proof.
