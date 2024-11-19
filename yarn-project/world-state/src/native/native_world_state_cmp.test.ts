@@ -48,7 +48,6 @@ describe('NativeWorldState', () => {
   afterAll(async () => {
     await legacyStore.delete();
     await rm(nativeDataDir, { recursive: true });
-    await rm(legacyDataDir, { recursive: true });
   });
 
   beforeAll(async () => {
