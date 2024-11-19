@@ -14,7 +14,7 @@ import {
   makeRootParityInputs,
 } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { jest } from '@jest/globals';
 
@@ -30,7 +30,7 @@ beforeAll(() => {
 describe.each([
   () => ({ database: new InMemoryDatabase(), cleanup: undefined }),
   () => {
-    const store = AztecLmdbStore.open(undefined, true);
+    const store = openTmpStore(true);
     const database = new PersistedProvingJobDatabase(store);
     const cleanup = () => store.close();
     return { database, cleanup };
