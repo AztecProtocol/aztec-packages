@@ -1,8 +1,12 @@
-import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { type Blob } from '@aztec/foundation/blob';
+import { makeTuple } from '@aztec/foundation/array';
+import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
+import { Blob } from '@aztec/foundation/blob';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { BLOBS_PER_BLOCK } from '../constants.gen.js';
 
 /**
  * Public inputs required to be passed from our rollup circuits to verify a blob.
@@ -19,6 +23,10 @@ export class BlobPublicInputs {
 
   static empty(): BlobPublicInputs {
     return new BlobPublicInputs(Fr.ZERO, 0n, [Fr.ZERO, Fr.ZERO]);
+  }
+
+  isEmpty(): boolean {
+    return this.z.isZero() && this.y == 0n && this.kzgCommitment[0].isZero() && this.kzgCommitment[1].isZero();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): BlobPublicInputs {
@@ -77,5 +85,69 @@ export class BlobPublicInputs {
       this.kzgCommitment[0].equals(other.kzgCommitment[0]) &&
       this.kzgCommitment[1].equals(other.kzgCommitment[1])
     );
+  }
+}
+
+// NB: it is much cleaner throughout the protocol circuits to define this struct rather than use a nested array.
+// Once we accumulate blob inputs, it should be removed, and we just use BlobPublicInputs::accumulate everywhere.
+export class BlockBlobPublicInputs {
+  constructor(public inner: Tuple<BlobPublicInputs, typeof BLOBS_PER_BLOCK>) {}
+
+  static empty(): BlockBlobPublicInputs {
+    return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, BlobPublicInputs.empty));
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): BlockBlobPublicInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new BlockBlobPublicInputs(reader.readArray(BLOBS_PER_BLOCK, BlobPublicInputs));
+  }
+
+  toBuffer() {
+    return serializeToBuffer(...BlockBlobPublicInputs.getFields(this));
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): BlockBlobPublicInputs {
+    const reader = FieldReader.asReader(fields);
+    return new BlockBlobPublicInputs(reader.readArray(BLOBS_PER_BLOCK, BlobPublicInputs));
+  }
+
+  toFields() {
+    return this.inner.map(i => i.toFields()).flat();
+  }
+
+  static getFields(fields: FieldsOf<BlockBlobPublicInputs>) {
+    return [fields.inner] as const;
+  }
+
+  static fromBlobs(inputs: Blob[]): BlockBlobPublicInputs {
+    const inner = makeTuple(BLOBS_PER_BLOCK, BlobPublicInputs.empty);
+    if (inputs.length > BLOBS_PER_BLOCK) {
+      throw new Error(`Can only fit ${BLOBS_PER_BLOCK} in one BlockBlobPublicInputs instance (given ${inputs.length})`);
+    }
+    inputs.forEach((input, i) => {
+      inner[i] = BlobPublicInputs.fromBlob(input);
+    });
+    return new BlockBlobPublicInputs(inner);
+  }
+
+  getBlobsHash() {
+    const blobHashes = this.inner.map(item =>
+      item.isEmpty() ? Buffer.alloc(0) : Blob.getEthVersionedBlobHash(item.commitmentToBuffer()),
+    );
+    return sha256Trunc(serializeToBuffer(blobHashes));
+  }
+
+  // The below is used to send to L1 for proof verification
+  toString() {
+    const nonEmptyBlobs = this.inner.filter(item => !item.isEmpty());
+    // Write the number of blobs for L1 to verify
+    let buf = Buffer.alloc(1);
+    buf.writeUInt8(nonEmptyBlobs.length);
+    // Using standard toBuffer() does not correctly encode the commitment
+    // On L1, it's a 48 byte number, which we convert to 2 fields for use in the circuits
+    nonEmptyBlobs.forEach(blob => {
+      buf = Buffer.concat([buf, blob.z.toBuffer(), toBufferBE(blob.y, 32), blob.commitmentToBuffer()]);
+    });
+    return buf.toString('hex');
   }
 }

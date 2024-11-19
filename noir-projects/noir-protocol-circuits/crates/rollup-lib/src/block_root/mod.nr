@@ -42,7 +42,7 @@ mod tests {
     }
 
     #[test]
-    fn check_blob() {
+    unconstrained fn check_blob() {
         let inputs = default_block_root_rollup_inputs();
         let outputs = inputs.block_root_rollup_circuit();
 
@@ -56,15 +56,19 @@ mod tests {
 
         let hashed_tx_effects = expected_sponge.squeeze();
         let expected_z = Poseidon2::hash(
-            [hashed_tx_effects, inputs.blob_commitment[0], inputs.blob_commitment[1]],
+            [
+                hashed_tx_effects,
+                inputs.blob_commitments[0].inner[0],
+                inputs.blob_commitments[0].inner[1],
+            ],
             3,
         );
 
-        assert(outputs.blob_public_inputs[0].z == expected_z);
+        assert(outputs.blob_public_inputs[0].inner[0].z == expected_z);
     }
 
     #[test(should_fail_with = "block's first blob sponge was not empty")]
-    fn check_blob_empty() {
+    unconstrained fn check_blob_empty() {
         let mut inputs = default_block_root_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob.fields =
             1;

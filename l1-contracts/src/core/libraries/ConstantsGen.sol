@@ -95,6 +95,7 @@ library Constants {
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant FIELDS_PER_BLOB = 4096;
+  uint256 internal constant BLOBS_PER_BLOCK = 3;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_BYTES = 576;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
@@ -236,8 +237,8 @@ library Constants {
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 605;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 51;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 282;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 268;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 666;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 652;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

@@ -27,7 +27,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
 
-  private readonly txs: ProcessedTx[] = [];
+  private txs: ProcessedTx[] = [];
 
   private readonly logger = createDebugLogger('aztec:sequencer-client:block_builder_light');
 
@@ -37,6 +37,9 @@ export class LightweightBlockBuilder implements BlockBuilder {
     this.logger.verbose('Starting new block', { globalVariables, l1ToL2Messages });
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    this.txs = [];
+    this.numTxs = 0;
+    this.spongeBlobState = undefined;
 
     // Update L1 to L2 tree
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.l1ToL2Messages!);

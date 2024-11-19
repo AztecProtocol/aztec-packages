@@ -59,7 +59,7 @@ interface IRollup {
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _aggregationObject,
+    bytes calldata _blobPublicInputsAndAggregationObject,
     bytes calldata _proof
   ) external;
 
@@ -117,7 +117,7 @@ interface IRollup {
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputsAndAggregationObject
   ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

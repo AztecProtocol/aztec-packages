@@ -136,6 +136,7 @@ pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
+pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
@@ -515,12 +516,12 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
+    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
 // + 8 for previous_block_hash, end_block_hash, end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 8
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
+    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;

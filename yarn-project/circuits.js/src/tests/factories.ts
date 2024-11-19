@@ -26,6 +26,7 @@ import {
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
+  BLOBS_PER_BLOCK,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   CallContext,
@@ -164,6 +165,7 @@ import {
   AvmPublicDataWriteTreeHint,
   BaseRollupHints,
   BlobPublicInputs,
+  BlockBlobPublicInputs,
   CountedPublicCallRequest,
   EnqueuedCallData,
   Poseidon2Sponge,
@@ -943,6 +945,16 @@ export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
 }
 
 /**
+ * Makes arbitrary block blob public inputs.
+ * Note: will not verify inside the circuit.
+ * @param seed - The seed to use for generating the blob inputs.
+ * @returns A block blob public inputs instance.
+ */
+export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
+  return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, () => makeBlobPublicInputs(seed)));
+}
+
+/**
  * Makes arbitrary eth address.
  * @param seed - The seed to use for generating the eth address.
  * @returns An eth address.
@@ -1024,7 +1036,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     fr(seed + 0x800),
     fr(seed + 0x801),
     fr(seed + 0x900),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlobPublicInputs(seed), 0x100),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x100),
   );
 }
 
@@ -1094,9 +1106,8 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     fr(seed + 0x2400),
     fr(seed + 0x2500),
-    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    makeTuple(FIELDS_PER_BLOB, fr, 0x2400),
-    makeTuple(2, fr, 0x2500),
+    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2400),
+    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2500)),
     fr(seed + 0x2600),
   );
 }
@@ -1174,7 +1185,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x100),
     fr(seed + 0x101),
     fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlobPublicInputs(seed), 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x300),
   );
 }
 

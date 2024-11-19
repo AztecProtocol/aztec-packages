@@ -7,9 +7,11 @@ import {
   type AvmCircuitPublicInputs,
   type AvmProofData,
   AztecAddress,
+  BLOBS_PER_BLOCK,
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   BlobPublicInputs,
+  BlockBlobPublicInputs,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -166,7 +168,9 @@ import type {
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
   BigNum,
+  BlobCommitment as BlobCommitmentNoir,
   BlobPublicInputs as BlobPublicInputsNoir,
+  BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
@@ -2082,6 +2086,17 @@ export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
 }
 
 /**
+ * Maps blob commitment to noir.
+ * @param commitment - The circuits.js commitment.
+ * @returns The noir commitment.
+ */
+export function mapBlobCommitmentToNoir(commitment: [Fr, Fr]): BlobCommitmentNoir {
+  return {
+    inner: mapTuple(commitment, mapFieldToNoir),
+  };
+}
+
+/**
  * Maps blob public inputs to noir.
  * @param blobPublicInputs - The circuits.js blob public inputs.
  * @returns The noir blob public inputs.
@@ -2090,7 +2105,7 @@ export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): B
   return {
     z: mapFieldToNoir(blobPublicInputs.z),
     y: mapBLS12BigNumToNoir(blobPublicInputs.y),
-    kzg_commitment: mapTuple(blobPublicInputs.kzgCommitment, mapFieldToNoir),
+    kzg_commitment: mapBlobCommitmentToNoir(blobPublicInputs.kzgCommitment),
   };
 }
 
@@ -2103,7 +2118,33 @@ export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNo
   return new BlobPublicInputs(
     mapFieldFromNoir(blobPublicInputs.z),
     mapBLS12BigNumFromNoir(blobPublicInputs.y),
-    mapTupleFromNoir(blobPublicInputs.kzg_commitment, 2, mapFieldFromNoir),
+    mapTupleFromNoir(blobPublicInputs.kzg_commitment.inner, 2, mapFieldFromNoir),
+  );
+}
+
+/**
+ * Maps block blob public inputs to noir.
+ * @param blockBlobPublicInputs - The circuits.js block blob public inputs.
+ * @returns The noir block blob public inputs.
+ */
+export function mapBlockBlobPublicInputsToNoir(
+  blockBlobPublicInputs: BlockBlobPublicInputs,
+): BlockBlobPublicInputsNoir {
+  return {
+    inner: mapTuple(blockBlobPublicInputs.inner, mapBlobPublicInputsToNoir),
+  };
+}
+
+/**
+ * Maps block blob public inputs from noir.
+ * @param blockBlobPublicInputs - The noir block blob public inputs.
+ * @returns The circuits.js block blob public inputs.
+ */
+export function mapBlockBlobPublicInputsFromNoir(
+  blockBlobPublicInputs: BlockBlobPublicInputsNoir,
+): BlockBlobPublicInputs {
+  return new BlockBlobPublicInputs(
+    mapTupleFromNoir(blockBlobPublicInputs.inner, BLOBS_PER_BLOCK, mapBlobPublicInputsFromNoir),
   );
 }
 
@@ -2176,7 +2217,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
-    blob_public_inputs: mapTuple(blockRootOrBlockMergePublicInputs.blobPublicInputs, mapBlobPublicInputsToNoir),
+    blob_public_inputs: mapTuple(blockRootOrBlockMergePublicInputs.blobPublicInputs, mapBlockBlobPublicInputsToNoir),
   };
 }
 
@@ -2298,7 +2339,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapTupleFromNoir(
       blockRootOrBlockMergePublicInputs.blob_public_inputs,
       AZTEC_MAX_EPOCH_DURATION,
-      mapBlobPublicInputsFromNoir,
+      mapBlockBlobPublicInputsFromNoir,
     ),
   );
 }
@@ -2400,9 +2441,9 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    blob_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
-    blob_commitment: mapTuple(rootRollupInputs.blobCommitment, mapFieldToNoir),
-    blob_hash: mapFieldToNoir(rootRollupInputs.blobHash),
+    blobs_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
+    blob_commitments: mapTuple(rootRollupInputs.blobCommitments, mapBlobCommitmentToNoir),
+    blobs_hash: mapFieldToNoir(rootRollupInputs.blobsHash),
   };
 }
 
@@ -2481,7 +2522,11 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
-    mapTupleFromNoir(rootRollupPublicInputs.blob_public_inputs, AZTEC_MAX_EPOCH_DURATION, mapBlobPublicInputsFromNoir),
+    mapTupleFromNoir(
+      rootRollupPublicInputs.blob_public_inputs,
+      AZTEC_MAX_EPOCH_DURATION,
+      mapBlockBlobPublicInputsFromNoir,
+    ),
   );
 }
 
@@ -2535,7 +2580,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
     num_txs: mapFieldToNoir(contentCommitment.numTxs),
-    blob_hash: mapSha256HashToNoir(contentCommitment.blobHash),
+    blobs_hash: mapSha256HashToNoir(contentCommitment.blobsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
   };
@@ -2548,7 +2593,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
     mapFieldFromNoir(contentCommitment.num_txs),
-    mapSha256HashFromNoir(contentCommitment.blob_hash),
+    mapSha256HashFromNoir(contentCommitment.blobs_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),
   );

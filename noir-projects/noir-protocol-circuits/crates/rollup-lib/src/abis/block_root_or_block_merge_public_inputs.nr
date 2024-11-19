@@ -8,7 +8,7 @@ use dep::types::{
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
-use blob::blob_public_inputs::BlobPublicInputs;
+use blob::blob_public_inputs::BlockBlobPublicInputs;
 
 pub struct FeeRecipient {
     recipient: EthAddress,
@@ -54,7 +54,7 @@ pub struct BlockRootOrBlockMergePublicInputs {
     vk_tree_root: Field, // Root of allowed vk tree
     protocol_contract_tree_root: Field, // Root of protocol contract tree
     prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-    blob_public_inputs: [BlobPublicInputs; AZTEC_MAX_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
+    blob_public_inputs: [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -77,7 +77,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
             prover_id: 0,
-            blob_public_inputs: [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
+            blob_public_inputs: [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
         }
     }
 }
@@ -147,8 +147,8 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             protocol_contract_tree_root: reader.read(),
             prover_id: reader.read(),
             blob_public_inputs: reader.read_struct_array(
-                BlobPublicInputs::deserialize,
-                [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
+                BlockBlobPublicInputs::deserialize,
+                [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
             ),
         };
 

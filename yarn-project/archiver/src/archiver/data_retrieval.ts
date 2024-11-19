@@ -175,12 +175,14 @@ async function getBlockFromRollupTx(
   }
 
   // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
-  const blobCheck = new Blob(blockFields);
-  if (blobCheck.getEthBlobEvaluationInputs() !== blobInputs) {
+  const blobCheck = Blob.getBlobs(blockFields);
+  if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
     // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
     // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.
     throw new Error(
-      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${blobCheck.getEthBlobEvaluationInputs()} \nGot: ${blobInputs}`,
+      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${Blob.getEthBlobEvaluationInputs(
+        blobCheck,
+      )} \nGot: ${blobInputs}`,
     );
   }
 
@@ -291,7 +293,7 @@ export async function retrieveL2ProofsFromRollup(
 export type SubmitBlockProof = {
   archiveRoot: Fr;
   proverId: Fr;
-  aggregationObject: Buffer;
+  blobPublicInputsAndAggregationObject: Buffer;
   proof: Proof;
 };
 
@@ -314,12 +316,12 @@ export async function getProofFromSubmitProofTx(
 
   let proverId: Fr;
   let archiveRoot: Fr;
-  let aggregationObject: Buffer;
+  let blobPublicInputsAndAggregationObject: Buffer;
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
     const [_epochSize, nestedArgs, _fees, aggregationObjectHex, proofHex] = args!;
-    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
+    blobPublicInputsAndAggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
     proverId = Fr.fromString(nestedArgs[6]);
     archiveRoot = Fr.fromString(nestedArgs[1]);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
@@ -333,7 +335,7 @@ export async function getProofFromSubmitProofTx(
 
   return {
     proverId,
-    aggregationObject,
+    blobPublicInputsAndAggregationObject,
     archiveRoot,
     proof,
   };

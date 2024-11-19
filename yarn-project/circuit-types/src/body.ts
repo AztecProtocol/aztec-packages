@@ -1,4 +1,6 @@
 import { type Fr } from '@aztec/circuits.js';
+import { Blob } from '@aztec/foundation/blob';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -103,6 +105,17 @@ export class Body {
   txEffects: ${inspect(this.txEffects)},
   emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
 }`;
+  }
+
+  /**
+   * Computes the blobsHash as used in the header.
+   * This hash is also computed in the Rollup contract.
+   * @returns The blobs hash.
+   */
+  getBlobsHash() {
+    const blobs = Blob.getBlobs(this.toBlobFields());
+    const blobHashesBuffer = serializeToBuffer(blobs.map(b => b.getEthVersionedBlobHash()));
+    return sha256Trunc(blobHashesBuffer);
   }
 
   get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {

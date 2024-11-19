@@ -3,6 +3,8 @@ use types::constants::FIELDS_PER_BLOB;
 
 type F = BigNum<3, 255, BLS12_381_Fr_Params>;
 
+// TODO(#9982): Delete unconstrained_config.nr and go back to using this file - calculating ROOTS in unconstrained is insecure.
+
 global LOG_FIELDS_PER_BLOB: u32 = 12;
 global EXTRA_FIELDS_PER_BLOB: u32 = 16; // 16 = floor(4096 FIELDS_PER_BLOB / 254 noir_field_bits), wasting only 32 bits.
 global NOIR_FIELDS_PER_BLOB: u32 = FIELDS_PER_BLOB + EXTRA_FIELDS_PER_BLOB;

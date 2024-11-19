@@ -5,13 +5,13 @@ use crate::{
     },
     components,
 };
-use blob::{blob::evaluate_blob, blob_public_inputs::BlobPublicInputs};
+use blob::{blob::evaluate_blobs, blob_public_inputs::{BlobCommitment, BlockBlobPublicInputs}};
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
+        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK, FIELDS_PER_BLOB,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PRIVATE_BASE_ROLLUP_VK_INDEX,
         PUBLIC_BASE_ROLLUP_VK_INDEX,
     },
@@ -49,13 +49,12 @@ pub struct BlockRootRollupInputs {
     prover_id: Field,
     // Fields for blob verification made of all tx effects in this block
     // (will likely change to be accumulated and sent up to the final root)
-    // TODO(Miranda): Temporarily working with one blob to ensure things run
-    blob_fields: [Field; FIELDS_PER_BLOB],
-    // see blob/src/main.nr -> main() - this is used for creating the challenge z
-    blob_commitment: [Field; 2],
-    // The EVM blob hash, can be injected here as the contract check its validity vs the blob_public_inputs below
-    // NB: to fit it into a field, we remove the first byte denoting the VERSIONED_HASH_VERSION_KZG
-    blob_hash: Field,
+    blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    // see blob/src/main.nr -> main() -  these are used for creating the challenge z
+    blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
+    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract check its validity vs the blob_public_inputs below
+    // NB: to fit it into a field, we truncate to 31 bytes
+    blobs_hash: Field,
 }
 
 impl BlockRootRollupInputs {
@@ -100,7 +99,7 @@ impl BlockRootRollupInputs {
 
         let content_commitment = ContentCommitment {
             num_txs: (left.num_txs + right.num_txs) as Field,
-            blob_hash: self.blob_hash,
+            blobs_hash: self.blobs_hash,
             in_hash: self.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: components::compute_out_hash(self.previous_rollup_data),
         };
@@ -131,10 +130,10 @@ impl BlockRootRollupInputs {
         fee_arr[0] =
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-        blob_public_inputs[0] = evaluate_blob(
-            self.blob_fields,
-            self.blob_commitment,
+        let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
+        blob_public_inputs[0] = evaluate_blobs(
+            self.blobs_fields,
+            self.blob_commitments,
             right.end_sponge_blob,
         );
 
@@ -167,9 +166,9 @@ impl Empty for BlockRootRollupInputs {
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
             prover_id: 0,
-            blob_fields: [0; FIELDS_PER_BLOB],
-            blob_commitment: [0; 2],
-            blob_hash: 0,
+            blobs_fields: [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+            blob_commitments: [BlobCommitment::empty(); BLOBS_PER_BLOCK],
+            blobs_hash: 0,
         }
     }
 }

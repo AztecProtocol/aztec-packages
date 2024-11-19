@@ -156,7 +156,7 @@ export class Header {
     return `Header {
   lastArchive: ${inspect(this.lastArchive)},
   contentCommitment.numTxs: ${this.contentCommitment.numTxs.toNumber()},
-  contentCommitment.blobHash: ${this.contentCommitment.blobHash.toString('hex')},
+  contentCommitment.blobsHash: ${this.contentCommitment.blobsHash.toString('hex')},
   contentCommitment.inHash: ${this.contentCommitment.inHash.toString('hex')},
   contentCommitment.outHash: ${this.contentCommitment.outHash.toString('hex')},
   state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},

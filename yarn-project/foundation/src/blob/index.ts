@@ -52,6 +52,10 @@ export class Blob {
   constructor(
     /** All fields to be broadcast in the blob. */
     fields: Fr[],
+    /** If we want to broadcast more fields than fit into a blob, we hash those and used it as the fieldsHash across all blobs.
+     * This is much simpler and cheaper in the circuit to do, but MUST BE CHECKED before injecting here.
+     */
+    multiBlobFieldsHash?: Fr,
   ) {
     if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
       throw new Error(
@@ -60,7 +64,7 @@ export class Blob {
     }
     this.data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
-    this.fieldsHash = poseidon2Hash(fields);
+    this.fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : poseidon2Hash(fields);
     this.commitment = Buffer.from(blobToKzgCommitment(this.data));
     this.challengeZ = poseidon2Hash([this.fieldsHash, ...this.commitmentToFields()]);
     const res = computeKzgProof(this.data, this.challengeZ.toBuffer());
@@ -76,17 +80,15 @@ export class Blob {
     return [new Fr(this.commitment.subarray(0, 31)), new Fr(this.commitment.subarray(31, 48))];
   }
 
-  // Returns ethereum's blob hash WITHOUT the prefixed version
-  // We use this in the circuit since it can fit in a field.
-  getEthBlobHash(): Buffer {
+  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
+  getEthVersionedBlobHash(): Buffer {
     const hash = sha256(this.commitment);
-    hash[0] = 0;
+    hash[0] = VERSIONED_HASH_VERSION_KZG;
     return hash;
   }
 
-  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
-  getEthVersionedBlobHash(): Buffer {
-    const hash = this.getEthBlobHash();
+  static getEthVersionedBlobHash(commitment: Buffer): Buffer {
+    const hash = sha256(commitment);
     hash[0] = VERSIONED_HASH_VERSION_KZG;
     return hash;
   }
@@ -109,10 +111,42 @@ export class Blob {
     return `0x${buf.toString('hex')}`;
   }
 
+  static getEthBlobEvaluationInputs(blobs: Blob[]): `0x${string}` {
+    let buf = Buffer.alloc(0);
+    blobs.forEach(blob => {
+      buf = Buffer.concat([
+        buf,
+        blob.getEthVersionedBlobHash(),
+        blob.challengeZ.toBuffer(),
+        blob.evaluationY,
+        blob.commitment,
+        blob.proof,
+      ]);
+    });
+    // For multiple blobs, we prefix the number of blobs:
+    const lenBuf = Buffer.alloc(1);
+    lenBuf.writeUint8(blobs.length);
+    buf = Buffer.concat([lenBuf, buf]);
+    return `0x${buf.toString('hex')}`;
+  }
+
   static getViemKzgInstance() {
     return {
       blobToKzgCommitment: cKzg.blobToKzgCommitment,
       computeBlobKzgProof: cKzg.computeBlobKzgProof,
     };
+  }
+
+  // Returns as many blobs as we require to broadcast the given fields
+  // Assumes we share the fields hash between all blobs
+  static getBlobs(fields: Fr[]): Blob[] {
+    const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
+    const multiBlobFieldsHash = poseidon2Hash(fields);
+    const res = [];
+    for (let i = 0; i < numBlobs; i++) {
+      const end = fields.length < (i + 1) * FIELD_ELEMENTS_PER_BLOB ? fields.length : (i + 1) * FIELD_ELEMENTS_PER_BLOB;
+      res.push(new Blob(fields.slice(i * FIELD_ELEMENTS_PER_BLOB, end), multiBlobFieldsHash));
+    }
+    return res;
   }
 }

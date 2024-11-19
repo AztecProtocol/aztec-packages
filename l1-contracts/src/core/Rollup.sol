@@ -10,6 +10,7 @@ import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -52,14 +53,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slotNumber;
   }
 
-  // Blob public inputs are stored when we publish blocks to link DA to a L1 blob. They are read and used
-  // when verifying an epoch proof to link DA to our L2 blocks.
-  struct BlobPublicInputs {
-    bytes32 z;
-    bytes32 y;
-    bytes32[2] c;
-  }
-
   struct Config {
     uint256 aztecSlotDuration;
     uint256 aztecEpochDuration;
@@ -94,7 +87,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   mapping(uint256 blockNumber => BlockLog log) public blocks;
   // The below public inputs are filled when proposing a block, then used to verify an epoch proof.
   // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
-  mapping(uint256 blockNumber => BlobPublicInputs) public blobPublicInputs;
+  mapping(uint256 blockNumber => bytes32) public blobPublicInputsHashes;
 
   bytes32 public vkTreeRoot;
   bytes32 public protocolContractTreeRoot;
@@ -252,14 +245,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param  _epochSize - The size of the epoch (to be promoted to a constant)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   * @param  _aggregationObject - The aggregation object for the proof
+   * @param  _blobPublicInputsAndAggregationObject - The aggregation object and blob PIs for the proof
    * @param  _proof - The proof to verify
    */
   function submitEpochRootProof(
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _aggregationObject,
+    bytes calldata _blobPublicInputsAndAggregationObject, // having separate inputs here caused stack too deep
     bytes calldata _proof
   ) external override(IRollup) {
     if (canPrune()) {
@@ -275,7 +268,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Epoch epochToProve = getEpochForBlock(endBlockNumber);
 
     bytes32[] memory publicInputs =
-      getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
+      getEpochProofPublicInputs(_epochSize, _args, _fees, _blobPublicInputsAndAggregationObject);
 
     require(epochProofVerifier.verify(_proof, publicInputs), Errors.Rollup__InvalidProof());
 
@@ -333,7 +326,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     for (uint256 i = 0; i < _epochSize; i++) {
       // free up gas (hopefully)
-      delete blobPublicInputs[previousBlockNumber + i + 1];
+      delete blobPublicInputsHashes[previousBlockNumber + i + 1];
     }
     if (proofClaim.epochToProve == epochToProve) {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
@@ -509,22 +502,24 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    bytes32 blobHash = _validateBlob(_blobInput);
+    (bytes32 blobsHash, bytes32 blobPublicInputsHash) = _validateBlobs(_blobInput);
 
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
 
-    uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
-    bytes32 digest = keccak256(abi.encode(domainSeperator, _archive, _txHashes));
-    setupEpoch();
-    _validateHeader({
-      _header: header,
-      _signatures: _signatures,
-      _digest: digest,
-      _currentTime: Timestamp.wrap(block.timestamp),
-      _blobHash: blobHash,
-      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
-    });
+    {
+      uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
+      bytes32 digest = keccak256(abi.encode(domainSeperator, _archive, _txHashes));
+      setupEpoch();
+      _validateHeader({
+        _header: header,
+        _signatures: _signatures,
+        _digest: digest,
+        _currentTime: Timestamp.wrap(block.timestamp),
+        _blobHash: blobsHash,
+        _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+      });
+    }
 
     uint256 blockNumber = ++tips.pendingBlockNumber;
 
@@ -534,20 +529,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       slotNumber: Slot.wrap(header.globalVariables.slotNumber)
     });
 
-    //  Blob public inputs structure:
-    //  * input[32:64]   - z
-    //  * input[64:96]   - y
-    //  * input[96:144]  - commitment C
-    blobPublicInputs[blockNumber] = BlobPublicInputs({
-      z: bytes32(_blobInput[32:64]),
-      y: bytes32(_blobInput[64:96]),
-      // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
-      // TODO: The below left pads, possibly inefficiently
-      c: [
-        bytes32(uint256(uint248(bytes31(_blobInput[96:127])))),
-        bytes32(uint256(uint136(bytes17(_blobInput[127:144]))))
-      ]
-    });
+    blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     bytes32 inHash = INBOX.consume(blockNumber);
@@ -604,13 +586,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param  _epochSize - The size of the epoch (to be promoted to a constant)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   * @param  _aggregationObject - The aggregation object for the proof
+   * @param  _blobPublicInputsAndAggregationObject - The aggregation object and blob PIs for the proof
    */
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputsAndAggregationObject // having separate inputs here caused stack too deep
   ) public view override(IRollup) returns (bytes32[] memory) {
     uint256 previousBlockNumber = tips.provenBlockNumber;
     uint256 endBlockNumber = previousBlockNumber + _epochSize;
@@ -671,7 +653,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: [BlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
+    //   blob_public_inputs: [BlockBlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
     // }
 
     // previous_archive.root: the previous archive tree root
@@ -708,35 +690,79 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[9 + i] = _fees[i];
     }
-    uint256 feesEnd = 9 + feesLength;
+    uint256 offset = 9 + feesLength;
 
     // vk_tree_root
-    publicInputs[feesEnd] = vkTreeRoot;
+    publicInputs[offset] = vkTreeRoot;
+    offset += 1;
 
     // protocol_contract_tree_root
-    publicInputs[feesEnd + 1] = protocolContractTreeRoot;
+    publicInputs[offset] = protocolContractTreeRoot;
+    offset += 1;
 
     // prover_id: id of current epoch's prover
-    publicInputs[feesEnd + 2] = _args[6];
+    publicInputs[offset] = _args[6];
+    offset += 1;
 
     // blob_public_inputs
+    uint256 blobOffset = 0;
     for (uint256 i = 0; i < _epochSize; i++) {
-      uint256 j = feesEnd + 3 + i * 6;
-      publicInputs[j] = blobPublicInputs[previousBlockNumber + i + 1].z;
-      (publicInputs[j + 1], publicInputs[j + 2], publicInputs[j + 3]) =
-        _bytes32ToBigNum(blobPublicInputs[previousBlockNumber + i + 1].y);
-      publicInputs[j + 4] = blobPublicInputs[previousBlockNumber + i + 1].c[0];
-      publicInputs[j + 5] = blobPublicInputs[previousBlockNumber + i + 1].c[1];
+      uint8 blobsInBlock = uint8(_blobPublicInputsAndAggregationObject[blobOffset++]);
+      // asserting here to avoid looping twice in one fn
+      {
+        // Blob public inputs are 112 bytes long - see _validateBlobs() for explanation
+        bytes32 calcBlobPublicInputsHash = sha256(
+          abi.encodePacked(
+            _blobPublicInputsAndAggregationObject[blobOffset:blobOffset + 112 * blobsInBlock]
+          )
+        );
+        require(
+          calcBlobPublicInputsHash == blobPublicInputsHashes[previousBlockNumber + i + 1],
+          Errors.Rollup__InvalidBlobPublicInputsHash(
+            blobPublicInputsHashes[previousBlockNumber + i + 1], calcBlobPublicInputsHash
+          )
+        );
+      }
+      for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
+        if (j < blobsInBlock) {
+          // z
+          publicInputs[offset++] =
+            bytes32(_blobPublicInputsAndAggregationObject[blobOffset:blobOffset += 32]);
+          // y
+          (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
+          _bytes32ToBigNum(
+            bytes32(_blobPublicInputsAndAggregationObject[blobOffset:blobOffset += 32])
+          );
+          // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+          // TODO: The below left pads, possibly inefficiently
+          // c[0]
+          publicInputs[offset++] = bytes32(
+            uint256(
+              uint248(bytes31(_blobPublicInputsAndAggregationObject[blobOffset:blobOffset += 31]))
+            )
+          );
+          // c[1]
+          publicInputs[offset++] = bytes32(
+            uint256(
+              uint136(bytes17(_blobPublicInputsAndAggregationObject[blobOffset:blobOffset += 17]))
+            )
+          );
+        } else {
+          offset += Constants.BLOB_PUBLIC_INPUTS;
+        }
+      }
     }
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
     // it also guards against empty _aggregationObject used with mocked proofs
-    uint256 aggregationLength = _aggregationObject.length / 32;
+    uint256 aggregationLength =
+      bytes(_blobPublicInputsAndAggregationObject[blobOffset:]).length / 32;
     for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
       bytes32 part;
       assembly {
-        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
+        part :=
+          calldataload(add(_blobPublicInputsAndAggregationObject.offset, add(mul(i, 32), blobOffset)))
       }
       publicInputs[i + Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH] = part;
     }
@@ -1033,11 +1059,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     require(timestamp <= _currentTime, Errors.Rollup__TimestampInFuture(_currentTime, timestamp));
 
     // Check if the data is available
-    // To fit into a field, we remove the first byte (= VERSIONED_HASH_VERSION_KZG)
-    bytes32 truncatedBlobHash =
-      bytes32(bytes.concat(new bytes(1), bytes31(uint248(uint256(_blobHash)))));
     require(
-      _flags.ignoreDA || _header.contentCommitment.blobHash == truncatedBlobHash,
+      _flags.ignoreDA || _header.contentCommitment.blobHash == _blobHash,
       Errors.Rollup__UnavailableTxs(_header.contentCommitment.blobHash)
     );
 
@@ -1049,7 +1072,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Validate an L2 block's blob. TODO: edit for multiple blobs per block
+   * @notice  Validate a blob.
    * Input bytes:
    * input[:32]     - versioned_hash
    * input[32:64]   - z
@@ -1057,21 +1080,63 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * input[96:144]  - commitment C
    * input[144:192] - proof (a commitment to the quotient polynomial q(X))
    *  - This can be relaxed to happen at the time of `submitProof` instead
-   *
+   * @notice Apparently there is no guarantee that the blobs will be processed in the order sent
+   * so the use of blobhash(_blobNumber) may fail in production
    * @param _blobInput - The above bytes to verify a blob
    */
-  function _validateBlob(bytes calldata _blobInput) internal view returns (bytes32 blobHash) {
+  function _validateBlob(bytes calldata _blobInput, uint256 _blobNumber)
+    internal
+    view
+    returns (bytes32 blobHash)
+  {
     if (!checkBlob) {
       return bytes32(_blobInput[0:32]);
     }
     assembly {
-      blobHash := blobhash(0)
+      blobHash := blobhash(_blobNumber)
     }
     require(blobHash == bytes32(_blobInput[0:32]), Errors.Rollup__InvalidBlobHash(blobHash));
 
     // Staticcall the point eval precompile https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile :
     (bool success,) = address(0x0a).staticcall(_blobInput);
     require(success, Errors.Rollup__InvalidBlobProof(blobHash));
+  }
+
+  /**
+   * @notice  Validate an L2 block's blobs and return the hashed blobHashes and public inputs.
+   * Input bytes:
+   * input[:1] - num blobs in block
+   * input[1:] - 192 * num blobs of the above _blobInput
+   * @param _blobsInput - The above bytes to verify a blob
+   */
+  function _validateBlobs(bytes calldata _blobsInput)
+    internal
+    view
+    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+  {
+    // We cannot input the incorrect number of blobs below, as the blobsHash
+    // and epoch proof verification will fail.
+    uint8 numBlobs = uint8(_blobsInput[0]);
+    bytes32[] memory blobHashes = new bytes32[](numBlobs);
+    bytes memory blobPublicInputs;
+    for (uint256 i = 0; i < numBlobs; i++) {
+      // Add 1 for the numBlobs prefix
+      uint256 blobInputStart = i * 192 + 1;
+      // Since an invalid blob hash here would fail the consensus checks of
+      // the header, the `blobInput` is implicitly accepted by consensus as well.
+      blobHashes[i] = _validateBlob(_blobsInput[blobInputStart:blobInputStart + 192], i);
+      // We want to extract the 112 bytes we use for public inputs:
+      //  * input[32:64]   - z
+      //  * input[64:96]   - y
+      //  * input[96:144]  - commitment C
+      // Out of 192 bytes per blob.
+      blobPublicInputs =
+        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
+    }
+    // Return the hash of all z, y, and Cs, so we can use them in proof verification later
+    blobPublicInputsHash = sha256(blobPublicInputs);
+    // Hash the EVM blob hashes for the block header
+    blobsHash = Hash.sha256ToField(abi.encodePacked(blobHashes));
   }
 
   /**
