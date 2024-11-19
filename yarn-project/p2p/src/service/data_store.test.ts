@@ -32,6 +32,10 @@ describe('AztecDatastore with AztecLmdbStore', () => {
     await aztecStore.clear();
   });
 
+  afterAll(async () => {
+    await aztecStore.delete();
+  });
+
   it('should store and retrieve an item', async () => {
     const key = new Key('testKey');
     const value = new Uint8Array([1, 2, 3]);

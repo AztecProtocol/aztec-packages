@@ -63,6 +63,6 @@ async function initStoreForRollup<T extends AztecKVStore>(
  * @returns A new store
  */
 export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
-  const mapSize = 1024 * 1024 * 1024 * 10; // 10 GB map size
+  const mapSize = 1024 * 1024 * 10; // 10 GB map size
   return AztecLmdbStore.open(undefined, mapSize, ephemeral);
 }
