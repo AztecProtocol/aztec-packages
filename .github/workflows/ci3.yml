@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: runner-01
+    container:
+      image: aztecprotocol/build:1.0
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
