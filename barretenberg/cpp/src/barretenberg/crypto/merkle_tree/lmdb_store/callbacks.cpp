@@ -5,7 +5,11 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#ifdef __APPLE__
+#include <machine/endian.h>
+#else
 #include <sys/types.h>
+#endif
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
