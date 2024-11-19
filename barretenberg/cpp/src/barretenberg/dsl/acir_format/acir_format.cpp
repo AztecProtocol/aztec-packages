@@ -299,7 +299,7 @@ void process_plonk_recursion_constraints(Builder& builder,
         // they want these constants set by keeping the nested aggregation object attached to
         // the proof as public inputs. As this is the only object that can prepended to the
         // proof if the proof is above the expected size (with public inputs stripped)
-        PairingPointAccumulatorPubInputIndices nested_aggregation_object = {};
+        PairingPointAccumPubInputIndices nested_aggregation_object = {};
         // If the proof has public inputs attached to it, we should handle setting the nested
         // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
@@ -343,9 +343,16 @@ void process_plonk_recursion_constraints(Builder& builder,
     // inputs.
     if (!constraint_system.recursion_constraints.empty()) {
 
+        // First add the output aggregation object as public inputs
+        // Set the indices as public inputs because they are no longer being
+        // created in ACIR
+        for (const auto& idx : current_output_aggregation_object) {
+            builder.set_public_input(idx);
+        }
+
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.add_pairing_point_accumulator(current_output_aggregation_object);
+        builder.set_pairing_point_accumulator(current_output_aggregation_object);
     }
 }
 

@@ -19,7 +19,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
