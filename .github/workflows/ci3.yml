@@ -16,4 +16,6 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Run bootstrap script
-        run: ./bootstrap.sh full
+        run: |
+          git config --global --add safe.directory /__w/aztec-packages/aztec-packages
+          ./bootstrap.sh full
