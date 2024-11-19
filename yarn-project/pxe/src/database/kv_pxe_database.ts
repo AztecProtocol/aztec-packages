@@ -1,4 +1,10 @@
-import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import {
+  InBlock,
+  type IncomingNotesFilter,
+  MerkleTreeId,
+  NoteStatus,
+  type OutgoingNotesFilter,
+} from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -253,10 +259,11 @@ export class KVPxeDatabase implements PxeDatabase {
     const nullifiersToUndo: string[] = [];
     let currentBlockNumber = blockNumber;
     const maxBlockNumber = this.getBlockNumber() ?? currentBlockNumber;
-    do {
+    while (currentBlockNumber <= maxBlockNumber) {
       nullifiersToUndo.push(...this.#nullifiersByBlockNumber.getValues(currentBlockNumber));
       currentBlockNumber++;
-    } while (currentBlockNumber < maxBlockNumber);
+    }
+
     const notesIndexesToReinsert = await this.db.transaction(() =>
       nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.get(nullifier)),
     );
@@ -430,7 +437,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(notes);
   }
 
-  removeNullifiedNotes(nullifiers: Fr[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
@@ -438,7 +445,8 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.#db.transaction(() => {
       const nullifiedNotes: IncomingNoteDao[] = [];
 
-      for (const nullifier of nullifiers) {
+      for (const blockScopedNullifier of nullifiers) {
+        const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
         const noteIndex = this.#nullifierToNoteId.get(nullifier.toString());
         if (!noteIndex) {
           continue;
@@ -469,7 +477,7 @@ export class KVPxeDatabase implements PxeDatabase {
         }
 
         void this.#nullifiedNotes.set(noteIndex, note.toBuffer());
-        void this.#nullifiersByBlockNumber.set(note.l2BlockNumber, nullifier.toString());
+        void this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
         void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
         void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
         void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);

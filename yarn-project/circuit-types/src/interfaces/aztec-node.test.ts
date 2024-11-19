@@ -28,7 +28,7 @@ import omit from 'lodash.omit';
 import times from 'lodash.times';
 import { resolve } from 'path';
 
-import { type InBlock } from '../in_block.js';
+import { type InBlock, wrapInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
@@ -94,6 +94,14 @@ describe('AztecNodeApiSchema', () => {
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
     expect(response).toEqual([1n, undefined]);
+  });
+
+  it('findLeavesIndexesWithApproxBlockNumber', async () => {
+    const response = await context.client.findLeavesIndexesWithApproxBlockNumber(1, 1, MerkleTreeId.ARCHIVE, [
+      Fr.random(),
+      Fr.random(),
+    ]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: expect.any(String) }, undefined]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -345,6 +353,17 @@ class MockAztecNode implements AztecNode {
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
     return Promise.resolve([1n, undefined]);
+  }
+  findLeavesIndexesWithApproxBlockNumber(
+    maxBlockNumber: number | 'latest',
+    minBlockNumber: number,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(InBlock<bigint> | undefined)[]> {
+    expect(leafValues).toHaveLength(2);
+    expect(leafValues[0]).toBeInstanceOf(Fr);
+    expect(leafValues[1]).toBeInstanceOf(Fr);
+    return Promise.resolve([wrapInBlock(1n, L2Block.random(1)), undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',

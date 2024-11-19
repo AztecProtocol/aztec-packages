@@ -1,4 +1,4 @@
-import { InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, LogId, LogType, TxHash, wrapInBlock } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import {
   AztecAddress,
@@ -191,14 +191,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it.each([
-        () => blocks[0].data.body.txEffects[0],
-        () => blocks[9].data.body.txEffects[3],
-        () => blocks[3].data.body.txEffects[1],
-        () => blocks[5].data.body.txEffects[2],
-        () => blocks[1].data.body.txEffects[0],
+        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
+        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
+        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
+        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
+        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
         const expectedTx = getExpectedTx();
-        const actualTx = await store.getTxEffect(expectedTx.txHash);
+        const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
 
@@ -207,16 +207,16 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it.each([
-        () => blocks[0].data.body.txEffects[0],
-        () => blocks[9].data.body.txEffects[3],
-        () => blocks[3].data.body.txEffects[1],
-        () => blocks[5].data.body.txEffects[2],
-        () => blocks[1].data.body.txEffects[0],
+        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
+        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
+        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
+        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
+        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(blocks.length, blocks.length);
 
         const expectedTx = getExpectedTx();
-        const actualTx = await store.getTxEffect(expectedTx.txHash);
+        const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(undefined);
       });
 

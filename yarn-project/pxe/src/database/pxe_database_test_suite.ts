@@ -2,6 +2,7 @@ import { type IncomingNotesFilter, NoteStatus, type OutgoingNotesFilter, randomT
 import {
   AztecAddress,
   CompleteAddress,
+  Header,
   INITIAL_L2_BLOCK_NUM,
   PublicKeys,
   SerializableContractInstance,
@@ -156,7 +157,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
           const notesToNullify = notes.filter(note => note.addressPoint.equals(computePoint(owner.address)));
-          const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+          const nullifiers = notesToNullify.map(note => ({
+            data: note.siloedNullifier,
+            l2BlockNumber: note.l2BlockNumber,
+            l2BlockHash: note.l2BlockHash,
+          }));
           await expect(database.removeNullifiedNotes(nullifiers, computePoint(owner.address))).resolves.toEqual(
             notesToNullify,
           );
@@ -171,7 +176,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNotes(notes, []);
 
         const notesToNullify = notes.filter(note => note.addressPoint.equals(computePoint(owners[0].address)));
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: note.l2BlockNumber,
+          l2BlockHash: note.l2BlockHash,
+        }));
         await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
           notesToNullify,
         );
@@ -183,11 +192,35 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
       });
 
+      it('handles note unnullification', async () => {
+        await database.setHeader(makeHeader(randomInt(1000), 100, 0 /** slot number */));
+        await database.addNotes(notes, []);
+
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(computePoint(owners[0].address)));
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: 100,
+          l2BlockHash: Fr.random().toString(),
+        }));
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
+          notesToNullify,
+        );
+        await expect(database.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
+
+        const result = await database.getIncomingNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
+
+        expect(result.sort()).toEqual([...notesToNullify].sort());
+      });
+
       it('returns active and nullified notes when requesting either', async () => {
         await database.addNotes(notes, []);
 
         const notesToNullify = notes.filter(note => note.addressPoint.equals(computePoint(owners[0].address)));
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: note.l2BlockNumber,
+          l2BlockHash: note.l2BlockHash,
+        }));
         await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
           notesToNullify,
         );
@@ -245,7 +278,16 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         ).resolves.toEqual([notes[0]]);
 
         await expect(
-          database.removeNullifiedNotes([notes[0].siloedNullifier], computePoint(owners[0].address)),
+          database.removeNullifiedNotes(
+            [
+              {
+                data: notes[0].siloedNullifier,
+                l2BlockHash: notes[0].l2BlockHash,
+                l2BlockNumber: notes[0].l2BlockNumber,
+              },
+            ],
+            computePoint(owners[0].address),
+          ),
         ).resolves.toEqual([notes[0]]);
 
         await expect(

@@ -71,6 +71,13 @@ export interface AztecNode
     leafValues: Fr[],
   ): Promise<(bigint | undefined)[]>;
 
+  findLeavesIndexesWithApproxBlockNumber(
+    maxBlockNumber: L2BlockNumber,
+    minBlockNumber: number,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(InBlock<bigint> | undefined)[]>;
+
   /**
    * Returns a sibling path for the given index in the nullifier tree.
    * @param blockNumber - The block number at which to get the data.
@@ -410,6 +417,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
     .returns(z.array(optional(schemas.BigInt))),
+
+  findLeavesIndexesWithApproxBlockNumber: z
+    .function()
+    .args(L2BlockNumberSchema, z.number(), z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
+    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
   getNullifierSiblingPath: z
     .function()

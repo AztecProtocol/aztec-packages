@@ -1,4 +1,4 @@
-import { type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
   type ContractInstanceWithAddress,
@@ -96,7 +96,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]>;
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<IncomingNoteDao[]>;
 
   /**
    * Gets the most recently processed block number.

@@ -442,7 +442,12 @@ export class SimulatorOracle implements DBOracle {
 
       result.set(
         recipient.toString(),
-        logs.filter(log => log.blockNumber <= maxBlockNumber),
+        // Remove logs with a block number higher than the max block number
+        // Duplicates are likely to happen due to the sliding window, so we also filter them out
+        logs.filter(
+          (log, index, self) =>
+            log.blockNumber <= maxBlockNumber && index === self.findIndex(otherLog => otherLog.equals(log)),
+        ),
       );
     }
     return result;
@@ -560,15 +565,23 @@ export class SimulatorOracle implements DBOracle {
     }
     const nullifiedNotes: IncomingNoteDao[] = [];
     const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
-    const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
-      'latest',
+    const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
+    const currentBlockNumber = await this.getBlockNumber();
+    const nullifierIndexes = await this.aztecNode.findLeavesIndexesWithApproxBlockNumber(
+      currentBlockNumber,
+      // Epoch size, we don't care about accurate block numbers in finalized nullifiers
+      currentBlockNumber - 2 * 32,
       MerkleTreeId.NULLIFIER_TREE,
-      currentNotesForRecipient.map(note => note.siloedNullifier),
+      nullifiersToCheck,
     );
 
-    const foundNullifiers = currentNotesForRecipient
-      .filter((_, i) => nullifierIndexes[i] !== undefined)
-      .map(note => note.siloedNullifier);
+    const foundNullifiers = nullifiersToCheck
+      .map((nullifier, i) => {
+        if (nullifierIndexes[i] !== undefined) {
+          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+        }
+      })
+      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
     await this.db.removeNullifiedNotes(foundNullifiers, computePoint(recipient));
     nullifiedNotes.forEach(noteDao => {

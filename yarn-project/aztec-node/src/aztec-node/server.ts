@@ -33,6 +33,7 @@ import {
   type TxValidator,
   type WorldStateSynchronizer,
   tryStop,
+  wrapInBlock,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -429,6 +430,33 @@ export class AztecNodeService implements AztecNode {
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
+  }
+
+  public async findLeavesIndexesWithApproxBlockNumber(
+    maxBlockNumber: L2BlockNumber,
+    minBlockNumber: number,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(InBlock<bigint> | undefined)[]> {
+    const initialBlockNumber = maxBlockNumber === 'latest' ? await this.getBlockNumber() : maxBlockNumber;
+    return await Promise.all(
+      leafValues.map(async leafValue => {
+        let blockNumber = initialBlockNumber;
+        let treeSnapshot = this.worldStateSynchronizer.getSnapshot(initialBlockNumber);
+        let index = await treeSnapshot.findLeafIndex(treeId, leafValue.toBuffer());
+        if (!index) {
+          return undefined;
+        }
+        let meta = await treeSnapshot.getTreeInfo(treeId);
+        while (meta.size > index && blockNumber >= minBlockNumber) {
+          blockNumber -= 1;
+          treeSnapshot = this.worldStateSynchronizer.getSnapshot(blockNumber);
+          meta = await treeSnapshot.getTreeInfo(treeId);
+        }
+        const block = await this.getBlock(blockNumber + 1);
+        return wrapInBlock(index, block!);
+      }),
+    );
   }
 
   /**
