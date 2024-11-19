@@ -109,7 +109,7 @@ impl MergeExpressionsOptimizer {
                 if modified_gates.contains_key(&i) {
                     new_circuit.push(modified_gates[&i].clone());
                 } else {
-                    new_circuit.push(opcode.clone());
+                    new_circuit.push(opcode);
                 }
                 new_acir_opcode_positions.push(acir_opcode_positions[i]);
             }
