@@ -74,6 +74,8 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
  */
 TEST_F(ClientIVCRecursionTests, Basic)
 {
+    using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
+
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
@@ -83,7 +85,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
     ClientIVCVerifier verifier{ builder, verifier_input };
 
     // Generate the recursive verification circuit
-    verifier.verify(proof);
+    CIVCRecVerifierOutput output = verifier.verify(proof);
 
     EXPECT_EQ(builder->failed(), false) << builder->err();
 
@@ -95,6 +97,8 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 {
+    using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
+
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
@@ -104,10 +108,15 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     ClientIVCVerifier verifier{ tube_builder, verifier_input };
 
     // Generate the recursive verification circuit
-    verifier.verify(proof);
+    CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
+    // just using default.
     tube_builder->add_pairing_point_accumulator(
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*tube_builder));
+    // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
+    tube_builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
 
@@ -120,10 +129,16 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     UltraProver tube_prover{ proving_key };
     auto native_tube_proof = tube_prover.construct_proof();
 
-    Builder base_builder;
+    // Natively verify the tube proof
     auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    UltraVerifier native_verifier(native_vk, ipa_verification_key);
+    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
+
+    // Construct a base rollup circuit that recursively verifies the tube proof.
+    Builder base_builder;
     auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
-    auto tube_proof = bb::convert_proof_to_witness(&base_builder, native_tube_proof);
+    auto tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, vk };
     base_verifier.verify_proof(tube_proof,
                                stdlib::recursion::init_default_aggregation_state<Builder, Flavor::Curve>(base_builder));
