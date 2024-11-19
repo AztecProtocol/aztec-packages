@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732015958212,
+  "lastUpdate": 1732033414628,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "04dd2c4c959d5d80e527be9c71504c051e3c5929",
-          "message": "fix: Ensuring translator range constraint polynomials are zeroes outside of minicircuit (#9251)\n\nWhen Translator was built, there was expectation on using ZM's degree\r\nchecks for minicircuit polynomials later. ZM is dead, so we have to\r\nenforce those in another way so there is no soundness issue during\r\npolynomial concatenation. This PR adds relations to ensure\r\nrange_constraint polynomials are zero outside of minicircuit\r\n\r\nClientIVC before:\r\n\r\n![image](https://github.com/user-attachments/assets/6299f04b-41de-4f41-90e4-45e49bf42470)\r\nClientIVC after:\r\n\r\n![image](https://github.com/user-attachments/assets/5b0c8677-ee3f-4195-898e-892ef38e9eef)\r\n\r\nFixes https://github.com/AztecProtocol/barretenberg/issues/1128",
-          "timestamp": "2024-10-31T16:07:52Z",
-          "tree_id": "d1c72b41fc5ce364658ef2a000c861f00c2c347e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/04dd2c4c959d5d80e527be9c71504c051e3c5929"
-        },
-        "date": 1730392913622,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28973.78177799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27509.533153 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5348.173583000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4992.931622 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85819.50574000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85819508000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15070.684988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15070684000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2490302991,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2490302991 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125831171,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125831171 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 141400666,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141400666 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "30ca68c8435d7edf227206c61dd1ab4551514857",
+          "message": "chore: remove duplicate and unused flavor related concepts (#10035)\n\nWe had two duplicate concepts pointing to the same set of types as well\r\nas some unused instantiations (we are not folding Ultra keys).",
+          "timestamp": "2024-11-19T15:52:25Z",
+          "tree_id": "08b3af492465e753aa4bd930096190e8ccee4039",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/30ca68c8435d7edf227206c61dd1ab4551514857"
+        },
+        "date": 1732033406905,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28737.781979999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27106.053698 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5341.448874000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5039.2126370000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85510.94600399998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85510947000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15357.449016999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15357450000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3058261682,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3058261682 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139972577,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139972577 ns\nthreads: 1"
           }
         ]
       }
