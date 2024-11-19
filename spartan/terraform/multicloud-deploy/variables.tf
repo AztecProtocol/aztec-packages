@@ -25,7 +25,7 @@ variable "values-file" {
 variable "image" {
   description = "Aztec node image"
   type        = string
-  default     = "telecomsteve/aztec:b36c1376ee009f3b1ac5003592cfd1185d17e1ed"
+  default     = "aztecprotocol/aztec:master"
 }
 
 variable "telemetry" {
