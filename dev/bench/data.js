@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731609333434,
+  "lastUpdate": 1731995208993,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "feace70727f9e5a971809955030a8ea88ce84f4a",
-          "message": "fix: Resolution of bugs from bigfield audits (#9547)\n\nThis PR resolves Critical, High, Medium, Low and some informational\r\nissues from the bigfield test audits by ZKSecurity, Zellic and Spearbit\r\n\r\n---------\r\n\r\nCo-authored-by: Sarkoxed <sarkoxed2013@yandex.ru>",
-          "timestamp": "2024-10-31T14:44:03Z",
-          "tree_id": "2df25d38969cc420b856f5ccb5b6245bd9a4742a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/feace70727f9e5a971809955030a8ea88ce84f4a"
-        },
-        "date": 1730388104836,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29017.037254999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27310.968871 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5355.483168000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5035.9659329999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86797.26345600002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86797266000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15083.60771,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15083608000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2492365482,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2492365482 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127741613,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127741613 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 145080746,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 145080746 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e74cd09a8b65c3903c91197d599e722518ab315",
+          "message": "feat: IPA Accumulator in Builder (#9846)\n\nAdds IPA claim to builder, pk, vk, so that the verifier knows where to\r\nlook to extract the IPA claim from. Modifies the UltraRecursiveVerifier\r\nto extract out the IPA claim from the public inputs and return it.\r\n\r\nAlso modifies native verifier to check the IPA claim and proof.",
+          "timestamp": "2024-11-19T05:21:43Z",
+          "tree_id": "e7f5c30fb7982b0176e56d3af079d2894c4638dd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8e74cd09a8b65c3903c91197d599e722518ab315"
+        },
+        "date": 1731995201827,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28695.85884200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26850.989653000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5329.152937999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4984.073034 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85104.049495,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85104050000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15234.621532999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15234621000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3122458267,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3122458267 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142403142,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142403142 ns\nthreads: 1"
           }
         ]
       }
