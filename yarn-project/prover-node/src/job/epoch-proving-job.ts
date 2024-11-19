@@ -201,11 +201,10 @@ export class EpochProvingJob {
       emptyKernelOutput.end.nullifiers.map(n => n.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
-    const allPublicDataWrites = padArrayEnd(
-      emptyKernelOutput.end.publicDataWrites.map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value)),
-      PublicDataTreeLeaf.empty(),
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
+    const allPublicDataWrites = emptyKernelOutput.end.publicDataWrites
+      .filter(write => !write.isEmpty())
+      .map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value));
+
     await this.db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       allPublicDataWrites.map(x => x.toBuffer()),

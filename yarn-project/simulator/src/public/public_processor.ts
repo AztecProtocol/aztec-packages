@@ -184,14 +184,9 @@ export class PublicProcessor {
           }
         }
 
-        const allPublicDataWrites = padArrayEnd(
-          processedTx.txEffect.publicDataWrites,
-          PublicDataWrite.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
         await this.db.batchInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          allPublicDataWrites.map(x => x.toBuffer()),
+          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
           PUBLIC_DATA_SUBTREE_HEIGHT,
         );
         result.push(processedTx);
