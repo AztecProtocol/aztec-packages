@@ -419,7 +419,6 @@ mod tests {
                     PublicDataHint {
                         leaf_slot: leaf_preimage.slot,
                         value: leaf_preimage.value,
-                        override_counter: 0,
                         membership_witness,
                         leaf_preimage,
                     }

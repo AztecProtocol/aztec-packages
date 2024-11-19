@@ -1,8 +1,8 @@
 use crate::{
     abis::{
         accumulated_data::{
-            CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-            PrivateToPublicAccumulatedData,
+            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
+            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
         },
         avm::AvmProofData,
         call_context::CallContext,
@@ -27,6 +27,7 @@ use crate::{
         public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::Counted,
+        tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,

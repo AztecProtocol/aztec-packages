@@ -642,6 +642,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
 
+        // if the meta datas are different, we have uncommitted data
+        bool metaToCommit = committedMeta != uncommittedMeta;
+        if (!metaToCommit && !asBlock) {
+            return;
+        }
+
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
         if (dataPresent) {
