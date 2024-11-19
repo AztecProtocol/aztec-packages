@@ -656,6 +656,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
                 // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
                 persist_leaf_keys(uncommittedMeta.committedSize, *tx);
+            }
+            // If we are commiting a block, we need to persist the root, since the new block "references" this root
+            if (dataPresent || asBlock) {
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
             }
             if (asBlock) {
