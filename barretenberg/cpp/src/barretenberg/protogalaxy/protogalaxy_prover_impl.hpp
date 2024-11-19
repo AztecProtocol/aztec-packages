@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -193,10 +194,10 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
                  max_circuit_size);
             keys_to_fold[idx]->proving_key.polynomials.increase_polynomials_virtual_size(max_circuit_size);
         }
-        // for (auto poly : keys_to_fold[idx]->proving_key.polynomials.get_all()) {
-        //     // info("poly.virtual_size = ", poly.virtual_size());
-        // }
     }
+
+    // RelationChecker<typename DeciderProvingKeys::Flavor>::check_all(keys_to_fold[0]->proving_key.polynomials,
+    //                                                                 keys_to_fold[0]->relation_parameters);
     run_oink_prover_on_each_incomplete_key();
     vinfo("oink prover on each incomplete key");
 

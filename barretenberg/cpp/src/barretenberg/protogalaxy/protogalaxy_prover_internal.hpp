@@ -242,10 +242,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
             perturbator.emplace_back(FF(0));
         }
-        info("Perturbator coeffs:");
-        for (size_t idx = 0; idx < perturbator.size(); ++idx) {
-            info("idx = ", idx, ", val = ", perturbator[idx]);
-        }
+        // info("Perturbator coeffs:");
+        // for (size_t idx = 0; idx < perturbator.size(); ++idx) {
+        //     info("idx = ", idx, ", val = ", perturbator[idx]);
+        // }
         return Polynomial<FF>{ perturbator };
     }
 
@@ -603,8 +603,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
 
-        // DEBUG:
-        num_threads = 1;
+        // // DEBUG:
+        // num_threads = 1;
 
         return num_threads;
     }
