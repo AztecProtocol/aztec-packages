@@ -3,7 +3,7 @@ import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, retryUnti
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
@@ -102,10 +102,15 @@ export async function waitNewPXESynced(
   contract: BenchmarkingContract,
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
-  const pxe = await createPXEService(node, {
-    l2BlockPollingIntervalMS: 100,
+  const l1Contracts = await node.getL1ContractAddresses();
+  const pxeConfig = {
     l2StartingBlock: startingBlock,
-  });
+    l2BlockPollingIntervalMS: 100,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1024 * 1024,
+    l1Contracts,
+  } as PXEServiceConfig;
+  const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);
   await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;

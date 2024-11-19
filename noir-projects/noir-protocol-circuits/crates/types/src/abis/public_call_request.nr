@@ -1,5 +1,5 @@
 use crate::{
-    abis::{call_context::CallContext, function_selector::FunctionSelector, side_effect::Ordered},
+    abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::PUBLIC_CALL_REQUEST_LENGTH,
     traits::{Deserialize, Empty, Serialize},

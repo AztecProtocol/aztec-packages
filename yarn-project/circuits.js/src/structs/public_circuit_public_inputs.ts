@@ -40,9 +40,8 @@ import { ReadRequest } from './read_request.js';
 import { RevertCode } from './revert_code.js';
 import { TreeLeafReadRequest } from './tree_leaf_read_request.js';
 
-/**
- * Public inputs to a public circuit.
- */
+// TO BE REMOVED
+// This is currently the output of the AVM. It should be replaced by AvmCircuitPublicInputs eventually.
 export class PublicCircuitPublicInputs {
   constructor(
     /**

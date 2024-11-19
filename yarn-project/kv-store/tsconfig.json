@@ -13,7 +13,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../circuits.js"
+      "path": "../ethereum"
     }
   ],
   "include": ["src"]
