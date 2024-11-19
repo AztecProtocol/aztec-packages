@@ -208,8 +208,7 @@ contract SpartaTest is DecoderBase {
         // @todo Handle Leonidas__InsufficientAttestations case
       }
 
-      // 20 is the slot of checkBlob. We force it to be false (=0):
-      vm.store(address(rollup), bytes32(uint256(20)), 0);
+      skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidaProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));

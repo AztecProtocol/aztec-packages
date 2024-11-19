@@ -127,12 +127,6 @@ contract RollupTest is DecoderBase, TimeFns {
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
   }
 
-  function skipBlobCheck() public {
-    // 20 is the slot of checkBlob. We force it to be false (=0):
-    // Slot number can be checked by running forge inspect src/core/Rollup.sol:Rollup storage
-    vm.store(address(rollup), bytes32(uint256(20)), 0);
-  }
-
   function getBlobPublicInputs(bytes calldata _blobsInput)
     public
     pure
@@ -290,7 +284,7 @@ contract RollupTest is DecoderBase, TimeFns {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
 
     rollup.propose(
       header, data.archive, data.blockHash, new bytes32[](0), signatures, body, data.blobInputs
@@ -465,7 +459,7 @@ contract RollupTest is DecoderBase, TimeFns {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
 
     rollup.propose(
       header, data.archive, data.blockHash, new bytes32[](0), signatures, body, data.blobInputs
@@ -657,7 +651,7 @@ contract RollupTest is DecoderBase, TimeFns {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
     rollup.propose(
@@ -679,7 +673,7 @@ contract RollupTest is DecoderBase, TimeFns {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
     rollup.propose(
@@ -711,7 +705,7 @@ contract RollupTest is DecoderBase, TimeFns {
       uint256 coinbaseBalance = testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase);
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
-      skipBlobCheck();
+      skipBlobCheck(address(rollup));
 
       // Assert that balance have NOT been increased by proposing the block
       rollup.propose(
@@ -851,7 +845,7 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes32[] memory txHashes = new bytes32[](0);
 
     vm.warp(max(block.timestamp, data2.decodedHeader.globalVariables.timestamp));
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
     rollup.propose(
       data2.header,
       data2.archive,
@@ -911,7 +905,7 @@ contract RollupTest is DecoderBase, TimeFns {
       // TODO: Hardcoding offsets in the middle of tests is annoying to say the least.
       mstore(add(header, add(0x20, 0x0174)), 0x420)
     }
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
     rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, data.blobInputs);
   }
@@ -926,7 +920,7 @@ contract RollupTest is DecoderBase, TimeFns {
     assembly {
       mstore(add(header, add(0x20, 0x0134)), 0x420)
     }
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
     rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, data.blobInputs);
   }
@@ -941,7 +935,7 @@ contract RollupTest is DecoderBase, TimeFns {
     assembly {
       mstore(add(header, add(0x20, 0x0154)), 0x420)
     }
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
     rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, data.blobInputs);
   }
@@ -961,7 +955,7 @@ contract RollupTest is DecoderBase, TimeFns {
     assembly {
       mstore(add(header, add(0x20, 0x01b4)), badTs)
     }
-    skipBlobCheck();
+    skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
     rollup.propose(header, archive, data.blockHash, txHashes, signatures, body, new bytes(144));
   }
