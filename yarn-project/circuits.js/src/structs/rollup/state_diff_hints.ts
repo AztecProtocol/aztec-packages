@@ -49,8 +49,17 @@ export class PrivateBaseStateDiffHints {
      */
     public nullifierSubtreeSiblingPath: Tuple<Fr, typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH>,
 
+    /**
+     * Low leaf for the fee write in the public data tree.
+     */
     public feeWriteLowLeafPreimage: PublicDataTreeLeafPreimage,
+    /**
+     * Membership witness for the low leaf for the fee write in the public data tree.
+     */
     public feeWriteLowLeafMembershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+    /**
+     * Sibling path "pointing to" where the fee write should be inserted into the public data tree.
+     */
     public feeWriteSiblingPath: Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
   ) {}
 
@@ -149,16 +158,25 @@ export class PublicBaseStateDiffHints {
      */
     public nullifierSubtreeSiblingPath: Tuple<Fr, typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH>,
 
+    /**
+     * Preimages of the low leaves for the public data writes
+     */
     public lowPublicDataWritesPreimages: Tuple<
       PublicDataTreeLeafPreimage,
       typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
 
+    /**
+     * Membership witnesses for the low leaves for the public data writes
+     */
     public lowPublicDataWritesMembershipWitnesses: Tuple<
       MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
       typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
 
+    /**
+     * Sibling paths "pointing to" where the new public data writes should be inserted (one by one) into the public data tree.
+     */
     public publicDataTreeSiblingPaths: Tuple<
       Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
       typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
