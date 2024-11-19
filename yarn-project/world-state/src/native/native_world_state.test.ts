@@ -59,6 +59,8 @@ describe('NativeWorldState', () => {
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeDefined();
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
     });
 
@@ -78,6 +80,8 @@ describe('NativeWorldState', () => {
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeUndefined();
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
     });
 
@@ -86,7 +90,7 @@ describe('NativeWorldState', () => {
       let ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       // db should be empty
       let emptyStatus = await ws.getStatusSummary();
-      expect(emptyStatus.unfinalisedBlockNumber).toBe(0);
+      expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
 
       // populate it and then close it
       const fork = await ws.fork();
@@ -110,7 +114,7 @@ describe('NativeWorldState', () => {
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       // db should be empty
       emptyStatus = await ws.getStatusSummary();
-      expect(emptyStatus.unfinalisedBlockNumber).toBe(0);
+      expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
     });
 
