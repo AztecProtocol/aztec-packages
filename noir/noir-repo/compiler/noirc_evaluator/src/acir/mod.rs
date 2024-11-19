@@ -1573,7 +1573,7 @@ impl<'a> Context<'a> {
         if !already_initialized {
             let value = &dfg[array];
             match value {
-                Value::Array { .. } |Value::Instruction { .. } => {
+                Value::Array { .. } | Value::Instruction { .. } => {
                     let value = self.convert_value(array, dfg);
                     let array_typ = dfg.type_of_value(array);
                     let len = if !array_typ.contains_slice_element() {

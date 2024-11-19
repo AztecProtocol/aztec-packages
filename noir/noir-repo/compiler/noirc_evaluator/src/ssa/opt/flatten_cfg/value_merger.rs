@@ -195,11 +195,7 @@ impl<'a> ValueMerger<'a> {
                 let then_element = get_element(then_value, typevars.clone());
                 let else_element = get_element(else_value, typevars);
 
-                merged.push_back(self.merge_values(
-                    then_condition,
-then_element,
-                    else_element,
-                ));
+                merged.push_back(self.merge_values(then_condition, then_element, else_element));
             }
         }
 
@@ -267,11 +263,7 @@ then_element,
                 let else_element =
                     get_element(else_value_id, typevars, else_len * element_types.len());
 
-                merged.push_back(self.merge_values(
-                    then_condition,
-                    then_element,
-                    else_element,
-                ));
+                merged.push_back(self.merge_values(then_condition, then_element, else_element));
             }
         }
 

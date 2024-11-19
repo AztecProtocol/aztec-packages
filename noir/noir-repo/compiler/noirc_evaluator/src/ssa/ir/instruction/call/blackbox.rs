@@ -2,10 +2,7 @@ use acvm::{acir::AcirField, BlackBoxFunctionSolver, BlackBoxResolutionError, Fie
 use iter_extended::vecmap;
 
 use crate::ssa::ir::{
-    dfg::DataFlowGraph,
-    instruction::SimplifyResult,
-    types::Type,
-    value::ValueId,
+    dfg::DataFlowGraph, instruction::SimplifyResult, types::Type, value::ValueId,
 };
 
 use super::{array_is_constant, make_constant_array, to_u8_vec};

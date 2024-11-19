@@ -731,15 +731,15 @@ impl<'f> Context<'f> {
                             1
                         };
                         let (array_with_predicate, array_typ) = self
-                        .apply_predicate_to_msm_argument(
-                            arguments[points_array_idx],
-                            condition,
-                            call_stack.clone(),
-                        );
+                            .apply_predicate_to_msm_argument(
+                                arguments[points_array_idx],
+                                condition,
+                                call_stack.clone(),
+                            );
 
-                    arguments[points_array_idx] =
-                        self.inserter.function.dfg.make_array(array_with_predicate, array_typ);
-                    Instruction::Call { func, arguments }
+                        arguments[points_array_idx] =
+                            self.inserter.function.dfg.make_array(array_with_predicate, array_typ);
+                        Instruction::Call { func, arguments }
                     }
                     _ => Instruction::Call { func, arguments },
                 },

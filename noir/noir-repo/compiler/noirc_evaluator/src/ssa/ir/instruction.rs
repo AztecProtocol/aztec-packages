@@ -519,11 +519,9 @@ impl Instruction {
                 then_condition: f(*then_condition),
                 then_value: f(*then_value),
                 else_value: f(*else_value),
-
-            }
+            },
         }
     }
-
 
     /// Applies a function to each input value this instruction holds.
     pub(crate) fn for_each_value<T>(&self, mut f: impl FnMut(ValueId) -> T) {
