@@ -62,7 +62,7 @@ function build_native {
   # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  if [ "CI" -eq 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure)
   else
