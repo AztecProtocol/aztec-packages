@@ -667,11 +667,11 @@ export async function deployL1Contract(
     const existing = await publicClient.getBytecode({ address: resultingAddress });
 
     if (existing === undefined || existing === '0x') {
-      const receipt = await l1TxUtils.sendAndMonitorTransaction({
+      const res = await l1TxUtils.sendTransaction({
         to: deployer,
         data: concatHex([salt, calldata]),
       });
-      txHash = receipt.transactionHash;
+      txHash = res.txHash;
 
       logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
     } else {

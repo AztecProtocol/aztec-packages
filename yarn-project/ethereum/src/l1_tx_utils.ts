@@ -132,46 +132,60 @@ export class L1TxUtils {
   }
 
   /**
-   * Sends a transaction and monitors it until completion, handling gas estimation and price bumping
-   * @param walletClient - The wallet client for sending the transaction
+   * Sends a transaction with gas estimation and pricing
    * @param request - The transaction request (to, data, value)
-   * @param monitorConfig - Optional monitoring configuration
-   * @returns The hash of the successful transaction
+   * @param gasConfig - Optional gas configuration
+   * @returns The transaction hash and parameters used
    */
-  public async sendAndMonitorTransaction(
+  public async sendTransaction(
     request: L1TxRequest,
     _gasConfig?: Partial<L1TxUtilsConfig>,
-  ): Promise<TransactionReceipt> {
+  ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
-    // Estimate gas
-    const gasLimit = await this.estimateGas(account, request);
 
+    const gasLimit = await this.estimateGas(account, request);
     const gasPrice = await this.getGasPrice(gasConfig);
-    const nonce = await this.publicClient.getTransactionCount({ address: account.address });
-    // Send initial tx
+
     const txHash = await this.walletClient.sendTransaction({
       ...request,
       gas: gasLimit,
       maxFeePerGas: gasPrice.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-      nonce,
     });
 
     this.logger?.verbose(
       `Sent L1 transaction ${txHash} with gas limit ${gasLimit} and price ${formatGwei(gasPrice.maxFeePerGas)} gwei`,
     );
 
-    // Track all tx hashes we send
-    const txHashes = new Set<Hex>([txHash]);
-    let currentTxHash = txHash;
+    return { txHash, gasLimit, gasPrice };
+  }
+
+  /**
+   * Monitors a transaction until completion, handling speed-ups if needed
+   * @param request - Original transaction request (needed for speed-ups)
+   * @param initialTxHash - Hash of the initial transaction
+   * @param params - Parameters used in the initial transaction
+   * @param gasConfig - Optional gas configuration
+   */
+  public async monitorTransaction(
+    request: L1TxRequest,
+    initialTxHash: Hex,
+    params: { nonce: number; gasLimit: bigint },
+    _gasConfig?: Partial<L1TxUtilsConfig>,
+  ): Promise<TransactionReceipt> {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    const account = this.walletClient.account;
+
+    const txHashes = new Set<Hex>([initialTxHash]);
+    let currentTxHash = initialTxHash;
     let attempts = 0;
     let lastSeen = Date.now();
+
     while (true) {
       try {
         const currentNonce = await this.publicClient.getTransactionCount({ address: account.address });
-        if (currentNonce > nonce) {
-          // A tx with this nonce has been mined - check all our tx hashes
+        if (currentNonce > params.nonce) {
           for (const hash of txHashes) {
             try {
               const receipt = await this.publicClient.getTransactionReceipt({ hash });
@@ -187,15 +201,11 @@ export class L1TxUtils {
               if (err instanceof Error && err.message.includes('reverted')) {
                 throw err;
               }
-              // We can ignore other errors - just try the next hash
             }
           }
         }
 
-        // Check if current tx is pending
         const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
-
-        // Get time passed
         const timePassed = Date.now() - lastSeen;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
@@ -205,7 +215,6 @@ export class L1TxUtils {
           continue;
         }
 
-        // Enough time has passed - might be stuck
         if (timePassed > gasConfig.stallTimeMs! && attempts < gasConfig.maxAttempts!) {
           attempts++;
           const newGasPrice = await this.getGasPrice(gasConfig, attempts);
@@ -217,13 +226,12 @@ export class L1TxUtils {
 
           currentTxHash = await this.walletClient.sendTransaction({
             ...request,
-            nonce,
-            gas: gasLimit,
+            nonce: params.nonce,
+            gas: params.gasLimit,
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           });
 
-          // Record new tx hash
           txHashes.add(currentTxHash);
           lastSeen = Date.now();
         }
@@ -236,6 +244,25 @@ export class L1TxUtils {
         await sleep(gasConfig.checkIntervalMs!);
       }
     }
+  }
+
+  /**
+   * Sends a transaction and monitors it until completion
+   * @param request - The transaction request (to, data, value)
+   * @param gasConfig - Optional gas configuration
+   * @returns The receipt of the successful transaction
+   */
+  public async sendAndMonitorTransaction(
+    request: L1TxRequest,
+    gasConfig?: Partial<L1TxUtilsConfig>,
+  ): Promise<TransactionReceipt> {
+    const { txHash, gasLimit } = await this.sendTransaction(request, gasConfig);
+    const tx = await this.publicClient.getTransaction({ hash: txHash });
+    if (!tx?.nonce) {
+      throw new Error(`Failed to get L1 transaction ${txHash} nonce`);
+    }
+
+    return this.monitorTransaction(request, txHash, { nonce: tx.nonce, gasLimit }, gasConfig);
   }
 
   /**
