@@ -17,6 +17,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type MerkleTreeAdminDatabase, type WorldStateConfig } from '../index.js';
+import { buildEmptyWorldStateStatusFull } from '../native/message.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 describe('ServerWorldStateSynchronizer', () => {
@@ -62,7 +63,7 @@ describe('ServerWorldStateSynchronizer', () => {
     merkleTreeDb.getCommitted.mockReturnValue(merkleTreeRead);
     merkleTreeDb.handleL2BlockAndMessages.mockImplementation((l2Block: L2Block) => {
       latestHandledBlockNumber = l2Block.number;
-      return Promise.resolve({ unfinalisedBlockNumber: 0n, finalisedBlockNumber: 0n, oldestHistoricalBlock: 0n });
+      return Promise.resolve(buildEmptyWorldStateStatusFull());
     });
     latestHandledBlockNumber = 0;
 
@@ -73,6 +74,7 @@ describe('ServerWorldStateSynchronizer', () => {
     const config: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 100,
       worldStateProvenBlocksOnly: false,
+      worldStateDbMapSizeKb: 1024 * 1024,
     };
 
     server = new TestWorldStateSynchronizer(merkleTreeDb, blockAndMessagesSource, config, l2BlockStream);

@@ -1,6 +1,5 @@
 export * from './db_interfaces.js';
-export { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
-export * from './enqueued_calls_processor.js';
+export * from './public_tx_simulator.js';
 export {
   type EnqueuedPublicCallExecutionResult as PublicExecutionResult,
   type PublicFunctionCallResult,
@@ -15,3 +14,4 @@ export { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
 export { PublicSideEffectTrace } from './side_effect_trace.js';
 export { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 export { DualSideEffectTrace } from './dual_side_effect_trace.js';
+export { getExecutionRequestsByPhase } from './utils.js';

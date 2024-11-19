@@ -60,14 +60,7 @@ template <class FF> class GrandProductTests : public testing::Test {
             .lookup_grand_product_delta = 1,
         };
 
-        // Method 1: Compute z_perm using 'compute_grand_product_polynomial' as the prover would in practice
-        constexpr size_t PERMUTATION_RELATION_INDEX = 0;
-        using LHS =
-            typename std::tuple_element<PERMUTATION_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
-        ASSERT(Flavor::NUM_WIRES == 4);
-        using RHS = typename bb::UltraPermutationRelation<FF>;
-        static_assert(std::same_as<LHS, RHS>);
-        compute_grand_product<Flavor, RHS>(prover_polynomials, params);
+        compute_grand_product<Flavor, typename bb::UltraPermutationRelation<FF>>(prover_polynomials, params);
 
         // Method 2: Compute z_perm locally using the simplest non-optimized syntax possible. The comment below,
         // which describes the computation in 4 steps, is adapted from a similar comment in

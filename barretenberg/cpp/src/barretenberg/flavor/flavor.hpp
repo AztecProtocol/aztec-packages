@@ -110,7 +110,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
     bool contains_pairing_point_accumulator;
-    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
     size_t num_public_inputs;
@@ -123,7 +123,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    // Ranges over which the execution trace is "active"
+    // Ranges of the form [start, end) over which the execution trace is "active"
     std::vector<std::pair<size_t, size_t>> active_block_ranges;
 
     ProvingKey_() = default;
@@ -152,7 +152,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     bool contains_pairing_point_accumulator = false;
-    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices = {};
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
     bool operator==(const VerificationKey_&) const = default;
@@ -369,7 +369,7 @@ template <typename T>
 concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
 MegaRecursiveFlavor_<CircuitSimulatorBN254>,
@@ -377,7 +377,10 @@ MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
 MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T>
-concept HasDataBus = IsGoblinFlavor<T>;
+concept HasDataBus = IsMegaFlavor<T>;
+
+template <typename T>
+concept HasIPAAccumulatorFlavor = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK>;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
