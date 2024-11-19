@@ -26,6 +26,7 @@ enum WorldStateMessageType {
 
     APPEND_LEAVES,
     BATCH_INSERT,
+    INSERT,
 
     UPDATE_ARCHIVE,
 
@@ -166,6 +167,13 @@ template <typename T> struct BatchInsertRequest {
     uint32_t subtreeDepth;
     Fork::Id forkId{ CANONICAL_FORK_ID };
     MSGPACK_FIELDS(treeId, leaves, subtreeDepth, forkId);
+};
+
+template <typename T> struct InsertRequest {
+    MerkleTreeId treeId;
+    std::vector<T> leaves;
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, forkId);
 };
 
 struct UpdateArchiveRequest {

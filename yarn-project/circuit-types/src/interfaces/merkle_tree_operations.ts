@@ -59,6 +59,20 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
 }
 
 /**
+ * The result of a sequential insertion in an indexed merkle tree.
+ */
+export interface SequentialInsertionResult<TreeHeight extends number> {
+  /**
+   * Data for the leaves to be updated when inserting the new ones.
+   */
+  lowLeavesWitnessData: LeafUpdateWitnessData<TreeHeight>[];
+  /**
+   * Data for the inserted leaves
+   */
+  insertionWitnessData: LeafUpdateWitnessData<TreeHeight>[];
+}
+
+/**
  *  Defines tree information.
  */
 export interface TreeInfo {
@@ -214,6 +228,11 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
     leaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
+
+  sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    leaves: Buffer[],
+  ): Promise<SequentialInsertionResult<TreeHeight>>;
 
   /**
    * Closes the database, discarding any uncommitted changes.

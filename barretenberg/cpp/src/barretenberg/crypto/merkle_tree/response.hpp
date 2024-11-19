@@ -42,6 +42,12 @@ template <typename LeafValueType> struct AddIndexedDataResponse {
     std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> low_leaf_witness_data;
 };
 
+template <typename LeafValueType> struct AddIndexedDataSequentiallyResponse {
+    AddDataResponse add_data_result;
+    std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> low_leaf_witness_data;
+    std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> insertion_witness_data;
+};
+
 struct FindLeafIndexResponse {
     index_t leaf_index;
 };
