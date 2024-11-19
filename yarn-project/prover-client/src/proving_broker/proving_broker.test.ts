@@ -30,7 +30,8 @@ beforeAll(() => {
 describe.each([
   () => ({ database: new InMemoryDatabase(), cleanup: undefined }),
   () => {
-    const store = AztecLmdbStore.open(undefined, true);
+    const storeSize = 1 * 1024 * 1024;
+    const store = AztecLmdbStore.open(undefined, storeSize, true);
     const database = new PersistedProvingJobDatabase(store);
     const cleanup = () => store.close();
     return { database, cleanup };
