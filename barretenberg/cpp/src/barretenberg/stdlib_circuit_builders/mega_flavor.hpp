@@ -36,7 +36,7 @@ class MegaFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = CircuitBuilder::Arithmetization::TraceBlocks;
+    using TraceBlocks = MegaExecutionTraceBlocks;
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
@@ -625,7 +625,7 @@ class MegaFlavor {
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,

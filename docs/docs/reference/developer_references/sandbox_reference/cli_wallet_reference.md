@@ -130,6 +130,16 @@ Simulates a transaction instead of sending it. This allows you to obtain i.e. th
 aztec-wallet simulate --from master_yoda --contract-address jedi_order --args "luke_skywalker" train_jedi
 ```
 
+### Profile
+
+Simulates a transaction with profiling enabled. This allows you to get the gate count of each private function in the transaction. Read more about profiling [here](../../../guides/developer_guides/smart_contracts/profiling_transactions.md).
+
+#### Example
+
+```bash
+aztec-wallet simulate --profile --from master_yoda --contract-address jedi_order --args "luke_skywalker" train_jedi
+```
+
 ### Bridge Fee Juice
 
 The wallet provides an easy way to mint the fee-paying asset on L1 and bridging it to L2. We call it Fee Juice and you can read more about it in the [protocol specs](../../../protocol-specs/gas-and-fees/fee-juice.md).

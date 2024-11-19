@@ -56,8 +56,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
         // Construct stdlib verifier transcript
-        auto recursive_verifier_transcript =
-            std::make_shared<StdlibTranscript>(bb::convert_proof_to_witness(&builder, prover_transcript->proof_data));
+        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>(
+            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
 
@@ -158,25 +158,21 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
         // polynomial.
-        auto [output_claim, challenge_poly] = RecursiveIPA::accumulate(transcript_1, claim_1, transcript_2, claim_2);
+        auto [output_claim, ipa_proof] =
+            RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
         builder.finalize_circuit(/*ensure_nonzero=*/false);
         info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
              builder.get_num_finalized_gates());
 
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-        // Run the IPA prover on this new accumulated claim.
-        auto prover_transcript = std::make_shared<NativeTranscript>();
         const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
                                                      bb::fq(output_claim.opening_pair.evaluation.get_value()) };
         Commitment native_comm = output_claim.commitment.get_value();
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
-        NativeIPA::compute_opening_proof(this->ck(), { challenge_poly, opening_pair }, prover_transcript);
-
-        EXPECT_EQ(challenge_poly.evaluate(opening_pair.challenge), opening_pair.evaluation);
         // Natively verify this proof to check it.
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+        auto verifier_transcript = std::make_shared<NativeTranscript>(ipa_proof);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);

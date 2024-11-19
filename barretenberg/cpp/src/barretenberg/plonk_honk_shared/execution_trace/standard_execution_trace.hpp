@@ -1,10 +1,10 @@
 #pragma once
 
-#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 
 namespace bb {
 
-template <typename FF_> class StandardArith {
+template <typename FF_> class StandardExecutionTrace {
   public:
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t NUM_SELECTORS = 5;
