@@ -707,7 +707,7 @@ export async function createAndSyncProverNode(
     dataDirectory: undefined,
     proverId: new Fr(42),
     realProofs: false,
-    proverAgentConcurrency: 2,
+    proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,
     proverNodeMaxPendingJobs: 10,
     proverNodePollingIntervalMs: 200,

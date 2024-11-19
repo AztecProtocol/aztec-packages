@@ -43,6 +43,8 @@ export default {
     new webpack.DefinePlugin({
       'process.env': {
         NODE_ENV: JSON.stringify('production'),
+        LOG_LEVEL: JSON.stringify('debug'),
+        DEBUG: JSON.stringify('aztec:*'),
       },
     }),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),

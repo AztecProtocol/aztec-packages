@@ -39,6 +39,13 @@ spec:
                 sleep 5
               done
               echo "Ethereum node is ready!"
+
+              until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
+                echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
+                sleep 5
+              done
+              echo "Broker is ready!"
+
               {{- if .Values.telemetry.enabled }}
               until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."

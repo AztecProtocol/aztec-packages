@@ -1,55 +1,67 @@
 import {
+  type ProvingJobId,
+  type ProvingJobInputs,
+  type ProvingJobResultsMap,
   ProvingRequestType,
   type ServerCircuitProver,
-  type V2ProofInput,
-  type V2ProofOutput,
-  type V2ProvingJobId,
 } from '@aztec/circuit-types';
 
-export enum ProvingJobStatus {
+export enum ProvingJobControllerStatus {
   IDLE = 'idle',
   PROVING = 'proving',
   DONE = 'done',
+  ABORTED = 'aborted',
 }
 
-type ProvingJobCompletionCallback = (
-  jobId: V2ProvingJobId,
-  type: ProvingRequestType,
-  error: Error | undefined,
-  result: V2ProofOutput | undefined,
-) => void | Promise<void>;
+interface ProvingJobCompletionCallback<T extends ProvingRequestType = ProvingRequestType> {
+  (
+    jobId: ProvingJobId,
+    type: T,
+    error: Error | undefined,
+    result: ProvingJobResultsMap[T] | undefined,
+  ): void | Promise<void>;
+}
 
 export class ProvingJobController {
-  private status: ProvingJobStatus = ProvingJobStatus.IDLE;
+  private status: ProvingJobControllerStatus = ProvingJobControllerStatus.IDLE;
   private promise?: Promise<void>;
   private abortController = new AbortController();
 
   constructor(
-    private jobId: V2ProvingJobId,
-    private inputs: V2ProofInput,
+    private jobId: ProvingJobId,
+    private inputs: ProvingJobInputs,
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: ProvingJobCompletionCallback,
   ) {}
 
   public start(): void {
-    if (this.status !== ProvingJobStatus.IDLE) {
+    if (this.status !== ProvingJobControllerStatus.IDLE) {
       return;
     }
 
-    this.status = ProvingJobStatus.PROVING;
+    this.status = ProvingJobControllerStatus.PROVING;
     this.promise = this.generateProof()
       .then(
         result => {
-          this.status = ProvingJobStatus.DONE;
+          if (this.status === ProvingJobControllerStatus.ABORTED) {
+            return;
+          }
+
+          this.status = ProvingJobControllerStatus.DONE;
           return this.onComplete(this.jobId, this.inputs.type, undefined, result);
         },
         error => {
-          this.status = ProvingJobStatus.DONE;
+          if (this.status === ProvingJobControllerStatus.ABORTED) {
+            return;
+          }
+
           if (error.name === 'AbortError') {
             // Ignore abort errors
             return;
           }
+
+          this.status = ProvingJobControllerStatus.DONE;
           return this.onComplete(this.jobId, this.inputs.type, error, undefined);
         },
       )
@@ -58,19 +70,20 @@ export class ProvingJobController {
       });
   }
 
-  public getStatus(): ProvingJobStatus {
+  public getStatus(): ProvingJobControllerStatus {
     return this.status;
   }
 
   public abort(): void {
-    if (this.status !== ProvingJobStatus.PROVING) {
+    if (this.status !== ProvingJobControllerStatus.PROVING) {
       return;
     }
 
+    this.status = ProvingJobControllerStatus.ABORTED;
     this.abortController.abort();
   }
 
-  public getJobId(): V2ProvingJobId {
+  public getJobId(): ProvingJobId {
     return this.jobId;
   }
 
@@ -82,68 +95,56 @@ export class ProvingJobController {
     return ProvingRequestType[this.inputs.type];
   }
 
-  private async generateProof(): Promise<V2ProofOutput> {
-    const { type, value: inputs } = this.inputs;
+  private async generateProof(): Promise<ProvingJobResultsMap[ProvingRequestType]> {
+    const { type, inputs } = this.inputs;
     const signal = this.abortController.signal;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        const value = await this.circuitProver.getAvmProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getAvmProof(inputs, signal);
       }
 
       case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
-        const value = await this.circuitProver.getPrivateBaseRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getPrivateBaseRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.PUBLIC_BASE_ROLLUP: {
-        const value = await this.circuitProver.getPublicBaseRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getPublicBaseRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.MERGE_ROLLUP: {
-        const value = await this.circuitProver.getMergeRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getMergeRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP: {
-        const value = await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
-        const value = await this.circuitProver.getBlockRootRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getBlockRootRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
-        const value = await this.circuitProver.getBlockMergeRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getBlockMergeRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.ROOT_ROLLUP: {
-        const value = await this.circuitProver.getRootRollupProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getRootRollupProof(inputs, signal);
       }
 
       case ProvingRequestType.BASE_PARITY: {
-        const value = await this.circuitProver.getBaseParityProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getBaseParityProof(inputs, signal);
       }
 
       case ProvingRequestType.ROOT_PARITY: {
-        const value = await this.circuitProver.getRootParityProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getRootParityProof(inputs, signal);
       }
 
       case ProvingRequestType.PRIVATE_KERNEL_EMPTY: {
-        const value = await this.circuitProver.getEmptyPrivateKernelProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getEmptyPrivateKernelProof(inputs, signal);
       }
 
       case ProvingRequestType.TUBE_PROOF: {
-        const value = await this.circuitProver.getTubeProof(inputs, signal);
-        return { type, value };
+        return await this.circuitProver.getTubeProof(inputs, signal);
       }
 
       default: {

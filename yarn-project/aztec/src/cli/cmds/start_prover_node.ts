@@ -1,7 +1,8 @@
-import { ProverNodeApiSchema, ProvingJobSourceSchema, createAztecNodeClient } from '@aztec/circuit-types';
+import { ProverNodeApiSchema, createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
+import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,
   createProverNode,
@@ -37,10 +38,10 @@ export async function startProverNode(
 
   if (options.prover || options.proverAgentEnabled) {
     userLog(`Running prover node with local prover agent.`);
-    proverConfig.proverAgentEnabled = true;
+    proverConfig.proverAgentCount = 1;
   } else {
     userLog(`Running prover node without local prover agent. Connect one or more prover agents to this node.`);
-    proverConfig.proverAgentEnabled = false;
+    proverConfig.proverAgentCount = 0;
   }
 
   if (!proverConfig.publisherPrivateKey || proverConfig.publisherPrivateKey === NULL_KEY) {
@@ -67,12 +68,14 @@ export async function startProverNode(
   const telemetry = await createAndStartTelemetryClient(
     extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
   );
-  const proverNode = await createProverNode(proverConfig, { telemetry });
+
+  const broker = proverConfig.proverBrokerUrl ? createProvingJobBrokerClient(proverConfig.proverBrokerUrl) : undefined;
+  const proverNode = await createProverNode(proverConfig, { telemetry, broker });
 
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  if (!options.prover) {
-    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobSourceSchema];
+  if (!proverConfig.proverBrokerUrl) {
+    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
   }
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
