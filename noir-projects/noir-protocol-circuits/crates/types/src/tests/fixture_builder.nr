@@ -2,20 +2,17 @@ use crate::{
     abis::{
         accumulated_data::{
             CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-            PrivateToPublicAccumulatedData, PublicAccumulatedData,
-            PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder,
+            PrivateToPublicAccumulatedData,
         },
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
-        enqueued_call_data::{EnqueuedCallData, Proof},
         function_data::FunctionData,
         gas::Gas,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
             KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
-            PrivateToPublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-            VMCircuitPublicInputs,
+            PrivateToPublicKernelCircuitPublicInputs,
         },
         log::Log,
         log_hash::{LogHash, ScopedLogHash},
@@ -28,32 +25,26 @@ use crate::{
         private_kernel_data::PrivateKernelData,
         private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
-        public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
         public_data_write::PublicDataWrite,
-        public_inner_call_request::PublicInnerCallRequest,
-        public_kernel_data::PublicKernelData,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, scoped::Scoped},
-        tree_leaf_read_request::TreeLeafReadRequest,
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-            PublicValidationRequestArrayLengths, PublicValidationRequests, RollupValidationRequests,
-            ScopedKeyValidationRequestAndGenerator,
+            RollupValidationRequests, ScopedKeyValidationRequestAndGenerator,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS,
-        PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, mask_private_log_address, silo_note_hash,
@@ -121,22 +112,16 @@ pub struct FixtureBuilder {
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    pub public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
-    pub public_inner_call_requests: BoundedVec<PublicInnerCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
     pub revert_code: u8,
 
     // Validation requests.
     pub max_block_number: MaxBlockNumber,
     pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    pub note_hash_tree_leaf_read_requests: BoundedVec<TreeLeafReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    pub l1_to_l2_msg_read_requests: BoundedVec<TreeLeafReadRequest, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
-    pub public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
     pub validation_requests_split_counter: Option<u32>,
 
     // Function.
@@ -268,13 +253,6 @@ impl FixtureBuilder {
         self.function_leaf_membership_witness = function_data.membership_witness;
         self.acir_hash = function_data.acir_hash;
         self.client_ivc_vk = VerificationKey { key: vk, hash: function_data.vk_hash };
-        *self
-    }
-
-    pub fn is_public_function(&mut self) -> Self {
-        let contract_function = fixtures::contract_functions::default_public_function;
-        self.function_data = contract_function.data;
-        self.bytecode_hash = contract_function.acir_hash;
         *self
     }
 
@@ -419,25 +397,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
-        let nullifiers = self.nullifiers.map(|n: ScopedNullifier| n.nullifier);
-        PublicAccumulatedDataBuilder {
-            note_hashes: self.note_hashes,
-            nullifiers,
-            l2_to_l1_msgs: self.l2_to_l1_msgs,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
-            public_data_update_requests: self.public_data_update_requests,
-            public_call_stack: self.public_call_requests.map(|r: Counted<PublicCallRequest>| {
-                r.inner
-            }),
-            gas_used: self.gas_used,
-        }
-    }
-
-    pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
-        self.to_public_accumulated_data_builder().finish()
-    }
-
     pub fn to_private_to_public_accumulated_data(self) -> PrivateToPublicAccumulatedData {
         PrivateToPublicAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.value()),
@@ -538,78 +497,6 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-        }
-    }
-
-    pub fn to_public_validation_requests(self) -> PublicValidationRequests {
-        PublicValidationRequests {
-            for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: self.note_hash_tree_leaf_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
-            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage(),
-            public_data_reads: self.public_data_reads.storage(),
-            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage(),
-        }
-    }
-
-    pub fn to_vm_circuit_public_inputs(self) -> VMCircuitPublicInputs {
-        VMCircuitPublicInputs {
-            constants: self.to_constant_data(),
-            call_request: self.to_public_call_request(),
-            public_call_stack: subarray(self.public_inner_call_requests.storage()),
-            previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
-            validation_requests: self.to_public_validation_requests(),
-            previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
-            accumulated_data: self.to_public_accumulated_data(),
-            start_side_effect_counter: self.counter_start,
-            end_side_effect_counter: self.counter,
-            start_gas_left: self.start_gas_left,
-            transaction_fee: self.transaction_fee,
-            reverted: self.revert_code != 0,
-        }
-    }
-
-    pub fn to_enqueued_call_data(self) -> EnqueuedCallData {
-        EnqueuedCallData { data: self.to_vm_circuit_public_inputs(), proof: Proof {} }
-    }
-
-    pub fn to_public_kernel_circuit_public_inputs(
-        self,
-        revertible: bool,
-    ) -> PublicKernelCircuitPublicInputs {
-        // TODO: Split the data using self.min_revertible_side_effect_counter.
-        let accumulated_data = self.to_public_accumulated_data();
-        let end_non_revertible = if revertible {
-            PublicAccumulatedData::empty()
-        } else {
-            accumulated_data
-        };
-        let end = if revertible {
-            accumulated_data
-        } else {
-            PublicAccumulatedData::empty()
-        };
-
-        PublicKernelCircuitPublicInputs {
-            constants: self.to_constant_data(),
-            validation_requests: self.to_public_validation_requests(),
-            end_non_revertible,
-            end,
-            end_side_effect_counter: self.counter,
-            public_teardown_call_request: self.public_teardown_call_request,
-            fee_payer: self.fee_payer,
-            revert_code: self.revert_code,
-        }
-    }
-
-    pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
-        let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData {
-            public_inputs,
-            proof: self.proof,
-            vk: self.honk_vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
         }
     }
 
@@ -777,38 +664,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {
-        let update_request =
-            PublicDataUpdateRequest { leaf_slot, new_value: value, counter: self.next_counter() };
-        self.public_data_update_requests.push(update_request);
-    }
-
-    pub fn append_public_data_update_requests(&mut self, num_updates: u32) {
-        let index_offset = self.public_data_update_requests.len();
-        for i in 0..self.public_data_update_requests.max_len() {
-            if i < num_updates {
-                let (leaf_slot, value) = self.mock_public_data_write(index_offset + i);
-                self.add_public_data_update_request(leaf_slot, value);
-            }
-        }
-    }
-
-    pub fn add_public_data_read_request(&mut self, leaf_slot: Field, value: Field) {
-        self.public_data_reads.push(
-            PublicDataRead { leaf_slot, value, counter: self.next_counter() },
-        );
-    }
-
-    pub fn append_public_data_read_requests(&mut self, num_reads: u32) {
-        let index_offset = self.public_data_reads.len();
-        for i in 0..self.public_data_reads.max_len() {
-            if i < num_reads {
-                let (leaf_slot, value) = self.mock_public_data_read(index_offset + i);
-                self.add_public_data_read_request(leaf_slot, value);
-            }
-        }
-    }
-
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
         let value = self.mock_note_hash_value(note_hash_index);
@@ -831,21 +686,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_hash_tree_leaf_read_requests(&mut self, value: Field, leaf_index: Field) {
-        let read_request = TreeLeafReadRequest { value, leaf_index };
-        self.note_hash_tree_leaf_read_requests.push(read_request);
-    }
-
-    pub fn append_note_hash_tree_leaf_read_requests(&mut self, num_reads: u32) {
-        let index_offset = self.note_hash_tree_leaf_read_requests.len();
-        for i in 0..self.note_hash_tree_leaf_read_requests.max_len() {
-            if i < num_reads {
-                let value = self.mock_note_hash_read_value(index_offset + i);
-                self.add_note_hash_tree_leaf_read_requests(value, (index_offset + i) as Field);
-            }
-        }
-    }
-
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
         let nullifier = self.mock_nullifier_value(nullifier_index);
@@ -854,13 +694,6 @@ impl FixtureBuilder {
         );
         self.nullifier_read_requests.push(read_request);
         read_request_index
-    }
-
-    pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(
-            self.contract_address,
-        );
-        self.nullifier_non_existent_read_requests.push(read_request);
     }
 
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
@@ -872,16 +705,6 @@ impl FixtureBuilder {
                     self.contract_address,
                 );
                 self.nullifier_read_requests.push(read_request);
-            }
-        }
-    }
-
-    pub fn append_nullifier_non_existent_read_requests(&mut self, num: u32) {
-        let index_offset = self.nullifier_non_existent_read_requests.len();
-        for i in 0..self.nullifier_non_existent_read_requests.max_len() {
-            if i < num {
-                let value = self.mock_nullifier_read_value(index_offset + i);
-                self.add_non_existent_read_request_for_nullifier(value);
             }
         }
     }
@@ -1224,18 +1047,12 @@ impl Empty for FixtureBuilder {
             unencrypted_log_preimages_length: 0,
             contract_class_log_preimages_length: 0,
             public_data_writes: BoundedVec::new(),
-            public_data_update_requests: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            public_inner_call_requests: BoundedVec::new(),
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
-            note_hash_tree_leaf_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            nullifier_non_existent_read_requests: BoundedVec::new(),
-            l1_to_l2_msg_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
-            public_data_reads: BoundedVec::new(),
             validation_requests_split_counter: Option::none(),
             function_data: FunctionData::empty(),
             args_hash: 0,

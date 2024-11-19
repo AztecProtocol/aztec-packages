@@ -46,14 +46,6 @@ export class TokenContractTest {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       this.accounts = await pxe.getRegisteredAccounts();
-      // // Add every wallet the contacts of every other wallet. This way, they can send notes to each other and discover them
-      // await Promise.all(
-      //   this.wallets.map(w => {
-      //     const otherWallets = this.wallets.filter(ow => ow.getAddress() !== w.getAddress());
-      //     return Promise.all(otherWallets.map(ow => w.registerContact(ow.getAddress())));
-      //   }),
-      // );
-      // this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
     await this.snapshotManager.snapshot(

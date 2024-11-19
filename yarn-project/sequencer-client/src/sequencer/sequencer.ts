@@ -357,7 +357,7 @@ export class Sequencer {
         throw new Error(msg);
       }
 
-      this.log.info(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
+      this.log.verbose(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
       const msg = prettyLogViemErrorMsg(err);

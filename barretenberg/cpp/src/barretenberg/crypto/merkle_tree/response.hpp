@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -65,6 +66,21 @@ struct GetLowIndexedLeafResponse {
     }
 };
 
+struct CommitResponse {
+    TreeMeta meta;
+    TreeDBStats stats;
+};
+
+struct UnwindResponse {
+    TreeMeta meta;
+    TreeDBStats stats;
+};
+
+struct RemoveHistoricResponse {
+    TreeMeta meta;
+    TreeDBStats stats;
+};
+
 template <typename ResponseType> struct TypedResponse {
     ResponseType inner;
     bool success{ true };
@@ -78,7 +94,7 @@ struct Response {
 
 template <typename ResponseType>
 void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>& f,
-                        const std::function<void(const TypedResponse<ResponseType>&)>& on_completion)
+                        const std::function<void(TypedResponse<ResponseType>&)>& on_completion)
 {
     TypedResponse<ResponseType> response;
     try {

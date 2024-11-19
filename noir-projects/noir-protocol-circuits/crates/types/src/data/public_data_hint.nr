@@ -8,7 +8,6 @@ use crate::{
 pub struct PublicDataHint {
     leaf_slot: Field,
     value: Field,
-    override_counter: u32,
     membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     leaf_preimage: PublicDataTreeLeafPreimage,
 }
@@ -44,7 +43,6 @@ impl Empty for PublicDataHint {
         PublicDataHint {
             leaf_slot: 0,
             value: 0,
-            override_counter: 0,
             membership_witness: MembershipWitness::empty(),
             leaf_preimage: PublicDataTreeLeafPreimage::empty(),
         }

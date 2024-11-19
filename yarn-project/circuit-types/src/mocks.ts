@@ -155,11 +155,11 @@ export const mockTx = (
 
     data.forPublic.nonRevertibleAccumulatedData = nonRevertibleBuilder
       .pushNullifier(firstNullifier.value)
-      .withPublicCallStack(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
+      .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
 
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
-      .withPublicCallStack(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
+      .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
 
     if (hasLogs) {

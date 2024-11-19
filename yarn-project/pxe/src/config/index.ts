@@ -5,6 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type Network } from '@aztec/types/network';
 
 import { readFileSync } from 'fs';
@@ -35,11 +36,9 @@ export interface PXEConfig {
   l2BlockPollingIntervalMS: number;
   /** L2 block to start scanning from for new accounts */
   l2StartingBlock: number;
-  /** Where to store PXE data. If not set, will store in memory */
-  dataDirectory?: string;
 }
 
-export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig;
+export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig;
 
 export type CliPXEOptions = {
   /** External Aztec network to connect to. e.g. devnet */
@@ -51,6 +50,7 @@ export type CliPXEOptions = {
 };
 
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
+  ...dataConfigMappings,
   l2BlockPollingIntervalMS: {
     env: 'PXE_BLOCK_POLLING_INTERVAL_MS',
     description: 'The interval to wait between polling for new blocks.',
@@ -60,10 +60,6 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),
     description: 'L2 block to start scanning from for new accounts',
-  },
-  dataDirectory: {
-    env: 'PXE_DATA_DIRECTORY',
-    description: 'Where to store PXE data. If not set, will store in memory',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
@@ -111,6 +107,7 @@ export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = {
 export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEServiceConfig> = {
   ...pxeConfigMappings,
   ...pxeCliConfigMappings,
+  ...dataConfigMappings,
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     parseEnv: (val: string) => ['1', 'true', 'TRUE'].includes(val) || !!process.env.NETWORK,

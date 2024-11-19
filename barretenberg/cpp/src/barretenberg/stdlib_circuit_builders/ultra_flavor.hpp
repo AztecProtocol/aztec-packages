@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -47,10 +48,21 @@ class UltraFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
+    // The number of shifted witness entities including derived witness entities
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
+    // The number of shifted tables
+    static constexpr size_t NUM_SHIFTED_TABLES = 4;
+
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
+                                NUM_SHIFTED_WITNESSES);
+
+    // The total number of witnesses including shifts and derived entities.
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -193,6 +205,7 @@ class UltraFlavor {
 
     /**
      * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
+     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
      */
     template <typename DataType> class ShiftedTables {
       public:
@@ -271,7 +284,6 @@ class UltraFlavor {
         };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -339,6 +351,10 @@ class UltraFlavor {
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         using Base = ProvingKey_<FF, CommitmentKey>;
+
+        bool contains_ipa_claim;
+        IPAClaimPubInputIndices ipa_claim_public_input_indices;
+        HonkProof ipa_proof;
 
         ProvingKey() = default;
         ProvingKey(const size_t dyadic_circuit_size,
@@ -426,12 +442,17 @@ class UltraFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        bool contains_ipa_claim;
+        IPAClaimPubInputIndices ipa_claim_public_input_indices;
+
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(ProvingKey& proving_key)
+            : contains_ipa_claim(proving_key.contains_ipa_claim)
+            , ipa_claim_public_input_indices(proving_key.ipa_claim_public_input_indices)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
@@ -455,7 +476,9 @@ class UltraFlavor {
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const bool contains_ipa_claim,
+                        const IPAClaimPubInputIndices& ipa_claim_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -483,6 +506,8 @@ class UltraFlavor {
                         const Commitment& table_4,
                         const Commitment& lagrange_first,
                         const Commitment& lagrange_last)
+            : contains_ipa_claim(contains_ipa_claim)
+            , ipa_claim_public_input_indices(ipa_claim_public_input_indices)
         {
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
@@ -526,6 +551,8 @@ class UltraFlavor {
                        pub_inputs_offset,
                        contains_pairing_point_accumulator,
                        pairing_point_accumulator_public_input_indices,
+                       contains_ipa_claim,
+                       ipa_claim_public_input_indices,
                        q_m,
                        q_c,
                        q_l,

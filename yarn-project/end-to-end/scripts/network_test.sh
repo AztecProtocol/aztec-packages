@@ -30,6 +30,8 @@ INSTALL_CHAOS_MESH="${INSTALL_CHAOS_MESH:-}"
 CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
+INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
+CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -51,8 +53,11 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
+STERN_PID=""
 function copy_stern_to_log() {
-  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log
+  ulimit -n 4096
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
@@ -103,12 +108,16 @@ handle_network_shaping() {
     return 0
 }
 
-copy_stern_to_log &
+copy_stern_to_log
 show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) $STERN_PID &>/dev/null || true
+
+  if [ "$CLEANUP_CLUSTER" = "true" ]; then
+    kind delete cluster || true
+  fi
 }
 trap cleanup SIGINT SIGTERM EXIT
 
@@ -126,7 +135,7 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
       --wait \
       --wait-for-jobs=true \
-      --timeout=30m
+      --timeout="$INSTALL_TIMEOUT"
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
