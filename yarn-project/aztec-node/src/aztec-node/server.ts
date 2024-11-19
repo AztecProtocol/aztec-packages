@@ -71,7 +71,7 @@ import {
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, createSimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
@@ -160,8 +160,6 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const simulationProvider = await createSimulationProvider(config, log);
-
     const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
@@ -175,7 +173,6 @@ export class AztecNodeService implements AztecNode {
           archiver,
           archiver,
           archiver,
-          simulationProvider,
           telemetry,
         );
 

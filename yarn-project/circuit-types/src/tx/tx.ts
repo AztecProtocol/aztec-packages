@@ -119,6 +119,22 @@ export class Tx extends Gossipable {
     );
   }
 
+  static newWithTxData(
+    data: PrivateKernelTailCircuitPublicInputs,
+    publicTeardownExecutionRequest?: PublicExecutionRequest,
+  ) {
+    return new Tx(
+      data,
+      ClientIvcProof.empty(),
+      EncryptedNoteTxL2Logs.empty(),
+      EncryptedTxL2Logs.empty(),
+      UnencryptedTxL2Logs.empty(),
+      ContractClassTxL2Logs.empty(),
+      [],
+      publicTeardownExecutionRequest ? publicTeardownExecutionRequest : PublicExecutionRequest.empty(),
+    );
+  }
+
   /**
    * Serializes the Tx object into a Buffer.
    * @returns Buffer representation of the Tx object.

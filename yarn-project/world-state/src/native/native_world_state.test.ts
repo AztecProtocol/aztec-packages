@@ -23,7 +23,8 @@ import { join } from 'path';
 import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateStatusSummary } from './message.js';
-import { NativeWorldStateService } from './native_world_state.js';
+import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
+import { WorldStateVersion } from './world_state_version.js';
 
 describe('NativeWorldState', () => {
   let dataDir: string;
@@ -58,6 +59,8 @@ describe('NativeWorldState', () => {
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeDefined();
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
     });
 
@@ -77,6 +80,41 @@ describe('NativeWorldState', () => {
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeUndefined();
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalisedBlockNumber).toBe(0n);
+      await ws.close();
+    });
+
+    it('clears the database if the world state version is different', async () => {
+      // open ws against the data again
+      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      // db should be empty
+      let emptyStatus = await ws.getStatusSummary();
+      expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
+
+      // populate it and then close it
+      const fork = await ws.fork();
+      ({ block, messages } = await mockBlock(1, 2, fork));
+      await fork.close();
+
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+      expect(status.summary.unfinalisedBlockNumber).toBe(1n);
+      await ws.close();
+      // we open up the version file that was created and modify the version to be older
+      const fullPath = join(dataDir, 'world_state', WORLD_STATE_VERSION_FILE);
+      const storedWorldStateVersion = await WorldStateVersion.readVersion(fullPath);
+      expect(storedWorldStateVersion).toBeDefined();
+      const modifiedVersion = new WorldStateVersion(
+        storedWorldStateVersion!.version - 1,
+        storedWorldStateVersion!.rollupAddress,
+      );
+      await modifiedVersion.writeVersionFile(fullPath);
+
+      // Open the world state again and it should be empty
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      // db should be empty
+      emptyStatus = await ws.getStatusSummary();
+      expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
     });
 
