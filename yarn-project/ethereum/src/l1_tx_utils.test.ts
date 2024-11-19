@@ -7,7 +7,7 @@ import { createPublicClient, createWalletClient, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { GasUtils } from './gas_utils.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
@@ -26,7 +26,7 @@ const startAnvil = async (l1BlockTime?: number) => {
 };
 
 describe('GasUtils', () => {
-  let gasUtils: GasUtils;
+  let gasUtils: L1TxUtils;
   let publicClient: any;
   let walletClient: any;
   let anvil: Anvil;
@@ -55,7 +55,7 @@ describe('GasUtils', () => {
       account,
     });
 
-    gasUtils = new GasUtils(publicClient, walletClient, logger, {
+    gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
       bufferPercentage: 20n,
       maxGwei: 500n,
       minGwei: 1n,
@@ -144,7 +144,7 @@ describe('GasUtils', () => {
 
   it('adds appropriate buffer to gas estimation', async () => {
     // First deploy without any buffer
-    const baselineGasUtils = new GasUtils(publicClient, walletClient, logger, {
+    const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
       bufferPercentage: 0n,
       maxGwei: 500n,
       minGwei: 1n,
@@ -164,7 +164,7 @@ describe('GasUtils', () => {
     });
 
     // Now deploy with 20% buffer
-    const bufferedGasUtils = new GasUtils(publicClient, walletClient, logger, {
+    const bufferedGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
       bufferPercentage: 20n,
       maxGwei: 500n,
       minGwei: 1n,

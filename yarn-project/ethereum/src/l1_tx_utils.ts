@@ -116,7 +116,7 @@ interface GasPrice {
   maxPriorityFeePerGas: bigint;
 }
 
-export class GasUtils {
+export class L1TxUtils {
   private readonly config: GasUtilsConfig;
 
   constructor(

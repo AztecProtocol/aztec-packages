@@ -52,8 +52,8 @@ import { foundry } from 'viem/chains';
 
 import { type L1ContractsConfig } from './config.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
-import { GasUtils } from './gas_utils.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -617,7 +617,7 @@ export async function deployL1Contract(
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
 
-  const gasUtils = new GasUtils(publicClient, walletClient, logger);
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
 
   if (libraries) {
     // @note  Assumes that we wont have nested external libraries.
@@ -667,7 +667,7 @@ export async function deployL1Contract(
     const existing = await publicClient.getBytecode({ address: resultingAddress });
 
     if (existing === undefined || existing === '0x') {
-      const receipt = await gasUtils.sendAndMonitorTransaction({
+      const receipt = await l1TxUtils.sendAndMonitorTransaction({
         to: deployer,
         data: concatHex([salt, calldata]),
       });
@@ -680,7 +680,7 @@ export async function deployL1Contract(
   } else {
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const receipt = await gasUtils.sendAndMonitorTransaction({
+    const receipt = await l1TxUtils.sendAndMonitorTransaction({
       to: '0x', // Contract creation
       data: deployData,
     });

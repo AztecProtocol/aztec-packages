@@ -17,7 +17,7 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { GasUtils, type GasUtilsConfig, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
+import { type GasUtilsConfig, type L1ContractsConfig, L1TxUtils, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -163,7 +163,7 @@ export class L1Publisher {
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
-  private readonly gasUtils: GasUtils;
+  private readonly l1TxUtils: L1TxUtils;
 
   constructor(
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'> & GasUtilsConfig,
@@ -204,7 +204,7 @@ export class L1Publisher {
       });
     }
 
-    this.gasUtils = new GasUtils(this.publicClient, this.walletClient, this.log, config);
+    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
   }
 
   public getPayLoad() {
@@ -701,7 +701,7 @@ export class L1Publisher {
       const txArgs = [...this.getSubmitEpochProofArgs(args), proofHex] as const;
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
 
-      const txReceipt = await this.gasUtils.sendAndMonitorTransaction({
+      const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
         data: encodeFunctionData({
           abi: this.rollupContract.abi,
@@ -769,7 +769,7 @@ export class L1Publisher {
     try {
       const args = this.prepareProposeTx(encodedData);
 
-      const receipt = await this.gasUtils.sendAndMonitorTransaction(
+      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
@@ -807,7 +807,7 @@ export class L1Publisher {
       this.log.info(inspect(quote.payload));
 
       const args = this.prepareProposeTx(encodedData);
-      const receipt = await this.gasUtils.sendAndMonitorTransaction({
+      const receipt = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
         data: encodeFunctionData({
           abi: this.rollupContract.abi,
