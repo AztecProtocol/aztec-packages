@@ -7,7 +7,6 @@ use dep::types::{
         MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT,
     },
-    data,
     merkle_tree::{indexed_tree, MembershipWitness},
     utils::field::full_field_less_than,
 };

@@ -5,7 +5,7 @@ use crate::{
     },
     base::{
         components::{
-            archive::perform_archive_membership_check,
+            archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
         },
@@ -124,40 +124,14 @@ impl PublicBaseRollupInputs {
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
 
         let reverted = self.avm_proof_data.public_inputs.reverted;
-        let revert_code = if reverted { 1 } else { 0 };
-
-        let constants = CombinedConstantData::combine(
-            self.tube_data.public_inputs.constants,
-            self.avm_proof_data.public_inputs.global_variables,
-        );
 
         let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
 
-        // Verify the kernel chain_id and versions
-        assert(
-            constants.tx_context.chain_id == self.constants.global_variables.chain_id,
-            "kernel chain_id does not match the rollup chain_id",
+        let combined_constant_data = CombinedConstantData::combine(
+            self.tube_data.public_inputs.constants,
+            self.avm_proof_data.public_inputs.global_variables,
         );
-        assert(
-            constants.tx_context.version == self.constants.global_variables.version,
-            "kernel version does not match the rollup version",
-        );
-        assert(
-            constants.vk_tree_root == self.constants.vk_tree_root,
-            "kernel vk_tree_root does not match the rollup vk_tree_root",
-        );
-        assert(
-            constants.protocol_contract_tree_root == self.constants.protocol_contract_tree_root,
-            "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root",
-        );
-
-        // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
-        // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
-        assert(
-            constants.global_variables.is_empty()
-                | (constants.global_variables == self.constants.global_variables),
-            "kernel global variables do not match the rollup global variables",
-        );
+        validate_combined_constant_data(combined_constant_data, self.constants);
 
         self.validate_kernel_start_state();
 
@@ -204,11 +178,14 @@ impl PublicBaseRollupInputs {
         let siloed_l2_to_l1_msgs = combined_accumulated_data.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,
-                constants.tx_context.version,
-                constants.tx_context.chain_id,
+                combined_constant_data.tx_context.version,
+                combined_constant_data.tx_context.chain_id,
             ),
         );
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
+
+        let revert_code = if reverted { 1 } else { 0 };
+
         let tx_effects_hash = compute_tx_effects_hash(
             combined_accumulated_data,
             revert_code,
@@ -221,7 +198,7 @@ impl PublicBaseRollupInputs {
         perform_archive_membership_check(
             self.constants.last_archive.root,
             self.archive_root_membership_witness,
-            constants.historical_header,
+            combined_constant_data.historical_header,
         );
 
         BaseOrMergeRollupPublicInputs {

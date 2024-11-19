@@ -5,7 +5,7 @@ use crate::{
     },
     base::{
         components::{
-            archive::perform_archive_membership_check,
+            archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
         },
@@ -63,37 +63,7 @@ impl PrivateBaseRollupInputs {
 
         let transaction_fee = self.compute_transaction_fee();
 
-        // Verify the kernel chain_id and versions
-        assert(
-            self.tube_data.public_inputs.constants.tx_context.chain_id
-                == self.constants.global_variables.chain_id,
-            "kernel chain_id does not match the rollup chain_id",
-        );
-        assert(
-            self.tube_data.public_inputs.constants.tx_context.version
-                == self.constants.global_variables.version,
-            "kernel version does not match the rollup version",
-        );
-        assert(
-            self.tube_data.public_inputs.constants.vk_tree_root == self.constants.vk_tree_root,
-            "kernel vk_tree_root does not match the rollup vk_tree_root",
-        );
-        assert(
-            self.tube_data.public_inputs.constants.protocol_contract_tree_root
-                == self.constants.protocol_contract_tree_root,
-            "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root",
-        );
-
-        // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
-        // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
-        assert(
-            self.tube_data.public_inputs.constants.global_variables.is_empty()
-                | (
-                    self.tube_data.public_inputs.constants.global_variables
-                        == self.constants.global_variables
-                ),
-            "kernel global variables do not match the rollup global variables",
-        );
+        validate_combined_constant_data(self.tube_data.public_inputs.constants, self.constants);
 
         self.validate_kernel_start_state();
 
