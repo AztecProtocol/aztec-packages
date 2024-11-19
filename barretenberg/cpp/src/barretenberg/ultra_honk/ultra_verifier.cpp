@@ -31,7 +31,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return fq(limb);
     };
 
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
     if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
         if (verification_key->verification_key->contains_ipa_claim) {
             OpeningClaim<curve::Grumpkin> ipa_claim;
