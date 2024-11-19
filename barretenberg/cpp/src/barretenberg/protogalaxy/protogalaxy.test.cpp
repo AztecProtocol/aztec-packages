@@ -443,7 +443,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy_structured_trace()
     {
-        TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
         TupleOfKeys keys_1 = construct_keys(2, trace_settings);
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
@@ -466,7 +466,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy_structured_trace_inhomogeneous_circuits()
     {
-        TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
         // Construct three circuits to be folded, each with a different number of constraints
         Builder builder1;

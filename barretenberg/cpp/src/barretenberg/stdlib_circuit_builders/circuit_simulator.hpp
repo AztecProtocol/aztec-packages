@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
@@ -191,7 +191,7 @@ class CircuitSimulatorBN254 {
     [[nodiscard]] bool check_circuit() const { return !_failed; }
 
     // Public input indices which contain recursive proof information
-    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
 };
 
 class SimulatorCircuitChecker {
