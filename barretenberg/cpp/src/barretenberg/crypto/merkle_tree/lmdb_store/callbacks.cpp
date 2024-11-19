@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <endian.h>
 #include <functional>
+#include <sys/types.h>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
