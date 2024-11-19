@@ -25,7 +25,7 @@ import {
 
 const WEI_CONST = 1_000_000_000n;
 
-export interface GasUtilsConfig {
+export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
    */
@@ -60,7 +60,7 @@ export interface GasUtilsConfig {
   stallTimeMs?: number;
 }
 
-export const gasUtilsConfigMappings: ConfigMappingsType<GasUtilsConfig> = {
+export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   bufferPercentage: {
     description: 'How much to increase gas price by each attempt (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
@@ -103,7 +103,7 @@ export const gasUtilsConfigMappings: ConfigMappingsType<GasUtilsConfig> = {
   },
 };
 
-export const defaultGasUtilsConfig = getDefaultConfig<GasUtilsConfig>(gasUtilsConfigMappings);
+export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
 
 export interface L1TxRequest {
   to: Address | null;
@@ -117,16 +117,16 @@ interface GasPrice {
 }
 
 export class L1TxUtils {
-  private readonly config: GasUtilsConfig;
+  private readonly config: L1TxUtilsConfig;
 
   constructor(
     private readonly publicClient: PublicClient,
     private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
     private readonly logger?: DebugLogger,
-    config?: Partial<GasUtilsConfig>,
+    config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
-      ...defaultGasUtilsConfig,
+      ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
   }
@@ -140,7 +140,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<GasUtilsConfig>,
+    _gasConfig?: Partial<L1TxUtilsConfig>,
   ): Promise<TransactionReceipt> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
@@ -149,7 +149,6 @@ export class L1TxUtils {
 
     const gasPrice = await this.getGasPrice(gasConfig);
     const nonce = await this.publicClient.getTransactionCount({ address: account.address });
-
     // Send initial tx
     const txHash = await this.walletClient.sendTransaction({
       ...request,
@@ -242,7 +241,7 @@ export class L1TxUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(_gasConfig?: GasUtilsConfig, attempt: number = 0): Promise<GasPrice> {
+  private async getGasPrice(_gasConfig?: L1TxUtilsConfig, attempt: number = 0): Promise<GasPrice> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
@@ -268,7 +267,7 @@ export class L1TxUtils {
   /**
    * Estimates gas and adds buffer
    */
-  private async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: GasUtilsConfig): Promise<bigint> {
+  private async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: L1TxUtilsConfig): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const initialEstimate = await this.publicClient.estimateGas({ account, ...request });
 

@@ -17,7 +17,7 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { type GasUtilsConfig, type L1ContractsConfig, L1TxUtils, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractsConfig, L1TxUtils, type L1TxUtilsConfig, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -166,7 +166,7 @@ export class L1Publisher {
   private readonly l1TxUtils: L1TxUtils;
 
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'> & GasUtilsConfig,
+    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'> & L1TxUtilsConfig,
     client: TelemetryClient,
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -507,7 +507,7 @@ export class L1Publisher {
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
 
-    if (!result || result?.receipt) {
+    if (!result || !result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
@@ -768,7 +768,6 @@ export class L1Publisher {
     }
     try {
       const args = this.prepareProposeTx(encodedData);
-
       const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
@@ -782,7 +781,6 @@ export class L1Publisher {
           bufferFixed: L1Publisher.PROPOSE_GAS_GUESS,
         },
       );
-
       return {
         receipt,
         args,
