@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731995208993,
+  "lastUpdate": 1732015958212,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "392114a0a66bd580175ff7a07b0c6d899d69be8f",
-          "message": "feat: spartan proving (#9584)\n\nThis PR adds K8s config to deploy a network with proving enabled\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <60546371+PhilWindle@users.noreply.github.com>\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2024-10-31T14:43:45Z",
-          "tree_id": "2a9a733215cc671ab7f19b5bee59bc9baca1d9a5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/392114a0a66bd580175ff7a07b0c6d899d69be8f"
-        },
-        "date": 1730388117187,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29038.40440899998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27588.387776999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5345.783819000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5038.791959 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86221.087194,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86221089000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15038.765556,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15038766000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2486578167,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2486578167 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127340470,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127340470 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 142403142,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142403142 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1acf4cfc28c72550f299d97493c7a4b33b4c5d7c",
+          "message": "chore: remove public kernels (#10027)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-11-19T11:09:44Z",
+          "tree_id": "cfcc2cb85cf45e38b826d94437c1a69a68ab3ed4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1acf4cfc28c72550f299d97493c7a4b33b4c5d7c"
+        },
+        "date": 1732015950175,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28655.800502999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27119.88433 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5339.22649500002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4954.658189 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83615.17206699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83615172000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15270.78894,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15270790000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3081395668,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3081395668 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141400666,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141400666 ns\nthreads: 1"
           }
         ]
       }
