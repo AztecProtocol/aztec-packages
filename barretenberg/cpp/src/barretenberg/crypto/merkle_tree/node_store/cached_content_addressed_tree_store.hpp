@@ -649,10 +649,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             hydrate_indices_from_persisted_store(*tx);
         }
     }
-    std::cout << "Tree " << uncommittedMeta.name << " commiting metadata " << uncommittedMeta << std::endl;
-    std::cout << "Tree " << uncommittedMeta.name << " old metadata " << committedMeta << std::endl;
-    std::cout << "Tree " << uncommittedMeta.name << " data present? " << dataPresent << std::endl;
-
     {
         WriteTransactionPtr tx = create_write_transaction();
         try {
