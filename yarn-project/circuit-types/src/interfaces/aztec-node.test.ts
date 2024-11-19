@@ -158,7 +158,15 @@ describe('AztecNodeApiSchema', () => {
 
   it('getNodeInfo', async () => {
     const response = await context.client.getNodeInfo();
-    expect(response).toEqual(await handler.getNodeInfo());
+    expect(response).toEqual({
+      ...(await handler.getNodeInfo()),
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, expect.any(EthAddress)]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)]),
+      ) as ProtocolContractAddresses,
+    });
   });
 
   it('getBlocks', async () => {
