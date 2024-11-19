@@ -77,12 +77,7 @@ In this situation, try to mark the public function as `internal`. This ensures y
 
 ### Moving public data into the private domain
 
-Let's say you have some storage in public and want to move them into the private domain. If you pass your aztec address that should receive the data, then that leaks privacy (as everyone will know who has the private notes). So what do you do?
-
-1. You have to create a note in public domain and dont encrypt it, because that would leak the public key of the receiver.
-2. So how do you control who can claim this note? Pass a hash of a secret instead of the address of the receiver. Then in the private domain, pass the preimage (the secret) and verify that hashing it produces the hash passed to the public function.
-
-So you have to create a custom note in the public domain that is not encrypted to an owner.
+See [partial notes](../../../../../aztec/concepts/storage/partial_notes.md). Partial notes are how public balances are transferred to private [in the token contract](../../../../../tutorials/codealong/contract_tutorials/token_contract.md).
 
 ### Discovering my notes
 

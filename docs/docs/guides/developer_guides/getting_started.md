@@ -188,7 +188,7 @@ In the following steps, we'll moving some tokens from public to private state, a
 aztec-wallet send transfer_to_private --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 25
 ```
 
-This takes the same parameters as our previous `send` call, with the arguments for `transfer_to_private` function which are:
+The arguments for `transfer_to_private` function are:
 
 - the account address to transfer to
 - the amount of tokens to send to private
