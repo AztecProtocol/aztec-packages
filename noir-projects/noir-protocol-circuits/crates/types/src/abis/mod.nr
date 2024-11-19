@@ -16,12 +16,9 @@ pub mod combined_constant_data;
 
 pub mod side_effect;
 pub mod read_request;
-pub mod tree_leaf_read_request;
 pub mod log_hash;
 pub mod note_hash;
 pub mod nullifier;
-pub mod public_data_read;
-pub mod public_data_update_request;
 pub mod public_data_write;
 
 pub mod accumulated_data;
@@ -32,15 +29,10 @@ pub mod max_block_number;
 pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_data;
-pub mod public_kernel_data;
 
 pub mod private_call_request;
 pub mod public_call_request;
-pub mod public_call_stack_item_compressed;
-pub mod public_inner_call_request;
 pub mod call_context;
-
-pub mod enqueued_call_data;
 
 pub mod private_circuit_public_inputs;
 
