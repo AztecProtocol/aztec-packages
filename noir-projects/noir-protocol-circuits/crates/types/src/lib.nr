@@ -31,6 +31,5 @@ pub mod meta;
 pub mod indexed_tagging_secret;
 
 pub use abis::kernel_circuit_public_inputs::{
-    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    VMCircuitPublicInputs,
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
 };

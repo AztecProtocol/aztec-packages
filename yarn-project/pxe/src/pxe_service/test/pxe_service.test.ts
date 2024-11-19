@@ -19,7 +19,13 @@ function createPXEService(): Promise<PXE> {
   const keyStore = new KeyStore(kvStore);
   const node = mock<AztecNode>();
   const db = new KVPxeDatabase(kvStore);
-  const config: PXEServiceConfig = { l2BlockPollingIntervalMS: 100, l2StartingBlock: INITIAL_L2_BLOCK_NUM };
+  const config: PXEServiceConfig = {
+    l2BlockPollingIntervalMS: 100,
+    l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1024 * 1024,
+    l1Contracts: { rollupAddress: EthAddress.random() },
+  };
 
   // Setup the relevant mocks
   node.getBlockNumber.mockResolvedValue(2);
@@ -55,7 +61,14 @@ describe('PXEService', () => {
     keyStore = new KeyStore(kvStore);
     node = mock<AztecNode>();
     db = new KVPxeDatabase(kvStore);
-    config = { l2BlockPollingIntervalMS: 100, l2StartingBlock: INITIAL_L2_BLOCK_NUM, proverEnabled: false };
+    config = {
+      l2BlockPollingIntervalMS: 100,
+      l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+      proverEnabled: false,
+      dataDirectory: undefined,
+      dataStoreMapSizeKB: 1024 * 1024,
+      l1Contracts: { rollupAddress: EthAddress.random() },
+    };
   });
 
   it('throws when submitting a tx with a nullifier of already settled tx', async () => {

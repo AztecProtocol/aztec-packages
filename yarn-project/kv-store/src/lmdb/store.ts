@@ -58,14 +58,16 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   static open(
     path?: string,
+    mapSizeKb = 1 * 1024 * 1024, // defaults to 1 GB map size
     ephemeral: boolean = false,
     log = createDebugLogger('aztec:kv-store:lmdb'),
   ): AztecLmdbStore {
-    log.debug(`Opening LMDB database at ${path || 'temporary location'}`);
     if (path) {
       mkdirSync(path, { recursive: true });
     }
-    const rootDb = open({ path, noSync: ephemeral });
+    const mapSize = 1024 * mapSizeKb;
+    log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
+    const rootDb = open({ path, noSync: ephemeral, mapSize });
     return new AztecLmdbStore(rootDb, ephemeral, path);
   }
 
