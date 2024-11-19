@@ -218,50 +218,32 @@ template <typename Flavor> class SumcheckProverRound {
         SumcheckRoundUnivariate result;
 
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
-        // size_t num_edges = (round_idx > 0) ? 2 : 1;
-        // Construct extended edge containers; one per thread
+        // Construct extended edge containers
         ExtendedEdges extended_edges;
+
+        size_t edge_idx = 0;
+        extend_edges(extended_edges, polynomials, edge_idx);
+        accumulate_relation_univariates(univariate_accumulator,
+                                        extended_edges,
+                                        relation_parameters,
+                                        gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+
+        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+        auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
+        auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+        result *= row_disabler_extended;
+
         if (round_idx == 0) {
-            // Compute H(X,0,...,0)  + H(X,1,0,...,0) or H(u_0,..., u_{i-1}, X, 0,...,0)
-            size_t edge_idx = 0;
-            extend_edges(extended_edges, polynomials, edge_idx);
-            accumulate_relation_univariates(univariate_accumulator,
-                                            extended_edges,
-                                            relation_parameters,
-                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
-            // SumcheckRoundUnivariate first_contribution;
-
-            auto first_contribution =
-                batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
-            // extend_and_batch_univariates<SumcheckRoundUnivariate>(
-            //     univariate_accumulator, first_contribution, gate_sparators);
-            auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
-            auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-            first_contribution *= row_disabler_extended;
-
-            Utils::zero_univariates(univariate_accumulator);
-
             edge_idx += 2;
+            Utils::zero_univariates(univariate_accumulator);
             extend_edges(extended_edges, polynomials, edge_idx);
             accumulate_relation_univariates(univariate_accumulator,
                                             extended_edges,
                                             relation_parameters,
                                             gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
-            result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
-            result += first_contribution;
-        } else {
-            size_t edge_idx = 0;
-            extend_edges(extended_edges, polynomials, edge_idx);
-            accumulate_relation_univariates(univariate_accumulator,
-                                            extended_edges,
-                                            relation_parameters,
-                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
-
-            result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
-            auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
-            auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-            result *= row_disabler_extended;
+            result += batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
         }
+
         return result;
     }
 
@@ -296,23 +278,6 @@ template <typename Flavor> class SumcheckProverRound {
         Utils::zero_univariates(univariate_accumulators);
         return result;
     }
-
-    // template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
-    // static ExtendedUnivariate batch_disabled_rows_over_relations(ContainerOverSubrelations& univariate_accumulators,
-    //                                                              const RelationSeparator& challenge,
-    //                                                              const bb::GateSeparatorPolynomial<FF>&
-    //                                                              gate_sparators)
-    // {
-    //     auto running_challenge = FF(1);
-    //     Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
-
-    //     auto result = ExtendedUnivariate(0);
-    //     extend_and_batch_disabled_rows(univariate_accumulators, result, gate_sparators);
-
-    //     // Reset all univariate accumulators to 0 before beginning accumulation in the next round
-    //     Utils::zero_univariates(univariate_accumulators);
-    //     return result;
-    // }
 
     /**
      * @brief Extend Univariates then sum them multiplying by the current \f$ pow_{\beta} \f$-contributions.
@@ -359,33 +324,6 @@ template <typename Flavor> class SumcheckProverRound {
         };
         Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
     }
-
-    // template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
-    // static void extend_and_batch_disabled_rows(const TupleOfTuplesOfUnivariates& tuple,
-    //                                            ExtendedUnivariate& result,
-    //                                            const bb::GateSeparatorPolynomial<FF>& gate_sparators)
-    // {
-    //     ExtendedUnivariate extended_random_polynomial;
-    //     ExtendedUnivariate extended_row_disabling_polynomial;
-
-    //     // Pow-Factor  \f$ (1-X) + X\beta_i \f$
-    //     auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_sparators.current_element() });
-    //     extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
-
-    //     auto row_disabling_polynomial = bb::Univariate<FF, 2>({ 1, 1 });
-    //     extended_row_disabling_polynomial = row_disabling_polynomial.template
-    //     extend_to<ExtendedUnivariate::LENGTH>();
-
-    //     auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-    //         auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
-    //         // Multiply by the pow polynomial univariate contribution and the partial
-    //         // evaluation result c_i (i.e. \f$ pow(u_0,...,u_{l-1})) \f$ where \f$(u_0,...,u_{i-1})\f$ are the
-    //         // verifier challenges from previous rounds.
-    //         result += extended * row_disabling_polynomial * extended_random_polynomial *
-    //                   gate_sparators.partial_evaluation_result;
-    //     };
-    //     Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
-    // }
 
     /**
      * @brief Compute Libra round univariate expressed given by the formula
