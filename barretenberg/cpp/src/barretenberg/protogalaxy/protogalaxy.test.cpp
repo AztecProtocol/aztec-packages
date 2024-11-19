@@ -464,7 +464,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_fold_with_virtual_size_expansion()
     {
-        uint32_t overflow_capacity = 0; // 1 << 18
+        uint32_t overflow_capacity = 0; // 1 << 18;
         TraceSettings trace_settings{ SMALL_TEST_STRUCTURE, overflow_capacity };
 
         std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
@@ -485,6 +485,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(decider_pks, decider_vks);
         check_accumulator_target_sum_manual(prover_accumulator, true);
+        decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }
 
     /**

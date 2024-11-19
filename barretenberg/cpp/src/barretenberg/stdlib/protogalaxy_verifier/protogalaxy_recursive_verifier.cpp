@@ -48,6 +48,9 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 
     std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
 
+    // WORKTODO: need to correctly set the circuit size data in the accumulator->verification_key based on the largest
+    // circuit size of the keys being accumulated. See native pg verifier for analog.
+
     // Perturbator round
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);

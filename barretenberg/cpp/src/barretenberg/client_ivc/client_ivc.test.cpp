@@ -438,7 +438,8 @@ TEST_F(ClientIVCTests, DynamicOverflow)
  */
 TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
 {
-    uint32_t overflow_capacity = 1 << 18;
+    uint32_t overflow_capacity = 0;
+    // uint32_t overflow_capacity = 1 << 18;
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE, overflow_capacity } };
 
     MockCircuitProducer circuit_producer;
