@@ -59,22 +59,23 @@ impl MergeExpressionsOptimizer {
             let opcode = modified_gates.get(&i).unwrap_or(opcode).clone();
             let mut to_keep = true;
             let input_witnesses = self.witness_inputs(&opcode);
-            for w in input_witnesses.clone() {
-                let empty_gates = BTreeSet::new();
-                let gates_using_w = used_witness.get(&w).unwrap_or(&empty_gates);
+            for w in input_witnesses {
+                let gates_using_w = used_witness.entry(w).or_default();
                 // We only consider witness which are used in exactly two arithmetic gates
                 if gates_using_w.len() == 2 {
-                    let gates_using_w: Vec<_> = gates_using_w.iter().collect();
-                    let mut b = *gates_using_w[1];
-                    if b == i {
-                        b = *gates_using_w[0];
+                    let first = *gates_using_w.first().expect("gates_using_w.len == 2");
+                    let second = *gates_using_w.last().expect("gates_using_w.len == 2");
+                    let b = if second == i {
+                        first
                     } else {
                         // sanity check
-                        assert!(i == *gates_using_w[0]);
-                    }
-                    let second_gate = modified_gates.get(&b).unwrap_or(&circuit.opcodes[b]).clone();
+                        assert!(i == first);
+                        second
+                    };
+
+                    let second_gate = modified_gates.get(&b).unwrap_or(&circuit.opcodes[b]);
                     if let (Opcode::AssertZero(expr_define), Opcode::AssertZero(expr_use)) =
-                        (opcode.clone(), second_gate)
+                        (&opcode, second_gate)
                     {
                         // We cannot merge an expression into an earlier opcode, because this
                         // would break the 'execution ordering' of the opcodes
@@ -85,16 +86,14 @@ impl MergeExpressionsOptimizer {
                         // - doing this pass again until there is no change, or
                         // - merging 'b' into 'i' instead
                         if i < b {
-                            if let Some(expr) = Self::merge(&expr_use, &expr_define, w) {
+                            if let Some(expr) = Self::merge(expr_use, expr_define, w) {
                                 modified_gates.insert(b, Opcode::AssertZero(expr));
                                 to_keep = false;
                                 // Update the 'used_witness' map to account for the merge.
-                                for w2 in CircuitSimulator::expr_wit(&expr_define) {
+                                for w2 in CircuitSimulator::expr_wit(expr_define) {
                                     if !circuit_inputs.contains(&w2) {
-                                        let mut v = used_witness[&w2].clone();
-                                        v.insert(b);
-                                        v.remove(&i);
-                                        used_witness.insert(w2, v);
+                                        gates_using_w.insert(b);
+                                        gates_using_w.remove(&i);
                                     }
                                 }
                                 // We need to stop here and continue with the next opcode
