@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../ethereum"
     }
   ],
   "include": ["src"]

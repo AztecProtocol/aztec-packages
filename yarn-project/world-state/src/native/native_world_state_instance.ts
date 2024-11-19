@@ -83,6 +83,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /** Creates a new native WorldState instance */
   constructor(dataDir: string, dbMapSizeKb: number, private log = createDebugLogger('aztec:world-state:database')) {
+    log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {

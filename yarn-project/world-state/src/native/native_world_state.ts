@@ -58,19 +58,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     log = createDebugLogger('aztec:world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
+    const worldStateDirectory = join(dataDir, 'world_state');
+    const rollupAddressFile = join(worldStateDirectory, ROLLUP_ADDRESS_FILE);
     const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
     const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr.trim()) : undefined;
 
     if (currentRollupAddress && !rollupAddress.equals(currentRollupAddress)) {
       log.warn('Rollup address changed, deleting database');
-      await rm(dataDir, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true });
     }
 
-    await mkdir(dataDir, { recursive: true });
+    await mkdir(worldStateDirectory, { recursive: true });
     await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
 
-    const instance = new NativeWorldState(dataDir, dbMapSizeKb);
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb);
     const worldState = new this(instance, log, cleanup);
     try {
       await worldState.init();
