@@ -5,12 +5,15 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <vector>
+
 #ifdef __APPLE__
-#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
 #else
 #include <sys/types.h>
 #endif
-#include <vector>
 
 namespace bb::crypto::merkle_tree {
 void throw_error(const std::string& errorString, int error)
