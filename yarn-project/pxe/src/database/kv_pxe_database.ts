@@ -7,7 +7,6 @@ import {
   type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
-  computeAddress,
   computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -251,7 +250,13 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   public async unnullifyNotesAfter(blockNumber: number): Promise<void> {
-    const nullifiersToUndo = Array.from(await this.#nullifiersByBlockNumber.getValues(blockNumber));
+    const nullifiersToUndo: string[] = [];
+    let currentBlockNumber = blockNumber;
+    const maxBlockNumber = this.getBlockNumber() ?? currentBlockNumber;
+    do {
+      nullifiersToUndo.push(...this.#nullifiersByBlockNumber.getValues(currentBlockNumber));
+      currentBlockNumber++;
+    } while (currentBlockNumber < maxBlockNumber);
     const notesIndexesToReinsert = await this.db.transaction(() =>
       nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.get(nullifier)),
     );

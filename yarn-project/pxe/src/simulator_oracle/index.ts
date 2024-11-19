@@ -1,6 +1,6 @@
 import {
   type AztecNode,
-  InBlock,
+  type InBlock,
   L1NotePayload,
   type L2Block,
   type L2BlockNumber,
