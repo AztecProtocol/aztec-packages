@@ -488,3 +488,24 @@ describe('AVM Ephemeral Tree Sanity Test', () => {
     expect(localRoot.toBuffer()).toEqual(treeInfo.root);
   });
 });
+
+/* eslint no-console: ["error", { allow: ["time", "timeEnd"] }] */
+describe('A basic benchmark', () => {
+  it('Should benchmark writes', async () => {
+    // This random is fine for now, since the entry leaves are between 0-127
+    // We just want to make sure there are minimal "updates" from this set
+    const leaves = Array.from({ length: 64 }, _ => Fr.random());
+    const slots = leaves.map((_, i) => new Fr(i + 128));
+
+    const container = await AvmEphemeralForest.create(copyState);
+
+    // Updating the first slot, triggers the index 0 to be added to the minimum stored key in the container
+    await container.writePublicStorage(new Fr(0), new Fr(128));
+    console.time('benchmark');
+    // These writes are all new leaves and should be impacted by the key sorted algorithm of the tree.
+    for (let i = 0; i < leaves.length; i++) {
+      await container.writePublicStorage(slots[i], leaves[i]);
+    }
+    console.timeEnd('benchmark');
+  });
+});
