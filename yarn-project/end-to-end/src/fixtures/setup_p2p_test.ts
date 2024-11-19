@@ -83,11 +83,10 @@ export async function createNode(
 
   const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort, /*serviceName*/ `node:${tcpPort}`);
 
-  return await AztecNodeService.createAndSync(
-    validatorConfig,
-    telemetryClient,
-    createDebugLogger(`aztec:node-${tcpPort}`),
-  );
+  return await AztecNodeService.createAndSync(validatorConfig, {
+    telemetry: telemetryClient,
+    logger: createDebugLogger(`aztec:node-${tcpPort}`),
+  });
 }
 
 export async function createValidatorConfig(
