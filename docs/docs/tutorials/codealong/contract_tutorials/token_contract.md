@@ -191,7 +191,7 @@ This function sets the creator of the contract (passed as `msg_sender` from the 
 
 Public functions are declared with the `#[public]` macro above the function name.
 
-As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize prepared in a private context ([partial notes flow](../../../aztec/concepts/storage/partial_notes.md)).
+As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize notes prepared in a private context ([partial notes flow](../../../aztec/concepts/storage/partial_notes.md)).
 
 Storage is referenced as `storage.variable`.
 
