@@ -222,7 +222,7 @@ export class TXEService {
     const parsedSelector = fromSingle(functionSelector);
     const extendedArgs = [parsedSelector, ...fromArray(args)];
     const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, extendedArgs, false);
-    if (!result.reverted) {
+    if (result.revertCode.isOK()) {
       throw new ExpectedFailureError('Public call did not revert');
     }
 
@@ -738,7 +738,7 @@ export class TXEService {
     );
 
     // Poor man's revert handling
-    if (result.reverted) {
+    if (!result.revertCode.isOK()) {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
@@ -752,7 +752,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(!result.reverted))]);
+    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
   }
 
   async avmOpcodeStaticCall(
@@ -768,7 +768,7 @@ export class TXEService {
     );
 
     // Poor man's revert handling
-    if (result.reverted) {
+    if (!result.revertCode.isOK()) {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
@@ -782,6 +782,6 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(!result.reverted))]);
+    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
   }
 }
