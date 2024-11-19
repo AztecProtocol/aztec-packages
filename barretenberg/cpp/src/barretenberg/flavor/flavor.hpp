@@ -323,6 +323,7 @@ template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 namespace bb {
 class UltraFlavor;
 class UltraFlavorWithZK;
+class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
@@ -380,7 +381,7 @@ template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
 
 template <typename T>
-concept HasIPAAccumulatorFlavor = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK>;
+concept HasIPAAccumulatorFlavor = IsAnyOf<T, UltraRollupFlavor>;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
