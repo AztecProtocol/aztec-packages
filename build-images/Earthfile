@@ -194,6 +194,20 @@ build:
   # NOTE: bump this version when doing non-backwards compatible changes
   SAVE IMAGE --push aztecprotocol/build:1.0-$TARGETARCH
 
+build-manifest:
+  LET VERSION = 1.0
+  ARG TARGETARCH
+  WAIT
+    BUILD +build
+  END
+  LOCALLY
+	RUN docker push aztecprotocol/build:$VERSION-$TARGETARCH
+	RUN docker manifest rm aztecprotocol/build:$VERSION || true
+	RUN docker manifest create aztecprotocol/build:$VERSION \
+		--amend aztecprotocol/build:$VERSION-amd64 \
+		--amend aztecprotocol/build:$VERSION-arm64
+	RUN docker manifest push aztecprotocol/build:$VERSION
+
 from-registry:
   ARG TARGETARCH
   # NOTE: match version string above

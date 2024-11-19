@@ -62,7 +62,12 @@ function build_native {
   # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --build --preset $PRESET --target bb
+  if [ "CI" -eq 1 ]; then
+    cmake --build --preset $PRESET
+    (cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure)
+  else
+    cmake --build --preset $PRESET --target bb
+  fi
   cmake --build --preset $PIC_PRESET --target world_state_napi
   # copy the world_state_napi build artifact over to the world state in yarn-project
   mkdir -p ../../yarn-project/world-state/build/

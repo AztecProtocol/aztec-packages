@@ -18,4 +18,4 @@ jobs:
       - name: Run bootstrap script
         run: |
           git config --global --add safe.directory /__w/aztec-packages/aztec-packages
-          ./bootstrap.sh full
+          CI=1 ./bootstrap.sh full
