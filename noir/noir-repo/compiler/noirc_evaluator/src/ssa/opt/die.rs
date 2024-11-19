@@ -195,8 +195,25 @@ impl Context {
     /// Inspects a value and marks all instruction results as used.
     fn mark_used_instruction_results(&mut self, dfg: &DataFlowGraph, value_id: ValueId) {
         let value_id = dfg.resolve(value_id);
-        if matches!(&dfg[value_id], Value::Instruction { .. } | Value::Param { .. }) {
-            self.used_values.insert(value_id);
+        match &dfg[value_id] {
+            Value::Instruction { .. } => {
+                self.used_values.insert(value_id);
+            }
+            Value::Array { array, .. } => {
+                self.used_values.insert(value_id);
+                for elem in array {
+                    self.mark_used_instruction_results(dfg, *elem);
+                }
+            }
+            Value::Param { .. } => {
+                self.used_values.insert(value_id);
+            }
+            Value::NumericConstant { .. } => {
+                self.used_values.insert(value_id);
+            }
+            _ => {
+                // Does not comprise of any instruction results
+            }
         }
     }
 
@@ -739,7 +756,7 @@ mod test {
         let mut builder = FunctionBuilder::new("main".into(), main_id);
         let zero = builder.numeric_constant(0u128, Type::unsigned(32));
         let array_type = Type::Array(Arc::new(vec![Type::unsigned(32)]), 2);
-        let v1 = builder.insert_make_array(vector![zero, zero], array_type.clone());
+        let v1 = builder.array_constant(vector![zero, zero], array_type.clone());
         let v2 = builder.insert_allocate(array_type.clone());
         builder.increment_array_reference_count(v1);
         builder.insert_store(v2, v1);
