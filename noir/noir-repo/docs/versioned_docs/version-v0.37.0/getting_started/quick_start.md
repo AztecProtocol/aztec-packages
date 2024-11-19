@@ -87,7 +87,7 @@ The command also automatically compiles your Noir program if it was not already 
 With circuit compiled and witness generated, we're ready to prove.
 
 ## Proving backend
-
+ 
 Different proving backends may provide different tools and commands to work with Noir programs. Here Barretenberg's `bb` CLI tool is used as an example:
 
 ```sh

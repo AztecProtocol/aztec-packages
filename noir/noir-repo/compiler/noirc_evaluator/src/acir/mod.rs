@@ -39,7 +39,7 @@ use crate::ssa::{
         dfg::{CallStack, DataFlowGraph},
         function::{Function, FunctionId, RuntimeType},
         instruction::{
-            Binary, BinaryOp, ConstrainError, Instruction, InstructionId, Intrinsic,
+            Binary, BinaryOp, ConstrainError, ErrorType, Instruction, InstructionId, Intrinsic,
             TerminatorInstruction,
         },
         map::Id,
@@ -49,8 +49,6 @@ use crate::ssa::{
     },
     ssa_gen::Ssa,
 };
-use noirc_frontend::hir_def::types::Type as HirType;
-
 use acir_variable::{AcirContext, AcirType, AcirVar};
 use generated_acir::BrilligStdlibFunc;
 pub(crate) use generated_acir::GeneratedAcir;
@@ -1028,13 +1026,13 @@ impl<'a> Context<'a> {
             };
             entry_point.link_with(artifact);
             // Insert the range of opcode locations occupied by a procedure
-            if let Some(procedure_id) = &artifact.procedure {
+            if let Some(procedure_id) = artifact.procedure {
                 let num_opcodes = entry_point.byte_code.len();
                 let previous_num_opcodes = entry_point.byte_code.len() - artifact.byte_code.len();
                 // We subtract one as to keep the range inclusive on both ends
                 entry_point
                     .procedure_locations
-                    .insert(procedure_id.clone(), (previous_num_opcodes, num_opcodes - 1));
+                    .insert(procedure_id, (previous_num_opcodes, num_opcodes - 1));
             }
         }
         // Generate the final bytecode
