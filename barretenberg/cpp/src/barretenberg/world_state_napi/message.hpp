@@ -192,11 +192,6 @@ struct SyncBlockRequest {
                    batchesOfPaddedPublicDataWrites);
 };
 
-struct SyncBlockResponse {
-    WorldStateStatus status;
-    MSGPACK_FIELDS(status);
-};
-
 } // namespace bb::world_state
 
 MSGPACK_ADD_ENUM(bb::world_state::WorldStateMessageType)

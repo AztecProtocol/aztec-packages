@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb {
@@ -15,11 +15,10 @@ namespace bb {
 struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
-    using MegaTraceBlockSizes = MegaArithmetization::MegaTraceBlocks<size_t>;
-    using MegaTraceActiveRanges = MegaArithmetization::MegaTraceBlocks<Range>;
-    using MegaTraceFixedBlockSizes = MegaArithmetization::TraceBlocks;
+    using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
+    using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
-    MegaTraceBlockSizes max_sizes;        // max utilization of each block
+    TraceStructure max_sizes;             // max utilization of each block
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
     MegaTraceActiveRanges active_ranges;  // ranges utlized by the accumulator within the ambient structured trace
 
@@ -37,7 +36,11 @@ struct ExecutionTraceUsageTracker {
         for (auto& size : max_sizes.get()) {
             size = 0; // init max sizes to zero
         }
-        fixed_sizes.set_fixed_block_sizes(trace_settings);
+
+        if (trace_settings.structure) {
+            fixed_sizes.set_fixed_block_sizes(trace_settings);
+        }
+
         fixed_sizes.compute_offsets(/*is_structured=*/true);
     }
 
@@ -46,7 +49,7 @@ struct ExecutionTraceUsageTracker {
     {
         // Update the max utilization of each gate block
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
-            max_size = std::max(block.size(), max_size);
+            max_size = std::max(static_cast<uint32_t>(block.size()), max_size);
         }
 
         // update the max sixe of the databus and lookup tables
@@ -78,7 +81,7 @@ struct ExecutionTraceUsageTracker {
     bool check_is_active(const size_t idx)
     {
         // If structured trace is not in use, assume the whole trace is active
-        if (trace_settings.structure == TraceStructure::NONE) {
+        if (!trace_settings.structure) {
             return true;
         }
         for (auto& range : active_ranges.get()) {
@@ -147,7 +150,7 @@ struct ExecutionTraceUsageTracker {
 
         // Convert the active ranges for each gate type into a set of sorted non-overlapping ranges (union of the input)
         std::vector<Range> simplified_active_ranges;
-        if (trace_settings.structure == TraceStructure::NONE) {
+        if (!trace_settings.structure) {
             // If not using a structured trace, set the active range to the whole domain
             simplified_active_ranges.push_back(Range{ 0, full_domain_size });
         } else {

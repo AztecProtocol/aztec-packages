@@ -72,7 +72,7 @@ import {
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
@@ -757,11 +757,7 @@ export class AztecNodeService implements AztecNode {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      new WASMSimulator(),
-      this.telemetry,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
 
     const fork = await this.worldStateSynchronizer.fork();
 

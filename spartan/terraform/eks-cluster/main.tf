@@ -26,54 +26,6 @@ data "aws_availability_zones" "available" {
   }
 }
 
-# Create security group for node traffic
-resource "aws_security_group" "node_traffic" {
-  name_prefix = "eks-node-traffic"
-  description = "Security group for EKS node UDP and TCP traffic"
-  vpc_id      = module.vpc.vpc_id
-
-  # Ingress UDP rule
-  ingress {
-    from_port   = 40400
-    to_port     = 40499
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow incoming UDP traffic"
-  }
-
-  # Ingress TCP rule
-  ingress {
-    from_port   = 40400
-    to_port     = 40499
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow incoming TCP traffic"
-  }
-
-  # Egress UDP rule
-  egress {
-    from_port   = 40400
-    to_port     = 40499
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow outgoing UDP traffic"
-  }
-
-  # Egress TCP rule
-  egress {
-    from_port   = 40400
-    to_port     = 40499
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow outgoing TCP traffic"
-  }
-
-  tags = {
-    Name    = "${var.cluster_name}-node-traffic"
-    Project = var.cluster_name
-  }
-}
-
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.8.1"
