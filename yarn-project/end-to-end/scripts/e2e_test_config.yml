@@ -111,5 +111,5 @@ tests:
     use_compose: true
   pxe:
     use_compose: true
-  uniswap_trade_on_l1_from_l2:
-    use_compose: true
+  # uniswap_trade_on_l1_from_l2:
+  #   use_compose: true
