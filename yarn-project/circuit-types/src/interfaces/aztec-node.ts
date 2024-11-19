@@ -391,6 +391,13 @@ export interface AztecNode extends ProverCoordination {
    * @param epoch - The epoch for which to get the quotes
    */
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+
+  /**
+   * Adds a contract class bypassing the registerer.
+   * TODO(#10007): Remove this method.
+   * @param contractClass - The class to register.
+   */
+  addContractClass(contractClass: ContractClassPublic): Promise<void>;
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
@@ -514,6 +521,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
 
   getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
+
+  // TODO(#10007): Remove this method
+  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
 export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
