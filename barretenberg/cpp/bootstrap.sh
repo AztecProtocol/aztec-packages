@@ -29,7 +29,7 @@ else
 fi
 
 # Download ignition transcripts.
-(cd ./srs_db && ./download_ignition.sh 1 && ./download_grumpkin.sh)
+(cd ./srs_db && ./download_ignition.sh 2 && ./download_grumpkin.sh)
 
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
