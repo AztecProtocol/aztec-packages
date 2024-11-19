@@ -45,16 +45,10 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
   {
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
     for (const txEffect of paddedTxEffects) {
-      const publicDataWrites = padArrayEnd(
-        txEffect.publicDataWrites,
-        PublicDataWrite.empty(),
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      );
-
       await fork.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        publicDataWrites.map(write => write.toBuffer()),
-        PUBLIC_DATA_SUBTREE_HEIGHT,
+        txEffect.publicDataWrites.map(write => write.toBuffer()),
+        0,
       );
 
       const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);

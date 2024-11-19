@@ -5,6 +5,7 @@ use crate::{
     },
     base::{
         components::{
+            archive::perform_archive_membership_check,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
         },
@@ -31,8 +32,7 @@ use dep::types::{
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
     merkle_tree::{
-        append_only_tree, assert_check_membership, calculate_empty_tree_root,
-        calculate_subtree_root, MembershipWitness,
+        append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
@@ -231,7 +231,11 @@ impl PublicBaseRollupInputs {
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
-        self.perform_archive_membership_checks(public_inputs);
+        perform_archive_membership_check(
+            self.constants.last_archive.root,
+            self.archive_root_membership_witness,
+            public_inputs.constants.historical_header,
+        );
 
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
@@ -390,28 +394,6 @@ impl PublicBaseRollupInputs {
             // Nothing to do, just place an empty update request at the end of the array
             (PublicDataWrite::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
         }
-    }
-
-    // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
-    // contains roots of all the trees this is sufficient to verify that the tree roots used by kernels are correct
-    fn perform_archive_membership_checks(self, public_inputs: KernelCircuitPublicInputs) {
-        // For each of the block header (their block hashes), we need to do an inclusion proof
-        // against the blocks tree root from the beginning of a rollup provided in the rollup constants
-        let archive_root = self.constants.last_archive.root;
-
-        // Rebuild the block hash
-        let header = public_inputs.constants.historical_header;
-        let previous_block_hash = header.hash();
-
-        let previous_block_hash_witness = self.archive_root_membership_witness;
-
-        // Now check that the previous block hash is in the blocks tree from the beginning of the rollup
-        assert_check_membership(
-            previous_block_hash,
-            previous_block_hash_witness.leaf_index,
-            previous_block_hash_witness.sibling_path,
-            archive_root,
-        );
     }
 }
 
