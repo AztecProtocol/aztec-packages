@@ -7,10 +7,29 @@ use types::{
     utils::reader::Reader,
 };
 
+// NB: This only exists because a nested array of [[Field; 2]; N] did not build with earthly, but was fine otherwise
+// For blobs, we use the compressed 48 byte BLS12 commitment to compute the challenge. We never need to operate on it,
+// so it's encoded as 2 fields. The first is the first 31 bytes, and the second is the next 17 bytes.
+pub struct BlobCommitment {
+    pub inner: [Field; 2],
+}
+
+impl Eq for BlobCommitment {
+    fn eq(self, other: Self) -> bool {
+        self.inner.eq(other.inner)
+    }
+}
+
+impl Empty for BlobCommitment {
+    fn empty() -> Self {
+        Self { inner: [0; 2] }
+    }
+}
+
 pub struct BlobPublicInputs {
     pub z: Field,
     pub y: F,
-    pub kzg_commitment: [Field; 2],
+    pub kzg_commitment: BlobCommitment,
 }
 
 impl BlobPublicInputs {
@@ -25,13 +44,13 @@ impl BlobPublicInputs {
     // This is not equivalent to being empty, since the challenge point z is a hash and won't have 0 value.
     fn is_zero(self) -> bool {
         // Note: there is no constrained is_zero in bignum
-        (self.y == BigNum { limbs: [0, 0, 0] }) & (self.kzg_commitment == [0, 0])
+        (self.y == BigNum { limbs: [0, 0, 0] }) & (self.kzg_commitment.inner == [0, 0])
     }
 }
 
 impl Empty for BlobPublicInputs {
     fn empty() -> Self {
-        Self { z: 0, y: BigNum::new(), kzg_commitment: [0; 2] }
+        Self { z: 0, y: BigNum::new(), kzg_commitment: BlobCommitment::empty() }
     }
 }
 
@@ -42,8 +61,8 @@ impl Serialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
             self.y.limbs[0],
             self.y.limbs[1],
             self.y.limbs[2],
-            self.kzg_commitment[0],
-            self.kzg_commitment[1],
+            self.kzg_commitment.inner[0],
+            self.kzg_commitment.inner[1],
         ]
     }
 }
@@ -53,7 +72,7 @@ impl Deserialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
         Self {
             z: fields[0],
             y: BigNum { limbs: [fields[1], fields[2], fields[3]] },
-            kzg_commitment: [fields[4], fields[5]],
+            kzg_commitment: BlobCommitment { inner: [fields[4], fields[5]] },
         }
     }
 }

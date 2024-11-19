@@ -1,6 +1,6 @@
 // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
 use crate::{
-    blob_public_inputs::{BlobPublicInputs, BlockBlobPublicInputs},
+    blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
     unconstrained_config::{
         compute_roots_of_unity, D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB,
         LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
@@ -115,8 +115,8 @@ pub fn check_block_blob_sponge(
     sponge_hash
 }
 
-fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
-    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
+fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: BlobCommitment) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
     let challenge = std::hash::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
@@ -130,7 +130,7 @@ fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> 
 // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
 fn evaluate_blob(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
-    kzg_commitment: [Field; 2],
+    kzg_commitment: BlobCommitment,
     hashed_blobs_fields: Field,
 ) -> BlobPublicInputs {
     let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
@@ -149,7 +149,7 @@ fn evaluate_blob(
 // Evaluates each blob required for a block
 pub fn evaluate_blobs(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments: [[Field; 2]; BLOBS_PER_BLOCK],
+    kzg_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
 ) -> BlockBlobPublicInputs {
     // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
@@ -414,6 +414,7 @@ mod tests {
             barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
             field_to_bignum,
         },
+        blob_public_inputs::BlobCommitment,
         unconstrained_config::{
             D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
             NOIR_FIELDS_PER_BLOB,
@@ -456,7 +457,7 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(blob_fields.len());
         sponge_blob.absorb(blob_fields, blob_fields.len());
 
-        let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
@@ -521,10 +522,12 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(400);
         sponge_blob.absorb(blob, 400);
 
-        let kzg_commitment_in = [
-            0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
-            0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
-        ];
+        let kzg_commitment_in = BlobCommitment {
+            inner: [
+                0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
+                0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
+            ],
+        };
 
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
@@ -551,10 +554,12 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
         sponge_blob.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
 
-        let kzg_commitment_in = [
-            0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
-            0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
-        ];
+        let kzg_commitment_in = BlobCommitment {
+            inner: [
+                0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
+                0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
+            ],
+        };
 
         let output = evaluate_blobs(blob, [kzg_commitment_in; BLOBS_PER_BLOCK], sponge_blob);
 

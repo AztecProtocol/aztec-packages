@@ -56,7 +56,11 @@ mod tests {
 
         let hashed_tx_effects = expected_sponge.squeeze();
         let expected_z = Poseidon2::hash(
-            [hashed_tx_effects, inputs.blob_commitments[0][0], inputs.blob_commitments[0][1]],
+            [
+                hashed_tx_effects,
+                inputs.blob_commitments[0].inner[0],
+                inputs.blob_commitments[0].inner[1],
+            ],
             3,
         );
 

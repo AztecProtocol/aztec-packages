@@ -168,6 +168,7 @@ import type {
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
   BigNum,
+  BlobCommitment as BlobCommitmentNoir,
   BlobPublicInputs as BlobPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
@@ -2085,6 +2086,17 @@ export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
 }
 
 /**
+ * Maps blob commitment to noir.
+ * @param commitment - The circuits.js commitment.
+ * @returns The noir commitment.
+ */
+export function mapBlobCommitmentToNoir(commitment: [Fr, Fr]): BlobCommitmentNoir {
+  return {
+    inner: mapTuple(commitment, mapFieldToNoir),
+  };
+}
+
+/**
  * Maps blob public inputs to noir.
  * @param blobPublicInputs - The circuits.js blob public inputs.
  * @returns The noir blob public inputs.
@@ -2093,7 +2105,7 @@ export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): B
   return {
     z: mapFieldToNoir(blobPublicInputs.z),
     y: mapBLS12BigNumToNoir(blobPublicInputs.y),
-    kzg_commitment: mapTuple(blobPublicInputs.kzgCommitment, mapFieldToNoir),
+    kzg_commitment: mapBlobCommitmentToNoir(blobPublicInputs.kzgCommitment),
   };
 }
 
@@ -2106,7 +2118,7 @@ export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNo
   return new BlobPublicInputs(
     mapFieldFromNoir(blobPublicInputs.z),
     mapBLS12BigNumFromNoir(blobPublicInputs.y),
-    mapTupleFromNoir(blobPublicInputs.kzg_commitment, 2, mapFieldFromNoir),
+    mapTupleFromNoir(blobPublicInputs.kzg_commitment.inner, 2, mapFieldFromNoir),
   );
 }
 
@@ -2429,8 +2441,8 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    blob_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
-    blob_commitments: mapTuple(rootRollupInputs.blobCommitments, pair => mapTuple(pair, mapFieldToNoir)),
+    blobs_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
+    blob_commitments: mapTuple(rootRollupInputs.blobCommitments, mapBlobCommitmentToNoir),
     blobs_hash: mapFieldToNoir(rootRollupInputs.blobsHash),
   };
 }
