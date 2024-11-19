@@ -101,7 +101,7 @@ describe('NativeWorldState', () => {
       expect(status.summary.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
       // we open up the version file that was created and modify the version to be older
-      const fullPath = join(dataDir, WORLD_STATE_VERSION_FILE);
+      const fullPath = join(dataDir, 'world_state', WORLD_STATE_VERSION_FILE);
       const storedWorldStateVersion = await WorldStateVersion.readVersion(fullPath);
       expect(storedWorldStateVersion).toBeDefined();
       const modifiedVersion = new WorldStateVersion(
