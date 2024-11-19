@@ -23,23 +23,18 @@ describe('AztecDatastore with AztecLmdbStore', () => {
   let datastore: AztecDatastore;
   let aztecStore: AztecLmdbStore;
 
-  beforeAll(() => {
+  beforeEach(() => {
     aztecStore = AztecLmdbStore.open();
-  });
-
-  beforeEach(async () => {
     datastore = new AztecDatastore(aztecStore);
-    await aztecStore.clear();
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await aztecStore.delete();
   });
 
   it('should store and retrieve an item', async () => {
     const key = new Key('testKey');
     const value = new Uint8Array([1, 2, 3]);
-
     await datastore.put(key, value);
     const retrieved = datastore.get(key);
 
