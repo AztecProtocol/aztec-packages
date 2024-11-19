@@ -54,10 +54,9 @@ pub struct PublicBaseRollupInputs {
 }
 
 impl PublicBaseRollupInputs {
-    fn generate_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
+    fn generate_combined_accumulated_data(self, reverted: bool) -> CombinedAccumulatedData {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
-        let reverted = from_public.reverted;
 
         let note_encrypted_logs_hashes = if reverted {
             from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes
@@ -93,7 +92,8 @@ impl PublicBaseRollupInputs {
             .accumulated_data
             .unencrypted_logs_hashes
             .fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
-        let end = CombinedAccumulatedData {
+
+        CombinedAccumulatedData {
             note_hashes: from_public.accumulated_data.note_hashes,
             nullifiers: from_public.accumulated_data.nullifiers,
             l2_to_l1_msgs: from_public.accumulated_data.l2_to_l1_msgs,
@@ -106,27 +106,6 @@ impl PublicBaseRollupInputs {
             unencrypted_log_preimages_length,
             contract_class_log_preimages_length,
             public_data_writes: from_public.accumulated_data.public_data_writes,
-        };
-
-        let constants =
-            CombinedConstantData::combine(from_private.constants, from_public.global_variables);
-
-        let start_state = PartialStateReference {
-            note_hash_tree: from_public.start_tree_snapshots.note_hash_tree,
-            nullifier_tree: from_public.start_tree_snapshots.nullifier_tree,
-            public_data_tree: from_public.start_tree_snapshots.public_data_tree,
-        };
-
-        let revert_code = if from_public.reverted { 1 } else { 0 };
-
-        KernelCircuitPublicInputs {
-            constants,
-            rollup_validation_requests: from_private.rollup_validation_requests,
-            end,
-            start_state,
-            revert_code,
-            gas_used: from_public.end_gas_used,
-            fee_payer: from_private.fee_payer,
         }
     }
 
@@ -143,39 +122,46 @@ impl PublicBaseRollupInputs {
         //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         // }
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
-        // TODO: Use both public avm and private inputs instead of merging them into one KernelCircuitPublicInputs
-        let public_inputs = self.generate_kernel_circuit_public_inputs();
+
+        let reverted = self.avm_proof_data.public_inputs.reverted;
+        let revert_code = if reverted { 1 } else { 0 };
+
+        let constants = CombinedConstantData::combine(
+            self.tube_data.public_inputs.constants,
+            self.avm_proof_data.public_inputs.global_variables,
+        );
+
+        let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
 
         // Verify the kernel chain_id and versions
         assert(
-            public_inputs.constants.tx_context.chain_id == self.constants.global_variables.chain_id,
+            constants.tx_context.chain_id == self.constants.global_variables.chain_id,
             "kernel chain_id does not match the rollup chain_id",
         );
         assert(
-            public_inputs.constants.tx_context.version == self.constants.global_variables.version,
+            constants.tx_context.version == self.constants.global_variables.version,
             "kernel version does not match the rollup version",
         );
         assert(
-            public_inputs.constants.vk_tree_root == self.constants.vk_tree_root,
+            constants.vk_tree_root == self.constants.vk_tree_root,
             "kernel vk_tree_root does not match the rollup vk_tree_root",
         );
         assert(
-            public_inputs.constants.protocol_contract_tree_root
-                == self.constants.protocol_contract_tree_root,
+            constants.protocol_contract_tree_root == self.constants.protocol_contract_tree_root,
             "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root",
         );
 
         // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
         // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
         assert(
-            public_inputs.constants.global_variables.is_empty()
-                | (public_inputs.constants.global_variables == self.constants.global_variables),
+            constants.global_variables.is_empty()
+                | (constants.global_variables == self.constants.global_variables),
             "kernel global variables do not match the rollup global variables",
         );
 
-        self.validate_kernel_start_state(public_inputs);
+        self.validate_kernel_start_state();
 
-        let rollup_validation_requests = public_inputs.rollup_validation_requests;
+        let rollup_validation_requests = self.tube_data.public_inputs.rollup_validation_requests;
 
         // Verify the max block number
         // TODO #5345: why is block_number a Field and not u32?
@@ -187,7 +173,8 @@ impl PublicBaseRollupInputs {
             );
         }
 
-        let commitments_tree_subroot = self.calculate_commitments_subtree_root(public_inputs);
+        let commitments_tree_subroot =
+            calculate_subtree_root(combined_accumulated_data.note_hashes);
 
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
@@ -201,12 +188,12 @@ impl PublicBaseRollupInputs {
 
         // Insert nullifiers:
         let end_nullifier_tree_snapshot =
-            self.check_nullifier_tree_non_membership_and_insert_to_tree(public_inputs);
+            self.check_nullifier_tree_non_membership_and_insert_to_tree(combined_accumulated_data);
 
         // Inject protocol update requests for deducting tx_fee from fee_payer's balance
         let all_public_data_update_requests = self.calculate_all_public_data_update_requests(
             self.avm_proof_data.public_inputs.transaction_fee,
-            public_inputs,
+            combined_accumulated_data,
         );
 
         // Validate public data update requests and update public data tree
@@ -214,17 +201,17 @@ impl PublicBaseRollupInputs {
             self.validate_and_process_public_state(all_public_data_update_requests);
 
         // Calculate the tx effects hash of the transaction
-        let siloed_l2_to_l1_msgs = public_inputs.end.l2_to_l1_msgs.map(
+        let siloed_l2_to_l1_msgs = combined_accumulated_data.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,
-                public_inputs.constants.tx_context.version,
-                public_inputs.constants.tx_context.chain_id,
+                constants.tx_context.version,
+                constants.tx_context.chain_id,
             ),
         );
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effects_hash = compute_tx_effects_hash(
-            public_inputs.end,
-            public_inputs.revert_code,
+            combined_accumulated_data,
+            revert_code,
             self.avm_proof_data.public_inputs.transaction_fee,
             all_public_data_update_requests,
             out_hash,
@@ -234,7 +221,7 @@ impl PublicBaseRollupInputs {
         perform_archive_membership_check(
             self.constants.last_archive.root,
             self.archive_root_membership_witness,
-            public_inputs.constants.historical_header,
+            constants.historical_header,
         );
 
         BaseOrMergeRollupPublicInputs {
@@ -253,17 +240,13 @@ impl PublicBaseRollupInputs {
         }
     }
 
-    fn calculate_commitments_subtree_root(self, public_inputs: KernelCircuitPublicInputs) -> Field {
-        calculate_subtree_root(public_inputs.end.note_hashes)
-    }
-
     fn check_nullifier_tree_non_membership_and_insert_to_tree(
         self,
-        public_inputs: KernelCircuitPublicInputs,
+        accumulated_data: CombinedAccumulatedData,
     ) -> AppendOnlyTreeSnapshot {
         nullifier_tree_batch_insert(
             self.start.nullifier_tree,
-            public_inputs.end.nullifiers,
+            accumulated_data.nullifiers,
             self.state_diff_hints.sorted_nullifiers,
             self.state_diff_hints.sorted_nullifier_indexes,
             self.state_diff_hints.nullifier_subtree_sibling_path,
@@ -276,19 +259,24 @@ impl PublicBaseRollupInputs {
         calculate_subtree_root(leaves.map(|leaf: NullifierLeafPreimage| leaf.hash()))
     }
 
-    fn validate_kernel_start_state(self, public_inputs: KernelCircuitPublicInputs) {
-        let kernel_state = public_inputs.start_state;
-        if !is_empty(kernel_state) {
+    fn validate_kernel_start_state(self) {
+        let start_tree_snapshots = self.avm_proof_data.public_inputs.start_tree_snapshots;
+        let start_state = PartialStateReference {
+            note_hash_tree: start_tree_snapshots.note_hash_tree,
+            nullifier_tree: start_tree_snapshots.nullifier_tree,
+            public_data_tree: start_tree_snapshots.public_data_tree,
+        };
+        if !is_empty(start_state) {
             assert(
-                kernel_state.note_hash_tree.eq(self.start.note_hash_tree),
+                start_state.note_hash_tree.eq(self.start.note_hash_tree),
                 "Mismatch start state for note hash tree",
             );
             assert(
-                kernel_state.nullifier_tree.eq(self.start.nullifier_tree),
+                start_state.nullifier_tree.eq(self.start.nullifier_tree),
                 "Mismatch start state for nullifier tree",
             );
             assert(
-                kernel_state.public_data_tree.eq(self.start.public_data_tree),
+                start_state.public_data_tree.eq(self.start.public_data_tree),
                 "Mismatch start state for public data tree",
             );
         }
@@ -318,16 +306,16 @@ impl PublicBaseRollupInputs {
     fn calculate_all_public_data_update_requests(
         self,
         tx_fee: Field,
-        public_inputs: KernelCircuitPublicInputs,
+        accumulated_data: CombinedAccumulatedData,
     ) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
         let mut all_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] =
             [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            all_update_requests[i] = public_inputs.end.public_data_writes[i];
+            all_update_requests[i] = accumulated_data.public_data_writes[i];
         }
 
         let (payment_update_request, payment_update_index) =
-            self.build_or_patch_payment_update_request(tx_fee, public_inputs);
+            self.build_or_patch_payment_update_request(tx_fee, accumulated_data);
         all_update_requests[payment_update_index] = payment_update_request;
 
         all_update_requests
@@ -342,9 +330,9 @@ impl PublicBaseRollupInputs {
     fn build_or_patch_payment_update_request(
         self,
         tx_fee: Field,
-        public_inputs: KernelCircuitPublicInputs,
+        accumulated_data: CombinedAccumulatedData,
     ) -> (PublicDataWrite, u32) {
-        let fee_payer = public_inputs.fee_payer;
+        let fee_payer = self.tube_data.public_inputs.fee_payer;
 
         // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
         if !fee_payer.is_zero() {
@@ -352,14 +340,14 @@ impl PublicBaseRollupInputs {
             let leaf_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
             let existing_update_index = unsafe {
                 find_index_hint(
-                    public_inputs.end.public_data_writes,
+                    accumulated_data.public_data_writes,
                     |w: PublicDataWrite| w.leaf_slot == leaf_slot,
                 )
             };
 
             if existing_update_index != MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
                 // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update = public_inputs.end.public_data_writes[existing_update_index];
+                let existing_update = accumulated_data.public_data_writes[existing_update_index];
                 assert(
                     existing_update.leaf_slot == leaf_slot,
                     "Wrong leaf slot for Fee Juice balance update request",
