@@ -460,6 +460,34 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
     /**
      * @brief Testing two valid rounds of folding followed by the decider for a structured trace.
+     *
+     */
+    static void test_fold_with_virtual_size_expansion()
+    {
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE, 1 << 18 };
+
+        std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
+        std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
+
+        size_t log2_num_gates = 14;
+        for (size_t i = 0; i < 2; ++i) {
+            MegaCircuitBuilder builder;
+            MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates);
+
+            auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+            auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->proving_key);
+            auto decider_verification_key = std::make_shared<DeciderVerificationKey>(verification_key);
+            decider_pks.push_back(decider_proving_key);
+            decider_vks.push_back(decider_verification_key);
+            log2_num_gates += 4;
+        }
+
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(decider_pks, decider_vks);
+        check_accumulator_target_sum_manual(prover_accumulator, true);
+    }
+
+    /**
+     * @brief Testing two valid rounds of folding followed by the decider for a structured trace.
      * @details Here we're interested in folding inhomogeneous circuits, i.e. circuits with different numbers of
      * constraints, which should be automatically handled by the structured trace
      *
@@ -612,6 +640,12 @@ TYPED_TEST(ProtogalaxyTests, FullProtogalaxyStructuredTrace)
 {
     TestFixture::test_full_protogalaxy_structured_trace();
 }
+
+TYPED_TEST(ProtogalaxyTests, VirtualSizeExpansion)
+{
+    TestFixture::test_fold_with_virtual_size_expansion();
+}
+
 TYPED_TEST(ProtogalaxyTests, FullProtogalaxyStructuredTraceInhomogeneous)
 {
     TestFixture::test_full_protogalaxy_structured_trace_inhomogeneous_circuits();
