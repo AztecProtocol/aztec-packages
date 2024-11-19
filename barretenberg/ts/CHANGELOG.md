@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.63.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.62.0...barretenberg.js-v0.63.0) (2024-11-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove `recursive` from ACIR format; add them to API and CLI ([#9479](https://github.com/AztecProtocol/aztec-packages/issues/9479))
+
+### Features
+
+* Bb.js tests of ClientIVC ([#9412](https://github.com/AztecProtocol/aztec-packages/issues/9412)) ([90696cd](https://github.com/AztecProtocol/aztec-packages/commit/90696cd0e126d7db3c4ef396ada4bddd3ac0de73))
+* Constrain App function VKs ([#9756](https://github.com/AztecProtocol/aztec-packages/issues/9756)) ([ae7cfe7](https://github.com/AztecProtocol/aztec-packages/commit/ae7cfe72b5c528fb533040c6da62c9b21f542f8b))
+* Naive attempt to bind the honk solidity verifier function to the ts interface ([#9432](https://github.com/AztecProtocol/aztec-packages/issues/9432)) ([fc27eaf](https://github.com/AztecProtocol/aztec-packages/commit/fc27eafaaa471e888805c785066f361f0da15298))
+
+
+### Bug Fixes
+
+* Remove extra `number` from return type of `acirGetCircuitSizes` ([#9493](https://github.com/AztecProtocol/aztec-packages/issues/9493)) ([1aef553](https://github.com/AztecProtocol/aztec-packages/commit/1aef553d0991fca9940ed0521dab246de08a0a77))
+
+
+### Miscellaneous
+
+* Remove `recursive` from ACIR format; add them to API and CLI ([#9479](https://github.com/AztecProtocol/aztec-packages/issues/9479)) ([d2a84c4](https://github.com/AztecProtocol/aztec-packages/commit/d2a84c405291b5a04576c133b0e74327d9092db1))
+
 ## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.61.0...barretenberg.js-v0.62.0) (2024-11-01)
 
 
