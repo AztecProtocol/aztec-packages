@@ -67,26 +67,27 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     log = createDebugLogger('aztec:world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const versionFile = join(dataDir, WORLD_STATE_VERSION_FILE);
+    const worldStateDirectory = join(dataDir, 'world_state');
+    const versionFile = join(worldStateDirectory, WORLD_STATE_VERSION_FILE);
     const storedWorldStateVersion = await WorldStateVersion.readVersion(versionFile);
 
     if (!storedWorldStateVersion) {
       log.warn('No world state version found, deleting world state directory');
-      await rm(dataDir, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true });
     } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
       log.warn('Rollup address changed, deleting world state directory');
-      await rm(dataDir, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true });
     } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
       log.warn('World state version change detected, deleting world state directory');
-      await rm(dataDir, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true });
     }
 
     const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
 
-    await mkdir(dataDir, { recursive: true });
+    await mkdir(worldStateDirectory, { recursive: true });
     await newWorldStateVersion.writeVersionFile(versionFile);
 
-    const instance = new NativeWorldState(dataDir, dbMapSizeKb);
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb);
     const worldState = new this(instance, log, cleanup);
     try {
       await worldState.init();

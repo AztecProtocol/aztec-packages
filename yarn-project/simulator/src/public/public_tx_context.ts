@@ -15,11 +15,10 @@ import {
   type GlobalVariables,
   type Header,
   type PrivateToPublicAccumulatedData,
-  PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
-  PublicValidationRequestArrayLengths,
   RevertCode,
   type StateReference,
+  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -28,12 +27,12 @@ import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
-import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
+import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type EnqueuedPublicCallExecutionResult } from './execution.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
-import { convertPrivateToPublicAccumulatedData, getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
+import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
  * The transaction-level context for public execution.
@@ -82,25 +81,30 @@ export class PublicTxContext {
     tx: Tx,
     globalVariables: GlobalVariables,
   ) {
-    const nonRevertibleAccumulatedDataFromPrivate = convertPrivateToPublicAccumulatedData(
-      tx.data.forPublic!.nonRevertibleAccumulatedData,
+    const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
+    const revertibleAccumulatedDataFromPrivate = tx.data.forPublic!.revertibleAccumulatedData;
+    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
+      n => !n.isEmpty(),
     );
-    const revertibleAccumulatedDataFromPrivate = convertPrivateToPublicAccumulatedData(
-      tx.data.forPublic!.revertibleAccumulatedData,
-    );
-
-    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
-    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
+    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty());
 
     const innerCallTrace = new PublicSideEffectTrace();
+
+    const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
+      /*publicDataReads*/ 0,
+      /*publicDataWrites*/ 0,
+      /*noteHashReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
+      /*nullifierReadRequests*/ 0,
+      /*nullifierNonExistentReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
+      /*l1ToL2MsgReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
+      /*unencryptedLogsHashes*/ 0,
+    );
     const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
       /*startSideEffectCounter=*/ 0,
-      PublicValidationRequestArrayLengths.empty(),
-      PublicAccumulatedDataArrayLengths.new(nonRevertibleAccumulatedDataFromPrivate),
+      previousAccumulatedDataArrayLengths,
     );
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 

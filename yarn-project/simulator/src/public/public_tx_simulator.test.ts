@@ -24,6 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 
@@ -56,6 +57,7 @@ describe('public_tx_simulator', () => {
   let publicDataTree: AppendOnlyTree<Fr>;
 
   let processor: PublicTxSimulator;
+  let treeStore: AztecKVStore;
 
   const mockTxWithPublicCalls = ({
     numberOfSetupCalls = 0,
@@ -132,9 +134,11 @@ describe('public_tx_simulator', () => {
       return Promise.resolve(result);
     });
 
+    treeStore = openTmpStore();
+
     publicDataTree = await newTree(
       StandardTree,
-      openTmpStore(),
+      treeStore,
       new Poseidon(),
       'PublicData',
       Fr,
@@ -166,6 +170,10 @@ describe('public_tx_simulator', () => {
       worldStateDB,
       /*realAvmProvingRequest=*/ false,
     );
+  });
+
+  afterEach(async () => {
+    await treeStore.delete();
   });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {

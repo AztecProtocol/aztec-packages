@@ -4,7 +4,7 @@ import {
   type Tx,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type DataStoreConfig } from '@aztec/kv-store/utils';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
