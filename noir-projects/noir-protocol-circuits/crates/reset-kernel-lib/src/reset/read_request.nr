@@ -1,4 +1,3 @@
-// This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness},

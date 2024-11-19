@@ -88,7 +88,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             N, RefVector(f_polynomials), RefVector(g_polynomials), u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
-        StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);
+        StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
         auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
         stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 

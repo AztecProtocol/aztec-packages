@@ -62,7 +62,7 @@ async function initStoreForRollup<T extends AztecKVStore>(
  * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional
  * @returns A new store
  */
-export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
-  const mapSize = 1024 * 1024 * 1024 * 10; // 10 GB map size
+export function openTmpStore(ephemeral: boolean = false): AztecLmdbStore {
+  const mapSize = 1024 * 1024 * 10; // 10 GB map size
   return AztecLmdbStore.open(undefined, mapSize, ephemeral);
 }

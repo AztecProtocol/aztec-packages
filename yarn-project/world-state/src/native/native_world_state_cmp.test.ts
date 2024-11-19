@@ -8,6 +8,7 @@ import {
 import { EthAddress, Fr, GENESIS_ARCHIVE_ROOT, NullifierLeaf, PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -31,6 +32,8 @@ describe('NativeWorldState', () => {
 
   let log: DebugLogger;
 
+  let legacyStore: AztecKVStore;
+
   const allTrees = Object.values(MerkleTreeId)
     .filter((x): x is MerkleTreeId => typeof x === 'number')
     .map(x => [MerkleTreeId[x], x] as const);
@@ -43,13 +46,14 @@ describe('NativeWorldState', () => {
   });
 
   afterAll(async () => {
+    await legacyStore.delete();
     await rm(nativeDataDir, { recursive: true });
-    await rm(legacyDataDir, { recursive: true });
   });
 
   beforeAll(async () => {
+    legacyStore = AztecLmdbStore.open(legacyDataDir);
     nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir, 1024 * 1024);
-    legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
+    legacyWS = await MerkleTrees.new(legacyStore, new NoopTelemetryClient());
   });
 
   it('has to expected genesis archive tree root', async () => {

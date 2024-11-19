@@ -5,7 +5,7 @@ import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
 import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type PXEService, PXEServiceConfig, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
 

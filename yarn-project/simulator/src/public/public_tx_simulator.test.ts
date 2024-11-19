@@ -24,6 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 
@@ -31,11 +32,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { PublicExecutionResultBuilder } from '../mocks/fixtures.js';
-import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -53,13 +51,13 @@ describe('public_tx_simulator', () => {
 
   let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicKernel: PublicKernelCircuitSimulator;
   let worldStateDB: MockProxy<WorldStateDB>;
 
   let root: Buffer;
   let publicDataTree: AppendOnlyTree<Fr>;
 
   let processor: PublicTxSimulator;
+  let treeStore: AztecKVStore;
 
   const mockTxWithPublicCalls = ({
     numberOfSetupCalls = 0,
@@ -136,9 +134,11 @@ describe('public_tx_simulator', () => {
       return Promise.resolve(result);
     });
 
+    treeStore = openTmpStore();
+
     publicDataTree = await newTree(
       StandardTree,
-      openTmpStore(),
+      treeStore,
       new Poseidon(),
       'PublicData',
       Fr,
@@ -163,17 +163,17 @@ describe('public_tx_simulator', () => {
     db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
     db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
 
-    publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-
     processor = PublicTxSimulator.create(
       db,
       publicExecutor,
-      publicKernel,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      Header.empty(),
       worldStateDB,
       /*realAvmProvingRequest=*/ false,
     );
+  });
+
+  afterEach(async () => {
+    await treeStore.delete();
   });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {
@@ -181,7 +181,7 @@ describe('public_tx_simulator', () => {
       numberOfSetupCalls: 2,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -216,7 +216,7 @@ describe('public_tx_simulator', () => {
       numberOfAppLogicCalls: 2,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
@@ -251,7 +251,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
@@ -286,7 +286,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -364,7 +364,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
 
@@ -398,7 +398,7 @@ describe('public_tx_simulator', () => {
       PublicExecutionResultBuilder.empty().withReverted(setupFailure).build(),
     );
 
-    await expect(processor.process(tx)).rejects.toThrow(setupFailureMsg);
+    await expect(processor.simulate(tx)).rejects.toThrow(setupFailureMsg);
 
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
   });
@@ -433,7 +433,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -511,7 +511,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -593,7 +593,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.process(tx);
+    const txResult = await processor.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([

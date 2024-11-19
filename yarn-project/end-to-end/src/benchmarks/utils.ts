@@ -2,9 +2,8 @@ import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
-import { DataStoreConfig } from '@aztec/kv-store/config';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, PXEServiceConfig, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
