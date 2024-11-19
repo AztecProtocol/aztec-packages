@@ -177,12 +177,6 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     size_t max_circuit_size = 0;
     for (size_t idx = 0; idx < DeciderProvingKeys::NUM; ++idx) {
         max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->proving_key.circuit_size);
-        // if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {
-        //     info("ProtogalaxyProver: circuit size mismatch!");
-        //     info("DeciderPK ", idx, " size = ", keys_to_fold[idx]->proving_key.circuit_size);
-        //     info("DeciderPK ", idx + 1, " size = ", keys_to_fold[idx + 1]->proving_key.circuit_size);
-        //     // ASSERT(false);
-        // }
     }
     for (size_t idx = 0; idx < DeciderProvingKeys::NUM; ++idx) {
         if (keys_to_fold[idx]->proving_key.circuit_size != max_circuit_size) {
@@ -200,6 +194,11 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     //                                                                 keys_to_fold[0]->relation_parameters);
     run_oink_prover_on_each_incomplete_key();
     vinfo("oink prover on each incomplete key");
+
+    // RelationChecker<typename DeciderProvingKeys::Flavor>::check_all(keys_to_fold[0]->proving_key.polynomials,
+    //                                                                 keys_to_fold[0]->relation_parameters);
+    // RelationChecker<typename DeciderProvingKeys::Flavor>::check_all(keys_to_fold[1]->proving_key.polynomials,
+    //                                                                 keys_to_fold[1]->relation_parameters);
 
     std::tie(deltas, perturbator) = perturbator_round(accumulator);
     vinfo("perturbator round");

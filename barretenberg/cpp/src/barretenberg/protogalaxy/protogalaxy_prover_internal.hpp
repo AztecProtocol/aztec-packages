@@ -348,7 +348,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
         // Determine the number of threads over which to distribute the work
-        const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
+        // const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
+        const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
