@@ -649,6 +649,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             hydrate_indices_from_persisted_store(*tx);
         }
     }
+    std::cout << "Tree " << uncommittedMeta.name << " commiting metadata " << uncommittedMeta << std::endl;
+    std::cout << "Tree " << uncommittedMeta.name << " old metadata " << committedMeta << std::endl;
+    std::cout << "Tree " << uncommittedMeta.name << " data present? " << dataPresent << std::endl;
+
     {
         WriteTransactionPtr tx = create_write_transaction();
         try {
@@ -658,7 +662,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
                 persist_leaf_keys(uncommittedMeta.committedSize, *tx);
             }
             // If we are commiting a block, we need to persist the root, since the new block "references" this root
-            if (dataPresent || asBlock) {
+            // However, if the root is the empty root we can't persist it, since it's not a real node
+            // We are abusing the trees in some tests, trying to add empty blocks to initial empty trees
+            // That is not expected behavior since the unwind operation will fail trying to decrease refcount
+            // for the empty root, which doesn't exist.
+            if (dataPresent || (asBlock && uncommittedMeta.size > 0)) {
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
             }
             if (asBlock) {
