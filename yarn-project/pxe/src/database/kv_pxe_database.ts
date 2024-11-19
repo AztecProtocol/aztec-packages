@@ -7,6 +7,7 @@ import {
   type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
+  computeAddress,
   computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -39,11 +40,13 @@ export class KVPxeDatabase implements PxeDatabase {
   #notes: AztecMap<string, Buffer>;
   #nullifiedNotes: AztecMap<string, Buffer>;
   #nullifierToNoteId: AztecMap<string, string>;
+  #nullifiersByBlockNumber: AztecMultiMap<number, string>;
 
   #nullifiedNotesByContract: AztecMultiMap<string, string>;
   #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
   #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
   #nullifiedNotesByAddressPoint: AztecMultiMap<string, string>;
+  #nullifiedNotesByNullifier: AztecMap<string, string>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
   #contractArtifacts: AztecMap<string, Buffer>;
   #contractInstances: AztecMap<string, Buffer>;
@@ -87,11 +90,13 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#notes = db.openMap('notes');
     this.#nullifiedNotes = db.openMap('nullified_notes');
     this.#nullifierToNoteId = db.openMap('nullifier_to_note');
+    this.#nullifiersByBlockNumber = db.openMultiMap('nullifier_to_block_number');
 
     this.#nullifiedNotesByContract = db.openMultiMap('nullified_notes_by_contract');
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
     this.#nullifiedNotesByAddressPoint = db.openMultiMap('nullified_notes_by_address_point');
+    this.#nullifiedNotesByNullifier = db.openMap('nullified_notes_by_nullifier');
 
     this.#outgoingNotes = db.openMap('outgoing_notes');
     this.#outgoingNotesByContract = db.openMultiMap('outgoing_notes_by_contract');
@@ -245,8 +250,43 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  public async unnullifyNotesAfter(_blockNumber: number): Promise<void> {
-    // TODO: Implementme. Requires tracking when a note was nullified.
+  public async unnullifyNotesAfter(blockNumber: number): Promise<void> {
+    const nullifiersToUndo = Array.from(await this.#nullifiersByBlockNumber.getValues(blockNumber));
+    const notesIndexesToReinsert = await this.db.transaction(() =>
+      nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.get(nullifier)),
+    );
+    const nullifiedNoteBuffers = await this.db.transaction(() => {
+      return notesIndexesToReinsert
+        .filter(noteIndex => noteIndex != undefined)
+        .map(noteIndex => this.#nullifiedNotes.get(noteIndex!));
+    });
+    const noteDaos = nullifiedNoteBuffers
+      .filter(buffer => buffer != undefined)
+      .map(buffer => IncomingNoteDao.fromBuffer(buffer!));
+
+    await this.db.transaction(() => {
+      for (const dao of noteDaos) {
+        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+        void this.#notes.set(noteIndex, dao.toBuffer());
+        void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
+
+        // TODO: check if is this a good assumption
+        const scope = new AztecAddress(dao.addressPoint.x);
+
+        void this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
+        void this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
+        void this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
+        void this.#notesByAddressPointAndScope.get(scope.toString())!.set(dao.addressPoint.toString(), noteIndex);
+
+        void this.#nullifiedNotes.delete(noteIndex);
+        void this.#nullifiersByBlockNumber.deleteValue(dao.l2BlockNumber, dao.siloedNullifier.toString());
+        void this.#nullifiedNotesByContract.deleteValue(dao.contractAddress.toString(), noteIndex);
+        void this.#nullifiedNotesByStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
+        void this.#nullifiedNotesByTxHash.deleteValue(dao.txHash.toString(), noteIndex);
+        void this.#nullifiedNotesByAddressPoint.deleteValue(dao.addressPoint.toString(), noteIndex);
+        void this.#nullifiedNotesByNullifier.delete(dao.siloedNullifier.toString());
+      }
+    });
   }
 
   getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
@@ -424,10 +464,12 @@ export class KVPxeDatabase implements PxeDatabase {
         }
 
         void this.#nullifiedNotes.set(noteIndex, note.toBuffer());
+        void this.#nullifiersByBlockNumber.set(note.l2BlockNumber, nullifier.toString());
         void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
         void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
         void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
         void this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
+        void this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
 
         void this.#nullifierToNoteId.delete(nullifier.toString());
       }
