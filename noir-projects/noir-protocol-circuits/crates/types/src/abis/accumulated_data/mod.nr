@@ -5,8 +5,6 @@ pub mod private_accumulated_data_builder;
 pub mod private_to_avm_accumulated_data;
 pub mod private_to_public_accumulated_data;
 pub mod private_to_public_accumulated_data_builder;
-pub mod public_accumulated_data;
-pub mod public_accumulated_data_builder;
 
 pub use avm_accumulated_data::AvmAccumulatedData;
 pub use combined_accumulated_data::CombinedAccumulatedData;
@@ -15,5 +13,3 @@ pub use private_accumulated_data_builder::PrivateAccumulatedDataBuilder;
 pub use private_to_avm_accumulated_data::PrivateToAvmAccumulatedData;
 pub use private_to_public_accumulated_data::PrivateToPublicAccumulatedData;
 pub use private_to_public_accumulated_data_builder::PrivateToPublicAccumulatedDataBuilder;
-pub use public_accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths};
-pub use public_accumulated_data_builder::PublicAccumulatedDataBuilder;

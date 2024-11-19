@@ -7,7 +7,7 @@ test_title "Create an account and deploy using native fee payment with bridging"
 echo
 warn ////////////////////////////////////////////////////////////////
 warn // WARNING: this test requires protocol contracts to be setup //
-warn //         > aztec setup-protocol-contracts                   //
+warn //           aztec setup-protocol-contracts                   //
 warn ////////////////////////////////////////////////////////////////
 echo
 
