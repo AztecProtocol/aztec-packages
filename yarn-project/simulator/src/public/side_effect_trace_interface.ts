@@ -1,13 +1,11 @@
 import { type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
-  type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
   type NullifierLeafPreimage,
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   type SerializableContractInstance,
-  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -122,19 +120,5 @@ export interface PublicSideEffectTraceInterface {
     /** Function name for logging */
     functionName: string,
   ): PublicFunctionCallResult;
-  toVMCircuitPublicInputs(
-    /** Constants. */
-    constants: CombinedConstantData,
-    /** The call request that triggered public execution. */
-    callRequest: PublicCallRequest,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
-    /** Transaction fee. */
-    transactionFee: Fr,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-  ): VMCircuitPublicInputs;
   getUnencryptedLogs(): UnencryptedL2Log[];
 }

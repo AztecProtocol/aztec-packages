@@ -287,6 +287,18 @@ jobs:
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
+      - name: Publish l1-contracts NPM package
+        run: |
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./l1-contracts+publish-npm \
+            --DIST_TAG=latest \
+            --VERSION=$VERSION \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
       - name: Publish bb.js NPM package
         run: |
           DEPLOY_TAG=${{ env.DEPLOY_TAG }}
