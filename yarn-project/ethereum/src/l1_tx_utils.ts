@@ -171,11 +171,17 @@ export class L1TxUtils {
   public async monitorTransaction(
     request: L1TxRequest,
     initialTxHash: Hex,
-    params: { nonce: number; gasLimit: bigint },
+    params: { gasLimit: bigint },
     _gasConfig?: Partial<L1TxUtilsConfig>,
   ): Promise<TransactionReceipt> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
+
+    const tx = await this.publicClient.getTransaction({ hash: initialTxHash });
+    if (!tx?.nonce) {
+      throw new Error(`Failed to get L1 transaction ${initialTxHash} nonce`);
+    }
+    const nonce = tx.nonce;
 
     const txHashes = new Set<Hex>([initialTxHash]);
     let currentTxHash = initialTxHash;
@@ -185,7 +191,7 @@ export class L1TxUtils {
     while (true) {
       try {
         const currentNonce = await this.publicClient.getTransactionCount({ address: account.address });
-        if (currentNonce > params.nonce) {
+        if (currentNonce > nonce) {
           for (const hash of txHashes) {
             try {
               const receipt = await this.publicClient.getTransactionReceipt({ hash });
@@ -226,7 +232,7 @@ export class L1TxUtils {
 
           currentTxHash = await this.walletClient.sendTransaction({
             ...request,
-            nonce: params.nonce,
+            nonce,
             gas: params.gasLimit,
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
@@ -262,7 +268,7 @@ export class L1TxUtils {
       throw new Error(`Failed to get L1 transaction ${txHash} nonce`);
     }
 
-    return this.monitorTransaction(request, txHash, { nonce: tx.nonce, gasLimit }, gasConfig);
+    return this.monitorTransaction(request, txHash, { gasLimit }, gasConfig);
   }
 
   /**
