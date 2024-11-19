@@ -20,9 +20,7 @@ import {
   type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -187,7 +185,7 @@ export class PublicProcessor {
         await this.db.batchInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
           processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
+          0,
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);

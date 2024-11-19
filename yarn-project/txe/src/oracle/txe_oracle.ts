@@ -27,7 +27,6 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
@@ -511,7 +510,7 @@ export class TXE implements TypedOracle {
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       publicDataWrites.map(write => write.toBuffer()),
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      0,
     );
     return publicDataWrites.map(write => write.value);
   }

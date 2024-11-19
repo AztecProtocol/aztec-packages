@@ -12,14 +12,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import {
-  KernelCircuitPublicInputs,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
-} from '@aztec/circuits.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { KernelCircuitPublicInputs, NULLIFIER_SUBTREE_HEIGHT, PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -208,7 +201,7 @@ export class EpochProvingJob {
     await this.db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       allPublicDataWrites.map(x => x.toBuffer()),
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      0,
     );
   }
 }

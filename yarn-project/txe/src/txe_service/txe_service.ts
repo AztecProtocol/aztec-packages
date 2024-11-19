@@ -4,7 +4,6 @@ import {
   Fr,
   FunctionSelector,
   Header,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   PublicKeys,
   computePartialAddress,
@@ -157,7 +156,7 @@ export class TXEService {
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       publicDataWrites.map(write => write.toBuffer()),
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      0,
     );
     return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
