@@ -218,12 +218,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
-    {
-      flag: '--pxe.dataDirectory <value>',
-      description: 'Where to store PXE data. If not set, will store in memory',
-      defaultValue: undefined,
-      envVar: 'PXE_DATA_DIRECTORY',
-    },
     ...getOptions('pxe', allPxeConfigMappings),
   ],
   ARCHIVER: [

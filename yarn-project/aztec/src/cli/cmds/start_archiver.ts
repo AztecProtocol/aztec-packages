@@ -2,6 +2,7 @@ import { Archiver, type ArchiverConfig, KVArchiverDataStore, archiverConfigMappi
 import { createDebugLogger } from '@aztec/aztec.js';
 import { ArchiverApiSchema } from '@aztec/circuit-types';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/utils';
 import {
   createAndStartTelemetryClient,
@@ -16,7 +17,14 @@ export async function startArchiver(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
 ) {
-  const archiverConfig = extractRelevantOptions<ArchiverConfig>(options, archiverConfigMappings, 'archiver');
+  const archiverConfig = extractRelevantOptions<ArchiverConfig & DataStoreConfig>(
+    options,
+    {
+      ...archiverConfigMappings,
+      ...dataConfigMappings,
+    },
+    'archiver',
+  );
 
   const storeLog = createDebugLogger('aztec:archiver:lmdb');
   const store = await createStore('archiver', archiverConfig, storeLog);
