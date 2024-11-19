@@ -1,0 +1,17 @@
+name: CI3
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: runner-01
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run bootstrap script
+        run: ./bootstrap.sh full
