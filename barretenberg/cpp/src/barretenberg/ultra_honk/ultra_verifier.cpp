@@ -49,13 +49,8 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
             };
 
             // verify the ipa_proof with this claim
-            auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-                "../srs_db/grumpkin", (1 << CONST_ECCVM_LOG_N));
-            auto grumpkin_verifier_commitment_key =
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>((1 << CONST_ECCVM_LOG_N), crs_factory);
             auto ipa_transcript = std::make_shared<Transcript>(ipa_proof);
-            bool ipa_result =
-                IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, ipa_claim, ipa_transcript);
+            bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
             if (!ipa_result) {
                 return false;
             }
