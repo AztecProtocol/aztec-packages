@@ -905,7 +905,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
             //calldata: expect.arrayContaining(environment.calldata), // top-level call forwards args
           }),
           /*startGasLeft=*/ expect.anything(),
-          /*endGasLeft=*/ expect.anything(),
           /*bytecode=*/ expect.anything(),
           /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
           /*functionName=*/ expect.anything(),

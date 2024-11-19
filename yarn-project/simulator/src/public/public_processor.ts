@@ -31,7 +31,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -54,18 +53,17 @@ export class PublicProcessorFactory {
     maybeHistoricalHeader: Header | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
-    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
+    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
 
-    return PublicProcessor.create(
+    return new PublicProcessor(
       merkleTree,
-      publicExecutor,
       globalVariables,
       historicalHeader,
       worldStateDB,
+      publicTxSimulator,
       this.telemetryClient,
     );
   }
@@ -87,19 +85,6 @@ export class PublicProcessor {
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
-  }
-
-  static create(
-    db: MerkleTreeWriteOperations,
-    publicExecutor: PublicExecutor,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-  ) {
-    const publicTxSimulator = PublicTxSimulator.create(db, publicExecutor, globalVariables, worldStateDB);
-
-    return new PublicProcessor(db, globalVariables, historicalHeader, worldStateDB, publicTxSimulator, telemetryClient);
   }
 
   get tracer(): Tracer {

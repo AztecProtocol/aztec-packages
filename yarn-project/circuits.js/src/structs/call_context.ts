@@ -5,6 +5,7 @@ import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
 import { z } from 'zod';
 
 import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
@@ -124,5 +125,14 @@ export class CallContext {
       callContext.functionSelector.equals(this.functionSelector) &&
       callContext.isStaticCall === this.isStaticCall
     );
+  }
+
+  [inspect.custom]() {
+    return `CallContext {
+      msgSender: ${this.msgSender}
+      contractAddress: ${this.contractAddress}
+      functionSelector: ${this.functionSelector}
+      isStaticCall: ${this.isStaticCall}
+    }`;
   }
 }
