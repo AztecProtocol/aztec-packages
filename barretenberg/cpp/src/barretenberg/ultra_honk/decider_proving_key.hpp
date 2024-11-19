@@ -307,17 +307,12 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        if constexpr (HasIPAAccumulatorFlavor<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
-            proving_key.ipa_proof = circuit.ipa_proof;
-        }
-        // Set the pairing point accumulator indices
+        // Set the recursive proof indices
         proving_key.pairing_point_accumulator_public_input_indices =
             circuit.pairing_point_accumulator_public_input_indices;
         proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
-        if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
+        if constexpr (IsMegaFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
         auto end = std::chrono::steady_clock::now();

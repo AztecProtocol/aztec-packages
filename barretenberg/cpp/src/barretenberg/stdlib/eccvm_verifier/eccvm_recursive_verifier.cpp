@@ -15,11 +15,8 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
- *
  */
-template <typename Flavor>
-std::pair<OpeningClaim<typename Flavor::Curve>, std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript>>
-ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
+template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -28,8 +25,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
-    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof.pre_ipa_proof);
+    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_proof_to_witness(builder, proof.ipa_proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
     ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
 
@@ -145,8 +142,10 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
+    const typename PCS::VerifierAccumulator batched_opening_accumulator =
+        PCS::reduce_verify(batch_opening_claim, ipa_transcript);
     ASSERT(sumcheck_verified);
-    return { batch_opening_claim, ipa_transcript };
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
