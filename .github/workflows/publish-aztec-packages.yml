@@ -288,6 +288,7 @@ jobs:
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
       - name: Publish yarn-project NPM packages
+
         run: |
           DEPLOY_TAG=${{ env.DEPLOY_TAG }}
           VERSION=${DEPLOY_TAG#aztec-packages-v}
