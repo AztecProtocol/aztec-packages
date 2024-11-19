@@ -21,13 +21,6 @@ use crate::{
     ErrorType,
 };
 
-use super::brillig_directive;
-use crate::{
-    brillig::brillig_ir::artifact::GeneratedBrillig,
-    errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::dfg::CallStack,
-};
-
 use iter_extended::vecmap;
 use noirc_errors::debug_info::ProcedureDebugId;
 use num_bigint::BigUint;

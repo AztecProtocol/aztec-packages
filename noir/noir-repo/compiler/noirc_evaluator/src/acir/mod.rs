@@ -17,7 +17,7 @@ use acvm::acir::{
 use acvm::{acir::circuit::opcodes::BlockId, acir::AcirField, FieldElement};
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use iter_extended::{try_vecmap, vecmap};
-use noirc_frontend::monomorphization::ast::InlineType;
+use noirc_frontend::{hir_def::types::Type as HirType, monomorphization::ast::InlineType};
 
 mod acir_variable;
 mod big_int;
@@ -39,7 +39,7 @@ use crate::ssa::{
         dfg::{CallStack, DataFlowGraph},
         function::{Function, FunctionId, RuntimeType},
         instruction::{
-            Binary, BinaryOp, ConstrainError, ErrorType, Instruction, InstructionId, Intrinsic,
+            Binary, BinaryOp, ConstrainError, Instruction, InstructionId, Intrinsic,
             TerminatorInstruction,
         },
         map::Id,
@@ -1026,13 +1026,13 @@ impl<'a> Context<'a> {
             };
             entry_point.link_with(artifact);
             // Insert the range of opcode locations occupied by a procedure
-            if let Some(procedure_id) = artifact.procedure {
+            if let Some(procedure_id) = &artifact.procedure {
                 let num_opcodes = entry_point.byte_code.len();
                 let previous_num_opcodes = entry_point.byte_code.len() - artifact.byte_code.len();
                 // We subtract one as to keep the range inclusive on both ends
                 entry_point
                     .procedure_locations
-                    .insert(procedure_id, (previous_num_opcodes, num_opcodes - 1));
+                    .insert(procedure_id.clone(), (previous_num_opcodes, num_opcodes - 1));
             }
         }
         // Generate the final bytecode
