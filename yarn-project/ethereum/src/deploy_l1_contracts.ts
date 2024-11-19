@@ -681,7 +681,7 @@ export async function deployL1Contract(
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
     const receipt = await l1TxUtils.sendAndMonitorTransaction({
-      to: EthAddress.ZERO.toString(), // Contract creation
+      to: null,
       data: deployData,
     });
 

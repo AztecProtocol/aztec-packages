@@ -106,7 +106,7 @@ export const gasUtilsConfigMappings: ConfigMappingsType<GasUtilsConfig> = {
 export const defaultGasUtilsConfig = getDefaultConfig<GasUtilsConfig>(gasUtilsConfigMappings);
 
 export interface L1TxRequest {
-  to: Address;
+  to: Address | null;
   data: Hex;
   value?: bigint;
 }
