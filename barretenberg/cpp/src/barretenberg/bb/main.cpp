@@ -1144,14 +1144,16 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    Verifier verifier{ vk, ipa_verification_key };
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
     // verifier.
+    std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
     if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+        init_grumpkin_crs(1 << 16);
         vk->contains_ipa_claim = false;
+        ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     }
+    Verifier verifier{ vk, ipa_verification_key };
+
     bool verified = verifier.verify_proof(proof);
 
     vinfo("verified: ", verified);
@@ -1498,7 +1500,6 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target");
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
-            init_grumpkin_crs(1 << 16);
             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
             gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
