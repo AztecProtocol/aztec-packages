@@ -2,7 +2,10 @@ use acvm::{acir::AcirField, BlackBoxFunctionSolver, BlackBoxResolutionError, Fie
 use iter_extended::vecmap;
 
 use crate::ssa::ir::{
-    dfg::DataFlowGraph, instruction::SimplifyResult, types::Type, value::ValueId,
+    dfg::DataFlowGraph,
+    instruction::SimplifyResult,
+    types::Type,
+    value::ValueId,
 };
 
 use super::{array_is_constant, make_constant_array, to_u8_vec};
@@ -36,6 +39,58 @@ pub(super) fn simplify_ec_add(
                 &point2_y,
                 &point2_is_infinity,
             ) else {
+                return SimplifyResult::None;
+            };
+
+            let result_array = make_constant_array(
+                dfg,
+                vec![result_x, result_y, result_is_infinity],
+                Type::field(),
+            );
+
+            SimplifyResult::SimplifiedTo(result_array)
+        }
+        _ => SimplifyResult::None,
+    }
+}
+
+pub(super) fn simplify_msm(
+    dfg: &mut DataFlowGraph,
+    solver: impl BlackBoxFunctionSolver<FieldElement>,
+    arguments: &[ValueId],
+) -> SimplifyResult {
+    // TODO: Handle MSMs where a subset of the terms are constant.
+    match (dfg.get_array_constant(arguments[0]), dfg.get_array_constant(arguments[1])) {
+        (Some((points, _)), Some((scalars, _))) => {
+            let Some(points) = points
+                .into_iter()
+                .map(|id| dfg.get_numeric_constant(id))
+                .collect::<Option<Vec<_>>>()
+            else {
+                return SimplifyResult::None;
+            };
+
+            let Some(scalars) = scalars
+                .into_iter()
+                .map(|id| dfg.get_numeric_constant(id))
+                .collect::<Option<Vec<_>>>()
+            else {
+                return SimplifyResult::None;
+            };
+
+            let mut scalars_lo = Vec::new();
+            let mut scalars_hi = Vec::new();
+            for (i, scalar) in scalars.into_iter().enumerate() {
+                if i % 2 == 0 {
+                    scalars_lo.push(scalar);
+                } else {
+                    scalars_hi.push(scalar);
+                }
+            }
+
+            let Ok((result_x, result_y, result_is_infinity)) =
+                solver.multi_scalar_mul(&points, &scalars_lo, &scalars_hi)
+            else {
                 return SimplifyResult::None;
             };
 

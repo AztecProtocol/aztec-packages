@@ -442,7 +442,6 @@ fn simplify_slice_push_back(
 
     let new_slice = value_merger.merge_values(
         len_not_equals_capacity,
-        len_equals_capacity,
         set_last_slice_value,
         new_slice,
     );
@@ -514,8 +513,12 @@ fn simplify_black_box_func(
         }
     };
     match bb_func {
-        BlackBoxFunc::Blake2s => simplify_hash(dfg, arguments, acvm::blackbox_solver::blake2s),
-        BlackBoxFunc::Blake3 => simplify_hash(dfg, arguments, acvm::blackbox_solver::blake3),
+        BlackBoxFunc::Blake2s => {
+            simplify_hash(dfg, arguments, acvm::blackbox_solver::blake2s)
+        }
+        BlackBoxFunc::Blake3 => {
+            simplify_hash(dfg, arguments, acvm::blackbox_solver::blake3)
+        }
         BlackBoxFunc::Keccakf1600 => {
             if let Some((array_input, _)) = dfg.get_array_constant(arguments[0]) {
                 if array_is_constant(dfg, &array_input) {
