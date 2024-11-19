@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.XX.X
+## 0.63.0
 ### [PXE] Note tagging and discovery
 
 PXE's trial decryption of notes has been replaced in favor of a tagging and discovery approach. It is much more efficient and should scale a lot better as the network size increases, since
@@ -30,7 +30,6 @@ const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).se
 +expect(incomingNotes.length).toEqual(1);
 ```
 
-## 0.63.0
 ### [Token contract] Partial notes related refactor
 We've decided to replace the old "shield" flow with one leveraging partial notes.
 This led to a removal of `shield` and `redeem_shield` functions and an introduction of `transfer_to_private`.
