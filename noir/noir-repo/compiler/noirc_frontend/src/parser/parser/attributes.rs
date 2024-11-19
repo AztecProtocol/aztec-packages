@@ -501,13 +501,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_attribute_recursive() {
-        let src = "#[recursive]";
-        let expected = Attribute::Function(FunctionAttribute::Recursive);
-        parse_attribute_no_errors(src, expected);
-    }
-
-    #[test]
     fn parses_attribute_fold() {
         let src = "#[fold]";
         let expected = Attribute::Function(FunctionAttribute::Fold);
