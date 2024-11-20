@@ -14,7 +14,7 @@
 
 using namespace bb;
 
-using Flavor = UltraFlavor;
+using Flavor = MegaZKFlavor;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
@@ -28,13 +28,13 @@ class SumcheckTestsRealCircuit : public ::testing::Test {
  */
 TEST_F(SumcheckTestsRealCircuit, Ultra)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = MegaZKFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = UltraCircuitBuilder();
+    auto builder = MegaCircuitBuilder();
     FF a = FF::one();
 
     // Add some basic add gates, with a public input for good measure
@@ -162,10 +162,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
     decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
                                                              decider_pk->final_active_wire_idx + 1);
+    info("real circuit test size perm: ", decider_pk->final_active_wire_idx + 1);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = decider_pk->proving_key.circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
+    info("log circuit size ", log_circuit_size);
 
     RelationSeparator prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
@@ -180,10 +182,14 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     decider_pk->gate_challenges = prover_gate_challenges;
+    ZKSumcheckData<Flavor> zk_sumcheck_data(log_circuit_size, prover_transcript);
+    FF r = FF::random_element();
+    decider_pk->proving_key.polynomials.z_perm.at(circuit_size - 1) = r;
     auto prover_output = sumcheck_prover.prove(decider_pk->proving_key.polynomials,
                                                decider_pk->relation_parameters,
                                                decider_pk->alphas,
-                                               decider_pk->gate_challenges);
+                                               decider_pk->gate_challenges,
+                                               zk_sumcheck_data);
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 

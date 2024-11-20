@@ -191,7 +191,7 @@ template <typename Flavor> class SumcheckProverRound {
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         if constexpr (Flavor::HasZK) {
             const auto contribution_from_disabled_rows = compute_disabled_contribution(
-                polynomials, relation_parameters, gate_sparators, alpha, row_disabling_poly);
+                polynomials, relation_parameters, gate_sparators, alpha, round_idx, row_disabling_poly);
             const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
             // Batch the univariate contributions from each sub-relation to obtain the round univariate
             const auto round_univariate =
@@ -211,6 +211,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
         const RelationSeparator alpha,
+        const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_poly) // only populated when Flavor HasZK
     {
         PROFILE_THIS_NAME("compute_univariate");
@@ -219,7 +220,8 @@ template <typename Flavor> class SumcheckProverRound {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
         // Construct extended edge containers
         ExtendedEdges extended_edges;
-        size_t edge_idx = round_size - 2;
+        size_t edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
+
         extend_edges(extended_edges, polynomials, edge_idx);
         accumulate_relation_univariates(univariate_accumulator,
                                         extended_edges,
@@ -227,9 +229,23 @@ template <typename Flavor> class SumcheckProverRound {
                                         gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
 
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+
         auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
         auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         result *= row_disabler_extended;
+
+        if (round_idx == 0) {
+            edge_idx += 2;
+            extend_edges(extended_edges, polynomials, edge_idx);
+            accumulate_relation_univariates(univariate_accumulator,
+                                            extended_edges,
+                                            relation_parameters,
+                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+
+            result += batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+        }
+        info("contribution ", edge_idx, " at 0 ", result.value_at(0));
+        info("contribution ", edge_idx, " at 1 ", result.value_at(1));
 
         return result;
     }

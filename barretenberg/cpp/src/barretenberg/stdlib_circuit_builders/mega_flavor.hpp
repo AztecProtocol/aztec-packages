@@ -65,7 +65,7 @@ class MegaFlavor {
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
-                                  //   bb::UltraPermutationRelation<FF>,
+                                  bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,

@@ -24,7 +24,7 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
-    size_t total_num_gates = 3 + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+    size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);

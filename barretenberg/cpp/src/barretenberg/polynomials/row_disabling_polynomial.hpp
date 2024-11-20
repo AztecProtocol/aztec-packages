@@ -45,8 +45,8 @@ namespace bb {
  */
 template <typename FF> struct RowDisablingPolynomial {
     // by default it is a constant multilinear polynomial = 1
-    FF eval_at_0{ 1 };
-    FF eval_at_1{ 2 };
+    FF eval_at_0{ 0 };
+    FF eval_at_1{ 1 };
     FF one = FF{ 1 };
     FF zero = FF{ 0 };
 
