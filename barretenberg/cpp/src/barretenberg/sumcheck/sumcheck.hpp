@@ -3,7 +3,7 @@
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp" // WORKTODO: not needed?
 #include "sumcheck_round.hpp"
 
 namespace bb {

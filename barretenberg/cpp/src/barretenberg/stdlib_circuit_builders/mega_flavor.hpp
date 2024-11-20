@@ -581,11 +581,13 @@ class MegaFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             set_metadata(proving_key);
-            if (proving_key.commitment_key == nullptr) {
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            auto& ck = proving_key.commitment_key;
+            if (!ck || ck->srs->get_monomial_size() < proving_key.circuit_size) {
+                vinfo("commitment key being constructed in VK constructor");
+                ck = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = ck->commit(polynomial);
             }
         }
 

@@ -69,7 +69,9 @@ template <class Curve> class CommitmentKey {
         : pippenger_runtime_state(get_num_needed_srs_points(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_prover_crs(get_num_needed_srs_points(num_points)))
-    {}
+    {
+        info("CommitmentKey constructor from num_points being called!");
+    }
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
     CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)

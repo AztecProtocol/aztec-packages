@@ -44,12 +44,12 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
-
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+    size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
 
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
-                       std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+                       std::shared_ptr<CommitmentKey> commitment_key = nullptr)
         : is_structured(trace_settings.structure.has_value())
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
@@ -79,6 +79,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);
+        vinfo("populated public inputs block");
         circuit.blocks.compute_offsets(is_structured);
 
         // Find index of last non-trivial wire value in the trace
@@ -101,9 +102,11 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
+            vinfo("allocated polynomials object in proving key");
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
+                vinfo("allocated polynomials object in proving key");
             } else { // Allocate only a correct amount of memory for each polynomial
                 // Allocate the wires and selectors polynomials
                 {
@@ -328,7 +331,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
-    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
 
     size_t compute_dyadic_size(Circuit&);
 
