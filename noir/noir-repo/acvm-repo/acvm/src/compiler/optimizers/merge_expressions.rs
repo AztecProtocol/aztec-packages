@@ -50,10 +50,10 @@ impl MergeExpressionsOptimizer {
         let mut new_circuit = Vec::new();
         let mut new_acir_opcode_positions = Vec::new();
         // For each opcode, try to get a target opcode to merge with
-        for (i, opcode) in circuit.opcodes.iter().enumerate() {
+        for (i, (opcode, opcode_position)) in circuit.opcodes.iter().zip(acir_opcode_positions).enumerate() {
             if !matches!(opcode, Opcode::AssertZero(_)) {
                 new_circuit.push(opcode.clone());
-                new_acir_opcode_positions.push(acir_opcode_positions[i]);
+                new_acir_opcode_positions.push(opcode_position);
                 continue;
             }
             let opcode = modified_gates.get(&i).unwrap_or(opcode).clone();
@@ -106,12 +106,9 @@ impl MergeExpressionsOptimizer {
             }
 
             if to_keep {
-                if modified_gates.contains_key(&i) {
-                    new_circuit.push(modified_gates[&i].clone());
-                } else {
-                    new_circuit.push(opcode);
-                }
-                new_acir_opcode_positions.push(acir_opcode_positions[i]);
+                let opcode  = modified_gates.get(&i).cloned().unwrap_or(opcode);
+                new_circuit.push(opcode);
+                new_acir_opcode_positions.push(opcode_position);
             }
         }
         (new_circuit, new_acir_opcode_positions)
