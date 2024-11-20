@@ -50,7 +50,9 @@ impl MergeExpressionsOptimizer {
         let mut new_circuit = Vec::new();
         let mut new_acir_opcode_positions = Vec::new();
         // For each opcode, try to get a target opcode to merge with
-        for (i, (opcode, opcode_position)) in circuit.opcodes.iter().zip(acir_opcode_positions).enumerate() {
+        for (i, (opcode, opcode_position)) in
+            circuit.opcodes.iter().zip(acir_opcode_positions).enumerate()
+        {
             if !matches!(opcode, Opcode::AssertZero(_)) {
                 new_circuit.push(opcode.clone());
                 new_acir_opcode_positions.push(opcode_position);
@@ -60,7 +62,9 @@ impl MergeExpressionsOptimizer {
             let mut to_keep = true;
             let input_witnesses = self.witness_inputs(&opcode);
             for w in input_witnesses {
-                let gates_using_w = used_witness.entry(w).or_default();
+                let Some(gates_using_w) = used_witness.get(&w) else {
+                    continue;
+                };
                 // We only consider witness which are used in exactly two arithmetic gates
                 if gates_using_w.len() == 2 {
                     let first = *gates_using_w.first().expect("gates_using_w.len == 2");
@@ -92,8 +96,9 @@ impl MergeExpressionsOptimizer {
                                 // Update the 'used_witness' map to account for the merge.
                                 for w2 in CircuitSimulator::expr_wit(expr_define) {
                                     if !circuit_inputs.contains(&w2) {
-                                        gates_using_w.insert(b);
-                                        gates_using_w.remove(&i);
+                                        let v = used_witness.entry(w2).or_default();
+                                        v.insert(b);
+                                        v.remove(&i);
                                     }
                                 }
                                 // We need to stop here and continue with the next opcode
@@ -106,7 +111,7 @@ impl MergeExpressionsOptimizer {
             }
 
             if to_keep {
-                let opcode  = modified_gates.get(&i).cloned().unwrap_or(opcode);
+                let opcode = modified_gates.get(&i).cloned().unwrap_or(opcode);
                 new_circuit.push(opcode);
                 new_acir_opcode_positions.push(opcode_position);
             }
