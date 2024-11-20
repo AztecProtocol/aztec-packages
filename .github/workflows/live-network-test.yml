@@ -102,12 +102,6 @@ jobs:
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
         timeout-minutes: 90
@@ -130,6 +124,7 @@ jobs:
             chmod +x kubectl
             sudo mv kubectl /usr/bin
 
+            aws eks get-token --cluster-name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
             aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
             kubectl config get-contexts
             kubectl get pods -n $NAMESPACE
