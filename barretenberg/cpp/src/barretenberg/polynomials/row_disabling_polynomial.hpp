@@ -59,13 +59,13 @@ template <typename FF> struct RowDisablingPolynomial {
             eval_at_1 = one;
         };
         if (round_idx == 1) {
-            eval_at_0 = zero;
             eval_at_1 = eval_at_0 + round_challenge - eval_at_0 * round_challenge;
+            eval_at_0 = zero;
         };
 
         if (round_idx > 1) {
-            eval_at_0 = zero;
             eval_at_1 = eval_at_1 * round_challenge;
+            eval_at_0 = zero;
         }
     }
 };

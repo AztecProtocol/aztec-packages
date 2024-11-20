@@ -181,8 +181,11 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         for (auto& poly : zero_polynomials) {
             poly = bb::Polynomial<FF>(multivariate_n);
         }
-        auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
+        auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
+        for (size_t idx = 0; idx < multivariate_n; idx++) {
+            info("coeff z_perm before randomization ", idx, "  ", full_polynomials.z_perm[idx]);
+        }
         // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
         // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
         // satisfied.
@@ -197,11 +200,18 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0 };
         std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
         // Setting all of these to 0 ensures the GrandProductRelation is satisfied
-        // if constexpr (Flavor::HasZK) {
-        //     w_l[7] = FF::random_element();
-        //     // q_o[1] = FF::random_element();
-        //     // q_arith[2] = FF::random_element();
-        // }
+        if constexpr (Flavor::HasZK) {
+            w_l[7] = FF::random_element();
+            w_r[6] = FF::random_element();
+            w_4[6] = FF::random_element();
+            auto r = FF::random_element();
+            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, 0, r * r, r };
+            full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
+            std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, 0, 1 };
+            full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
+            //     // q_o[1] = FF::random_element();
+            //     // q_arith[2] = FF::random_element();
+        }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);
         full_polynomials.w_r = bb::Polynomial<FF>(w_r);
         full_polynomials.w_o = bb::Polynomial<FF>(w_o);
@@ -212,7 +222,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         full_polynomials.q_o = bb::Polynomial<FF>(q_o);
         full_polynomials.q_c = bb::Polynomial<FF>(q_c);
         full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
-
+        for (size_t idx = 0; idx < multivariate_n; idx++) {
+            info("coeff z_perm", idx, "  ", full_polynomials.z_perm[idx]);
+        }
         // Set aribitrary random relation parameters
         RelationParameters<FF> relation_parameters{
             .beta = FF::random_element(),
@@ -346,7 +358,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         auto verified = verifier_output.verified.value();
         // In this test, the circuit is of size 4. We disable the rows 1, 2, and 3, while the first is set to 0.
         // Therefore, changing the second entry in w_l does not affect the result for ZK fa.
-        EXPECT_EQ(verified, Flavor::HasZK);
+        EXPECT_EQ(verified, false);
     };
 };
 
