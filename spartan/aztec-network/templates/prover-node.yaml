@@ -18,7 +18,7 @@ spec:
         app: prover-node
     spec:
       initContainers:
-        - name: wait-for-boot-node
+        - name: wait-for-services
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh

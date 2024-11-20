@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.0...aztec-package-v0.63.1) (2024-11-19)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.63.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.62.0...aztec-package-v0.63.0) (2024-11-19)
 
 

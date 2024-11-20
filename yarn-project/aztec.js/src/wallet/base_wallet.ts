@@ -13,7 +13,6 @@ import {
   type SiblingPath,
   type SyncStatus,
   type Tx,
-  type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   type TxProvingResult,
@@ -122,7 +121,7 @@ export abstract class BaseWallet implements Wallet {
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash) {
     return this.pxe.getTxEffect(txHash);
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {

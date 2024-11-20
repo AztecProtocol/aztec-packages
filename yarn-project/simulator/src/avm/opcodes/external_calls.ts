@@ -107,7 +107,6 @@ abstract class ExternalCall extends Instruction {
       /*nestedState=*/ nestedContext.persistableState,
       /*nestedEnvironment=*/ nestedContext.environment,
       /*startGasLeft=*/ Gas.from(allocatedGas),
-      /*endGasLeft=*/ Gas.from(nestedContext.machineState.gasLeft),
       /*bytecode=*/ simulator.getBytecode()!,
       /*avmCallResults=*/ nestedCallResults,
     );

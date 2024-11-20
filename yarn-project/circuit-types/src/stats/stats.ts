@@ -123,8 +123,6 @@ export type AvmSimulationStats = {
   appCircuitName: string;
   /** Duration in ms. */
   duration: number;
-  /** Uncompressed bytecode size. */
-  bytecodeSize: number;
 };
 
 /** Stats for witness generation. */

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.63.0...aztec-packages-v0.63.1) (2024-11-19)
+
+
+### Bug Fixes
+
+* Fix npm publishing ([#10041](https://github.com/AztecProtocol/aztec-packages/issues/10041)) ([1dae760](https://github.com/AztecProtocol/aztec-packages/commit/1dae760b6e2bc6d24cacdea87b3dfa3829d1c6c4))
+
+
+### Miscellaneous
+
+* Revert "feat: IPA Accumulator in Builder" ([#10036](https://github.com/AztecProtocol/aztec-packages/issues/10036)) ([9b10f7f](https://github.com/AztecProtocol/aztec-packages/commit/9b10f7f46755814cb8633cf55621faa8e9b37344))
+
 ## [0.63.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.62.0...aztec-packages-v0.63.0) (2024-11-19)
 
 
