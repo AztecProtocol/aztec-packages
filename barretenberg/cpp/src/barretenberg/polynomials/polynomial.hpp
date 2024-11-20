@@ -70,7 +70,7 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size)
         : Polynomial(size, size)
     {
-        PROFILE_THIS();
+        PROFILE_THIS_NAME("Polynomial allocation");
     }
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
@@ -100,6 +100,16 @@ template <typename Fr> class Polynomial {
     static Polynomial shiftable(size_t virtual_size)
     {
         return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
+    }
+
+    /* @brief Utility to efficiently construct a shift from the original polynomial.
+     *
+     * @param virtual_size the size of the polynomial to be shifted
+     * @return Polynomial
+     */
+    static Polynomial shiftable(size_t virtual_size, DontZeroMemory flag)
+    {
+        return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1, flag);
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
