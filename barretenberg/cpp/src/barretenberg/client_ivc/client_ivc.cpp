@@ -354,11 +354,19 @@ HonkProof ClientIVC::decider_prove() const
 bool ClientIVC::prove_and_verify()
 {
     auto start = std::chrono::steady_clock::now();
-    auto proof = prove();
+    const auto proof = prove();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
-    return verify(proof);
+
+    start = end;
+    const bool verified = verify(proof);
+    end = std::chrono::steady_clock::now();
+
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
+
+    return verified;
 }
 
 /**
