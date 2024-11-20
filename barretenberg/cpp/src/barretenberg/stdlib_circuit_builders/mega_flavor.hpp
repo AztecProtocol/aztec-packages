@@ -417,7 +417,6 @@ class MegaFlavor {
 
         void set_shifted()
         {
-            PROFILE_THIS_NAME("set shifted");
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
             }

@@ -99,8 +99,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("allocating proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
-            info("dyadic circuit size: ", dyadic_circuit_size);
-            info("proving_key.circuit_size ", proving_key.circuit_size);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
@@ -138,6 +136,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating non-gate selectors");
+
                     // Set the other non-gate selector polynomials to full size
                     for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
                         selector = Polynomial(proving_key.circuit_size);
@@ -262,7 +261,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                         /* size=*/dyadic_circuit_size, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
                 }
             }
-
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
             proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly

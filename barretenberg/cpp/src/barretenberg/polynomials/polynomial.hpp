@@ -69,9 +69,7 @@ template <typename Fr> class Polynomial {
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
         : Polynomial(size, size)
-    {
-        PROFILE_THIS_NAME("Polynomial allocation");
-    }
+    {}
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
