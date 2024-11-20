@@ -191,7 +191,7 @@ template <typename Flavor> class SumcheckProverRound {
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         if constexpr (Flavor::HasZK) {
             const auto contribution_from_disabled_rows = compute_disabled_contribution(
-                round_idx, polynomials, relation_parameters, gate_sparators, alpha, row_disabling_poly);
+                polynomials, relation_parameters, gate_sparators, alpha, row_disabling_poly);
             const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
             // Batch the univariate contributions from each sub-relation to obtain the round univariate
             const auto round_univariate =
@@ -207,7 +207,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_disabled_contribution(
-        const size_t round_idx,
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
@@ -220,8 +219,7 @@ template <typename Flavor> class SumcheckProverRound {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
         // Construct extended edge containers
         ExtendedEdges extended_edges;
-
-        size_t edge_idx = 0;
+        size_t edge_idx = round_size - 2;
         extend_edges(extended_edges, polynomials, edge_idx);
         accumulate_relation_univariates(univariate_accumulator,
                                         extended_edges,
@@ -232,17 +230,6 @@ template <typename Flavor> class SumcheckProverRound {
         auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
         auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         result *= row_disabler_extended;
-
-        if (round_idx == 0) {
-            edge_idx += 2;
-            Utils::zero_univariates(univariate_accumulator);
-            extend_edges(extended_edges, polynomials, edge_idx);
-            accumulate_relation_univariates(univariate_accumulator,
-                                            extended_edges,
-                                            relation_parameters,
-                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
-            result += batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
-        }
 
         return result;
     }
@@ -568,10 +555,11 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_correcting_factor(std::vector<FF> multilinear_challenge, const size_t log_circuit_size)
     {
         FF one = FF{ 1 };
-        FF result = (multilinear_challenge[0] * (one - multilinear_challenge[1]) + multilinear_challenge[1]);
+        FF result =
+            multilinear_challenge[0] + multilinear_challenge[1] - multilinear_challenge[0] * multilinear_challenge[1];
 
         for (size_t idx = 2; idx < log_circuit_size; idx++) {
-            result *= (one - multilinear_challenge[idx]);
+            result *= multilinear_challenge[idx];
         }
         return one - result;
     }

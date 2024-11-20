@@ -45,8 +45,8 @@ namespace bb {
  */
 template <typename FF> struct RowDisablingPolynomial {
     // by default it is a constant multilinear polynomial = 1
-    FF eval_at_0{ 0 };
-    FF eval_at_1{ 1 };
+    FF eval_at_0{ 1 };
+    FF eval_at_1{ 2 };
     FF one = FF{ 1 };
     FF zero = FF{ 0 };
 
@@ -59,13 +59,13 @@ template <typename FF> struct RowDisablingPolynomial {
             eval_at_1 = one;
         };
         if (round_idx == 1) {
-            eval_at_0 = eval_at_0 * (one - round_challenge) + round_challenge;
-            eval_at_1 = zero;
+            eval_at_0 = zero;
+            eval_at_1 = eval_at_0 + round_challenge - eval_at_0 * round_challenge;
         };
 
         if (round_idx > 1) {
-            eval_at_0 = eval_at_0 * (one - round_challenge);
-            eval_at_1 = zero;
+            eval_at_0 = zero;
+            eval_at_1 = eval_at_1 * round_challenge;
         }
     }
 };

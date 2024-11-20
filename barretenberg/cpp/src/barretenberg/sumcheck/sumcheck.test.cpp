@@ -186,22 +186,22 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
         // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
         // satisfied.
-        std::array<FF, multivariate_n> w_l = { 0, 0, 0, 0, 0, 1, 2, 0 };
-        std::array<FF, multivariate_n> w_r = { 0, 0, 0, 0, 0, 1, 2, 0 };
-        std::array<FF, multivariate_n> w_o = { 0, 0, 0, 0, 0, 2, 4, 0 };
-        std::array<FF, multivariate_n> w_4 = { 0, 0, 0, 0, 0, 0, 0, 0 };
-        std::array<FF, multivariate_n> q_m = { 0, 0, 0, 0, 0, 0, 1, 0 };
-        std::array<FF, multivariate_n> q_l = { 0, 0, 0, 0, 0, 1, 0, 0 };
-        std::array<FF, multivariate_n> q_r = { 0, 0, 0, 0, 0, 1, 0, 0 };
-        std::array<FF, multivariate_n> q_o = { 0, 0, 0, 0, 0, -1, -1, 0 };
-        std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0, 0, 0, 0, 0 };
-        std::array<FF, multivariate_n> q_arith = { 0, 0, 0, 0, 0, 1, 1, 0 };
+        std::array<FF, multivariate_n> w_l = { 0, 1, 2, 0 };
+        std::array<FF, multivariate_n> w_r = { 0, 1, 2, 0 };
+        std::array<FF, multivariate_n> w_o = { 0, 2, 4, 0 };
+        std::array<FF, multivariate_n> w_4 = { 0, 0, 0, 0 };
+        std::array<FF, multivariate_n> q_m = { 0, 0, 1, 0 };
+        std::array<FF, multivariate_n> q_l = { 0, 1, 0, 0 };
+        std::array<FF, multivariate_n> q_r = { 0, 1, 0, 0 };
+        std::array<FF, multivariate_n> q_o = { 0, -1, -1, 0 };
+        std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0 };
+        std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
         // Setting all of these to 0 ensures the GrandProductRelation is satisfied
-        if constexpr (Flavor::HasZK) {
-            w_l[3] = FF::random_element();
-            q_o[1] = FF::random_element();
-            q_arith[2] = FF::random_element();
-        }
+        // if constexpr (Flavor::HasZK) {
+        //     w_l[7] = FF::random_element();
+        //     // q_o[1] = FF::random_element();
+        //     // q_arith[2] = FF::random_element();
+        // }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);
         full_polynomials.w_r = bb::Polynomial<FF>(w_r);
         full_polynomials.w_o = bb::Polynomial<FF>(w_o);

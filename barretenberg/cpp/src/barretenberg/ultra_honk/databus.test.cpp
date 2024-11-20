@@ -27,9 +27,9 @@ class DataBusTests : public ::testing::Test {
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
-        MegaProver prover{ builder };
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
-        MegaVerifier verifier{ verification_key };
+        MegaZKProver prover{ builder };
+        auto verification_key = std::make_shared<MegaZKFlavor::VerificationKey>(prover.proving_key->proving_key);
+        MegaZKVerifier verifier{ verification_key };
         auto proof = prover.construct_proof();
         return verifier.verify_proof(proof);
     }
