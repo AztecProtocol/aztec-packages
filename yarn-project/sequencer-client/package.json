@@ -63,6 +63,7 @@
     "@types/node": "^18.7.23",
     "concurrently": "^7.6.0",
     "eslint": "^8.37.0",
+    "express": "^4.21.1",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.3",
     "levelup": "^5.1.1",

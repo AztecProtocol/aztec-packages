@@ -101,6 +101,8 @@ export type MinimalTransactionReceipt = {
   logs: any[];
   /** Block number in which this tx was mined. */
   blockNumber: bigint;
+  /** The block hash in which this tx was mined */
+  blockHash: `0x${string}`;
 };
 
 /** Arguments to the process method of the rollup contract */
@@ -169,6 +171,8 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
+  private blobSinkUrl: string | undefined;
+
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -183,6 +187,7 @@ export class L1Publisher {
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
+    this.blobSinkUrl = config.blobSinkUrl;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
@@ -535,15 +540,18 @@ export class L1Publisher {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
+
+    const blobs = Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
-      blobs: Blob.getBlobs(block.body.toBlobFields()),
+      blobs,
       attestations,
       txHashes: txHashes ?? [],
     };
+
     // Publish body and propose block (if not already published)
     if (this.interrupted) {
       this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
@@ -588,6 +596,12 @@ export class L1Publisher {
       };
       this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
+
+      // Send the blobs to the blob sink
+      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      });
+
       return true;
     }
 
@@ -602,7 +616,7 @@ export class L1Publisher {
         address: this.rollupContract.address,
       },
       {
-        blobs: proposeTxArgs.blobs.map(b => b.data),
+        blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
         kzg,
         maxFeePerBlobGas: 10000000000n,
       },
@@ -907,7 +921,7 @@ export class L1Publisher {
       },
       {},
       {
-        blobs: encodedData.blobs.map(b => b.data),
+        blobs: encodedData.blobs.map(b => b.dataWithZeros),
         kzg,
         maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       },
@@ -997,7 +1011,7 @@ export class L1Publisher {
           fixedGas: gas,
         },
         {
-          blobs: encodedData.blobs.map(b => b.data),
+          blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
           maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
@@ -1036,7 +1050,7 @@ export class L1Publisher {
         },
         { fixedGas: gas },
         {
-          blobs: encodedData.blobs.map(b => b.data),
+          blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
           maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
@@ -1078,6 +1092,7 @@ export class L1Publisher {
             gasPrice: receipt.effectiveGasPrice,
             logs: receipt.logs,
             blockNumber: receipt.blockNumber,
+            blockHash: receipt.blockHash,
           };
         }
 
@@ -1093,9 +1108,51 @@ export class L1Publisher {
   protected async sleepOrInterrupted() {
     await this.interruptibleSleep.sleep(this.sleepTimeMs);
   }
+
+  /**
+   * Send blobs to the blob sink
+   *
+   * If a blob sink url is configured, then we send blobs to the blob sink
+   * - for now we use the blockHash as the identifier for the blobs;
+   *   In the future this will move to be the beacon block id - which takes a bit more work
+   *   to calculate and will need to be mocked in e2e tests
+   */
+  protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
+    // When in reality they will not, but for testing purposes this is fine
+    if (!this.blobSinkUrl) {
+      this.log.verbose('No blob sink url configured');
+      return false;
+    }
+
+    this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
+    try {
+      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          // eslint-disable-next-line camelcase
+          block_id: blockHash,
+          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
+        }),
+      });
+
+      if (res.ok) {
+        return true;
+      }
+
+      this.log.error('Failed to send blobs to blob sink', res.status);
+      return false;
+    } catch (err) {
+      this.log.error(`Error sending blobs to blob sink`, err);
+      return false;
+    }
+  }
 }
 
-/**
+/*
  * Returns cost of calldata usage in Ethereum.
  * @param data - Calldata.
  * @returns 4 for each zero byte, 16 for each nonzero.
