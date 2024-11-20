@@ -144,7 +144,7 @@ Service Address Setup Container
     - name: EXTERNAL_ETHEREUM_HOST
       value: "{{ .Values.ethereum.externalHost }}"
     - name: ETHEREUM_PORT
-      value: "{{ .Values.ethereum.service.port }}"
+      value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT

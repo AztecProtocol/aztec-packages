@@ -29,10 +29,21 @@ bot:
       cpu: "200m"
 
 ethereum:
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
+  execution:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+  beacon:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+  validator:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
 
 proverAgent:
   resources:

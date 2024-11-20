@@ -123,6 +123,7 @@ impl<'a> FunctionContext<'a> {
 
         let definitions = HashMap::default();
         let mut this = Self { definitions, builder, shared_context, loops: Vec::new() };
+        this.add_globals();
         this.add_parameters_to_scope(parameters);
         this
     }
@@ -144,6 +145,12 @@ impl<'a> FunctionContext<'a> {
         self.builder.set_globals(globals);
 
         self.add_parameters_to_scope(&func.parameters);
+    }
+
+    fn add_globals(&mut self) {
+        for (_, value) in self.shared_context.globals_context.dfg.values_iter() {
+            self.builder.current_function.dfg.make_global(value.get_type().into_owned());
+        }
     }
 
     /// Add each parameter to the current scope, and return the list of parameter types.
