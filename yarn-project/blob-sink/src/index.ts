@@ -1,0 +1,158 @@
+import { Blob } from '@aztec/foundation/blob';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type AztecKVStore } from '@aztec/kv-store';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+
+import express, { type Express, type Request, type Response, json } from 'express';
+import { type Server } from 'http';
+import { z } from 'zod';
+
+import { type BlobStore, DiskBlobStore } from './blobstore/index.js';
+import { MemoryBlobStore } from './blobstore/memory_blob_store.js';
+import { type BlobSinkConfig } from './config.js';
+import { BlobSinkMetrics } from './metrics.js';
+import { BlobWithIndex } from './types/index.js';
+
+// For now, the block ID is the aztec block ID where the blobs were added.
+const blockIdSchema = z.coerce
+  .string()
+  .regex(/^0x[0-9a-fA-F]{0,64}$/)
+  .max(66);
+
+/**
+ * Example usage:
+ * const service = new BlobSinkService({ port: 5052 });
+ * await service.start();
+ * ... later ...
+ * await service.stop();
+ */
+export class BlobSinkService {
+  private app: Express;
+  private server: Server | null = null;
+  private blobStore: BlobStore;
+  private readonly port: number;
+  private metrics: BlobSinkMetrics;
+  private log: Logger = createDebugLogger('blob-sink');
+
+  constructor(config: BlobSinkConfig, store?: AztecKVStore, telemetry: TelemetryClient = new NoopTelemetryClient()) {
+    this.port = config.port ?? 5052; // 5052 is beacon chain default http port
+    this.app = express();
+
+    // Setup middleware
+    this.app.use(json({ limit: '1mb' })); // Increase the limit to allow for a blob to be sent
+
+    this.metrics = new BlobSinkMetrics(telemetry);
+
+    this.blobStore = store === undefined ? new MemoryBlobStore() : new DiskBlobStore(store);
+
+    // Setup routes
+    this.setupRoutes();
+  }
+
+  private setupRoutes() {
+    this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleBlobSidecar.bind(this));
+    this.app.post('/blob_sidecar', this.handlePostBlobSidecar.bind(this));
+  }
+
+  private async handleBlobSidecar(req: Request, res: Response) {
+    // eslint-disable-next-line camelcase
+    const { block_id } = req.params;
+
+    try {
+      // eslint-disable-next-line camelcase
+      const parsedBlockId = blockIdSchema.parse(block_id);
+
+      if (!parsedBlockId) {
+        res.status(400).json({
+          error: 'Invalid block_id parameter',
+        });
+        return;
+      }
+
+      const blobs = await this.blobStore.getBlobSidecars(parsedBlockId.toString());
+
+      if (!blobs) {
+        res.status(404).json({ error: 'Blob not found' });
+        return;
+      }
+
+      res.json({
+        version: 'deneb',
+        data: blobs.map(blob => blob.toJSON()),
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Invalid block_id parameter',
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          error: 'Internal server error',
+        });
+      }
+    }
+  }
+
+  private async handlePostBlobSidecar(req: Request, res: Response) {
+    // eslint-disable-next-line camelcase
+    const { block_id, blobs } = req.body;
+    try {
+      // eslint-disable-next-line camelcase
+      const parsedBlockId = blockIdSchema.parse(block_id);
+      if (!parsedBlockId) {
+        res.status(400).json({
+          error: 'Invalid block_id parameter',
+        });
+        return;
+      }
+
+      // TODO: tidy up the blob parsing
+      const blobObjects: BlobWithIndex[] = blobs.map(
+        (b: { index: number; blob: { type: string; data: string } }) =>
+          new BlobWithIndex(Blob.fromBuffer(Buffer.from(b.blob.data)), b.index),
+      );
+
+      await this.blobStore.addBlobSidecars(parsedBlockId.toString(), blobObjects);
+      this.metrics.recordBlobReciept(blobObjects);
+
+      res.json({ message: 'Blob sidecar stored successfully' });
+    } catch (error) {
+      res.status(400).json({
+        error: 'Invalid blob data',
+      });
+    }
+  }
+
+  public start(): Promise<void> {
+    return new Promise(resolve => {
+      this.server = this.app.listen(this.port, () => {
+        this.log.info(`Server is running on http://localhost:${this.port}`);
+        resolve();
+      });
+    });
+  }
+
+  public stop(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.server) {
+        resolve();
+        return;
+      }
+
+      this.server.close(err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        this.server = null;
+        resolve();
+      });
+    });
+  }
+
+  public getApp(): Express {
+    return this.app;
+  }
+}

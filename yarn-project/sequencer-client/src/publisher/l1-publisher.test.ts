@@ -13,6 +13,9 @@ import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { jest } from '@jest/globals';
+import express from 'express';
+import { type Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type GetTransactionReceiptReturnType,
@@ -68,6 +71,9 @@ class MockRollupContract {
   }
 }
 
+const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
+
 describe('L1Publisher', () => {
   let rollupContractRead: MockProxy<MockRollupContractRead>;
   let rollupContractWrite: MockProxy<MockRollupContractWrite>;
@@ -85,11 +91,18 @@ describe('L1Publisher', () => {
   let blockHash: Buffer;
   let body: Buffer;
 
+  let account: PrivateKeyAccount;
+
+  let mockBlobSinkServer: Server | undefined = undefined;
+
+  // An l1 publisher with some private methods exposed
   let publisher: L1Publisher;
 
   const GAS_GUESS = 300_000n;
 
   beforeEach(() => {
+    mockBlobSinkServer = undefined;
+
     l2Block = L2Block.random(42);
 
     header = l2Block.header.toBuffer();
@@ -112,6 +125,7 @@ describe('L1Publisher', () => {
     publicClient = mock<MockPublicClient>();
     l1TxUtils = mock<MockL1TxUtils>();
     const config = {
+      blobSinkUrl: BLOB_SINK_URL,
       l1RpcUrl: `http://127.0.0.1:8545`,
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
@@ -138,13 +152,49 @@ describe('L1Publisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
   });
 
+  const closeServer = (server: Server): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      server.close(err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  };
+
+  afterEach(async () => {
+    if (mockBlobSinkServer) {
+      await closeServer(mockBlobSinkServer);
+      mockBlobSinkServer = undefined;
+    }
+  });
+
+  // Run a mock blob sink in the background, and test that the correct data is sent to it
+  const expectBlobsAreSentToBlobSink = (_blockId: string, blobs: Blob[]) => {
+    const sendToBlobSinkSpy = jest.spyOn(publisher as any, 'sendBlobsToBlobSink');
+
+    const app = express();
+    app.use(express.json({ limit: '10mb' }));
+
+    app.post('/blob_sidecar', (req, res) => {
+      const blobsBuffers = req.body.blobs.map((b: { index: number; blob: { type: string; data: string } }) =>
+        Blob.fromBuffer(Buffer.from(b.blob.data)),
+      );
+
+      expect(blobsBuffers).toEqual(blobs);
+      res.status(200).send();
+    });
+
+    mockBlobSinkServer = app.listen(BLOB_SINK_PORT);
+
+    return sendToBlobSinkSpy;
+  };
+
   it('publishes and propose l2 block to l1', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
-
-    const result = await publisher.proposeL2Block(l2Block);
-
-    expect(result).toEqual(true);
 
     const kzg = Blob.getViemKzgInstance();
 
@@ -167,6 +217,7 @@ describe('L1Publisher', () => {
       `0x${body.toString('hex')}`,
       blobInput,
     ] as const;
+
     expect(l1TxUtils.sendAndMonitorTransaction).toHaveBeenCalledWith(
       {
         to: mockRollupAddress,
@@ -175,6 +226,33 @@ describe('L1Publisher', () => {
       { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
       { blobs: blobs.map(b => b.data), kzg, maxFeePerBlobGas: 10000000000n },
     );
+
+    const data = encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'propose',
+      args,
+    });
+
+    // Check the blobs were forwarded to the blob sink service
+    const sendToBlobSinkSpy = expectBlobsAreSentToBlobSink(blockHash.toString('hex'), blobs);
+
+    const result = await publisher.proposeL2Block(l2Block);
+
+    expect(result).toEqual(true);
+    expect(walletClient.sendTransaction).toHaveBeenCalledWith({
+      data,
+      account,
+      to: rollupContract.address,
+      blobs: blobs.map(blob => blob.data),
+      kzg,
+      maxFeePerBlobGas: 10000000000n,
+    });
+    expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
+
+    expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);
+    // If this does not return true, then the mocked server will have errored, and
+    // the expects that run there will have failed
+    expect(sendToBlobSinkSpy).toHaveReturnedWith(Promise.resolve(true));
   });
 
   it('does not retry if sending a propose tx fails', async () => {
