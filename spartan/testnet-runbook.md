@@ -1,4 +1,4 @@
-# Aztec Protocol Testnet Engineering Runbook
+# Aztec Protocol: Testnet Engineering Runbook
 
 ## Overview
 
