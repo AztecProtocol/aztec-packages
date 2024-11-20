@@ -120,11 +120,10 @@ jobs:
             export AZTEC_DOCKER_TAG=${{ env.GIT_COMMIT }}
             export TEST_NAME="./src/spartan/${{ env.TEST_NAME }}.test.ts"
 
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.23.6/bin/linux/amd64/kubectl
             chmod +x kubectl
             sudo mv kubectl /usr/bin
 
-            aws eks get-token --cluster-name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
             aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
             kubectl config get-contexts
             kubectl get pods -n $NAMESPACE
