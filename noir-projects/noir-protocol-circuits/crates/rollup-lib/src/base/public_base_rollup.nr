@@ -17,9 +17,8 @@ use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm::AvmProofData,
+        avm_circuit_public_inputs::AvmProofData,
         combined_constant_data::CombinedConstantData,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         log_hash::{LogHash, ScopedLogHash},
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_write::PublicDataWrite,

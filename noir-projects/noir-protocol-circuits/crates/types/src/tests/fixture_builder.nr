@@ -4,7 +4,7 @@ use crate::{
             avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
             PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
         },
-        avm::AvmProofData,
+        avm_circuit_public_inputs::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
         function_data::FunctionData,

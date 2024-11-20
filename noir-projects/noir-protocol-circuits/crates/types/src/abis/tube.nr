@@ -7,9 +7,9 @@ use crate::{
 };
 
 pub struct PublicTubeData {
-    public_inputs: PrivateToPublicKernelCircuitPublicInputs,
-    proof: TubeProof,
-    vk_data: VkData<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub public_inputs: PrivateToPublicKernelCircuitPublicInputs,
+    pub proof: TubeProof,
+    pub vk_data: VkData<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
 }
 
 impl Verifiable for PublicTubeData {
