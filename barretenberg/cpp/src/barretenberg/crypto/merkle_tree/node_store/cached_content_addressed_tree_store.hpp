@@ -765,7 +765,6 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         read_persisted_meta(meta_, *tx);
     }
     nodes_ = std::unordered_map<fr, NodePayload>();
-    nodes_.clear();
     indices_ = std::map<uint256_t, index_t>();
     leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
     nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth_ + 1, std::unordered_map<index_t, fr>());
