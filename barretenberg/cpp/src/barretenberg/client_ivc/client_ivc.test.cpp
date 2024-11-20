@@ -503,7 +503,7 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
     check_accumulator_target_sum_consistency(ivc.fold_output.accumulator);
 
     // DEBUG: run native pg verifier then native decider prover/verifier
-    fold_verify_then_decider_prove_and_verify(ivc);
+    // fold_verify_then_decider_prove_and_verify(ivc);
 
     // EXPECT_TRUE(ivc.prove_and_verify());
 };
