@@ -41,18 +41,36 @@ function setupConsoleOutput() {
     logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll to the bottom
   }
 
-  // Override console methods to output to the page as well
+  // Override console methods to output clean logs
   const originalLog = console.log;
   const originalDebug = console.debug;
 
   console.log = (...args: any[]) => {
-    const message = args.join(' ');
+    const message = args
+      .map(arg =>
+        typeof arg === 'string'
+          ? arg
+              .replace(/%c/g, '')
+              .replace(/color:.*?(;|$)/g, '')
+              .trim()
+          : arg,
+      )
+      .join(' ');
     originalLog.apply(console, args); // Keep original behavior
     addLogMessage(message);
   };
 
   console.debug = (...args: any[]) => {
-    const message = args.join(' ');
+    const message = args
+      .map(arg =>
+        typeof arg === 'string'
+          ? arg
+              .replace(/%c/g, '')
+              .replace(/color:.*?(;|$)/g, '')
+              .trim()
+          : arg,
+      )
+      .join(' ');
     originalDebug.apply(console, args); // Keep original behavior
     addLogMessage(message);
   };
@@ -67,7 +85,6 @@ document.addEventListener('DOMContentLoaded', function () {
   button.innerText = 'Run Test';
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
-    [];
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
     logger(`done. proving and verifying...`);
     const verified = await proveAndVerifyBrowser(bytecodes, witnessStack);
