@@ -145,8 +145,15 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('findNullifiersIndexesWithBlock', async () => {
-    const result = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random()]);
-    expect(result).toEqual({ data: expect.any(BigInt), l2BlockNumber: 1, l2BlockHash: expect.any(String) });
+    const result = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
+    expect(result).toEqual([
+      {
+        data: expect.any(BigInt),
+        l2BlockNumber: expect.any(Number),
+        l2BlockHash: expect.any(String),
+      },
+      undefined,
+    ]);
   });
 
   it('getLogs(Encrypted)', async () => {
@@ -298,8 +305,10 @@ class MockArchiver implements ArchiverApi {
   }
   findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
     expect(blockNumber).toEqual(1);
+    expect(nullifiers).toHaveLength(2);
     expect(nullifiers[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([randomInBlock(Fr.random().toBigInt())]);
+    expect(nullifiers[1]).toBeInstanceOf(Fr);
+    return Promise.resolve([randomInBlock(Fr.random().toBigInt()), undefined]);
   }
   getLogs<TLogType extends LogType>(
     _from: number,

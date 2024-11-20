@@ -263,7 +263,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
   public async unnullifyNotesAfter(blockNumber: number): Promise<void> {
     const nullifiersToUndo: string[] = [];
-    let currentBlockNumber = blockNumber + 1;
+    const currentBlockNumber = blockNumber + 1;
     const maxBlockNumber = this.getBlockNumber() ?? currentBlockNumber;
     for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
       nullifiersToUndo.push(...this.#nullifiersByBlockNumber.getValues(i));
@@ -491,7 +491,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
         if (noteScopes !== undefined) {
           for (const scope of noteScopes) {
-            this.#nullifiedNotesToScope.set(noteIndex, scope);
+            void this.#nullifiedNotesToScope.set(noteIndex, scope);
           }
         }
         void this.#nullifiedNotes.set(noteIndex, note.toBuffer());
