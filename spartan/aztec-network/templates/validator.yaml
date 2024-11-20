@@ -19,12 +19,13 @@ spec:
         app: validator
     spec:
       initContainers:
-        - name: wait-for-boot-node
+        - name: wait-for-services
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh
             - -c
             - |
+              # First check ethereum node
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
                 {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
@@ -32,6 +33,7 @@ spec:
                 sleep 5
               done
               echo "Ethereum node is ready!"
+
               {{- if .Values.telemetry.enabled }}
               until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."
@@ -39,11 +41,40 @@ spec:
               done
               echo "OpenTelemetry collector is ready!"
               {{- end }}
-              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
-                echo "Waiting for boot node..."
-                sleep 5
-              done
-              echo "Boot node is ready!"
+
+              if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
+                # Get the list of pod IPs for the validator service
+                MAX_ATTEMPTS=3
+                for i in $(seq 0 $(({{ .Values.validator.replicas }} - 1))); do
+                  PEER_IP="{{ include "aztec-network.fullname" . }}-validator-${i}.{{ include "aztec-network.fullname" . }}-validator"
+                  echo "Checking ${PEER_IP} for /status"
+                  for attempt in $(seq 1 $MAX_ATTEMPTS); do
+                    if curl --silent --head --fail "http://${PEER_IP}:{{ .Values.validator.service.nodePort }}/status" > /dev/null; then
+                      echo "Found responsive peer at ${PEER_IP}"
+                      # the PXE has its node set to the the validator service.
+                      # and that's all we need to know to bootstrap,
+                      # since it will get a good node ENR from whatever node the PXE connects to.
+                      echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe_url
+                      break 2
+                    fi
+                    sleep 2
+                  done
+                done
+                if [ ! -f /shared/pxe_url ]; then
+                  echo "No responsive peers found after multiple attempts, exiting."
+                  exit 1
+                fi
+              else
+                until curl --silent --head --fail "{{ include "aztec-network.bootNodeUrl" . }}/status" > /dev/null; do
+                  echo "Waiting for boot node..."
+                  sleep 5
+                done
+                echo "Boot node is ready!"
+                echo "{{ include "aztec-network.bootNodeUrl" . }}" > /shared/pxe_url
+              fi
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /shared
 
         - name: configure-validator-env
           image: "{{ .Values.images.aztec.image }}"
@@ -51,7 +82,10 @@ spec:
           command:
             - "/bin/sh"
             - "-c"
-            - "cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && chmod +x /tmp/configure-validator-env.sh && /tmp/configure-validator-env.sh {{ include "aztec-network.bootNodeUrl" . }}"
+            - |
+              cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && \
+              chmod +x /tmp/configure-validator-env.sh && \
+              /tmp/configure-validator-env.sh "$(cat /shared/pxe_url)"
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
@@ -169,16 +203,8 @@ spec:
         - name: validator-keys
           configMap:
             name: {{ include "aztec-network.fullname" . }}-validator-keys
-  volumeClaimTemplates:
-  - metadata:
-      name: shared-volume
-      labels:
-        {{- include "aztec-network.labels" . | nindent 8 }}
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: {{ .Values.validator.storage }}
+        - name: shared-volume
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: ConfigMap

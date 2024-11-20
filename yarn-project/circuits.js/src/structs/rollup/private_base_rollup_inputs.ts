@@ -2,11 +2,11 @@ import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { BaseRollupHints } from './base_rollup_hints.js';
+import { PrivateBaseRollupHints } from './base_rollup_hints.js';
 import { PrivateTubeData } from './private_tube_data.js';
 
 export class PrivateBaseRollupInputs {
-  constructor(public tubeData: PrivateTubeData, public hints: BaseRollupHints) {}
+  constructor(public tubeData: PrivateTubeData, public hints: PrivateBaseRollupHints) {}
 
   static from(fields: FieldsOf<PrivateBaseRollupInputs>): PrivateBaseRollupInputs {
     return new PrivateBaseRollupInputs(...PrivateBaseRollupInputs.getFields(fields));
@@ -18,7 +18,7 @@ export class PrivateBaseRollupInputs {
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateBaseRollupInputs {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateBaseRollupInputs(reader.readObject(PrivateTubeData), reader.readObject(BaseRollupHints));
+    return new PrivateBaseRollupInputs(reader.readObject(PrivateTubeData), reader.readObject(PrivateBaseRollupHints));
   }
 
   toBuffer() {
@@ -34,7 +34,7 @@ export class PrivateBaseRollupInputs {
   }
 
   static empty() {
-    return new PrivateBaseRollupInputs(PrivateTubeData.empty(), BaseRollupHints.empty());
+    return new PrivateBaseRollupInputs(PrivateTubeData.empty(), PrivateBaseRollupHints.empty());
   }
 
   /** Returns a hex representation for JSON serialization. */

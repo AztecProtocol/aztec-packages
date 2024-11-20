@@ -6,6 +6,7 @@ import {
   ExtendedUnencryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L2Block,
   type L2BlockL2Logs,
@@ -17,6 +18,7 @@ import {
   TxReceipt,
   TxScopedL2Log,
   type UnencryptedL2BlockL2Logs,
+  wrapInBlock,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -27,6 +29,7 @@ import {
   type Header,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -50,7 +53,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
-  private txEffects: TxEffect[] = [];
+  private txEffects: InBlock<TxEffect>[] = [];
 
   private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
 
@@ -63,6 +66,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private unencryptedLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
 
   private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+
+  private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
   /**
    * Contains all L1 to L2 messages.
@@ -181,7 +186,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
-    this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects));
+    this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects.map(txEffect => wrapInBlock(txEffect, b.data))));
 
     return Promise.resolve(true);
   }
@@ -297,6 +302,51 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
+  addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      const dataStartIndexForBlock =
+        block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
+        block.body.numberOfTxsIncludingPadded * MAX_NULLIFIERS_PER_TX;
+      block.body.txEffects.forEach((txEffects, txIndex) => {
+        const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
+        txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {
+          this.blockScopedNullifiers.set(nullifier.toString(), {
+            index: BigInt(dataStartIndexForTx + nullifierIndex),
+            blockNumber: block.number,
+            blockHash: block.hash().toString(),
+          });
+        });
+      });
+    });
+    return Promise.resolve(true);
+  }
+
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      block.body.txEffects.forEach(txEffect => {
+        txEffect.nullifiers.forEach(nullifier => {
+          this.blockScopedNullifiers.delete(nullifier.toString());
+        });
+      });
+    });
+    return Promise.resolve(true);
+  }
+
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    const blockScopedNullifiers = nullifiers.map(nullifier => {
+      const nullifierData = this.blockScopedNullifiers.get(nullifier.toString());
+      if (nullifierData !== undefined && nullifierData.blockNumber <= blockNumber) {
+        return {
+          data: nullifierData.index,
+          l2BlockHash: nullifierData.blockHash,
+          l2BlockNumber: nullifierData.blockNumber,
+        } as InBlock<bigint>;
+      }
+      return undefined;
+    });
+    return Promise.resolve(blockScopedNullifiers);
+  }
+
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return Promise.resolve(this.l1ToL2Messages.getTotalL1ToL2MessageCount());
   }
@@ -365,8 +415,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txHash - The txHash of the tx effect.
    * @returns The requested tx effect.
    */
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
-    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+    const txEffect = this.txEffects.find(tx => tx.data.txHash.equals(txHash));
     return Promise.resolve(txEffect);
   }
 

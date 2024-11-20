@@ -10,7 +10,7 @@ import {
 } from "@aztec/governance/libraries/ProposalLib.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 
-import {Math} from "@oz/utils/math/Math.sol";
+import {Math, Panic} from "@oz/utils/math/Math.sol";
 
 contract VoteTabulationTest is GovernanceBase {
   using ProposalLib for DataStructures.Proposal;
@@ -92,7 +92,7 @@ contract VoteTabulationTest is GovernanceBase {
     // it revert
     totalPower = type(uint256).max;
     proposal.config.quorum = 1e18 + 1;
-    vm.expectRevert(abi.encodeWithSelector(Math.MathOverflowedMulDiv.selector));
+    vm.expectRevert(abi.encodeWithSelector(0x4e487b71, Panic.UNDER_OVERFLOW));
     proposal.voteTabulation(totalPower);
   }
 
@@ -176,7 +176,7 @@ contract VoteTabulationTest is GovernanceBase {
     totalPower = type(uint256).max;
     proposal.summedBallot.nea = totalPower;
 
-    vm.expectRevert(abi.encodeWithSelector(Math.MathOverflowedMulDiv.selector));
+    vm.expectRevert(abi.encodeWithSelector(0x4e487b71, Panic.UNDER_OVERFLOW));
     proposal.voteTabulation(totalPower);
   }
 
