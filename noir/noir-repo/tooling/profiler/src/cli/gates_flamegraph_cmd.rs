@@ -33,7 +33,7 @@ pub(crate) struct GatesFlamegraphCommand {
     output: String,
 
     /// The output name for the flamegraph svg files
-    #[clap(long, short = 'f', default_value = "main")]
+    #[clap(long, short = 'f', default_value = "my_noir_file")]
     output_filename: String,
 }
 
@@ -103,7 +103,7 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
             &debug_artifact,
             artifact_path.to_str().unwrap(),
             &func_name,
-            &Path::new(&output_path).join(Path::new(&format!("{}_gates.svg", output_filename))),
+            &Path::new(&output_path).join(Path::new(&format!("{}::{}::gates.svg", output_filename, func_name))),
         )?;
     }
 
