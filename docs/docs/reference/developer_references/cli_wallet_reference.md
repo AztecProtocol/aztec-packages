@@ -9,9 +9,9 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 
 - Deploying contracts
 - Sending transactions
-- Bridging L1 [Fee Juice](../../../protocol-specs/gas-and-fees/fee-juice.md) into Aztec
-- Pushing arbitrary [notes](../../../guides/developer_guides/smart_contracts/writing_contracts/notes/index.md) to your PXE
-- Creating [authwits](../../../guides/developer_guides/smart_contracts/writing_contracts/authwit.md)
+- Bridging L1 [Fee Juice](../../protocol-specs/gas-and-fees/fee-juice.md) into Aztec
+- Pushing arbitrary [notes](../../guides/developer_guides/smart_contracts/writing_contracts/notes/index.md) to your PXE
+- Creating [authwits](../../guides/developer_guides/smart_contracts/writing_contracts/authwit.md)
 - Aliasing info and secrets for further usage
 
 :::info
@@ -68,9 +68,9 @@ $ aztec-wallet deploy-account -f master_yoda
 
 ### Deploy
 
-You can deploy a [compiled contract](../../../guides/developer_guides/smart_contracts/how_to_compile_contract.md) to the network.
+You can deploy a [compiled contract](../../guides/developer_guides/smart_contracts/how_to_compile_contract.md) to the network.
 
-You probably want to look at flags such as `--init` which allows you to specify the [initializer function](../../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md) to call, or `-k` for the [encryption public key](../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys) if the contract is expected to have notes being encrypted to it.
+You probably want to look at flags such as `--init` which allows you to specify the [initializer function](../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md) to call, or `-k` for the [encryption public key](../../aztec/concepts/accounts/keys.md#incoming-viewing-keys) if the contract is expected to have notes being encrypted to it.
 
 You can pass arguments with the `--arg` flag.
 
@@ -97,7 +97,7 @@ Again, notice how it's not necessary to pass `contracts:jedi_order` as the walle
 
 ### Manage authwits
 
-You can use the CLI wallet to quickly generate [Authentication Witnesses](../../../guides/developer_guides/smart_contracts/writing_contracts/authwit.md). These allow you to authorize the caller to execute an action on behalf of an account. They get aliased into the `authwits` type.
+You can use the CLI wallet to quickly generate [Authentication Witnesses](../../guides/developer_guides/smart_contracts/writing_contracts/authwit.md). These allow you to authorize the caller to execute an action on behalf of an account. They get aliased into the `authwits` type.
 
 ### In private
 
@@ -133,7 +133,7 @@ aztec-wallet simulate --from master_yoda --contract-address jedi_order --args "l
 
 ### Profile
 
-Simulates a transaction with profiling enabled. This allows you to get the gate count of each private function in the transaction. Read more about profiling [here](../../../guides/developer_guides/smart_contracts/profiling_transactions.md).
+Simulates a transaction with profiling enabled. This allows you to get the gate count of each private function in the transaction. Read more about profiling [here](../../guides/developer_guides/smart_contracts/profiling_transactions.md).
 
 #### Example
 
@@ -143,7 +143,7 @@ aztec-wallet simulate --profile --from master_yoda --contract-address jedi_order
 
 ### Bridge Fee Juice
 
-The wallet provides an easy way to mint the fee-paying asset on L1 and bridging it to L2. We call it Fee Juice and you can read more about it in the [protocol specs](../../../protocol-specs/gas-and-fees/fee-juice.md).
+The wallet provides an easy way to mint the fee-paying asset on L1 and bridging it to L2. We call it Fee Juice and you can read more about it in the [protocol specs](../../protocol-specs/gas-and-fees/fee-juice.md).
 
 Using the sandbox, there's already a Fee Juice contract that manages this enshrined asset. You can optionally mint more Juice before bridging it.
 
