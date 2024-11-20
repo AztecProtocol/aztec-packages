@@ -29,7 +29,7 @@ if [ "${CI:-0}" -eq 1 ]; then
   NEXTEST_RETRIES=2 ./scripts/test_native.sh
 
   cd ./noir-repo
-  export NARGO=${NARGO:-./target/release/nargo}
+  export NARGO=${NARGO:-$PWD/target/release/nargo}
 
   (cd ./test_programs && ./format.sh check)
   (cd ./noir_stdlib && $NARGO fmt --check)
