@@ -140,18 +140,19 @@ async function getBlockFromRollupTx(
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  // TODO(#9101): 'bodyHex' will be removed from below
-  const [headerHex, archiveRootHex, , , , bodyHex, blobInputs] = args! as readonly [
-    Hex,
-    Hex,
-    Hex,
-    Hex[],
+    // TODO(#9101): 'bodyHex' will be removed from below
+  const [decodedArgs, , bodyHex, blobInputs] = args! as readonly [
+    {
+      header: Hex;
+      archive: Hex;
+      blockHash: Hex;
+      txHashes: Hex[];
+    },
     ViemSignature[],
-    Hex,
     Hex,
   ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.
@@ -194,7 +195,7 @@ async function getBlockFromRollupTx(
 
   const archive = AppendOnlyTreeSnapshot.fromBuffer(
     Buffer.concat([
-      Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+      Buffer.from(hexToBytes(decodedArgs.archive)), // L2Block.archive.root
       numToUInt32BE(Number(l2BlockNum + 1n)), // L2Block.archive.nextAvailableLeafIndex
     ]),
   );

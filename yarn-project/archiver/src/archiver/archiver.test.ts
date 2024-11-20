@@ -458,7 +458,7 @@ function makeRollupTx(l2Block: L2Block) {
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [header, archive, blockHash, [], [], body, blobInput],
+    args: [{ header, archive, blockHash, txHashes: [] }, [], body, blobInput],
   });
   return { input } as Transaction<bigint, number>;
 }

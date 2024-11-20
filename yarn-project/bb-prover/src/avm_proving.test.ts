@@ -147,9 +147,8 @@ const proveAndVerifyAvmTestContract = async (
   const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
-    /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
     /*bytecode=*/ simulator.getBytecode()!,
-    avmResult,
+    avmResult.finalize(),
     functionName,
   );
 

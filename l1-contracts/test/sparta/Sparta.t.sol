@@ -20,6 +20,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -165,7 +166,6 @@ contract SpartaTest is DecoderBase {
     bool _invalidaProposer
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    bytes32 archive = full.block.archive;
 
     StructToAvoidDeepStacks memory ree;
 
@@ -181,14 +181,20 @@ contract SpartaTest is DecoderBase {
 
     bytes32[] memory txHashes = new bytes32[](0);
 
+    ProposeArgs memory args = ProposeArgs({
+      header: full.block.header,
+      archive: full.block.archive,
+      blockHash: bytes32(0),
+      txHashes: txHashes
+    });
+
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
-      uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
-      bytes32 digest = keccak256(abi.encode(domainSeperator, archive, txHashes));
+      bytes32 digest = ProposeLib.digest(args);
       for (uint256 i = 0; i < _signatureCount; i++) {
         signatures[i] = createSignature(validators[i], digest);
       }
@@ -220,30 +226,14 @@ contract SpartaTest is DecoderBase {
         ree.shouldRevert = true;
       }
       vm.prank(ree.proposer);
-      rollup.propose(
-        full.block.header,
-        archive,
-        bytes32(0),
-        txHashes,
-        signatures,
-        full.block.body,
-        full.block.blobInputs
-      );
+      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
-      rollup.propose(
-        full.block.header,
-        archive,
-        bytes32(0),
-        txHashes,
-        signatures,
-        full.block.body,
-        full.block.blobInputs
-      );
+      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -286,7 +276,7 @@ contract SpartaTest is DecoderBase {
       assertEq(root, bytes32(0), "Invalid outbox root");
     }
 
-    assertEq(rollup.archive(), archive, "Invalid archive");
+    assertEq(rollup.archive(), args.archive, "Invalid archive");
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {

@@ -17,6 +17,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -41,6 +42,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using SafeERC20 for IERC20;
+  using ProposeLib for ProposeArgs;
 
   struct ChainTips {
     uint256 pendingBlockNumber;
@@ -206,25 +208,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
    *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
+   * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
    * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
    * @param _body - The body of the L2 block
    * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function proposeAndClaim(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
+    ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
     bytes calldata _blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
-    propose(_header, _archive, _blockHash, _txHashes, _signatures, _body, _blobInput);
+    propose(_args, _signatures, _body, _blobInput);
     claimEpochProofRight(_quote);
   }
 
@@ -479,19 +476,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
    *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
+   * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
    * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
    * @param  - The body of the L2 block
    * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
+    ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     // TODO(#9101): Extract blobs from beacon chain => remove below body input
     bytes calldata,
@@ -505,11 +497,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     (bytes32 blobsHash, bytes32 blobPublicInputsHash) = _validateBlobs(_blobInput);
 
     // Decode and validate header
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    HeaderLib.Header memory header = HeaderLib.decode(_args.header);
 
     {
-      uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
-      bytes32 digest = keccak256(abi.encode(domainSeperator, _archive, _txHashes));
+      bytes32 digest = _args.digest();
       setupEpoch();
       _validateHeader({
         _header: header,
@@ -524,8 +515,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 blockNumber = ++tips.pendingBlockNumber;
 
     blocks[blockNumber] = BlockLog({
-      archive: _archive,
-      blockHash: _blockHash,
+      archive: _args.archive,
+      blockHash: _args.blockHash,
       slotNumber: Slot.wrap(header.globalVariables.slotNumber)
     });
 
@@ -544,7 +535,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 l2ToL1TreeMinHeight = min + 1;
     OUTBOX.insert(blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight);
 
-    emit L2BlockProposed(blockNumber, _archive);
+    emit L2BlockProposed(blockNumber, _args.archive);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
