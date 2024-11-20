@@ -120,10 +120,12 @@ describe('L1Publisher', () => {
     expect(result).toEqual(true);
 
     const args = [
-      `0x${header.toString('hex')}`,
-      `0x${archive.toString('hex')}`,
-      `0x${blockHash.toString('hex')}`,
-      [],
+      {
+        header: `0x${header.toString('hex')}`,
+        archive: `0x${archive.toString('hex')}`,
+        blockHash: `0x${blockHash.toString('hex')}`,
+        txHashes: [],
+      },
       [],
       `0x${body.toString('hex')}`,
     ] as const;

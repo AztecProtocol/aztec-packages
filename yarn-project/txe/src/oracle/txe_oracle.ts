@@ -8,16 +8,19 @@ import {
   PublicDataWitness,
   PublicExecutionRequest,
   SimulationError,
+  Tx,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
-  CombinedConstantData,
   type ContractInstance,
   type ContractInstanceWithAddress,
   DEFAULT_GAS_LIMIT,
   Gas,
+  GasFees,
+  GasSettings,
+  GlobalVariables,
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
@@ -30,10 +33,15 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
+  PartialPrivateTailPublicInputsForPublic,
   PrivateContextInputs,
+  PrivateKernelTailCircuitPublicInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
-  type PublicDataUpdateRequest,
+  type PublicDataWrite,
+  RollupValidationRequests,
+  TxConstantData,
+  TxContext,
   computeContractClassId,
   computeTaggingSecret,
   deriveKeys,
@@ -62,7 +70,8 @@ import {
   type NoteData,
   Oracle,
   type PackedValuesCache,
-  PublicExecutor,
+  type PublicTxResult,
+  PublicTxSimulator,
   type TypedOracle,
   acvm,
   createSimulationError,
@@ -76,7 +85,6 @@ import {
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
-import { type EnqueuedPublicCallExecutionResultWithSideEffects } from '../../../simulator/src/public/execution.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
@@ -222,26 +230,17 @@ export class TXE implements TypedOracle {
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 
-  async addPublicDataWrites(writes: PublicDataUpdateRequest[]) {
+  async addPublicDataWrites(writes: PublicDataWrite[]) {
     const db = await this.trees.getLatest();
-
-    // only insert the last write to a given slot
-    const uniqueWritesSet = new Map<bigint, PublicDataUpdateRequest>();
-    for (const write of writes) {
-      uniqueWritesSet.set(write.leafSlot.toBigInt(), write);
-    }
-    const uniqueWrites = Array.from(uniqueWritesSet.values());
-
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      uniqueWrites.map(w => new PublicDataTreeLeaf(w.leafSlot, w.newValue).toBuffer()),
+      writes.map(w => new PublicDataTreeLeaf(w.leafSlot, w.value).toBuffer()),
       0,
     );
   }
 
   async addSiloedNullifiers(siloedNullifiers: Fr[]) {
     const db = await this.trees.getLatest();
-
     await db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       siloedNullifiers.map(n => n.toBuffer()),
@@ -254,10 +253,13 @@ export class TXE implements TypedOracle {
     await this.addSiloedNullifiers(siloedNullifiers);
   }
 
-  async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
+  async addSiloedNoteHashes(siloedNoteHashes: Fr[]) {
     const db = await this.trees.getLatest();
-    const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
+  }
+  async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
+    const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
+    await this.addSiloedNoteHashes(siloedNoteHashes);
   }
 
   // TypedOracle
@@ -655,39 +657,30 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  private async executePublicFunction(args: Fr[], callContext: CallContext) {
-    const execution = new PublicExecutionRequest(callContext, args);
+  private async executePublicFunction(args: Fr[], callContext: CallContext, isTeardown: boolean = false) {
+    const executionRequest = new PublicExecutionRequest(callContext, args);
 
     const db = await this.trees.getLatest();
-    const previousBlockState = await this.#getTreesAt(this.blockNumber - 1);
 
-    const combinedConstantData = CombinedConstantData.empty();
-    combinedConstantData.globalVariables.chainId = this.chainId;
-    combinedConstantData.globalVariables.version = this.version;
-    combinedConstantData.globalVariables.blockNumber = new Fr(this.blockNumber);
-    combinedConstantData.historicalHeader.globalVariables.chainId = this.chainId;
-    combinedConstantData.historicalHeader.globalVariables.version = this.version;
-    combinedConstantData.historicalHeader.globalVariables.blockNumber = new Fr(this.blockNumber - 1);
-    combinedConstantData.historicalHeader.state = await db.getStateReference();
-    combinedConstantData.historicalHeader.lastArchive.root = Fr.fromBuffer(
-      (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
-    );
+    const globalVariables = GlobalVariables.empty();
+    globalVariables.chainId = this.chainId;
+    globalVariables.chainId = this.chainId;
+    globalVariables.version = this.version;
+    globalVariables.blockNumber = new Fr(this.blockNumber);
+    globalVariables.gasFees = GasFees.default();
 
-    combinedConstantData.txContext.chainId = this.chainId;
-    combinedConstantData.txContext.version = this.version;
-
-    const simulator = new PublicExecutor(
+    const simulator = new PublicTxSimulator(
+      db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
+      globalVariables,
+      /*realAvmProvingRequests=*/ false,
     );
-    const executionResult = await simulator.simulateIsolatedEnqueuedCall(
-      execution,
-      combinedConstantData.globalVariables,
-      /*allocatedGas*/ new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL),
-      /*transactionFee=*/ Fr.ONE,
-      /*startSideEffectCounter=*/ this.sideEffectCounter,
-    );
-    return Promise.resolve(executionResult);
+
+    const tx = this.createTxForPublicCall(executionRequest, isTeardown);
+
+    const result = await simulator.simulate(tx);
+    return Promise.resolve(result);
   }
 
   async enqueuePublicFunctionCall(
@@ -696,6 +689,7 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     _sideEffectCounter: number,
     isStaticCall: boolean,
+    isTeardown = false,
   ): Promise<Fr> {
     // Store and modify env
     const currentContractAddress = this.contractAddress;
@@ -715,10 +709,10 @@ export class TXE implements TypedOracle {
     const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
     const newArgsHash = this.packedValuesCache.pack(args);
 
-    const executionResult = await this.executePublicFunction(args, callContext);
+    const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 
     // Poor man's revert handling
-    if (executionResult.reverted) {
+    if (!executionResult.revertCode.isOK()) {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           executionResult.revertReason,
@@ -733,13 +727,13 @@ export class TXE implements TypedOracle {
     }
 
     // Apply side effects
-    this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber();
-    await this.addPublicDataWrites(executionResult.sideEffects.publicDataWrites);
-    await this.addNoteHashes(
-      targetContractAddress,
-      executionResult.sideEffects.noteHashes.map(noteHash => noteHash.value),
-    );
-    await this.addSiloedNullifiers(executionResult.sideEffects.nullifiers.map(nullifier => nullifier.value));
+    const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
+    const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
+    const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
+    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+    await this.addPublicDataWrites(publicDataWrites);
+    await this.addSiloedNoteHashes(noteHashes);
+    await this.addSiloedNullifiers(nullifiers);
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
@@ -763,6 +757,7 @@ export class TXE implements TypedOracle {
       argsHash,
       sideEffectCounter,
       isStaticCall,
+      /*isTeardown=*/ true,
     );
   }
 
@@ -811,11 +806,7 @@ export class TXE implements TypedOracle {
 
   // AVM oracles
 
-  async avmOpcodeCall(
-    targetContractAddress: AztecAddress,
-    args: Fr[],
-    isStaticCall: boolean,
-  ): Promise<EnqueuedPublicCallExecutionResultWithSideEffects> {
+  async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean): Promise<PublicTxResult> {
     // Store and modify env
     const currentContractAddress = this.contractAddress;
     const currentMessageSender = this.msgSender;
@@ -831,17 +822,17 @@ export class TXE implements TypedOracle {
 
     const executionResult = await this.executePublicFunction(args, callContext);
     // Save return/revert data for later.
-    this.nestedCallReturndata = executionResult.returnValues;
+    this.nestedCallReturndata = executionResult.processedPhases[0]!.returnValues[0].values!;
 
     // Apply side effects
-    if (!executionResult.reverted) {
-      this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber();
-      await this.addPublicDataWrites(executionResult.sideEffects.publicDataWrites);
-      await this.addNoteHashes(
-        targetContractAddress,
-        executionResult.sideEffects.noteHashes.map(noteHash => noteHash.value),
-      );
-      await this.addSiloedNullifiers(executionResult.sideEffects.nullifiers.map(nullifier => nullifier.value));
+    if (executionResult.revertCode.isOK()) {
+      const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
+      const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
+      const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
+      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+      await this.addPublicDataWrites(publicDataWrites);
+      await this.addSiloedNoteHashes(noteHashes);
+      await this.addSiloedNullifiers(nullifiers);
     }
 
     this.setContractAddress(currentContractAddress);
@@ -895,5 +886,45 @@ export class TXE implements TypedOracle {
     )) as PublicDataTreeLeafPreimage;
 
     return preimage.value;
+  }
+
+  /**
+   * Craft a carrier transaction for a public call.
+   */
+  private createTxForPublicCall(executionRequest: PublicExecutionRequest, teardown: boolean): Tx {
+    const callRequest = executionRequest.toCallRequest();
+    // use max limits
+    const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL);
+
+    const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
+    // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
+    forPublic.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random(); // fake tx nullifier
+    if (teardown) {
+      forPublic.publicTeardownCallRequest = callRequest;
+    } else {
+      forPublic.revertibleAccumulatedData.publicCallRequests[0] = callRequest;
+    }
+
+    // When setting up a teardown call, we tell it that
+    // private execution "used" Gas(1, 1) so it can compute a tx fee.
+    const gasUsedByPrivate = teardown ? new Gas(1, 1) : Gas.empty();
+    const teardownGasLimits = teardown ? gasLimits : Gas.empty();
+    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
+    const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
+    const constantData = new TxConstantData(Header.empty(), txContext, Fr.zero(), Fr.zero());
+
+    const txData = new PrivateKernelTailCircuitPublicInputs(
+      constantData,
+      RollupValidationRequests.empty(),
+      /*gasUsed=*/ gasUsedByPrivate,
+      AztecAddress.zero(),
+      forPublic,
+    );
+    const tx = teardown ? Tx.newWithTxData(txData, executionRequest) : Tx.newWithTxData(txData);
+    if (!teardown) {
+      tx.enqueuedPublicFunctionCalls[0] = executionRequest;
+    }
+
+    return tx;
   }
 }

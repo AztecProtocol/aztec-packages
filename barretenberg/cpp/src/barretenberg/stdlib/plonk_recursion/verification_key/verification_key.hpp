@@ -240,7 +240,7 @@ template <typename Curve> struct verification_key {
         Builder* ctx,
         const std::vector<field_t<Builder>>& fields,
         bool inner_proof_contains_pairing_point_accumulator = false,
-        PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {})
+        PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices = {})
     {
         std::vector<fr> fields_raw;
         std::shared_ptr<verification_key> key = std::make_shared<verification_key>();
@@ -446,7 +446,7 @@ template <typename Curve> struct verification_key {
     plonk::PolynomialManifest polynomial_manifest;
     // Used to check in the circuit if a proof contains any aggregated state.
     bool contains_pairing_point_accumulator = false;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
     size_t program_width = 4;
     Builder* context;
 };

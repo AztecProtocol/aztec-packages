@@ -37,7 +37,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
 
-    if constexpr (IsHonkFlavor<Flavor>) {
+    if constexpr (IsUltraFlavor<Flavor>) {
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
     if constexpr (IsUltraPlonkOrHonk<Flavor>) {
@@ -101,7 +101,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsHonkFlavor<Flavor>) {
+        if constexpr (IsUltraFlavor<Flavor>) {
             if (block.size() > 0) {
                 proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
             }

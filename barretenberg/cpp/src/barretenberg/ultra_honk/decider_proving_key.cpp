@@ -11,7 +11,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
@@ -37,7 +37,7 @@ template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic
  * @tparam Flavor
  * @param circuit
  */
-template <IsHonkFlavor Flavor>
+template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
@@ -96,7 +96,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * @tparam Flavor
  * @param circuit
  */
-template <IsHonkFlavor Flavor>
+template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
 {
     auto& blocks = circuit.blocks;

@@ -20,7 +20,7 @@ namespace bb {
  * @details This is the equivalent of ω in the paper.
  */
 
-template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
+template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -186,7 +186,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     ASSERT(dyadic_circuit_size > max_tables_size);
 
                     // Allocate the table polynomials
-                    if constexpr (IsHonkFlavor<Flavor>) {
+                    if constexpr (IsUltraFlavor<Flavor>) {
                         for (auto& poly : proving_key.polynomials.get_tables()) {
                             poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                         }
@@ -307,17 +307,12 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        if constexpr (HasIPAAccumulatorFlavor<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
-            proving_key.ipa_proof = circuit.ipa_proof;
-        }
-        // Set the pairing point accumulator indices
+        // Set the recursive proof indices
         proving_key.pairing_point_accumulator_public_input_indices =
             circuit.pairing_point_accumulator_public_input_indices;
         proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
-        if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
+        if constexpr (IsMegaFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
         auto end = std::chrono::steady_clock::now();

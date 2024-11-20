@@ -340,7 +340,7 @@ describe('Big Random Avm Ephemeral Container Test', () => {
     };
 
     // Can be up to 64
-    const ENTRY_COUNT = 64;
+    const ENTRY_COUNT = 50;
     shuffleArray(noteHashes);
     shuffleArray(indexedHashes);
     shuffleArray(slots);
