@@ -281,17 +281,18 @@ contract RollupTest is DecoderBase, TimeFns {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
     bytes32 proverId = bytes32(uint256(42));
-    bytes memory body = data.body;
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
     skipBlobCheck(address(rollup));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: data.archive, blockHash: data.blockHash, txHashes: new bytes32[](0)});
-    rollup.propose(
-     args, signatures, body, data.blobInputs
-    );
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: data.archive,
+      blockHash: data.blockHash,
+      txHashes: new bytes32[](0)
+    });
+    rollup.propose(args, signatures, data.body, data.blobInputs);
 
     quote.epochToProve = Epoch.wrap(1);
     quote.validUntilSlot = toSlots(Epoch.wrap(2));
@@ -463,8 +464,12 @@ contract RollupTest is DecoderBase, TimeFns {
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
     skipBlobCheck(address(rollup));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: data.archive, blockHash: data.blockHash, txHashes: new bytes32[](0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: data.archive,
+      blockHash: data.blockHash,
+      txHashes: new bytes32[](0)
+    });
     rollup.propose(args, signatures, body, data.blobInputs);
 
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
@@ -508,18 +513,19 @@ contract RollupTest is DecoderBase, TimeFns {
   function testInvalidBlobHash() public setUpFor("mixed_block_1") {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     // We set the blobHash to 1
     bytes32[] memory blobHashes = new bytes32[](1);
     blobHashes[0] = bytes32(uint256(1));
     vm.blobhashes(blobHashes);
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: data.archive, blockHash: data.blockHash, txHashes: new bytes32[](0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: data.archive,
+      blockHash: data.blockHash,
+      txHashes: new bytes32[](0)
+    });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(
-      args, signatures, data.body, data.blobInputs
-    );
+    rollup.propose(args, signatures, data.body, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -539,8 +545,12 @@ contract RollupTest is DecoderBase, TimeFns {
 
     // We mess with the blob input bytes
     blobInput[100] = 0x01;
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: data.archive, blockHash: data.blockHash, txHashes: new bytes32[](0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: data.archive,
+      blockHash: data.blockHash,
+      txHashes: new bytes32[](0)
+    });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
     rollup.propose(args, signatures, data.body, blobInput);
   }
@@ -697,7 +707,6 @@ contract RollupTest is DecoderBase, TimeFns {
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
     uint256 portalBalance = testERC20.balanceOf(address(feeJuicePortal));
-    address coinbase = data.decodedHeader.globalVariables.coinbase;
 
     // Progress time as necessary
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -713,7 +722,7 @@ contract RollupTest is DecoderBase, TimeFns {
       // We jump to the time of the block. (unless it is in the past)
       vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-      uint256 coinbaseBalance = testERC20.balanceOf(coinbase);
+      uint256 coinbaseBalance = testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase);
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
@@ -726,7 +735,11 @@ contract RollupTest is DecoderBase, TimeFns {
         txHashes: new bytes32[](0)
       });
       rollup.propose(args, signatures, data.body, data.blobInputs);
-      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+      assertEq(
+        testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
+        0,
+        "invalid coinbase balance"
+      );
     }
 
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
@@ -850,6 +863,7 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes32[] memory txHashes = new bytes32[](0);
 
     vm.warp(max(block.timestamp, data2.decodedHeader.globalVariables.timestamp));
+    skipBlobCheck(address(rollup));
     ProposeArgs memory args = ProposeArgs({
       header: data2.header,
       archive: data2.archive,
@@ -1085,7 +1099,6 @@ contract RollupTest is DecoderBase, TimeFns {
     DecoderBase.Full memory full = load(name);
     bytes memory header = full.block.header;
     bytes memory blobInputs = full.block.blobInputs;
-    uint32 numTxs = full.block.numTxs;
 
     Slot slotNumber = Slot.wrap(_slotNumber);
 
@@ -1150,6 +1163,7 @@ contract RollupTest is DecoderBase, TimeFns {
       // The below is a little janky - we know that this test deals with full txs with equal numbers
       // of msgs or txs with no messages, so the division works
       // TODO edit full.messages to include information about msgs per tx?
+      uint32 numTxs = full.block.numTxs;
       uint256 subTreeHeight = full.messages.l2ToL1Messages.length == 0
         ? 0
         : merkleTestUtil.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length / numTxs);

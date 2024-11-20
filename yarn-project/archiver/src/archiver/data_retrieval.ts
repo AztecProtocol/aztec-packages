@@ -140,7 +140,7 @@ async function getBlockFromRollupTx(
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-    // TODO(#9101): 'bodyHex' will be removed from below
+  // TODO(#9101): 'bodyHex' will be removed from below
   const [decodedArgs, , bodyHex, blobInputs] = args! as readonly [
     {
       header: Hex;
@@ -149,6 +149,7 @@ async function getBlockFromRollupTx(
       txHashes: Hex[];
     },
     ViemSignature[],
+    Hex,
     Hex,
   ];
 
