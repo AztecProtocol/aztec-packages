@@ -32,7 +32,7 @@ spec:
               echo "L2 contracts initialized"
           env:
             - name: PXE_URL
-              value: {{ include "aztec-network.pxeUrl" . | quote }}
+              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
             - name: DEBUG
               value: "aztec:*"
             - name: LOG_LEVEL
