@@ -28,9 +28,9 @@ if [ "${CI:-0}" -eq 1 ]; then
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   NEXTEST_RETRIES=2 ./scripts/test_native.sh
 
-  export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-
   cd ./noir-repo
+  export NARGO=${NARGO:-./target/release/nargo}
+
   (cd ./test_programs && ./format.sh check)
   (cd ./noir_stdlib && $NARGO fmt --check)
 
