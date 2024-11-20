@@ -39,7 +39,7 @@ describe('SentTx', () => {
     it('throws if tx is dropped', async () => {
       pxe.getTxReceipt.mockResolvedValue({ ...txReceipt, status: TxStatus.DROPPED } as TxReceipt);
       pxe.getSyncStatus.mockResolvedValue({ blocks: 19 });
-      await expect(sentTx.wait({ timeout: 1, interval: 0.4 })).rejects.toThrow(/dropped/);
+      await expect(sentTx.wait({ timeout: 1, interval: 0.4, ignoreDroppedReceiptsFor: 0 })).rejects.toThrow(/dropped/);
     });
 
     it('waits for the tx to be proven', async () => {

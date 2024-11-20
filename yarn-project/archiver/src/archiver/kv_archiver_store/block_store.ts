@@ -1,4 +1,4 @@
-import { Body, L2Block, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
+import { Body, type InBlock, L2Block, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
@@ -170,14 +170,22 @@ export class BlockStore {
    * @param txHash - The txHash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): TxEffect | undefined {
+  getTxEffect(txHash: TxHash): InBlock<TxEffect> | undefined {
     const [blockNumber, txIndex] = this.getTxLocation(txHash) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return undefined;
     }
 
     const block = this.getBlock(blockNumber);
-    return block?.data.body.txEffects[txIndex];
+    if (!block) {
+      return undefined;
+    }
+
+    return {
+      data: block.data.body.txEffects[txIndex],
+      l2BlockNumber: block.data.number,
+      l2BlockHash: block.data.hash().toString(),
+    };
   }
 
   /**

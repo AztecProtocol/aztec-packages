@@ -27,6 +27,7 @@ import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } f
 import { z } from 'zod';
 
 import { AuthWitness } from '../auth_witness.js';
+import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {
   type GetUnencryptedLogsResponse,
@@ -216,7 +217,7 @@ export interface PXE {
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
    * @returns The requested tx effect.
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -500,7 +501,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getTxEffect: z
     .function()
     .args(TxHash.schema)
-    .returns(z.union([TxEffect.schema, z.undefined()])),
+    .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
   getIncomingNotes: z.function().args(IncomingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
   getL1ToL2MembershipWitness: z

@@ -147,6 +147,15 @@ contract TestBase is Test {
     }
   }
 
+  function assertEq(uint256 a, Slot b) internal {
+    if (Slot.wrap(a) != b) {
+      emit log("Error: a == b not satisfied [Slot]");
+      emit log_named_uint("      Left", a);
+      emit log_named_uint("     Right", b.unwrap());
+      fail();
+    }
+  }
+
   function assertEq(Slot a, uint256 b) internal {
     if (a != Slot.wrap(b)) {
       emit log("Error: a == b not satisfied [Slot]");
@@ -158,6 +167,13 @@ contract TestBase is Test {
 
   function assertEq(Slot a, Slot b, string memory err) internal {
     if (a != b) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertEq(uint256 a, Slot b, string memory err) internal {
+    if (Slot.wrap(a) != b) {
       emit log_named_string("Error", err);
       assertEq(a, b);
     }

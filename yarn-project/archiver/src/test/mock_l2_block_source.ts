@@ -119,8 +119,14 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns The requested tx effect.
    */
   public getTxEffect(txHash: TxHash) {
-    const txEffect = this.l2Blocks.flatMap(b => b.body.txEffects).find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(txEffect);
+    const match = this.l2Blocks
+      .flatMap(b => b.body.txEffects.map(tx => [tx, b] as const))
+      .find(([tx]) => tx.txHash.equals(txHash));
+    if (!match) {
+      return Promise.resolve(undefined);
+    }
+    const [txEffect, block] = match;
+    return Promise.resolve({ data: txEffect, l2BlockNumber: block.number, l2BlockHash: block.hash().toString() });
   }
 
   /**

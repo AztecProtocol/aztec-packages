@@ -71,4 +71,10 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
     return this.txeOracle.addContractArtifact(contract);
   }
+
+  // TODO(#10007): Remove this method.
+  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
+    // We don't really need to do anything for the txe here
+    return Promise.resolve();
+  }
 }
