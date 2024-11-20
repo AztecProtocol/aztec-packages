@@ -16,6 +16,9 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: ethereum
     spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
       containers:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
@@ -39,21 +42,6 @@ spec:
               mountPath: /data
             - name: genesis
               mountPath: /genesis
-          # readinessProbe:
-          #   exec:
-          #     command:
-          #       - sh
-          #       - -c
-          #       - |
-          #         wget -qO- --post-data='{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-          #         --header='Content-Type: application/json' \
-          #         127.0.0.1:{{ .Values.ethereum.service.port }} \
-          #         | grep -q 'reth'
-          #   initialDelaySeconds: {{ .Values.ethereum.readinessProbe.initialDelaySeconds }}
-          #   periodSeconds: {{ .Values.ethereum.readinessProbe.periodSeconds }}
-          #   timeoutSeconds: {{ .Values.ethereum.readinessProbe.timeoutSeconds }}
-          #   successThreshold: {{ .Values.ethereum.readinessProbe.successThreshold }}
-          #   failureThreshold: {{ .Values.ethereum.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.ethereum.resources | nindent 12 }}
       volumes:
@@ -63,6 +51,7 @@ spec:
         - name: genesis
           configMap:
             name: {{ include "aztec-network.fullname" . }}-reth-genesis
+{{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
@@ -72,26 +61,6 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.ethereum.service.type }}
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: ethereum
-  ports:
-    - protocol: TCP
-      port: {{ .Values.ethereum.service.port }}
-      targetPort: {{ .Values.ethereum.service.targetPort }}
-      {{- if and (eq .Values.ethereum.service.type "NodePort") .Values.ethereum.service.nodePort }}
-      nodePort: {{ .Values.ethereum.service.nodePort }}
-      {{- end }}
----
-{{if .Values.network.public }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: ethereum-lb
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-spec:
-  type: LoadBalancer
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: ethereum

@@ -1,0 +1,172 @@
+name: Hourly Passive Test Trigger
+
+on:
+  schedule:
+    - cron: "0 * * * *" # Every hour
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number with the release branch"
+        required: true
+        type: number
+      branch:
+        description: "Branch to test"
+        required: false
+        type: string
+        default: "9955-feat-point-tests-at-live-networks"
+      test_name:
+        description: "Test to run (e.g., transfer, reorg)"
+        required: false
+        type: string
+        default: "smoke"
+      cloud:
+        description: "Cloud provider to use"
+        required: false
+        type: string
+        default: "aws"
+      cluster_name:
+        description: "Kubernetes cluster name"
+        required: false
+        type: string
+        default: "spartan"
+      namespace:
+        description: "Kubernetes namespace"
+        required: false
+        type: string
+        default: "devnet-1val"
+      helm_instance:
+        description: "Helm instance name"
+        required: false
+        type: string
+        default: "spartan"
+
+env:
+  PR_NUMBER: ${{ github.event.inputs.pr_number }}
+  GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_REGION: "us-east-1"
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  CLOUD: ${{ github.event.inputs.cloud || 'aws' }}
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'spartan' }}
+  BRANCH: ${{ github.event.inputs.branch || '9955-feat-point-tests-at-live-networks' }}
+  TEST_NAME: ${{ github.event.inputs.test_name || 'smoke' }}
+  NAMESPACE: ${{ github.event.inputs.namespace || 'devnet-1val' }}
+  HELM_INSTANCE: ${{ github.event.inputs.helm_instance || 'spartan' }}
+  COMMENT_API_URL: repos/aztecprotocol/aztec-packages/issues/comments
+  WAIT_FOR_RUNNERS: false
+
+jobs:
+  trigger_test:
+    runs-on: ubuntu-latest
+    outputs:
+      comment_id: ${{ env.comment_id }}
+      test_running: ${{ env.test_running }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup gh
+        run: |
+          # check if gh is already logged in
+          export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Fetch test status comment
+        id: fetch_comment
+        continue-on-error: true
+        run: |
+          COMMENT=$(gh pr view ${{ env.PR_NUMBER }} --json comments --jq '.comments[] | select(.body | contains("start_time"))')
+          echo "COMMENT=$COMMENT"
+          COMMENT_ID=$(echo "$COMMENT" | jq -r '.id')
+          COMMENT_BODY=$(echo "$COMMENT" | jq -r '.body' | head -n 1)
+          echo "COMMENT_BODY=$COMMENT_BODY"
+          echo "comment_id=$COMMENT_ID" >> $GITHUB_ENV
+          echo "$COMMENT_BODY" > comment.json
+
+      - name: Parse JSON comment
+        if: env.comment_id != ''
+        id: parse_comment
+        run: |
+          set -x
+          START_TIME=$(jq -r '.start_time' comment.json)
+          STOP_TIME=$(jq -r '.stop_time' comment.json)
+          STATUS=$(jq -r '.status' comment.json)
+          CURRENT_TIME=$(date +%s)
+          ELAPSED=$((CURRENT_TIME - START_TIME))
+
+          echo "Start Time: $START_TIME"
+          echo "Stop Time: $STOP_TIME"
+          echo "Status: $STATUS"
+          echo "Elapsed Time: $ELAPSED"
+
+          # Store parsed values in outputs
+          echo "start_time=$START_TIME" >> $GITHUB_ENV
+          echo "status=$STATUS" >> $GITHUB_ENV
+          echo "elapsed=$ELAPSED" >> $GITHUB_ENV
+
+          if [ "$STATUS" != "running" ]; then
+            echo "Test is not running. Exiting."
+            echo "test_running=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          if [ "$ELAPSED" -gt 259200 ]; then
+            echo "Test period complete. Updating status to success."
+            UPDATED_JSON=$(jq ".stop_time = \"$CURRENT_TIME\" | .status = \"success\"" comment.json)
+            echo "$UPDATED_JSON" > comment.json
+            echo "test_running=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          # Update the last_test_time before running the test
+          CURRENT_TIME=$(date +%s)
+          UPDATED_JSON=$(jq ".last_test_time = \"$CURRENT_TIME\"" comment.json)
+
+          echo "$UPDATED_JSON" > comment.json
+          echo "test_running=true" >> $GITHUB_ENV
+
+  call_network_test:
+    needs: trigger_test
+    if: needs.trigger_test.outputs.comment_id != '' && needs.trigger_test.outputs.test_running == 'true'
+    uses: ./.github/workflows/live-network-test.yml
+    with:
+      test_name: ${{ needs.trigger_test.outputs.test_name }}
+      cloud: ${{ needs.trigger_test.outputs.cloud }}
+      cluster_name: ${{ needs.trigger_test.outputs.cluster_name }}
+      namespace: ${{ needs.trigger_test.outputs.namespace }}
+      helm_instance: ${{ needs.trigger_test.outputs.helm_instance }}
+    secrets: inherit
+
+  retrieve_test_result:
+    needs: [trigger_test, call_network_test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: debug
+        run: |
+          echo "PR_NUMBER=$PR_NUMBER"
+          echo "comment_id=$comment_id"
+          echo "test_running=$test_running"
+          cat comment.json
+
+      - name: Update JSON comment with result
+        if: needs.trigger_test.outputs.comment_id != '' && failure() && needs.trigger_test.outputs.test_running == 'true'
+        id: update_comment
+        run: |
+          STOP_TIME=$(date +%s)
+          UPDATED_JSON=$(jq ".stop_time = \"$STOP_TIME\" | .status = \"failed\"" comment.json)
+          echo "$UPDATED_JSON" > comment.json
+
+      - name: Update sticky comment
+        id: update_sticky_comment
+        if: needs.trigger_test.outputs.comment_id != '' && needs.trigger_test.outputs.test_running == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: running_status
+          number: ${{ env.PR_NUMBER }}
+          path: comment.json

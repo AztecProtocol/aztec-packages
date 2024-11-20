@@ -213,7 +213,7 @@ end-to-end-base:
         && apt-get install -y wget gnupg \
         && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
         && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
+        && apt update && apt install curl chromium nodejs netcat-openbsd unzip -y \
         && rm -rf /var/lib/apt/lists/* \
         && mkdir -p /usr/local/bin \
         && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
@@ -222,6 +222,11 @@ end-to-end-base:
         && chmod +x get_helm.sh \
         && ./get_helm.sh \
         && rm get_helm.sh
+
+    RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+        && unzip awscliv2.zip \
+        && ./aws/install \
+        && rm -rf aws awscliv2.zip
 
     ENV CHROME_BIN="/usr/bin/chromium"
     ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
