@@ -676,13 +676,12 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients);
   }
 
-  #setTaggingSecretsIndexes(
-    indexedSecrets: IndexedTaggingSecret[],
-    storageMap: AztecMap<string, number>,
-  ): Promise<Promise<void>[]> {
-    return this.db.transaction(() =>
-      indexedSecrets.map(indexedSecret => storageMap.set(indexedSecret.secret.toString(), indexedSecret.index)),
-    );
+  #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecMap<string, number>) {
+    return this.db.transaction(() => {
+      indexedSecrets.forEach(
+        indexedSecret => void storageMap.set(indexedSecret.secret.toString(), indexedSecret.index),
+      );
+    });
   }
 
   async getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]) {

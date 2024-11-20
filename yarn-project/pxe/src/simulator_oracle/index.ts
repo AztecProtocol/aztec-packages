@@ -294,7 +294,7 @@ export class SimulatorOracle implements DBOracle {
     );
 
     const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
-    await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index)]);
+    await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
   }
 
   async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
@@ -334,19 +334,39 @@ export class SimulatorOracle implements DBOracle {
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
-  async #getAppTaggingSecretAsSender(
+  /**
+   * Updates the local index of the shared tagging secret of a sender / recipient pair
+   * if a log with a larger index is found from the node.
+   * @param contractAddress - The address of the contract that the logs are tagged for
+   * @param sender - The address of the sender, we must know the sender's ivsk_m.
+   * @param recipient - The address of the recipient.
+   */
+  public async syncTaggedLogsAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret> {
-    const senderCompleteAddress = await this.getCompleteAddress(sender);
-    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+  ): Promise<void> {
+    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    const appTaggingSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
-    const appTaggingSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    const [index] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    while (true) {
+      const currentIndexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex);
+      const currentTag = currentIndexedAppTaggingSecret.computeTag(recipient);
 
-    return new IndexedTaggingSecret(appTaggingSecret, index);
+      const [[possibleLog]] = await this.aztecNode.getLogsByTags([currentTag]);
+
+      if (possibleLog !== undefined) {
+        currentIndex++;
+      } else {
+        this.log.debug(
+          `Syncing logs for sender ${sender}, secret ${appTaggingSecret}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
+        );
+
+        await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, currentIndex)]);
+        break;
+      }
+    }
   }
 
   /**
@@ -362,34 +382,6 @@ export class SimulatorOracle implements DBOracle {
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-
-    const result = await this.#syncTaggedLogs(contractAddress, recipients);
-
-    for (const [key, value] of result) {
-      result.set(
-        key,
-        value.filter(log => log.blockNumber <= maxBlockNumber),
-      );
-    }
-
-    return result;
-  }
-
-  public async syncTaggedLogsAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<Map<string, TxScopedL2Log[]>> {
-    const result = await this.#syncTaggedLogs(contractAddress, [recipient], sender);
-
-    return result;
-  }
-
-  async #syncTaggedLogs(
-    contractAddress: AztecAddress,
-    recipients: AztecAddress[],
-    asSender?: AztecAddress,
-  ): Promise<Map<string, TxScopedL2Log[]>> {
     const result = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
@@ -401,12 +393,7 @@ export class SimulatorOracle implements DBOracle {
       // length, since we don't really know the note they correspond to until we decrypt them.
 
       // 1. Get all the secrets for the recipient and sender pairs (#9365)
-      const appTaggingSecrets: IndexedTaggingSecret[] = [];
-      if (asSender === undefined) {
-        appTaggingSecrets.push(...(await this.#getAppTaggingSecretsForContacts(contractAddress, recipient)));
-      } else {
-        appTaggingSecrets.push(await this.#getAppTaggingSecretAsSender(contractAddress, asSender, recipient));
-      }
+      const appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
 
       // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
       // and inadvertedly incremented their index without use getting any logs (for example, in case
@@ -484,27 +471,22 @@ export class SimulatorOracle implements DBOracle {
             newTaggingSecrets.push(newTaggingSecret);
           }
         });
-        if (asSender === undefined) {
-          await this.db.setTaggingSecretsIndexesAsRecipient(
-            Object.keys(secretsToIncrement).map(
-              secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
-            ),
-          );
-        } else {
-          await this.db.setTaggingSecretsIndexesAsSender(
-            Object.keys(secretsToIncrement).map(
-              secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
-            ),
-          );
-        }
-
+        await this.db.setTaggingSecretsIndexesAsRecipient(
+          Object.keys(secretsToIncrement).map(
+            secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
+          ),
+        );
         currentTagggingSecrets = newTaggingSecrets;
       }
 
       result.set(
         recipient.toString(),
-        // Duplicates are likely to happen due to the sliding window, so we filter them out
-        logs.filter((log, index, self) => index === self.findIndex(otherLog => otherLog.equals(log))),
+        // Remove logs with a block number higher than the max block number
+        // Duplicates are likely to happen due to the sliding window, so we also filter them out
+        logs.filter(
+          (log, index, self) =>
+            log.blockNumber <= maxBlockNumber && index === self.findIndex(otherLog => otherLog.equals(log)),
+        ),
       );
     }
     return result;
