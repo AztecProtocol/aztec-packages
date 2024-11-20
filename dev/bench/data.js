@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732049528254,
+  "lastUpdate": 1732099509248,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf5d62d4332548ac7798085eb98cedea88131d9d",
-          "message": "fix: Fix random for Mac users  (#9670)\n\nmac doesn't have the getrandom function, but should have getentropy",
-          "timestamp": "2024-11-01T23:55:39Z",
-          "tree_id": "c743ec86ba0ce09eedfe24bdf922234d562612e8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bf5d62d4332548ac7798085eb98cedea88131d9d"
-        },
-        "date": 1730507657103,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29116.83140400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27660.086187 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5356.66767299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5019.157957 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86168.13288199999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86168135000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15138.582226999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15138581000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2504777062,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2504777062 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126619204,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126619204 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 142196026,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142196026 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a2c070161d8466c6da61f68b4d97107927f45129",
+          "message": "feat: Insert public data tree leaves one by one (#9989)\n\nThis PR:\r\n - Splits base rollup into public base and private base\r\n - Makes the private base only perform the fee write\r\n - The public base writes public data tree leaves one by one\r\n - The world state allows advancing the tree blocknumbers with no writes\r\n - We don't pad anymore the public data writes\r\n- For now we get witnesses for \"one by one\" insertion in the public data\r\ntree by calling world state one time per written item\r\n- Sync still adds all the leaves in one go, since no individual\r\nwitnesses are necessary",
+          "timestamp": "2024-11-20T11:11:18+01:00",
+          "tree_id": "0a7c8f2bf4244abd032a796172c030285b4cd12b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a2c070161d8466c6da61f68b4d97107927f45129"
+        },
+        "date": 1732099501310,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28904.74565299999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27048.217947999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5341.886260999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5030.900876000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85272.586457,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85272587000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15187.555185,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15187555000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3089530296,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3089530296 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146332695,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146332695 ns\nthreads: 1"
           }
         ]
       }
