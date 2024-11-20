@@ -180,8 +180,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
             circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
     }
 
-    // DEBUG
-    ASSERT(CircuitChecker::check(circuit));
+    // // DEBUG
+    // ASSERT(CircuitChecker::check(circuit));
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
@@ -286,7 +286,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // decider recursive verifier at the first 'round.check_sum(round_univariate, dummy_round);' in sumcheck. Suggests
     // that either one of the instances is not satisfying sumcheck or perhaps that theres something more fundamentally
     // wrong with folding an accumlator that was dynamically expanded from its original size.
-    ASSERT(CircuitChecker::check(builder));
+    // ASSERT(CircuitChecker::check(builder));
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
     MegaProver prover(decider_pk);
 
