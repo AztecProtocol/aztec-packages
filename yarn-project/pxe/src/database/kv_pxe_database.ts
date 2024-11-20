@@ -259,8 +259,8 @@ export class KVPxeDatabase implements PxeDatabase {
     const nullifiersToUndo: string[] = [];
     let currentBlockNumber = blockNumber + 1;
     const maxBlockNumber = this.getBlockNumber() ?? currentBlockNumber;
-    for (let blockNumber = currentBlockNumber; currentBlockNumber <= maxBlockNumber; blockNumber++) {
-      nullifiersToUndo.push(...this.#nullifiersByBlockNumber.getValues(currentBlockNumber));
+    for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
+      nullifiersToUndo.push(...this.#nullifiersByBlockNumber.getValues(i));
     }
 
     const notesIndexesToReinsert = await this.db.transaction(() =>
