@@ -79,8 +79,8 @@ These are functions that have private logic and will be executed on user devices
 
 - [`transfer`](#transfer) enables an account to send tokens from their private balance to another account's private balance
 - [`transfer_in_private`](#transfer_in_private) enables an account to send tokens from another account's private balance to another account's private balance
-- [`transfer_to_private`](#transfer_to_private) transfers a specified `amount` from an accounts public balance to a designated recipient. This flow starts in private, but will be completed in public.
-- [`transfer_to_public`](#transfer_to_public) transfers tokens from a private balance, to a (potentially different account's) public balance
+- [`transfer_to_private`](#transfer_to_private) transfers a specified `amount` from an accounts public balance to a designated recipient's private balance. This flow starts in private, but will be completed in public.
+- [`transfer_to_public`](#transfer_to_public) transfers tokens from the private balance of another account, to a (potentially different account's) public balance
 - [`mint_to_private`](#mint_to_private) enables an authorized minter to mint tokens to a specified address
 - [`cancel_authwit`](#cancel_authwit) enables an account to cancel an authorization to spend tokens
 - [`burn_private`](#burn_private) enables tokens to be burned privately
