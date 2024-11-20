@@ -130,7 +130,8 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 }
 
 /**
- * @brief Test proof construction/verification for a structured execution trace
+ * @brief Test that increasing the virtual size of a valid set of prover polynomials still results in a valid Megahonk
+ * proof
  *
  */
 TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
@@ -152,7 +153,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     auto doubled_circuit_size = 2 * circuit_size;
     proving_key_copy->proving_key.polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
-    // WARNING: updating circuit_size here would public input delta perm argument!
+    // WARNING: updating circuit_size here would break public input delta perm argument!
     // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
 
     Prover prover(proving_key);
@@ -365,6 +366,13 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
     }
 }
 
+/**
+ * @brief A sanity check that a simple std::swap on a ProverPolynomials object works as expected
+ * @details Constuct two valid proving keys. Tamper with the prover_polynomials of one key then swap the
+ * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while the
+ * other succeeds.
+ *
+ */
 TYPED_TEST(MegaHonkTests, PolySwap)
 {
     using Flavor = TypeParam;
