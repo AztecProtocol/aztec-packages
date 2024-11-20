@@ -20,7 +20,10 @@ struct ExecutionTraceUsageTracker {
 
     TraceStructure max_sizes;             // max utilization of each block
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
-    MegaTraceActiveRanges active_ranges;  // ranges utlized by the accumulator within the ambient structured trace
+    // Store active ranges based on the most current accumulator and those based on all but the most recently
+    // accumulated circuit. The former is needed for the combiner calculation and the latter for the perturbator.
+    std::vector<Range> active_ranges;
+    std::vector<Range> previous_active_ranges;
 
     std::vector<Range> thread_ranges; // ranges within the ambient space over which utilized space is evenly distibuted
 
@@ -60,36 +63,39 @@ struct ExecutionTraceUsageTracker {
         max_tables_size = std::max(max_tables_size, circuit.get_tables_size());
 
         // Update the active ranges of the trace based on max block utilization
-        for (auto [max_size, fixed_block, active_range] :
-             zip_view(max_sizes.get(), fixed_sizes.get(), active_ranges.get())) {
+        previous_active_ranges = active_ranges; // store active ranges based on all but the present circuit
+        active_ranges.clear();
+        for (auto [max_size, fixed_block] : zip_view(max_sizes.get(), fixed_sizes.get())) {
             size_t start_idx = fixed_block.trace_offset;
             size_t end_idx = start_idx + max_size;
-            active_range = Range{ start_idx, end_idx };
+            active_ranges.push_back(Range{ start_idx, end_idx });
         }
 
-        // The active ranges for the databus and lookup relations (both based on log-deriv lookup argument) must
-        // incorporate both the lookup/read gate blocks as well as the rows containing the data that is being read.
-        // Update the corresponding ranges accordingly. (Note: tables are constructed at the 'bottom' of the trace).
+        // The active ranges must also include the rows where the actual databus and lookup table data are stored.
+        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start).
         size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
-        active_ranges.busread.first = 0; // databus data is stored at the top of the trace
-        active_ranges.busread.second = std::max(max_databus_size, active_ranges.busread.second);
-        active_ranges.lookup.first = std::min(dyadic_circuit_size - max_tables_size, active_ranges.lookup.first);
-        active_ranges.lookup.second = dyadic_circuit_size; // lookups are stored at the bottom of the trace
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
+        // max_databus_size } but this breaks for certain choices of num_threads.
+        size_t databus_end =
+            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
+        active_ranges.push_back(Range{ 0, databus_end });
+        size_t lookups_start =
+            std::min(dyadic_circuit_size - max_tables_size, static_cast<size_t>(fixed_sizes.lookup.trace_offset));
+        active_ranges.push_back(Range{ lookups_start, dyadic_circuit_size });
     }
 
-    // Check whether an index is contained within the active ranges
-    bool check_is_active(const size_t idx)
+    // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
+    bool check_is_active(const size_t idx, bool use_prev_accumulator = false)
     {
         // If structured trace is not in use, assume the whole trace is active
         if (!trace_settings.structure) {
             return true;
         }
-        for (auto& range : active_ranges.get()) {
-            if (idx >= range.first && idx < range.second) {
-                return true;
-            }
-        }
-        return false;
+        std::vector<Range> ranges_to_check = use_prev_accumulator ? previous_active_ranges : active_ranges;
+        return std::any_of(ranges_to_check.begin(), ranges_to_check.end(), [idx](const auto& range) {
+            return idx >= range.first && idx < range.second;
+        });
     }
 
     // For printing only. Must match the order of the members in the arithmetization
@@ -117,7 +123,7 @@ struct ExecutionTraceUsageTracker {
     void print_active_ranges()
     {
         info("Active regions of accumulator: ");
-        for (auto [label, range] : zip_view(block_labels, active_ranges.get())) {
+        for (auto [label, range] : zip_view(block_labels, active_ranges)) {
             std::cout << std::left << std::setw(20) << (label + ":") << "(" << range.first << ", " << range.second
                       << ")" << std::endl;
         }
@@ -134,27 +140,25 @@ struct ExecutionTraceUsageTracker {
     }
 
     /**
-     * @brief Construct ranges  of execution trace rows that evenly distribute the active content of the trace across a
+     * @brief Construct ranges of execution trace rows that evenly distribute the active content of the trace across a
      * given number of threads.
      *
      * @param num_threads Num ranges over which to distribute the data
      * @param full_domain_size Size of full domain; needed only for unstructured case
+     * @param use_prev_accumulator Base ranges on previous or current accumulator
      */
-    void construct_thread_ranges(const size_t num_threads, const size_t full_domain_size)
+    void construct_thread_ranges(const size_t num_threads,
+                                 const size_t full_domain_size,
+                                 bool use_prev_accumulator = false)
     {
-        // Copy the ranges into a simple std container for processing by subsequent methods (cheap)
-        std::vector<Range> active_ranges_copy;
-        for (const auto& range : active_ranges.get()) {
-            active_ranges_copy.push_back(range);
-        }
-
         // Convert the active ranges for each gate type into a set of sorted non-overlapping ranges (union of the input)
         std::vector<Range> simplified_active_ranges;
         if (!trace_settings.structure) {
             // If not using a structured trace, set the active range to the whole domain
             simplified_active_ranges.push_back(Range{ 0, full_domain_size });
         } else {
-            simplified_active_ranges = construct_union_of_ranges(active_ranges_copy);
+            simplified_active_ranges = use_prev_accumulator ? construct_union_of_ranges(previous_active_ranges)
+                                                            : construct_union_of_ranges(active_ranges);
         }
 
         // Determine ranges in the structured trace that even distibute the active content across threads

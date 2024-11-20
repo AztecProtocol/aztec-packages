@@ -8,6 +8,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 namespace bb {
@@ -307,12 +308,17 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        // Set the recursive proof indices
+        if constexpr (HasIPAAccumulatorFlavor<Flavor>) { // Set the IPA claim indices
+            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
+            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+            proving_key.ipa_proof = circuit.ipa_proof;
+        }
+        // Set the pairing point accumulator indices
         proving_key.pairing_point_accumulator_public_input_indices =
             circuit.pairing_point_accumulator_public_input_indices;
         proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
-        if constexpr (IsMegaFlavor<Flavor>) { // Set databus commitment propagation data
+        if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
         auto end = std::chrono::steady_clock::now();

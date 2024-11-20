@@ -6,6 +6,7 @@
     ".": "./dest/interfaces/index.js",
     "./lmdb": "./dest/lmdb/index.js",
     "./utils": "./dest/utils.js",
+    "./stores": "./dest/stores/index.js",
     "./config": "./dest/config.js"
   },
   "scripts": {
@@ -56,11 +57,13 @@
     ]
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "lmdb": "^3.0.6"
   },
   "devDependencies": {
+    "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",

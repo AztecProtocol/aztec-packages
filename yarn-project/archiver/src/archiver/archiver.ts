@@ -2,6 +2,7 @@ import {
   type EncryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
@@ -12,6 +13,7 @@ import {
   type L2Tips,
   type LogFilter,
   type LogType,
+  type NullifierWithBlockSource,
   type TxEffect,
   type TxHash,
   type TxReceipt,
@@ -73,7 +75,11 @@ import { type L1Published } from './structs/published.js';
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
-export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
+export type ArchiveSource = L2BlockSource &
+  L2LogsSource &
+  ContractDataSource &
+  L1ToL2MessageSource &
+  NullifierWithBlockSource;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -589,7 +595,7 @@ export class Archiver implements ArchiveSource {
     }
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash) {
     return this.store.getTxEffect(txHash);
   }
 
@@ -641,6 +647,17 @@ export class Archiver implements ArchiveSource {
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
+  }
+
+  /**
+   * Returns the provided nullifier indexes scoped to the block
+   * they were first included in, or undefined if they're not present in the tree
+   * @param blockNumber Max block number to search for the nullifiers
+   * @param nullifiers Nullifiers to get
+   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
+   */
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   /**
@@ -712,6 +729,12 @@ export class Archiver implements ArchiveSource {
     return this.store.getContractClassIds();
   }
 
+  // TODO(#10007): Remove this method
+  async addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    await this.store.addContractClasses([contractClass], 0);
+    return;
+  }
+
   addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
     return this.store.addContractArtifact(address, artifact);
   }
@@ -764,6 +787,8 @@ class ArchiverStoreHelper
       ArchiverDataStore,
       | 'addLogs'
       | 'deleteLogs'
+      | 'addNullifiers'
+      | 'deleteNullifiers'
       | 'addContractClasses'
       | 'deleteContractClasses'
       | 'addContractInstances'
@@ -774,6 +799,11 @@ class ArchiverStoreHelper
   #log = createDebugLogger('aztec:archiver:block-helper');
 
   constructor(private readonly store: ArchiverDataStore) {}
+
+  // TODO(#10007): Remove this method
+  addContractClasses(contractClasses: ContractClassPublic[], blockNum: number): Promise<boolean> {
+    return this.store.addContractClasses(contractClasses, blockNum);
+  }
 
   /**
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
@@ -894,6 +924,7 @@ class ArchiverStoreHelper
           ).every(Boolean);
         }),
       )),
+      this.store.addNullifiers(blocks.map(block => block.data)),
       this.store.addBlocks(blocks),
     ].every(Boolean);
   }
@@ -933,7 +964,7 @@ class ArchiverStoreHelper
   getBlockHeaders(from: number, limit: number): Promise<Header[]> {
     return this.store.getBlockHeaders(from, limit);
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.store.getTxEffect(txHash);
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
@@ -957,6 +988,9 @@ class ArchiverStoreHelper
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
+  }
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);
