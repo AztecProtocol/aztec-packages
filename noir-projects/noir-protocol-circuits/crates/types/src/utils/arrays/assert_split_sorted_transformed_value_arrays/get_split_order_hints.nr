@@ -131,13 +131,13 @@ mod tests {
     }
 
     impl<let N: u32> TestBuilder<N> {
-        pub fn asc_to_equal(self, expected: SplitOrderHints<N>) {
-            let hints = unsafe { get_split_order_hints_asc(self.array, self.split_counter) };
+        pub unconstrained fn asc_to_equal(self, expected: SplitOrderHints<N>) {
+            let hints = get_split_order_hints_asc(self.array, self.split_counter);
             assert_eq(hints, expected);
         }
 
-        pub fn desc_to_equal(self, expected: SplitOrderHints<N>) {
-            let hints = unsafe { get_split_order_hints_desc(self.array, self.split_counter) };
+        pub unconstrained fn desc_to_equal(self, expected: SplitOrderHints<N>) {
+            let hints = get_split_order_hints_desc(self.array, self.split_counter);
             assert_eq(hints, expected);
         }
     }
@@ -145,7 +145,7 @@ mod tests {
     // asc
 
     #[test]
-    fn get_split_order_hints_asc_zero_split_counter_full() {
+    unconstrained fn get_split_order_hints_asc_zero_split_counter_full() {
         let builder = TestBuilder::new();
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0],
@@ -156,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_asc_non_zero_split_counter_full() {
+    unconstrained fn get_split_order_hints_asc_non_zero_split_counter_full() {
         let mut builder = TestBuilder::new();
         builder.split_counter = 9;
 
@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_asc_non_zero_split_counter_equal_full() {
+    unconstrained fn get_split_order_hints_asc_non_zero_split_counter_equal_full() {
         let mut builder = TestBuilder::new();
         builder.split_counter = 11;
 
@@ -182,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_asc_zero_split_counter_padded_empty() {
+    unconstrained fn get_split_order_hints_asc_zero_split_counter_padded_empty() {
         let builder = TestBuilder::new_padded();
 
         let expected_hints = SplitOrderHints {
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_asc_non_zero_split_counter_padded_empty() {
+    unconstrained fn get_split_order_hints_asc_non_zero_split_counter_padded_empty() {
         let mut builder = TestBuilder::new_padded();
         builder.split_counter = 9;
 
@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_asc_non_zero_split_counter_equal_padded_empty() {
+    unconstrained fn get_split_order_hints_asc_non_zero_split_counter_equal_padded_empty() {
         let mut builder = TestBuilder::new_padded();
         builder.split_counter = 11;
 
@@ -222,7 +222,7 @@ mod tests {
     // desc
 
     #[test]
-    fn get_split_order_hints_desc_zero_split_counter_empty() {
+    unconstrained fn get_split_order_hints_desc_zero_split_counter_empty() {
         let builder = TestBuilder::new();
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0],
@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_desc_non_zero_split_counter_empty() {
+    unconstrained fn get_split_order_hints_desc_non_zero_split_counter_empty() {
         let mut builder = TestBuilder::new();
         builder.split_counter = 9;
 
@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_desc_non_zero_split_counter_equal_empty() {
+    unconstrained fn get_split_order_hints_desc_non_zero_split_counter_equal_empty() {
         let mut builder = TestBuilder::new();
         builder.split_counter = 11;
 
@@ -259,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_desc_zero_split_counter_padded_empty() {
+    unconstrained fn get_split_order_hints_desc_zero_split_counter_padded_empty() {
         let builder = TestBuilder::new_padded();
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0, 0, 0],
@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_desc_non_zero_split_counter_padded_empty() {
+    unconstrained fn get_split_order_hints_desc_non_zero_split_counter_padded_empty() {
         let mut builder = TestBuilder::new_padded();
         builder.split_counter = 9;
 
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn get_split_order_hints_desc_non_zero_split_counter_equal_padded_empty() {
+    unconstrained fn get_split_order_hints_desc_non_zero_split_counter_equal_padded_empty() {
         let mut builder = TestBuilder::new_padded();
         builder.split_counter = 11;
 

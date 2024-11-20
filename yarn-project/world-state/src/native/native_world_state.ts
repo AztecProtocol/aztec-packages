@@ -4,7 +4,6 @@ import {
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-  TxEffect,
 } from '@aztec/circuit-types';
 import {
   BlockHeader,
@@ -161,6 +160,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? 0,
+      canonical: true,
     });
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
@@ -170,24 +170,17 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
-    // by circuits.
-    const paddedTxEffects = padArrayEnd(
-      l2Block.body.txEffects,
-      TxEffect.empty(),
-      l2Block.body.numberOfTxsIncludingPadded,
-    );
-
-    const paddedNoteHashes = paddedTxEffects.flatMap(txEffect =>
+    // We have to pad both the values within tx effects because that's how the trees are built by circuits.
+    const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
     const paddedL1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
-    const paddedNullifiers = paddedTxEffects
+    const paddedNullifiers = l2Block.body.txEffects
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
       .map(nullifier => new NullifierLeaf(nullifier));
 
-    const publicDataWrites: PublicDataTreeLeaf[] = paddedTxEffects.flatMap(txEffect => {
+    const publicDataWrites: PublicDataTreeLeaf[] = l2Block.body.txEffects.flatMap(txEffect => {
       return txEffect.publicDataWrites.map(write => {
         if (write.isEmpty()) {
           throw new Error('Public data write must not be empty when syncing');
@@ -206,6 +199,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         paddedNullifiers: paddedNullifiers.map(serializeLeaf),
         publicDataWrites: publicDataWrites.map(serializeLeaf),
         blockStateRef: blockStateReference(l2Block.header.state),
+        canonical: true,
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -248,6 +242,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       WorldStateMessageType.FINALISE_BLOCKS,
       {
         toBlockNumber,
+        canonical: true,
       },
       this.sanitiseAndCacheSummary.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -265,6 +260,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
       {
         toBlockNumber,
+        canonical: true,
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -281,6 +277,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       WorldStateMessageType.UNWIND_BLOCKS,
       {
         toBlockNumber,
+        canonical: true,
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -291,7 +288,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     if (this.cachedStatusSummary !== undefined) {
       return { ...this.cachedStatusSummary };
     }
-    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0, this.sanitiseAndCacheSummary.bind(this));
+    return await this.instance.call(
+      WorldStateMessageType.GET_STATUS,
+      { canonical: true },
+      this.sanitiseAndCacheSummary.bind(this),
+    );
   }
 
   updateLeaf<ID extends IndexedTreeId>(
@@ -303,7 +304,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   private async getInitialStateReference(): Promise<StateReference> {
-    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, void 0);
+    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, { canonical: true });
 
     return new StateReference(
       treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),

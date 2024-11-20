@@ -8,10 +8,12 @@ import {
   type CompleteAddress,
   type DeployL1Contracts,
   Fr,
+  type FunctionCall,
   GrumpkinScalar,
   type Logger,
   type PXE,
   type Wallet,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
@@ -550,13 +552,22 @@ export const addAccounts =
 
     logger.verbose('Simulating account deployment...');
     const provenTxs = await Promise.all(
-      accountKeys.map(async ([secretKey, signPk]) => {
+      accountKeys.map(async ([secretKey, signPk], index) => {
         const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
-        const deployMethod = await account.getDeployMethod();
 
+        // only register the contract class once
+        let skipClassRegistration = true;
+        if (index === 0) {
+          // for the first account, check if the contract class is already registered, otherwise we should register now
+          if (!(await pxe.isContractClassPubliclyRegistered(account.getInstance().contractClassId))) {
+            skipClassRegistration = false;
+          }
+        }
+
+        const deployMethod = await account.getDeployMethod();
         const provenTx = await deployMethod.prove({
           contractAddressSalt: account.salt,
-          skipClassRegistration: true,
+          skipClassRegistration,
           skipPublicDeployment: true,
           universalDeploy: true,
         });
@@ -589,9 +600,16 @@ export async function publicDeployAccounts(
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
-  const batch = new BatchCall(sender, [
-    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
-    ...instances.map(instance => deployInstance(sender, instance!).request()),
-  ]);
+
+  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const alreadyRegistered = await sender.isContractClassPubliclyRegistered(contractClass.id);
+
+  const calls: FunctionCall[] = [];
+  if (!alreadyRegistered) {
+    calls.push((await registerContractClass(sender, SchnorrAccountContractArtifact)).request());
+  }
+  calls.push(...instances.map(instance => deployInstance(sender, instance!).request()));
+
+  const batch = new BatchCall(sender, calls);
   await batch.send().wait({ proven: waitUntilProven });
 }

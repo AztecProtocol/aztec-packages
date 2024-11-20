@@ -1,0 +1,101 @@
+{{- if not .Values.ethereum.externalHost }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-validator
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: eth-validator
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: eth-validator
+    spec:
+      initContainers:
+        - name: create-genesis
+          image: maddiaa/eth2-val-tools:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          # Generate keystores based on the provided mnemonic, then copy them into the /validator-setup directory
+          args:
+            - >-
+              echo "Generating validator keys..." &&
+              ./eth2-val-tools keystores
+              --source-min=0
+              --source-max=64
+              --source-mnemonic="${DEPLOYMENT_MNEMONIC}"
+              --out-loc=data &&
+
+              mkdir -p /validator-setup &&
+              cp -r ./data/* /validator-setup &&
+              rm -rf /validator-setup/lodestar-secrets /validator-setup/nimbus-keys /validator-setup/prysm /validator-setup/teku-keys /validator-setup/teku-secrets &&
+              echo "Validator key generation complete!"
+          env:
+            - name: DEPLOYMENT_MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+          volumeMounts:
+            - name: validator-setup
+              mountPath: /validator-setup
+      containers:
+        - name: eth-validator
+          image: "{{ .Values.images.lighthouse.image }}"
+          imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          # Copy the genesis and validator setup into the data directory
+          args:
+            - >-
+              cp -r /genesis-template /genesis &&
+              mkdir -p /data/validators &&
+              mkdir -p /data/secrets &&
+              cp -r /validator-setup/keys/* /data/validators &&
+              cp -r /validator-setup/secrets/* /data/secrets &&
+              base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz &&
+
+              lighthouse vc
+              --datadir="/data"
+              --beacon-nodes="http://{{ include "aztec-network.fullname" . }}-eth-beacon.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.beacon.service.port }}"
+              --testnet-dir=/genesis
+              --init-slashing-protection
+              --suggested-fee-recipient="0xff00000000000000000000000000000000c0ffee"
+              --debug-level=debug
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /data
+            - name: genesis
+              mountPath: /genesis-template
+            - name: validator-setup
+              mountPath: /validator-setup
+          resources:
+            {{- toYaml .Values.ethereum.validator.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: {{ include "aztec-network.fullname" . }}-eth-validator-pvc
+        # Beacon genesis is defined with eth-beacon
+        - name: genesis
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
+        - name: validator-setup
+          emptyDir: {}
+{{- if gt (.Values.ethereum.replicas | int) 0 }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-validator-pvc
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.ethereum.validator.storageSize }}
+{{- end }}
+---
+{{ end }}

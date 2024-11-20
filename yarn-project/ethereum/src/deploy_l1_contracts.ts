@@ -400,11 +400,13 @@ export const deployL1Contracts = async (
     account.address.toString(),
     rollupConfigArgs,
   ];
+  await deployer.waitForDeployments();
+
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
-  logger.info(`Deployed SlashFactory at ${slashFactoryAddress}`);
+  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
@@ -762,7 +764,7 @@ export async function deployL1Contract(
   } else {
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const receipt = await l1TxUtils.sendAndMonitorTransaction({
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
       to: null,
       data: deployData,
     });

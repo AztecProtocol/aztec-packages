@@ -12,7 +12,7 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { NativeACVMSimulator } from '@aztec/simulator';
+import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProverClientConfig } from '../config.js';
@@ -20,6 +20,7 @@ import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore } from '../proving_broker/proof_store.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
+import { ServerEpochProver } from './server-epoch-prover.js';
 
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
 export class ProverClient implements EpochProverManager {
@@ -39,12 +40,9 @@ export class ProverClient implements EpochProverManager {
   }
 
   public createEpochProver(): EpochProver {
-    return new ProvingOrchestrator(
-      this.worldState,
-      new BrokerCircuitProverFacade(this.orchestratorClient),
-      this.telemetry,
-      this.config.proverId,
-    );
+    const facade = new BrokerCircuitProverFacade(this.orchestratorClient);
+    const orchestrator = new ProvingOrchestrator(this.worldState, facade, this.telemetry, this.config.proverId);
+    return new ServerEpochProver(facade, orchestrator);
   }
 
   public getProverId(): Fr {

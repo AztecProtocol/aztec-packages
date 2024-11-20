@@ -1,6 +1,5 @@
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
 
 network:
   setupL2Contracts: false

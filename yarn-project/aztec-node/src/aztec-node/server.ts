@@ -58,7 +58,6 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -74,7 +73,7 @@ import {
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
@@ -652,10 +651,12 @@ export class AztecNodeService implements AztecNode, Traceable {
       true,
     );
 
-    let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
-    if (l2toL1SubtreeRoots.length < 2) {
-      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.ZERO, 2);
+    const numTxs = block.body.txEffects.length;
+    if (numTxs === 1) {
+      return [BigInt(indexOfMsgInSubtree), subtreePathOfL2ToL1Message];
     }
+
+    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
     const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
@@ -833,7 +834,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * @param tx - The transaction to simulate.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();

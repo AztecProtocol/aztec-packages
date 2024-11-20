@@ -114,7 +114,11 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         max_note_length = notes.fold(
             0,
             |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
-                acc + len
+                if len > acc {
+                    len
+                } else {
+                    acc
+                }
             },
         );
 

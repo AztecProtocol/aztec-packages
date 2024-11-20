@@ -56,9 +56,9 @@ get_service_address() {
 if [ "${EXTERNAL_ETHEREUM_HOST}" != "" ]; then
     ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
-    ETHEREUM_ADDR=$(get_service_address "ethereum" "${ETHEREUM_PORT}")
+    ETHEREUM_ADDR=$(get_service_address "eth-execution" "${ETHEREUM_PORT}")
 else
-    ETHEREUM_ADDR="http://${SERVICE_NAME}-ethereum.${NAMESPACE}:${ETHEREUM_PORT}"
+    ETHEREUM_ADDR="http://${SERVICE_NAME}-eth-execution.${NAMESPACE}:${ETHEREUM_PORT}"
 fi
 
 # Configure Boot Node address
@@ -86,7 +86,7 @@ else
 fi
 
 # Configure OTEL_COLLECTOR_ENDPOINT if not set in values file
-if [ "${TELEMETRY:-false}" = "true" ] && [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ]; then
+if [ "${TELEMETRY:-false}" = "true" ] && [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ] && [ "${USE_GCLOUD_OBSERVABILITY:-false}" = "false" ]; then
     OTEL_COLLECTOR_PORT=${OTEL_COLLECTOR_PORT:-4318}
     OTEL_COLLECTOR_ENDPOINT="http://metrics-opentelemetry-collector.metrics:$OTEL_COLLECTOR_PORT"
 fi

@@ -1,5 +1,7 @@
 import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
+import { MetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
+import { TraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
 import {
   DiagConsoleLogger,
   DiagLogLevel,
@@ -21,19 +23,24 @@ import {
   InstrumentType,
   MeterProvider,
   PeriodicExportingMetricReader,
+  type PeriodicExportingMetricReaderOptions,
   View,
 } from '@opentelemetry/sdk-metrics';
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import { type TelemetryClientConfig } from './config.js';
+import { EventLoopMonitor } from './event_loop_monitor.js';
 import { linearBuckets } from './histogram_utils.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
 
+export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => OpenTelemetryClient;
+
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
+  eventLoopMonitor: EventLoopMonitor | undefined;
   targetInfo: Gauge | undefined;
   private meters: Map<string, Meter> = new Map<string, Meter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
@@ -42,7 +49,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     private resource: IResource,
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
-    private loggerProvider: LoggerProvider,
+    private loggerProvider: LoggerProvider | undefined,
     private log: Logger,
   ) {}
 
@@ -87,6 +94,10 @@ export class OpenTelemetryClient implements TelemetryClient {
       meterProvider: this.meterProvider,
     });
 
+    this.eventLoopMonitor = new EventLoopMonitor(
+      this.meterProvider.getMeter(this.resource.attributes[ATTR_SERVICE_NAME] as string),
+    );
+
     // See these two links for more information on providing target information:
     // https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#resource-attributes
     // https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#supporting-target-metadata-in-both-push-based-and-pull-based-systems
@@ -96,6 +107,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
     this.targetInfo.record(1, this.resource.attributes);
     this.hostMetrics.start();
+    this.eventLoopMonitor.start();
   }
 
   public isEnabled() {
@@ -105,13 +117,18 @@ export class OpenTelemetryClient implements TelemetryClient {
   public async flush() {
     await Promise.all([
       this.meterProvider.forceFlush(),
-      this.loggerProvider.forceFlush(),
+      this.loggerProvider?.forceFlush(),
       this.traceProvider instanceof NodeTracerProvider ? this.traceProvider.forceFlush() : Promise.resolve(),
     ]);
   }
 
   public async stop() {
-    const flushAndShutdown = async (provider: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
+    this.eventLoopMonitor?.stop();
+
+    const flushAndShutdown = async (provider?: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
+      if (!provider) {
+        return;
+      }
       await provider.forceFlush();
       await provider.shutdown();
     };
@@ -123,30 +140,16 @@ export class OpenTelemetryClient implements TelemetryClient {
     ]);
   }
 
-  public static async createAndStart(config: TelemetryClientConfig, log: Logger): Promise<OpenTelemetryClient> {
-    const resource = await getOtelResource();
-
-    // TODO(palla/log): Should we show traces as logs in stdout when otel collection is disabled?
-    const tracerProvider = new NodeTracerProvider({
+  public static createMeterProvider(
+    resource: IResource,
+    options: Partial<PeriodicExportingMetricReaderOptions>,
+  ): MeterProvider {
+    return new MeterProvider({
       resource,
-      spanProcessors: config.tracesCollectorUrl
-        ? [new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }))]
+      readers: options.exporter
+        ? [new PeriodicExportingMetricReader(options as PeriodicExportingMetricReaderOptions)]
         : [],
-    });
 
-    tracerProvider.register();
-
-    const meterProvider = new MeterProvider({
-      resource,
-      readers: [
-        new PeriodicExportingMetricReader({
-          exporter: new OTLPMetricExporter({
-            url: config.metricsCollectorUrl!.href,
-          }),
-          exportIntervalMillis: config.otelCollectIntervalMs,
-          exportTimeoutMillis: config.otelExportTimeoutMs,
-        }),
-      ],
       views: [
         // Every histogram matching the selector (type + unit) gets these custom buckets assigned
         new View({
@@ -232,10 +235,59 @@ export class OpenTelemetryClient implements TelemetryClient {
         }),
       ],
     });
+  }
 
-    const loggerProvider = await registerOtelLoggerProvider(resource, config.logsCollectorUrl);
+  public static getGcloudClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
+    return (resource: IResource, log: Logger) => {
+      const tracerProvider = new NodeTracerProvider({
+        resource,
+        spanProcessors: [new BatchSpanProcessor(new TraceExporter({ resourceFilter: /.*/ }))],
+      });
 
-    const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
+      tracerProvider.register();
+
+      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
+        exporter: new MetricExporter(),
+        exportTimeoutMillis: config.otelExportTimeoutMs,
+        exportIntervalMillis: config.otelCollectIntervalMs,
+      });
+
+      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, undefined, log);
+    };
+  }
+
+  public static getCustomClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
+    return (resource: IResource, log: Logger) => {
+      const tracerProvider = new NodeTracerProvider({
+        resource,
+        spanProcessors: config.tracesCollectorUrl
+          ? [new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }))]
+          : [],
+      });
+
+      tracerProvider.register();
+
+      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
+        exporter: config.metricsCollectorUrl
+          ? new OTLPMetricExporter({ url: config.metricsCollectorUrl.href })
+          : undefined,
+        exportTimeoutMillis: config.otelExportTimeoutMs,
+        exportIntervalMillis: config.otelCollectIntervalMs,
+      });
+
+      const loggerProvider = registerOtelLoggerProvider(resource, config.logsCollectorUrl);
+
+      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
+    };
+  }
+
+  public static async createAndStart(config: TelemetryClientConfig, log: Logger): Promise<OpenTelemetryClient> {
+    const resource = await getOtelResource();
+    const factory = config.useGcloudObservability
+      ? OpenTelemetryClient.getGcloudClientFactory(config)
+      : OpenTelemetryClient.getCustomClientFactory(config);
+
+    const service = factory(resource, log);
     service.start();
 
     return service;

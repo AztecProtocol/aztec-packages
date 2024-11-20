@@ -642,7 +642,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = siloNoteHash(address, value0);
-      const nonce = computeNoteHashNonce(Fr.fromBuffer(context.persistableState.txHash.toBuffer()), 0);
+      const nonce = computeNoteHashNonce(context.persistableState.firstNullifier, 0);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });

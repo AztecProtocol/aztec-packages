@@ -83,7 +83,7 @@ else
   # this may fail, so try 3 times
   echo "Adding validator $ADDRESS..."
   for i in {1..3}; do
-    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
+    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --withdrawer $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
     sleep 15
   done
 fi
