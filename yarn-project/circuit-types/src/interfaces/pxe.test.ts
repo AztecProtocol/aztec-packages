@@ -30,6 +30,7 @@ import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { AuthWitness } from '../auth_witness.js';
+import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
@@ -178,8 +179,10 @@ describe('PXESchema', () => {
   });
 
   it('getTxEffect', async () => {
-    const result = await context.client.getTxEffect(TxHash.random());
-    expect(result).toBeInstanceOf(TxEffect);
+    const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
+    expect(data).toBeInstanceOf(TxEffect);
+    expect(l2BlockHash).toMatch(/0x[a-fA-F0-9]{64}/);
+    expect(l2BlockNumber).toBe(1);
   });
 
   it('getPublicStorageAt', async () => {
@@ -401,9 +404,9 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxEffect.random());
+    return Promise.resolve({ data: TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 });
   }
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);

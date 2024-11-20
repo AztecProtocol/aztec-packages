@@ -78,7 +78,7 @@ export class SentTx {
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
-      const tx = (await this.pxe.getTxEffect(txHash))!;
+      const { data: tx } = (await this.pxe.getTxEffect(txHash))!;
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
         nullifiers: tx.nullifiers,
