@@ -7,7 +7,6 @@ import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -42,8 +41,6 @@ export async function createProverNode(
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
-
-  const simulationProvider = await createSimulationProvider(config, log);
 
   const prover = await createProverClient(config, telemetry);
 
@@ -82,7 +79,6 @@ export async function createProverNode(
     archiver,
     worldStateSynchronizer,
     proverCoordination,
-    simulationProvider,
     quoteProvider,
     quoteSigner,
     claimsMonitor,

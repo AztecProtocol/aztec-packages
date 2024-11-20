@@ -1,3 +1,5 @@
-pub mod avm_proof_data;
-pub mod private_tube_data;
-pub mod public_tube_data;
+pub(crate) mod archive;
+pub(crate) mod constants;
+pub(crate) mod fees;
+pub(crate) mod nullifier_tree;
+pub(crate) mod public_data_tree;

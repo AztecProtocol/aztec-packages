@@ -66,7 +66,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript->load_proof(stdlib_proof);
 
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");

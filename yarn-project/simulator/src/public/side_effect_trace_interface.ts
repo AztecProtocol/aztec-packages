@@ -10,7 +10,7 @@ import {
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
@@ -83,8 +83,6 @@ export interface PublicSideEffectTraceInterface {
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
@@ -101,22 +99,18 @@ export interface PublicSideEffectTraceInterface {
     reverted: boolean,
   ): void;
   toPublicEnqueuedCallExecutionResult(
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects;
   toPublicFunctionCallResult(
     /** The execution environment of the nested call. */
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
     /** Function name for logging */
     functionName: string,
   ): PublicFunctionCallResult;
