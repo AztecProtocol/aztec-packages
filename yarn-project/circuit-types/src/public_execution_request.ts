@@ -1,4 +1,4 @@
-import { CallContext, type PublicCallRequest, Vector } from '@aztec/circuits.js';
+import { CallContext, PublicCallRequest, Vector } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -82,9 +82,19 @@ export class PublicExecutionRequest {
     );
   }
 
+  toCallRequest(): PublicCallRequest {
+    return new PublicCallRequest(
+      this.callContext.msgSender,
+      this.callContext.contractAddress,
+      this.callContext.functionSelector,
+      this.callContext.isStaticCall,
+      computeVarArgsHash(this.args),
+    );
+  }
+
   [inspect.custom]() {
     return `PublicExecutionRequest {
-      callContext: ${this.callContext}
+      callContext: ${inspect(this.callContext)}
       args: ${this.args}
     }`;
   }

@@ -12,7 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { assert } from 'console';
 
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
@@ -191,8 +191,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
@@ -204,7 +202,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
       nestedCallTrace.innerCallTrace,
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,
@@ -213,7 +210,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
       nestedCallTrace.enqueuedCallTrace,
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,
@@ -235,12 +231,10 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
   public toPublicEnqueuedCallExecutionResult(
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects {
-    return this.enqueuedCallTrace.toPublicEnqueuedCallExecutionResult(endGasLeft, avmCallResults);
+    return this.enqueuedCallTrace.toPublicEnqueuedCallExecutionResult(avmCallResults);
   }
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
@@ -250,19 +244,16 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
   ): PublicFunctionCallResult {
     return this.innerCallTrace.toPublicFunctionCallResult(
       avmEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,

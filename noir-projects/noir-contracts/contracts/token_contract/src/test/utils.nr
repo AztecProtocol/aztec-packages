@@ -56,17 +56,23 @@ pub unconstrained fn setup_and_mint_to_public(
     (env, token_contract_address, owner, recipient, mint_amount)
 }
 
-pub unconstrained fn setup_and_mint_to_private(
+pub unconstrained fn setup_and_mint_amount_to_private(
     with_account_contracts: bool,
+    mint_amount: Field,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup the tokens and mint public balance
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
 
     // Mint some tokens
-    let mint_amount = 10000;
     mint_to_private(env, token_contract_address, owner, mint_amount);
 
     (env, token_contract_address, owner, recipient, mint_amount)
+}
+
+pub unconstrained fn setup_and_mint_to_private(
+    with_account_contracts: bool,
+) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+    setup_and_mint_amount_to_private(with_account_contracts, 10000)
 }
 
 pub unconstrained fn mint_to_private(
