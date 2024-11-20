@@ -79,7 +79,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);
-        vinfo("populated public inputs block");
         circuit.blocks.compute_offsets(is_structured);
 
         // Find index of last non-trivial wire value in the trace
@@ -102,7 +101,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
-            vinfo("allocated polynomials object in proving key");
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
@@ -264,6 +262,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                         /* size=*/dyadic_circuit_size, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
                 }
             }
+            vinfo("allocated polynomials object in proving key");
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
             proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
