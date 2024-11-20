@@ -6,6 +6,7 @@ import {
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockL2Logs,
@@ -16,6 +17,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  type NullifierWithBlockSource,
   type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
@@ -96,6 +98,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly nullifierSource: NullifierWithBlockSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly l1ChainId: number,
@@ -117,12 +120,16 @@ export class AztecNodeService implements AztecNode {
     this.log.info(message);
   }
 
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+  public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
   }
 
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+  public getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
     return this.p2pClient.getEpochProofQuotes(epoch);
+  }
+
+  public getL2Tips() {
+    return this.blockSource.getL2Tips();
   }
 
   /**
@@ -179,6 +186,7 @@ export class AztecNodeService implements AztecNode {
     return new AztecNodeService(
       config,
       p2pClient,
+      archiver,
       archiver,
       archiver,
       archiver,
@@ -369,7 +377,7 @@ export class AztecNodeService implements AztecNode {
     return txReceipt;
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.blockSource.getTxEffect(txHash);
   }
 
@@ -421,6 +429,16 @@ export class AztecNodeService implements AztecNode {
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
+  }
+
+  public async findNullifiersIndexesWithBlock(
+    blockNumber: L2BlockNumber,
+    nullifiers: Fr[],
+  ): Promise<(InBlock<bigint> | undefined)[]> {
+    if (blockNumber === 'latest') {
+      blockNumber = await this.getBlockNumber();
+    }
+    return this.nullifierSource.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   /**
@@ -705,7 +723,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
     return (
       (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
       this.worldStateSynchronizer.getCommitted().getInitialHeader()
