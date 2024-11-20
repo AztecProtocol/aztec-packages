@@ -103,7 +103,8 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
             &debug_artifact,
             artifact_path.to_str().unwrap(),
             &func_name,
-            &Path::new(&output_path).join(Path::new(&format!("{}::{}::gates.svg", output_filename, func_name))),
+            &Path::new(&output_path)
+                .join(Path::new(&format!("{}::{}::gates.svg", output_filename, func_name))),
         )?;
     }
 
