@@ -145,8 +145,8 @@ git submodule update --init --recursive
 check_toolchains
 
 PROJECTS=(
-  barretenberg
   noir
+  barretenberg
   l1-contracts
   avm-transpiler
   noir-projects

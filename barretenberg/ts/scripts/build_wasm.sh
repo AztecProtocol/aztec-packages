@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+cd $(dirname $0)/..
+
 if [ -z "$SKIP_CPP_BUILD" ]; then
   # Build the wasms and strip debug symbols.
   cd ../cpp

@@ -26,6 +26,6 @@ echo "Building with command 'yarn $BUILD_CMD'..."
 yarn $BUILD_CMD
 echo "Barretenberg ts build successful"
 
-if [ "$CI" -eq 1 ]; then
+if [ "${CI:-0}" -eq 1 ]; then
   yarn test
 fi

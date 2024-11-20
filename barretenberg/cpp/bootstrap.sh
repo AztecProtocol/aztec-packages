@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -eu
 
+cleanup() {
+    BG_PIDS=$(jobs -p)
+    if [[ -n "$BG_PIDS" ]]; then
+        kill $BG_PIDS 2>/dev/null
+        wait $BG_PIDS 2>/dev/null
+    fi
+}
+trap cleanup EXIT
+
 # Navigate to script folder
 cd "$(dirname "$0")"
 
@@ -62,7 +71,7 @@ function build_native {
   # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  if [ "$CI" -eq 1 ]; then
+  if [ "${CI:-0}" -eq 1 ]; then
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
   else

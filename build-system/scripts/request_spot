@@ -6,6 +6,8 @@ NAME=$1
 CPUS=$2
 ARCH=$3
 
+cd $(dirname $0)
+
 # Declare an associative array to map CPU counts to instance type suffixes.
 declare -A cpu_map
 cpu_map=(
@@ -122,8 +124,8 @@ done
 # Wait till ssh port is open.
 >&2 echo "Waiting for SSH at $IP..."
 SECONDS=0
-SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-$BUILD_SYSTEM_PATH/remote/ssh_config}
-while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP true > /dev/null 2>&1; do
+SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-../remote/ssh_config}
+while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP sudo shutdown -h +60 > /dev/null 2>&1; do
   if (( SECONDS >= 60 )); then
     >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."
     exit 1

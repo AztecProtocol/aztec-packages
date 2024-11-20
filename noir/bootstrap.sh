@@ -23,3 +23,8 @@ fi
 # Continue with native bootstrapping if the cache was not used or nargo verification failed.
 ./scripts/bootstrap_native.sh
 ./scripts/bootstrap_packages.sh
+
+if [ "${CI:-0}" -eq 1 ]; then
+  # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
+  NEXTEST_RETRIES=2 ./scripts/test_native.sh
+fi
