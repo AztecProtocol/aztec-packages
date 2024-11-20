@@ -31,6 +31,7 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PreviousRollupData,
+  type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateTubeData,
   type RecursiveProof,
@@ -277,7 +278,7 @@ describe('LightBlockBuilder', () => {
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
       const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyProof, vkData);
       const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
-      const inputs = new PrivateBaseRollupInputs(tubeData, hints);
+      const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
     }

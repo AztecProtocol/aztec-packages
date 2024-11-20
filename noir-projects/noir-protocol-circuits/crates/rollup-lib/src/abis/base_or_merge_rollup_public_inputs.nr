@@ -7,8 +7,8 @@ use dep::types::{
     utils::reader::Reader,
 };
 
-global BASE_ROLLUP_TYPE = 0;
-global MERGE_ROLLUP_TYPE = 1;
+pub(crate) global BASE_ROLLUP_TYPE = 0;
+pub(crate) global MERGE_ROLLUP_TYPE = 1;
 
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)

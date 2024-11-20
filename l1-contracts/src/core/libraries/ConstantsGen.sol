@@ -52,7 +52,6 @@ library Constants {
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 34;
   uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 34;
-  uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 34;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 35;
   uint256 internal constant MAX_NOTE_HASHES_PER_TX = 64;
   uint256 internal constant MAX_NULLIFIERS_PER_TX = 64;

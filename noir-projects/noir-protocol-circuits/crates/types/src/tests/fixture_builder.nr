@@ -1,9 +1,10 @@
 use crate::{
     abis::{
         accumulated_data::{
-            CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-            PrivateToPublicAccumulatedData,
+            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
+            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
         },
+        avm_circuit_public_inputs::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
         function_data::FunctionData,
@@ -26,6 +27,7 @@ use crate::{
         public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::Counted,
+        tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
@@ -1047,6 +1049,38 @@ impl FixtureBuilder {
 
     fn vk_tree_root() -> Field {
         fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
+
+    fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
     }
 }
 

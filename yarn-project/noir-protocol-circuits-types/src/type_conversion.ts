@@ -82,6 +82,7 @@ import {
   type PreviousRollupData,
   PrivateAccumulatedData,
   type PrivateBaseRollupInputs,
+  type PrivateBaseStateDiffHints,
   type PrivateCallData,
   PrivateCallRequest,
   type PrivateCircuitPublicInputs,
@@ -97,9 +98,9 @@ import {
   type PrivateTubeData,
   PrivateValidationRequests,
   type PublicBaseRollupInputs,
+  type PublicBaseStateDiffHints,
   PublicCallRequest,
   type PublicDataHint,
-  type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataWrite,
   type PublicKeys,
@@ -123,7 +124,6 @@ import {
   ScopedReadRequest,
   type SettledReadHint,
   SpongeBlob,
-  type StateDiffHints,
   StateReference,
   type TUBE_PROOF_LENGTH,
   type TransientDataIndexHint,
@@ -203,6 +203,7 @@ import type {
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
   PrivateBaseRollupInputs as PrivateBaseRollupInputsNoir,
+  PrivateBaseStateDiffHints as PrivateBaseStateDiffHintsNoir,
   PrivateCallDataWithoutPublicInputs as PrivateCallDataWithoutPublicInputsNoir,
   PrivateCallRequest as PrivateCallRequestNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
@@ -217,9 +218,9 @@ import type {
   PrivateTubeData as PrivateTubeDataNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
+  PublicBaseStateDiffHints as PublicBaseStateDiffHintsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataHint as PublicDataHintNoir,
-  PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
   PublicKeys as PublicKeysNoir,
@@ -239,7 +240,6 @@ import type {
   ScopedNullifier as ScopedNullifierNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
   SpongeBlob as SpongeBlobNoir,
-  StateDiffHints as StateDiffHintsNoir,
   StateReference as StateReferenceNoir,
   TransientDataIndexHint as TransientDataIndexHintNoir,
   TreeSnapshots as TreeSnapshotsNoir,
@@ -2264,16 +2264,6 @@ function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness
 }
 
 /**
- * Maps a leaf of the public data tree to noir.
- */
-export function mapPublicDataTreeLeafToNoir(leaf: PublicDataTreeLeaf): PublicDataTreeLeafNoir {
-  return {
-    slot: mapFieldToNoir(leaf.slot),
-    value: mapFieldToNoir(leaf.value),
-  };
-}
-
-/**
  * Maps a leaf preimage of the public data tree to noir.
  */
 export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPreimage): PublicDataTreeLeafPreimageNoir {
@@ -2301,11 +2291,11 @@ export function mapPartialStateReferenceToNoir(
 }
 
 /**
- * Maps state diff hints to a noir state diff hints.
+ * Maps private base state diff hints to a noir state diff hints.
  * @param hints - The state diff hints.
  * @returns The noir state diff hints.
  */
-export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNoir {
+export function mapPrivateBaseStateDiffHintsToNoir(hints: PrivateBaseStateDiffHints): PrivateBaseStateDiffHintsNoir {
   return {
     nullifier_predecessor_preimages: mapTuple(hints.nullifierPredecessorPreimages, mapNullifierLeafPreimageToNoir),
     nullifier_predecessor_membership_witnesses: mapTuple(
@@ -2316,7 +2306,34 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
     sorted_nullifier_indexes: mapTuple(hints.sortedNullifierIndexes, (index: number) => mapNumberToNoir(index)),
     note_hash_subtree_sibling_path: mapTuple(hints.noteHashSubtreeSiblingPath, mapFieldToNoir),
     nullifier_subtree_sibling_path: mapTuple(hints.nullifierSubtreeSiblingPath, mapFieldToNoir),
-    public_data_sibling_path: mapTuple(hints.publicDataSiblingPath, mapFieldToNoir),
+    fee_write_low_leaf_preimage: mapPublicDataTreePreimageToNoir(hints.feeWriteLowLeafPreimage),
+    fee_write_low_leaf_membership_witness: mapMembershipWitnessToNoir(hints.feeWriteLowLeafMembershipWitness),
+    fee_write_sibling_path: mapTuple(hints.feeWriteSiblingPath, mapFieldToNoir),
+  };
+}
+
+/**
+ * Maps public base state diff hints to a noir state diff hints.
+ * @param hints - The state diff hints.
+ * @returns The noir state diff hints.
+ */
+export function mapPublicBaseStateDiffHintsToNoir(hints: PublicBaseStateDiffHints): PublicBaseStateDiffHintsNoir {
+  return {
+    nullifier_predecessor_preimages: mapTuple(hints.nullifierPredecessorPreimages, mapNullifierLeafPreimageToNoir),
+    nullifier_predecessor_membership_witnesses: mapTuple(
+      hints.nullifierPredecessorMembershipWitnesses,
+      (witness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
+    ),
+    sorted_nullifiers: mapTuple(hints.sortedNullifiers, mapFieldToNoir),
+    sorted_nullifier_indexes: mapTuple(hints.sortedNullifierIndexes, (index: number) => mapNumberToNoir(index)),
+    note_hash_subtree_sibling_path: mapTuple(hints.noteHashSubtreeSiblingPath, mapFieldToNoir),
+    nullifier_subtree_sibling_path: mapTuple(hints.nullifierSubtreeSiblingPath, mapFieldToNoir),
+    low_public_data_writes_preimages: mapTuple(hints.lowPublicDataWritesPreimages, mapPublicDataTreePreimageToNoir),
+    low_public_data_writes_witnesses: mapTuple(
+      hints.lowPublicDataWritesMembershipWitnesses,
+      (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
+    ),
+    public_data_tree_sibling_paths: mapTuple(hints.publicDataTreeSiblingPaths, path => mapTuple(path, mapFieldToNoir)),
   };
 }
 
@@ -2361,17 +2378,8 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     tube_data: mapPrivateTubeDataToNoir(inputs.tubeData),
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
-    state_diff_hints: mapStateDiffHintsToNoir(inputs.hints.stateDiffHints),
-    sorted_public_data_writes: mapTuple(inputs.hints.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
-    sorted_public_data_writes_indexes: mapTuple(inputs.hints.sortedPublicDataWritesIndexes, mapNumberToNoir),
-    low_public_data_writes_preimages: mapTuple(
-      inputs.hints.lowPublicDataWritesPreimages,
-      mapPublicDataTreePreimageToNoir,
-    ),
-    low_public_data_writes_witnesses: mapTuple(
-      inputs.hints.lowPublicDataWritesMembershipWitnesses,
-      (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
-    ),
+    state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
+
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
@@ -2400,17 +2408,8 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
-    state_diff_hints: mapStateDiffHintsToNoir(inputs.hints.stateDiffHints),
-    sorted_public_data_writes: mapTuple(inputs.hints.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
-    sorted_public_data_writes_indexes: mapTuple(inputs.hints.sortedPublicDataWritesIndexes, mapNumberToNoir),
-    low_public_data_writes_preimages: mapTuple(
-      inputs.hints.lowPublicDataWritesPreimages,
-      mapPublicDataTreePreimageToNoir,
-    ),
-    low_public_data_writes_witnesses: mapTuple(
-      inputs.hints.lowPublicDataWritesMembershipWitnesses,
-      (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
-    ),
+    state_diff_hints: mapPublicBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
+
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),

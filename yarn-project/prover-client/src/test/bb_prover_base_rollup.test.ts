@@ -2,6 +2,7 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import {
   PRIVATE_KERNEL_EMPTY_INDEX,
+  type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PrivateTubeData,
@@ -61,7 +62,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
     const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, context.actualDb, startSpongeBlob);
-    const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints);
+    const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints as PrivateBaseRollupHints);
 
     logger.verbose('Proving base rollups');
     const proofOutputs = await context.prover.getPrivateBaseRollupProof(baseRollupInputs);
