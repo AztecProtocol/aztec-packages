@@ -31,8 +31,6 @@ contract MinimalFeeModel is TimeFns {
   // with the block.blobbasefee value if using cheatcodes to alter it.
   Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-  // The L1 base fees are "fixed" for a period of 5 slots.
-  // and is lagging 5 slots behind the current slot.
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
   Timestamp public immutable GENESIS_TIMESTAMP;
