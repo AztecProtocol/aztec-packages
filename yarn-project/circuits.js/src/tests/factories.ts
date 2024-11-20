@@ -141,8 +141,8 @@ import {
   AvmPublicDataWriteTreeHint,
   BlobPublicInputs,
   BlockBlobPublicInputs,
-  Poseidon2Sponge,
   CountedPublicCallRequest,
+  Poseidon2Sponge,
   PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateBaseStateDiffHints,
@@ -1154,6 +1154,8 @@ function makePrivateBaseRollupHints(seed = 1) {
 
 function makePublicBaseRollupHints(seed = 1) {
   const start = makePartialStateReference(seed + 0x100);
+
+  const startSpongeBlob = makeSpongeBlob(seed + 0x200);
 
   const stateDiffHints = makePublicBaseStateDiffHints(seed + 0x600);
 

@@ -188,7 +188,7 @@ export async function buildBaseRollupHints(
 
     return PublicBaseRollupHints.from({
       start,
-      startSpongeBlob,
+      startSpongeBlob: inputSpongeBlob,
       stateDiffHints,
       feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
       archiveRootMembershipWitness,

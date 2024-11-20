@@ -118,6 +118,7 @@ export class PublicBaseRollupHints {
   static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
     return [
       fields.start,
+      fields.startSpongeBlob,
       fields.stateDiffHints,
       fields.feePayerFeeJuiceBalanceReadHint,
       fields.archiveRootMembershipWitness,
@@ -145,6 +146,7 @@ export class PublicBaseRollupHints {
     const reader = BufferReader.asReader(buffer);
     return new PublicBaseRollupHints(
       reader.readObject(PartialStateReference),
+      reader.readObject(SpongeBlob),
       reader.readObject(PublicBaseStateDiffHints),
       reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
@@ -159,6 +161,7 @@ export class PublicBaseRollupHints {
   static empty() {
     return new PublicBaseRollupHints(
       PartialStateReference.empty(),
+      SpongeBlob.empty(),
       PublicBaseStateDiffHints.empty(),
       PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
