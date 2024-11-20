@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 import { type ChildProcess } from 'child_process';
 
-import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
+import { getConfig, isK8sConfig, startPortForward } from './utils.js';
 
 jest.setTimeout(2_400_000); // 40 minutes
 

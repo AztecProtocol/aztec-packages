@@ -541,6 +541,11 @@ export const addAccounts =
       }),
     );
 
+    logger.verbose('Account deployment tx hashes:');
+    for (const provenTx of provenTxs) {
+      logger.verbose(provenTx.getTxHash().to0xString());
+    }
+
     logger.verbose('Deploying accounts...');
     const txs = await Promise.all(provenTxs.map(provenTx => provenTx.send()));
     await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: waitUntilProven })));
