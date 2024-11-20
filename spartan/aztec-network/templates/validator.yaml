@@ -213,6 +213,10 @@ spec:
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.validator.otelExcludeMetrics }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}

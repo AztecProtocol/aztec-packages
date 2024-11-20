@@ -1,0 +1,134 @@
+{{- if .Values.blobSink.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-blob-sink
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "aztec-network.fullname" . }}-blob-sink
+  replicas: {{ .Values.blobSink.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: blob-sink
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: blob-sink-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.blobSink.dataStoreConfig.storageSize }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: blob-sink
+    spec:
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
+      {{- end }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      initContainers:
+      containers:
+        - name: blob-sink
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              env && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --blob-sink
+          startupProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.blobSink.service.nodePort }}
+            periodSeconds: {{ .Values.blobSink.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.blobSink.startupProbe.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.blobSink.service.nodePort }}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: blob-sink-data
+              mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: blob-sink
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: BLOB_SINK_PORT
+              value: "{{ .Values.blobSink.service.nodePort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.blobSink.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.blobSink.dataStoreConfig.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.blobSink.dataStoreConfig.dataStoreMapSize }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
+          ports:
+            - containerPort: {{ .Values.blobSink.service.nodePort }}
+          resources:
+            {{- toYaml .Values.blobSink.resources | nindent 12 }}
+      volumes:
+        - name: blob-sink-data
+          emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: blob-sink-data
+          emptyDir: {}
+      {{ else }}
+        - name: blob-sink-data
+          persistentVolumeClaim:
+            claimName: blob-sink-data
+      {{- end }}
+---
+# Headless service for StatefulSet DNS entries
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-blob-sink
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  clusterIP: None
+  {{- end }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: blob-sink
+  ports:
+    - port: {{ .Values.blobSink.service.nodePort }}
+      name: node
+{{- end }}

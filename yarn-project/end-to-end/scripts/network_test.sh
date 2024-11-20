@@ -167,12 +167,34 @@ function generate_eth_devnet_config() {
 }
 generate_eth_devnet_config
 
+function read_values_file() {
+  local key="$1"
+
+  value=$(yq -r ".$key" "$VALUES_PATH")
+  if [ -z "$value" ] || [ "$value" = "null" ]; then
+    value=$(yq -r ".$key" "$DEFAULT_VALUES_PATH")
+  fi
+  echo "$value"
+}
+
+function generate_overrides() {
+  local overrides="$1"
+  if [ -n "$overrides" ]; then
+    # Split the comma-separated string into an array and generate --set arguments
+    IFS=',' read -ra OVERRIDE_ARRAY <<< "$overrides"
+    for override in "${OVERRIDE_ARRAY[@]}"; do
+      echo "--set $override"
+    done
+  fi
+}
+
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
   --namespace "$NAMESPACE" \
   --create-namespace \
   --values "$VALUES_PATH" \
   --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
+  $(generate_overrides "$OVERRIDES") \
   --wait \
   --wait-for-jobs=true \
   --timeout="$INSTALL_TIMEOUT"

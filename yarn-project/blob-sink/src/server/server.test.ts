@@ -19,6 +19,13 @@ describe('BlobSinkService', () => {
     await service.stop();
   });
 
+  describe('status', () => {
+    it('should return 200', async () => {
+      const response = await request(service.getApp()).get('/status');
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe('should store and retrieve a blob sidecar', () => {
     const blob = makeEncodedBlob(3);
     const blob2 = makeEncodedBlob(3);

@@ -70,6 +70,9 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     } else if (options.proverNode) {
       const { startProverNode } = await import('./cmds/start_prover_node.js');
       await startProverNode(options, signalHandlers, services, userLog);
+    } else if (options.blobSink) {
+      const { startBlobSink } = await import('./cmds/start_blob_sink.js');
+      await startBlobSink(options, signalHandlers, userLog);
     } else if (options.pxe) {
       const { startPXE } = await import('./cmds/start_pxe.js');
       await startPXE(options, signalHandlers, services, userLog);

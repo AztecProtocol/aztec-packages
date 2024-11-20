@@ -408,6 +408,11 @@ jobs:
             values: ci
             runner_type: 16core-tester-x86
             timeout: 40
+          - test: 4epochs.test.ts
+            values: ci
+            overrides: "blobSink.enabled=true"
+            runner_type: 16core-tester-x86
+            timeout: 40
           # - test: gating-passive.test.ts
           #   values: ci
           #   runner_type: 16core-tester-x86
@@ -430,7 +435,7 @@ jobs:
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
+              ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }} ${{ matrix.config.overrides }}
               ci3/cache_upload_flag "$artifact"
             fi
       - name: Copy Network Logs
