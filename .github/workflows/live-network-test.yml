@@ -132,7 +132,6 @@ jobs:
 
             aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
             kubectl config get-contexts
-            kubectl config use-context ${{ env.CLUSTER_NAME }}
             kubectl get pods -n $NAMESPACE
 
             cd yarn-project/end-to-end
