@@ -442,7 +442,6 @@ fn simplify_slice_push_back(
 
     let new_slice = value_merger.merge_values(
         len_not_equals_capacity,
-        len_equals_capacity,
         set_last_slice_value,
         new_slice,
     );

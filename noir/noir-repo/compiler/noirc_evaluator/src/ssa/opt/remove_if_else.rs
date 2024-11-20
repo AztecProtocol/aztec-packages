@@ -66,10 +66,9 @@ impl Context {
 
         for instruction in instructions {
             match &function.dfg[instruction] {
-                Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+                Instruction::IfElse { then_condition, then_value,  else_value } => {
                     let then_condition = *then_condition;
                     let then_value = *then_value;
-                    let else_condition = *else_condition;
                     let else_value = *else_value;
 
                     let typ = function.dfg.type_of_value(then_value);
@@ -87,7 +86,6 @@ impl Context {
 
                     let value = value_merger.merge_values(
                         then_condition,
-                        else_condition,
                         then_value,
                         else_value,
                     );

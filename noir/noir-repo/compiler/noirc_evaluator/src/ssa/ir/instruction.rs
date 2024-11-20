@@ -275,7 +275,6 @@ pub(crate) enum Instruction {
     IfElse {
         then_condition: ValueId,
         then_value: ValueId,
-        else_condition: ValueId,
         else_value: ValueId,
     },
 }
@@ -511,11 +510,10 @@ impl Instruction {
                     assert_message: assert_message.clone(),
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_value } => {
                 Instruction::IfElse {
                     then_condition: f(*then_condition),
                     then_value: f(*then_value),
-                    else_condition: f(*else_condition),
                     else_value: f(*else_value),
                 }
             }
@@ -573,10 +571,9 @@ impl Instruction {
             | Instruction::RangeCheck { value, .. } => {
                 f(*value);
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_value } => {
                 f(*then_condition);
                 f(*then_value);
-                f(*else_condition);
                 f(*else_value);
             }
         }
@@ -726,7 +723,7 @@ impl Instruction {
                     None
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value,  else_value } => {
                 let typ = dfg.type_of_value(*then_value);
 
                 if let Some(constant) = dfg.get_numeric_constant(*then_condition) {
@@ -745,13 +742,11 @@ impl Instruction {
 
                 if matches!(&typ, Type::Numeric(_)) {
                     let then_condition = *then_condition;
-                    let else_condition = *else_condition;
 
                     let result = ValueMerger::merge_numeric_values(
                         dfg,
                         block,
                         then_condition,
-                        else_condition,
                         then_value,
                         else_value,
                     );
