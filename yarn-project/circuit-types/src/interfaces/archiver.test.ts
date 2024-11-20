@@ -20,7 +20,7 @@ import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
-import { type InBlock } from '../in_block.js';
+import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
@@ -142,6 +142,12 @@ describe('ArchiverApiSchema', () => {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
+  });
+
+  it('findNullifiersIndexesWithBlock', async () => {
+    const nullifier = Fr.random();
+    const result = await context.client.findNullifiersIndexesWithBlock(1, [nullifier]);
+    expect(result).toEqual({ data: expect.any(BigInt), l2BlockNumber: 1n, l2BlockHash: expect.any(String) });
   });
 
   it('getLogs(Encrypted)', async () => {
@@ -290,6 +296,11 @@ class MockArchiver implements ArchiverApi {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
+  }
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    expect(blockNumber).toEqual(1n);
+    expect(nullifiers[0]).toBeInstanceOf(Fr);
+    return Promise.resolve([randomInBlock(Fr.random().toBigInt())]);
   }
   getLogs<TLogType extends LogType>(
     _from: number,

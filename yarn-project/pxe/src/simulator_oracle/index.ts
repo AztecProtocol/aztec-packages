@@ -567,13 +567,7 @@ export class SimulatorOracle implements DBOracle {
     const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
     const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
     const currentBlockNumber = await this.getBlockNumber();
-    const nullifierIndexes = await this.aztecNode.findLeavesIndexesWithApproxBlockNumber(
-      currentBlockNumber,
-      // Epoch size, we don't care about accurate block numbers in finalized nullifiers
-      currentBlockNumber - 2 * 32,
-      MerkleTreeId.NULLIFIER_TREE,
-      nullifiersToCheck,
-    );
+    const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock(currentBlockNumber, nullifiersToCheck);
 
     const foundNullifiers = nullifiersToCheck
       .map((nullifier, i) => {

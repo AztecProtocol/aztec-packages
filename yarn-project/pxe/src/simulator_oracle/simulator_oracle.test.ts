@@ -426,11 +426,11 @@ describe('Simulator oracle', () => {
       aztecNode.getTxEffect.mockImplementation(txHash => {
         return Promise.resolve(randomInBlock(txEffectsMap[txHash.toString()] as TxEffect));
       });
-      aztecNode.findLeavesIndexes.mockImplementation((_blockNumber, _treeId, leafValues) =>
+      aztecNode.findNullifiersIndexesWithBlock.mockImplementation((_blockNumber, requestedNullifiers) =>
         Promise.resolve(
-          Array(leafValues.length - nullifiers)
+          Array(requestedNullifiers.length - nullifiers)
             .fill(undefined)
-            .concat(Array(nullifiers).fill(1n)),
+            .concat(Array(nullifiers).fill({ data: 1n, l2BlockNumber: 1n, l2BlockHash: '0x' })),
         ),
       );
       return taggedLogs;

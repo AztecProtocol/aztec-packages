@@ -1,5 +1,5 @@
 import {
-  InBlock,
+  type InBlock,
   type IncomingNotesFilter,
   MerkleTreeId,
   NoteStatus,

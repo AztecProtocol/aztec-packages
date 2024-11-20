@@ -13,6 +13,7 @@ import {
   type L2Tips,
   type LogFilter,
   type LogType,
+  type NullifierWithBlockSource,
   type TxEffect,
   type TxHash,
   type TxReceipt,
@@ -74,7 +75,11 @@ import { type L1Published } from './structs/published.js';
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
-export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
+export type ArchiveSource = L2BlockSource &
+  L2LogsSource &
+  ContractDataSource &
+  L1ToL2MessageSource &
+  NullifierWithBlockSource;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -645,6 +650,17 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
+   * Returns the provided nullifier indexes scoped to the block
+   * they were first included in, or undefined if they're not present in the tree
+   * @param blockNumber Max block number to search for the nullifiers
+   * @param nullifiers Nullifiers to get
+   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
+   */
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
+  }
+
+  /**
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
@@ -765,6 +781,8 @@ class ArchiverStoreHelper
       ArchiverDataStore,
       | 'addLogs'
       | 'deleteLogs'
+      | 'addNullifiers'
+      | 'deleteNullifiers'
       | 'addContractClasses'
       | 'deleteContractClasses'
       | 'addContractInstances'
@@ -895,6 +913,7 @@ class ArchiverStoreHelper
           ).every(Boolean);
         }),
       )),
+      this.store.addNullifiers(blocks.map(block => block.data)),
       this.store.addBlocks(blocks),
     ].every(Boolean);
   }
@@ -958,6 +977,9 @@ class ArchiverStoreHelper
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
+  }
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);

@@ -19,12 +19,13 @@ import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
 import { LogType } from '../logs/log_type.js';
 import { type L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
+import { type NullifierWithBlockSource } from '../nullifier_with_block_source.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 
 export type ArchiverApi = Omit<
-  L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource,
+  L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource & NullifierWithBlockSource,
   'start' | 'stop'
 >;
 
@@ -58,6 +59,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(z.array(schemas.Fr))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
+  findNullifiersIndexesWithBlock: z
+    .function()
+    .args(z.number(), z.array(schemas.Fr))
+    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getPublicFunction: z

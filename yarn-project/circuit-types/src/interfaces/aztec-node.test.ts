@@ -28,7 +28,7 @@ import omit from 'lodash.omit';
 import times from 'lodash.times';
 import { resolve } from 'path';
 
-import { type InBlock, wrapInBlock } from '../in_block.js';
+import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
@@ -96,12 +96,12 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, undefined]);
   });
 
-  it('findLeavesIndexesWithApproxBlockNumber', async () => {
-    const response = await context.client.findLeavesIndexesWithApproxBlockNumber(1, 1, MerkleTreeId.ARCHIVE, [
-      Fr.random(),
-      Fr.random(),
+  it('findNullifierIndexesWithBlock', async () => {
+    const response = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
+    expect(response).toEqual([
+      { data: 1n, l2BlockNumber: expect.any(Number), l2BlockHash: expect.any(String) },
+      undefined,
     ]);
-    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: expect.any(String) }, undefined]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -354,16 +354,14 @@ class MockAztecNode implements AztecNode {
     expect(leafValues[1]).toBeInstanceOf(Fr);
     return Promise.resolve([1n, undefined]);
   }
-  findLeavesIndexesWithApproxBlockNumber(
-    maxBlockNumber: number | 'latest',
-    minBlockNumber: number,
-    treeId: MerkleTreeId,
-    leafValues: Fr[],
+  findNullifiersIndexesWithBlock(
+    blockNumber: number | 'latest',
+    nullifiers: Fr[],
   ): Promise<(InBlock<bigint> | undefined)[]> {
-    expect(leafValues).toHaveLength(2);
-    expect(leafValues[0]).toBeInstanceOf(Fr);
-    expect(leafValues[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([wrapInBlock(1n, L2Block.random(1)), undefined]);
+    expect(nullifiers).toHaveLength(2);
+    expect(nullifiers[0]).toBeInstanceOf(Fr);
+    expect(nullifiers[1]).toBeInstanceOf(Fr);
+    return Promise.resolve([randomInBlock(1n), undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',

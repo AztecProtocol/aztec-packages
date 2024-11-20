@@ -20,6 +20,7 @@ function createPXEService(): Promise<PXE> {
   const keyStore = new KeyStore(kvStore);
   const node = mock<AztecNode>();
   const db = new KVPxeDatabase(kvStore);
+  const tips = new L2TipsStore(kvStore, 'pxe');
   const config: PXEServiceConfig = {
     l2BlockPollingIntervalMS: 100,
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,

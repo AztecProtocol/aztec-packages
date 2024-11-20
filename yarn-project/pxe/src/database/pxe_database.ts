@@ -1,4 +1,4 @@
-import { InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
   type ContractInstanceWithAddress,

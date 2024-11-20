@@ -1,6 +1,7 @@
 import {
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L2Block,
   type L2BlockL2Logs,
@@ -32,6 +33,7 @@ import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
+import { NullifierStore } from './nullifier_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -39,6 +41,7 @@ import { MessageStore } from './message_store.js';
 export class KVArchiverDataStore implements ArchiverDataStore {
   #blockStore: BlockStore;
   #logStore: LogStore;
+  #nullifierStore: NullifierStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
@@ -53,6 +56,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
     this.#contractArtifactStore = new ContractArtifactsStore(db);
+    this.#nullifierStore = new NullifierStore(db);
   }
 
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
@@ -182,6 +186,23 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
+  }
+
+  /**
+   * Append new nullifiers to the store's list.
+   * @param blocks - The blocks for which to add the nullifiers.
+   * @returns True if the operation is successful.
+   */
+  addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    return this.#nullifierStore.addNullifiers(blocks);
+  }
+
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
+    return this.#nullifierStore.deleteNullifiers(blocks);
+  }
+
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.#nullifierStore.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   getTotalL1ToL2MessageCount(): Promise<bigint> {

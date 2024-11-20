@@ -29,6 +29,7 @@ import {
   type Header,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -65,6 +66,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private unencryptedLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
 
   private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+
+  private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
   /**
    * Contains all L1 to L2 messages.
@@ -297,6 +300,51 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     });
 
     return Promise.resolve(true);
+  }
+
+  addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      const dataStartIndexForBlock =
+        block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
+        block.body.numberOfTxsIncludingPadded * MAX_NULLIFIERS_PER_TX;
+      block.body.txEffects.forEach((txEffects, txIndex) => {
+        const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
+        txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {
+          this.blockScopedNullifiers.set(nullifier.toString(), {
+            index: BigInt(dataStartIndexForTx + nullifierIndex),
+            blockNumber: block.number,
+            blockHash: block.hash().toString(),
+          });
+        });
+      });
+    });
+    return Promise.resolve(true);
+  }
+
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      block.body.txEffects.forEach(txEffect => {
+        txEffect.nullifiers.forEach(nullifier => {
+          this.blockScopedNullifiers.delete(nullifier.toString());
+        });
+      });
+    });
+    return Promise.resolve(true);
+  }
+
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    const blockScopedNullifiers = nullifiers.map(nullifier => {
+      const nullifierData = this.blockScopedNullifiers.get(nullifier.toString());
+      if (nullifierData !== undefined && nullifierData.blockNumber <= blockNumber) {
+        return {
+          data: nullifierData.index,
+          l2BlockHash: nullifierData.blockHash,
+          l2BlockNumber: nullifierData.blockNumber,
+        } as InBlock<bigint>;
+      }
+      return undefined;
+    });
+    return Promise.resolve(blockScopedNullifiers);
   }
 
   getTotalL1ToL2MessageCount(): Promise<bigint> {

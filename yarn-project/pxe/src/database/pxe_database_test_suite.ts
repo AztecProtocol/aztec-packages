@@ -2,7 +2,6 @@ import { type IncomingNotesFilter, NoteStatus, type OutgoingNotesFilter, randomT
 import {
   AztecAddress,
   CompleteAddress,
-  Header,
   INITIAL_L2_BLOCK_NUM,
   PublicKeys,
   SerializableContractInstance,

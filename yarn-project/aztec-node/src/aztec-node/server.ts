@@ -17,6 +17,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  type NullifierWithBlockSource,
   type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
@@ -98,6 +99,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly nullifierSource: NullifierWithBlockSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly l1ChainId: number,
@@ -188,6 +190,7 @@ export class AztecNodeService implements AztecNode {
     return new AztecNodeService(
       config,
       p2pClient,
+      archiver,
       archiver,
       archiver,
       archiver,
@@ -432,31 +435,14 @@ export class AztecNodeService implements AztecNode {
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
   }
 
-  public async findLeavesIndexesWithApproxBlockNumber(
-    maxBlockNumber: L2BlockNumber,
-    minBlockNumber: number,
-    treeId: MerkleTreeId,
-    leafValues: Fr[],
+  public async findNullifiersIndexesWithBlock(
+    blockNumber: L2BlockNumber,
+    nullifiers: Fr[],
   ): Promise<(InBlock<bigint> | undefined)[]> {
-    const initialBlockNumber = maxBlockNumber === 'latest' ? await this.getBlockNumber() : maxBlockNumber;
-    return await Promise.all(
-      leafValues.map(async leafValue => {
-        let blockNumber = initialBlockNumber;
-        let treeSnapshot = this.worldStateSynchronizer.getSnapshot(initialBlockNumber);
-        let index = await treeSnapshot.findLeafIndex(treeId, leafValue.toBuffer());
-        if (!index) {
-          return undefined;
-        }
-        let meta = await treeSnapshot.getTreeInfo(treeId);
-        while (meta.size > index && blockNumber >= minBlockNumber) {
-          blockNumber -= 1;
-          treeSnapshot = this.worldStateSynchronizer.getSnapshot(blockNumber);
-          meta = await treeSnapshot.getTreeInfo(treeId);
-        }
-        const block = await this.getBlock(blockNumber + 1);
-        return wrapInBlock(index, block!);
-      }),
-    );
+    if (blockNumber === 'latest') {
+      blockNumber = await this.getBlockNumber();
+    }
+    return this.nullifierSource.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   /**
