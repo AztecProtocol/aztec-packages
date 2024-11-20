@@ -953,7 +953,8 @@ impl<'interner> Monomorphizer<'interner> {
 
     /// Convert a non-tuple/struct type to a monomorphized type
     fn convert_type(typ: &HirType, location: Location) -> Result<ast::Type, MonomorphizationError> {
-        Ok(match typ {
+        let typ = typ.follow_bindings_shallow();
+        Ok(match typ.as_ref() {
             HirType::FieldElement => ast::Type::Field,
             HirType::Integer(sign, bits) => ast::Type::Integer(*sign, *bits),
             HirType::Bool => ast::Type::Bool,
@@ -1119,7 +1120,8 @@ impl<'interner> Monomorphizer<'interner> {
 
     // Similar to `convert_type` but returns an error if any type variable can't be defaulted.
     fn check_type(typ: &HirType, location: Location) -> Result<(), MonomorphizationError> {
-        match typ {
+        let typ = typ.follow_bindings_shallow();
+        match typ.as_ref() {
             HirType::FieldElement
             | HirType::Integer(..)
             | HirType::Bool

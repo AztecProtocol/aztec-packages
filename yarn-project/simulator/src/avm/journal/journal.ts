@@ -116,7 +116,11 @@ export class AvmPersistableStateManager {
 
   private _merge(forkedState: AvmPersistableStateManager, reverted: boolean) {
     // sanity check to avoid merging the same forked trace twice
-    assert(!this.alreadyMergedIntoParent, 'Cannot merge forked state that has already been merged into its parent!');
+    assert(
+      !forkedState.alreadyMergedIntoParent,
+      'Cannot merge forked state that has already been merged into its parent!',
+    );
+    forkedState.alreadyMergedIntoParent = true;
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
     this.trace.merge(forkedState.trace, reverted);
@@ -504,7 +508,6 @@ export class AvmPersistableStateManager {
     forkedState: AvmPersistableStateManager,
     nestedEnvironment: AvmExecutionEnvironment,
     startGasLeft: Gas,
-    endGasLeft: Gas,
     bytecode: Buffer,
     avmCallResults: AvmContractCallResult,
   ) {
@@ -521,7 +524,6 @@ export class AvmPersistableStateManager {
       forkedState.trace,
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,

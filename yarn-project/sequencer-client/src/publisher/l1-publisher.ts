@@ -723,10 +723,12 @@ export class L1Publisher {
       : [];
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
     const args = [
-      `0x${encodedData.header.toString('hex')}`,
-      `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.blockHash.toString('hex')}`,
-      txHashes,
+      {
+        header: `0x${encodedData.header.toString('hex')}`,
+        archive: `0x${encodedData.archive.toString('hex')}`,
+        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
+        txHashes,
+      },
       attestations,
       `0x${encodedData.body.toString('hex')}`,
     ] as const;
