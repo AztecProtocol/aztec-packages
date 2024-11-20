@@ -507,7 +507,7 @@ export class L1Publisher {
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
 
-    if (!result || !result?.receipt) {
+    if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
@@ -527,7 +527,6 @@ export class L1Publisher {
       };
       this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
       return true;
     }
 
@@ -790,7 +789,8 @@ export class L1Publisher {
       };
     } catch (err) {
       prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.log.error(`Rollup publish failed`, errorMessage);
       return undefined;
     }
   }
@@ -823,7 +823,8 @@ export class L1Publisher {
       };
     } catch (err) {
       prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.log.error(`Rollup publish failed`, errorMessage);
       return undefined;
     }
   }
