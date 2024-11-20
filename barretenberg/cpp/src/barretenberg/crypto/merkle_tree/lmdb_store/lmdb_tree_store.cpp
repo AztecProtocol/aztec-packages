@@ -188,7 +188,7 @@ void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTran
     NodePayload nodePayload;
     bool success = get_node_data(nodeHash, nodePayload, tx);
     if (!success) {
-        throw std::runtime_error("Failed to find node when attempting to increases reference count");
+        throw std::runtime_error("Failed to find node when attempting to increase reference count");
     }
     ++nodePayload.ref;
     // std::cout << "Incrementing siblng at " << nodeHash << ", to " << nodePayload.ref << std::endl;
@@ -212,7 +212,7 @@ void LMDBTreeStore::decrement_node_reference_count(const fr& nodeHash, NodePaylo
 {
     bool success = get_node_data(nodeHash, nodeData, tx);
     if (!success) {
-        throw std::runtime_error("Failed to find node when attempting to increases reference count");
+        throw std::runtime_error("Failed to find node when attempting to decrease reference count");
     }
     if (--nodeData.ref == 0) {
         // std::cout << "Deleting node at " << nodeHash << std::endl;

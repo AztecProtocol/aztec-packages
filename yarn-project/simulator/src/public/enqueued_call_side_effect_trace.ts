@@ -62,9 +62,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { createSimulationError } from '../common/errors.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
@@ -188,7 +187,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public merge(forkedTrace: this, reverted: boolean = false) {
     // sanity check to avoid merging the same forked trace twice
-    assert(!this.alreadyMergedIntoParent, 'Cannot merge a forked trace that has already been merged into its parent!');
+    assert(
+      !forkedTrace.alreadyMergedIntoParent,
+      'Cannot merge a forked trace that has already been merged into its parent!',
+    );
     forkedTrace.alreadyMergedIntoParent = true;
 
     // TODO(dbanks12): accept & merge forked trace's hints!
@@ -510,8 +512,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     _bytecode: Buffer,
     /** The call's results */
@@ -524,7 +524,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // Store end side effect counter before it gets updated by absorbing nested call trace
     const endSideEffectCounter = new Fr(this.sideEffectCounter);
 
-    const gasUsed = new Gas(startGasLeft.daGas - endGasLeft.daGas, startGasLeft.l2Gas - endGasLeft.l2Gas);
+    const gasUsed = new Gas(
+      startGasLeft.daGas - avmCallResults.gasLeft.daGas,
+      startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
+    );
 
     this.avmCircuitHints.externalCalls.items.push(
       new AvmExternalCallHint(
@@ -576,19 +579,15 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
    * Get the results of public execution.
    */
   public toPublicEnqueuedCallExecutionResult(
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects {
     return {
-      endGasLeft,
+      endGasLeft: Gas.from(avmCallResults.gasLeft),
       endSideEffectCounter: new Fr(this.sideEffectCounter),
       returnValues: avmCallResults.output,
       reverted: avmCallResults.reverted,
-      revertReason: avmCallResults.revertReason
-        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
-        : undefined,
+      revertReason: avmCallResults.revertReason,
       sideEffects: {
         publicDataWrites: this.publicDataWrites,
         noteHashes: this.noteHashes,
@@ -652,12 +651,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     _avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     _startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    _endGasLeft: Gas,
     /** Bytecode used for this execution. */
     _bytecode: Buffer,
     /** The call's results */
-    _avmCallResults: AvmContractCallResult,
+    _avmCallResults: AvmFinalizedCallResult,
     /** Function name for logging */
     _functionName: string = 'unknown',
   ): PublicFunctionCallResult {

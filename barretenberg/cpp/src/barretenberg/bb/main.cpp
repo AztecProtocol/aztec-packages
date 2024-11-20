@@ -590,7 +590,7 @@ void prove_tube(const std::string& output_path)
     }
     ClientIVC verifier{ builder, input };
 
-    ClientIVC::Output client_ivc_rec_verifier_output = verifier.verify(proof);
+    verifier.verify(proof);
 
     PairingPointAccumulatorIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
@@ -598,10 +598,6 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
     builder->add_pairing_point_accumulator(current_aggregation_object);
-
-    // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
-    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
@@ -626,9 +622,8 @@ void prove_tube(const std::string& output_path)
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    Verifier tube_verifier(tube_verification_key, ipa_verification_key);
-    bool verified = tube_verifier.verify_proof(tube_proof, builder->ipa_proof);
+    Verifier tube_verifier(tube_verification_key);
+    bool verified = tube_verifier.verify_proof(tube_proof);
     info("Tube proof verification: ", verified);
 }
 
@@ -1137,22 +1132,14 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 {
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
-    // verifier.
-    std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
-    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
-        init_grumpkin_crs(1 << 16);
-        vk->contains_ipa_claim = false;
-        ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    }
-    Verifier verifier{ vk, ipa_verification_key };
+    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+    Verifier verifier{ vk };
 
     bool verified = verifier.verify_proof(proof);
 
