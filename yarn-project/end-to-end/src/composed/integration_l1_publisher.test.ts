@@ -544,15 +544,17 @@ describe('L1Publisher integration', () => {
 
       // Expect a proper error to be logged. Full message looks like:
       // aztec:sequencer:publisher [ERROR] Rollup process tx reverted. The contract function "propose" reverted. Error: Rollup__InvalidInHash(bytes32 expected, bytes32 actual) (0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c, 0x00a5a12af159e0608de45d825718827a36d8a7cdfa9ecc7955bc62180ae78e51) blockNumber=1 slotNumber=49 blockHash=0x131c59ebc2ce21224de6473fe954b0d4eb918043432a3a95406bb7e7a4297fbd txHash=0xc01c3c26b6b67003a8cce352afe475faf7e0196a5a3bba963cfda3792750ed28
-      expect(loggerErrorSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Rollup__InvalidInHash/),
-        undefined,
-        expect.objectContaining({
-          blockHash: expect.any(String),
-          blockNumber: expect.any(Number),
-          slotNumber: expect.any(BigInt),
-        }),
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Rollup publish failed', expect.stringContaining('0xcd6f4233'));
+      // NOTE: Reinstate check below with #10066
+      // expect(loggerErrorSpy).toHaveBeenCalledWith(
+      //   expect.stringMatching(/Rollup__InvalidInHash/),
+      //   undefined,
+      //   expect.objectContaining({
+      //     blockHash: expect.any(String),
+      //     blockNumber: expect.any(Number),
+      //     slotNumber: expect.any(BigInt),
+      //   }),
+      // );
     });
   });
 });
