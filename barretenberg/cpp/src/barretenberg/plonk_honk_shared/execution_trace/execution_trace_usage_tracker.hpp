@@ -80,7 +80,9 @@ struct ExecutionTraceUsageTracker {
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
         active_ranges.push_back(Range{ 0, databus_end });
-        active_ranges.push_back(Range{ dyadic_circuit_size - max_tables_size, dyadic_circuit_size });
+        size_t lookups_start =
+            std::min(dyadic_circuit_size - max_tables_size, static_cast<size_t>(fixed_sizes.lookup.trace_offset));
+        active_ranges.push_back(Range{ lookups_start, dyadic_circuit_size });
     }
 
     // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)

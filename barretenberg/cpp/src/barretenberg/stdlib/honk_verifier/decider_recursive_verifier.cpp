@@ -45,9 +45,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     return pairing_points;
 }
 
-template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;

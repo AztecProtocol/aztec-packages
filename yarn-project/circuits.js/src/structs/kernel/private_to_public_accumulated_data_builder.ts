@@ -17,8 +17,8 @@ import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_
 
 /**
  * TESTS-ONLY CLASS
- * Builder for PublicAccumulatedData, used to conveniently construct instances for testing,
- * as PublicAccumulatedData is (or will shortly be) immutable.
+ * Builder for PrivateToPublicAccumulatedData, used to conveniently construct instances for testing,
+ * as PrivateToPublicAccumulatedData is (or will shortly be) immutable.
  *
  */
 export class PrivateToPublicAccumulatedDataBuilder {
@@ -28,7 +28,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
   private noteEncryptedLogsHashes: LogHash[] = [];
   private encryptedLogsHashes: ScopedLogHash[] = [];
   private contractClassLogsHashes: ScopedLogHash[] = [];
-  private publicCallStack: PublicCallRequest[] = [];
+  private publicCallRequests: PublicCallRequest[] = [];
 
   pushNoteHash(newNoteHash: Fr) {
     this.noteHashes.push(newNoteHash);
@@ -91,12 +91,12 @@ export class PrivateToPublicAccumulatedDataBuilder {
   }
 
   pushPublicCall(publicCall: PublicCallRequest) {
-    this.publicCallStack.push(publicCall);
+    this.publicCallRequests.push(publicCall);
     return this;
   }
 
-  withPublicCallStack(publicCallStack: PublicCallRequest[]) {
-    this.publicCallStack = publicCallStack;
+  withPublicCallRequests(publicCallRequests: PublicCallRequest[]) {
+    this.publicCallRequests = publicCallRequests;
     return this;
   }
 
@@ -108,18 +108,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
       padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-      padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+      padArrayEnd(this.publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
-  }
-
-  static fromPublicAccumulatedData(publicAccumulatedData: PrivateToPublicAccumulatedData) {
-    return new PrivateToPublicAccumulatedDataBuilder()
-      .withNoteHashes(publicAccumulatedData.noteHashes)
-      .withNullifiers(publicAccumulatedData.nullifiers)
-      .withL2ToL1Msgs(publicAccumulatedData.l2ToL1Msgs)
-      .withNoteEncryptedLogsHashes(publicAccumulatedData.noteEncryptedLogsHashes)
-      .withEncryptedLogsHashes(publicAccumulatedData.encryptedLogsHashes)
-      .withContractClassLogsHashes(publicAccumulatedData.contractClassLogsHashes)
-      .withPublicCallStack(publicAccumulatedData.publicCallRequests);
   }
 }

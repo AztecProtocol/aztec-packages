@@ -3,6 +3,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { inspect } from 'util';
 
+// TO BE REMOVED.
 /**
  * Write operations on the public data tree including the previous value.
  */

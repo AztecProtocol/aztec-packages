@@ -1,3 +1,4 @@
+// docs:start:token_utils
 import { type AztecAddress, type DebugLogger, type Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
@@ -27,6 +28,7 @@ export async function mintTokensToPrivate(
   const from = minterWallet.getAddress(); // we are setting from to minter here because of TODO(#9887)
   await tokenAsMinter.methods.mint_to_private(from, recipient, amount).send().wait();
 }
+// docs:end:token_utils
 
 export async function expectTokenBalance(
   wallet: Wallet,

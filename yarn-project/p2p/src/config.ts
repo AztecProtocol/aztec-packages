@@ -84,11 +84,6 @@ export interface P2PConfig extends P2PReqRespConfig {
   maxPeerCount: number;
 
   /**
-   * Data directory for peer & tx databases.
-   */
-  dataDirectory?: string;
-
-  /**
    * If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
    */
   queryForIp: boolean;
@@ -221,10 +216,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_PEERS',
     description: 'The maximum number of peers to connect to.',
     ...numberConfigHelper(100),
-  },
-  dataDirectory: {
-    env: 'DATA_DIRECTORY',
-    description: 'Data directory for peer & tx databases. Will use temporary location if not set.',
   },
   queryForIp: {
     env: 'P2P_QUERY_FOR_IP',

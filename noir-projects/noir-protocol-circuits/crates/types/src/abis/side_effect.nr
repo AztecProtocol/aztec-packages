@@ -33,11 +33,6 @@ pub trait Readable<T> {
     fn assert_match_read_request(self, read_request: T);
 }
 
-pub trait Overridable {
-    // The counter of the next side effect that's overriding the current side effect.
-    fn override_counter(self) -> u32;
-}
-
 pub trait Inner<T> {
     fn inner(self) -> T;
 }
