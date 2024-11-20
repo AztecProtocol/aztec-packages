@@ -847,7 +847,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
     BlockPayload blockData;
     BlockPayload previousBlockData;
     if (blockNumber < 1) {
-        throw std::runtime_error(format("Unable to remove historical block: ", blockNumber, ". Tree name: ", name_));
+        throw std::runtime_error(format("Unable to unwind block: ", blockNumber, ". Tree name: ", name_));
     }
     if (initialised_from_block_.has_value()) {
         throw std::runtime_error("Removing a block on a fork is forbidden");
