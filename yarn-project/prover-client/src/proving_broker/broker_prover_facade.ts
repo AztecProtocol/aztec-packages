@@ -59,6 +59,20 @@ type ProvingJob = {
   signal?: AbortSignal;
 };
 
+// Perform a snapshot sync every 30 seconds
+const SNAPSHOT_SYNC_INTERVAL_MS = 30_000;
+
+const MAX_CONCURRENT_JOB_SETTLED_REQUESTS = 10;
+const SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE = 1000;
+
+type ProvingJob = {
+  id: ProvingJobId;
+  type: ProvingRequestType;
+  promise: PromiseWithResolvers<any>;
+  abortFn?: () => Promise<void>;
+  signal?: AbortSignal;
+};
+
 export class BrokerCircuitProverFacade implements ServerCircuitProver {
   private jobs: Map<ProvingJobId, ProvingJob> = new Map();
   private runningPromise?: RunningPromise;
