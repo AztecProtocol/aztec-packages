@@ -4,6 +4,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
+  /** The amount of time to ignore TxStatus.DROPPED receipts (in seconds) due to the presumption that it is being propagated by the p2p network. Defaults to 5. */
+  ignoreDroppedReceiptsFor?: number;
   /** The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 60. */
   timeout?: number;
   /** The maximum time (in seconds) to wait for the transaction to be proven. Defaults to 600. */
@@ -24,6 +26,7 @@ export type WaitOpts = {
 };
 
 export const DefaultWaitOpts: WaitOpts = {
+  ignoreDroppedReceiptsFor: 5,
   timeout: 60,
   provenTimeout: 600,
   interval: 1,
@@ -78,7 +81,7 @@ export class SentTx {
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
-      const tx = (await this.pxe.getTxEffect(txHash))!;
+      const { data: tx } = (await this.pxe.getTxEffect(txHash))!;
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
         nullifiers: tx.nullifiers,
@@ -101,6 +104,9 @@ export class SentTx {
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
+    const startTime = Date.now();
+    const ignoreDroppedReceiptsFor = opts?.ignoreDroppedReceiptsFor ?? DefaultWaitOpts.ignoreDroppedReceiptsFor;
+
     return await retryUntil(
       async () => {
         const txReceipt = await this.pxe.getTxReceipt(txHash);
@@ -108,9 +114,15 @@ export class SentTx {
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;
         }
-        // If the tx was dropped, return it
+        // If the tx was "dropped", either return it or ignore based on timing.
+        // We can ignore it at first because the transaction may have been sent to node 1, and now we're asking node 2 for the receipt.
+        // If we don't allow a short grace period, we could incorrectly return a TxReceipt with status DROPPED.
         if (txReceipt.status === TxStatus.DROPPED) {
-          return txReceipt;
+          const elapsedSeconds = (Date.now() - startTime) / 1000;
+          if (!ignoreDroppedReceiptsFor || elapsedSeconds > ignoreDroppedReceiptsFor) {
+            return txReceipt;
+          }
+          return undefined;
         }
         // If we don't care about waiting for notes to be synced, return the receipt
         const waitForNotesAvailable = opts?.waitForNotesAvailable ?? DefaultWaitOpts.waitForNotesAvailable;

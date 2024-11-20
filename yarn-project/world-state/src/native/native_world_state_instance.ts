@@ -83,6 +83,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /** Creates a new native WorldState instance */
   constructor(dataDir: string, dbMapSizeKb: number, private log = createDebugLogger('aztec:world-state:database')) {
+    log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {
@@ -187,10 +188,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['notesCount'] = body.paddedNoteHashes.length;
         data['nullifiersCount'] = body.paddedNullifiers.length;
         data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
-        data['publicDataWritesCount'] = body.batchesOfPaddedPublicDataWrites.reduce(
-          (acc, batch) => acc + batch.length,
-          0,
-        );
+        data['publicDataWritesCount'] = body.batchesOfPublicDataWrites.reduce((acc, batch) => acc + batch.length, 0);
       }
 
       this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);

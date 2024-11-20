@@ -91,6 +91,23 @@ To run the linter, simply run:
 yarn lint
 ```
 
+If the output is something to the tune of:
+
+```bash
+$ solhint --config ./.solhint.json "src/**/*.sol"
+[solhint] Warning: Rule 'custom-errors' doesn't exist
+[solhint] Warning: Rule 'private-func-leading-underscore' doesn't exist
+[solhint] Warning: Rule 'private-vars-no-leading-underscore' doesn't exist
+[solhint] Warning: Rule 'func-param-name-leading-underscore' doesn't exist
+[solhint] Warning: Rule 'strict-override' doesn't exist
+```
+
+It is likely that it is a old cached version of the linter that is being used, you can update it as:
+
+```bash
+yarn add https://github.com/LHerskind/solhint\#master
+```
+
 ---
 
 # Slither & Slitherin

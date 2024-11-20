@@ -20,7 +20,7 @@ pub struct GlobalVariables {
 // docs:end:global-variables
 
 impl GlobalVariables {
-    fn is_empty(self) -> bool {
+    pub fn is_empty(self) -> bool {
         (self.chain_id == 0)
             & (self.version == 0)
             & (self.block_number == 0)

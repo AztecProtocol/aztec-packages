@@ -15,25 +15,24 @@ import {
   type GlobalVariables,
   type Header,
   type PrivateToPublicAccumulatedData,
-  PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
-  PublicValidationRequestArrayLengths,
   RevertCode,
   type StateReference,
+  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
-import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
-import { type EnqueuedPublicCallExecutionResult } from './execution.js';
+import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
-import { convertPrivateToPublicAccumulatedData, getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
+import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
  * The transaction-level context for public execution.
@@ -82,25 +81,30 @@ export class PublicTxContext {
     tx: Tx,
     globalVariables: GlobalVariables,
   ) {
-    const nonRevertibleAccumulatedDataFromPrivate = convertPrivateToPublicAccumulatedData(
-      tx.data.forPublic!.nonRevertibleAccumulatedData,
+    const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
+    const revertibleAccumulatedDataFromPrivate = tx.data.forPublic!.revertibleAccumulatedData;
+    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
+      n => !n.isEmpty(),
     );
-    const revertibleAccumulatedDataFromPrivate = convertPrivateToPublicAccumulatedData(
-      tx.data.forPublic!.revertibleAccumulatedData,
-    );
-
-    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
-    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
+    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty());
 
     const innerCallTrace = new PublicSideEffectTrace();
+
+    const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
+      /*publicDataReads*/ 0,
+      /*publicDataWrites*/ 0,
+      /*noteHashReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
+      /*nullifierReadRequests*/ 0,
+      /*nullifierNonExistentReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
+      /*l1ToL2MsgReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
+      /*unencryptedLogsHashes*/ 0,
+    );
     const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
       /*startSideEffectCounter=*/ 0,
-      PublicValidationRequestArrayLengths.empty(),
-      PublicAccumulatedDataArrayLengths.new(nonRevertibleAccumulatedDataFromPrivate),
+      previousAccumulatedDataArrayLengths,
     );
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
@@ -336,26 +340,27 @@ export class PublicTxContext {
   }
 
   // TODO(dbanks12): remove once AVM proves entire public tx
-  async updateProvingRequest(
+  updateProvingRequest(
     real: boolean,
     phase: TxExecutionPhase,
-    worldStateDB: WorldStateDB,
+    fnName: string,
     stateManager: AvmPersistableStateManager,
     executionRequest: PublicExecutionRequest,
-    result: EnqueuedPublicCallExecutionResult,
+    result: AvmFinalizedCallResult,
     allocatedGas: Gas,
   ) {
     if (this.avmProvingRequest === undefined) {
       // Propagate the very first avmProvingRequest of the tx for now.
       // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = await generateAvmProvingRequest(
+      this.avmProvingRequest = generateAvmProvingRequest(
         real,
-        worldStateDB,
+        fnName,
         stateManager,
         this.historicalHeader,
         this.globalVariables,
         executionRequest,
-        result,
+        // TODO(dbanks12): do we need this return type unless we are doing an isolated call?
+        stateManager.trace.toPublicEnqueuedCallExecutionResult(result),
         allocatedGas,
         this.getTransactionFee(phase),
       );

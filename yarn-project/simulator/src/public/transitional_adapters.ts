@@ -48,13 +48,11 @@ import { computeNoteHashNonce, computeUniqueNoteHash, computeVarArgsHash, siloNo
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { assertLength } from '@aztec/foundation/serialize';
 
-import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
-import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { type EnqueuedPublicCallExecutionResult, type PublicFunctionCallResult } from './execution.js';
-import { createAvmExecutionEnvironment } from './executor.js';
-import { type WorldStateDB } from './public_db_sources.js';
 
 export function generateAvmCircuitPublicInputs(
   trace: PublicEnqueuedCallSideEffectTrace,
@@ -196,9 +194,9 @@ export function generateAvmCircuitPublicInputs(
   return avmCircuitPublicInputs;
 }
 
-export async function generateAvmProvingRequest(
+export function generateAvmProvingRequest(
   real: boolean,
-  worldStateDB: WorldStateDB,
+  fnName: string,
   stateManager: AvmPersistableStateManager,
   historicalHeader: Header,
   globalVariables: GlobalVariables,
@@ -206,16 +204,19 @@ export async function generateAvmProvingRequest(
   result: EnqueuedPublicCallExecutionResult,
   allocatedGas: Gas,
   transactionFee: Fr,
-): Promise<AvmProvingRequest> {
-  const fnName = await getPublicFunctionDebugName(
-    worldStateDB,
+): AvmProvingRequest {
+  const avmExecutionEnv = new AvmExecutionEnvironment(
     executionRequest.callContext.contractAddress,
+    executionRequest.callContext.msgSender,
     executionRequest.callContext.functionSelector,
+    /*contractCallDepth=*/ Fr.zero(),
+    transactionFee,
+    globalVariables,
+    executionRequest.callContext.isStaticCall,
     executionRequest.args,
   );
 
-  const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, globalVariables, transactionFee);
-  const avmCallResult = new AvmContractCallResult(result.reverted, result.returnValues);
+  const avmCallResult = new AvmFinalizedCallResult(result.reverted, result.returnValues, result.endGasLeft);
 
   // Generate an AVM proving request
   let avmProvingRequest: AvmProvingRequest;
@@ -223,7 +224,6 @@ export async function generateAvmProvingRequest(
     const deprecatedFunctionCallResult = stateManager.trace.toPublicFunctionCallResult(
       avmExecutionEnv,
       /*startGasLeft=*/ allocatedGas,
-      /*endGasLeft=*/ Gas.from(result.endGasLeft),
       Buffer.alloc(0),
       avmCallResult,
       fnName,

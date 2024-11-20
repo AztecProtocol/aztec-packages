@@ -12,7 +12,11 @@ use crate::{
         public_call_request::PublicCallRequest,
         tree_snapshots::TreeSnapshots,
     },
-    constants::{AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, MAX_ENQUEUED_CALLS_PER_TX},
+    constants::{
+        AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        MAX_ENQUEUED_CALLS_PER_TX,
+    },
+    proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
@@ -170,6 +174,18 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
     }
 }
 
+pub struct AvmProofData {
+    pub public_inputs: AvmCircuitPublicInputs,
+    pub proof: AvmProof,
+    pub vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+}
+
+impl Verifiable for AvmProofData {
+    fn verify(self) {
+        // TODO(#8470)
+    }
+}
+
 #[test]
 fn serialization_of_empty_avm_circuit_public_inputs() {
     let item = AvmCircuitPublicInputs::empty();
@@ -177,3 +193,4 @@ fn serialization_of_empty_avm_circuit_public_inputs() {
     let deserialized = AvmCircuitPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
 }
+

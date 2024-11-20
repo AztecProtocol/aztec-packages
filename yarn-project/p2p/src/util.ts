@@ -1,4 +1,4 @@
-import { type DataStoreConfig } from '@aztec/kv-store/utils';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { resolve } from 'dns/promises';

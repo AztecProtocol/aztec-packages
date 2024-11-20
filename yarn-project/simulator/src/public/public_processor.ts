@@ -20,9 +20,7 @@ import {
   type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -31,7 +29,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -54,18 +51,17 @@ export class PublicProcessorFactory {
     maybeHistoricalHeader: Header | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
-    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
+    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
 
-    return PublicProcessor.create(
+    return new PublicProcessor(
       merkleTree,
-      publicExecutor,
       globalVariables,
       historicalHeader,
       worldStateDB,
+      publicTxSimulator,
       this.telemetryClient,
     );
   }
@@ -87,19 +83,6 @@ export class PublicProcessor {
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
-  }
-
-  static create(
-    db: MerkleTreeWriteOperations,
-    publicExecutor: PublicExecutor,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-  ) {
-    const publicTxSimulator = PublicTxSimulator.create(db, publicExecutor, globalVariables, worldStateDB);
-
-    return new PublicProcessor(db, globalVariables, historicalHeader, worldStateDB, publicTxSimulator, telemetryClient);
   }
 
   get tracer(): Tracer {
@@ -184,15 +167,10 @@ export class PublicProcessor {
           }
         }
 
-        const allPublicDataWrites = padArrayEnd(
-          processedTx.txEffect.publicDataWrites,
-          PublicDataWrite.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
         await this.db.batchInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          allPublicDataWrites.map(x => x.toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
+          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
+          0,
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);
