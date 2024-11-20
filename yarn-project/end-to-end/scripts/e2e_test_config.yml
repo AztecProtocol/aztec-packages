@@ -51,7 +51,6 @@ tests:
     test_path: 'e2e_fees/private_payments.test.ts'
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
-  e2e_l1_gas: {}
   e2e_lending_contract: {}
   e2e_event_logs: {}
   e2e_max_block_number: {}
