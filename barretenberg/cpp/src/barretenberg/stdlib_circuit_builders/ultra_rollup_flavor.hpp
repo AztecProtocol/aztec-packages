@@ -5,8 +5,10 @@ namespace bb {
 
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
+    using UltraFlavor::UltraFlavor;
     class ProvingKey : public UltraFlavor::ProvingKey {
       public:
+        using UltraFlavor::ProvingKey::ProvingKey;
         bool contains_ipa_claim;
         IPAClaimPubInputIndices ipa_claim_public_input_indices;
         HonkProof ipa_proof;
@@ -161,6 +163,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        lagrange_first,
                        lagrange_last);
     };
+
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
 
 } // namespace bb
