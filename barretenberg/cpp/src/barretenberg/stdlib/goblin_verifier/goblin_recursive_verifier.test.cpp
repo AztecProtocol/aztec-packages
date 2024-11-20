@@ -112,7 +112,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto [proof, verifier_input] = create_goblin_prover_output();
 
     // Tamper with the ECCVM proof
-    for (auto& val : proof.eccvm_proof) {
+    for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
         if (val > 0) { // tamper by finding the tenth non-zero value and incrementing it by 1
             // tamper by finding the first non-zero value
             // and incrementing it by 1

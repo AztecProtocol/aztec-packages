@@ -36,7 +36,6 @@ dependencies = [
  "acvm_blackbox_solver",
  "brillig_vm",
  "indexmap 1.9.3",
- "num-bigint",
  "serde",
  "thiserror",
  "tracing",

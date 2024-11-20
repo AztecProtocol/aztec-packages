@@ -5,10 +5,10 @@ import { Fr, GrumpkinScalar, type PXE, createDebugLogger, createPXEClient, waitF
 
 import { format } from 'util';
 
+// docs:end:imports
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
-// docs:end:imports
 
 describe('e2e_sandbox_example', () => {
   it('sandbox example works', async () => {

@@ -20,9 +20,7 @@ import {
   type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -31,24 +29,16 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { type SimulationProvider } from '../providers/index.js';
-import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
-import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
-import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
-  constructor(
-    private contractDataSource: ContractDataSource,
-    private simulator: SimulationProvider,
-    private telemetryClient: TelemetryClient,
-  ) {}
+  constructor(private contractDataSource: ContractDataSource, private telemetryClient: TelemetryClient) {}
 
   /**
    * Creates a new instance of a PublicProcessor.
@@ -61,20 +51,17 @@ export class PublicProcessorFactory {
     maybeHistoricalHeader: Header | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
-    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
-    const publicKernelSimulator = new RealPublicKernelCircuitSimulator(this.simulator);
+    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
 
-    return PublicProcessor.create(
+    return new PublicProcessor(
       merkleTree,
-      publicExecutor,
-      publicKernelSimulator,
       globalVariables,
       historicalHeader,
       worldStateDB,
+      publicTxSimulator,
       this.telemetryClient,
     );
   }
@@ -91,39 +78,11 @@ export class PublicProcessor {
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected worldStateDB: WorldStateDB,
-    protected enqueuedCallsProcessor: EnqueuedCallsProcessor,
+    protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
-  }
-
-  static create(
-    db: MerkleTreeWriteOperations,
-    publicExecutor: PublicExecutor,
-    publicKernelSimulator: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-  ) {
-    const enqueuedCallsProcessor = EnqueuedCallsProcessor.create(
-      db,
-      publicExecutor,
-      publicKernelSimulator,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-    );
-
-    return new PublicProcessor(
-      db,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-      enqueuedCallsProcessor,
-      telemetryClient,
-    );
   }
 
   get tracer(): Tracer {
@@ -208,15 +167,10 @@ export class PublicProcessor {
           }
         }
 
-        const allPublicDataWrites = padArrayEnd(
-          processedTx.txEffect.publicDataWrites,
-          PublicDataWrite.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
         await this.db.batchInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          allPublicDataWrites.map(x => x.toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
+          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
+          0,
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);
@@ -299,7 +253,7 @@ export class PublicProcessor {
     const timer = new Timer();
 
     const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
-      await this.enqueuedCallsProcessor.process(tx);
+      await this.publicTxSimulator.simulate(tx);
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
@@ -316,7 +270,7 @@ export class PublicProcessor {
 
     this.metrics.recordClassRegistration(
       ...ContractClassRegisteredEvent.fromLogs(
-        tx.unencryptedLogs.unrollLogs(),
+        tx.contractClassLogs.unrollLogs(),
         ProtocolContractAddress.ContractClassRegisterer,
       ),
     );

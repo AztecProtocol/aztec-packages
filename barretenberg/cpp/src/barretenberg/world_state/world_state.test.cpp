@@ -1,11 +1,13 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -247,7 +249,8 @@ TEST_F(WorldStateTest, GetInitialStateReference)
 
     auto before_commit = ws.get_initial_state_reference();
     ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
-    ws.commit();
+    WorldStateStatusFull status;
+    ws.commit(status);
 
     auto after_commit = ws.get_initial_state_reference();
 
@@ -281,7 +284,8 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
         EXPECT_EQ(committed.meta.size, initial.meta.size);
         EXPECT_EQ(committed.meta.root, initial.meta.root);
 
-        ws.commit();
+        WorldStateStatusFull status;
+        ws.commit(status);
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 0, fr(42));
         assert_leaf_index(ws, WorldStateRevision::committed(), tree_id, fr(42), 0);
 
@@ -330,7 +334,8 @@ TEST_F(WorldStateTest, AppendOnlyAllowDuplicates)
         assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 1, fr(42));
         assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 2, fr(42));
 
-        ws.commit();
+        WorldStateStatusFull status;
+        ws.commit(status);
 
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 0, fr(42));
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 1, fr(42));
@@ -351,7 +356,8 @@ TEST_F(WorldStateTest, NullifierTree)
     ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier });
     assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 128, test_nullifier);
 
-    ws.commit();
+    WorldStateStatusFull status;
+    ws.commit(status);
 
     auto test_leaf = ws.get_indexed_leaf<NullifierLeafValue>(WorldStateRevision::committed(), tree_id, 128);
     // at this point 142 should be the biggest leaf so it wraps back to 0
@@ -381,7 +387,8 @@ TEST_F(WorldStateTest, NullifierTreeDuplicates)
     NullifierLeafValue test_nullifier(142);
 
     ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier });
-    ws.commit();
+    WorldStateStatusFull status;
+    ws.commit(status);
 
     assert_tree_size(ws, WorldStateRevision::committed(), tree_id, 129);
     EXPECT_THROW(ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier }), std::runtime_error);
@@ -458,7 +465,8 @@ TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)
     ws.append_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(142) });
     ws.append_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { PublicDataLeafValue(142, 1) });
 
-    ws.commit();
+    WorldStateStatusFull status;
+    ws.commit(status);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(42));
@@ -498,10 +506,10 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
           { fr("0x20ea8ca97f96508aaed2d6cdc4198a41c77c640bfa8785a51bb905b9a672ba0b"), 1 } },
     };
 
-    WorldStateStatus status = ws.sync_block(
+    WorldStateStatusFull status = ws.sync_block(
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
-    WorldStateStatus expected{ .unfinalisedBlockNumber = 1, .finalisedBlockNumber = 0, .oldestHistoricalBlock = 1 };
-    EXPECT_EQ(status, expected);
+    WorldStateStatusSummary expected(1, 0, 1, true);
+    EXPECT_EQ(status.summary, expected);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(43));
@@ -540,10 +548,10 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
         EXPECT_NE(uncommitted_state_ref.at(tree_id), snapshot);
     }
 
-    WorldStateStatus status = ws.sync_block(
+    WorldStateStatusFull status = ws.sync_block(
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
-    WorldStateStatus expected{ .unfinalisedBlockNumber = 1, .finalisedBlockNumber = 0, .oldestHistoricalBlock = 1 };
-    EXPECT_EQ(status, expected);
+    WorldStateStatusSummary expected{ 1, 0, 1, true };
+    EXPECT_EQ(status.summary, expected);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(43));
@@ -584,10 +592,10 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
         EXPECT_EQ(uncommitted_state_ref.at(tree_id), snapshot);
     }
 
-    WorldStateStatus status = ws.sync_block(
+    WorldStateStatusFull status = ws.sync_block(
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
-    WorldStateStatus expected{ .unfinalisedBlockNumber = 1, .finalisedBlockNumber = 0, .oldestHistoricalBlock = 1 };
-    EXPECT_EQ(status, expected);
+    WorldStateStatusSummary expected{ 1, 0, 1, true };
+    EXPECT_EQ(status.summary, expected);
 
     assert_leaf_value(ws, WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE, 1, fr(1));
 
@@ -731,7 +739,8 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
     EXPECT_NE(fork_archive_state_after_insert.meta, fork_archive_state_before_insert.meta);
     EXPECT_NE(fork_archive_state_after_insert.meta, canonical_archive_state_after_insert.meta);
 
-    ws.commit();
+    WorldStateStatusFull status;
+    ws.commit(status);
     auto canonical_archive_state_after_commit =
         ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
     auto fork_archive_state_after_commit = ws.get_tree_info(

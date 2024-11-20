@@ -3,16 +3,14 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract ContractInstanceDeployer {
     use dep::aztec::{
-        hash::compute_unencrypted_log_hash,
         macros::{events::event, functions::private},
-        oracle::logs::emit_unencrypted_log_private,
         utils::to_bytes::arr_to_be_bytes_arr,
     };
     use dep::aztec::protocol_types::{
-        abis::log_hash::LogHash,
         address::{AztecAddress, PartialAddress, PublicKeysHash},
         constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
         contract_class_id::ContractClassId,
+        hash::sha256_to_field,
         public_keys::PublicKeys,
         traits::Serialize,
     };
@@ -119,20 +117,14 @@ contract ContractInstanceDeployer {
         let payload = event.serialize();
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
-        let contract_address = context.this_address();
-        let counter = context.next_counter();
-
         // @todo This is very inefficient, we are doing a lot of back and forth conversions.
         let serialized_log = arr_to_be_bytes_arr(payload);
-        let log_hash = compute_unencrypted_log_hash(contract_address, serialized_log);
-        // 40 = addr (32) + raw log len (4) + processed log len (4)
-        let len = 40 + serialized_log.len().to_field();
-        let side_effect = LogHash { value: log_hash, counter, length: len };
+        let log_hash = sha256_to_field(serialized_log);
 
-        // We manually push the unencrypted log to the context and inform the execution environment about this because
-        // PrivateContext does not expose an `emit_unencrypted_log` method - this mechanism is considered error-prone
-        // and only some canonical contracts use it.
-        context.unencrypted_logs_hashes.push(side_effect);
-        emit_unencrypted_log_private(contract_address, payload, counter);
+        // Note: we are cheating a bit here because this is actually not encrypted
+        // but needs to be emitted from private, where we have removed unencrypted_logs,
+        // and has 15 fields (the max enc log len is 8).
+        // TODO(Miranda): split into 2 logs
+        context.emit_raw_event_log_with_masked_address(0, serialized_log, log_hash);
     }
 }

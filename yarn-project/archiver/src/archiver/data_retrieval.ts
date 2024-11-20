@@ -139,9 +139,18 @@ async function getBlockFromRollupTx(
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
+  const [decodedArgs, , bodyHex] = args! as readonly [
+    {
+      header: Hex;
+      archive: Hex;
+      blockHash: Hex;
+      txHashes: Hex[];
+    },
+    ViemSignature[],
+    Hex,
+  ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
@@ -152,7 +161,7 @@ async function getBlockFromRollupTx(
 
   const archive = AppendOnlyTreeSnapshot.fromBuffer(
     Buffer.concat([
-      Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+      Buffer.from(hexToBytes(decodedArgs.archive)), // L2Block.archive.root
       numToUInt32BE(Number(l2BlockNum + 1n)), // L2Block.archive.nextAvailableLeafIndex
     ]),
   );

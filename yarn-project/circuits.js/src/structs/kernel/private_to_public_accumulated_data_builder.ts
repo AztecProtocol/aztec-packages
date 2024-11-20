@@ -2,13 +2,13 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
@@ -17,8 +17,8 @@ import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_
 
 /**
  * TESTS-ONLY CLASS
- * Builder for PublicAccumulatedData, used to conveniently construct instances for testing,
- * as PublicAccumulatedData is (or will shortly be) immutable.
+ * Builder for PrivateToPublicAccumulatedData, used to conveniently construct instances for testing,
+ * as PrivateToPublicAccumulatedData is (or will shortly be) immutable.
  *
  */
 export class PrivateToPublicAccumulatedDataBuilder {
@@ -27,8 +27,8 @@ export class PrivateToPublicAccumulatedDataBuilder {
   private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
   private noteEncryptedLogsHashes: LogHash[] = [];
   private encryptedLogsHashes: ScopedLogHash[] = [];
-  private unencryptedLogsHashes: ScopedLogHash[] = [];
-  private publicCallStack: PublicCallRequest[] = [];
+  private contractClassLogsHashes: ScopedLogHash[] = [];
+  private publicCallRequests: PublicCallRequest[] = [];
 
   pushNoteHash(newNoteHash: Fr) {
     this.noteHashes.push(newNoteHash);
@@ -80,23 +80,23 @@ export class PrivateToPublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushUnencryptedLogsHash(unencryptedLogsHash: ScopedLogHash) {
-    this.unencryptedLogsHashes.push(unencryptedLogsHash);
+  pushContractClassLogsHash(contractClassLogsHash: ScopedLogHash) {
+    this.contractClassLogsHashes.push(contractClassLogsHash);
     return this;
   }
 
-  withUnencryptedLogsHashes(unencryptedLogsHashes: ScopedLogHash[]) {
-    this.unencryptedLogsHashes = unencryptedLogsHashes;
+  withContractClassLogsHashes(contractClassLogsHashes: ScopedLogHash[]) {
+    this.contractClassLogsHashes = contractClassLogsHashes;
     return this;
   }
 
   pushPublicCall(publicCall: PublicCallRequest) {
-    this.publicCallStack.push(publicCall);
+    this.publicCallRequests.push(publicCall);
     return this;
   }
 
-  withPublicCallStack(publicCallStack: PublicCallRequest[]) {
-    this.publicCallStack = publicCallStack;
+  withPublicCallRequests(publicCallRequests: PublicCallRequest[]) {
+    this.publicCallRequests = publicCallRequests;
     return this;
   }
 
@@ -107,19 +107,8 @@ export class PrivateToPublicAccumulatedDataBuilder {
       padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
-      padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
-      padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+      padArrayEnd(this.contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
+      padArrayEnd(this.publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
-  }
-
-  static fromPublicAccumulatedData(publicAccumulatedData: PrivateToPublicAccumulatedData) {
-    return new PrivateToPublicAccumulatedDataBuilder()
-      .withNoteHashes(publicAccumulatedData.noteHashes)
-      .withNullifiers(publicAccumulatedData.nullifiers)
-      .withL2ToL1Msgs(publicAccumulatedData.l2ToL1Msgs)
-      .withNoteEncryptedLogsHashes(publicAccumulatedData.noteEncryptedLogsHashes)
-      .withEncryptedLogsHashes(publicAccumulatedData.encryptedLogsHashes)
-      .withUnencryptedLogsHashes(publicAccumulatedData.unencryptedLogsHashes)
-      .withPublicCallStack(publicAccumulatedData.publicCallRequests);
   }
 }
