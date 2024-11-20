@@ -47,6 +47,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #nullifierToNoteId: AztecMap<string, string>;
   #nullifiersByBlockNumber: AztecMultiMap<number, string>;
 
+  #nullifiedNotesToScope: AztecMultiMap<string, string>;
   #nullifiedNotesByContract: AztecMultiMap<string, string>;
   #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
   #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
@@ -64,6 +65,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #outgoingNotesByOvpkM: AztecMultiMap<string, string>;
 
   #scopes: AztecSet<string>;
+  #notesToScope: AztecMultiMap<string, string>;
   #notesByContractAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByStorageSlotAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
@@ -97,6 +99,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#nullifierToNoteId = db.openMap('nullifier_to_note');
     this.#nullifiersByBlockNumber = db.openMultiMap('nullifier_to_block_number');
 
+    this.#nullifiedNotesToScope = db.openMultiMap('nullified_notes_to_scope');
     this.#nullifiedNotesByContract = db.openMultiMap('nullified_notes_by_contract');
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
@@ -110,6 +113,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#outgoingNotesByOvpkM = db.openMultiMap('outgoing_notes_by_ovpk_m');
 
     this.#scopes = db.openSet('scopes');
+    this.#notesToScope = db.openMultiMap('notes_to_scope');
     this.#notesByContractAndScope = new Map<string, AztecMultiMap<string, string>>();
     this.#notesByStorageSlotAndScope = new Map<string, AztecMultiMap<string, string>>();
     this.#notesByTxHashAndScope = new Map<string, AztecMultiMap<string, string>>();
@@ -205,6 +209,7 @@ export class KVPxeDatabase implements PxeDatabase {
         // Had we stored them by their nullifier, they would be returned in random order
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         void this.#notes.set(noteIndex, dao.toBuffer());
+        void this.#notesToScope.set(noteIndex, scope.toString());
         void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
         void this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
@@ -231,6 +236,7 @@ export class KVPxeDatabase implements PxeDatabase {
         if (noteDao.l2BlockNumber > blockNumber) {
           const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
           void this.#notes.delete(noteIndex);
+          void this.#notesToScope.delete(noteIndex);
           void this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
           for (const scope of this.#scopes.entries()) {
             void this.#notesByAddressPointAndScope.get(scope)!.deleteValue(noteDao.addressPoint.toString(), noteIndex);
@@ -281,15 +287,22 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notes.set(noteIndex, dao.toBuffer());
         void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        // TODO: check if is this a good assumption
-        const scope = new AztecAddress(dao.addressPoint.x);
+        let scopes = Array.from(this.#nullifiedNotesToScope.getValues(noteIndex) ?? []);
 
-        void this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
-        void this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
-        void this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
-        void this.#notesByAddressPointAndScope.get(scope.toString())!.set(dao.addressPoint.toString(), noteIndex);
+        if (scopes.length === 0) {
+          scopes = [new AztecAddress(dao.addressPoint.x).toString()];
+        }
+
+        for (const scope of scopes) {
+          void this.#notesByContractAndScope.get(scope)!.set(dao.contractAddress.toString(), noteIndex);
+          void this.#notesByStorageSlotAndScope.get(scope)!.set(dao.storageSlot.toString(), noteIndex);
+          void this.#notesByTxHashAndScope.get(scope)!.set(dao.txHash.toString(), noteIndex);
+          void this.#notesByAddressPointAndScope.get(scope)!.set(dao.addressPoint.toString(), noteIndex);
+          void this.#notesToScope.set(noteIndex, scope);
+        }
 
         void this.#nullifiedNotes.delete(noteIndex);
+        void this.#nullifiedNotesToScope.delete(noteIndex);
         void this.#nullifiersByBlockNumber.deleteValue(dao.l2BlockNumber, dao.siloedNullifier.toString());
         void this.#nullifiedNotesByContract.deleteValue(dao.contractAddress.toString(), noteIndex);
         void this.#nullifiedNotesByStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
@@ -457,7 +470,7 @@ export class KVPxeDatabase implements PxeDatabase {
           // note doesn't exist. Maybe it got nullified already
           continue;
         }
-
+        const noteScopes = this.#notesToScope.getValues(noteIndex) ?? [];
         const note = IncomingNoteDao.fromBuffer(noteBuffer);
         if (!note.addressPoint.equals(accountAddressPoint)) {
           // tried to nullify someone else's note
@@ -467,14 +480,20 @@ export class KVPxeDatabase implements PxeDatabase {
         nullifiedNotes.push(note);
 
         void this.#notes.delete(noteIndex);
+        void this.#notesToScope.delete(noteIndex);
 
-        for (const scope in this.#scopes.entries()) {
+        for (const scope of this.#scopes.entries()) {
           void this.#notesByAddressPointAndScope.get(scope)!.deleteValue(accountAddressPoint.toString(), noteIndex);
           void this.#notesByTxHashAndScope.get(scope)!.deleteValue(note.txHash.toString(), noteIndex);
           void this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
           void this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
         }
 
+        if (noteScopes !== undefined) {
+          for (const scope of noteScopes) {
+            this.#nullifiedNotesToScope.set(noteIndex, scope);
+          }
+        }
         void this.#nullifiedNotes.set(noteIndex, note.toBuffer());
         void this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
         void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
