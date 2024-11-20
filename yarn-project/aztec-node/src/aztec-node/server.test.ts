@@ -6,6 +6,7 @@ import {
   type L2LogsSource,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  type NullifierWithBlockSource,
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -53,6 +54,8 @@ describe('aztec node', () => {
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
 
+    const nullifierWithBlockSource = mock<NullifierWithBlockSource>();
+
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
     node = new AztecNodeService(
@@ -72,6 +75,7 @@ describe('aztec node', () => {
       l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
+      nullifierWithBlockSource,
       worldState,
       undefined,
       12345,

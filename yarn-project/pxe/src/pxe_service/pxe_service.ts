@@ -6,6 +6,7 @@ import {
   type ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type IncomingNotesFilter,
   L1EventPayload,
   type L2Block,
@@ -22,7 +23,6 @@ import {
   type SiblingPath,
   SimulationError,
   type Tx,
-  type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   TxProvingResult,
@@ -58,6 +58,7 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
+import { type L2TipsStore } from '@aztec/kv-store/stores';
 import {
   ProtocolContractAddress,
   getCanonicalProtocolContract,
@@ -93,12 +94,13 @@ export class PXEService implements PXE {
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: PxeDatabase,
+    tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
-    private config: PXEServiceConfig,
+    config: PXEServiceConfig,
     logSuffix?: string,
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
-    this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
+    this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
@@ -112,8 +114,7 @@ export class PXEService implements PXE {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    const { l2BlockPollingIntervalMS } = this.config;
-    await this.synchronizer.start(1, l2BlockPollingIntervalMS);
+    await this.synchronizer.start();
     await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
@@ -356,7 +357,7 @@ export class PXEService implements PXE {
       throw new Error(`Unknown account: ${note.owner.toString()}`);
     }
 
-    const nonces = await this.#getNoteNonces(note);
+    const { data: nonces, l2BlockNumber, l2BlockHash } = await this.#getNoteNonces(note);
     if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
     }
@@ -391,6 +392,8 @@ export class PXEService implements PXE {
           note.storageSlot,
           note.noteTypeId,
           note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           nonce,
           noteHash,
           siloedNullifier,
@@ -403,7 +406,7 @@ export class PXEService implements PXE {
   }
 
   public async addNullifiedNote(note: ExtendedNote) {
-    const nonces = await this.#getNoteNonces(note);
+    const { data: nonces, l2BlockHash, l2BlockNumber } = await this.#getNoteNonces(note);
     if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
     }
@@ -434,6 +437,8 @@ export class PXEService implements PXE {
           note.storageSlot,
           note.noteTypeId,
           note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           nonce,
           noteHash,
           Fr.ZERO, // We are not able to derive
@@ -450,15 +455,15 @@ export class PXEService implements PXE {
    * @returns The nonces of the note.
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
    */
-  async #getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+  async #getNoteNonces(note: ExtendedNote): Promise<InBlock<Fr[]>> {
     const tx = await this.node.getTxEffect(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
     }
 
     const nonces: Fr[] = [];
-    const firstNullifier = tx.nullifiers[0];
-    const hashes = tx.noteHashes;
+    const firstNullifier = tx.data.nullifiers[0];
+    const hashes = tx.data.noteHashes;
     for (let i = 0; i < hashes.length; ++i) {
       const hash = hashes[i];
       if (hash.equals(Fr.ZERO)) {
@@ -479,7 +484,7 @@ export class PXEService implements PXE {
       }
     }
 
-    return nonces;
+    return { l2BlockHash: tx.l2BlockHash, l2BlockNumber: tx.l2BlockNumber, data: nonces };
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
@@ -593,7 +598,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash) {
     return this.node.getTxEffect(txHash);
   }
 
