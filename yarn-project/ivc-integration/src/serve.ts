@@ -5,6 +5,8 @@ import { generate3FunctionTestingIVCStack, proveAndVerifyBrowser } from './index
 createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
+/* eslint-disable no-console */
+
 // Function to set up the output element and redirect all console output
 function setupConsoleOutput() {
   const container = document.createElement('div');
