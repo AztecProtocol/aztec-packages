@@ -362,6 +362,8 @@ export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
       for (const [key, value] of Object.entries(structs)) {
         // We are manually ordering events and functions in the abi by path.
         // The path ordering is arbitrary, and only needed to ensure deterministic order.
+        // These are the only arrays in the artifact with arbitrary order, and hence the only ones
+        // we need to sort.
         if (key === 'events' || key === 'functions') {
           structs[key] = (value as StructType[]).sort((a, b) => (a.path > b.path ? -1 : 1));
         }
