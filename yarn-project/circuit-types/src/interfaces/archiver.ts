@@ -70,4 +70,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
+  // TODO(#10007): Remove this method
+  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
