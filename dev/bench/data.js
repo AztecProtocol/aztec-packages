@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732099509248,
+  "lastUpdate": 1732115809822,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4fc6f8b44b7e58d982151732fa6d9691e73635bc",
-          "message": "chore: redo typo PR by dsarfed (#9667)\n\nThanks dsarfed for\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/9654. Our policy is\r\nto redo typo changes to dissuade metric farming. This is an automated\r\nscript.\r\n\r\n---------\r\n\r\nCo-authored-by: dsarfed <d.p.casm@gmail.com>\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2024-11-01T21:49:23-04:00",
-          "tree_id": "25759109fb10f8dc26073c8f383dd6d756aa3a42",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4fc6f8b44b7e58d982151732fa6d9691e73635bc"
-        },
-        "date": 1730513539522,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29066.328510000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27184.776768 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5357.084838999981,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5046.455019 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85041.12944699998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85041132000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15206.350716,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15206351000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2494562742,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2494562742 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127477506,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127477506 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 146332695,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 146332695 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c560abebcf390ec3ba8ebdc18b287b29f148450",
+          "message": "feat: improve trace utilization tracking (#10008)\n\nAdd functionality for considering previous active ranges in\r\n`ExecutionTraceUsageTracker` (needed for perturbator calculation in PG).\r\nAlso update active ranges calculation to separately consider rows for\r\nlookup tables / databus vectors rather than a single range which covers\r\nboth.",
+          "timestamp": "2024-11-20T07:39:49-07:00",
+          "tree_id": "cd2c9c285393f198d18c44d433710f636911617e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c560abebcf390ec3ba8ebdc18b287b29f148450"
+        },
+        "date": 1732115801994,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28885.256529000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27238.613352999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5344.822013999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4994.5747790000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84337.507536,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84337509000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15171.439703999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15171440000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3074657095,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3074657095 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143391797,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143391797 ns\nthreads: 1"
           }
         ]
       }
