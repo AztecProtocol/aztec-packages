@@ -27,4 +27,32 @@ fi
 if [ "${CI:-0}" -eq 1 ]; then
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   NEXTEST_RETRIES=2 ./scripts/test_native.sh
+
+  cd ./noir-repo
+  (cd ./test_programs && ./format.sh check)
+  (cd ./noir_stdlib && nargo fmt --check)
+
+  export NODE_OPTIONS=--max_old_space_size=8192
+  yarn workspaces foreach \
+    --parallel \
+    --verbose \
+    --exclude @noir-lang/root \ # foreach includes the root workspace, ignore it
+    --exclude @noir-lang/noir_js \ # noir_js OOMs
+    --exclude integration-tests \ # separate node and browser tests
+    --exclude @noir-lang/noir_wasm \
+    run test
+
+  yarn workspaces foreach \
+    --parallel \
+    --verbose \
+    --include integration-tests \
+    --include @noir-lang/noir_wasm \
+    run test:node
+
+  ./.github/scripts/playwright-install.sh
+  yarn workspaces foreach \
+    --verbose \
+    --include integration-tests \
+    --include @noir-lang/noir_wasm \
+    run test:browser
 fi

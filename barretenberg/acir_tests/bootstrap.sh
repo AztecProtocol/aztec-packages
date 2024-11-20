@@ -13,10 +13,10 @@ trap cleanup EXIT
 (cd browser-test-app && yarn && yarn build)
 
 if [ "${CI:-0}" -eq 1 ]; then
-  ./run_acir_tests.sh
+  COMPILE=1 ./run_acir_tests.sh
 
   # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
-  HONK=true BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof &
+  COMPILE=1 HONK=true BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof &
   # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
   HONK=true BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof &
   # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.

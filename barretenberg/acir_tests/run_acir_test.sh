@@ -25,8 +25,8 @@ if [ "$COMPILE" -eq 1 ]; then
   echo -n "compiling... "
   export RAYON_NUM_THREADS=4
   rm -rf target
-  ../../../target/release/nargo compile --silence-warnings
-  ../../../target/release/nargo execute
+  ../../../target/release/nargo compile --silence-warnings > /dev/null 2>&1
+  ../../../target/release/nargo execute > /dev/null 2>&1
   mv ./target/$TEST_NAME.json ./target/program.json
   mv ./target/$TEST_NAME.gz ./target/witness.gz
 fi

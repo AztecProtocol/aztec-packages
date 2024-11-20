@@ -30,3 +30,7 @@ git submodule update --init --recursive ./lib
 
 # Compile contracts
 forge build
+
+if [ "${CI:-0}" -eq 1 ]; then
+  forge test --no-match-contract UniswapPortalTest
+fi

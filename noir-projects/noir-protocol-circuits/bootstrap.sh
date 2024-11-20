@@ -18,48 +18,18 @@ fi
 yarn
 node ./scripts/generate_variants.js
 
-NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-echo "Compiling protocol circuits with ${RAYON_NUM_THREADS:-1} threads"
-RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1} $NARGO compile --silence-warnings
+export RAYON_NUM_THREADS=16
+export HARDWARE_CONCURRENCY=16
 
-BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
+echo "Compiling noir-protocol-circuits with $RAYON_NUM_THREADS threads..."
+NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+$NARGO compile --silence-warnings
+
+export BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo Using BB hash $BB_HASH
 mkdir -p "./target/keys"
 
-AVAILABLE_MEMORY=0
+JOBS=$(($(nproc) / HARDWARE_CONCURRENCY))
 
-case "$(uname)" in
-  Linux*)
-    # Check available memory on Linux
-    AVAILABLE_MEMORY=$(awk '/MemTotal/ { printf $2 }' /proc/meminfo)
-    ;;
-  *)
-    echo "Parallel vk generation not supported on this operating system"
-    ;;
-esac
-# This value may be too low.
-# If vk generation fail with an amount of free memory greater than this value then it should be increased.
-MIN_PARALLEL_VK_GENERATION_MEMORY=500000000
-PARALLEL_VK=${PARALLEL_VK:-false}
-
-if [[ AVAILABLE_MEMORY -gt MIN_PARALLEL_VK_GENERATION_MEMORY ]] && [[ $PARALLEL_VK == "true" ]]; then
-  echo "Generating vks in parallel..."
-  for pathname in "./target"/*.json; do
-      if [[ $pathname != *"_simulated"* ]]; then
-        BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
-      fi
-  done
-
-  for job in $(jobs -p); do
-    wait $job || exit 1
-  done
-
-else
-  echo "Generating VKs sequentially..."
-
-  for pathname in "./target"/*.json; do
-    if [[ $pathname != *"_simulated"* ]]; then
-      BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys"
-    fi
-  done
-fi
+find target -maxdepth 1 -name "*.json" ! -name "*_simulated_*" | \
+  parallel -j$JOBS --line-buffer --tag --memfree 500M node ../scripts/generate_vk_json.js {} ./target/keys
