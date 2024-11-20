@@ -69,6 +69,8 @@ export class AvmPersistableStateManager {
     worldStateDB: WorldStateDB,
     trace: PublicSideEffectTraceInterface,
     pendingSiloedNullifiers: Fr[],
+    doMerkleOperations: boolean = false,
+    merkleTrees?: MerkleTreeWriteOperations,
   ) {
     const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(worldStateDB, pendingSiloedNullifiers);
     return new AvmPersistableStateManager(
@@ -76,6 +78,8 @@ export class AvmPersistableStateManager {
       trace,
       /*publicStorage=*/ new PublicStorage(worldStateDB),
       /*nullifiers=*/ parentNullifiers.fork(),
+      doMerkleOperations,
+      merkleTrees,
     );
   }
 

@@ -10,6 +10,8 @@ import {
 } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+
 import {
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
@@ -323,5 +325,67 @@ export class PublicCircuitPublicInputs {
       Gas.fromFields(reader),
       reader.readField(),
     );
+  }
+
+  [inspect.custom]() {
+    return `PublicCircuitPublicInputs {
+      callContext: ${inspect(this.callContext)},
+      argsHash: ${inspect(this.argsHash)},
+      returnsHash: ${inspect(this.returnsHash)},
+      noteHashReadRequests: [${this.noteHashReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      nullifierReadRequests: [${this.nullifierReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      nullifierNonExistentReadRequests: [${this.nullifierNonExistentReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      l1ToL2MsgReadRequests: [${this.l1ToL2MsgReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      contractStorageUpdateRequests: [${this.contractStorageUpdateRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      contractStorageReads: [${this.contractStorageReads
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      publicCallRequests: [${this.publicCallRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      noteHashes: [${this.noteHashes
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      nullifiers: [${this.nullifiers
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      l2ToL1Msgs: [${this.l2ToL1Msgs
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      startSideEffectCounter: ${inspect(this.startSideEffectCounter)},
+      endSideEffectCounter: ${inspect(this.endSideEffectCounter)},
+      startSideEffectCounter: ${inspect(this.startSideEffectCounter)},
+      unencryptedLogsHashes: [${this.unencryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      historicalHeader: ${inspect(this.historicalHeader)},
+      globalVariables: ${inspect(this.globalVariables)},
+      proverAddress: ${inspect(this.proverAddress)},
+      revertCode: ${inspect(this.revertCode)},
+      startGasLeft: ${inspect(this.startGasLeft)},
+      endGasLeft: ${inspect(this.endGasLeft)},
+      transactionFee: ${inspect(this.transactionFee)},
+      }`;
   }
 }
