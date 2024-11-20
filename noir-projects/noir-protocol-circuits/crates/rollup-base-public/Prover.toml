@@ -18,7 +18,7 @@ protocol_contract_tree_root = "0x0586d6158689bcc36f32f0e2e351cfe7b3be422add44055
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000050"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000080"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.partial.note_hash_tree]
 root = "0x0a17550139b25759dfb5ffb96aadf7463293b4d61ccc033e2e02a894d1dfb6bb"
@@ -3511,7 +3511,7 @@ reverted = false
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000000a0"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.note_hash_tree]
 root = "0x240ed7360e4ebefb2394ea93644b2789263d460d2a5fb334cbbf478b7f9e5172"
@@ -4849,7 +4849,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000000a0"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.note_hash_tree]
 root = "0x240ed7360e4ebefb2394ea93644b2789263d460d2a5fb334cbbf478b7f9e5172"
@@ -19069,7 +19069,7 @@ public_data_tree_sibling_paths = [
 ]
 
 [inputs.archive_root_membership_witness]
-leaf_index = "5"
+leaf_index = "8"
 sibling_path = [
   "0x0ab953051018e13053816017f9f28b07e95dae2d85cced764d47b115f36b02c8",
   "0x208f92a13694549692dfec01f4aa84d79010d453fb94aea1c890f25e253b4e66",

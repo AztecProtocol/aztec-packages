@@ -61,7 +61,7 @@ describe('smoke test', () => {
 
   // Leaving this test skipped commented out because it requires the ethereum node
   // to be running and forwarded, e.g.
-  // kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // kubectl port-forward -n smoke service/spartan-aztec-network-eth-execution 8545:8545
   // also because it assumes foundry.
 
   it.skip('should be able to get rollup info', async () => {

@@ -4,11 +4,22 @@ aztec:
   epochProofClaimWindow: 2
 
 ethereum:
-  blockTime: 8sec
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
+  blockTime: 8
+  execution:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+  beacon:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+  validator:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
 
 telemetry:
   enabled: true

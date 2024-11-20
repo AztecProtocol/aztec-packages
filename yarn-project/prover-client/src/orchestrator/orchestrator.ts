@@ -20,7 +20,7 @@ import {
   BaseParityInputs,
   type BlockHeader,
   Fr,
-  type GlobalVariables,
+  GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -160,6 +160,22 @@ export class ProvingOrchestrator implements EpochProver {
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
+
+    const partial = new PartialStateReference(
+      await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
+      await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
+      await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
+    );
+    const state = new StateReference(messageTreeSnapshot, partial);
+    // TODO: Construct the full previousBlockHeader.
+    const previousBlockHeader = BlockHeader.from({
+      lastArchive: startArchiveSnapshot,
+      contentCommitment: ContentCommitment.empty(),
+      state,
+      globalVariables: GlobalVariables.empty(),
+      totalFees: Fr.ZERO,
+      totalManaUsed: Fr.ZERO,
+    });
 
     const blockProvingState = this.provingState!.startNewBlock(
       globalVariables,
