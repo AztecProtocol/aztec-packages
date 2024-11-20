@@ -308,7 +308,13 @@ impl Translator {
     }
 
     fn finish(self) -> Ssa {
-        self.builder.finish()
+        let mut ssa = self.builder.finish();
+        // Normalize the IDs so we have a better chance of matching the SSA we parsed
+        // after the step-by-step reconstruction done during translation. This assumes
+        // that the SSA we parsed was printed by the `SsaBuilder`, which normalizes
+        // before each print.
+        ssa.normalize_ids();
+        ssa
     }
 
     fn current_function_id(&self) -> FunctionId {
