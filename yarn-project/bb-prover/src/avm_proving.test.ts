@@ -290,6 +290,47 @@ describe('AVM WitGen, "check circuit" tests', () => {
     },
     TIMEOUT,
   );
+  it(
+    'Should prove and verify multiple app logic enqueued calls (set storage in first call, read it in next)',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ ['set_storage_single', 'read_assert_storage_single'],
+        /*appArgs=*/ [[new Fr(5)], [new Fr(5)]],
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify multiple app logic enqueued calls (like `enqueue_public_from_private`)',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ ['set_opcode_u8', 'set_read_storage_single'],
+        /*appArgs=*/ [[], [new Fr(5)]],
+      );
+    },
+    TIMEOUT,
+  );
+  it.skip(
+    'Should prove and verify enqueued calls in every phase, with enqueued calls that depend on each other',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ ['read_assert_storage_single', 'set_storage_single'],
+        /*setupArgs=*/ [[new Fr(0)], [new Fr(5)]],
+        /*appFunctionNames=*/ ['read_assert_storage_single', 'set_storage_single'],
+        /*appArgs=*/ [[new Fr(5)], [new Fr(10)]],
+        /*teardownFunctionName=*/ 'read_assert_storage_single',
+        /*teardownArgs=*/ [new Fr(10)],
+      );
+    },
+    TIMEOUT,
+  );
 });
 
 /**
