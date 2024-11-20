@@ -99,16 +99,6 @@ template <typename Fr> class Polynomial {
     {
         return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
     }
-
-    /* @brief Utility to efficiently construct a shift from the original polynomial.
-     *
-     * @param virtual_size the size of the polynomial to be shifted
-     * @return Polynomial
-     */
-    static Polynomial shiftable(size_t virtual_size, DontZeroMemory flag)
-    {
-        return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1, flag);
-    }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
