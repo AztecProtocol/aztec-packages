@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732115809822,
+  "lastUpdate": 1732129848083,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a41d42852ea2d7cdcb9f75387342783e1632b11",
-          "message": "feat: Encode static error strings in the ABI (#9552)\n\nAvoids embedding revert string in circuits. Instead, static string\r\nerrors get a specific selector, and they are encoded in the ABI. We use\r\nnoir_abi to resolve those messages in the error case.\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2024-11-04T10:51:26+01:00",
-          "tree_id": "b2a643b246444d2efd81eea9d8e149500e4cec7b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a41d42852ea2d7cdcb9f75387342783e1632b11"
-        },
-        "date": 1730715464314,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29042.35773900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27261.634533000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5338.293532000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4969.760267000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85756.479286,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85756482000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15192.176764,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15192176000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2489617799,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2489617799 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125309097,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125309097 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 143391797,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143391797 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4129e27e5ed202786ea79da801d5e308d14a5f7d",
+          "message": "feat: IPA accumulators setup for Rollup (#10040)\n\nCreates a new flavor, UltraRollupFlavor, that handles IPA accumulators.\r\nCurrently unused in the rollup, but will be used there.\r\n\r\nAdds IPA claim to builder, pk, vk, so that the verifier knows where to\r\nlook to extract the IPA claim from. Modifies the UltraRecursiveVerifier\r\nto extract out the IPA claim from the public inputs and return it.\r\n\r\nAlso modifies native verifier to check the IPA claim and proof.",
+          "timestamp": "2024-11-20T13:43:46-05:00",
+          "tree_id": "f9db57ca6c94632a82db5a0c79f8054f2b6a62a4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4129e27e5ed202786ea79da801d5e308d14a5f7d"
+        },
+        "date": 1732129840838,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29441.20985800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27476.003819999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5669.810498999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5293.613365 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85387.507711,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85387509000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15490.587575000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15490589000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3141482823,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3141482823 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 144542351,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 144542351 ns\nthreads: 1"
           }
         ]
       }
