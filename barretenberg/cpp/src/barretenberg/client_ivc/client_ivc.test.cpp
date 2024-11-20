@@ -408,7 +408,9 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 
 /**
  * @brief Test dynamic structured trace overflow block mechanism
- * @details
+ * @details Tests the case where the required overflow capacity is not known until runtime. Accumulates two circuits,
+ * the second of which overflows the trace but not enough to change the dyadic circuit size and thus there is no need
+ * for a virtual size increase of the first key.
  *
  */
 TEST_F(ClientIVCTests, DynamicOverflow)
@@ -420,12 +422,12 @@ TEST_F(ClientIVCTests, DynamicOverflow)
 
     size_t NUM_CIRCUITS = 2;
 
-    // Construct and accumulate some circuits of varying size
-    size_t log2_num_gates = 14;
+    // define parameters for two circuits; the first fits within the structured trace, the second overflows
+    std::vector<size_t> log2_num_arith_gates = { 14, 16 };
+    // Accumulate
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
         ivc.accumulate(circuit);
-        log2_num_gates += 2;
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -433,7 +435,9 @@ TEST_F(ClientIVCTests, DynamicOverflow)
 
 /**
  * @brief Test dynamic trace overflow where the dyadic circuit size also increases
- * @details
+ * @details Accumulates two circuits, the second of which overflows the trace structure and leads to an increased dyadic
+ * circuit size. This requires the virtual size of the polynomials in the first key to be increased accordingly which
+ * should be handled automatically in PG/ClientIvc.
  *
  */
 TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
@@ -446,12 +450,12 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
 
     size_t NUM_CIRCUITS = 2;
 
-    // Construct and accumulate some circuits of varying size
-    size_t log2_num_gates = 14;
+    // define parameters for two circuits; the first fits within the structured trace, the second overflows
+    std::vector<size_t> log2_num_arith_gates = { 14, 18 };
+    // Accumulate
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
         ivc.accumulate(circuit);
-        log2_num_gates += 4;
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
