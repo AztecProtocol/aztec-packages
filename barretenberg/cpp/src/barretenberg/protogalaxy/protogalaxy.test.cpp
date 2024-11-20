@@ -467,7 +467,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_fold_with_virtual_size_expansion()
     {
-        uint32_t overflow_capacity = 0;
+        uint32_t overflow_capacity = 0; // consider the case where the overflow is not known until runtime
         TraceSettings trace_settings{ SMALL_TEST_STRUCTURE, overflow_capacity };
 
         std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;

@@ -217,6 +217,16 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
+        // WORKTODO: At this point the prover and verifier accumulators can have different circuit sizes. E.g. the
+        // prover accum circuit size may have been updated in the PG prover after accumulation of a larger circuit, but
+        // the verifier accumulator was initialized based on the prover accumulator prior to running the PG prover so it
+        // will not be reflected there. For now the simplest solution seems to be simply updating the verifier accum
+        // circuit size here to agree with the prover accum. Alternatively, the PG recursive verifier could look through
+        // the set of Decider VKs being accumulated and set the size of the new accumulator to the max of those.
+        // verifier_accumulator->verification_key->circuit_size = fold_output.accumulator->proving_key.circuit_size;
+        // verifier_accumulator->verification_key->log_circuit_size =
+        //     fold_output.accumulator->proving_key.log_circuit_size;
+
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
     }
@@ -234,6 +244,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+
+    // // DEBUG: the circuit size of prover/verifier accumulators should agree
+    // ASSERT(fold_output.accumulator->proving_key.circuit_size ==
+    // verifier_accumulator->verification_key->circuit_size);
 
     FoldProof& fold_proof = verification_queue[0].proof;
     HonkProof decider_proof = decider_prove();
@@ -282,10 +296,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     merge_verification_queue.emplace_back(merge_proof);
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
-    // WORKTODO: This fails in the dyanmic accum expansion case. investigation of this failure suggests failure in the
-    // decider recursive verifier at the first 'round.check_sum(round_univariate, dummy_round);' in sumcheck. Suggests
-    // that either one of the instances is not satisfying sumcheck or perhaps that theres something more fundamentally
-    // wrong with folding an accumlator that was dynamically expanded from its original size.
+    // WORKTODO: This fails in the dynamic accum expansion case
     // ASSERT(CircuitChecker::check(builder));
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
     MegaProver prover(decider_pk);
