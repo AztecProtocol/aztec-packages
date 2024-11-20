@@ -830,7 +830,13 @@ export class AztecNodeService implements AztecNode {
     });
   }
 
+  // TODO(#10007): Remove this method
+  public addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    return this.contractDataSource.addContractClass(contractClass);
+  }
+
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    // TODO: Node should validate the artifact before accepting it
     return this.contractDataSource.addContractArtifact(address, artifact);
   }
 

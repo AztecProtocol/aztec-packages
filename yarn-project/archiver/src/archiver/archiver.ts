@@ -729,6 +729,12 @@ export class Archiver implements ArchiveSource {
     return this.store.getContractClassIds();
   }
 
+  // TODO(#10007): Remove this method
+  async addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    await this.store.addContractClasses([contractClass], 0);
+    return;
+  }
+
   addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
     return this.store.addContractArtifact(address, artifact);
   }
@@ -793,6 +799,11 @@ class ArchiverStoreHelper
   #log = createDebugLogger('aztec:archiver:block-helper');
 
   constructor(private readonly store: ArchiverDataStore) {}
+
+  // TODO(#10007): Remove this method
+  addContractClasses(contractClasses: ContractClassPublic[], blockNum: number): Promise<boolean> {
+    return this.store.addContractClasses(contractClasses, blockNum);
+  }
 
   /**
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.

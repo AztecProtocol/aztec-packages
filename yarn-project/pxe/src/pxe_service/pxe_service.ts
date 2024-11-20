@@ -243,7 +243,8 @@ export class PXEService implements PXE {
 
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
-      const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+      const contractClass = getContractClassFromArtifact(artifact);
+      const contractClassId = computeContractClassId(contractClass);
       if (!contractClassId.equals(instance.contractClassId)) {
         throw new Error(
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
@@ -257,7 +258,12 @@ export class PXEService implements PXE {
       }
 
       await this.db.addContractArtifact(contractClassId, artifact);
+
+      // TODO: PXE may not want to broadcast the artifact to the network
       await this.node.addContractArtifact(instance.address, artifact);
+
+      // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
+      await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.db.getContractArtifact(instance.contractClassId);

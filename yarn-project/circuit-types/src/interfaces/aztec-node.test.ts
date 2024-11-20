@@ -332,6 +332,11 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getEpochProofQuotes(1n);
     expect(response).toEqual([expect.any(EpochProofQuote)]);
   });
+
+  it('addContractClass', async () => {
+    const contractClass = getContractClassFromArtifact(artifact);
+    await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
+  });
 });
 
 class MockAztecNode implements AztecNode {
@@ -572,5 +577,8 @@ class MockAztecNode implements AztecNode {
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
     expect(epoch).toEqual(1n);
     return Promise.resolve([EpochProofQuote.random()]);
+  }
+  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
+    return Promise.resolve();
   }
 }
