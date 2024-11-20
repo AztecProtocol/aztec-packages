@@ -11,20 +11,27 @@ import { promisify } from "util";
 import { pipeline } from "stream";
 import path from "path";
 
+import { appendFileSync } from "fs";
+
 export function sourceShellConfig() {
   const shell = execSync("echo $SHELL", { encoding: "utf-8" }).trim();
+  const home = os.homedir();
+  const bbBinPath = path.join(home, ".bb", "bb");
+  const pathEntry = `export PATH="${bbBinPath}:$PATH"\n`;
 
   if (shell.includes("bash")) {
-    process.env.PATH = execSync("echo $PATH", { encoding: "utf-8" }).trim();
+    const bashrcPath = path.join(home, ".bashrc");
+    appendFileSync(bashrcPath, pathEntry);
   } else if (shell.includes("zsh")) {
-    process.env.PATH = execSync('zsh -c "echo $PATH"', {
-      encoding: "utf-8",
-    }).trim();
+    const zshrcPath = path.join(home, ".zshrc");
+    appendFileSync(zshrcPath, pathEntry);
   } else if (shell.includes("fish")) {
-    process.env.PATH = execSync('fish -c "echo $PATH"', {
-      encoding: "utf-8",
-    }).trim();
+    const fishConfigPath = path.join(home, ".config", "fish", "config.fish");
+    appendFileSync(fishConfigPath, `set -gx PATH ${bbBinPath} $PATH\n`);
   }
+
+  // Update the current session's PATH
+  process.env.PATH = `${bbBinPath}:${process.env.PATH}`;
 }
 
 export function exec(cmd: string, options = {}) {
@@ -82,4 +89,5 @@ export async function installBB(version: string, spinner: Ora) {
     text: `Installed barretenberg to ${bbPath}`,
     symbol: logSymbols.success,
   });
+  sourceShellConfig();
 }
