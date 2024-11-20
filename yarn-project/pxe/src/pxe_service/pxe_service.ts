@@ -773,7 +773,11 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+        try {
+          await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+        } catch (enrichErr) {
+          this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
+        }
       }
       throw err;
     }

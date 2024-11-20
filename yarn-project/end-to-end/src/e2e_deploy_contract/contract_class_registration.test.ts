@@ -257,13 +257,21 @@ describe('e2e_deploy_contract contract class registration', () => {
   });
 
   describe('error scenarios in deployment', () => {
-    it('refuses to call a public function on an undeployed contract', async () => {
+    it('app logic call to an undeployed contract reverts, but can be included is not dropped', async () => {
       const whom = wallet.getAddress();
       const outgoingViewer = whom;
       const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, outgoingViewer, 42] });
-      await expect(
-        instance.methods.increment_public_value_no_init_check(whom, 10).send({ skipPublicSimulation: true }).wait(),
-      ).rejects.toThrow(/dropped/);
+      // Confirm that the tx reverts with the expected message
+      await expect(instance.methods.increment_public_value_no_init_check(whom, 10).send().wait()).rejects.toThrow(
+        /No bytecode/,
+      );
+      // This time, don't throw on revert and confirm that the tx is included
+      // despite reverting in app logic because of the call to a non-existent contract
+      const tx = await instance.methods
+        .increment_public_value_no_init_check(whom, 10)
+        .send({ skipPublicSimulation: true })
+        .wait({ dontThrowOnRevert: true });
+      expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
     });
 
     it('refuses to deploy an instance from a different deployer', () => {
