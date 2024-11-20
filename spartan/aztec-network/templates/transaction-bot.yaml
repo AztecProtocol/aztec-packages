@@ -25,7 +25,7 @@ spec:
               {{- if .Values.bot.nodeUrl }}
               value: "{{ .Values.bot.nodeUrl }}"
               {{- else }}
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+              value: {{ include "aztec-network.validatorUrl" . | quote }}
               {{- end }}
           command:
             - /bin/sh
@@ -47,7 +47,7 @@ spec:
               {{- if .Values.bot.nodeUrl }}
               value: "{{ .Values.bot.nodeUrl }}"
               {{- else }}
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+              value: {{ include "aztec-network.validatorUrl" . | quote }}
               {{- end }}
             - name: LOG_JSON
               value: "1"
