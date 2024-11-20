@@ -640,18 +640,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             if (dataPresent) {
                 // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
-                persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
-                if (asBlock) {
-                    ++uncommittedMeta.unfinalisedBlockHeight;
-                    if (uncommittedMeta.oldestHistoricBlock == 0) {
-                        uncommittedMeta.oldestHistoricBlock = 1;
-                    }
-                    // std::cout << "New root " << uncommittedMeta.root << std::endl;
-                    BlockPayload block{ .size = uncommittedMeta.size,
-                                        .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
-                                        .root = uncommittedMeta.root };
-                    dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
-                }
             }
             // If we are commiting a block, we need to persist the root, since the new block "references" this root
             // However, if the root is the empty root we can't persist it, since it's not a real node
