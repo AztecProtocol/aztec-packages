@@ -13,10 +13,7 @@ import {
   GlobalVariables,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -114,12 +111,8 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, 
   for (const tx of txs) {
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      padArrayEnd(
-        tx.txEffect.publicDataWrites,
-        PublicDataWrite.empty(),
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      ).map(write => write.toBuffer()),
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      tx.txEffect.publicDataWrites.map(write => write.toBuffer()),
+      0,
     );
   }
 };

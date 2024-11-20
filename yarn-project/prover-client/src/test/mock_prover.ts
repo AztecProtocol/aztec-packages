@@ -8,11 +8,22 @@ import {
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateBaseRollupInputs,
+  type PrivateKernelEmptyInputData,
+  type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
+  type RootParityInputs,
+  type RootRollupInputs,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   VerificationKeyData,
@@ -30,7 +41,7 @@ import {
 export class MockProver implements ServerCircuitProver {
   constructor() {}
 
-  getAvmProof() {
+  getAvmProof(_inputs: AvmCircuitInputs, _signal?: AbortSignal, _epochNumber?: number) {
     return Promise.resolve(
       makeProofAndVerificationKey(
         makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
@@ -39,7 +50,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getBaseParityProof() {
+  getBaseParityProof(_inputs: BaseParityInputs, _signal?: AbortSignal, _epochNumber?: number) {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeParityPublicInputs(),
@@ -49,7 +60,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getRootParityProof() {
+  getRootParityProof(_inputs: RootParityInputs, _signal?: AbortSignal, _epochNumber?: number) {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeParityPublicInputs(),
@@ -59,7 +70,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getPrivateBaseRollupProof(): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  getPrivateBaseRollupProof(
+    _baseRollupInput: PrivateBaseRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
@@ -69,7 +84,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getPublicBaseRollupProof(): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  getPublicBaseRollupProof(
+    _inputs: PublicBaseRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
@@ -79,7 +98,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getMergeRollupProof(): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  getMergeRollupProof(
+    _input: MergeRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
@@ -89,7 +112,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getBlockMergeRollupProof() {
+  getBlockMergeRollupProof(_input: BlockMergeRollupInputs, _signal?: AbortSignal, _epochNumber?: number) {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
@@ -99,7 +122,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyBlockRootRollupProof(): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  getEmptyBlockRootRollupProof(
+    _input: EmptyBlockRootRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
@@ -109,7 +136,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getBlockRootRollupProof(): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  getBlockRootRollupProof(
+    _input: BlockRootRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
@@ -119,7 +150,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyPrivateKernelProof(): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  getEmptyPrivateKernelProof(
+    _inputs: PrivateKernelEmptyInputData,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeKernelCircuitPublicInputs(),
@@ -129,7 +164,11 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getRootRollupProof(): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
+  getRootRollupProof(
+    _input: RootRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeRootRollupPublicInputs(),

@@ -79,7 +79,6 @@ import {
   NoteLogHash,
   Nullifier,
   NullifierLeafPreimage,
-  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
   PartialPrivateTailPublicInputsForPublic,
@@ -107,7 +106,6 @@ import {
   RootRollupInputs,
   RootRollupPublicInputs,
   ScopedLogHash,
-  StateDiffHints,
   StateReference,
   TUBE_PROOF_LENGTH,
   TxContext,
@@ -139,15 +137,18 @@ import {
   AvmProofData,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  BaseRollupHints,
   CountedPublicCallRequest,
+  PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
+  PrivateBaseStateDiffHints,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PrivateTubeData,
+  PublicBaseRollupHints,
   PublicBaseRollupInputs,
+  PublicBaseStateDiffHints,
   PublicDataWrite,
   PublicTubeData,
   ScopedL2ToL1Message,
@@ -976,11 +977,11 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 }
 
 /**
- * Creates an instance of StateDiffHints with arbitrary values based on the provided seed.
+ * Creates an instance of PrivateBaseStateDiffHints with arbitrary values based on the provided seed.
  * @param seed - The seed to use for generating the hints.
- * @returns A StateDiffHints object.
+ * @returns A PrivateBaseStateDiffHints object.
  */
-export function makeStateDiffHints(seed = 1): StateDiffHints {
+export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHints {
   const nullifierPredecessorPreimages = makeTuple(
     MAX_NULLIFIERS_PER_TX,
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
@@ -1001,16 +1002,77 @@ export function makeStateDiffHints(seed = 1): StateDiffHints {
 
   const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
 
-  const publicDataSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8000);
+  const feeWriteLowLeafPreimage = makePublicDataTreeLeafPreimage(seed + 0x7000);
+  const feeWriteLowLeafMembershipWitness = makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, seed + 0x8000);
+  const feeWriteSiblingPath = makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, seed + 0x9000);
 
-  return new StateDiffHints(
+  return new PrivateBaseStateDiffHints(
     nullifierPredecessorPreimages,
     nullifierPredecessorMembershipWitnesses,
     sortedNullifiers,
     sortedNullifierIndexes,
     noteHashSubtreeSiblingPath,
     nullifierSubtreeSiblingPath,
-    publicDataSiblingPath,
+    feeWriteLowLeafPreimage,
+    feeWriteLowLeafMembershipWitness,
+    feeWriteSiblingPath,
+  );
+}
+
+/**
+ * Creates an instance of PublicBaseStateDiffHints with arbitrary values based on the provided seed.
+ * @param seed - The seed to use for generating the hints.
+ * @returns A PublicBaseStateDiffHints object.
+ */
+export function makePublicBaseStateDiffHints(seed = 1): PublicBaseStateDiffHints {
+  const nullifierPredecessorPreimages = makeTuple(
+    MAX_NULLIFIERS_PER_TX,
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+    seed + 0x1000,
+  );
+
+  const nullifierPredecessorMembershipWitnesses = makeTuple(
+    MAX_NULLIFIERS_PER_TX,
+    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
+    seed + 0x2000,
+  );
+
+  const sortedNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x3000);
+
+  const sortedNullifierIndexes = makeTuple(MAX_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
+
+  const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
+
+  const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
+
+  const lowPublicDataWritesPreimages = makeTuple(
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    makePublicDataTreeLeafPreimage,
+    seed + 0x7000,
+  );
+
+  const lowPublicDataWritesMembershipWitnesses = makeTuple(
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
+    seed + 0x8000,
+  );
+
+  const publicDataTreeSiblingPaths = makeTuple(
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    i => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, i),
+    seed + 0x9000,
+  );
+
+  return new PublicBaseStateDiffHints(
+    nullifierPredecessorPreimages,
+    nullifierPredecessorMembershipWitnesses,
+    sortedNullifiers,
+    sortedNullifierIndexes,
+    noteHashSubtreeSiblingPath,
+    nullifierSubtreeSiblingPath,
+    lowPublicDataWritesPreimages,
+    lowPublicDataWritesMembershipWitnesses,
+    publicDataTreeSiblingPaths,
   );
 }
 
@@ -1026,30 +1088,10 @@ function makePrivateTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicI
   );
 }
 
-function makeBaseRollupHints(seed = 1) {
+function makePrivateBaseRollupHints(seed = 1) {
   const start = makePartialStateReference(seed + 0x100);
 
-  const stateDiffHints = makeStateDiffHints(seed + 0x600);
-
-  const sortedPublicDataWrites = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    makePublicDataTreeLeaf,
-    seed + 0x8000,
-  );
-
-  const sortedPublicDataWritesIndexes = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, 0);
-
-  const lowPublicDataWritesPreimages = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    makePublicDataTreeLeafPreimage,
-    seed + 0x8200,
-  );
-
-  const lowPublicDataWritesMembershipWitnesses = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
-    seed + 0x8400,
-  );
+  const stateDiffHints = makePrivateBaseStateDiffHints(seed + 0x600);
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
@@ -1057,13 +1099,29 @@ function makeBaseRollupHints(seed = 1) {
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
-  return BaseRollupHints.from({
+  return PrivateBaseRollupHints.from({
     start,
     stateDiffHints,
-    sortedPublicDataWrites,
-    sortedPublicDataWritesIndexes,
-    lowPublicDataWritesPreimages,
-    lowPublicDataWritesMembershipWitnesses,
+    archiveRootMembershipWitness,
+    constants,
+    feePayerFeeJuiceBalanceReadHint,
+  });
+}
+
+function makePublicBaseRollupHints(seed = 1) {
+  const start = makePartialStateReference(seed + 0x100);
+
+  const stateDiffHints = makePublicBaseStateDiffHints(seed + 0x600);
+
+  const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
+
+  const constants = makeConstantBaseRollupData(0x100);
+
+  const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
+
+  return PublicBaseRollupHints.from({
+    start,
+    stateDiffHints,
     archiveRootMembershipWitness,
     constants,
     feePayerFeeJuiceBalanceReadHint,
@@ -1072,7 +1130,7 @@ function makeBaseRollupHints(seed = 1) {
 
 export function makePrivateBaseRollupInputs(seed = 0) {
   const tubeData = makePrivateTubeData(seed);
-  const hints = makeBaseRollupHints(seed + 0x100);
+  const hints = makePrivateBaseRollupHints(seed + 0x100);
 
   return PrivateBaseRollupInputs.from({
     tubeData,
@@ -1099,7 +1157,7 @@ function makeAvmProofData(seed = 1) {
 export function makePublicBaseRollupInputs(seed = 0) {
   const tubeData = makePublicTubeData(seed);
   const avmProofData = makeAvmProofData(seed + 0x100);
-  const hints = makeBaseRollupHints(seed + 0x100);
+  const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicBaseRollupInputs.from({
     tubeData,
