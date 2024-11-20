@@ -24,7 +24,8 @@ fi
 yarn install --immutable
 echo "Building with command 'yarn $BUILD_CMD'..."
 yarn $BUILD_CMD
-
-# Make bin globally available.
-npm link
 echo "Barretenberg ts build successful"
+
+if [ "$CI" -eq 1 ]; then
+  yarn test
+fi

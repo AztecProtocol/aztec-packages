@@ -64,7 +64,7 @@ function build_native {
   cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   if [ "$CI" -eq 1 ]; then
     cmake --build --preset $PRESET
-    (cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure)
+    (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
   else
     cmake --build --preset $PRESET --target bb
   fi
