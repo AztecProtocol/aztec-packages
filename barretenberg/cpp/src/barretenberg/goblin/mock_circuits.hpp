@@ -140,7 +140,7 @@ class GoblinMockCircuits {
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->get_aggregate_transcript()) {
-            op_queue_commitments[idx++] = commitment_key->commit({ 0, entry });
+            op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
         }
         // Store the commitment data for use by the prover of the next circuit
         op_queue->set_commitment_data(op_queue_commitments);
