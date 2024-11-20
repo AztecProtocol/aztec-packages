@@ -1,5 +1,4 @@
-# Simulates regional network conditions
-# Higher latency, good bandwidth
+# Imposes the network conditions that are stated as requirements for node operators
 global:
   namespace: "smoke"
 
@@ -15,10 +14,9 @@ networkShaping:
         correlation: "75"
     bandwidth:
       enabled: true
-      # 50Mbps
-      rate: 50mbps
-      limit: 25000000 # 25 MB
-      buffer: 5000
+      rate: 250mbps
+      limit: 125000000
+      buffer: 25000
     packetLoss:
       enabled: true
       loss: "0.5"
