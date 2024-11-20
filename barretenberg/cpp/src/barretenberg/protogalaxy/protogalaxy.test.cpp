@@ -459,30 +459,37 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     /**
-     * @brief Testing two valid rounds of folding followed by the decider for a structured trace.
+     * @brief Testing folding a larger circuit into a smaller one by increasing the virtual size of the first.
+     * @details Fold two circuits using a structured trace, where the second overflows the trace such that the dyadic
+     * size is doubled. The virtual size of the polynomials in the first key is increased internally in the PG prover to
+     * match the size of the second.
      *
      */
     static void test_fold_with_virtual_size_expansion()
     {
-        uint32_t overflow_capacity = 0; // 1 << 18;
+        uint32_t overflow_capacity = 0;
         TraceSettings trace_settings{ SMALL_TEST_STRUCTURE, overflow_capacity };
 
         std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
         std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
 
-        size_t log2_num_gates = 14;
+        // define parameters for two circuits; the first fits within the structured trace, the second overflows
+        std::vector<size_t> log2_num_gates = { 14, 18 };
         for (size_t i = 0; i < 2; ++i) {
             MegaCircuitBuilder builder;
-            MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates);
+            MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates[i]);
 
             auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
             auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->proving_key);
             auto decider_verification_key = std::make_shared<DeciderVerificationKey>(verification_key);
             decider_pks.push_back(decider_proving_key);
             decider_vks.push_back(decider_verification_key);
-            log2_num_gates += 4;
         }
 
+        // Ensure the dyadic size of the first key is strictly less than that of the second
+        EXPECT_TRUE(decider_pks[0]->proving_key.circuit_size < decider_pks[1]->proving_key.circuit_size);
+
+        // The size discrepency should be automatically handled by the PG prover via a virtual size increase
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(decider_pks, decider_vks);
         check_accumulator_target_sum_manual(prover_accumulator, true);
         decide_and_verify(prover_accumulator, verifier_accumulator, true);

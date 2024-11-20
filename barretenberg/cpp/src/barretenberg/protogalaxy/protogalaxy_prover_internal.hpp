@@ -119,8 +119,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
-        // const size_t polynomial_size = polynomials.get_polynomial_size();
-        const size_t polynomial_size = polynomials.q_c.virtual_size(); // DEBUG
+        const size_t polynomial_size = polynomials.get_polynomial_size();
+        // const size_t polynomial_size = polynomials.q_c.virtual_size(); // DEBUG: dont think we need this
         std::vector<FF> aggregated_relation_evaluations(polynomial_size);
 
         const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
