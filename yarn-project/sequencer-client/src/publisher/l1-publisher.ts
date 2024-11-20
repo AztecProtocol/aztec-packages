@@ -96,6 +96,8 @@ export type MinimalTransactionReceipt = {
   logs: any[];
   /** Block number in which this tx was mined. */
   blockNumber: bigint;
+  /** The block hash in which this tx was mined */
+  blockHash: `0x${string}`;
 };
 
 /** Arguments to the process method of the rollup contract */
@@ -163,6 +165,8 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
+  private blobSinkUrl: string | undefined;
+
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
@@ -172,6 +176,7 @@ export class L1Publisher {
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
+    this.blobSinkUrl = config.blobSinkUrl;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
@@ -484,15 +489,18 @@ export class L1Publisher {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
+
+    const blobs = Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
-      blobs: Blob.getBlobs(block.body.toBlobFields()),
+      blobs,
       attestations,
       txHashes: txHashes ?? [],
     };
+
     // Publish body and propose block (if not already published)
     if (this.interrupted) {
       this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
@@ -554,6 +562,9 @@ export class L1Publisher {
       };
       this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
+
+      // Send the blobs to the blob sink
+      await this.sendBlobsToBlobSink(receipt.blockHash, blobs);
 
       return true;
     }
@@ -919,6 +930,7 @@ export class L1Publisher {
             gasPrice: receipt.effectiveGasPrice,
             logs: receipt.logs,
             blockNumber: receipt.blockNumber,
+            blockHash: receipt.blockHash,
           };
         }
 
@@ -934,9 +946,51 @@ export class L1Publisher {
   protected async sleepOrInterrupted() {
     await this.interruptibleSleep.sleep(this.sleepTimeMs);
   }
+
+  /**
+   * Send blobs to the blob sink
+   *
+   * If a blob sink url is configured, then we send blobs to the blob sink
+   * - for now we use the blockHash as the identifier for the blobs;
+   *   In the future this will move to be the beacon block id - which takes a bit more work
+   *   to calculate and will need to be mocked in e2e tests
+   */
+  protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    // TODO: for now we are assuming the indexes of the blobs will be 0, 1, 2
+    // When in reality they will not, but for testing purposes this is fine
+    if (!this.blobSinkUrl) {
+      return false;
+    }
+
+    this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
+    try {
+      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          // eslint-disable-next-line camelcase
+          block_id: blockHash,
+          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
+        }),
+      });
+
+      if (res.ok) {
+        this.log.verbose(`Successfully sent blobs to blob sink ${res.status}`);
+        return true;
+      }
+
+      this.log.error('Failed to send blobs to blob sink', res.status);
+      return false;
+    } catch (err) {
+      this.log.error(`Error sending blobs to blob sink`, err);
+      return false;
+    }
+  }
 }
 
-/**
+/*
  * Returns cost of calldata usage in Ethereum.
  * @param data - Calldata.
  * @returns 4 for each zero byte, 16 for each nonzero.

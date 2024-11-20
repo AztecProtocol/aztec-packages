@@ -24,6 +24,11 @@ export interface PublisherConfig {
    * The interval to wait between publish retries.
    */
   l1PublishRetryIntervalMS: number;
+
+  /**
+   * The URL of the blob sink.
+   */
+  blobSinkUrl: string | undefined;
 }
 
 export const getTxSenderConfigMappings: (
@@ -68,6 +73,11 @@ export const getPublisherConfigMappings: (scope: 'PROVER' | 'SEQ') => ConfigMapp
     parseEnv: (val: string) => +val,
     defaultValue: 1000,
     description: 'The interval to wait between publish retries.',
+  },
+  blobSinkUrl: {
+    env: `${scope}_BLOB_SINK_URL`,
+    description: 'The URL of the blob sink.',
+    parseEnv: (val?: string) => val,
   },
 });
 
