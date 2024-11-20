@@ -96,7 +96,7 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, undefined]);
   });
 
-  it('findNullifierIndexesWithBlock', async () => {
+  it('findNullifiersIndexesWithBlock', async () => {
     const response = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
     expect(response).toEqual([
       { data: 1n, l2BlockNumber: expect.any(Number), l2BlockHash: expect.any(String) },

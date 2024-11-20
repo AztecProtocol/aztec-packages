@@ -34,7 +34,6 @@ import {
   type TxValidator,
   type WorldStateSynchronizer,
   tryStop,
-  wrapInBlock,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
