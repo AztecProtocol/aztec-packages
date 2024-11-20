@@ -75,8 +75,8 @@ export class ArchiverInstrumentation {
     );
   }
 
-  public recordDBMetrics(dbMapSize: number, dbNumItems: number, dbUsedSize: number) {
-    this.dbMetrics.recordDBMetrics(dbMapSize, dbNumItems, dbUsedSize);
+  public recordDBMetrics(metrics: { mappingSize: number; numItems: number; actualSize: number }) {
+    this.dbMetrics.recordDBMetrics(metrics);
   }
 
   public isEnabled(): boolean {

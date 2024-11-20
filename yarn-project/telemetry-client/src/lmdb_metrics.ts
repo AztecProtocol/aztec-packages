@@ -30,9 +30,9 @@ export class LmdbMetrics {
     });
   }
 
-  public recordDBMetrics(dbMapSize: number, dbNumItems: number, dbUsedSize: number) {
-    this.dbMapSize.record(dbMapSize);
-    this.dbNumItems.record(dbNumItems);
-    this.dbUsedSize.record(dbUsedSize);
+  public recordDBMetrics(metrics: { mappingSize: number; numItems: number; actualSize: number }) {
+    this.dbMapSize.record(metrics.mappingSize);
+    this.dbNumItems.record(metrics.actualSize);
+    this.dbUsedSize.record(metrics.actualSize);
   }
 }

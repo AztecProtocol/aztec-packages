@@ -267,7 +267,7 @@ export class Archiver implements ArchiveSource {
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
 
       const storeSizes = this.store.estimateSize();
-      this.instrumentation.recordDBMetrics(storeSizes.mappingSize, storeSizes.numItems, storeSizes.actualSize);
+      this.instrumentation.recordDBMetrics(storeSizes);
     }
   }
 

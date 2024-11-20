@@ -62,8 +62,8 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
     );
   }
 
-  public recordDBMetrics(dbMapSize: number, dbNumItems: number, dbUsedSize: number) {
-    this.dbMetrics.recordDBMetrics(dbMapSize, dbNumItems, dbUsedSize);
+  public recordDBMetrics(metrics: { mappingSize: number; numItems: number; actualSize: number }) {
+    this.dbMetrics.recordDBMetrics(metrics);
   }
 
   public recordSize(poolObject: PoolObject) {
