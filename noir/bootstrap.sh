@@ -38,9 +38,9 @@ if [ "${CI:-0}" -eq 1 ]; then
   yarn workspaces foreach \
     --parallel \
     --verbose \
-    --exclude @noir-lang/root \ # foreach includes the root workspace, ignore it
-    --exclude @noir-lang/noir_js \ # noir_js OOMs
-    --exclude integration-tests \ # separate node and browser tests
+    --exclude @noir-lang/root \
+    --exclude @noir-lang/noir_js \
+    --exclude integration-tests \
     --exclude @noir-lang/noir_wasm \
     run test
 
