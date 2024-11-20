@@ -128,13 +128,7 @@ jobs:
             export AZTEC_DOCKER_TAG=${{ env.GIT_COMMIT }}
             export TEST_NAME="./src/spartan/${{ env.TEST_NAME }}.test.ts"
 
-            curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.23.6/bin/linux/amd64/kubectl
-            chmod +x kubectl
-            sudo mv kubectl /usr/bin
-
             aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
-            kubectl config get-contexts
-            kubectl get pods -n $NAMESPACE
 
             cd yarn-project/end-to-end
             docker run --rm --network=host \
