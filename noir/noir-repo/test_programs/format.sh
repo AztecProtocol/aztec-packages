@@ -37,10 +37,12 @@ collect_dirs execution_success
 
 echo "]" >> Nargo.toml
 
+NARGO=${NARGO:-nargo}
+
 if [ "$1" == "check" ]; then
-  nargo fmt --check
+  $NARGO fmt --check
 else
-  nargo fmt
+  $NARGO fmt
 fi
 
 

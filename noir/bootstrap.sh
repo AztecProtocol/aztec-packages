@@ -28,9 +28,11 @@ if [ "${CI:-0}" -eq 1 ]; then
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   NEXTEST_RETRIES=2 ./scripts/test_native.sh
 
+  export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+
   cd ./noir-repo
   (cd ./test_programs && ./format.sh check)
-  (cd ./noir_stdlib && nargo fmt --check)
+  (cd ./noir_stdlib && $NARGO fmt --check)
 
   export NODE_OPTIONS=--max_old_space_size=8192
   yarn workspaces foreach \
