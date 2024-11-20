@@ -257,7 +257,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
   public async unnullifyNotesAfter(blockNumber: number): Promise<void> {
     const nullifiersToUndo: string[] = [];
-    let currentBlockNumber = blockNumber;
+    let currentBlockNumber = blockNumber + 1;
     const maxBlockNumber = this.getBlockNumber() ?? currentBlockNumber;
     while (currentBlockNumber <= maxBlockNumber) {
       nullifiersToUndo.push(...this.#nullifiersByBlockNumber.getValues(currentBlockNumber));

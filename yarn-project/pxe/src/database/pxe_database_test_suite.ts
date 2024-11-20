@@ -198,7 +198,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const notesToNullify = notes.filter(note => note.addressPoint.equals(computePoint(owners[0].address)));
         const nullifiers = notesToNullify.map(note => ({
           data: note.siloedNullifier,
-          l2BlockNumber: 100,
+          l2BlockNumber: 99,
           l2BlockHash: Fr.random().toString(),
         }));
         await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
