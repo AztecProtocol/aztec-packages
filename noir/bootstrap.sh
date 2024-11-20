@@ -25,36 +25,11 @@ fi
 ./scripts/bootstrap_packages.sh
 
 if [ "${CI:-0}" -eq 1 ]; then
-  # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
-  NEXTEST_RETRIES=2 ./scripts/test_native.sh
+  export PATH="$PWD/noir-repo/target/release/:$PATH"
 
-  cd ./noir-repo
-  export NARGO=${NARGO:-$PWD/target/release/nargo}
+  ./scripts/test_native.sh
+  ./scripts/test_js_packages.sh
 
-  (cd ./test_programs && ./format.sh check)
-  (cd ./noir_stdlib && $NARGO fmt --check)
-
-  export NODE_OPTIONS=--max_old_space_size=8192
-  yarn workspaces foreach \
-    --parallel \
-    --verbose \
-    --exclude @noir-lang/root \
-    --exclude @noir-lang/noir_js \
-    --exclude integration-tests \
-    --exclude @noir-lang/noir_wasm \
-    run test
-
-  yarn workspaces foreach \
-    --parallel \
-    --verbose \
-    --include integration-tests \
-    --include @noir-lang/noir_wasm \
-    run test:node
-
-  ./.github/scripts/playwright-install.sh
-  yarn workspaces foreach \
-    --verbose \
-    --include integration-tests \
-    --include @noir-lang/noir_wasm \
-    run test:browser
+  (cd ./noir-repo/test_programs && ./format.sh check)
+  (cd ./noir-repo/noir_stdlib && nargo fmt --check)
 fi
