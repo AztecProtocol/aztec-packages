@@ -72,7 +72,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -a|--all)
             echo "This will probably take a while..."
-            # CIRCUIT_NAMES=($(get_valid_circuit_names))
             get_valid_circuit_names
             shift
             ;;
