@@ -204,12 +204,12 @@ mod tests {
             &provider,
             &flamegraph_generator,
             temp_dir.path(),
-            &String::from("main"),
+            &String::from("test_filename"),
         )
         .expect("should run without errors");
 
         // Check that the output file was written to
-        let output_file = temp_dir.path().join("main_gates.svg");
+        let output_file = temp_dir.path().join("test_filename::main::gates.svg");
         assert!(output_file.exists());
     }
 }
