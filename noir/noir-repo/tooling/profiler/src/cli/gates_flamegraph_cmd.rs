@@ -34,7 +34,7 @@ pub(crate) struct GatesFlamegraphCommand {
 
     /// The output name for the flamegraph svg files
     #[clap(long, short = 'f', default_value = "main")]
-    output_filename: String
+    output_filename: String,
 }
 
 pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
@@ -47,7 +47,7 @@ pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
         },
         &InfernoFlamegraphGenerator { count_name: "gates".to_string() },
         &PathBuf::from(args.output),
-        &args.output_filename
+        &args.output_filename,
     )
 }
 
@@ -56,7 +56,7 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
     gates_provider: &Provider,
     flamegraph_generator: &Generator,
     output_path: &Path,
-    output_filename: &String
+    output_filename: &String,
 ) -> eyre::Result<()> {
     let mut program =
         read_program_from_file(artifact_path).context("Error reading program from file")?;
@@ -198,9 +198,14 @@ mod tests {
         };
         let flamegraph_generator = TestFlamegraphGenerator::default();
 
-        let null_str: Option<String> = None;
-        super::run_with_provider(&artifact_path, &provider, &flamegraph_generator, temp_dir.path(), &null_str)
-            .expect("should run without errors");
+        super::run_with_provider(
+            &artifact_path,
+            &provider,
+            &flamegraph_generator,
+            temp_dir.path(),
+            &String::from("main"),
+        )
+        .expect("should run without errors");
 
         // Check that the output file was written to
         let output_file = temp_dir.path().join("main_gates.svg");
