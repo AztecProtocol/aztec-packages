@@ -108,8 +108,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Update kube config
-        run: aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
         timeout-minutes: 90
@@ -131,7 +129,10 @@ jobs:
             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
             chmod +x kubectl
             sudo mv kubectl /usr/bin
+
+            aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
             kubectl config get-contexts
+            kubectl config use-context ${{ env.CLUSTER_NAME }}
             kubectl get pods -n $NAMESPACE
 
             cd yarn-project/end-to-end
