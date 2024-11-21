@@ -28,6 +28,13 @@ library FeeMath {
   uint256 internal constant MAX_FEE_ASSET_PRICE_MODIFIER = 1000000000;
   uint256 internal constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100000000000;
 
+  uint256 internal constant L1_GAS_PER_BLOCK_PROPOSED = 150000;
+  uint256 internal constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
+
+  uint256 internal constant MINIMUM_CONGESTION_MULTIPLIER = 1000000000;
+  uint256 internal constant MANA_TARGET = 100000000;
+  uint256 internal constant CONGESTION_UPDATE_FRACTION = 854700854;
+
   function assertValid(OracleInput memory _self) internal pure returns (bool) {
     require(
       SignedMath.abs(_self.provingCostModifier) <= MAX_PROVING_COST_MODIFIER,
@@ -68,6 +75,10 @@ library FeeMath {
 
   function feeAssetPriceModifier(uint256 _numerator) internal pure returns (uint256) {
     return fakeExponential(MINIMUM_FEE_ASSET_PRICE, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION);
+  }
+
+  function congestionMultiplier(uint256 _numerator) internal pure returns (uint256) {
+    return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, CONGESTION_UPDATE_FRACTION);
   }
 
   /**

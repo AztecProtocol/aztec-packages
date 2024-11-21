@@ -8,7 +8,6 @@ import {
   PublicDataWitness,
   PublicExecutionRequest,
   SimulationError,
-  Tx,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
@@ -16,31 +15,23 @@ import {
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
-  DEFAULT_GAS_LIMIT,
   Gas,
   GasFees,
-  GasSettings,
   GlobalVariables,
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
-  PartialPrivateTailPublicInputsForPublic,
   PrivateContextInputs,
-  PrivateKernelTailCircuitPublicInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
-  RollupValidationRequests,
-  TxConstantData,
-  TxContext,
   computeContractClassId,
   computeTaggingSecret,
   deriveKeys,
@@ -81,6 +72,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator';
+import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
@@ -663,7 +655,6 @@ export class TXE implements TypedOracle {
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = this.chainId;
-    globalVariables.chainId = this.chainId;
     globalVariables.version = this.version;
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = GasFees.default();
@@ -676,7 +667,10 @@ export class TXE implements TypedOracle {
       /*realAvmProvingRequests=*/ false,
     );
 
-    const tx = this.createTxForPublicCall(executionRequest, isTeardown);
+    // When setting up a teardown call, we tell it that
+    // private execution used Gas(1, 1) so it can compute a tx fee.
+    const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
+    const tx = createTxForPublicCall(executionRequest, gasUsedByPrivate, isTeardown);
 
     const result = await simulator.simulate(tx);
     return Promise.resolve(result);
@@ -885,45 +879,5 @@ export class TXE implements TypedOracle {
     )) as PublicDataTreeLeafPreimage;
 
     return preimage.value;
-  }
-
-  /**
-   * Craft a carrier transaction for a public call.
-   */
-  private createTxForPublicCall(executionRequest: PublicExecutionRequest, teardown: boolean): Tx {
-    const callRequest = executionRequest.toCallRequest();
-    // use max limits
-    const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL);
-
-    const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
-    // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
-    forPublic.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random(); // fake tx nullifier
-    if (teardown) {
-      forPublic.publicTeardownCallRequest = callRequest;
-    } else {
-      forPublic.revertibleAccumulatedData.publicCallRequests[0] = callRequest;
-    }
-
-    // When setting up a teardown call, we tell it that
-    // private execution "used" Gas(1, 1) so it can compute a tx fee.
-    const gasUsedByPrivate = teardown ? new Gas(1, 1) : Gas.empty();
-    const teardownGasLimits = teardown ? gasLimits : Gas.empty();
-    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
-    const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-    const constantData = new TxConstantData(Header.empty(), txContext, Fr.zero(), Fr.zero());
-
-    const txData = new PrivateKernelTailCircuitPublicInputs(
-      constantData,
-      RollupValidationRequests.empty(),
-      /*gasUsed=*/ gasUsedByPrivate,
-      AztecAddress.zero(),
-      forPublic,
-    );
-    const tx = teardown ? Tx.newWithTxData(txData, executionRequest) : Tx.newWithTxData(txData);
-    if (!teardown) {
-      tx.enqueuedPublicFunctionCalls[0] = executionRequest;
-    }
-
-    return tx;
   }
 }
