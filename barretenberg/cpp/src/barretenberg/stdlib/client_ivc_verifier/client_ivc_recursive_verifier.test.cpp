@@ -135,16 +135,17 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
     EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
 
-    // Construct a base rollup circuit that recursively verifies the tube proof.
+    // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
     auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
     auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
     auto tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, vk };
-    base_verifier.verify_proof(tube_proof,
-                               stdlib::recursion::init_default_aggregation_state<Builder, Flavor::Curve>(base_builder));
+    UltraRecursiveVerifierOutput<Flavor> output = base_verifier.verify_proof(
+        tube_proof, stdlib::recursion::init_default_aggregation_state<Builder, Flavor::Curve>(base_builder));
     info("UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
-
+    base_builder.add_pairing_point_accumulator(output.agg_obj.get_witness_indices());
+    // base_builder.add_ipa_claim()
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
 }
