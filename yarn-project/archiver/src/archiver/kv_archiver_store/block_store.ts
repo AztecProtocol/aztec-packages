@@ -20,7 +20,7 @@ export class BlockStore {
   /** Map block number to block data */
   #blocks: AztecMap<number, BlockStorage>;
 
-  /** Map block body hash to block body */
+  /** Map block hash to block body */
   #blockBodies: AztecMap<string, Buffer>;
 
   /** Stores L1 block number in which the last processed L2 block was included */
@@ -72,7 +72,7 @@ export class BlockStore {
           void this.#txIndex.set(tx.txHash.toString(), [block.data.number, i]);
         });
 
-        void this.#blockBodies.set(block.data.body.getTxsEffectsHash().toString('hex'), block.data.body.toBuffer());
+        void this.#blockBodies.set(block.data.hash().toString(), block.data.body.toBuffer());
       }
 
       void this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
@@ -92,7 +92,7 @@ export class BlockStore {
     return this.db.transaction(() => {
       const last = this.getSynchedL2BlockNumber();
       if (from != last) {
-        throw new Error(`Can only remove from the tip`);
+        throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
       }
 
       for (let i = 0; i < blocksToUnwind; i++) {
@@ -106,7 +106,9 @@ export class BlockStore {
         block.data.body.txEffects.forEach(tx => {
           void this.#txIndex.delete(tx.txHash.toString());
         });
-        void this.#blockBodies.delete(block.data.body.getTxsEffectsHash().toString('hex'));
+        const blockHash = block.data.hash().toString();
+        void this.#blockBodies.delete(blockHash);
+        this.#log.debug(`Unwound block ${blockNumber} ${blockHash}`);
       }
 
       return true;
@@ -154,10 +156,12 @@ export class BlockStore {
   private getBlockFromBlockStorage(blockStorage: BlockStorage) {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
-
-    const blockBodyBuffer = this.#blockBodies.get(header.contentCommitment.txsEffectsHash.toString('hex'));
+    const blockHash = header.hash().toString();
+    const blockBodyBuffer = this.#blockBodies.get(blockHash);
     if (blockBodyBuffer === undefined) {
-      throw new Error('Body could not be retrieved');
+      throw new Error(
+        `Could not retrieve body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`,
+      );
     }
     const body = Body.fromBuffer(blockBodyBuffer);
 
