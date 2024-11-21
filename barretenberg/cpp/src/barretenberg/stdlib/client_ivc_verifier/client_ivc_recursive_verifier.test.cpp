@@ -16,7 +16,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
     using Proof = ClientIVC::Proof;
     using Flavor = UltraRecursiveFlavor_<Builder>;
-    using NativeFlavor = Flavor::NativeFlavor;
+    using NativeFlavor = UltraRollupFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
 
     static void SetUpTestSuite()
@@ -125,18 +125,19 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-    auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(*tube_builder);
-    UltraProver tube_prover{ proving_key };
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*tube_builder);
+    UltraProver_<NativeFlavor> tube_prover{ proving_key };
     auto native_tube_proof = tube_prover.construct_proof();
 
     // Natively verify the tube proof
-    auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    UltraVerifier native_verifier(native_vk, ipa_verification_key);
+    UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
     EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
 
     // Construct a base rollup circuit that recursively verifies the tube proof.
     Builder base_builder;
+    auto native_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
     auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
     auto tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, vk };

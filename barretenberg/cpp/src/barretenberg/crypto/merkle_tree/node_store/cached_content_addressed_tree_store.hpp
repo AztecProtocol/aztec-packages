@@ -12,6 +12,7 @@
 #include "msgpack/assert.hpp"
 #include <cstdint>
 #include <exception>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -643,17 +644,13 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
 
         // if the meta datas are different, we have uncommitted data
         bool metaToCommit = committedMeta != uncommittedMeta;
-        if (!metaToCommit) {
+        if (!metaToCommit && !asBlock) {
             return;
         }
+
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
-        if (!dataPresent) {
-            // no uncommitted data present, if we were asked to commit as a block then we can't
-            if (asBlock) {
-                throw std::runtime_error("Can't commit as block if no data present");
-            }
-        } else {
+        if (dataPresent) {
             // data is present, hydrate persisted indices
             hydrate_indices_from_persisted_store(*tx);
         }
@@ -665,19 +662,27 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
                 // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
                 persist_leaf_keys(uncommittedMeta.committedSize, *tx);
-                persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
-                if (asBlock) {
-                    ++uncommittedMeta.unfinalisedBlockHeight;
-                    if (uncommittedMeta.oldestHistoricBlock == 0) {
-                        uncommittedMeta.oldestHistoricBlock = 1;
-                    }
-                    // std::cout << "New root " << uncommittedMeta.root << std::endl;
-                    BlockPayload block{ .size = uncommittedMeta.size,
-                                        .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
-                                        .root = uncommittedMeta.root };
-                    dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
-                }
             }
+            // If we are commiting a block, we need to persist the root, since the new block "references" this root
+            // However, if the root is the empty root we can't persist it, since it's not a real node
+            // We are abusing the trees in some tests, trying to add empty blocks to initial empty trees
+            // That is not expected behavior since the unwind operation will fail trying to decrease refcount
+            // for the empty root, which doesn't exist.
+            if (dataPresent || (asBlock && uncommittedMeta.size > 0)) {
+                persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
+            }
+            if (asBlock) {
+                ++uncommittedMeta.unfinalisedBlockHeight;
+                if (uncommittedMeta.oldestHistoricBlock == 0) {
+                    uncommittedMeta.oldestHistoricBlock = 1;
+                }
+                // std::cout << "New root " << uncommittedMeta.root << std::endl;
+                BlockPayload block{ .size = uncommittedMeta.size,
+                                    .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
+                                    .root = uncommittedMeta.root };
+                dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
+            }
+
             uncommittedMeta.committedSize = uncommittedMeta.size;
             persist_meta(uncommittedMeta, *tx);
             tx->commit();

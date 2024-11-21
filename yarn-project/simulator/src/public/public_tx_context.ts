@@ -25,10 +25,10 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
-import { type EnqueuedPublicCallExecutionResult } from './execution.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
@@ -70,6 +70,7 @@ export class PublicTxContext {
     private readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     private readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
+    private doMerkleOperations: boolean,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
     this.gasUsed = startGasUsed;
@@ -80,6 +81,7 @@ export class PublicTxContext {
     worldStateDB: WorldStateDB,
     tx: Tx,
     globalVariables: GlobalVariables,
+    doMerkleOperations: boolean,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
     const revertibleAccumulatedDataFromPrivate = tx.data.forPublic!.revertibleAccumulatedData;
@@ -113,6 +115,7 @@ export class PublicTxContext {
       worldStateDB,
       trace,
       nonRevertibleNullifiersFromPrivate,
+      doMerkleOperations,
     );
 
     return new PublicTxContext(
@@ -131,6 +134,7 @@ export class PublicTxContext {
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       enqueuedCallTrace,
+      doMerkleOperations,
     );
   }
 
@@ -340,26 +344,27 @@ export class PublicTxContext {
   }
 
   // TODO(dbanks12): remove once AVM proves entire public tx
-  async updateProvingRequest(
+  updateProvingRequest(
     real: boolean,
     phase: TxExecutionPhase,
-    worldStateDB: WorldStateDB,
+    fnName: string,
     stateManager: AvmPersistableStateManager,
     executionRequest: PublicExecutionRequest,
-    result: EnqueuedPublicCallExecutionResult,
+    result: AvmFinalizedCallResult,
     allocatedGas: Gas,
   ) {
     if (this.avmProvingRequest === undefined) {
       // Propagate the very first avmProvingRequest of the tx for now.
       // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = await generateAvmProvingRequest(
+      this.avmProvingRequest = generateAvmProvingRequest(
         real,
-        worldStateDB,
+        fnName,
         stateManager,
         this.historicalHeader,
         this.globalVariables,
         executionRequest,
-        result,
+        // TODO(dbanks12): do we need this return type unless we are doing an isolated call?
+        stateManager.trace.toPublicEnqueuedCallExecutionResult(result),
         allocatedGas,
         this.getTransactionFee(phase),
       );

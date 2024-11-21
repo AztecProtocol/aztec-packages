@@ -323,6 +323,7 @@ template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 namespace bb {
 class UltraFlavor;
 class UltraFlavorWithZK;
+class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
@@ -357,10 +358,10 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor, MegaZKFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor, MegaZKFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
@@ -374,7 +375,7 @@ template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
 
 template <typename T>
-concept HasIPAAccumulatorFlavor = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK>;
+concept HasIPAAccumulatorFlavor = IsAnyOf<T, UltraRollupFlavor>;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
@@ -398,6 +399,7 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
+                                                           UltraRollupFlavor,
                                                            UltraFlavorWithZK,
                                                            MegaFlavor,
                                                            MegaZKFlavor,

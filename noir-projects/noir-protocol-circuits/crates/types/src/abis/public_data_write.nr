@@ -1,8 +1,8 @@
 use crate::{constants::PUBLIC_DATA_WRITE_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct PublicDataWrite {
-    leaf_slot: Field,
-    value: Field,
+    pub leaf_slot: Field,
+    pub value: Field,
 }
 
 impl Eq for PublicDataWrite {

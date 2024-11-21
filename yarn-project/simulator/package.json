@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./avm/fixtures": "./dest/avm/fixtures/index.js"
+    "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

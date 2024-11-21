@@ -2,6 +2,7 @@ import { type EthAddress, type Header } from '@aztec/circuits.js';
 
 import { z } from 'zod';
 
+import { type InBlock } from './in_block.js';
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
 import { type TxReceipt } from './tx/tx_receipt.js';
@@ -69,7 +70,7 @@ export interface L2BlockSource {
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
    * @returns The requested tx effect.
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -121,6 +122,7 @@ export type L2Tips = Record<L2BlockTag, L2BlockId>;
 /** Identifies a block by number and hash. */
 export type L2BlockId = z.infer<typeof L2BlockIdSchema>;
 
+// TODO(palla/schemas): This package should know what is the block hash of the genesis block 0.
 const L2BlockIdSchema = z.union([
   z.object({
     number: z.literal(0),
