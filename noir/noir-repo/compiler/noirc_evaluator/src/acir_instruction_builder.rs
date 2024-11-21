@@ -1,4 +1,6 @@
 use std::collections::BTreeSet;
+use flate2::read::GzDecoder;
+use std::io::Read;
 use acvm::{
     acir::{
         circuit::{
@@ -20,7 +22,12 @@ use crate::ssa::{
 use crate::brillig::Brillig;
 use serde::{Deserialize, Serialize};
 
-
+fn ungzip(compressed_data: Vec<u8>) -> Vec<u8> {
+    let mut decompressed_data: Vec<u8> = Vec::new();
+    let mut decoder = GzDecoder::new(&compressed_data[..]);   
+    decoder.read_to_end(&mut decompressed_data).unwrap();
+    return decompressed_data;
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct InstructionArtifacts {
@@ -33,7 +40,7 @@ pub struct InstructionArtifacts {
     // serde_json serialized ssa
     pub serialized_ssa: String,
 
-    // bytes of acir program
+    // bytes of acir program. Ungzipped!!
     pub serialized_acir: Vec<u8>,
 }
 
@@ -50,7 +57,7 @@ impl InstructionArtifacts {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
-            serialized_acir: serialized_program
+            serialized_acir: ungzip(serialized_program)
         }
     }
 
@@ -66,7 +73,7 @@ impl InstructionArtifacts {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
-            serialized_acir: serialized_program
+            serialized_acir: ungzip(serialized_program)
         }
 
     }
@@ -96,14 +103,15 @@ fn ssa_to_acir_program(ssa: Ssa) -> AcirProgram<FieldElement> {
 
     let mut functions: Vec<Circuit<FieldElement>> = Vec::new();
     for acir_func in acir_functions.iter() {
-        // no private params, i think
-        let public_params: BTreeSet<Witness> = acir_func.input_witnesses.clone().into_iter().collect();
+        // inputs and output as private
+        let mut private_params: BTreeSet<Witness> = acir_func.input_witnesses.clone().into_iter().collect();
         let ret_values: BTreeSet<Witness> = acir_func.return_witnesses.clone().into_iter().collect();
+
+        private_params.extend(ret_values.iter().cloned());
         let circuit: Circuit<FieldElement> = Circuit {
             current_witness_index: acir_func.current_witness_index().witness_index(),
             opcodes: acir_func.opcodes().to_vec(),
-            public_parameters: PublicInputs(public_params),
-            return_values: PublicInputs(ret_values),
+            private_parameters: private_params,
             ..Circuit::<FieldElement>::default()
         };
         functions.push(circuit);
