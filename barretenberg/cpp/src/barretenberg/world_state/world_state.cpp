@@ -531,19 +531,19 @@ WorldStateStatusFull WorldState::sync_block(
         // same L2 block
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
         std::atomic_uint64_t current_batch = 0;
-        PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
+        PublicDataTree::AddSequentiallyCompletionCallback completion = [&](const auto& resp) -> void {
             current_batch++;
             if (current_batch == public_writes.size()) {
                 decr(resp);
             } else {
-                wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
+                wrapper.tree->add_or_update_values_sequentially(public_writes[current_batch], completion);
             }
         };
 
         if (public_writes.empty()) {
             signal.signal_decrement();
         } else {
-            wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
+            wrapper.tree->add_or_update_values_sequentially(public_writes[current_batch], completion);
         }
 
         // block inside this scope in order to keep current_batch/completion alive until the end of all operations
