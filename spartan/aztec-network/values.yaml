@@ -2,6 +2,12 @@ nameOverride: ""
 fullnameOverride: ""
 
 network:
+  # If true, pods will use host networking.
+  # This is to ensure that nodes are individually addressable from the outside.
+  # Under the current configuration, this also means that there must be a unique
+  # physical node in the cluster for each pod that participates in peer-to-peer.
+  # I.e. the sum of the number of validator, boot node, and prover nodes must be
+  # less than the number of physical nodes in the cluster.
   public: false
   setupL2Contracts: true
 
