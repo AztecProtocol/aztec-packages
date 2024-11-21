@@ -193,15 +193,6 @@ template <typename Flavor> class SumcheckProver {
     {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
-        size_t idx = 0;
-        for (auto poly : full_polynomials.get_all()) {
-            if (poly.size() == multivariate_n) {
-                if (poly.at(multivariate_n - 1) != FF(0)) {
-                    info("prover poly ", idx, " ", poly.at(multivariate_n - 1));
-                }
-            }
-            idx++;
-        }
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
