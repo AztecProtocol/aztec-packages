@@ -24,5 +24,14 @@ describe('aztec-address', () => {
         expect(address.isValid()).toEqual(true);
       }
     });
+
+    it('returns a different address on each call', () => {
+      const set = new Set();
+      for (let i = 0; i < 100; ++i) {
+        set.add(AztecAddress.random());
+      }
+
+      expect(set.size).toEqual(100);
+    });
   });
 });
