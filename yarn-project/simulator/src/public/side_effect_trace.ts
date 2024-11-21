@@ -49,9 +49,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { createSimulationError } from '../common/errors.js';
 import {
   type EnqueuedPublicCallExecutionResultWithSideEffects,
   type PublicFunctionCallResult,
@@ -200,7 +199,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   public traceNewNoteHash(
     _contractAddress: AztecAddress,
     noteHash: Fr,
-    leafIndex: Fr,
+    leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyNoteHashPath(),
   ) {
     if (this.noteHashes.length >= MAX_NOTE_HASHES_PER_TX) {
@@ -380,8 +379,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
@@ -397,9 +394,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     const result = nestedCallTrace.toPublicFunctionCallResult(
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
-      avmCallResults,
+      avmCallResults.finalize(),
       functionName,
     );
     this.sideEffectCounter = result.endSideEffectCounter.toNumber();
@@ -410,8 +406,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.nestedExecutions.push(result);
 
     const gasUsed = new Gas(
-      result.startGasLeft.daGas - result.endGasLeft.daGas,
-      result.startGasLeft.l2Gas - result.endGasLeft.l2Gas,
+      result.startGasLeft.daGas - avmCallResults.gasLeft.daGas,
+      result.startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
     );
 
     this.publicCallRequests.push(resultToPublicCallRequest(result));
@@ -450,12 +446,10 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
   ): PublicFunctionCallResult {
@@ -465,16 +459,14 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       startSideEffectCounter: new Fr(this.startSideEffectCounter),
       endSideEffectCounter: new Fr(this.sideEffectCounter),
       startGasLeft,
-      endGasLeft,
+      endGasLeft: avmCallResults.gasLeft,
       transactionFee: avmEnvironment.transactionFee,
 
       bytecode,
       calldata: avmEnvironment.calldata,
       returnValues: avmCallResults.output,
       reverted: avmCallResults.reverted,
-      revertReason: avmCallResults.revertReason
-        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
-        : undefined,
+      revertReason: avmCallResults.revertReason,
 
       contractStorageReads: this.contractStorageReads,
       contractStorageUpdateRequests: this.contractStorageUpdateRequests,
@@ -500,10 +492,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public toPublicEnqueuedCallExecutionResult(
-    /** How much gas was left after this public execution. */
-    _endGasLeft: Gas,
     /** The call's results */
-    _avmCallResults: AvmContractCallResult,
+    _avmCallResults: AvmFinalizedCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects {
     throw new Error('Not implemented');
   }

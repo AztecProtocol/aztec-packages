@@ -13,6 +13,8 @@ export async function produceNoteDaosForKey<T>(
   pkM: PublicKey,
   payload: L1NotePayload,
   txHash: TxHash,
+  l2BlockNumber: number,
+  l2BlockHash: string,
   noteHashes: Fr[],
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
@@ -21,6 +23,8 @@ export async function produceNoteDaosForKey<T>(
     note: Note,
     payload: L1NotePayload,
     noteInfo: NoteInfo,
+    l2BlockNumber: number,
+    l2BlockHash: string,
     dataStartIndexForTx: number,
     pkM: PublicKey,
   ) => T,
@@ -44,7 +48,7 @@ export async function produceNoteDaosForKey<T>(
     );
     excludedIndices?.add(noteInfo.noteHashIndex);
 
-    noteDao = daoConstructor(note, payload, noteInfo, dataStartIndexForTx, pkM);
+    noteDao = daoConstructor(note, payload, noteInfo, l2BlockNumber, l2BlockHash, dataStartIndexForTx, pkM);
   } catch (e) {
     logger.error(`Could not process note because of "${e}". Discarding note...`);
   }

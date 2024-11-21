@@ -10,6 +10,7 @@ import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas'
 
 import { z } from 'zod';
 
+import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
 import { GetUnencryptedLogsResponseSchema, TxScopedL2Log } from '../logs/get_logs_response.js';
@@ -18,12 +19,13 @@ import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
 import { LogType } from '../logs/log_type.js';
 import { type L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
+import { type NullifierWithBlockSource } from '../nullifier_with_block_source.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 
 export type ArchiverApi = Omit<
-  L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource,
+  L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource & NullifierWithBlockSource,
   'start' | 'stop'
 >;
 
@@ -42,7 +44,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
-  getTxEffect: z.function().args(TxHash.schema).returns(TxEffect.schema.optional()),
+  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
   getL2EpochNumber: z.function().args().returns(schemas.BigInt),
@@ -57,6 +59,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(z.array(schemas.Fr))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
+  findNullifiersIndexesWithBlock: z
+    .function()
+    .args(z.number(), z.array(schemas.Fr))
+    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
   getPublicFunction: z
@@ -70,4 +76,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
+  // TODO(#10007): Remove this method
+  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };

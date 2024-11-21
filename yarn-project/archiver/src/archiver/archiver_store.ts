@@ -1,6 +1,7 @@
 import {
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L2Block,
   type L2BlockL2Logs,
@@ -79,7 +80,7 @@ export interface ArchiverDataStore {
    * @param txHash - The txHash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -95,6 +96,23 @@ export interface ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean>;
   deleteLogs(blocks: L2Block[]): Promise<boolean>;
+
+  /**
+   * Append new nullifiers to the store's list.
+   * @param blocks - The blocks for which to add the nullifiers.
+   * @returns True if the operation is successful.
+   */
+  addNullifiers(blocks: L2Block[]): Promise<boolean>;
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean>;
+
+  /**
+   * Returns the provided nullifier indexes scoped to the block
+   * they were first included in, or undefined if they're not present in the tree
+   * @param blockNumber Max block number to search for the nullifiers
+   * @param nullifiers Nullifiers to get
+   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
+   */
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
    * Append L1 to L2 messages to the store.

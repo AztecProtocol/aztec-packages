@@ -1,10 +1,4 @@
-import {
-  type MerkleTreeWriteOperations,
-  SimulationError,
-  type TreeInfo,
-  TxExecutionPhase,
-  mockTx,
-} from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations, SimulationError, TxExecutionPhase, mockTx } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
@@ -16,7 +10,6 @@ import {
   Header,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicDataTreeLeafPreimage,
   PublicDataWrite,
   RevertCode,
   StateReference,
@@ -27,12 +20,14 @@ import { fr } from '@aztec/circuits.js/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { MerkleTrees } from '@aztec/world-state';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
-import { PublicExecutionResultBuilder } from '../mocks/fixtures.js';
-import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
 
@@ -49,15 +44,22 @@ describe('public_tx_simulator', () => {
   // gasUsed for each enqueued call.
   const enqueuedCallGasUsed = new Gas(12, 34);
 
-  let db: MockProxy<MerkleTreeWriteOperations>;
-  let publicExecutor: MockProxy<PublicExecutor>;
+  let db: MerkleTreeWriteOperations;
   let worldStateDB: MockProxy<WorldStateDB>;
 
-  let root: Buffer;
   let publicDataTree: AppendOnlyTree<Fr>;
 
-  let processor: PublicTxSimulator;
   let treeStore: AztecKVStore;
+  let simulator: PublicTxSimulator;
+  let simulateInternal: jest.SpiedFunction<
+    (
+      stateManager: AvmPersistableStateManager,
+      executionResult: any,
+      allocatedGas: Gas,
+      transactionFee: any,
+      fnName: any,
+    ) => Promise<AvmFinalizedCallResult>
+  >;
 
   const mockTxWithPublicCalls = ({
     numberOfSetupCalls = 0,
@@ -89,50 +91,60 @@ describe('public_tx_simulator', () => {
   };
 
   const mockPublicExecutor = (
-    mockedSimulatorExecutions: ((
-      stateManager: AvmPersistableStateManager,
-      resultBuilder: PublicExecutionResultBuilder,
-    ) => Promise<void>)[],
+    mockedSimulatorExecutions: ((stateManager: AvmPersistableStateManager) => Promise<SimulationError | void>)[],
   ) => {
     for (const executeSimulator of mockedSimulatorExecutions) {
-      publicExecutor.simulate.mockImplementationOnce(
-        async (stateManager: AvmPersistableStateManager, _executionResult, _globalVariables, availableGas) => {
-          const builder = PublicExecutionResultBuilder.empty();
-          await executeSimulator(stateManager, builder);
-          return builder.build({
-            endGasLeft: availableGas.sub(enqueuedCallGasUsed),
-          });
+      simulateInternal.mockImplementationOnce(
+        async (
+          stateManager: AvmPersistableStateManager,
+          _executionResult: any,
+          allocatedGas: Gas,
+          _transactionFee: any,
+          _fnName: any,
+        ) => {
+          const revertReason = await executeSimulator(stateManager);
+          if (revertReason === undefined) {
+            return Promise.resolve(
+              new AvmFinalizedCallResult(
+                /*reverted=*/ false,
+                /*output=*/ [],
+                /*gasLeft=*/ allocatedGas.sub(enqueuedCallGasUsed),
+              ),
+            );
+          } else {
+            return Promise.resolve(
+              new AvmFinalizedCallResult(
+                /*reverted=*/ true,
+                /*output=*/ [],
+                /*gasLeft=*/ allocatedGas.sub(enqueuedCallGasUsed),
+                revertReason,
+              ),
+            );
+          }
         },
       );
     }
   };
 
   const expectAvailableGasForCalls = (availableGases: Gas[]) => {
-    expect(publicExecutor.simulate).toHaveBeenCalledTimes(availableGases.length);
+    expect(simulateInternal).toHaveBeenCalledTimes(availableGases.length);
     availableGases.forEach((availableGas, i) => {
-      expect(publicExecutor.simulate).toHaveBeenNthCalledWith(
+      expect(simulateInternal).toHaveBeenNthCalledWith(
         i + 1,
         expect.anything(), // AvmPersistableStateManager
         expect.anything(), // publicExecutionRequest
-        expect.anything(), // globalVariables
         Gas.from(availableGas),
         expect.anything(), // txFee
+        expect.anything(), // fnName
       );
     });
   };
 
   beforeEach(async () => {
-    db = mock<MerkleTreeWriteOperations>();
+    const tmp = openTmpStore();
+    const telemetryClient = new NoopTelemetryClient();
+    db = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
     worldStateDB = mock<WorldStateDB>();
-    root = Buffer.alloc(32, 5);
-
-    publicExecutor = mock<PublicExecutor>();
-    publicExecutor.simulate.mockImplementation((_stateManager, _executionResult, _globalVariables, availableGas) => {
-      const result = PublicExecutionResultBuilder.empty().build({
-        endGasLeft: availableGas.sub(enqueuedCallGasUsed),
-      });
-      return Promise.resolve(result);
-    });
 
     treeStore = openTmpStore();
 
@@ -157,18 +169,38 @@ describe('public_tx_simulator', () => {
     // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
     header.state = StateReference.fromBuffer(stateReference.toBuffer());
 
-    db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-    db.getStateReference.mockResolvedValue(stateReference);
-    db.getSiblingPath.mockResolvedValue(publicDataTree.getSiblingPath(0n, false));
-    db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
-    db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
+    worldStateDB.getMerkleInterface.mockReturnValue(db);
 
-    processor = PublicTxSimulator.create(
+    simulator = new PublicTxSimulator(
       db,
-      publicExecutor,
-      GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       worldStateDB,
+      new NoopTelemetryClient(),
+      GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       /*realAvmProvingRequest=*/ false,
+    );
+
+    // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
+    simulateInternal = jest.spyOn(
+      simulator as unknown as { simulateEnqueuedCallInternal: PublicTxSimulator['simulateEnqueuedCallInternal'] },
+      'simulateEnqueuedCallInternal',
+    );
+    simulateInternal.mockImplementation(
+      (
+        _stateManager: AvmPersistableStateManager,
+        _executionResult: any,
+        allocatedGas: Gas,
+        _transactionFee: any,
+        _fnName: any,
+      ) => {
+        return Promise.resolve(
+          new AvmFinalizedCallResult(
+            /*reverted=*/ false,
+            /*output=*/ [],
+            /*gasLeft=*/ allocatedGas.sub(enqueuedCallGasUsed),
+            /*revertReason=*/ undefined,
+          ),
+        );
+      },
     );
   });
 
@@ -181,7 +213,7 @@ describe('public_tx_simulator', () => {
       numberOfSetupCalls: 2,
     });
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -216,7 +248,7 @@ describe('public_tx_simulator', () => {
       numberOfAppLogicCalls: 2,
     });
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
@@ -251,7 +283,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
@@ -286,7 +318,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -364,9 +396,9 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
-    expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
+    expect(simulateInternal).toHaveBeenCalledTimes(3);
 
     const output = txResult.avmProvingRequest!.inputs.output;
 
@@ -394,13 +426,18 @@ describe('public_tx_simulator', () => {
 
     const setupFailureMsg = 'Simulation Failed in setup';
     const setupFailure = new SimulationError(setupFailureMsg, []);
-    publicExecutor.simulate.mockResolvedValueOnce(
-      PublicExecutionResultBuilder.empty().withReverted(setupFailure).build(),
+    simulateInternal.mockResolvedValueOnce(
+      new AvmFinalizedCallResult(
+        /*reverted=*/ true,
+        /*output=*/ [],
+        /*gasLeft=*/ Gas.empty(),
+        /*revertReason=*/ setupFailure,
+      ),
     );
 
-    await expect(processor.simulate(tx)).rejects.toThrow(setupFailureMsg);
+    await expect(simulator.simulate(tx)).rejects.toThrow(setupFailureMsg);
 
-    expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
+    expect(simulateInternal).toHaveBeenCalledTimes(1);
   });
 
   it('includes a transaction that reverts in app logic only', async function () {
@@ -423,9 +460,9 @@ describe('public_tx_simulator', () => {
         await stateManager.writeNullifier(contractAddress, new Fr(2));
         await stateManager.writeNullifier(contractAddress, new Fr(3));
       },
-      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
+      async (stateManager: AvmPersistableStateManager) => {
         await stateManager.writeNullifier(contractAddress, new Fr(4));
-        resultBuilder.withReverted(appLogicFailure);
+        return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
       async (stateManager: AvmPersistableStateManager) => {
@@ -433,7 +470,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
@@ -505,13 +542,13 @@ describe('public_tx_simulator', () => {
         await stateManager.writeNullifier(contractAddress, new Fr(4));
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
+      async (stateManager: AvmPersistableStateManager) => {
         await stateManager.writeNullifier(contractAddress, new Fr(5));
-        resultBuilder.withReverted(teardownFailure);
+        return Promise.resolve(teardownFailure);
       },
     ]);
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
@@ -582,18 +619,18 @@ describe('public_tx_simulator', () => {
         await stateManager.writeNullifier(contractAddress, new Fr(2));
         await stateManager.writeNullifier(contractAddress, new Fr(3));
       },
-      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
+      async (stateManager: AvmPersistableStateManager) => {
         await stateManager.writeNullifier(contractAddress, new Fr(4));
-        resultBuilder.withReverted(appLogicFailure);
+        return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager, resultBuilder: PublicExecutionResultBuilder) => {
+      async (stateManager: AvmPersistableStateManager) => {
         await stateManager.writeNullifier(contractAddress, new Fr(5));
-        resultBuilder.withReverted(teardownFailure);
+        return Promise.resolve(teardownFailure);
       },
     ]);
 
-    const txResult = await processor.simulate(tx);
+    const txResult = await simulator.simulate(tx);
 
     expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([

@@ -65,13 +65,11 @@ template <typename Fr> class Polynomial {
     using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
-    Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
+    Polynomial(size_t size, size_t virtual_size, size_t start_index = 0, bool disable_parallelisation = false);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size)
-    {
-        PROFILE_THIS();
-    }
+        : Polynomial(size, size){};
+
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)

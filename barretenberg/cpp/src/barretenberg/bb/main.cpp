@@ -600,8 +600,10 @@ void prove_tube(const std::string& output_path)
     builder->add_pairing_point_accumulator(current_aggregation_object);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
-    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): We shouldn't add these to the public inputs for
+    // now since we don't handle them correctly. Uncomment when we start using UltraRollupHonk in the rollup.
+    // builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    // builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
@@ -1071,7 +1073,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
 
     bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>) {
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);

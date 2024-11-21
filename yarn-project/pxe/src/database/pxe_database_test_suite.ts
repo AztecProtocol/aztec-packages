@@ -7,14 +7,14 @@ import {
   SerializableContractInstance
 } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { FunctionType } from '@aztec/foundation/abi';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
-import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
-import { randomOutgoingNoteDao } from './outgoing_note_dao.test.js';
+import { IncomingNoteDao } from './incoming_note_dao.js';
+import { OutgoingNoteDao } from './outgoing_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -120,11 +120,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomIncomingNoteDao({
+          IncomingNoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
             addressPoint: owners[i % owners.length].address.toAddressPoint(),
             index: BigInt(i),
+            l2BlockNumber: i,
           }),
         );
 
@@ -156,7 +157,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
           const notesToNullify = notes.filter(note => note.addressPoint.equals(owner.address.toAddressPoint()));
-          const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+          const nullifiers = notesToNullify.map(note => ({
+            data: note.siloedNullifier,
+            l2BlockNumber: note.l2BlockNumber,
+            l2BlockHash: note.l2BlockHash,
+          }));
           await expect(database.removeNullifiedNotes(nullifiers, owner.address.toAddressPoint())).resolves.toEqual(
             notesToNullify,
           );
@@ -171,7 +176,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNotes(notes, []);
 
         const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: note.l2BlockNumber,
+          l2BlockHash: note.l2BlockHash,
+        }));
         await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
           notesToNullify,
         );
@@ -183,11 +192,35 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
       });
 
+      it('handles note unnullification', async () => {
+        await database.setHeader(makeHeader(randomInt(1000), 100, 0 /** slot number */));
+        await database.addNotes(notes, []);
+
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: 99,
+          l2BlockHash: Fr.random().toString(),
+        }));
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
+          notesToNullify,
+        );
+        await expect(database.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
+
+        const result = await database.getIncomingNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
+
+        expect(result.sort()).toEqual([...notesToNullify].sort());
+      });
+
       it('returns active and nullified notes when requesting either', async () => {
         await database.addNotes(notes, []);
 
         const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: note.l2BlockNumber,
+          l2BlockHash: note.l2BlockHash,
+        }));
         await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
           notesToNullify,
         );
@@ -245,7 +278,16 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         ).resolves.toEqual([notes[0]]);
 
         await expect(
-          database.removeNullifiedNotes([notes[0].siloedNullifier], owners[0].address.toAddressPoint()),
+          database.removeNullifiedNotes(
+            [
+              {
+                data: notes[0].siloedNullifier,
+                l2BlockHash: notes[0].l2BlockHash,
+                l2BlockNumber: notes[0].l2BlockNumber,
+              },
+            ],
+            owners[0].address.toAddressPoint(),
+          ),
         ).resolves.toEqual([notes[0]]);
 
         await expect(
@@ -258,6 +300,14 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([]);
+      });
+
+      it('removes notes after a given block', async () => {
+        await database.addNotes(notes, [], owners[0].address);
+
+        await database.removeNotesAfter(5);
+        const result = await database.getIncomingNotes({ scopes: [owners[0].address] });
+        expect(new Set(result)).toEqual(new Set(notes.slice(0, 6)));
       });
     });
 
@@ -306,7 +356,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomOutgoingNoteDao({
+          OutgoingNoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
             ovpkM: owners[i % owners.length].publicKeys.masterOutgoingViewingPublicKey,
@@ -388,6 +438,19 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const id = Fr.random();
         await database.addContractArtifact(id, artifact);
         await expect(database.getContractArtifact(id)).resolves.toEqual(artifact);
+      });
+
+      it('does not store a contract artifact with a duplicate private function selector', async () => {
+        const artifact = TestContractArtifact;
+        const index = artifact.functions.findIndex(fn => fn.functionType === FunctionType.PRIVATE);
+
+        const copiedFn = structuredClone(artifact.functions[index]);
+        artifact.functions.push(copiedFn);
+
+        const id = Fr.random();
+        await expect(database.addContractArtifact(id, artifact)).rejects.toThrow(
+          'Repeated function selectors of private functions',
+        );
       });
 
       it('stores a contract instance', async () => {

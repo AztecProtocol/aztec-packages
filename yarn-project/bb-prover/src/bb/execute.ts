@@ -43,6 +43,7 @@ export type BBSuccess = {
 export type BBFailure = {
   status: BB_RESULT.FAILURE;
   reason: string;
+  retry?: boolean;
 };
 
 export type BBResult = BBSuccess | BBFailure;
@@ -175,6 +176,7 @@ export async function generateKeyForNoirCircuit(
       return {
         status: BB_RESULT.FAILURE,
         reason: `Failed to generate key. Exit code: ${result.exitCode}. Signal ${result.signal}.`,
+        retry: !!result.signal,
       };
     } catch (error) {
       return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -245,6 +247,7 @@ export async function executeBbClientIvcProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -324,6 +327,7 @@ export async function computeVerificationKey(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to write VK. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -396,6 +400,7 @@ export async function generateProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -470,6 +475,7 @@ export async function generateTubeProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -573,6 +579,7 @@ export async function generateAvmProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -648,6 +655,7 @@ export async function verifyClientIvcProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -690,6 +698,7 @@ async function verifyProofInternal(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -730,6 +739,7 @@ export async function writeVkAsFields(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to create vk as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -772,6 +782,7 @@ export async function writeProofAsFields(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to create proof as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -813,6 +824,7 @@ export async function generateContractForVerificationKey(
       return {
         status: BB_RESULT.FAILURE,
         reason: `Failed to write verifier contract. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+        retry: !!result.signal,
       };
     } catch (error) {
       return { status: BB_RESULT.FAILURE, reason: `${error}` };
