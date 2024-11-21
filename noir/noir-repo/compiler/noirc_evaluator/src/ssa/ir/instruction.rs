@@ -519,13 +519,11 @@ impl Instruction {
                     assert_message: assert_message.clone(),
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_value } => {
-                Instruction::IfElse {
-                    then_condition: f(*then_condition),
-                    then_value: f(*then_value),
-                    else_value: f(*else_value),
-                }
-            }
+            Instruction::IfElse { then_condition, then_value, else_value } => Instruction::IfElse {
+                then_condition: f(*then_condition),
+                then_value: f(*then_value),
+                else_value: f(*else_value),
+            },
             Instruction::MakeArray { elements, typ } => Instruction::MakeArray {
                 elements: elements.iter().copied().map(f).collect(),
                 typ: typ.clone(),
