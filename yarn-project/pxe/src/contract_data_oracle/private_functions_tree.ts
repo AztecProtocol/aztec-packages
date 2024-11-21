@@ -1,10 +1,10 @@
 import {
-    type ContractClassWithId,
-    FUNCTION_TREE_HEIGHT,
-    MembershipWitness,
-    computePrivateFunctionLeaf,
-    computePrivateFunctionsTree,
-    getContractClassFromArtifact,
+  type ContractClassWithId,
+  FUNCTION_TREE_HEIGHT,
+  MembershipWitness,
+  computePrivateFunctionLeaf,
+  computePrivateFunctionsTree,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type MerkleTree } from '@aztec/circuits.js/merkle';
 import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
@@ -94,7 +94,7 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns A MembershipWitness instance representing the position and authentication path of the function in the function tree.
    */
-  public getFunctionMembershipWitness(
+  public async getFunctionMembershipWitness(
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>> {
     const fn = this.getContractClass().privateFunctions.find(f => f.selector.equals(selector));
@@ -102,9 +102,9 @@ export class PrivateFunctionsTree {
       throw new Error(`Private function with selector ${selector.toString()} not found in contract class.`);
     }
 
-    const leaf = computePrivateFunctionLeaf(fn);
-    const index = this.getTree().getIndex(leaf);
-    const path = this.getTree().getSiblingPath(index);
+    const leaf = await computePrivateFunctionLeaf(fn);
+    const index =(await  this.getTree()).getIndex(leaf);
+    const path = (await this.getTree()).getSiblingPath(index);
     return Promise.resolve(
       new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
         FUNCTION_TREE_HEIGHT,
@@ -114,10 +114,10 @@ export class PrivateFunctionsTree {
     );
   }
 
-  private getTree() {
+  private async getTree() {
     if (!this.tree) {
       const fns = this.getContractClass().privateFunctions;
-      this.tree = computePrivateFunctionsTree(fns);
+      this.tree = await computePrivateFunctionsTree(fns);
     }
     return this.tree;
   }

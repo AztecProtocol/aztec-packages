@@ -116,7 +116,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @returns The value of the leaf at the given index or undefined if the leaf is empty.
    */
   public override async getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
-    const preimage = this.getLatestLeafPreimageCopy(index, includeUncommitted);
+    const preimage = await this.getLatestLeafPreimageCopy(index, includeUncommitted);
     return preimage && preimage.toBuffer();
   }
 
@@ -214,7 +214,10 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns A copy of the leaf preimage at the given index or undefined if the leaf was not found.
    */
-  public getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined {
+  public async getLatestLeafPreimageCopy(
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<IndexedTreeLeafPreimage | undefined> {
     const preimage = !includeUncommitted
       ? this.getDbPreimage(index)
       : this.getCachedPreimage(index) ?? this.getDbPreimage(index);
@@ -517,7 +520,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
       const isUpdate = indexOfPrevious.alreadyPresent;
 
       // get the low leaf (existence checked in getting index)
-      const lowLeafPreimage = this.getLatestLeafPreimageCopy(indexOfPrevious.index, true)!;
+      const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(indexOfPrevious.index, true))!;
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
       const witness: LowLeafWitnessData<TreeHeight> = {

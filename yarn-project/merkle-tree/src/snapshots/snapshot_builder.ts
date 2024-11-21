@@ -73,7 +73,7 @@ export interface IndexedTreeSnapshot extends TreeSnapshot<Buffer> {
    * Gets the historical data for a leaf
    * @param index - The index of the leaf to get the data for
    */
-  getLatestLeafPreimageCopy(index: bigint): IndexedTreeLeafPreimage | undefined;
+  getLatestLeafPreimageCopy(index: bigint): Promise<IndexedTreeLeafPreimage | undefined>;
 
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.

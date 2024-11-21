@@ -33,7 +33,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
    * @param leaf - The leaf to append.
    * @returns Empty promise.
    */
-  private appendLeaf(leaf: Buffer): void {
+  private async appendLeaf(leaf: Buffer): Promise<void> {
     const newLeaf = this.leafFactory.fromBuffer(leaf);
 
     // Special case when appending zero
@@ -48,7 +48,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
     }
 
     const isUpdate = lowLeafIndex.alreadyPresent;
-    const lowLeafPreimage = this.getLatestLeafPreimageCopy(lowLeafIndex.index, true)!;
+    const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(lowLeafIndex.index, true))!;
     const currentSize = this.getNumLeaves(true);
 
     if (isUpdate) {

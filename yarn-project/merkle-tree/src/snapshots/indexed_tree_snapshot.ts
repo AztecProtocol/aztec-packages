@@ -23,8 +23,8 @@ export class IndexedTreeSnapshotBuilder
     return new IndexedTreeSnapshotImpl(this.nodes, this.leaves, root, numLeaves, this.tree, this.leafPreimageBuilder);
   }
 
-  protected override handleLeaf(index: bigint, node: Buffer) {
-    const leafPreimage = this.tree.getLatestLeafPreimageCopy(index, false);
+  protected override async handleLeaf(index: bigint, node: Buffer) {
+    const leafPreimage = await this.tree.getLatestLeafPreimageCopy(index, false);
     if (leafPreimage) {
       void this.leaves.set(snapshotLeafValue(node, index), leafPreimage.toBuffer());
     }
