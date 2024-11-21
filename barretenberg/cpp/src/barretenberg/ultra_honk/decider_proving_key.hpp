@@ -97,7 +97,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
         {
 
-            PROFILE_THIS_NAME("constructing proving key");
+            PROFILE_THIS_NAME("allocating proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
@@ -189,7 +189,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     // Allocate the table polynomials
                     if constexpr (IsUltraFlavor<Flavor>) {
                         for (auto& poly : proving_key.polynomials.get_tables()) {
-                            poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                            poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                         }
                     }
                 }
@@ -197,19 +197,19 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     PROFILE_THIS_NAME("allocating sigmas and ids");
 
                     for (auto& sigma : proving_key.polynomials.get_sigmas()) {
-                        sigma = typename Flavor::Polynomial(proving_key.circuit_size);
+                        sigma = Polynomial(proving_key.circuit_size);
                     }
                     for (auto& id : proving_key.polynomials.get_ids()) {
-                        id = typename Flavor::Polynomial(proving_key.circuit_size);
+                        id = Polynomial(proving_key.circuit_size);
                     }
                 }
                 {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
                     proving_key.polynomials.lookup_read_counts =
-                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                        Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
-                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                        Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
