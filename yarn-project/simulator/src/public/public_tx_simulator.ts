@@ -58,6 +58,7 @@ export class PublicTxSimulator {
     client: TelemetryClient,
     private globalVariables: GlobalVariables,
     private realAvmProvingRequests: boolean = true,
+    private doMerkleOperations: boolean = false,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(client, 'PublicTxSimulator');
@@ -71,7 +72,13 @@ export class PublicTxSimulator {
   async simulate(tx: Tx): Promise<PublicTxResult> {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
 
-    const context = await PublicTxContext.create(this.db, this.worldStateDB, tx, this.globalVariables);
+    const context = await PublicTxContext.create(
+      this.db,
+      this.worldStateDB,
+      tx,
+      this.globalVariables,
+      this.doMerkleOperations,
+    );
 
     // add new contracts to the contracts db so that their functions may be found and called
     // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
