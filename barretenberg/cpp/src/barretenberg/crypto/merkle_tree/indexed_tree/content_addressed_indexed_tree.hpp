@@ -1425,7 +1425,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
     };
 
     // This is the final callback triggered once all the leaves have been inserted in the tree
-    auto final_completion = [=](const TypedResponse<UpdatesCompletionResponse>& updates_completion_response) {
+    auto final_completion = [=, this](const TypedResponse<UpdatesCompletionResponse>& updates_completion_response) {
         TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>> response;
         response.success = updates_completion_response.success;
         response.message = updates_completion_response.message;
