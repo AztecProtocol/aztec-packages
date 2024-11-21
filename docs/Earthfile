@@ -13,10 +13,8 @@ build:
   ARG ENV
   ARG COMMIT_TAG
   ENV COMMIT_TAG=$COMMIT_TAG
-  BUILD ../yarn-project/+build-dev
   BUILD ../+release-meta
   FROM +deps
-  COPY --dir ../yarn-project/+build-dev/usr/src /usr
   COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
   COPY . .
   RUN ./scripts/build.sh
