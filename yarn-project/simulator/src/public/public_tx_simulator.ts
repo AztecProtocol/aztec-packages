@@ -2,22 +2,32 @@ import {
   type AvmProvingRequest,
   type GasUsed,
   type MerkleTreeReadOperations,
-  type NestedProcessReturnValues,
+  NestedProcessReturnValues,
+  type PublicExecutionRequest,
   type SimulationError,
   type Tx,
   TxExecutionPhase,
+  UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header, type RevertCode } from '@aztec/circuits.js';
+import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
+import {
+  type Fr,
+  Gas,
+  type GlobalVariables,
+  MAX_L2_GAS_PER_ENQUEUED_CALL,
+  type PublicCallRequest,
+  type RevertCode,
+} from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
-import { type PublicExecutor } from './executor.js';
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
+import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
-import { PublicKernelTailSimulator } from './public_kernel_tail_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
-import { generateAvmCircuitPublicInputs, runMergeKernelCircuit } from './utils.js';
 
 export type ProcessedPhase = {
   phase: TxExecutionPhase;
@@ -38,149 +48,162 @@ export type PublicTxResult = {
 };
 
 export class PublicTxSimulator {
+  metrics: ExecutorMetrics;
+
   private log: DebugLogger;
 
   constructor(
     private db: MerkleTreeReadOperations,
-    private publicKernelSimulator: PublicKernelCircuitSimulator,
-    private globalVariables: GlobalVariables,
     private worldStateDB: WorldStateDB,
-    private enqueuedCallSimulator: EnqueuedCallSimulator,
-    private publicKernelTailSimulator: PublicKernelTailSimulator,
+    client: TelemetryClient,
+    private globalVariables: GlobalVariables,
+    private realAvmProvingRequests: boolean = true,
+    private doMerkleOperations: boolean = false,
   ) {
-    this.log = createDebugLogger(`aztec:sequencer`);
+    this.log = createDebugLogger(`aztec:public_tx_simulator`);
+    this.metrics = new ExecutorMetrics(client, 'PublicTxSimulator');
   }
 
-  static create(
-    db: MerkleTreeReadOperations,
-    publicExecutor: PublicExecutor,
-    publicKernelSimulator: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    realAvmProvingRequests: boolean = true,
-  ) {
-    const enqueuedCallSimulator = new EnqueuedCallSimulator(
-      db,
-      worldStateDB,
-      publicExecutor,
-      globalVariables,
-      historicalHeader,
-      realAvmProvingRequests,
-    );
-
-    const publicKernelTailSimulator = PublicKernelTailSimulator.create(db, publicKernelSimulator);
-
-    return new PublicTxSimulator(
-      db,
-      publicKernelSimulator,
-      globalVariables,
-      worldStateDB,
-      enqueuedCallSimulator,
-      publicKernelTailSimulator,
-    );
-  }
-
-  async process(tx: Tx): Promise<PublicTxResult> {
+  /**
+   * Simulate a transaction's public portion including all of its phases.
+   * @param tx - The transaction to simulate.
+   * @returns The result of the transaction's public execution.
+   */
+  async simulate(tx: Tx): Promise<PublicTxResult> {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
 
-    const context = await PublicTxContext.create(this.db, this.worldStateDB, tx, this.globalVariables);
-
-    const setupResult = await this.processSetupPhase(context);
-    const appLogicResult = await this.processAppLogicPhase(context);
-    const teardownResult = await this.processTeardownPhase(context);
-
-    const processedPhases = [setupResult, appLogicResult, teardownResult].filter(
-      result => result !== undefined,
-    ) as ProcessedPhase[];
-
-    const _endStateReference = await this.db.getStateReference();
-    const transactionFee = context.getTransactionFee();
-
-    const tailKernelOutput = await this.publicKernelTailSimulator.simulate(context.latestPublicKernelOutput);
-
-    context.avmProvingRequest!.inputs.output = generateAvmCircuitPublicInputs(
+    const context = await PublicTxContext.create(
+      this.db,
+      this.worldStateDB,
       tx,
-      tailKernelOutput,
-      context.getGasUsedForFee(),
-      transactionFee,
+      this.globalVariables,
+      this.doMerkleOperations,
     );
 
-    const gasUsed = {
-      totalGas: context.getActualGasUsed(),
-      teardownGas: context.teardownGasUsed,
-    };
+    // add new contracts to the contracts db so that their functions may be found and called
+    // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
+    // have to capture contracts emitted in that phase as well.
+    // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
+    // TODO(#6464): Should we allow emitting contracts in the private setup phase?
+    // if so, this should only add contracts that were deployed during private app logic.
+    // FIXME: we shouldn't need to directly modify worldStateDb here!
+    await this.worldStateDB.addNewContracts(tx);
+
+    const processedPhases: ProcessedPhase[] = [];
+    if (context.hasPhase(TxExecutionPhase.SETUP)) {
+      const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
+      processedPhases.push(setupResult);
+    }
+    if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
+      const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
+      processedPhases.push(appLogicResult);
+    }
+    if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
+      const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
+      processedPhases.push(teardownResult);
+    }
+    context.halt();
+
+    const endStateReference = await this.db.getStateReference();
+
+    const avmProvingRequest = context.generateProvingRequest(endStateReference);
+    const avmCircuitPublicInputs = avmProvingRequest.inputs.output!;
+
+    const revertCode = context.getFinalRevertCode();
+    if (!revertCode.isOK()) {
+      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
+      // if so, this is removing contracts deployed in private setup
+      // You can't submit contracts in public, so this is only relevant for private-created side effects
+      // FIXME: we shouldn't need to directly modify worldStateDb here!
+      await this.worldStateDB.removeNewContracts(tx);
+      // FIXME(dbanks12): should not be changing immutable tx
+      tx.filterRevertedLogs(
+        tx.data.forPublic!.nonRevertibleAccumulatedData,
+        avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes,
+      );
+    }
+    // FIXME(dbanks12): should not be changing immutable tx
+    tx.unencryptedLogs.addFunctionLogs([new UnencryptedFunctionL2Logs(context.trace.getUnencryptedLogs())]);
+
     return {
-      avmProvingRequest: context.avmProvingRequest!,
-      gasUsed,
-      revertCode: context.revertCode,
+      avmProvingRequest,
+      gasUsed: { totalGas: context.getActualGasUsed(), teardownGas: context.teardownGasUsed },
+      revertCode,
       revertReason: context.revertReason,
       processedPhases: processedPhases,
     };
   }
 
-  private async processSetupPhase(context: PublicTxContext): Promise<ProcessedPhase | undefined> {
-    // Start in phase TxExecutionPhase.SETUP;
-    if (context.hasPhase()) {
-      return await this.processPhase(context);
-    }
+  /**
+   * Simulate the setup phase of a transaction's public execution.
+   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
+   * @returns The phase result.
+   */
+  private async simulateSetupPhase(context: PublicTxContext): Promise<ProcessedPhase> {
+    return await this.simulatePhase(TxExecutionPhase.SETUP, context);
   }
 
-  private async processAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase | undefined> {
-    context.progressToNextPhase(); // to app logic
-    if (context.hasPhase()) {
-      // Fork the state manager so that we can rollback state if app logic or teardown reverts.
-      // Don't need to fork for setup since it's non-revertible (if setup fails, transaction is thrown out).
-      context.state.fork();
+  /**
+   * Simulate the app logic phase of a transaction's public execution.
+   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
+   * @returns The phase result.
+   */
+  private async simulateAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase> {
+    // Fork the state manager so that we can rollback state if app logic or teardown reverts.
+    // Don't need to fork for setup since it's non-revertible (if setup fails, transaction is thrown out).
+    context.state.fork();
 
-      const result = await this.processPhase(context);
+    const result = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
 
-      if (result.reverted) {
-        // Drop the currently active forked state manager and rollback to end of setup.
-        // Fork again for teardown so that if teardown fails we can again rollback to end of setup.
-        context.state.discardForkedState();
-      } else {
-        if (!context.hasPhase(TxExecutionPhase.TEARDOWN)) {
-          // Nothing to do after this (no teardown), so merge state in now instead of letting teardown handle it.
-          context.state.mergeForkedState();
-        }
-      }
-
-      return result;
-    }
-  }
-
-  private async processTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase | undefined> {
-    context.progressToNextPhase(); // to teardown
-    if (context.hasPhase()) {
-      if (!context.state.isForked()) {
-        // if state isn't forked (app logic was empty or reverted), fork now
-        // so we can rollback to the end of setup on teardown revert
-        context.state.fork();
-      }
-
-      const result = await this.processPhase(context);
-
-      if (result.reverted) {
-        // Drop the currently active forked state manager and rollback to end of setup.
-        context.state.discardForkedState();
-      } else {
+    if (result.reverted) {
+      // Drop the currently active forked state manager and rollback to end of setup.
+      context.state.discardForkedState();
+    } else {
+      if (!context.hasPhase(TxExecutionPhase.TEARDOWN)) {
+        // Nothing to do after this (no teardown), so merge state updates now instead of letting teardown handle it.
         context.state.mergeForkedState();
       }
-
-      return result;
     }
+
+    return result;
   }
 
-  private async processPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    const tx = context.tx;
-    const callRequests = context.getCallRequestsForCurrentPhase();
-    const executionRequests = context.getExecutionRequestsForCurrentPhase();
-    const txStateManager = context.state.getActiveStateManager();
+  /**
+   * Simulate the teardown phase of a transaction's public execution.
+   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
+   * @returns The phase result.
+   */
+  private async simulateTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase> {
+    if (!context.state.isForked()) {
+      // If state isn't forked (app logic was empty or reverted), fork now
+      // so we can rollback to the end of setup if teardown reverts.
+      context.state.fork();
+    }
 
-    this.log.debug(
-      `Beginning processing in phase ${TxExecutionPhase[context.getCurrentPhase()]} for tx ${tx.getTxHash()}`,
-    );
+    const result = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
+
+    if (result.reverted) {
+      // Drop the currently active forked state manager and rollback to end of setup.
+      context.state.discardForkedState();
+    } else {
+      // Merge state updates from teardown,
+      context.state.mergeForkedState();
+    }
+
+    return result;
+  }
+
+  /**
+   * Simulate a phase of a transaction's public execution.
+   * @param phase - The current phase
+   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
+   * @returns The phase result.
+   */
+  private async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
+    const callRequests = context.getCallRequestsForPhase(phase);
+    const executionRequests = context.getExecutionRequestsForPhase(phase);
+
+    this.log.debug(`Beginning processing in phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`);
 
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
@@ -194,70 +217,148 @@ export class PublicTxSimulator {
       const callRequest = callRequests[i];
       const executionRequest = executionRequests[i];
 
-      // add new contracts to the contracts db so that their functions may be found and called
-      // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
-      // have to capture contracts emitted in that phase as well.
-      // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
-      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-      // if so, this should only add contracts that were deployed during private app logic.
-      // FIXME: we shouldn't need to directly modify worldStateDb here!
-      await this.worldStateDB.addNewContracts(tx);
+      const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest, executionRequest);
 
-      // each enqueued call starts with an incremented side effect counter
-      // FIXME: should be able to stop forking here and just trace the enqueued call (for hinting)
-      // and proceed with the same state manager for the entire phase
-      const enqueuedCallStateManager = txStateManager.fork(/*incrementSideEffectCounter=*/ true);
-      const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
-        callRequest,
-        executionRequest,
-        context.constants,
-        /*availableGas=*/ context.getGasLeftForCurrentPhase(),
-        /*transactionFee=*/ context.getTransactionFeeAtCurrentPhase(),
-        enqueuedCallStateManager,
-      );
+      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output));
 
-      txStateManager.traceEnqueuedCall(callRequest, executionRequest.args, enqueuedCallResult.reverted!);
-
-      context.consumeGas(enqueuedCallResult.gasUsed);
-      returnValues.push(enqueuedCallResult.returnValues);
-      // Propagate only one avmProvingRequest of a function call for now, so that we know it's still provable.
-      // Eventually this will be the proof for the entire public portion of the transaction.
-      context.avmProvingRequest = enqueuedCallResult.avmProvingRequest;
       if (enqueuedCallResult.reverted) {
         reverted = true;
-        const culprit = `${executionRequest.callContext.contractAddress}:${executionRequest.callContext.functionSelector}`;
         revertReason = enqueuedCallResult.revertReason;
-        context.revert(enqueuedCallResult.revertReason, culprit); // throws if in setup (non-revertible) phase
-
-        // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-        // if so, this is removing contracts deployed in private setup
-        // You can't submit contracts in public, so this is only relevant for private-created side effects
-        // FIXME: we shouldn't need to directly modify worldStateDb here!
-        await this.worldStateDB.removeNewContracts(tx);
-        // FIXME: we shouldn't be modifying the transaction here!
-        tx.filterRevertedLogs(context.latestPublicKernelOutput);
-        // Enqueeud call reverted. Discard state updates and accumulated side effects, but keep hints traced for the circuit.
-        txStateManager.rejectForkedState(enqueuedCallStateManager);
-      } else {
-        // FIXME: we shouldn't be modifying the transaction here!
-        tx.unencryptedLogs.addFunctionLogs([enqueuedCallResult.newUnencryptedLogs]);
-        // Enqueued call succeeded! Merge in any state updates made in the forked state manager.
-        txStateManager.mergeForkedState(enqueuedCallStateManager);
       }
-
-      context.latestPublicKernelOutput = await runMergeKernelCircuit(
-        context.latestPublicKernelOutput,
-        enqueuedCallResult.kernelOutput,
-        this.publicKernelSimulator,
-      );
     }
 
     return {
-      phase: context.getCurrentPhase(),
+      phase,
       durationMs: phaseTimer.ms(),
       returnValues,
       reverted,
       revertReason,
     };
+  }
+
+  /**
+   * Simulate an enqueued public call.
+   * @param phase - The current phase of public execution
+   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
+   * @param callRequest - The enqueued call to execute
+   * @param executionRequest - The execution request (includes args)
+   * @returns The result of execution.
+   */
+  private async simulateEnqueuedCall(
+    phase: TxExecutionPhase,
+    context: PublicTxContext,
+    callRequest: PublicCallRequest,
+    executionRequest: PublicExecutionRequest,
+  ): Promise<AvmFinalizedCallResult> {
+    const stateManager = context.state.getActiveStateManager();
+    const address = executionRequest.callContext.contractAddress;
+    const selector = executionRequest.callContext.functionSelector;
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
+
+    const availableGas = context.getGasLeftForPhase(phase);
+    // Gas allocated to an enqueued call can be different from the available gas
+    // if there is more gas available than the max allocation per enqueued call.
+    const allocatedGas = new Gas(
+      /*daGas=*/ availableGas.daGas,
+      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
+    );
+
+    const result = await this.simulateEnqueuedCallInternal(
+      context.state.getActiveStateManager(),
+      executionRequest,
+      allocatedGas,
+      context.getTransactionFee(phase),
+      fnName,
+    );
+
+    const gasUsed = allocatedGas.sub(result.gasLeft);
+    context.consumeGas(phase, gasUsed);
+    this.log.verbose(
+      `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+    );
+
+    // TODO(dbanks12): remove once AVM proves entire public tx
+    context.updateProvingRequest(
+      this.realAvmProvingRequests,
+      phase,
+      fnName,
+      stateManager,
+      executionRequest,
+      result,
+      allocatedGas,
+    );
+
+    stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
+
+    if (result.reverted) {
+      const culprit = `${executionRequest.callContext.contractAddress}:${executionRequest.callContext.functionSelector}`;
+      context.revert(phase, result.revertReason, culprit); // throws if in setup (non-revertible) phase
+    }
+
+    return result;
+  }
+
+  /**
+   * Simulate an enqueued public call, without modifying the context (PublicTxContext).
+   * Resulting modifcations to the context can be applied by the caller.
+   *
+   * This function can be mocked for testing to skip actual AVM simulation
+   * while still simulating phases and generating a proving request.
+   *
+   * @param stateManager - The state manager for AvmSimulation
+   * @param context - The context of the currently executing public transaction portion
+   * @param executionRequest - The execution request (includes args)
+   * @param allocatedGas - The gas allocated to the enqueued call
+   * @param fnName - The name of the function
+   * @returns The result of execution.
+   */
+  private async simulateEnqueuedCallInternal(
+    stateManager: AvmPersistableStateManager,
+    executionRequest: PublicExecutionRequest,
+    allocatedGas: Gas,
+    transactionFee: Fr,
+    fnName: string,
+  ): Promise<AvmFinalizedCallResult> {
+    const address = executionRequest.callContext.contractAddress;
+    const sender = executionRequest.callContext.msgSender;
+    const selector = executionRequest.callContext.functionSelector;
+
+    this.log.verbose(
+      `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+    );
+    const timer = new Timer();
+
+    const simulator = AvmSimulator.create(
+      stateManager,
+      address,
+      sender,
+      selector,
+      transactionFee,
+      this.globalVariables,
+      executionRequest.callContext.isStaticCall,
+      executionRequest.args,
+      allocatedGas,
+    );
+    const avmCallResult = await simulator.execute();
+    const result = avmCallResult.finalize();
+
+    this.log.verbose(
+      `[AVM] Simulation of enqueued public call ${fnName} completed. reverted: ${result.reverted}${
+        result.reverted ? ', reason: ' + result.revertReason : ''
+      }.`,
+      {
+        eventName: 'avm-simulation',
+        appCircuitName: fnName,
+        duration: timer.ms(),
+      } satisfies AvmSimulationStats,
+    );
+
+    if (result.reverted) {
+      this.metrics.recordFunctionSimulationFailure();
+    } else {
+      this.metrics.recordFunctionSimulation(timer.ms());
+    }
+
+    return result;
   }
 }

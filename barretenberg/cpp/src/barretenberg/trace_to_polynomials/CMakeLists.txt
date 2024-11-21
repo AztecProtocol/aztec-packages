@@ -1,0 +1,1 @@
+barretenberg_module(trace_to_polynomials plonk_honk_shared)

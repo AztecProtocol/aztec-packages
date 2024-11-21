@@ -2,7 +2,8 @@ import {
   ClientIvcProof,
   ContractClassRegisteredEvent,
   PrivateKernelTailCircuitPublicInputs,
-  type PublicKernelCircuitPublicInputs,
+  type PrivateToPublicAccumulatedData,
+  type ScopedLogHash,
 } from '@aztec/circuits.js';
 import { type Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
@@ -115,6 +116,22 @@ export class Tx extends Gossipable {
       reader.readObject(ContractClassTxL2Logs),
       reader.readArray(reader.readNumber(), PublicExecutionRequest),
       reader.readObject(PublicExecutionRequest),
+    );
+  }
+
+  static newWithTxData(
+    data: PrivateKernelTailCircuitPublicInputs,
+    publicTeardownExecutionRequest?: PublicExecutionRequest,
+  ) {
+    return new Tx(
+      data,
+      ClientIvcProof.empty(),
+      EncryptedNoteTxL2Logs.empty(),
+      EncryptedTxL2Logs.empty(),
+      UnencryptedTxL2Logs.empty(),
+      ContractClassTxL2Logs.empty(),
+      [],
+      publicTeardownExecutionRequest ? publicTeardownExecutionRequest : PublicExecutionRequest.empty(),
     );
   }
 
@@ -344,29 +361,26 @@ export class Tx extends Gossipable {
    * @param logHashes the individual log hashes we want to keep
    * @param out the output to put passing logs in, to keep this function abstract
    */
-  public filterRevertedLogs(kernelOutput: PublicKernelCircuitPublicInputs) {
+  public filterRevertedLogs(
+    privateNonRevertible: PrivateToPublicAccumulatedData,
+    unencryptedLogsHashes: ScopedLogHash[],
+  ) {
     this.encryptedLogs = this.encryptedLogs.filterScoped(
-      kernelOutput.endNonRevertibleData.encryptedLogsHashes,
+      privateNonRevertible.encryptedLogsHashes,
       EncryptedTxL2Logs.empty(),
     );
 
-    this.unencryptedLogs = this.unencryptedLogs.filterScoped(
-      kernelOutput.endNonRevertibleData.unencryptedLogsHashes,
-      UnencryptedTxL2Logs.empty(),
-    );
-
     this.noteEncryptedLogs = this.noteEncryptedLogs.filter(
-      kernelOutput.endNonRevertibleData.noteEncryptedLogsHashes,
+      privateNonRevertible.noteEncryptedLogsHashes,
       EncryptedNoteTxL2Logs.empty(),
     );
 
-    // See comment in enqueued_calls_processor.ts -> tx.filterRevertedLogs()
-    if (this.data.forPublic) {
-      this.contractClassLogs = this.contractClassLogs.filterScoped(
-        this.data.forPublic?.nonRevertibleAccumulatedData.contractClassLogsHashes,
-        ContractClassTxL2Logs.empty(),
-      );
-    }
+    this.contractClassLogs = this.contractClassLogs.filterScoped(
+      privateNonRevertible.contractClassLogsHashes,
+      ContractClassTxL2Logs.empty(),
+    );
+
+    this.unencryptedLogs = this.unencryptedLogs.filterScoped(unencryptedLogsHashes, UnencryptedTxL2Logs.empty());
   }
 }
 

@@ -1,0 +1,21 @@
+{{- if .Values.validatorKill.enabled }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: {{ .Values.global.targetNamespace }}-validator-kill
+  namespace: {{ .Values.global.chaosMeshNamespace }}
+  labels:
+    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  action: pod-kill
+  mode: fixed-percent
+  value: {{ .Values.validatorKill.percent | quote }}
+  selector:
+    namespaces:
+      - {{ .Values.global.targetNamespace }}
+    labelSelectors:
+      app: validator
+{{- end }}

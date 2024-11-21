@@ -4,6 +4,8 @@ import { join } from 'path';
 
 import { AztecLmdbStore } from './store.js';
 
+const defaultMapSize = 1024 * 1024 * 1024 * 10;
+
 describe('AztecLmdbStore', () => {
   const itForks = async (store: AztecLmdbStore) => {
     const singleton = store.openSingleton('singleton');
@@ -21,17 +23,17 @@ describe('AztecLmdbStore', () => {
 
   it('forks a persistent store', async () => {
     const path = await mkdtemp(join(tmpdir(), 'aztec-store-test-'));
-    const store = AztecLmdbStore.open(path, false);
+    const store = AztecLmdbStore.open(path, defaultMapSize, false);
     await itForks(store);
   });
 
   it('forks a persistent store with no path', async () => {
-    const store = AztecLmdbStore.open(undefined, false);
+    const store = AztecLmdbStore.open(undefined, defaultMapSize, false);
     await itForks(store);
   });
 
   it('forks an ephemeral store', async () => {
-    const store = AztecLmdbStore.open(undefined, true);
+    const store = AztecLmdbStore.open(undefined, defaultMapSize, true);
     await itForks(store);
   });
 });

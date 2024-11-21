@@ -8,7 +8,7 @@ namespace bb::stdlib::recursion::honk {
  * @todo (https://github.com/AztecProtocol/barretenberg/issues/934):  Add logic for accumulating the pairing points
  * produced by the verifiers (and potentially IPA accumulators for ECCVM verifier)
  */
-void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
+ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
     // Construct stdlib Mega verification key
     auto stdlib_mega_vk =
@@ -24,7 +24,9 @@ void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 
     // Perform Goblin recursive verification
     GoblinVerifier goblin_verifier{ builder.get(), verifier_input.goblin_input };
-    goblin_verifier.verify(proof.goblin_proof);
+    GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof);
+
+    return output;
 }
 
 } // namespace bb::stdlib::recursion::honk

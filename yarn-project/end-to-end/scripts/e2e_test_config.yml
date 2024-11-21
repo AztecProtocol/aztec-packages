@@ -85,8 +85,8 @@ tests:
   e2e_p2p_upgrade_governance_proposer:
     test_path: 'e2e_p2p/upgrade_governance_proposer.test.ts'
   # https://github.com/AztecProtocol/aztec-packages/issues/9843
-  # e2e_p2p_rediscovery:
-  #   test_path: 'e2e_p2p/rediscovery.test.ts'
+  e2e_p2p_rediscovery:
+    test_path: 'e2e_p2p/rediscovery.test.ts'
   e2e_p2p_reqresp:
     test_path: 'e2e_p2p/reqresp.test.ts'
   flakey_e2e_tests:
@@ -111,5 +111,6 @@ tests:
     use_compose: true
   pxe:
     use_compose: true
-  uniswap_trade_on_l1_from_l2:
-    use_compose: true
+  # https://github.com/AztecProtocol/aztec-packages/issues/10030
+  # uniswap_trade_on_l1_from_l2:
+  #   use_compose: true

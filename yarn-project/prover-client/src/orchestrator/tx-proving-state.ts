@@ -13,8 +13,10 @@ import {
   AvmProofData,
   type BaseRollupHints,
   Fr,
+  PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateTubeData,
+  PublicBaseRollupHints,
   PublicBaseRollupInputs,
   PublicTubeData,
   type TUBE_PROOF_LENGTH,
@@ -66,6 +68,9 @@ export class TxProvingState {
     const vkData = this.getTubeVkData();
     const tubeData = new PrivateTubeData(this.processedTx.data.toKernelCircuitPublicInputs(), this.tube.proof, vkData);
 
+    if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected private base rollup hints');
+    }
     return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
   }
 
@@ -91,6 +96,10 @@ export class TxProvingState {
       this.avm.proof,
       this.getAvmVkData(),
     );
+
+    if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected public base rollup hints');
+    }
 
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }

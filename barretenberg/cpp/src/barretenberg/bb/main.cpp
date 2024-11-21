@@ -129,7 +129,6 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
     return format("[", join(map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
-// WORKTODO: delete?
 std::string honk_vk_to_json(std::vector<bb::fr>& data)
 {
     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
@@ -357,9 +356,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     }
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Accumulate the entire program stack into the IVC
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
@@ -446,9 +443,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
@@ -499,9 +494,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     init_grumpkin_crs(1 << 16);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
@@ -596,7 +589,7 @@ void prove_tube(const std::string& output_path)
     }
     ClientIVC verifier{ builder, input };
 
-    verifier.verify(proof);
+    ClientIVC::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
     PairingPointAccumulatorIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
@@ -604,6 +597,12 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
     builder->add_pairing_point_accumulator(current_aggregation_object);
+
+    // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): We shouldn't add these to the public inputs for
+    // now since we don't handle them correctly. Uncomment when we start using UltraRollupHonk in the rollup.
+    // builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    // builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
@@ -628,8 +627,9 @@ void prove_tube(const std::string& output_path)
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
-    Verifier tube_verifier(tube_verification_key);
-    bool verified = tube_verifier.verify_proof(tube_proof);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    Verifier tube_verifier(tube_verification_key, ipa_verification_key);
+    bool verified = tube_verifier.verify_proof(tube_proof, builder->ipa_proof);
     info("Tube proof verification: ", verified);
 }
 
@@ -1072,7 +1072,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
 
     bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>) {
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
@@ -1138,14 +1138,22 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 {
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-    Verifier verifier{ vk };
+    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
+    // verifier.
+    std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
+    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+        init_grumpkin_crs(1 << 16);
+        vk->contains_ipa_claim = false;
+        ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    }
+    Verifier verifier{ vk, ipa_verification_key };
 
     bool verified = verifier.verify_proof(proof);
 

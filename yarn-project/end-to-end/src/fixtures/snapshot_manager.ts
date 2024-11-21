@@ -325,8 +325,8 @@ async function setupFromFresh(
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
-  const validatorPrivKey = getPrivateKeyFromIndex(1);
-  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+  const validatorPrivKey = getPrivateKeyFromIndex(0);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
@@ -540,6 +540,11 @@ export const addAccounts =
         return provenTx;
       }),
     );
+
+    logger.verbose('Account deployment tx hashes:');
+    for (const provenTx of provenTxs) {
+      logger.verbose(provenTx.getTxHash().to0xString());
+    }
 
     logger.verbose('Deploying accounts...');
     const txs = await Promise.all(provenTxs.map(provenTx => provenTx.send()));

@@ -79,7 +79,7 @@ describe('public_processor', () => {
 
     worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
 
-    publicTxProcessor.process.mockImplementation(() => {
+    publicTxProcessor.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
     });
 
@@ -136,7 +136,7 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicTxProcessor.process.mockRejectedValue(new SimulationError(`Failed`, []));
+      publicTxProcessor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx], 1, handler);

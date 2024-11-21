@@ -97,15 +97,16 @@ abstract class ExternalCall extends Instruction {
     // Refund unused gas
     context.machineState.refundGas(gasLeftToGas(nestedContext.machineState));
 
-    // Accept the nested call's state and trace the nested call
+    // Merge nested call's state and trace based on whether it succeeded.
     if (success) {
-      context.persistableState.mergeForkedState(nestedContext.persistableState);
+      context.persistableState.merge(nestedContext.persistableState);
+    } else {
+      context.persistableState.reject(nestedContext.persistableState);
     }
     await context.persistableState.traceNestedCall(
       /*nestedState=*/ nestedContext.persistableState,
       /*nestedEnvironment=*/ nestedContext.environment,
       /*startGasLeft=*/ Gas.from(allocatedGas),
-      /*endGasLeft=*/ Gas.from(nestedContext.machineState.gasLeft),
       /*bytecode=*/ simulator.getBytecode()!,
       /*avmCallResults=*/ nestedCallResults,
     );
