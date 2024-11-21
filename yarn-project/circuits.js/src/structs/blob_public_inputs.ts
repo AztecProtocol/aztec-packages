@@ -1,12 +1,16 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { Blob } from '@aztec/foundation/blob';
-import { sha256Trunc } from '@aztec/foundation/crypto';
+import { type Blob } from '@aztec/foundation/blob';
+import { sha256, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { BLOBS_PER_BLOCK } from '../constants.gen.js';
+
+// The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
+// Also defined in yarn-project/foundation/src/blob/index.ts, which can't take in our circuits.js constants
+export const VERSIONED_HASH_VERSION_KZG = 0x01;
 
 /**
  * Public inputs required to be passed from our rollup circuits to verify a blob.
@@ -67,6 +71,12 @@ export class BlobPublicInputs {
 
   static fromBlob(input: Blob): BlobPublicInputs {
     return new BlobPublicInputs(input.challengeZ, toBigIntBE(input.evaluationY), input.commitmentToFields());
+  }
+
+  getBlobHash(): Buffer {
+    const hash = sha256(this.commitmentToBuffer());
+    hash[0] = VERSIONED_HASH_VERSION_KZG;
+    return hash;
   }
 
   // Performs the reverse conversion of blob.commitmentToFields()
@@ -131,9 +141,7 @@ export class BlockBlobPublicInputs {
   }
 
   getBlobsHash() {
-    const blobHashes = this.inner.map(item =>
-      item.isEmpty() ? Buffer.alloc(0) : Blob.getEthVersionedBlobHash(item.commitmentToBuffer()),
-    );
+    const blobHashes = this.inner.map(item => (item.isEmpty() ? Buffer.alloc(0) : item.getBlobHash()));
     return sha256Trunc(serializeToBuffer(blobHashes));
   }
 

@@ -51,10 +51,11 @@ import {
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -362,16 +363,22 @@ export async function buildHeaderFromTxEffects(
   const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
-  const blobHash = body.getBlobsHash();
+  const blobsHash = getBlobsHashFromBlobs(Blob.getBlobs(body.toBlobFields()));
+
   const contentCommitment = new ContentCommitment(
     new Fr(body.numberOfTxsIncludingPadded),
-    blobHash,
+    blobsHash,
     parityShaRoot,
     outHash,
   );
 
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   return new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees);
+}
+
+export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
+  const blobHashes = serializeToBuffer(inputs.map(b => b.getEthVersionedBlobHash()));
+  return sha256Trunc(serializeToBuffer(blobHashes));
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation

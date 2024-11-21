@@ -1,32 +1,52 @@
-import { trustedSetup } from '@paulmillr/trusted-setups/fast.js';
-import { KZG } from 'micro-eth-signer/kzg';
+import cKzg from 'c-kzg';
+import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
 
 import { poseidon2Hash } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
-import { hexToBuffer } from '../string/index.js';
-import { BYTES_PER_BLOB, Blob, FIELD_ELEMENTS_PER_BLOB } from './index.js';
+import { Blob } from './index.js';
+
+// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+/* eslint-disable import/no-named-as-default-member */
+
+const {
+  BYTES_PER_BLOB,
+  FIELD_ELEMENTS_PER_BLOB,
+  blobToKzgCommitment,
+  computeBlobKzgProof,
+  computeKzgProof,
+  loadTrustedSetup,
+  verifyBlobKzgProofBatch,
+  verifyKzgProof,
+} = cKzg;
+
+try {
+  loadTrustedSetup();
+} catch (error: any) {
+  if (error.message.includes('trusted setup is already loaded')) {
+    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
+    // and it throws an error if it's already loaded, even though nothing is wrong.
+    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
+  } else {
+    throw new Error(error);
+  }
+}
 
 describe('blob', () => {
-  const kzg = new KZG(trustedSetup);
-  it('kzg lib should verify a batch of blobs', () => {
+  it('c-kzg lib should verify a batch of blobs', () => {
     // This test is taken from the blob-lib repo
     const BATCH_SIZE = 3;
-    const blobs: Buffer[] = [];
-    const commitments: string[] = [];
-    const kzgProofs: string[] = [];
+    const blobs: BlobBuffer[] = [];
+    const commitments: Bytes48[] = [];
+    const kzgProofs: KZGProof[] = [];
 
     for (let i = 0; i < BATCH_SIZE; i++) {
       blobs.push(Buffer.alloc(BYTES_PER_BLOB));
       (blobs[i] as Buffer).write('potato', 0, 'utf8');
       (blobs[i] as Buffer).write('potato', BYTES_PER_BLOB - 50, 'utf8');
-      commitments.push(kzg.blobToKzgCommitment(blobs[i].toString('hex')));
-      kzgProofs.push(kzg.computeBlobProof(blobs[i].toString('hex'), commitments[i]));
+      commitments.push(blobToKzgCommitment(blobs[i]));
+      kzgProofs.push(computeBlobKzgProof(blobs[i], commitments[i]));
     }
-    const isValid = kzg.verifyBlobProofBatch(
-      blobs.map(b => b.toString('hex')),
-      commitments,
-      kzgProofs,
-    );
+    const isValid = verifyBlobKzgProofBatch(blobs, commitments, kzgProofs);
 
     expect(isValid).toBe(true);
   });
@@ -46,10 +66,10 @@ describe('blob', () => {
     (blob as Buffer).write('09', 31, 'hex');
     (blob as Buffer).write('07', 31 + 32, 'hex');
 
-    const proofResult = kzg.computeProof(blob.toString('hex'), zBytes.toString('hex'));
-    const commitment = kzg.blobToKzgCommitment(blob.toString('hex'));
+    const proofResult = computeKzgProof(blob, zBytes);
+    const commitment = blobToKzgCommitment(blob);
 
-    const isValid = kzg.verifyProof(commitment, zBytes.toString('hex'), proofResult[1], proofResult[0]);
+    const isValid = verifyKzgProof(commitment, zBytes, proofResult[1], proofResult[0]);
 
     expect(isValid).toBe(true);
   });
@@ -61,20 +81,20 @@ describe('blob', () => {
     const ourBlob = new Blob(blobItems);
     const blobItemsHash = poseidon2Hash(Array(400).fill(new Fr(3)));
     expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
-    expect(hexToBuffer(kzg.blobToKzgCommitment(ourBlob.data.toString('hex')))).toEqual(ourBlob.commitment);
+    expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
 
     const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
     expect(z).toEqual(ourBlob.challengeZ);
 
-    const res = kzg.computeProof(ourBlob.data.toString('hex'), ourBlob.challengeZ.toString());
-    expect(hexToBuffer(res[0])).toEqual(ourBlob.proof);
-    expect(hexToBuffer(res[1])).toEqual(ourBlob.evaluationY);
+    const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
+    expect(res[0]).toEqual(ourBlob.proof);
+    expect(res[1]).toEqual(ourBlob.evaluationY);
 
-    const isValid = kzg.verifyProof(
-      ourBlob.commitment.toString('hex'),
-      ourBlob.challengeZ.toString(),
-      ourBlob.evaluationY.toString('hex'),
-      ourBlob.proof.toString('hex'),
+    const isValid = verifyKzgProof(
+      ourBlob.commitment,
+      ourBlob.challengeZ.toBuffer(),
+      ourBlob.evaluationY,
+      ourBlob.proof,
     );
     expect(isValid).toBe(true);
   });
@@ -94,20 +114,20 @@ describe('blob', () => {
     blobs.forEach(ourBlob => {
       // const ourBlob = new Blob(blobItems.slice(j * FIELD_ELEMENTS_PER_BLOB, (j + 1) * FIELD_ELEMENTS_PER_BLOB), blobItemsHash);
       expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
-      expect(hexToBuffer(kzg.blobToKzgCommitment(ourBlob.data.toString('hex')))).toEqual(ourBlob.commitment);
+      expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
 
       const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
       expect(z).toEqual(ourBlob.challengeZ);
 
-      const res = kzg.computeProof(ourBlob.data.toString('hex'), ourBlob.challengeZ.toString());
-      expect(hexToBuffer(res[0])).toEqual(ourBlob.proof);
-      expect(hexToBuffer(res[1])).toEqual(ourBlob.evaluationY);
+      const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
+      expect(res[0]).toEqual(ourBlob.proof);
+      expect(res[1]).toEqual(ourBlob.evaluationY);
 
-      const isValid = kzg.verifyProof(
-        ourBlob.commitment.toString('hex'),
-        ourBlob.challengeZ.toString(),
-        ourBlob.evaluationY.toString('hex'),
-        ourBlob.proof.toString('hex'),
+      const isValid = verifyKzgProof(
+        ourBlob.commitment,
+        ourBlob.challengeZ.toBuffer(),
+        ourBlob.evaluationY,
+        ourBlob.proof,
       );
       expect(isValid).toBe(true);
     });

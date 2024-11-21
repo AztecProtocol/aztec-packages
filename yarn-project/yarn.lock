@@ -641,7 +641,6 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@koa/cors": ^5.0.0
     "@noble/curves": ^1.2.0
-    "@paulmillr/trusted-setups": ^0.1.2
     "@types/bn.js": ^5.1.3
     "@types/debug": ^4.1.7
     "@types/detect-node": ^2.0.0
@@ -664,6 +663,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": ^6.2.1
     "@typescript-eslint/parser": ^6.2.1
     bn.js: ^5.2.1
+    c-kzg: 4.0.0-alpha.1
     comlink: ^4.4.1
     debug: ^4.3.4
     detect-node: ^2.1.0
@@ -684,7 +684,6 @@ __metadata:
     lodash.chunk: ^4.2.0
     lodash.clonedeepwith: ^4.5.0
     memdown: ^6.1.1
-    micro-eth-signer: ^0.11.0
     pako: ^2.1.0
     prettier: ^2.7.1
     sha3: ^2.1.4
@@ -3446,15 +3445,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:~1.6.0":
-  version: 1.6.0
-  resolution: "@noble/curves@npm:1.6.0"
-  dependencies:
-    "@noble/hashes": 1.5.0
-  checksum: 258f3feb2a6098cf35521562ecb7d452fd728e8a008ff9f1ef435184f9d0c782ceb8f7b7fa8df3317c3be7a19f53995ee124cd05c8080b130bd42e3cb072f24d
-  languageName: node
-  linkType: hard
-
 "@noble/hashes@npm:1.3.2":
   version: 1.3.2
   resolution: "@noble/hashes@npm:1.3.2"
@@ -3473,13 +3463,6 @@ __metadata:
   version: 1.4.0
   resolution: "@noble/hashes@npm:1.4.0"
   checksum: 8ba816ae26c90764b8c42493eea383716396096c5f7ba6bea559993194f49d80a73c081f315f4c367e51bd2d5891700bcdfa816b421d24ab45b41cb03e4f3342
-  languageName: node
-  linkType: hard
-
-"@noble/hashes@npm:1.5.0, @noble/hashes@npm:~1.5.0":
-  version: 1.5.0
-  resolution: "@noble/hashes@npm:1.5.0"
-  checksum: 9cc031d5c888c455bfeef76af649b87f75380a4511405baea633c1e4912fd84aff7b61e99716f0231d244c9cfeda1fafd7d718963e6a0c674ed705e9b1b4f76b
   languageName: node
   linkType: hard
 
@@ -3952,13 +3935,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@paulmillr/trusted-setups@npm:^0.1.2":
-  version: 0.1.2
-  resolution: "@paulmillr/trusted-setups@npm:0.1.2"
-  checksum: 4cd424f2ce607924ab13fdc4387fff01bd79ae5dceeb7ef61f4f4f27f267d3c0783f2d704609f7fbf55dceece6730fd72299ca4ca4f63e112d591cb70f5db83a
-  languageName: node
-  linkType: hard
-
 "@pkgjs/parseargs@npm:^0.11.0":
   version: 0.11.0
   resolution: "@pkgjs/parseargs@npm:0.11.0"
@@ -4072,13 +4048,6 @@ __metadata:
   version: 1.1.6
   resolution: "@scure/base@npm:1.1.6"
   checksum: d6deaae91deba99e87939af9e55d80edba302674983f32bba57f942e22b1726a83c62dc50d8f4370a5d5d35a212dda167fb169f4b0d0c297488d8604608fc3d3
-  languageName: node
-  linkType: hard
-
-"@scure/base@npm:~1.1.5":
-  version: 1.1.9
-  resolution: "@scure/base@npm:1.1.9"
-  checksum: 120820a37dfe9dfe4cab2b7b7460552d08e67dee8057ed5354eb68d8e3440890ae983ce3bee957d2b45684950b454a2b6d71d5ee77c1fd3fddc022e2a510337f
   languageName: node
   linkType: hard
 
@@ -6927,6 +6896,17 @@ __metadata:
   version: 3.1.2
   resolution: "bytes@npm:3.1.2"
   checksum: e4bcd3948d289c5127591fbedf10c0b639ccbf00243504e4e127374a15c3bc8eed0d28d4aaab08ff6f1cf2abc0cce6ba3085ed32f4f90e82a5683ce0014e1b6e
+  languageName: node
+  linkType: hard
+
+"c-kzg@npm:4.0.0-alpha.1":
+  version: 4.0.0-alpha.1
+  resolution: "c-kzg@npm:4.0.0-alpha.1"
+  dependencies:
+    bindings: ^1.5.0
+    node-addon-api: ^5.0.0
+    node-gyp: latest
+  checksum: abb07eb3e253ea10aef4ce3a04090f9940de4f3ffa8ef19de9bff8cae1d6bc0aa80d716d998b72d46365f6565445d89592e303fd0951f8ebe8a4d233912dd66f
   languageName: node
   linkType: hard
 
@@ -13393,26 +13373,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"micro-eth-signer@npm:^0.11.0":
-  version: 0.11.0
-  resolution: "micro-eth-signer@npm:0.11.0"
-  dependencies:
-    "@noble/curves": ~1.6.0
-    "@noble/hashes": ~1.5.0
-    micro-packed: ~0.6.3
-  checksum: 53e5209da1f0ca22dc2f043e007cc263595e88b9126ebfd035ffe9965478e64dde451085bcc98d7475db7f70437894cf123651bd7a937fc81bb8dc62145cb5aa
-  languageName: node
-  linkType: hard
-
-"micro-packed@npm:~0.6.3":
-  version: 0.6.3
-  resolution: "micro-packed@npm:0.6.3"
-  dependencies:
-    "@scure/base": ~1.1.5
-  checksum: 957798f24cf317e50dfb2fb9866a1c91190d60efaf4dbe3e291a875b9146b2d5ec68fbf1713054b33fefbce5b028f1bf6d86aa7d74686b659a803b1766c39c54
-  languageName: node
-  linkType: hard
-
 "micromatch@npm:^4.0.0, micromatch@npm:^4.0.4":
   version: 4.0.5
   resolution: "micromatch@npm:4.0.5"
@@ -14004,6 +13964,15 @@ __metadata:
     lower-case: ^2.0.2
     tslib: ^2.0.3
   checksum: 0b2ebc113dfcf737d48dde49cfebf3ad2d82a8c3188e7100c6f375e30eafbef9e9124aadc3becef237b042fd5eb0aad2fd78669c20972d045bbe7fea8ba0be5c
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^5.0.0":
+  version: 5.1.0
+  resolution: "node-addon-api@npm:5.1.0"
+  dependencies:
+    node-gyp: latest
+  checksum: 2508bd2d2981945406243a7bd31362fc7af8b70b8b4d65f869c61731800058fb818cc2fd36c8eac714ddd0e568cc85becf5e165cebbdf7b5024d5151bbc75ea1
   languageName: node
   linkType: hard
 

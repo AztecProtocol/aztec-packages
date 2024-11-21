@@ -162,13 +162,13 @@ describe('L1Publisher', () => {
       args,
     });
 
+    const kzg = Blob.getViemKzgInstance();
     expect(walletClient.sendTransaction).toHaveBeenCalledWith({
       data,
       account,
       to: rollupContract.address,
       blobs: blobs.map(blob => blob.data),
-      // Note: since kzg is a nested object, toHaveBeenCalledWith() fails even on identical instances, hence breaking down into .anything()
-      kzg: expect.objectContaining({ blobToKzgCommitment: expect.anything(), computeBlobKzgProof: expect.anything() }),
+      kzg,
       maxFeePerBlobGas: 10000000000n,
     });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
