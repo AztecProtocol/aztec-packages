@@ -1,17 +1,17 @@
 import {
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
+    type Tx,
+    type TxExecutionRequest,
+    type TxHash,
+    type TxProvingResult,
+    type TxReceipt,
+    type TxSimulationResult,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  type NodeInfo,
+    AztecAddress,
+    CompleteAddress,
+    type ContractInstanceWithAddress,
+    EthAddress,
+    type NodeInfo,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
@@ -138,9 +138,9 @@ describe('Contract Class', () => {
     notes: {},
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     contractAddress = AztecAddress.random();
-    account = CompleteAddress.random();
+    account = await CompleteAddress.random();
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();

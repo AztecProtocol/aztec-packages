@@ -6,7 +6,7 @@ export function generateSecretAndHash(log: LogFn) {
   const secret = Fr.random();
 
   // We hash this the same way that aztec nr hash does.
-  const secretHash = computeSecretHash(secret);
+  const secretHash = await computeSecretHash(secret);
 
   log(`
     Secret: ${secret}

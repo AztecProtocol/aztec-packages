@@ -22,7 +22,7 @@ export const buildL1ToL2Message = (
   const selectorBuf = Buffer.from(selector, 'hex');
 
   const content = sha256ToField([selectorBuf, ...contentPreimage]);
-  const secretHash = computeSecretHash(secret);
+  const secretHash = await computeSecretHash(secret);
 
   return new L1ToL2Message(
     new L1Actor(EthAddress.random(), 1),

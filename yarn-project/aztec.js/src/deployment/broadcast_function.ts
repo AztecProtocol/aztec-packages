@@ -58,7 +58,7 @@ export async function broadcastPrivateFunction(
 
   await wallet.addCapsule(bytecode);
 
-  const registerer = getRegistererContract(wallet);
+  const registerer = await getRegistererContract(wallet);
   return Promise.resolve(
     registerer.methods.broadcast_private_function(
       contractClass.id,
@@ -116,7 +116,7 @@ export async function broadcastUnconstrainedFunction(
 
   await wallet.addCapsule(bytecode);
 
-  const registerer = getRegistererContract(wallet);
+  const registerer = await getRegistererContract(wallet);
   return registerer.methods.broadcast_unconstrained_function(
     contractClass.id,
     artifactMetadataHash,

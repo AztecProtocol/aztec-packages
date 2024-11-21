@@ -37,7 +37,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * Returns the root of the tree.
    * @returns The root of the tree.
    */
-  public getRoot(): Buffer {
+  public async getRoot(): Promise<Buffer> {
     return this.root;
   }
 
@@ -89,7 +89,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * So this function cannot reliably give the expected leaf value.
    * We cannot add level as an input as its based on the MerkleTree class's function.
    */
-  public getLeafValue(_index: bigint): undefined {
+  public async getLeafValue(_index: bigint): Promise<undefined> {
     throw new Error('Unsupported function - cannot get leaf value from an index in an unbalanced tree.');
   }
 
@@ -99,7 +99,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * @returns The index of the first leaf found with a given value (undefined if not found).
    * @remark This is NOT the index as inserted, but the index which will be used to calculate path structure.
    */
-  public findLeafIndex(value: T): bigint | undefined {
+  public async findLeafIndex(value: T): Promise<bigint | undefined> {
     const key = this.valueCache[serializeToBuffer(value).toString('hex')];
     const [, , index] = key.split(':');
     return BigInt(index);
@@ -112,8 +112,8 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * @returns The index of the first leaf found with a given value (undefined if not found).
    * @remark This is not really used for a wonky tree, but required to implement MerkleTree.
    */
-  public findLeafIndexAfter(value: T, startIndex: bigint): bigint | undefined {
-    const index = this.findLeafIndex(value);
+  public async findLeafIndexAfter(value: T, startIndex: bigint): Promise<bigint | undefined> {
+    const index = await this.findLeafIndex(value);
     if (!index || index < startIndex) {
       return undefined;
     }
@@ -165,7 +165,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
-  public appendLeaves(leaves: T[]): Promise<void> {
+  public async appendLeaves(leaves: T[]): Promise<void> {
     this.hasher.reset();
     if (this.size != BigInt(0)) {
       throw Error(`Can't re-append to an unbalanced tree. Current has ${this.size} leaves.`);
@@ -173,7 +173,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
     if (this.size + BigInt(leaves.length) - 1n > this.maxIndex) {
       throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
     }
-    const root = this.batchInsert(leaves);
+    const root = await this.batchInsert(leaves);
     this.root = root;
 
     return Promise.resolve();
@@ -184,7 +184,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * @param leaves - The leaves to append.
    * @returns Resulting root of the tree.
    */
-  private batchInsert(_leaves: T[]): Buffer {
+  private async batchInsert(_leaves: T[]): Promise<Buffer> {
     // If we have an even number of leaves, hash them all in pairs
     // Otherwise, store the final leaf to be shifted up to the next odd sized level
     let [layerWidth, nodeToShift] =
@@ -199,7 +199,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
     for (let i = 0; i < this.maxDepth; i++) {
       for (let j = 0; j < layerWidth; j += 2) {
         // Store the hash of each pair one layer up
-        nextLayer[j / 2] = this.hasher.hash(serializeToBuffer(thisLayer[j]), serializeToBuffer(thisLayer[j + 1]));
+        nextLayer[j / 2] = await this.hasher.hash(serializeToBuffer(thisLayer[j]), serializeToBuffer(thisLayer[j + 1]));
         this.storeNode(nextLayer[j / 2], this.maxDepth - i - 1, BigInt(j >> 1));
       }
       layerWidth /= 2;

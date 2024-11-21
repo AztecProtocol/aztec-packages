@@ -67,8 +67,8 @@ describe('benchmarks/proving', () => {
     schnorrWalletEncKey = Fr.random();
     schnorrWalletSigningKey = Fq.random();
 
-    feeRecipient = CompleteAddress.random();
-    recipient = CompleteAddress.random();
+    feeRecipient = await CompleteAddress.random();
+    recipient = await CompleteAddress.random();
 
     const initialSchnorrWallet = await getSchnorrAccount(
       ctx.pxe,

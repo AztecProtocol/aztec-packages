@@ -42,15 +42,15 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
     this.snapshotMetadata = db.openMap(`full_snapshot:${tree.getName()}:metadata`);
   }
 
-  snapshot(block: number): Promise<S> {
-    return this.db.transaction(() => {
+  async snapshot(block: number): Promise<S> {
+    return await this.db.transaction(async () => {
       const snapshotMetadata = this.#getSnapshotMeta(block);
 
       if (snapshotMetadata) {
         return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
       }
 
-      const root = this.tree.getRoot(false);
+      const root = await this.tree.getRoot(false);
       const numLeaves = this.tree.getNumLeaves(false);
       const depth = this.tree.getDepth();
       const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
@@ -80,7 +80,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
         const [lhs, rhs] = [this.tree.getNode(level + 1, 2n * i), this.tree.getNode(level + 1, 2n * i + 1n)];
 
         // we want the zero hash at the children's level, not the node's level
-        const zeroHash = this.tree.getZeroHash(level + 1);
+        const zeroHash = await this.tree.getZeroHash(level + 1);
 
         void this.nodes.set(nodeKey, [lhs ?? zeroHash, rhs ?? zeroHash]);
         // enqueue the children only if they're not zero hashes
@@ -129,10 +129,10 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     protected deserializer: FromBuffer<T>,
   ) {}
 
-  getSiblingPath<N extends number>(index: bigint): SiblingPath<N> {
+  async getSiblingPath<N extends number>(index: bigint): Promise<SiblingPath<N>> {
     const siblings: Buffer[] = [];
 
-    for (const [_node, sibling] of this.pathFromRootToLeaf(index)) {
+    for await (const [_node, sibling] of this.pathFromRootToLeaf(index)) {
       siblings.push(sibling);
     }
 
@@ -143,9 +143,9 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     return new SiblingPath<N>(this.tree.getDepth() as N, siblings);
   }
 
-  getLeafValue(index: bigint): T | undefined {
+  async getLeafValue(index: bigint): Promise<T | undefined> {
     let leafNode: Buffer | undefined = undefined;
-    for (const [node, _sibling] of this.pathFromRootToLeaf(index)) {
+    for await (const [node, _sibling] of this.pathFromRootToLeaf(index)) {
       leafNode = node;
     }
 
@@ -164,7 +164,7 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     return this.numLeaves;
   }
 
-  protected *pathFromRootToLeaf(leafIndex: bigint) {
+  protected async *pathFromRootToLeaf(leafIndex: bigint) {
     const root = this.historicRoot;
     const pathFromRoot = this.#getPathFromRoot(leafIndex);
 
@@ -172,8 +172,8 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     for (let i = 0; i < pathFromRoot.length; i++) {
       // get both children. We'll need both anyway (one to keep track of, the other to walk down to)
       const children: [Buffer, Buffer] = this.db.get(node.toString('hex')) ?? [
-        this.tree.getZeroHash(i + 1),
-        this.tree.getZeroHash(i + 1),
+        await this.tree.getZeroHash(i + 1),
+        await this.tree.getZeroHash(i + 1),
       ];
       const next = children[pathFromRoot[i]];
       const sibling = children[(pathFromRoot[i] + 1) % 2];
@@ -204,15 +204,15 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     return path;
   }
 
-  findLeafIndex(value: T): bigint | undefined {
+  async findLeafIndex(value: T): Promise<bigint | undefined> {
     return this.findLeafIndexAfter(value, 0n);
   }
 
-  public findLeafIndexAfter(value: T, startIndex: bigint): bigint | undefined {
+  public async findLeafIndexAfter(value: T, startIndex: bigint): Promise<bigint | undefined> {
     const numLeaves = this.getNumLeaves();
     const buffer = serializeToBuffer(value);
     for (let i = startIndex; i < numLeaves; i++) {
-      const currentValue = this.getLeafValue(i);
+      const currentValue = await this.getLeafValue(i);
       if (currentValue && serializeToBuffer(currentValue).equals(buffer)) {
         return i;
       }

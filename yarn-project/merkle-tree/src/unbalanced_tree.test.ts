@@ -27,7 +27,7 @@ describe('Wonky tree', () => {
     // For the final test, we make the final (shifted up) leaf be H(1, 2), so we can calculate the root
     // with a standard tree easily.
     if (leaves[30]) {
-      leaves[30] = hasher.hash(new Fr(1).toBuffer(), new Fr(2).toBuffer());
+      leaves[30] = await hasher.hash(new Fr(1).toBuffer(), new Fr(2).toBuffer());
     }
     await tree.appendLeaves(leaves);
     return { tree, leaves };
@@ -61,8 +61,8 @@ describe('Wonky tree', () => {
       expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
-    it('Correctly computes root', () => {
-      const root = tree.getRoot();
+    it('Correctly computes root', async () => {
+      const root = await tree.getRoot();
       const expectedRoot = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
       expect(root).toEqual(expectedRoot);
     });
@@ -95,8 +95,8 @@ describe('Wonky tree', () => {
       expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
-    it('Correctly computes root', () => {
-      const root = tree.getRoot();
+    it('Correctly computes root', async () => {
+      const root = await tree.getRoot();
       const mergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
       const expectedRoot = sha256Trunc(Buffer.concat([mergeNode, leaves[2]]));
       expect(root).toEqual(expectedRoot);
@@ -132,8 +132,8 @@ describe('Wonky tree', () => {
       expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
-    it('Correctly computes root', () => {
-      const root = tree.getRoot();
+    it('Correctly computes root', async () => {
+      const root = await tree.getRoot();
       let leftMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
       const rightMergeNode = sha256Trunc(Buffer.concat([leaves[2], leaves[3]]));
       leftMergeNode = sha256Trunc(Buffer.concat([leftMergeNode, rightMergeNode]));
@@ -171,8 +171,8 @@ describe('Wonky tree', () => {
       expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
-    it('Correctly computes root', () => {
-      const root = tree.getRoot();
+    it('Correctly computes root', async () => {
+      const root = await tree.getRoot();
       let leftMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
       let rightMergeNode = sha256Trunc(Buffer.concat([leaves[2], leaves[3]]));
       leftMergeNode = sha256Trunc(Buffer.concat([leftMergeNode, rightMergeNode]));
@@ -217,8 +217,8 @@ describe('Wonky tree', () => {
       expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
-    it('Correctly computes root', () => {
-      const root = tree.getRoot();
+    it('Correctly computes root', async () => {
+      const root = await tree.getRoot();
       const firstMergeNode = sha256Trunc(Buffer.concat([leaves[0], leaves[1]]));
       secondMergeNode = sha256Trunc(Buffer.concat([leaves[2], leaves[3]]));
       const thirdMergeNode = sha256Trunc(Buffer.concat([firstMergeNode, secondMergeNode]));
@@ -255,8 +255,8 @@ describe('Wonky tree', () => {
       expect(tree.findLeafIndex(leaves[0])).toEqual(0n);
     });
 
-    it('Correctly computes root', () => {
-      const root = tree.getRoot();
+    it('Correctly computes root', async () => {
+      const root = await tree.getRoot();
       const expectedRoot = stdTree.getRoot(true);
       expect(root).toEqual(expectedRoot);
     });

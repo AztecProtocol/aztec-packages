@@ -391,19 +391,19 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
     describe('addresses', () => {
       it('stores and retrieves addresses', async () => {
-        const address = CompleteAddress.random();
+        const address = await CompleteAddress.random();
         await expect(database.addCompleteAddress(address)).resolves.toBe(true);
         await expect(database.getCompleteAddress(address.address)).resolves.toEqual(address);
       });
 
       it('silently ignores an address it already knows about', async () => {
-        const address = CompleteAddress.random();
+        const address = await CompleteAddress.random();
         await expect(database.addCompleteAddress(address)).resolves.toBe(true);
         await expect(database.addCompleteAddress(address)).resolves.toBe(false);
       });
 
       it.skip('refuses to overwrite an address with a different public key', async () => {
-        const address = CompleteAddress.random();
+        const address = await CompleteAddress.random();
         const otherAddress = new CompleteAddress(
           address.address,
           new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),

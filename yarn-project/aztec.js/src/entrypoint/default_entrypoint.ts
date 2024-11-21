@@ -10,7 +10,7 @@ import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoin
 export class DefaultEntrypoint implements EntrypointInterface {
   constructor(private chainId: number, private protocolVersion: number) {}
 
-  createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
     const { calls, authWitnesses = [], packedArguments = [] } = exec;
 
     if (calls.length > 1) {
@@ -23,7 +23,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
       throw new Error('Public entrypoints are not allowed');
     }
 
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointPackedValues = await PackedValues.fromValues(call.args);
     const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
     const txContext = new TxContext(this.chainId, this.protocolVersion, gasSettings);
     return Promise.resolve(

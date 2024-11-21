@@ -76,8 +76,8 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
     );
   }
 
-  snapshot(block: number): Promise<TreeSnapshot<T>> {
-    return this.db.transaction(() => {
+  async snapshot(block: number): Promise<TreeSnapshot<T>> {
+    return await this.db.transaction(async () => {
       const meta = this.#getSnapshotMeta(block);
       if (typeof meta !== 'undefined') {
         // no-op, we already have a snapshot
@@ -93,7 +93,7 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
         );
       }
 
-      const root = this.tree.getRoot(false);
+      const root = await this.tree.getRoot(false);
       const depth = this.tree.getDepth();
       const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
 
@@ -169,7 +169,7 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
     private deserializer: FromBuffer<T>,
   ) {}
 
-  public getSiblingPath<N extends number>(index: bigint): SiblingPath<N> {
+  public async getSiblingPath<N extends number>(index: bigint): Promise<SiblingPath<N>> {
     const path: Buffer[] = [];
     const depth = this.tree.getDepth();
     let level = depth;
@@ -178,7 +178,7 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
       const isRight = index & 0x01n;
       const siblingIndex = isRight ? index - 1n : index + 1n;
 
-      const sibling = this.#getHistoricalNodeValue(level, siblingIndex);
+      const sibling = await this.#getHistoricalNodeValue(level, siblingIndex);
       path.push(sibling);
 
       level -= 1;
@@ -201,7 +201,7 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
     return this.historicalRoot;
   }
 
-  getLeafValue(index: bigint): T | undefined {
+  async getLeafValue(index: bigint): Promise<T | undefined> {
     const leafLevel = this.getDepth();
     const blockNumber = this.#getBlockNumberThatModifiedNode(leafLevel, index);
 
@@ -220,7 +220,7 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
     return undefined;
   }
 
-  #getHistoricalNodeValue(level: number, index: bigint): Buffer {
+  async #getHistoricalNodeValue(level: number, index: bigint): Promise<Buffer> {
     const blockNumber = this.#getBlockNumberThatModifiedNode(level, index);
 
     // node has never been set
@@ -248,27 +248,27 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
       return this.tree.getZeroHash(level);
     }
 
-    const [lhs, rhs] = [
+    const [lhs, rhs] = await Promise.all([
       this.#getHistoricalNodeValue(level + 1, 2n * index),
       this.#getHistoricalNodeValue(level + 1, 2n * index + 1n),
-    ];
+    ]);
 
-    return this.hasher.hash(lhs, rhs);
+    return await this.hasher.hash(lhs, rhs);
   }
 
   #getBlockNumberThatModifiedNode(level: number, index: bigint): number | undefined {
     return this.nodeHistory.get(nodeModifiedAtBlockKey(level, index));
   }
 
-  findLeafIndex(value: T): bigint | undefined {
+  async findLeafIndex(value: T): Promise<bigint | undefined> {
     return this.findLeafIndexAfter(value, 0n);
   }
 
-  findLeafIndexAfter(value: T, startIndex: bigint): bigint | undefined {
+  async findLeafIndexAfter(value: T, startIndex: bigint): Promise<bigint | undefined> {
     const valueBuffer = serializeToBuffer(value);
     const numLeaves = this.getNumLeaves();
     for (let i = startIndex; i < numLeaves; i++) {
-      const currentValue = this.getLeafValue(i);
+      const currentValue = await this.getLeafValue(i);
       if (currentValue && serializeToBuffer(currentValue).equals(valueBuffer)) {
         return i;
       }

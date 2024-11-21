@@ -79,7 +79,7 @@ describe('e2e_blacklist_token_contract mint', () => {
     let txHash: TxHash;
 
     beforeAll(() => {
-      secretHash = computeSecretHash(secret);
+      secretHash = await computeSecretHash(secret);
     });
 
     describe('Mint flow', () => {

@@ -115,7 +115,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param includeUncommitted - Indicates whether to include uncommitted leaves in the computation.
    * @returns The value of the leaf at the given index or undefined if the leaf is empty.
    */
-  public override getLeafValue(index: bigint, includeUncommitted: boolean): Buffer | undefined {
+  public override async getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     const preimage = this.getLatestLeafPreimageCopy(index, includeUncommitted);
     return preimage && preimage.toBuffer();
   }
@@ -227,7 +227,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  public findLeafIndex(value: Buffer, includeUncommitted: boolean): bigint | undefined {
+  public async findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
     const leaf = this.leafFactory.fromBuffer(value);
     let index = this.leafIndex.get(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()));
 
@@ -239,7 +239,11 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     return index;
   }
 
-  public findLeafIndexAfter(_leaf: Buffer, _startIndex: bigint, _includeUncommitted: boolean): bigint | undefined {
+  public async findLeafIndexAfter(
+    _leaf: Buffer,
+    _startIndex: bigint,
+    _includeUncommitted: boolean,
+  ): Promise<bigint | undefined> {
     throw new Error('Method not implemented for indexed trees');
   }
 
@@ -304,13 +308,13 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param preimage - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  protected updateLeaf(preimage: IndexedTreeLeafPreimage, index: bigint) {
+  protected async updateLeaf(preimage: IndexedTreeLeafPreimage, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
 
     this.cachedLeafPreimages[index.toString()] = preimage;
-    const encodedLeaf = this.encodeLeaf(preimage, true);
+    const encodedLeaf = await this.encodeLeaf(preimage, true);
     this.addLeafToCacheAndHashToRoot(encodedLeaf, index);
     const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
@@ -609,13 +613,15 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param hash0Leaf - Indicates whether 0 value leaf should be hashed. See {@link encodeLeaf}.
    * @returns Empty promise
    */
-  private encodeAndAppendLeaves(preimages: IndexedTreeLeafPreimage[], hash0Leaf: boolean): void {
+  private async encodeAndAppendLeaves(preimages: IndexedTreeLeafPreimage[], hash0Leaf: boolean): Promise<void> {
     const startInsertionIndex = this.getNumLeaves(true);
 
-    const hashedLeaves = preimages.map((preimage, i) => {
-      this.cachedLeafPreimages[(startInsertionIndex + BigInt(i)).toString()] = preimage;
-      return this.encodeLeaf(preimage, hash0Leaf);
-    });
+    const hashedLeaves = await Promise.all(
+      preimages.map(async (preimage, i) => {
+        this.cachedLeafPreimages[(startInsertionIndex + BigInt(i)).toString()] = preimage;
+        return await this.encodeLeaf(preimage, hash0Leaf);
+      }),
+    );
 
     super.appendLeaves(hashedLeaves);
   }
@@ -628,12 +634,12 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    *                    nullifier it is improbable that a valid nullifier would be 0.
    * @returns Leaf encoded in a buffer.
    */
-  private encodeLeaf(leaf: IndexedTreeLeafPreimage, hash0Leaf: boolean): Buffer {
+  private async encodeLeaf(leaf: IndexedTreeLeafPreimage, hash0Leaf: boolean): Promise<Buffer> {
     let encodedLeaf;
     if (!hash0Leaf && leaf.getKey() == 0n) {
       encodedLeaf = toBufferBE(0n, 32);
     } else {
-      encodedLeaf = this.hasher.hashInputs(leaf.toHashInputs());
+      encodedLeaf = await this.hasher.hashInputs(leaf.toHashInputs());
     }
     return encodedLeaf;
   }

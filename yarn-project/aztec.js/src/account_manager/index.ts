@@ -56,7 +56,7 @@ export class AccountManager {
    */
   public async getAccount(): Promise<AccountInterface> {
     const nodeInfo = await this.pxe.getNodeInfo();
-    const completeAddress = this.getCompleteAddress();
+    const completeAddress = await this.getCompleteAddress();
     return this.accountContract.getInterface(completeAddress, nodeInfo);
   }
 
@@ -65,8 +65,8 @@ export class AccountManager {
    * Does not require the account to be deployed or registered.
    * @returns The address, partial address, and encryption public key.
    */
-  public getCompleteAddress(): CompleteAddress {
-    return CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
+  public async getCompleteAddress(): Promise<CompleteAddress> {
+    return await CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
   }
 
   /**
@@ -74,8 +74,8 @@ export class AccountManager {
    * Does not require the account to be deployed or registered.
    * @returns The address.
    */
-  public getAddress() {
-    return this.getCompleteAddress().address;
+  public async getAddress() {
+    return (await this.getCompleteAddress()).address;
   }
 
   /**
@@ -110,7 +110,7 @@ export class AccountManager {
       instance: this.getInstance(),
     });
 
-    await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
+    await this.pxe.registerAccount(this.secretKey, (await this.getCompleteAddress()).partialAddress);
 
     return this.getWallet();
   }
@@ -128,7 +128,7 @@ export class AccountManager {
       );
     }
 
-    await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
+    await this.pxe.registerAccount(this.secretKey, (await this.getCompleteAddress()).partialAddress);
 
     const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
     const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
@@ -138,7 +138,7 @@ export class AccountManager {
     // and it can't be used unless the contract is initialized
     const args = this.accountContract.getDeploymentArgs() ?? [];
     return new DeployAccountMethod(
-      this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
+      this.accountContract.getAuthWitnessProvider(await this.getCompleteAddress()),
       this.getPublicKeys(),
       deployWallet,
       this.accountContract.getContractArtifact(),

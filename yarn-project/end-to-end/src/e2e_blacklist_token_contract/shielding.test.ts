@@ -27,7 +27,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   let secretHash: Fr;
 
   beforeAll(() => {
-    secretHash = computeSecretHash(secret);
+    secretHash = await computeSecretHash(secret);
   });
 
   it('on behalf of self', async () => {

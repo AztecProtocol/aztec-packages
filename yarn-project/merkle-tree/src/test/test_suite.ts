@@ -15,7 +15,9 @@ const expectSameTrees = async (
 ) => {
   const size = tree1.getNumLeaves(includeUncommitted);
   expect(size).toBe(tree2.getNumLeaves(includeUncommitted));
-  expect(tree1.getRoot(includeUncommitted).toString('hex')).toBe(tree2.getRoot(includeUncommitted).toString('hex'));
+  expect((await tree1.getRoot(includeUncommitted)).toString('hex')).toBe(
+    (await tree2.getRoot(includeUncommitted)).toString('hex'),
+  );
 
   for (let i = 0; i < size; ++i) {
     const siblingPath1 = await tree1.getSiblingPath(BigInt(i), includeUncommitted);
@@ -58,7 +60,7 @@ export const treeTestSuite = (
       const tree = await createDb(db, pedersen, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
-      const firstRoot = tree.getRoot(true);
+      const firstRoot = await tree.getRoot(true);
       expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
       // committed root should still be the empty root
       expect(tree.getRoot(false)).toEqual(emptyTree.getRoot(false));

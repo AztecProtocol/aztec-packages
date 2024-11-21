@@ -48,8 +48,8 @@ export const INITIAL_LEAF = Buffer.from('000000000000000000000000000000000000000
 export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
   protected readonly maxIndex: bigint;
   protected cachedSize?: bigint;
-  private root!: Buffer;
-  private zeroHashes: Buffer[] = [];
+  private root!: Promise<Buffer>;
+  private zeroHashes: Promise<Buffer[]>;
   private cache: { [key: string]: Buffer } = {};
   protected log: DebugLogger;
   protected hasher: HasherWithStats;
@@ -75,13 +75,18 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     this.meta = openTreeMetaSingleton(store, name);
 
     // Compute the zero values at each layer.
-    let current = INITIAL_LEAF;
-    for (let i = depth - 1; i >= 0; --i) {
-      this.zeroHashes[i] = current;
-      current = hasher.hash(current, current);
-    }
+    const hashes = (async () => {
+      let current = INITIAL_LEAF;
+      let result = [];
+      for (let i = depth - 1; i >= 0; --i) {
+        result[i] = current;
+        current = await hasher.hash(current, current);
+      }
+      return { zeroHashes: result, current };
+    })();
+    this.zeroHashes = hashes.then(x => x.zeroHashes);
 
-    this.root = root ? root : current;
+    this.root = root ? Promise.resolve(root) : hashes.then(x => x.current);
     this.maxIndex = 2n ** BigInt(depth) - 1n;
 
     this.log = createDebugLogger(`aztec:merkle-tree:${name.toLowerCase()}`);
@@ -92,8 +97,8 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - If true, root incorporating uncommitted changes is returned.
    * @returns The root of the tree.
    */
-  public getRoot(includeUncommitted: boolean): Buffer {
-    return !includeUncommitted ? this.root : this.cache[indexToKeyHash(this.name, 0, 0n)] ?? this.root;
+  public async getRoot(includeUncommitted: boolean): Promise<Buffer> {
+    return !includeUncommitted ? await this.root : this.cache[indexToKeyHash(this.name, 0, 0n)] ?? this.root;
   }
 
   /**
@@ -128,12 +133,12 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @returns A sibling path for the element at the given index.
    * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
    */
-  public getSiblingPath<N extends number>(index: bigint, includeUncommitted: boolean): Promise<SiblingPath<N>> {
+  public async getSiblingPath<N extends number>(index: bigint, includeUncommitted: boolean): Promise<SiblingPath<N>> {
     const path: Buffer[] = [];
     let level = this.depth;
     while (level > 0) {
       const isRight = index & 0x01n;
-      const sibling = this.getLatestValueAtIndex(level, isRight ? index - 1n : index + 1n, includeUncommitted);
+      const sibling = await this.getLatestValueAtIndex(level, isRight ? index - 1n : index + 1n, includeUncommitted);
       path.push(sibling);
       level -= 1;
       index >>= 1n;
@@ -175,8 +180,8 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - Indicates whether to include uncommitted changes.
    * @returns Leaf value at the given index or undefined.
    */
-  public getLeafValue(index: bigint, includeUncommitted: boolean): T | undefined {
-    const buf = this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
+  public async getLeafValue(index: bigint, includeUncommitted: boolean): Promise<T | undefined> {
+    const buf = await this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
     if (buf) {
       return this.deserializer.fromBuffer(buf);
     } else {
@@ -190,8 +195,8 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - Indicates whether to include uncommitted changes.
    * @returns Leaf value at the given index or undefined.
    */
-  public getLeafBuffer(index: bigint, includeUncommitted: boolean): Buffer | undefined {
-    return this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
+  public async getLeafBuffer(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
+    return await this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
   }
 
   public getNode(level: number, index: bigint): Buffer | undefined {
@@ -206,12 +211,13 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     return this.dbGet(indexToKeyHash(this.name, level, index));
   }
 
-  public getZeroHash(level: number): Buffer {
+  public async getZeroHash(level: number): Promise<Buffer> {
     if (level <= 0 || level > this.depth) {
       throw new Error('Invalid level');
     }
 
-    return this.zeroHashes[level - 1];
+    const zeroHashes = await this.zeroHashes;
+    return zeroHashes[level - 1];
   }
 
   /**
@@ -227,17 +233,17 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param leaf - Leaf to add to cache.
    * @param index - Index of the leaf (used to derive the cache key).
    */
-  protected addLeafToCacheAndHashToRoot(leaf: Buffer, index: bigint) {
+  protected async addLeafToCacheAndHashToRoot(leaf: Buffer, index: bigint) {
     const key = indexToKeyHash(this.name, this.depth, index);
     let current = leaf;
     this.cache[key] = current;
     let level = this.depth;
     while (level > 0) {
       const isRight = index & 0x01n;
-      const sibling = this.getLatestValueAtIndex(level, isRight ? index - 1n : index + 1n, true);
+      const sibling = await this.getLatestValueAtIndex(level, isRight ? index - 1n : index + 1n, true);
       const lhs = isRight ? sibling : current;
       const rhs = isRight ? current : sibling;
-      current = this.hasher.hash(lhs, rhs);
+      current = await this.hasher.hash(lhs, rhs);
       level -= 1;
       index >>= 1n;
       const cacheKey = indexToKeyHash(this.name, level, index);
@@ -253,7 +259,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @returns The latest value at the given index.
    * Note: If the value is not in the cache, it will be fetched from the database.
    */
-  private getLatestValueAtIndex(level: number, index: bigint, includeUncommitted: boolean): Buffer {
+  private async getLatestValueAtIndex(level: number, index: bigint, includeUncommitted: boolean): Promise<Buffer> {
     const key = indexToKeyHash(this.name, level, index);
     if (includeUncommitted && this.cache[key] !== undefined) {
       return this.cache[key];
@@ -262,7 +268,8 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     if (committed !== undefined) {
       return committed;
     }
-    return this.zeroHashes[level - 1];
+    const zeroHashes = await this.zeroHashes;
+    return zeroHashes[level - 1];
   }
 
   /**
@@ -289,8 +296,8 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * Writes meta data to the provided batch.
    * @param batch - The batch to which to write the meta data.
    */
-  protected writeMeta() {
-    const data = encodeMeta(this.getRoot(true), this.depth, this.getNumLeaves(true));
+  protected async writeMeta() {
+    const data = encodeMeta(await this.getRoot(true), this.depth, this.getNumLeaves(true));
     return this.meta.set(data);
   }
 
@@ -309,7 +316,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    *          `getLatestValueAtIndex` will return a value from cache (because at least one of the 2 children was
    *          touched in previous iteration).
    */
-  protected appendLeaves(leaves: T[]): void {
+  protected async appendLeaves(leaves: T[]): Promise<void> {
     const numLeaves = this.getNumLeaves(true);
     if (numLeaves + BigInt(leaves.length) - 1n > this.maxIndex) {
       throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
@@ -330,10 +337,10 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
       lastIndex >>= 1n;
       // 3.Iterate over all the affected nodes at this level and update them
       for (let index = firstIndex; index <= lastIndex; index++) {
-        const lhs = this.getLatestValueAtIndex(level, index * 2n, true);
-        const rhs = this.getLatestValueAtIndex(level, index * 2n + 1n, true);
+        const lhs = await this.getLatestValueAtIndex(level, index * 2n, true);
+        const rhs = await this.getLatestValueAtIndex(level, index * 2n + 1n, true);
         const cacheKey = indexToKeyHash(this.name, level - 1, index);
-        this.cache[cacheKey] = this.hasher.hash(lhs, rhs);
+        this.cache[cacheKey] = await this.hasher.hash(lhs, rhs);
       }
 
       level -= 1;
@@ -347,7 +354,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  abstract findLeafIndex(value: T, includeUncommitted: boolean): bigint | undefined;
+  abstract findLeafIndex(value: T, includeUncommitted: boolean): Promise<bigint | undefined>;
 
   /**
    * Returns the first index containing a leaf value after `startIndex`.
@@ -356,5 +363,5 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  abstract findLeafIndexAfter(leaf: T, startIndex: bigint, includeUncommitted: boolean): bigint | undefined;
+  abstract findLeafIndexAfter(leaf: T, startIndex: bigint, includeUncommitted: boolean): Promise<bigint | undefined>;
 }

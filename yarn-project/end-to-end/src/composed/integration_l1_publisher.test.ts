@@ -412,7 +412,7 @@ describe('L1Publisher integration', () => {
         );
         await tree.appendLeaves(l2ToL1MsgsArray);
 
-        const expectedRoot = tree.getRoot(true);
+        const expectedRoot = await tree.getRoot(true);
         const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
         // check that values are inserted into the outbox

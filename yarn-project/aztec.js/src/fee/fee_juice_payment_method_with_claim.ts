@@ -21,12 +21,12 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    * Creates a function call to pay the fee in Fee Juice.
    * @returns A function call
    */
-  override getFunctionCalls(): Promise<FunctionCall[]> {
-    const selector = FunctionSelector.fromNameAndParameters(
+  override async getFunctionCalls(): Promise<FunctionCall[]> {
+    const selector = await FunctionSelector.fromNameAndParameters(
       ProtocolContractArtifact.FeeJuice.functions.find(f => f.name === 'claim')!,
     );
 
-    return Promise.resolve([
+    return [
       {
         to: ProtocolContractAddress.FeeJuice,
         name: 'claim',
@@ -41,6 +41,6 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
         returnTypes: [],
         type: FunctionType.PRIVATE,
       },
-    ]);
+    ];
   }
 }

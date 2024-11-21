@@ -76,9 +76,9 @@ describe('hash', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('compute secret message hash', () => {
+  it('compute secret message hash', async () => {
     const value = new Fr(8n);
-    const hash = computeSecretHash(value);
+    const hash = await computeSecretHash(value);
     expect(hash).toMatchSnapshot();
   });
 

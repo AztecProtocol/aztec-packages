@@ -110,19 +110,19 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   0       0       0       0        0       0       0       0.
      */
 
-    const initialLeafHash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 0, 0));
-    const level1ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
-    const level2ZeroHash = pedersen.hash(level1ZeroHash, level1ZeroHash);
+    const initialLeafHash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 0, 0));
+    const level1ZeroHash = await pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
+    const level2ZeroHash = await pedersen.hash(level1ZeroHash, level1ZeroHash);
 
     let index0Hash = initialLeafHash;
     // Each element is named by the level followed by the index on that level. E.g. e10 -> level 1, index 0, e21 -> level 2, index 1
-    let e10 = pedersen.hash(index0Hash, INITIAL_LEAF);
-    let e20 = pedersen.hash(e10, level1ZeroHash);
+    let e10 = await pedersen.hash(index0Hash, INITIAL_LEAF);
+    let e20 = await pedersen.hash(e10, level1ZeroHash);
 
     const initialE20 = e20; // Kept for calculating committed state later
     const initialE10 = e10;
 
-    let root = pedersen.hash(e20, level2ZeroHash);
+    let root = await pedersen.hash(e20, level2ZeroHash);
     const initialRoot = root;
 
     const emptySiblingPath = new SiblingPath(TEST_TREE_DEPTH, [INITIAL_LEAF, level1ZeroHash, level2ZeroHash]);
@@ -144,11 +144,11 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   1       0       0       0        0       0       0       0
      *  nextVal   30      0       0       0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 1, 30));
-    let index1Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 0, 0));
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    e20 = pedersen.hash(e10, level1ZeroHash);
-    root = pedersen.hash(e20, level2ZeroHash);
+    index0Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 1, 30));
+    let index1Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 0, 0));
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    e20 = await pedersen.hash(e10, level1ZeroHash);
+    root = await pedersen.hash(e20, level2ZeroHash);
 
     await tree.appendLeaves([toBufferBE(30n, 32)]);
 
@@ -171,12 +171,12 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       1       0        0       0       0       0
      *  nextVal   10      0       30      0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 2, 10));
-    let index2Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 1, 30));
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    let e11 = pedersen.hash(index2Hash, INITIAL_LEAF);
-    e20 = pedersen.hash(e10, e11);
-    root = pedersen.hash(e20, level2ZeroHash);
+    index0Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 2, 10));
+    let index2Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 1, 30));
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    let e11 = await pedersen.hash(index2Hash, INITIAL_LEAF);
+    e20 = await pedersen.hash(e10, e11);
+    root = await pedersen.hash(e20, level2ZeroHash);
 
     await tree.appendLeaves([toBufferBE(10n, 32)]);
 
@@ -203,12 +203,12 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       3       1        0       0       0       0
      *  nextVal   10      0       20      30       0       0       0       0.
      */
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    index2Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 3, 20));
-    const index3Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(20, 1, 30));
-    e11 = pedersen.hash(index2Hash, index3Hash);
-    e20 = pedersen.hash(e10, e11);
-    root = pedersen.hash(e20, level2ZeroHash);
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    index2Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 3, 20));
+    const index3Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(20, 1, 30));
+    e11 = await pedersen.hash(index2Hash, index3Hash);
+    e20 = await pedersen.hash(e10, e11);
+    root = await pedersen.hash(e20, level2ZeroHash);
 
     await tree.appendLeaves([toBufferBE(20n, 32)]);
 
@@ -235,13 +235,13 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       4       3       1        0       0       0       0
      *  nextVal   10      50      20      30       0       0       0       0.
      */
-    index1Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 4, 50));
-    const index4Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(50, 0, 0));
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    e20 = pedersen.hash(e10, e11);
-    const e12 = pedersen.hash(index4Hash, INITIAL_LEAF);
-    const e21 = pedersen.hash(e12, level1ZeroHash);
-    root = pedersen.hash(e20, e21);
+    index1Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 4, 50));
+    const index4Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(50, 0, 0));
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    e20 = await pedersen.hash(e10, e11);
+    const e12 = await pedersen.hash(index4Hash, INITIAL_LEAF);
+    const e21 = await pedersen.hash(e12, level1ZeroHash);
+    root = await pedersen.hash(e20, e21);
 
     await tree.appendLeaves([toBufferBE(50n, 32)]);
 
@@ -307,18 +307,18 @@ describe('StandardIndexedTreeSpecific', () => {
      */
 
     const INITIAL_LEAF = toBufferBE(0n, 32);
-    const initialLeafHash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 0, 0));
-    const level1ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
-    const level2ZeroHash = pedersen.hash(level1ZeroHash, level1ZeroHash);
+    const initialLeafHash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 0, 0));
+    const level1ZeroHash = await pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
+    const level2ZeroHash = await pedersen.hash(level1ZeroHash, level1ZeroHash);
     let index0Hash = initialLeafHash;
 
-    let e10 = pedersen.hash(index0Hash, INITIAL_LEAF);
-    let e20 = pedersen.hash(e10, level1ZeroHash);
+    let e10 = await pedersen.hash(index0Hash, INITIAL_LEAF);
+    let e20 = await pedersen.hash(e10, level1ZeroHash);
 
     const inite10 = e10;
     const inite20 = e20;
 
-    let root = pedersen.hash(e20, level2ZeroHash);
+    let root = await pedersen.hash(e20, level2ZeroHash);
     const initialRoot = root;
 
     const emptySiblingPath = new SiblingPath(TEST_TREE_DEPTH, [INITIAL_LEAF, level1ZeroHash, level2ZeroHash]);
@@ -341,11 +341,11 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   1       0       0       0        0       0       0       0
      *  nextVal   30      0       0       0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 1, 30));
-    let index1Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 0, 0));
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    e20 = pedersen.hash(e10, level1ZeroHash);
-    root = pedersen.hash(e20, level2ZeroHash);
+    index0Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 1, 30));
+    let index1Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 0, 0));
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    e20 = await pedersen.hash(e10, level1ZeroHash);
+    root = await pedersen.hash(e20, level2ZeroHash);
 
     await tree.appendLeaves([toBufferBE(30n, 32)]);
 
@@ -367,12 +367,12 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       1       0        0       0       0       0
      *  nextVal   10      0       30      0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 2, 10));
-    let index2Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 1, 30));
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    let e11 = pedersen.hash(index2Hash, INITIAL_LEAF);
-    e20 = pedersen.hash(e10, e11);
-    root = pedersen.hash(e20, level2ZeroHash);
+    index0Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(0, 2, 10));
+    let index2Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 1, 30));
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    let e11 = await pedersen.hash(index2Hash, INITIAL_LEAF);
+    e20 = await pedersen.hash(e10, e11);
+    root = await pedersen.hash(e20, level2ZeroHash);
 
     await tree.appendLeaves([toBufferBE(10n, 32)]);
 
@@ -399,12 +399,12 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       3       1        0       0       0       0
      *  nextVal   10      0       20      30       0       0       0       0.
      */
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    index2Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 3, 20));
-    const index3Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(20, 1, 30));
-    e11 = pedersen.hash(index2Hash, index3Hash);
-    e20 = pedersen.hash(e10, e11);
-    root = pedersen.hash(e20, level2ZeroHash);
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    index2Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(10, 3, 20));
+    const index3Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(20, 1, 30));
+    e11 = await pedersen.hash(index2Hash, index3Hash);
+    e20 = await pedersen.hash(e10, e11);
+    root = await pedersen.hash(e20, level2ZeroHash);
 
     await tree.appendLeaves([toBufferBE(20n, 32)]);
 
@@ -439,13 +439,13 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       6       3       1        0       0       0       0
      *  nextVal   10      50      20      30       0       0       0       0.
      */
-    index1Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 6, 50));
-    const index6Hash = pedersen.hashInputs(createNullifierTreeLeafHashInputs(50, 0, 0));
-    e10 = pedersen.hash(index0Hash, index1Hash);
-    e20 = pedersen.hash(e10, e11);
-    const e13 = pedersen.hash(index6Hash, INITIAL_LEAF);
-    const e21 = pedersen.hash(level1ZeroHash, e13);
-    root = pedersen.hash(e20, e21);
+    index1Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(30, 6, 50));
+    const index6Hash = await pedersen.hashInputs(createNullifierTreeLeafHashInputs(50, 0, 0));
+    e10 = await pedersen.hash(index0Hash, index1Hash);
+    e20 = await pedersen.hash(e10, e11);
+    const e13 = await pedersen.hash(index6Hash, INITIAL_LEAF);
+    const e21 = await pedersen.hash(level1ZeroHash, e13);
+    root = await pedersen.hash(e20, e21);
 
     await tree.appendLeaves([toBufferBE(50n, 32)]);
 
@@ -556,17 +556,17 @@ describe('StandardIndexedTreeSpecific', () => {
        */
 
       const EMPTY_LEAF = toBufferBE(0n, 32);
-      const initialLeafHash = pedersen.hashInputs(createPublicDataTreeLeafHashInputs(0, 0, 0, 0));
-      const level1ZeroHash = pedersen.hash(EMPTY_LEAF, EMPTY_LEAF);
-      const level2ZeroHash = pedersen.hash(level1ZeroHash, level1ZeroHash);
+      const initialLeafHash = await pedersen.hashInputs(createPublicDataTreeLeafHashInputs(0, 0, 0, 0));
+      const level1ZeroHash = await pedersen.hash(EMPTY_LEAF, EMPTY_LEAF);
+      const level2ZeroHash = await pedersen.hash(level1ZeroHash, level1ZeroHash);
       let index0Hash = initialLeafHash;
 
-      let e10 = pedersen.hash(index0Hash, EMPTY_LEAF);
-      let e20 = pedersen.hash(e10, level1ZeroHash);
+      let e10 = await pedersen.hash(index0Hash, EMPTY_LEAF);
+      let e20 = await pedersen.hash(e10, level1ZeroHash);
 
       const inite10 = e10;
 
-      let root = pedersen.hash(e20, level2ZeroHash);
+      let root = await pedersen.hash(e20, level2ZeroHash);
       const initialRoot = root;
 
       const emptySiblingPath = new SiblingPath(TEST_TREE_DEPTH, [EMPTY_LEAF, level1ZeroHash, level2ZeroHash]);
@@ -590,11 +590,11 @@ describe('StandardIndexedTreeSpecific', () => {
        *  nextIdx   1       0       0       0        0       0       0       0
        *  nextSlot  30      0       0       0        0       0       0       0.
        */
-      index0Hash = pedersen.hashInputs(createPublicDataTreeLeafHashInputs(0, 0, 1, 30));
-      let index1Hash = pedersen.hashInputs(createPublicDataTreeLeafHashInputs(30, 5, 0, 0));
-      e10 = pedersen.hash(index0Hash, index1Hash);
-      e20 = pedersen.hash(e10, level1ZeroHash);
-      root = pedersen.hash(e20, level2ZeroHash);
+      index0Hash = await pedersen.hashInputs(createPublicDataTreeLeafHashInputs(0, 0, 1, 30));
+      let index1Hash = await pedersen.hashInputs(createPublicDataTreeLeafHashInputs(30, 5, 0, 0));
+      e10 = await pedersen.hash(index0Hash, index1Hash);
+      e20 = await pedersen.hash(e10, level1ZeroHash);
+      root = await pedersen.hash(e20, level2ZeroHash);
 
       await tree.appendLeaves([createPublicDataTreeLeaf(30, 5).toBuffer()]);
 
@@ -617,10 +617,10 @@ describe('StandardIndexedTreeSpecific', () => {
        *  nextIdx   1       0       0       0        0       0       0       0
        *  nextSlot  30      0       0       0        0       0       0       0.
        */
-      index1Hash = pedersen.hashInputs(createPublicDataTreeLeafHashInputs(30, 10, 0, 0));
-      e10 = pedersen.hash(index0Hash, index1Hash);
-      e20 = pedersen.hash(e10, level1ZeroHash);
-      root = pedersen.hash(e20, level2ZeroHash);
+      index1Hash = await await pedersen.hashInputs(createPublicDataTreeLeafHashInputs(30, 10, 0, 0));
+      e10 = await pedersen.hash(index0Hash, index1Hash);
+      e20 = await pedersen.hash(e10, level1ZeroHash);
+      root = await pedersen.hash(e20, level2ZeroHash);
 
       await tree.appendLeaves([createPublicDataTreeLeaf(30, 10).toBuffer()]);
 

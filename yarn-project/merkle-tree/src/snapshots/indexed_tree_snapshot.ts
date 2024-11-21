@@ -44,13 +44,13 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements In
     super(db, historicRoot, numLeaves, tree, { fromBuffer: buf => buf });
   }
 
-  override getLeafValue(index: bigint): Buffer | undefined {
-    const leafPreimage = this.getLatestLeafPreimageCopy(index);
+  override async getLeafValue(index: bigint): Promise<Buffer | undefined> {
+    const leafPreimage = await this.getLatestLeafPreimageCopy(index);
     return leafPreimage?.toBuffer();
   }
 
-  getLatestLeafPreimageCopy(index: bigint): IndexedTreeLeafPreimage | undefined {
-    const leafNode = super.getLeafValue(index);
+  async getLatestLeafPreimageCopy(index: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
+    const leafNode = await super.getLeafValue(index);
     const leafValue = this.leaves.get(snapshotLeafValue(leafNode!, index));
     if (leafValue) {
       return this.leafPreimageBuilder.fromBuffer(leafValue);
@@ -59,7 +59,7 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements In
     }
   }
 
-  findIndexOfPreviousKey(newValue: bigint): {
+  async findIndexOfPreviousKey(newValue: bigint): Promise<{
     /**
      * The index of the found leaf.
      */
@@ -68,13 +68,13 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements In
      * A flag indicating if the corresponding leaf's value is equal to `newValue`.
      */
     alreadyPresent: boolean;
-  } {
+  }> {
     const numLeaves = this.getNumLeaves();
     const diff: bigint[] = [];
 
     for (let i = 0; i < numLeaves; i++) {
       // this is very inefficient
-      const storedLeaf = this.getLatestLeafPreimageCopy(BigInt(i))!;
+      const storedLeaf = await this.getLatestLeafPreimageCopy(BigInt(i))!;
 
       // The stored leaf can be undefined if it addresses an empty leaf
       // If the leaf is empty we do the same as if the leaf was larger
@@ -99,8 +99,8 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements In
     return { index: BigInt(minIndex), alreadyPresent: false };
   }
 
-  override findLeafIndex(value: Buffer): bigint | undefined {
-    const index = this.tree.findLeafIndex(value, false);
+  override async findLeafIndex(value: Buffer): Promise<bigint | undefined> {
+    const index = await this.tree.findLeafIndex(value, false);
     if (index !== undefined && index < this.getNumLeaves()) {
       return index;
     }

@@ -812,7 +812,7 @@ describe('Private Execution test suite', () => {
     it('Should be able to consume a dummy public to private message', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_note_from_secret');
       const secret = new Fr(1n);
-      const secretHash = computeSecretHash(secret);
+      const secretHash = await computeSecretHash(secret);
       const note = new Note([secretHash]);
       const storageSlot = TestContractArtifact.storageLayout['example_set'].slot;
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
@@ -1093,7 +1093,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_master_incoming_viewing_public_key');
 
       // Generate a partial address, pubkey, and resulting address
-      const completeAddress = CompleteAddress.random();
+      const completeAddress = await CompleteAddress.random();
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
 

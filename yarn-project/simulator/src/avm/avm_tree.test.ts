@@ -484,7 +484,7 @@ describe('AVM Ephemeral Tree Sanity Test', () => {
     // Check root
     await worldStateTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
     const treeInfo = await worldStateTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true);
-    const localRoot = tree.getRoot();
+    const localRoot = await tree.getRoot();
     expect(localRoot.toBuffer()).toEqual(treeInfo.root);
   });
 });

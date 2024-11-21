@@ -50,7 +50,7 @@ export class DeployAccountMethod extends DeployMethod {
     const exec = await super.getInitializeFunctionCalls(options);
 
     if (options.fee && this.#feePaymentArtifact) {
-      const { address } = this.getInstance();
+      const { address } = await this.getInstance();
       const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
       const feePayload = await EntrypointPayload.fromFeeOptions(address, options?.fee);
 
@@ -58,7 +58,7 @@ export class DeployAccountMethod extends DeployMethod {
         name: this.#feePaymentArtifact.name,
         to: address,
         args: encodeArguments(this.#feePaymentArtifact, [emptyAppPayload, feePayload, false]),
-        selector: FunctionSelector.fromNameAndParameters(
+        selector: await FunctionSelector.fromNameAndParameters(
           this.#feePaymentArtifact.name,
           this.#feePaymentArtifact.parameters,
         ),
@@ -71,7 +71,7 @@ export class DeployAccountMethod extends DeployMethod {
       exec.packedArguments ??= [];
 
       exec.authWitnesses.push(
-        await this.#authWitnessProvider.createAuthWit(computeCombinedPayloadHash(emptyAppPayload, feePayload)),
+        await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
       );
 
       exec.packedArguments.push(...emptyAppPayload.packedArguments);

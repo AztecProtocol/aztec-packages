@@ -50,17 +50,17 @@ export type IntentAction = {
  * @param metadata - The metadata for the intent (chainId, version)
  * @returns The message hash for the action
  */
-export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction, metadata: IntentMetadata) => {
+export const computeAuthWitMessageHash = async (intent: IntentInnerHash | IntentAction, metadata: IntentMetadata) => {
   const chainId = metadata.chainId;
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const action = intent.action instanceof ContractFunctionInteraction ? intent.action.request() : intent.action;
+    const action = intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
     return computeOuterAuthWitHash(
       action.to,
       chainId,
       version,
-      computeInnerAuthWitHashFromAction(intent.caller, action),
+      await computeInnerAuthWitHashFromAction(intent.caller, action),
     );
   } else {
     const inner = Buffer.isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
@@ -69,8 +69,12 @@ export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction
 };
 // docs:end:authwit_computeAuthWitMessageHash
 
-export const computeInnerAuthWitHashFromAction = (caller: AztecAddress, action: FunctionCall) =>
-  computeInnerAuthWitHash([caller.toField(), action.selector.toField(), PackedValues.fromValues(action.args).hash]);
+export const computeInnerAuthWitHashFromAction = async (caller: AztecAddress, action: FunctionCall) =>
+  computeInnerAuthWitHash([
+    caller.toField(),
+    action.selector.toField(),
+    (await PackedValues.fromValues(action.args)).hash,
+  ]);
 
 /**
  * Compute the inner hash for an authentication witness.
@@ -80,7 +84,7 @@ export const computeInnerAuthWitHashFromAction = (caller: AztecAddress, action: 
  * @param args - The arguments to hash
  * @returns The inner hash for the witness
  */
-export const computeInnerAuthWitHash = (args: Fr[]) => {
+export const computeInnerAuthWitHash = async (args: Fr[]) => {
   return await poseidon2HashWithSeparator(args, GeneratorIndex.AUTHWIT_INNER);
 };
 
@@ -98,6 +102,9 @@ export const computeInnerAuthWitHash = (args: Fr[]) => {
  * @param innerHash - The inner hash for the witness
  * @returns The outer hash for the witness
  */
-const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
-  return await poseidon2HashWithSeparator([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
+const computeOuterAuthWitHash = async (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
+  return await poseidon2HashWithSeparator(
+    [consumer.toField(), chainId, version, innerHash],
+    GeneratorIndex.AUTHWIT_OUTER,
+  );
 };

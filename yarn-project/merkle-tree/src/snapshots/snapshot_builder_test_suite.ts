@@ -155,7 +155,7 @@ export function describeSnapshotBuilderTestSuite<
         await modifyTree(tree);
         await tree.commit();
         const snapshot = await snapshotBuilder.snapshot(1);
-        const historicalRoot = tree.getRoot(false);
+        const historicalRoot = await tree.getRoot(false);
 
         await modifyTree(tree);
         await tree.commit();
@@ -210,14 +210,14 @@ export function describeSnapshotBuilderTestSuite<
         const snapshot = await snapshotBuilder.snapshot(1);
 
         const initialLastLeafIndex = tree.getNumLeaves(false) - 1n;
-        let lastLeaf = tree.getLeafValue(initialLastLeafIndex, false);
+        let lastLeaf = await tree.getLeafValue(initialLastLeafIndex, false);
         expect(snapshot.findLeafIndex(lastLeaf!)).toBe(initialLastLeafIndex);
 
         await modifyTree(tree);
         await tree.commit();
 
         const newLastLeafIndex = tree.getNumLeaves(false) - 1n;
-        lastLeaf = tree.getLeafValue(newLastLeafIndex, false);
+        lastLeaf = await tree.getLeafValue(newLastLeafIndex, false);
 
         expect(snapshot.findLeafIndex(lastLeaf!)).toBe(undefined);
       });
