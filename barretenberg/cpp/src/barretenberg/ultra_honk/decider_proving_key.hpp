@@ -178,8 +178,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
                 const size_t max_tables_size =
-                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
-                size_t table_offset = dyadic_circuit_size - max_tables_size;
+                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 4);
+                size_t table_offset = dyadic_circuit_size - max_tables_size - MASKING_OFFSET;
                 {
                     PROFILE_THIS_NAME("allocating table polynomials");
 
@@ -219,11 +219,12 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     const size_t table_offset =
                         dyadic_circuit_size -
                         std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
-                    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
+                    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset) - MASKING_OFFSET;
                     const size_t lookup_inverses_end =
                         std::min(dyadic_circuit_size,
                                  std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
-                                          table_offset + MAX_LOOKUP_TABLES_SIZE));
+                                          table_offset + MAX_LOOKUP_TABLES_SIZE)) -
+                        MASKING_OFFSET;
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {
@@ -289,7 +290,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
+                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, MASKING_OFFSET);
         }
 
         {
