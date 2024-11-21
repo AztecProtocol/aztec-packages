@@ -15,7 +15,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src \"!src/web/main.js\" && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "LOG_LEVEL=${LOG_LEVEL:-verbose} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit",
+    "test": "RAYON_NUM_THREADS=4 LOG_LEVEL=${LOG_LEVEL:-verbose} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit --maxWorkers=8",
     "test:profile": "LOG_LEVEL=${LOG_LEVEL:-verbose} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 0x --output-dir \"flame_graph/{pid}.0x\" -- node --experimental-vm-modules ../node_modules/jest/bin/jest.js --runInBand --testTimeout=300000 --forceExit",
     "serve:flames": "python3 -m http.server --directory \"flame_graph\" 8000",
     "test:debug": "LOG_LEVEL=${LOG_LEVEL:-verbose} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --inspect --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit",
