@@ -26,6 +26,9 @@ describe('e2e_p2p_rediscovery', () => {
     });
     await t.applyBaseSnapshots();
     await t.setup();
+
+    // We remove the initial node such that it will no longer attempt to build blocks / be in the sequencing set
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
