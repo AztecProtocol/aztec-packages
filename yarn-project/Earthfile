@@ -244,6 +244,7 @@ end-to-end:
     ENTRYPOINT ["yarn", "test"]
 
 scripts-prod:
+    FROM +deps
     RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
