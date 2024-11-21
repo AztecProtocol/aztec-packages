@@ -440,7 +440,8 @@ mod test {
             acir(inline) fn main f0 {
               b0(v0: Field):
                 v2 = add v0, Field 1
-                return [v2] of Field
+                v3 = make_array [v2] : [Field; 1]
+                return v3
             }
             ";
         let ssa = Ssa::from_str(src).unwrap();
@@ -546,21 +547,32 @@ mod test {
     // Regression for #4600
     #[test]
     fn array_get_regression() {
+        // fn main f0 {
+        //   b0(v0: u1, v1: u64):
+        //     enable_side_effects_if v0
+        //     v2 = make_array [Field 0, Field 1]
+        //     v3 = array_get v2, index v1
+        //     v4 = not v0
+        //     enable_side_effects_if v4
+        //     v5 = array_get v2, index v1
+        // }
+        //
         // We want to make sure after constant folding both array_gets remain since they are
         // under different enable_side_effects_if contexts and thus one may be disabled while
         // the other is not. If one is removed, it is possible e.g. v4 is replaced with v2 which
         // is disabled (only gets from index 0) and thus returns the wrong result.
         let src = "
-            acir(inline) fn main f0 {
-              b0(v0: u1, v1: u64):
-                enable_side_effects v0
-                v5 = array_get [Field 0, Field 1] of Field, index v1 -> Field
-                v6 = not v0
-                enable_side_effects v6
-                v8 = array_get [Field 0, Field 1] of Field, index v1 -> Field
-                return
-            }
-            ";
+             acir(inline) fn main f0 {
+               b0(v0: u1, v1: u64):
+                 enable_side_effects v0
+                 v4 = make_array [Field 0, Field 1] : [Field; 2]
+                 v5 = array_get v4, index v1 -> Field
+                 v6 = not v0
+                 enable_side_effects v6
+                 v7 = array_get v4, index v1 -> Field
+                 return
+             }
+             ";
         let ssa = Ssa::from_str(src).unwrap();
 
         // Expected output is unchanged
@@ -638,7 +650,7 @@ mod test {
         let zero = builder.numeric_constant(0u128, Type::unsigned(64));
         let typ = Type::Array(Arc::new(vec![Type::unsigned(64)]), 25);
 
-        let array_contents = vec![
+        let array_contents = im::vector![
             v0, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
             zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
         ];
