@@ -223,19 +223,6 @@ export type L1Clients = {
   walletClient: WalletClient<HttpTransport, Chain, Account>;
 };
 
-export const deployerAbi = [
-  {
-    inputs: [
-      { internalType: 'bytes32', name: 'salt', type: 'bytes32' },
-      { internalType: 'bytes', name: 'init_code', type: 'bytes' },
-    ],
-    name: 'deploy',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-];
-
 /**
  * Creates a wallet and a public viem client for interacting with L1.
  * @param rpcUrl - RPC URL to connect to L1.

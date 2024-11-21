@@ -3,7 +3,16 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import getPort from 'get-port';
-import { createPublicClient, createWalletClient, http } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  createPublicClient,
+  createWalletClient,
+  http,
+} from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -27,8 +36,8 @@ const startAnvil = async (l1BlockTime?: number) => {
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtils;
-  let publicClient: any;
-  let walletClient: any;
+  let walletClient: WalletClient<HttpTransport, Chain, Account>;
+  let publicClient: PublicClient<HttpTransport, Chain>;
   let anvil: Anvil;
   let initialBaseFee: bigint;
   const logger = createDebugLogger('l1_gas_test');
@@ -62,6 +71,17 @@ describe('GasUtils', () => {
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
+    });
+  });
+  afterEach(async () => {
+    // Reset base fee
+    await publicClient.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [initialBaseFee.toString()],
+    });
+    await publicClient.transport.request({
+      method: 'evm_mine',
+      params: [],
     });
   });
   afterAll(async () => {
@@ -99,12 +119,6 @@ describe('GasUtils', () => {
     // Transaction should still complete
     const receipt = await sendPromise;
     expect(receipt.status).toBe('success');
-
-    // Reset base fee
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [initialBaseFee.toString()],
-    });
   });
 
   it('respects max gas price limits during spikes', async () => {
@@ -130,16 +144,6 @@ describe('GasUtils', () => {
     });
 
     expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(maxGwei * WEI_CONST);
-
-    // Reset base fee
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [initialBaseFee.toString()],
-    });
-    await publicClient.transport.request({
-      method: 'evm_mine',
-      params: [],
-    });
   });
 
   it('adds appropriate buffer to gas estimation', async () => {
