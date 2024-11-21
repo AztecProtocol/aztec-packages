@@ -278,7 +278,12 @@ export class L1TxUtils {
     let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
     if (attempt > 0) {
       // Bump priority fee by configured percentage for each attempt
-      priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage ?? 20n) * BigInt(attempt))) / 100n;
+      priorityFee =
+        (priorityFee *
+          (100n +
+            (gasConfig.priorityFeeBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeBumpPercentage!) *
+              BigInt(attempt))) /
+        100n;
     }
 
     const maxFeePerGas = gasConfig.maxGwei! * WEI_CONST;
