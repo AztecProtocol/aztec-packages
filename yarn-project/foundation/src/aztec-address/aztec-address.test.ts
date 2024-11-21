@@ -34,4 +34,17 @@ describe('aztec-address', () => {
       expect(set.size).toEqual(100);
     });
   });
+
+  describe('toAddressPoint', () => {
+    it("reconstructs an address's point", () => {
+      const address = AztecAddress.random();
+      const point = address.toAddressPoint();
+      expect(point.isOnGrumpkin()).toEqual(true);
+    });
+
+    it('throws for an invalid address', () => {
+      const address = new AztecAddress(new Fr(6));
+      expect(() => address.toAddressPoint()).toThrow('The given x-coordinate is not on the Grumpkin curve');
+    });
+  });
 });

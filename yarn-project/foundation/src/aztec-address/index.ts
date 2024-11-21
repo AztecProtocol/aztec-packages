@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { inspect } from 'util';
 
-import { Fr, fromBuffer } from '../fields/index.js';
+import { Fr, Point, fromBuffer } from '../fields/index.js';
 import { type BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 import { hexToBuffer } from '../string/index.js';
@@ -72,7 +72,7 @@ export class AztecAddress {
   }
 
   /**
-   * @returns a random valid address (i.e. one that can be encryted to).
+   * @returns a random valid address (i.e. one that can be encrypted to).
    */
   static random() {
     // About half of random field elements result in invalid addresses, so we loop until we get a valid one.
@@ -106,10 +106,14 @@ export class AztecAddress {
     //
     // For Grumpkin, y^2 = x^3 − 17 . There exist values x ∈ Fr for which no y satisfies this equation. This means that
     // given such an x and t = x^3 − 17, then sqrt(t) does not exist in Fr.
+    return Point.YFromX(this.xCoord) !== null;
+  }
 
-    const cube = this.xCoord.mul(this.xCoord).mul(this.xCoord);
-    const t = cube.sub(new Fr(17));
-    return t.sqrt() !== null;
+  /**
+   * @returns the Point from which the address is derived. Throws if the address is invalid.
+   */
+  toAddressPoint() {
+    return Point.fromXAndSign(this.xCoord, true);
   }
 
   toBuffer() {

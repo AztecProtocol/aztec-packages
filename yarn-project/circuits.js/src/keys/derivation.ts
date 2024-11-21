@@ -82,10 +82,6 @@ export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
   return addressSecretCandidate;
 }
 
-export function computePoint(address: AztecAddress) {
-  return Point.fromXAndSign(address.toField(), true);
-}
-
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {
   const curve = new Grumpkin();
   return curve.mul(curve.generator(), secretKey);
@@ -130,7 +126,7 @@ export function deriveKeys(secretKey: Fr) {
 export function computeTaggingSecret(knownAddress: CompleteAddress, ivsk: Fq, externalAddress: AztecAddress) {
   const knownPreaddress = computePreaddress(knownAddress.publicKeys.hash(), knownAddress.partialAddress);
   // TODO: #8970 - Computation of address point from x coordinate might fail
-  const externalAddressPoint = computePoint(externalAddress);
+  const externalAddressPoint = externalAddress.toAddressPoint();
   const curve = new Grumpkin();
   // Given A (known complete address) -> B (external address) and h == preaddress
   // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
