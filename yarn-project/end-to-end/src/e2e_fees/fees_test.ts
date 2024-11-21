@@ -79,9 +79,9 @@ export class FeesTest {
   public getBananaPublicBalanceFn!: BalancesFn;
   public getBananaPrivateBalanceFn!: BalancesFn;
 
-  public readonly INITIAL_GAS_BALANCE = BigInt(1e15);
-  public readonly ALICE_INITIAL_BANANAS = BigInt(1e12);
-  public readonly SUBSCRIPTION_AMOUNT = 10_000n;
+  public readonly INITIAL_GAS_BALANCE = BigInt(1e22);
+  public readonly ALICE_INITIAL_BANANAS = BigInt(1e22);
+  public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
   constructor(testName: string) {
