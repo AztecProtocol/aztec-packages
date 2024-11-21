@@ -440,7 +440,8 @@ mod test {
             acir(inline) fn main f0 {
               b0(v0: Field):
                 v2 = add v0, Field 1
-                return [v2] of Field
+                v3 = make_array [v2] : [Field; 1]
+                return v3
             }
             ";
         let ssa = Ssa::from_str(src).unwrap();
@@ -551,16 +552,17 @@ mod test {
         // the other is not. If one is removed, it is possible e.g. v4 is replaced with v2 which
         // is disabled (only gets from index 0) and thus returns the wrong result.
         let src = "
-            acir(inline) fn main f0 {
-              b0(v0: u1, v1: u64):
-                enable_side_effects v0
-                v5 = array_get [Field 0, Field 1] of Field, index v1 -> Field
-                v6 = not v0
-                enable_side_effects v6
-                v8 = array_get [Field 0, Field 1] of Field, index v1 -> Field
-                return
-            }
-            ";
+             acir(inline) fn main f0 {
+               b0(v0: u1, v1: u64):
+                 enable_side_effects v0
+                 v4 = make_array [Field 0, Field 1] : [Field; 2]
+                 v5 = array_get v4, index v1 -> Field
+                 v6 = not v0
+                 enable_side_effects v6
+                 v7 = array_get v4, index v1 -> Field
+                 return
+             }
+             ";
         let ssa = Ssa::from_str(src).unwrap();
 
         // Expected output is unchanged
@@ -638,12 +640,12 @@ mod test {
         let zero = builder.numeric_constant(0u128, Type::unsigned(64));
         let typ = Type::Array(Arc::new(vec![Type::unsigned(64)]), 25);
 
-        let array_contents = vec![
+        let array_contents = im::vector![
             v0, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
             zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
         ];
-        let array1 = builder.array_constant(array_contents.clone().into(), typ.clone());
-        let array2 = builder.array_constant(array_contents.into(), typ.clone());
+        let array1 = builder.insert_make_array(array_contents.clone(), typ.clone());
+        let array2 = builder.insert_make_array(array_contents, typ.clone());
 
         assert_eq!(array1, array2, "arrays were assigned different value ids");
 
