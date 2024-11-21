@@ -3,7 +3,7 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
-// import { METRICS_PORT } from '../fixtures/fixtures.js';
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -24,8 +24,8 @@ describe('e2e_p2p_network', () => {
       testName: 'e2e_p2p_network',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
-      // Uncomment to collect metrics - run in aztec-packages `docker compose --profile metrics up`
-      // metricsPort: METRICS_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      metricsPort: shouldCollectMetrics(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
@@ -44,6 +44,7 @@ describe('e2e_p2p_network', () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
+
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
@@ -57,8 +58,8 @@ describe('e2e_p2p_network', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
-      // Uncomment to collect metrics - run in aztec-packages `docker compose --profile metrics up`
-      // METRICS_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other
