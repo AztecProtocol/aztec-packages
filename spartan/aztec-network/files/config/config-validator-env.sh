@@ -1,10 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 set -eu
 
+alias aztec='node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js'
 
 # Pass the bootnode url as an argument
 # Ask the bootnode for l1 contract addresses
-output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $1)
+output=$(aztec get-node-info -u $1)
 
 echo "$output"
 
@@ -27,7 +28,7 @@ private_key=$(jq -r ".[$INDEX]" /app/config/keys.json)
 
 
 # Write the addresses to a file in the shared volume
-cat <<EOF > /shared/contracts/contracts.env
+cat <<EOF > /shared/contracts.env
 export BOOTSTRAP_NODES=$boot_node_enr
 export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
@@ -44,4 +45,4 @@ export L1_PRIVATE_KEY=$private_key
 export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 EOF
 
-cat /shared/contracts/contracts.env
+cat /shared/contracts.env

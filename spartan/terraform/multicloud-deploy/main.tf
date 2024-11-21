@@ -1,6 +1,7 @@
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
+    key    = "multicloud-deploy/terraform.tfstate"
     region = "eu-west-2"
   }
   required_providers {
@@ -74,7 +75,7 @@ resource "helm_release" "aztec-eks-cluster" {
   }
 
   # Setting timeout and wait conditions
-  timeout       = 1200 # 20 minutes in seconds
+  timeout       = 600 # 10 minutes in seconds
   wait          = true
   wait_for_jobs = true
 }
