@@ -1,14 +1,14 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import { getContract } from 'viem';
 
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
-import { getContract } from 'viem';
-import { RollupAbi } from '@aztec/l1-artifacts';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 6;
@@ -109,7 +109,6 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('All transactions mined');
   });
 
-
   /**
    * Get the indexes in the nodes array that will produce the next few blocks
    */
@@ -134,7 +133,9 @@ describe('e2e_p2p_reqresp_tx', () => {
 
     // Get the indexes of the nodes that are responsible for the next two slots
     const proposerIndexes = proposers.map(proposer => t.nodePublicKeys.indexOf(proposer));
-    const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(i => !proposerIndexes.includes(i));
+    const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
+      i => !proposerIndexes.includes(i),
+    );
     return { proposerIndexes, nodesToTurnOffTxGossip };
   }
 });
