@@ -70,6 +70,7 @@ export class PublicTxContext {
     private readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     private readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
+    private doMerkleOperations: boolean,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
     this.gasUsed = startGasUsed;
@@ -80,6 +81,7 @@ export class PublicTxContext {
     worldStateDB: WorldStateDB,
     tx: Tx,
     globalVariables: GlobalVariables,
+    doMerkleOperations: boolean,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
     const revertibleAccumulatedDataFromPrivate = tx.data.forPublic!.revertibleAccumulatedData;
@@ -113,6 +115,7 @@ export class PublicTxContext {
       worldStateDB,
       trace,
       nonRevertibleNullifiersFromPrivate,
+      doMerkleOperations,
     );
 
     return new PublicTxContext(
@@ -131,6 +134,7 @@ export class PublicTxContext {
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       enqueuedCallTrace,
+      doMerkleOperations,
     );
   }
 
