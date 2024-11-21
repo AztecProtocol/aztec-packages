@@ -114,8 +114,6 @@ export async function createValidatorConfig(
     tcpListenAddress: `0.0.0.0:${port}`,
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
-    minTxsPerBlock: config.minTxsPerBlock,
-    maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
     blockCheckIntervalMS: 1000,
     transactionProtocol: '',
