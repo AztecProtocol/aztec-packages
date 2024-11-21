@@ -15,8 +15,8 @@ export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 cargo fmt --all --check
 
 # Linting. If local use a separate build dir to not clobber incrementals. In CI we want to save space.
-[ "${CI:-0}" -eq 0 ] && clippy_args="--target-dir target/clippy"
-RUSTFLAGS=-Dwarnings cargo clippy $clippy_args --workspace --locked --release
+[ "${CI:-0}" -eq 0 ] && args="--target-dir target/clippy" || args=""
+RUSTFLAGS=-Dwarnings cargo clippy $args --workspace --locked --release
 
 # Install nextest.
 ./.github/scripts/cargo-binstall-install.sh
@@ -25,5 +25,5 @@ cargo-binstall cargo-nextest --version 0.9.67 -y --secure
 # Test.
 export RAYON_NUM_THREADS=1
 jobs=$(($(nproc) / RAYON_NUM_THREADS))
-[ "${CI:-0}" -eq 0 ] && test_args="--target-dir target/nextest"
-cargo nextest run -j$jobs $test_args --workspace --locked --release -E '!test(hello_world_example) & !test(simple_verifier_codegen)'
+[ "${CI:-0}" -eq 0 ] && args="--target-dir target/nextest" || args=""
+cargo nextest run -j$jobs $args --workspace --locked --release -E '!test(hello_world_example) & !test(simple_verifier_codegen)'
