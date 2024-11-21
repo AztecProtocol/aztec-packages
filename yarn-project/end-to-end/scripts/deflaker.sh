@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 testname=$1
 script_dir=$(dirname "$0")
 

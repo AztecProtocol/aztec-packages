@@ -29,6 +29,8 @@ describe('e2e_p2p_network', () => {
     });
     await t.applyBaseSnapshots();
     await t.setup();
+
+    // await t.removeInitialNode();
   });
 
   afterEach(async () => {

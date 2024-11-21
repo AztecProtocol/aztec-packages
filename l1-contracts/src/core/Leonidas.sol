@@ -175,9 +175,11 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   }
 
   /**
-   * @notice  Get the number of validators in the validator set
+   * @notice  Get the validator at a given index
    *
-   * @return The number of validators in the validator set
+   * @param _index - The index to get the validator at
+   *
+   * @return The validator at the given index
    */
   function getValidatorAt(uint256 _index) public view override(ILeonidas) returns (address) {
     return validatorSet.at(_index);
@@ -327,6 +329,17 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    */
   function _addValidator(address _validator) internal {
     validatorSet.add(_validator);
+  }
+
+  /**
+   * @notice  Get the validator set for a given timestamp
+   *
+   * @param _ts - The timestamp to get the validator set for
+   *
+   * @return The validator set for the given timestamp
+   */
+  function getCommitteeAt(Timestamp _ts) external view returns (address[] memory) {
+    return _getCommitteeAt(_ts);
   }
 
   function _getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
