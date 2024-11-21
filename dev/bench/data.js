@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732198611030,
+  "lastUpdate": 1732199539315,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "29724f3f2db5a3b6e399e54a9a84af8686807fb6",
-          "message": "feat(avm)!: byte indexed PC (#9582)\n\nThis PR moves the AVM to use byte-indexed PCs\n* Modifies the transpiler to remap brillig PCs\n* Modifies the simulator to use byte indexed PCs\n* Modifies witgen and circuit to use byte indexed PCs\n\nWhy are we doing this?\n* Needed for bytecode decomposition in the circuit.\n* Allow storing other stuff besides code in a contract, and then be able to use it in memory with an opcode \"CODECOPY\" or similar.\n\n---\n\nA note on how PCs are mapped in the transpiler: we do 2 passes. First we translate all instructions and leave brillig location operands as `BRILLIG_LOCATION`. On a second pass, since now we know the structure of the program and the brillig=>AVM pcs, we replace those.\n\nThere are a few big caveats\n1. ~Since the JUMP(I) and INTERNALCALL operands are U16, we cannot jump or call a location bigger than 2^16. This effectively constrains the contract size to 65kB.~ We use 32 bit jumps now.\n2. We can do the transformation in (only) 2 passes because we only have 1 variant of JUMP etc. Suppose we had an 8 bit variant, or a 32 bit variant, then we wouldn't know which one to use until the original PC has been mapped, but that itself can change the size of the instructions and trigger a remapping!\n\nSolutions?\n* For (1) I might propose having relative jumps JUMP(I)R with 8 and 16 bit variants, and an absolute JUMP with 32 bits.\n* For (2) we might just need to remap until there is no change.\n\nPart of #9059.",
-          "timestamp": "2024-11-04T15:39:43Z",
-          "tree_id": "bcd4ea9a7f7111839762c52d05ad28fb4d0c6db1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/29724f3f2db5a3b6e399e54a9a84af8686807fb6"
-        },
-        "date": 1730736364670,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29020.685466000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27539.080553 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5353.214475999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5042.800747 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85778.77153299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85778774000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15085.014893,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15085015000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2495160654,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2495160654 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126926626,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126926626 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 142128019,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142128019 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a0551ee9fca242a02774fd07bf8156a3a74dae3a",
+          "message": "feat: Single commitment key allocation in CIVC (#9974)\n\nPreviously we allocated the BN254 commitment key freely (I counted 11\r\ntimes in one small ClientIVC test). This is unnecessary and could lead\r\nto memory fragmentation. This PR implements size functions on a\r\n`TraceSetting` object and, when structured traces are used, allocates\r\nthe commitment key at CIVC construction time. It passes this along to\r\ndependent classes via a shared pointer.\r\n\r\nI didn't handle the case of Grumpkin since it's not an issue.\r\n\r\nI was curious to validate the effect in the browser directly through the\r\nbrowser app in the ivc-integration test suite. Though it's tangential, I\r\nupdated that app to display console logs on the page for easy sharing.",
+          "timestamp": "2024-11-21T08:57:43-05:00",
+          "tree_id": "483642b72c9e587a714008949e48a0fd7b54ec14",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a0551ee9fca242a02774fd07bf8156a3a74dae3a"
+        },
+        "date": 1732199531287,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28304.92136800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26604.122187999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5032.973944999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4754.9806180000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84196.89280100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84196893000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15303.561639,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15303562000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3079279038,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3079279038 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141076910,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141076910 ns\nthreads: 1"
           }
         ]
       }
