@@ -25,7 +25,11 @@ import {
   revertReasonFromExplicitRevert,
 } from './errors.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
-import { decodeInstructionFromBytecode } from './serialization/bytecode_serialization.js';
+import {
+  INSTRUCTION_SET,
+  type InstructionSet,
+  decodeInstructionFromBytecode,
+} from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 
 type OpcodeTally = {
@@ -44,7 +48,7 @@ export class AvmSimulator {
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
   private pcTallies: Map<number, PcTally> = new Map();
 
-  constructor(private context: AvmContext) {
+  constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
@@ -62,6 +66,7 @@ export class AvmSimulator {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
+    instructionSet: InstructionSet,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -76,7 +81,7 @@ export class AvmSimulator {
 
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    return new AvmSimulator(avmContext);
+    return new AvmSimulator(avmContext, instructionSet);
   }
 
   /**
@@ -125,7 +130,7 @@ export class AvmSimulator {
       let instrCounter = 0;
       while (!machineState.getHalted()) {
         let timer = new Timer();
-        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc);
+        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
         assert(
           !!instruction,
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
