@@ -4,6 +4,9 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { inspect } from 'util';
 
+import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
+import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+
 // TO BE REMOVED.
 /**
  * Write operations on the public data tree including the previous value.
