@@ -162,7 +162,6 @@ describe('L1Publisher', () => {
       args,
     });
 
-    const kzg = Blob.getViemKzgInstance();
     expect(walletClient.sendTransaction).toHaveBeenCalledWith({
       data,
       account,

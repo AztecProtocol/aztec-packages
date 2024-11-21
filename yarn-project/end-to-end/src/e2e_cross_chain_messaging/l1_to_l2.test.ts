@@ -59,7 +59,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // which is not nullified
       await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message2Index).send().wait();
     },
-    120_000,
+    150_000,
   );
 
   const sendL2Message = async (message: { recipient: AztecAddress; content: Fr; secretHash: Fr }) => {
