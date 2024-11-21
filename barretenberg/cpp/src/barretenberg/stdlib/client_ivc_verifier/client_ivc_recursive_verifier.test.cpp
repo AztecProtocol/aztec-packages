@@ -15,8 +15,8 @@ class ClientIVCRecursionTests : public testing::Test {
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
     using Proof = ClientIVC::Proof;
-    using Flavor = UltraRecursiveFlavor_<Builder>;
-    using NativeFlavor = UltraRollupFlavor;
+    using Flavor = UltraRollupRecursiveFlavor_<Builder>;
+    using NativeFlavor = Flavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
 
     static void SetUpTestSuite()
@@ -125,7 +125,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*tube_builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
     UltraProver_<NativeFlavor> tube_prover{ proving_key };
     auto native_tube_proof = tube_prover.construct_proof();
 
@@ -137,7 +137,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct a base rollup circuit that recursively verifies the tube proof.
     Builder base_builder;
-    auto native_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+    auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
     auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
     auto tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, vk };

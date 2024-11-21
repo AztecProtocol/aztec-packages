@@ -128,6 +128,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             return VerificationKey(builder, vkey_fields);
         }
     };
+
+    // Reuse the VerifierCommitments from Ultra
+    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
 };
 
 } // namespace bb
