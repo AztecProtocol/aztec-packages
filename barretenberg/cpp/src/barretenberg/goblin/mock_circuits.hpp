@@ -121,7 +121,8 @@ class GoblinMockCircuits {
      *
      * @param op_queue
      */
-    static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void perform_op_queue_interactions_for_mock_first_circuit(
+        std::shared_ptr<bb::ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
     {
         PROFILE_THIS();
 
@@ -134,11 +135,12 @@ class GoblinMockCircuits {
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
         bb::srs::init_crs_factory("../srs_db/ignition");
-        auto commitment_key = CommitmentKey(op_queue->get_current_size());
+        auto bn254_commitment_key =
+            commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->get_aggregate_transcript()) {
-            op_queue_commitments[idx++] = commitment_key.commit({ 0, entry });
+            op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
         }
         // Store the commitment data for use by the prover of the next circuit
         op_queue->set_commitment_data(op_queue_commitments);
