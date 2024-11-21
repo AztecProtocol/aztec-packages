@@ -56,6 +56,8 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         await this.db.unnullifyNotesAfter(event.blockNumber);
         await this.db.removeNotesAfter(event.blockNumber);
+        // Remove all note tagging indexes to force a full resync
+        await this.db.resetNoteSyncData();
         // Update the header to the last block.
         await this.db.setHeader(await this.node.getBlockHeader(event.blockNumber));
         break;

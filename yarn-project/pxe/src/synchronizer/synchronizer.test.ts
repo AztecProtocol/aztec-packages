@@ -44,6 +44,7 @@ describe('Synchronizer', () => {
   it('removes notes from db on a reorg', async () => {
     const removeNotesAfter = jest.spyOn(database, 'removeNotesAfter').mockImplementation(() => Promise.resolve());
     const unnullifyNotesAfter = jest.spyOn(database, 'unnullifyNotesAfter').mockImplementation(() => Promise.resolve());
+    const resetNoteSyncData = jest.spyOn(database, 'resetNoteSyncData').mockImplementation(() => Promise.resolve());
     aztecNode.getBlockHeader.mockImplementation(blockNumber =>
       Promise.resolve(L2Block.random(blockNumber as number).header),
     );
@@ -53,5 +54,6 @@ describe('Synchronizer', () => {
 
     expect(removeNotesAfter).toHaveBeenCalledWith(3);
     expect(unnullifyNotesAfter).toHaveBeenCalledWith(3);
+    expect(resetNoteSyncData).toHaveBeenCalled();
   });
 });

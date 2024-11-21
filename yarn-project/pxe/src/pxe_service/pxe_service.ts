@@ -977,4 +977,8 @@ export class PXEService implements PXE {
 
     return decodedEvents;
   }
+
+  async resetNoteSyncData() {
+    return await this.db.resetNoteSyncData();
+  }
 }
