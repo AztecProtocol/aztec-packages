@@ -75,8 +75,8 @@ describe('journal', () => {
       expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists);
     });
 
-    it('writeNoteHash works', async () => {
-      await persistableState.writeNoteHash(address, utxo);
+    it('writeNoteHash works', () => {
+      persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ utxo);
     });
