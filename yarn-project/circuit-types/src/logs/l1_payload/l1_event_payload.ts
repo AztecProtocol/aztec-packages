@@ -56,8 +56,8 @@ export class L1EventPayload {
     return payload;
   }
 
-  static decryptAsIncoming(log: EncryptedL2Log, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, sk);
+  static async decryptAsIncoming(log: EncryptedL2Log, sk: Fq): Promise<L1EventPayload | undefined> {
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log.data, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -69,8 +69,8 @@ export class L1EventPayload {
     );
   }
 
-  static decryptAsOutgoing(log: EncryptedL2Log, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
+  static async decryptAsOutgoing(log: EncryptedL2Log, sk: Fq): Promise<L1EventPayload | undefined> {
+    const decryptedLog = await EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -110,8 +110,12 @@ export class L1EventPayload {
   }
 }
 
-function ensureMatchedMaskedContractAddress(contractAddress: AztecAddress, randomness: Fr, maskedContractAddress: Fr) {
-  if (!await poseidon2HashWithSeparator([contractAddress, randomness], 0).equals(maskedContractAddress)) {
+async function ensureMatchedMaskedContractAddress(
+  contractAddress: AztecAddress,
+  randomness: Fr,
+  maskedContractAddress: Fr,
+) {
+  if (!(await poseidon2HashWithSeparator([contractAddress, randomness], 0)).equals(maskedContractAddress)) {
     throw new Error(
       'The provided masked contract address does not match with the incoming address from header and randomness from body',
     );

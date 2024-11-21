@@ -53,17 +53,17 @@ export class EncryptedLogPayload {
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
-  public encrypt(
+  public async encrypt(
     ephSk: GrumpkinScalar,
     recipient: AztecAddress,
     ovKeys: KeyValidationRequest,
     rand: (len: number) => Buffer = randomBytes,
-  ): Buffer {
-    const addressPoint = computePoint(recipient);
+  ): Promise<Buffer> {
+    const addressPoint = await computePoint(recipient);
 
-    const ephPk = derivePublicKeyFromSecretKey(ephSk);
-    const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
-    const outgoingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, ovKeys.pkM);
+    const ephPk = await derivePublicKeyFromSecretKey(ephSk);
+    const incomingHeaderCiphertext = await encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
+    const outgoingHeaderCiphertext = await encrypt(this.contractAddress.toBuffer(), ephSk, ovKeys.pkM);
 
     if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
       throw new Error(`Invalid incoming header size: ${incomingHeaderCiphertext.length}`);
@@ -74,7 +74,7 @@ export class EncryptedLogPayload {
 
     // The serialization of Fq is [high, low] check `outgoing_body.nr`
     const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, addressPoint.toCompressedBuffer());
-    const outgoingBodyCiphertext = encrypt(
+    const outgoingBodyCiphertext = await encrypt(
       outgoingBodyPlaintext,
       ovKeys.skAppAsGrumpkinScalar,
       ephPk,
@@ -108,7 +108,7 @@ export class EncryptedLogPayload {
       this.incomingBodyPlaintext,
       rand(numPaddedBytes),
     ]);
-    const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
+    const incomingBodyCiphertext = await encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
     if (incomingBodyCiphertext.length !== INCOMING_BODY_SIZE) {
       throw new Error(
         `Invalid incoming body size. Expected ${INCOMING_BODY_SIZE}. Got ${incomingBodyCiphertext.length}`,
@@ -130,18 +130,18 @@ export class EncryptedLogPayload {
    * @param addressSecret - The address secret, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(
+  public static async decryptAsIncoming(
     ciphertext: Buffer | BufferReader,
     addressSecret: GrumpkinScalar,
-  ): EncryptedLogPayload | undefined {
+  ): Promise<EncryptedLogPayload | undefined> {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
       const tag = reader.readObject(Fr);
 
-      const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      const ephPk = await Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
-      const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), addressSecret, ephPk);
+      const incomingHeader = await decrypt(reader.readBytes(HEADER_SIZE), addressSecret, ephPk);
 
       // Skipping the outgoing header and body
       reader.readBytes(HEADER_SIZE);
@@ -149,7 +149,7 @@ export class EncryptedLogPayload {
 
       // The incoming can be of variable size, so we read until the end
       const ciphertext = reader.readToEnd();
-      const decrypted = decrypt(ciphertext, addressSecret, ephPk);
+      const decrypted = await decrypt(ciphertext, addressSecret, ephPk);
       const length = decrypted.readUint8(0);
       const incomingBodyPlaintext = decrypted.subarray(1, 1 + length);
 
@@ -177,39 +177,44 @@ export class EncryptedLogPayload {
    * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsOutgoing(
+  public static async decryptAsOutgoing(
     ciphertext: Buffer | BufferReader,
     ovsk: GrumpkinScalar,
-  ): EncryptedLogPayload | undefined {
+  ): Promise<EncryptedLogPayload | undefined> {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
       const tag = reader.readObject(Fr);
 
-      const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      const ephPk = await Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
       // We skip the incoming header
       reader.readBytes(HEADER_SIZE);
 
-      const outgoingHeader = decrypt(reader.readBytes(HEADER_SIZE), ovsk, ephPk);
+      const outgoingHeader = await decrypt(reader.readBytes(HEADER_SIZE), ovsk, ephPk);
       const contractAddress = AztecAddress.fromBuffer(outgoingHeader);
 
-      const ovskApp = computeOvskApp(ovsk, contractAddress);
+      const ovskApp = await computeOvskApp(ovsk, contractAddress);
 
       let ephSk: GrumpkinScalar;
       let recipientAddressPoint: PublicKey;
       {
-        const outgoingBody = decrypt(reader.readBytes(OUTGOING_BODY_SIZE), ovskApp, ephPk, derivePoseidonAESSecret);
+        const outgoingBody = await decrypt(
+          reader.readBytes(OUTGOING_BODY_SIZE),
+          ovskApp,
+          ephPk,
+          derivePoseidonAESSecret,
+        );
         const obReader = BufferReader.asReader(outgoingBody);
 
         // From outgoing body we extract ephSk, recipient and recipientAddressPoint
         ephSk = GrumpkinScalar.fromHighLow(obReader.readObject(Fr), obReader.readObject(Fr));
         const _recipient = obReader.readObject(AztecAddress);
-        recipientAddressPoint = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+        recipientAddressPoint = await Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
       }
 
       // Now we decrypt the incoming body using the ephSk and recipientIvpk
-      const decryptedIncomingBody = decrypt(reader.readToEnd(), ephSk, recipientAddressPoint);
+      const decryptedIncomingBody = await decrypt(reader.readToEnd(), ephSk, recipientAddressPoint);
       const length = decryptedIncomingBody.readUint8(0);
       const incomingBody = decryptedIncomingBody.subarray(1, 1 + length);
 

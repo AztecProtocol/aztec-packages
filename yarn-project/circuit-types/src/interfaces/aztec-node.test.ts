@@ -240,7 +240,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('sendTx', async () => {
-    await context.client.sendTx(Tx.random());
+    await context.client.sendTx(await Tx.random());
   });
 
   it('getTxReceipt', async () => {
@@ -279,12 +279,12 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('simulatePublicCalls', async () => {
-    const response = await context.client.simulatePublicCalls(Tx.random());
+    const response = await context.client.simulatePublicCalls(await Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
   });
 
   it('isValidTx', async () => {
-    const response = await context.client.isValidTx(Tx.random());
+    const response = await context.client.isValidTx(await Tx.random());
     expect(response).toBe(true);
   });
 
@@ -334,7 +334,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('addContractClass', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
 });
@@ -445,7 +445,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(true);
   }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return Promise.resolve(times(limit, i => L2Block.random(from + i)));
+    return Promise.all(times(limit, async i => await L2Block.random(from + i)));
   }
   getNodeVersion(): Promise<string> {
     return Promise.resolve('1.0.0');
@@ -475,16 +475,20 @@ class MockAztecNode implements AztecNode {
     deepStrictEqual(artifact, this.artifact);
     return Promise.resolve();
   }
-  getLogs<TLogType extends LogType>(
+  async getLogs<TLogType extends LogType>(
     _from: number,
     _limit: number,
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     switch (logType) {
       case LogType.ENCRYPTED:
-        return Promise.resolve([EncryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
+        return Promise.resolve([await EncryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<
+          FromLogType<TLogType>
+        >[]);
       case LogType.NOTEENCRYPTED:
-        return Promise.resolve([EncryptedNoteL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
+        return Promise.resolve([await EncryptedNoteL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<
+          FromLogType<TLogType>
+        >[]);
       case LogType.UNENCRYPTED:
         return Promise.resolve([UnencryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
       default:
@@ -512,12 +516,12 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
+    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() });
   }
-  getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve([Tx.random()]);
+  async getPendingTxs(): Promise<Tx[]> {
+    return Promise.resolve([await Tx.random()]);
   }
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(1);
@@ -546,19 +550,19 @@ class MockAztecNode implements AztecNode {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
   }
-  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+  async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   }
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 1 as const,
       contractClassId: Fr.random(),
       deployer: AztecAddress.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       address: AztecAddress.random(),
     };

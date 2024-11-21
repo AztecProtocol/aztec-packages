@@ -6,19 +6,19 @@ import { ProtocolContractAddress, ProtocolContractLeaf, protocolContractNames } 
 
 let protocolContractTree: MerkleTree | undefined;
 
-function getTree() {
+async function getTree() {
   if (!protocolContractTree) {
     const leaves = protocolContractNames.map(name => ({
       address: ProtocolContractAddress[name],
       leaf: ProtocolContractLeaf[name],
     }));
-    protocolContractTree = buildProtocolContractTree(leaves);
+    protocolContractTree = await buildProtocolContractTree(leaves);
   }
   return protocolContractTree;
 }
 
-export function getProtocolContractSiblingPath(address: AztecAddress) {
-  const tree = getTree();
+export async function getProtocolContractSiblingPath(address: AztecAddress) {
+  const tree = await getTree();
   const index = address.toField().toNumber();
   return assertLength<Fr, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>(
     tree.getSiblingPath(index).map(buf => new Fr(buf)),

@@ -28,7 +28,7 @@ import { mockTx } from '../mocks.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 
 /** Makes a bloated processed tx for testing purposes. */
-export function makeBloatedProcessedTx({
+export async function makeBloatedProcessedTx({
   seed = 1,
   header,
   db,
@@ -70,8 +70,8 @@ export function makeBloatedProcessedTx({
   txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const tx = !privateOnly
-    ? mockTx(seed)
-    : mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+    ? await mockTx(seed)
+    : await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
   tx.data.constants = txConstantData;
 
   // No side effects were created in mockTx. The default gasUsed is the tx overhead.

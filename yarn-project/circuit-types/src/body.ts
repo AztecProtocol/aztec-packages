@@ -110,15 +110,17 @@ export class Body {
     return numTxEffects;
   }
 
-  static random(
+  static async random(
     txsPerBlock = 4,
     numPrivateCallsPerTx = 2,
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
   ) {
-    const txEffects = [...new Array(txsPerBlock)].map(_ =>
-      TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+    const txEffects = await Promise.all(
+      [...new Array(txsPerBlock)].map(_ =>
+        TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+      ),
     );
 
     return new Body(txEffects);

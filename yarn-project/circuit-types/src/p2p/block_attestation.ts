@@ -50,10 +50,13 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  getSender() {
+  async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeperator.blockAttestation);
+      const hashed = await getHashedSignaturePayloadEthSignedMessage(
+        this.payload,
+        SignatureDomainSeperator.blockAttestation,
+      );
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
@@ -61,8 +64,8 @@ export class BlockAttestation extends Gossipable {
     return this.sender;
   }
 
-  getPayload(): Buffer {
-    return this.payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation);
+  async getPayload(): Promise<Buffer> {
+    return await this.payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation);
   }
 
   toBuffer(): Buffer {

@@ -108,13 +108,13 @@ export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteL
    * @param numLogs - The number of logs to create.
    * @returns A new EncryptedNoteFunctionL2Logs object.
    */
-  public static random(numLogs: number): EncryptedNoteFunctionL2Logs {
+  public static async random(numLogs: number): Promise<EncryptedNoteFunctionL2Logs> {
     if (numLogs > MAX_NOTE_ENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_NOTE_ENCRYPTED_LOGS_PER_CALL})`);
     }
     const logs: EncryptedL2NoteLog[] = [];
     for (let i = 0; i < numLogs; i++) {
-      logs.push(EncryptedL2NoteLog.random());
+      logs.push(await EncryptedL2NoteLog.random());
     }
     return new EncryptedNoteFunctionL2Logs(logs);
   }
@@ -166,13 +166,13 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
    * @param numLogs - The number of logs to create.
    * @returns A new EncryptedFunctionL2Logs object.
    */
-  public static random(numLogs: number): EncryptedFunctionL2Logs {
+  public static async random(numLogs: number): Promise<EncryptedFunctionL2Logs> {
     if (numLogs > MAX_ENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_ENCRYPTED_LOGS_PER_CALL})`);
     }
     const logs: EncryptedL2Log[] = [];
     for (let i = 0; i < numLogs; i++) {
-      logs.push(EncryptedL2Log.random());
+      logs.push(await EncryptedL2Log.random());
     }
     return new EncryptedFunctionL2Logs(logs);
   }

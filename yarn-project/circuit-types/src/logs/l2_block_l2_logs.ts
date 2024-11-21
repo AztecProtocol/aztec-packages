@@ -157,10 +157,14 @@ export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog
    * @param logType - The type of logs to generate.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numCalls: number, numLogsPerCall: number): EncryptedNoteL2BlockL2Logs {
+  public static async random(
+    numTxs: number,
+    numCalls: number,
+    numLogsPerCall: number,
+  ): Promise<EncryptedNoteL2BlockL2Logs> {
     const txLogs: EncryptedNoteTxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(EncryptedNoteTxL2Logs.random(numCalls, numLogsPerCall));
+      txLogs.push(await EncryptedNoteTxL2Logs.random(numCalls, numLogsPerCall));
     }
     return new EncryptedNoteL2BlockL2Logs(txLogs);
   }
@@ -238,10 +242,14 @@ export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
    * @param logType - The type of logs to generate.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numCalls: number, numLogsPerCall: number): EncryptedL2BlockL2Logs {
+  public static async random(
+    numTxs: number,
+    numCalls: number,
+    numLogsPerCall: number,
+  ): Promise<EncryptedL2BlockL2Logs> {
     const txLogs: EncryptedTxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(EncryptedTxL2Logs.random(numCalls, numLogsPerCall));
+      txLogs.push(await EncryptedTxL2Logs.random(numCalls, numLogsPerCall));
     }
     return new EncryptedL2BlockL2Logs(txLogs);
   }

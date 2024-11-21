@@ -3,8 +3,8 @@ import { TxSimulationResult } from './simulated_tx.js';
 
 describe('simulated_tx', () => {
   let simulatedTx: TxSimulationResult;
-  beforeEach(() => {
-    simulatedTx = mockSimulatedTx();
+  beforeEach(async () => {
+    simulatedTx = await mockSimulatedTx();
   });
   describe('json', () => {
     it('convert to and from json', () => {

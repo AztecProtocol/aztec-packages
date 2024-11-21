@@ -127,8 +127,8 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
     return new CountedNoteLog(EncryptedL2NoteLog.fromJSON(json.log), json.counter, json.noteHashCounter);
   }
 
-  static random() {
-    return new CountedNoteLog(EncryptedL2NoteLog.random(), randomInt(10), randomInt(10));
+  static async random() {
+    return new CountedNoteLog(await EncryptedL2NoteLog.random(), randomInt(10), randomInt(10));
   }
 }
 
@@ -285,7 +285,7 @@ export class PrivateExecutionResult {
     };
   }
 
-  static random(nested = 1): PrivateExecutionResult {
+  static async random(nested = 1): Promise<PrivateExecutionResult> {
     return new PrivateExecutionResult(
       randomBytes(4),
       randomBytes(4),
@@ -295,11 +295,11 @@ export class PrivateExecutionResult {
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
-      times(nested, () => PrivateExecutionResult.random(0)),
+      await Promise.all(times(nested, async () => await PrivateExecutionResult.random(0))),
       [CountedPublicExecutionRequest.random()],
       PublicExecutionRequest.random(),
-      [CountedNoteLog.random()],
-      [new CountedLog(EncryptedL2Log.random(), randomInt(10))],
+      [await CountedNoteLog.random()],
+      [new CountedLog(await EncryptedL2Log.random(), randomInt(10))],
       [new CountedLog(UnencryptedL2Log.random(), randomInt(10))],
     );
   }

@@ -23,7 +23,7 @@ export class DataTxValidator implements TxValidator<Tx> {
     return Promise.resolve(this.#hasCorrectExecutionRequests(tx));
   }
 
-  #hasCorrectExecutionRequests(tx: Tx): boolean {
+  async #hasCorrectExecutionRequests(tx: Tx): Promise<boolean> {
     const callRequests = [
       ...tx.data.getRevertiblePublicCallRequests(),
       ...tx.data.getNonRevertiblePublicCallRequests(),
@@ -37,9 +37,13 @@ export class DataTxValidator implements TxValidator<Tx> {
       return false;
     }
 
-    const invalidExecutionRequestIndex = tx.enqueuedPublicFunctionCalls.findIndex(
-      (execRequest, i) => !execRequest.isForCallRequest(callRequests[i]),
-    );
+    const invalidExecutionRequestIndex = (
+      await Promise.all(
+        tx.enqueuedPublicFunctionCalls.map(async (execRequest, i) => {
+          return !(await execRequest.isForCallRequest(callRequests[i]));
+        }),
+      )
+    ).findIndex(cond => !!cond);
     if (invalidExecutionRequestIndex !== -1) {
       this.#log.warn(
         `Rejecting tx ${Tx.getHash(
@@ -52,7 +56,7 @@ export class DataTxValidator implements TxValidator<Tx> {
     const teardownCallRequest = tx.data.getTeardownPublicCallRequest();
     const isInvalidTeardownExecutionRequest =
       (!teardownCallRequest && !tx.publicTeardownFunctionCall.isEmpty()) ||
-      (teardownCallRequest && !tx.publicTeardownFunctionCall.isForCallRequest(teardownCallRequest));
+      (teardownCallRequest && !(await tx.publicTeardownFunctionCall.isForCallRequest(teardownCallRequest)));
     if (isInvalidTeardownExecutionRequest) {
       this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} because of incorrect teardown execution requests.`);
       return false;

@@ -334,12 +334,12 @@ export class Tx extends Gossipable {
     );
   }
 
-  static random() {
+  static async random() {
     return new Tx(
       PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
       ClientIvcProof.empty(),
-      EncryptedNoteTxL2Logs.random(1, 1),
-      EncryptedTxL2Logs.random(1, 1),
+      await EncryptedNoteTxL2Logs.random(1, 1),
+      await EncryptedTxL2Logs.random(1, 1),
       UnencryptedTxL2Logs.random(1, 1),
       ContractClassTxL2Logs.random(1, 1),
       [PublicExecutionRequest.random()],

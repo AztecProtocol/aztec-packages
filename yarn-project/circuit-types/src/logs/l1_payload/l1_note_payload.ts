@@ -59,9 +59,9 @@ export class L1NotePayload {
     }
   }
 
-  static decryptAsIncoming(log: Buffer, sk: Fq, isFromPublic = false): L1NotePayload | undefined {
+  static async decryptAsIncoming(log: Buffer, sk: Fq, isFromPublic = false): Promise<L1NotePayload | undefined> {
     const { publicValues, encryptedLog } = parseLog(log, isFromPublic);
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(encryptedLog, sk);
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(encryptedLog, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -73,9 +73,9 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsOutgoing(log: Buffer, sk: Fq, isFromPublic = false): L1NotePayload | undefined {
+  static async decryptAsOutgoing(log: Buffer, sk: Fq, isFromPublic = false): Promise<L1NotePayload | undefined> {
     const { publicValues, encryptedLog } = parseLog(log, isFromPublic);
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(encryptedLog, sk);
+    const decryptedLog = await EncryptedLogPayload.decryptAsOutgoing(encryptedLog, sk);
     if (!decryptedLog) {
       return undefined;
     }

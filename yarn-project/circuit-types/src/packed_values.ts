@@ -32,8 +32,8 @@ export class PackedValues {
     return PackedValues.fromValues([Fr.random(), Fr.random()]);
   }
 
-  static fromValues(values: Fr[]) {
-    return new PackedValues(values, computeVarArgsHash(values));
+  static async fromValues(values: Fr[]) {
+    return new PackedValues(values, await computeVarArgsHash(values));
   }
 
   toBuffer() {

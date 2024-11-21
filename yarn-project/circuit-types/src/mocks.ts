@@ -1,25 +1,4 @@
-import {
-  AztecAddress,
-  CallContext,
-  ClientIvcProof,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  GasSettings,
-  LogHash,
-  MAX_ENCRYPTED_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  Nullifier,
-  PartialPrivateTailPublicInputsForPublic,
-  PrivateCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToPublicAccumulatedDataBuilder,
-  ScopedLogHash,
-  SerializableContractInstance,
-  computeContractAddressFromInstance,
-  computeContractClassId,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { AztecAddress, CallContext, ClientIvcProof, type ContractInstanceWithAddress, EthAddress, GasSettings, LogHash, MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, Nullifier, PartialPrivateTailPublicInputsForPublic, PrivateCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs, PrivateToPublicAccumulatedDataBuilder, ScopedLogHash, SerializableContractInstance, computeContractAddressFromInstance, computeContractClassId, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
@@ -28,13 +7,9 @@ import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 
-import {
-  ContractClassTxL2Logs,
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  Note,
-  UnencryptedTxL2Logs,
-} from './logs/index.js';
+
+
+import { ContractClassTxL2Logs, EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
 import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
@@ -43,9 +18,10 @@ import { PublicExecutionRequest } from './public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 import { TxEffect } from './tx_effect.js';
 
+
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
-export const mockPrivateExecutionResult = (
+export const mockPrivateExecutionResult = async (
   seed = 1,
   hasLogs = false,
   numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
@@ -62,7 +38,9 @@ export const mockPrivateExecutionResult = (
   if (isForPublic) {
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    for (const [i, r] of publicCallRequests.entries()) {
+      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+    }
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
@@ -87,11 +65,7 @@ export const mockPrivateExecutionResult = (
     enqueuedPublicFunctionCalls.map((call, index) => new CountedPublicExecutionRequest(call, index)),
     publicTeardownFunctionCall,
     [],
-    hasLogs
-      ? EncryptedTxL2Logs.random(2, 3)
-          .unrollLogs()
-          .map((log, index) => new CountedLog(log, index))
-      : [],
+    hasLogs ? (await EncryptedTxL2Logs.random(2, 3)).unrollLogs().map((log, index) => new CountedLog(log, index)) : [],
     hasLogs
       ? ContractClassTxL2Logs.random(1, 1)
           .unrollLogs()
@@ -100,7 +74,7 @@ export const mockPrivateExecutionResult = (
   );
 };
 
-export const mockTx = (
+export const mockTx = async (
   seed = 1,
   {
     hasLogs = false,
@@ -124,7 +98,7 @@ export const mockTx = (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
-  const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
+  const encryptedLogs = hasLogs ? await EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const contractClassLog = hasLogs ? ContractClassTxL2Logs.random(1, 1) : ContractClassTxL2Logs.empty();
   data.constants.txContext.gasSettings = GasSettings.default();
   data.feePayer = feePayer;
@@ -140,7 +114,9 @@ export const mockTx = (
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    for (const [i, r] of publicCallRequests.entries()) {
+      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+    }
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
@@ -244,13 +220,13 @@ export const mockTx = (
 export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boolean } = {}) =>
   mockTx(seed, { hasLogs, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
-export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
-  const privateExecutionResult = mockPrivateExecutionResult(seed, hasLogs);
-  const tx = mockTx(seed, { hasLogs });
+export const mockSimulatedTx = async (seed = 1, hasLogs = true) => {
+  const privateExecutionResult = await mockPrivateExecutionResult(seed, hasLogs);
+  const tx = await mockTx(seed, { hasLogs });
   const output = new PublicSimulationOutput(
     undefined,
     makeCombinedConstantData(),
-    TxEffect.random(),
+    await TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
     {
       totalGas: makeGas(),
@@ -290,17 +266,17 @@ export const randomContractArtifact = (): ContractArtifact => ({
   notes: {},
 });
 
-export const randomContractInstanceWithAddress = (
+export const randomContractInstanceWithAddress = async (
   opts: { contractClassId?: Fr } = {},
   address?: AztecAddress,
-): ContractInstanceWithAddress => {
-  const instance = SerializableContractInstance.random(opts);
-  return instance.withAddress(address ?? computeContractAddressFromInstance(instance));
+): Promise<ContractInstanceWithAddress> => {
+  const instance = await SerializableContractInstance.random(opts);
+  return instance.withAddress(address ?? (await computeContractAddressFromInstance(instance)));
 };
 
-export const randomDeployedContract = () => {
+export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
-  const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+  const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
   return { artifact, instance: randomContractInstanceWithAddress({ contractClassId }) };
 };
 

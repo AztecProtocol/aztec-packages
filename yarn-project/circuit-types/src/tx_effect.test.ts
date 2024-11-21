@@ -1,8 +1,8 @@
 import { TxEffect } from './tx_effect.js';
 
 describe('TxEffect', () => {
-  it('convert to and from buffer', () => {
-    const txEffect = TxEffect.random();
+  it('convert to and from buffer', async () => {
+    const txEffect = await TxEffect.random();
     const buf = txEffect.toBuffer();
     expect(TxEffect.fromBuffer(buf)).toEqual(txEffect);
   });

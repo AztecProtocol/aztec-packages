@@ -212,14 +212,14 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static random(
+  static async random(
     numPrivateCallsPerTx = 2,
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-  ): TxEffect {
-    const noteEncryptedLogs = EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
-    const encryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
+  ): Promise<TxEffect> {
+    const noteEncryptedLogs = await EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
+    const encryptedLogs = await EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
     const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(

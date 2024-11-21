@@ -68,7 +68,7 @@ describe('PXESchema', () => {
       contractClassId: Fr.random(),
       deployer: AztecAddress.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       address,
     };
@@ -142,23 +142,26 @@ describe('PXESchema', () => {
   });
 
   it('proveTx', async () => {
-    const result = await context.client.proveTx(TxExecutionRequest.random(), PrivateExecutionResult.random());
+    const result = await context.client.proveTx(
+      await TxExecutionRequest.random(),
+      await PrivateExecutionResult.random(),
+    );
     expect(result).toBeInstanceOf(TxProvingResult);
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, false, []);
+    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true, address, false, false, []);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
   it('simulateTx(required)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true);
+    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
   it('simulateTx(undefined)', async () => {
     const result = await context.client.simulateTx(
-      TxExecutionRequest.random(),
+      await TxExecutionRequest.random(),
       true,
       undefined,
       undefined,
@@ -169,7 +172,7 @@ describe('PXESchema', () => {
   });
 
   it('sendTx', async () => {
-    const result = await context.client.sendTx(Tx.random());
+    const result = await context.client.sendTx(await Tx.random());
     expect(result).toBeInstanceOf(TxHash);
   });
 
@@ -299,7 +302,7 @@ describe('PXESchema', () => {
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
-      [Point.random()],
+      [await Point.random()],
     );
     expect(result).toEqual([{ value: 1n }]);
   });
@@ -337,8 +340,8 @@ class MockPXE implements PXE {
     expect(partialAddress).toBeInstanceOf(Fr);
     return Promise.resolve(CompleteAddress.random());
   }
-  getRegisteredAccounts(): Promise<CompleteAddress[]> {
-    return Promise.resolve([CompleteAddress.random()]);
+  async getRegisteredAccounts(): Promise<CompleteAddress[]> {
+    return [await CompleteAddress.random()];
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
@@ -377,7 +380,7 @@ class MockPXE implements PXE {
       new TxProvingResult(privateExecutionResult, PrivateKernelTailCircuitPublicInputs.empty(), ClientIvcProof.empty()),
     );
   }
-  simulateTx(
+  async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
     msgSender?: AztecAddress | undefined,
@@ -393,7 +396,7 @@ class MockPXE implements PXE {
       expect(scopes).toEqual([]);
     }
     return Promise.resolve(
-      new TxSimulationResult(PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty()),
+      new TxSimulationResult(await PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty()),
     );
   }
   sendTx(tx: Tx): Promise<TxHash> {
@@ -404,9 +407,9 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve({ data: TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 });
+    return Promise.resolve({ data: await TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 });
   }
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);

@@ -59,17 +59,17 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-function computeContractLeaf(artifact: NoirCompiledContract) {
-  const instance = getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
+async function computeContractLeaf(artifact: NoirCompiledContract) {
+  const instance = await getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
   return instance.address;
 }
 
-function computeRoot(names: string[], leaves: Fr[]) {
+async function computeRoot(names: string[], leaves: Fr[]) {
   const data = names.map((name, i) => ({
     address: new AztecAddress(new Fr(contractAddressMapping[name])),
     leaf: leaves[i],
   }));
-  const tree = buildProtocolContractTree(data);
+  const tree = await buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
 
@@ -181,7 +181,7 @@ async function main() {
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    leaves.push(computeContractLeaf(artifact).toField());
+    leaves.push((await computeContractLeaf(artifact)).toField());
   }
 
   await generateOutputFile(destNames, leaves);

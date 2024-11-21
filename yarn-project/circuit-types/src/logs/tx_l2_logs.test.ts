@@ -10,8 +10,9 @@ function shouldBehaveLikeTxL2Logs(
     | typeof ContractClassTxL2Logs,
 ) {
   describe(TxL2Logs.name, () => {
-    it('can encode TxL2Logs to buffer and back', () => {
-      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
+    it('can encode TxL2Logs to buffer and back', async () => {
+      const l2Logs =
+        TxL2Logs.name == 'ContractClassTxL2Logs' ? await TxL2Logs.random(1, 1) : await TxL2Logs.random(4, 2);
 
       const buffer = l2Logs.toBuffer();
       const recovered = TxL2Logs.fromBuffer(buffer);
@@ -19,8 +20,9 @@ function shouldBehaveLikeTxL2Logs(
       expect(recovered).toEqual(l2Logs);
     });
 
-    it('can encode TxL2Logs to JSON and back', () => {
-      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
+    it('can encode TxL2Logs to JSON and back', async () => {
+      const l2Logs =
+        TxL2Logs.name == 'ContractClassTxL2Logs' ? await TxL2Logs.random(1, 1) : await TxL2Logs.random(4, 2);
 
       const buffer = jsonStringify(l2Logs.toJSON());
       const recovered = TxL2Logs.fromJSON(JSON.parse(buffer));
@@ -28,8 +30,9 @@ function shouldBehaveLikeTxL2Logs(
       expect(recovered).toEqual(l2Logs);
     });
 
-    it('getSerializedLength returns the correct length', () => {
-      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
+    it('getSerializedLength returns the correct length', async () => {
+      const l2Logs =
+        TxL2Logs.name == 'ContractClassTxL2Logs' ? await TxL2Logs.random(1, 1) : await TxL2Logs.random(4, 2);
 
       const buffer = l2Logs.toBuffer();
       const recovered = TxL2Logs.fromBuffer(buffer);
@@ -42,8 +45,9 @@ function shouldBehaveLikeTxL2Logs(
       }
     });
 
-    it('getKernelLength returns the correct length', () => {
-      const l2Logs = TxL2Logs.name == 'ContractClassTxL2Logs' ? TxL2Logs.random(1, 1) : TxL2Logs.random(4, 2);
+    it('getKernelLength returns the correct length', async () => {
+      const l2Logs =
+        TxL2Logs.name == 'ContractClassTxL2Logs' ? await TxL2Logs.random(1, 1) : await TxL2Logs.random(4, 2);
 
       const expectedLength = l2Logs.functionLogs.map(l => l.getKernelLength()).reduce((a, b) => a + b, 0);
 

@@ -1,6 +1,6 @@
 import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
 
 /** Returns the canonical deployment of the router. */
-export function getCanonicalRouter(): ProtocolContract {
-  return getCanonicalProtocolContract('Router');
+export async function getCanonicalRouter(): Promise<ProtocolContract> {
+  return await getCanonicalProtocolContract('Router');
 }

@@ -72,8 +72,8 @@ export class EncryptedL2Log {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): EncryptedL2Log {
-    const randomEphPubKey = Point.random();
+  public static async random(): Promise<EncryptedL2Log> {
+    const randomEphPubKey = await Point.random();
     const randomLogContent = randomBytes(144 - Point.COMPRESSED_SIZE_IN_BYTES);
     const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toCompressedBuffer()]);
     return new EncryptedL2Log(data, Fr.random());

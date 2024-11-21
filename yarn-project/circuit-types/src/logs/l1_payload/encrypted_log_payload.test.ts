@@ -31,40 +31,40 @@ describe('EncryptedLogPayload', () => {
     let original: EncryptedLogPayload;
     let encrypted: Buffer;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       const incomingBodyPlaintext = randomBytes(128);
       const contract = AztecAddress.random();
       original = new EncryptedLogPayload(PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
 
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
-      ({ masterOutgoingViewingSecretKey: ovskM, masterIncomingViewingSecretKey: ivskM } = deriveKeys(secretKey));
+      ({ masterOutgoingViewingSecretKey: ovskM, masterIncomingViewingSecretKey: ivskM } = await deriveKeys(secretKey));
 
-      completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
+      completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
 
-      const ovKeys = getKeyValidationRequest(ovskM, contract);
+      const ovKeys = await getKeyValidationRequest(ovskM, contract);
 
       const ephSk = GrumpkinScalar.random();
 
-      encrypted = original.encrypt(ephSk, completeAddress.address, ovKeys);
+      encrypted = await original.encrypt(ephSk, completeAddress.address, ovKeys);
     });
 
-    it('decrypt a log as incoming', () => {
-      const addressSecret = computeAddressSecret(completeAddress.getPreaddress(), ivskM);
+    it('decrypt a log as incoming', async () => {
+      const addressSecret = await computeAddressSecret(await completeAddress.getPreaddress(), ivskM);
 
-      const recreated = EncryptedLogPayload.decryptAsIncoming(encrypted, addressSecret);
+      const recreated = await EncryptedLogPayload.decryptAsIncoming(encrypted, addressSecret);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
 
-    it('decrypt a log as outgoing', () => {
-      const recreated = EncryptedLogPayload.decryptAsOutgoing(encrypted, ovskM);
+    it('decrypt a log as outgoing', async () => {
+      const recreated = await EncryptedLogPayload.decryptAsOutgoing(encrypted, ovskM);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
   });
 
-  it('outgoing cipher text matches Noir', () => {
+  it('outgoing cipher text matches Noir', async () => {
     const ephSk = GrumpkinScalar.fromHighLow(
       new Fr(0x000000000000000000000000000000000f096b423017226a18461115fa8d34bbn),
       new Fr(0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fen),
@@ -75,7 +75,7 @@ describe('EncryptedLogPayload', () => {
       new Fr(0x0000000000000000000000000000000074d2e28c6bc5176ac02cf7c7d36a444en),
     );
 
-    const ephPk = derivePublicKeyFromSecretKey(ephSk);
+    const ephPk = await derivePublicKeyFromSecretKey(ephSk);
 
     const recipient = AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn);
 
@@ -83,13 +83,10 @@ describe('EncryptedLogPayload', () => {
       ephSk.hi,
       ephSk.lo,
       recipient,
-      computePoint(recipient).toCompressedBuffer(),
+      (await computePoint(recipient)).toCompressedBuffer(),
     );
-    const outgoingBodyCiphertext = encrypt(
-      outgoingBodyPlaintext,
-      senderOvskApp,
-      ephPk,
-      derivePoseidonAESSecret,
+    const outgoingBodyCiphertext = (
+      await encrypt(outgoingBodyPlaintext, senderOvskApp, ephPk, derivePoseidonAESSecret)
     ).toString('hex');
 
     expect(outgoingBodyCiphertext).toMatchInlineSnapshot(
@@ -106,7 +103,7 @@ describe('EncryptedLogPayload', () => {
     );
   });
 
-  it('encrypted tagged log matches Noir', () => {
+  it('encrypted tagged log matches Noir', async () => {
     // All the values in this test were arbitrarily set and copied over to `payload.nr`
     const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
     const plaintext = Buffer.from(
@@ -115,7 +112,7 @@ describe('EncryptedLogPayload', () => {
     );
 
     // We set a random secret, as it is simply the result of an oracle call, and we are not actually computing this in nr.
-    const logTag = new IndexedTaggingSecret(new Fr(69420), 1337).computeTag(
+    const logTag = await new IndexedTaggingSecret(new Fr(69420), 1337).computeTag(
       AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn),
     );
     const tagString = logTag.toString().slice(2);
@@ -130,7 +127,7 @@ describe('EncryptedLogPayload', () => {
     const log = new EncryptedLogPayload(logTag, contract, plaintext);
 
     const ovskM = new GrumpkinScalar(0x1d7f6b3c491e99f32aad05c433301f3a2b4ed68de661ff8255d275ff94de6fc4n);
-    const ovKeys = getKeyValidationRequest(ovskM, contract);
+    const ovKeys = await getKeyValidationRequest(ovskM, contract);
 
     const ephSk = new GrumpkinScalar(0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538n);
 
@@ -148,7 +145,7 @@ describe('EncryptedLogPayload', () => {
       );
     };
 
-    const encrypted = log.encrypt(ephSk, recipientCompleteAddress.address, ovKeys, fixedRand);
+    const encrypted = await log.encrypt(ephSk, recipientCompleteAddress.address, ovKeys, fixedRand);
     expect(encrypted.length).toBe(PRIVATE_LOG_SIZE_IN_BYTES);
 
     const encryptedStr = encrypted.toString('hex');
@@ -166,14 +163,14 @@ describe('EncryptedLogPayload', () => {
 
     const ivskM = new GrumpkinScalar(0x0d6e27b21c89a7632f7766e35cc280d43f75bea3898d7328400a5fefc804d462n);
 
-    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
-    const recreated = EncryptedLogPayload.decryptAsIncoming(encrypted, addressSecret);
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
+    const recreated = await EncryptedLogPayload.decryptAsIncoming(encrypted, addressSecret);
     expect(recreated?.toBuffer()).toEqual(log.toBuffer());
   });
 
-  const getKeyValidationRequest = (ovskM: GrumpkinScalar, app: AztecAddress) => {
-    const ovskApp = computeOvskApp(ovskM, app);
-    const ovpkM = derivePublicKeyFromSecretKey(ovskM);
+  const getKeyValidationRequest = async (ovskM: GrumpkinScalar, app: AztecAddress) => {
+    const ovskApp = await computeOvskApp(ovskM, app);
+    const ovpkM = await derivePublicKeyFromSecretKey(ovskM);
 
     return new KeyValidationRequest(ovpkM, ovskApp);
   };

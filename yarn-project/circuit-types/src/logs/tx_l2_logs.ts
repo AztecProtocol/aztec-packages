@@ -290,7 +290,7 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
    * @param logType - The type of logs to generate.
    * @returns A new `TxL2Logs` object.
    */
-  public static random(numCalls: number, numLogsPerCall: number): EncryptedNoteTxL2Logs {
+  public static async random(numCalls: number, numLogsPerCall: number): Promise<EncryptedNoteTxL2Logs> {
     if (numCalls * numLogsPerCall > MAX_NOTE_ENCRYPTED_LOGS_PER_TX) {
       throw new Error(
         `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_NOTE_ENCRYPTED_LOGS_PER_TX})`,
@@ -298,7 +298,7 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
     }
     const functionLogs: EncryptedNoteFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
-      functionLogs.push(EncryptedNoteFunctionL2Logs.random(numLogsPerCall));
+      functionLogs.push(await EncryptedNoteFunctionL2Logs.random(numLogsPerCall));
     }
     return new EncryptedNoteTxL2Logs(functionLogs);
   }
@@ -383,7 +383,7 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    * @param logType - The type of logs to generate.
    * @returns A new `TxL2Logs` object.
    */
-  public static random(numCalls: number, numLogsPerCall: number): EncryptedTxL2Logs {
+  public static async random(numCalls: number, numLogsPerCall: number): Promise<EncryptedTxL2Logs> {
     if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX) {
       throw new Error(
         `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`,
@@ -391,7 +391,7 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
     }
     const functionLogs: EncryptedFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
-      functionLogs.push(EncryptedFunctionL2Logs.random(numLogsPerCall));
+      functionLogs.push(await EncryptedFunctionL2Logs.random(numLogsPerCall));
     }
     return new EncryptedTxL2Logs(functionLogs);
   }
