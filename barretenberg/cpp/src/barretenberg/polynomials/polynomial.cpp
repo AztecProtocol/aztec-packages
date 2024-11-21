@@ -60,18 +60,26 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  *
  * @param size The size of the polynomial.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
+template <typename Fr>
+Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index, bool disable_parallelisation)
 {
     PROFILE_THIS_NAME("polynomial allocation with zeroing");
 
     allocate_backing_memory(size, virtual_size, start_index);
+    if (disable_parallelisation) {
+        // In AVM polynomials are small and already constructed in parallel
+        memset(static_cast<void*>(coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
+        return;
+    }
+
     size_t num_threads = calculate_num_threads(size);
     size_t range_per_thread = size / num_threads;
     size_t leftovers = size - (range_per_thread * num_threads);
+
     parallel_for(num_threads, [&](size_t j) {
         size_t offset = j * range_per_thread;
         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-        ASSERT(offset < size);
+        ASSERT(offset < size || size == 0);
         ASSERT((offset + range) <= size);
         memset(static_cast<void*>(coefficients_.backing_memory_.get() + offset), 0, sizeof(Fr) * range);
     });
