@@ -1,4 +1,4 @@
-{{- if .Values.network.setupL2Contracts }}
+{{- if and .Values.network.setupL2Contracts .Values.jobs.deployL1Verifier.enable }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -13,6 +13,12 @@ spec:
         app: deploy-l1-verifier
     spec:
       restartPolicy: OnFailure
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
       containers:
         - name: deploy-l1-verifier
           image: {{ .Values.images.aztec.image }}
@@ -21,38 +27,69 @@ spec:
             - -c
             - |
               set -e
+              # Install kubectl
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
 
-              [ $ENABLE = "true" ] || exit 0
+              # Set up kubeconfig using service account credentials
+              export KUBECONFIG=/tmp/kubeconfig
+              kubectl config set-cluster default --server=https://kubernetes.default.svc --certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              kubectl config set-credentials default --token=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              kubectl config set-context default --cluster=default --user=default
+              kubectl config use-context default
 
-              until curl -s -X GET "$AZTEC_NODE_URL/status"; do
-                echo "Waiting for Aztec node $AZTEC_NODE_URL..."
+              cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh
+              chmod +x /tmp/setup-service-addresses.sh
+              /tmp/setup-service-addresses.sh
+              source /shared/config/service-addresses
+
+              until curl -s -X GET "$BOOT_NODE_HOST/status"; do
+                echo "Waiting for Aztec node $BOOT_NODE_HOST..."
                 sleep 5
               done
               echo "Boot node is ready!"
 
               export ROLLUP_CONTRACT_ADDRESS=$(curl -X POST -H 'Content-Type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}' \
-                  "$AZTEC_NODE_URL" \
+                  "$BOOT_NODE_HOST" \
                   | jq -r '.result.rollupAddress.value')
 
               echo "Rollup contract address: $ROLLUP_CONTRACT_ADDRESS"
               node /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-verifier --verifier real
               echo "L1 verifier deployed"
           env:
-            - name: ENABLE
-              value: {{ .Values.jobs.deployL1Verifier.enable | quote }}
             - name: NODE_NO_WARNINGS
               value: "1"
             - name: DEBUG
               value: "aztec:*"
             - name: LOG_LEVEL
               value: "debug"
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: L1_CHAIN_ID
               value: {{ .Values.ethereum.chainId | quote }}
             - name: PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-            - name: AZTEC_NODE_URL
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+            - name: NETWORK_PUBLIC
+              value: "{{ .Values.network.public }}"
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: EXTERNAL_ETHEREUM_HOST
+              value: "{{ .Values.ethereum.externalHost }}"
+            - name: ETHEREUM_PORT
+              value: "{{ .Values.ethereum.service.port }}"
+            - name: EXTERNAL_BOOT_NODE_HOST
+              value: "{{ .Values.bootNode.externalHost }}"
+            - name: BOOT_NODE_PORT
+              value: "{{ .Values.bootNode.service.nodePort }}"
+            - name: EXTERNAL_PROVER_NODE_HOST
+              value: "{{ .Values.proverNode.externalHost }}"
+            - name: PROVER_NODE_PORT
+              value: "{{ .Values.proverNode.service.nodePort }}"
+            - name: SERVICE_NAME
+              value: {{ include "aztec-network.fullname" . }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+            - name: scripts
+              mountPath: /scripts
 {{ end }}

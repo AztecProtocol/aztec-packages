@@ -98,8 +98,6 @@ class ClientIVC {
     using ProverFoldOutput = FoldingResult<Flavor>;
 
   public:
-    GoblinProver goblin;
-
     ProverFoldOutput fold_output; // prover accumulator and fold proof
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
@@ -122,11 +120,19 @@ class ClientIVC {
     // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
     bool auto_verify_mode;
 
+    std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
+
+    GoblinProver goblin;
+
     bool initialized = false; // Is the IVC accumulator initialized
 
     ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
         : trace_settings(trace_settings)
         , auto_verify_mode(auto_verify_mode)
+        , bn254_commitment_key(trace_settings.structure.has_value()
+                                   ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
+                                   : nullptr)
+        , goblin(bn254_commitment_key)
     {}
 
     void instantiate_stdlib_verification_queue(
