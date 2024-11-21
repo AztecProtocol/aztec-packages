@@ -162,7 +162,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getCurrentBaseFees', async () => {
     const response = await context.client.getCurrentBaseFees();
-    expect(response).toEqual(GasFees.default());
+    expect(response).toEqual(GasFees.empty());
   });
 
   it('getBlockNumber', async () => {
@@ -442,7 +442,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(L2Block.random(number));
   }
   getCurrentBaseFees(): Promise<GasFees> {
-    return Promise.resolve(GasFees.default());
+    return Promise.resolve(GasFees.empty());
   }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
