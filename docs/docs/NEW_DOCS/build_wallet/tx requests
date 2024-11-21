@@ -1,0 +1,8 @@
+JS APIs for creating a tx, simulating, proving, sending: https://github.com/AztecProtocol/aztec-packages/blob/55564aaca2a8fba46e0704c560a1aef18adef10d/docs/docs/aztec/glossary/call_types.md#L1
+
+sending -> private rpc!
+Also refer how to handle contract itneractions:https://forum.aztec.network/t/request-for-grant-proposals-wallets/6136#p-25618-contract-interactions-9
+
+## handlign fees:
+refer to wallet rfp for content
+and hyperlink to fpc

@@ -1,0 +1,12 @@
+due to AA can do:
+* any cryptographic scheme
+    - ethereum sig
+    - schnorr
+    - r1 curve (touchID)
+
+
+Can store tx such that you enable various places to manage keys. Explain briefly how-to do:
+* sign in with google
+* passkey
+* basic password
+* integrate existing HW wallets
