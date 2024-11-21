@@ -53,7 +53,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 
 {{- define "aztec-network.pxeUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-pxe.{{ .Release.Namespace }}:{{ .Values.pxe.service.port }}
+http://{{ include "aztec-network.fullname" . }}-pxe.{{ .Release.Namespace }}:{{ .Values.pxe.service.nodePort }}
 {{- end -}}
 
 {{- define "aztec-network.bootNodeUrl" -}}
@@ -172,4 +172,22 @@ Service Address Setup Container
       mountPath: /scripts
     - name: config
       mountPath: /shared/config
+{{- end -}}
+
+{{/**
+Anti-affinity when running in public network mode
+*/}}
+{{- define "aztec-network.publicAntiAffinity" -}}
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - validator
+                - boot-node
+                - prover
+        topologyKey: "kubernetes.io/hostname"
 {{- end -}}

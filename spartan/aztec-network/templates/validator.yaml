@@ -20,18 +20,7 @@ spec:
     spec:
       {{- if .Values.network.public }}
       hostNetwork: true
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - validator
-                      - boot-node
-                      - prover
-              topologyKey: "kubernetes.io/hostname"
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:

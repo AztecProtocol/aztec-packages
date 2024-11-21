@@ -36,7 +36,7 @@ bootNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "discv5*,aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
@@ -80,7 +80,7 @@ validator:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "discv5*,aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -109,7 +109,7 @@ proverNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "discv5*,aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
   proverAgentEnabled: false
   resources:

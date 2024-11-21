@@ -25,6 +25,9 @@ terraform.tfstate*
 .secret
 .bb_tmp
 
+# Terraform
+*.tfvars
+
 # tmux
 tmux-client-*.log
 .supermavenignore
