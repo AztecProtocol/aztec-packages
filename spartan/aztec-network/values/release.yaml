@@ -1,0 +1,68 @@
+network:
+  public: true
+
+images:
+  aztec:
+    pullPolicy: Always
+
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://34.150.160.154:4318
+
+validator:
+  replicas: 3
+  realProofs: true
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    - 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+    - 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    - 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+    - 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+
+  resources:
+    requests:
+      memory: "512Mi"
+  validator:
+    disabled: false
+
+bootNode:
+  realProofs: true
+  validator:
+    disabled: true
+
+proverNode:
+  realProofs: true
+
+proverAgent:
+  replicas: 4
+  realProofs: true
+  bb:
+    hardwareConcurrency: 16
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "64Gi"
+      cpu: "16"
+    limits:
+      memory: "96Gi"
+      cpu: "16"
+
+pxe:
+  proverEnabled: true
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  pxeProverEnabled: true
+  txIntervalSeconds: 200
+
+jobs:
+  deployL1Verifier:
+    enable: true
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
