@@ -146,40 +146,47 @@ export class P2PNetworkTest {
   }
 
   async removeInitialNode() {
-    await this.snapshotManager.snapshot('remove-inital-validator', async ({ deployL1ContractsValues, aztecNodeConfig }) => {
-      const rollup = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: deployL1ContractsValues.walletClient,
-      });
+    await this.snapshotManager.snapshot(
+      'remove-inital-validator',
+      async ({ deployL1ContractsValues, aztecNodeConfig }) => {
+        const rollup = getContract({
+          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+          abi: RollupAbi,
+          client: deployL1ContractsValues.walletClient,
+        });
 
-      // Remove the setup validator
-      const initialValidatorAddress = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`).address;
-      const txHash = await rollup.write.removeValidator([initialValidatorAddress]);
+        // Remove the setup validator
+        const initialValidatorAddress = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`).address;
+        const txHash = await rollup.write.removeValidator([initialValidatorAddress]);
 
-      //@note   Now we jump ahead to the next epoch such that the validator committee is picked
-      //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
-      //        Which means that the validator set will still be empty! So anyone can propose.
-      const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-      const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-      const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
-      try {
-        await cheatCodes.warp(Number(timestamp));
-      } catch (err) {
-        this.logger.debug('Warp failed, time already satisfied');
-      }
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: txHash,
+        });
 
-      // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-      await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await deployL1ContractsValues.walletClient.sendTransaction({
-          to: this.baseAccount.address,
-          value: 1n,
-          account: this.baseAccount,
-        }),
-      });
+        //@note   Now we jump ahead to the next epoch such that the validator committee is picked
+        //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
+        //        Which means that the validator set will still be empty! So anyone can propose.
+        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
+        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        try {
+          await cheatCodes.warp(Number(timestamp));
+        } catch (err) {
+          this.logger.debug('Warp failed, time already satisfied');
+        }
 
-      await this.ctx.aztecNode.stop();
-    });
+        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: await deployL1ContractsValues.walletClient.sendTransaction({
+            to: this.baseAccount.address,
+            value: 1n,
+            account: this.baseAccount,
+          }),
+        });
+
+        await this.ctx.aztecNode.stop();
+      },
+    );
   }
 
   async setup() {
