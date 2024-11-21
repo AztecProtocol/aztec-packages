@@ -325,8 +325,8 @@ async function setupFromFresh(
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
-  const validatorPrivKey = getPrivateKeyFromIndex(1);
-  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+  const validatorPrivKey = getPrivateKeyFromIndex(0);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
