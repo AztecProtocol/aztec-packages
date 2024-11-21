@@ -116,12 +116,12 @@ export class Point {
    * Instead it is a boolean flag that determines whether the y coordinate is <= (Fr.MODULUS - 1) / 2
    * @returns The point as an array of 2 fields
    */
-  static fromXAndSign(x: Fr, sign: boolean) {
+  static async fromXAndSign(x: Fr, sign: boolean) {
     // Calculate y^2 = x^3 - 17
     const ySquared = x.square().mul(x).sub(new Fr(17));
 
     // Calculate the square root of ySquared
-    const y = ySquared.sqrt();
+    const y = await ySquared.sqrt();
 
     // If y is null, the x-coordinate is not on the curve
     if (y === null) {

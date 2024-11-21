@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { type Fr } from '../fields/fields.js';
 import { schemas } from '../schemas/schemas.js';
 import { type ZodFor } from '../schemas/types.js';
-import { type FunctionSelector } from './function_selector.js';
+import { FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
 /** A basic value. */
@@ -378,15 +378,23 @@ export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
 });
 
 /** Gets a function artifact including debug metadata given its name or selector. */
-export function getFunctionArtifact(
+export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
-): FunctionArtifact {
-  const functionArtifact = artifact.functions.find(f =>
-    typeof functionNameOrSelector === 'string'
-      ? f.name === functionNameOrSelector
-      : functionNameOrSelector.equals(f.name, f.parameters),
+): Promise<FunctionArtifact> {
+  const foundArtifacts = await Promise.all(
+    artifact.functions.map(async f => {
+      const equal: boolean =
+        typeof functionNameOrSelector === 'string'
+          ? f.name === functionNameOrSelector
+          : functionNameOrSelector.equals(await FunctionSelector.fromNameAndParameters(f.name, f.parameters));
+      if (!equal) {
+        return undefined;
+      }
+      return f;
+    }),
   );
+  const functionArtifact = foundArtifacts.find(f => f !== undefined);
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }
