@@ -166,6 +166,9 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         WorldStateMessageType::BATCH_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return batch_insert(obj, buffer); });
 
+    _dispatcher.registerTarget(WorldStateMessageType::INSERT,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return insert(obj, buffer); });
+
     _dispatcher.registerTarget(
         WorldStateMessageType::UPDATE_ARCHIVE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return update_archive(obj, buffer); });
@@ -497,6 +500,42 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<NullifierLeafValue>> resp_msg(
             WorldStateMessageType::BATCH_INSERT, header, result);
+        msgpack::pack(buffer, resp_msg);
+        break;
+    }
+    default:
+        throw std::runtime_error("Unsupported tree type");
+    }
+
+    return true;
+}
+
+bool WorldStateAddon::insert(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<TreeIdOnlyRequest> request;
+    obj.convert(request);
+
+    switch (request.value.treeId) {
+    case MerkleTreeId::PUBLIC_DATA_TREE: {
+        TypedMessage<InsertRequest<PublicDataLeafValue>> r1;
+        obj.convert(r1);
+        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+            request.value.treeId, r1.value.leaves, r1.value.forkId);
+        MsgHeader header(request.header.messageId);
+        messaging::TypedMessage<SequentialInsertionResult<PublicDataLeafValue>> resp_msg(
+            WorldStateMessageType::INSERT, header, result);
+        msgpack::pack(buffer, resp_msg);
+
+        break;
+    }
+    case MerkleTreeId::NULLIFIER_TREE: {
+        TypedMessage<InsertRequest<NullifierLeafValue>> r2;
+        obj.convert(r2);
+        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+            request.value.treeId, r2.value.leaves, r2.value.forkId);
+        MsgHeader header(request.header.messageId);
+        messaging::TypedMessage<SequentialInsertionResult<NullifierLeafValue>> resp_msg(
+            WorldStateMessageType::INSERT, header, result);
         msgpack::pack(buffer, resp_msg);
         break;
     }

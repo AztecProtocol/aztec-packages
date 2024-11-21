@@ -35,11 +35,18 @@ namespace bb::world_state {
 using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
-    std::vector<crypto::merkle_tree::LowLeafWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
     std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
+};
+
+template <typename LeafValueType> struct SequentialInsertionResult {
+    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
+
+    MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
 /**
@@ -177,6 +184,19 @@ class WorldState {
                                                         const std::vector<T>& leaves,
                                                         uint32_t subtree_depth,
                                                         Fork::Id fork_id = CANONICAL_FORK_ID);
+
+    /**
+     * @brief Inserts a set of leaves sequentially into an indexed Merkle Tree.
+     *
+     * @tparam T The type of the leaves.
+     * @param tree_id The ID of the Merkle Tree.
+     * @param leaves The leaves to insert.
+     * @return SequentialInsertionResult<T>
+     */
+    template <typename T>
+    SequentialInsertionResult<T> insert_indexed_leaves(MerkleTreeId tree_id,
+                                                       const std::vector<T>& leaves,
+                                                       Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Updates a leaf in an existing Merkle Tree.
@@ -558,6 +578,45 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
 
     if (!success) {
         throw std::runtime_error("Failed to batch insert indexed leaves: " + error_msg);
+    }
+
+    return result;
+}
+
+template <typename T>
+SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
+                                                               const std::vector<T>& leaves,
+                                                               Fork::Id fork_id)
+{
+    using namespace crypto::merkle_tree;
+    using Store = ContentAddressedCachedTreeStore<T>;
+    using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
+
+    Signal signal;
+    SequentialInsertionResult<T> result;
+    const auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+    bool success = true;
+    std::string error_msg;
+
+    wrapper.tree->add_or_update_values_sequentially(
+        leaves, [&](const TypedResponse<AddIndexedDataSequentiallyResponse<T>>& response) {
+            if (response.success) {
+                result.low_leaf_witness_data = *response.inner.low_leaf_witness_data;
+                result.insertion_witness_data = *response.inner.insertion_witness_data;
+            } else {
+                success = false;
+                error_msg = response.message;
+            }
+
+            signal.signal_level(0);
+        });
+
+    signal.wait_for_level();
+
+    if (!success) {
+        throw std::runtime_error("Failed to sequentially insert indexed leaves: " + error_msg);
     }
 
     return result;

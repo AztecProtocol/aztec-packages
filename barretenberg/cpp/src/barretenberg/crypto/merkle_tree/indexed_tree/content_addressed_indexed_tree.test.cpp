@@ -717,8 +717,8 @@ void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSi
             fr_sibling_path path = memdb.update_element(batch[j].value);
             memory_tree_sibling_paths.push_back(path);
         }
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
             CompletionCallback completion =
@@ -804,8 +804,8 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
             fr_sibling_path path = memdb.update_element(batch[j].value);
             memory_tree_sibling_paths.push_back(path);
         }
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
             CompletionCallback completion =
@@ -1475,8 +1475,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
             memdb.update_element(batch[j].value);
         }
         memory_tree_sibling_paths_index_0.push_back(memdb.get_sibling_path(0));
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
             CompletionCallback completion =

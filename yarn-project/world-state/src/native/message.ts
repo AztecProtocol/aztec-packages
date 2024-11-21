@@ -60,6 +60,7 @@ export enum WorldStateMessageType {
 
   APPEND_LEAVES,
   BATCH_INSERT,
+  INSERT,
 
   UPDATE_ARCHIVE,
 
@@ -378,6 +379,9 @@ interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
 interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
   subtreeDepth: number;
 }
+
+interface InsertRequest extends WithTreeId, WithForkId, WithLeaves {}
+
 interface BatchInsertResponse {
   low_leaf_witness_data: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
@@ -386,6 +390,19 @@ interface BatchInsertResponse {
   }>;
   sorted_leaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
   subtree_path: Tuple<Buffer, number>;
+}
+
+interface InsertResponse {
+  low_leaf_witness_data: ReadonlyArray<{
+    leaf: SerializedIndexedLeaf;
+    index: bigint | number;
+    path: Tuple<Buffer, number>;
+  }>;
+  insertion_witness_data: ReadonlyArray<{
+    leaf: SerializedIndexedLeaf;
+    index: bigint | number;
+    path: Tuple<Buffer, number>;
+  }>;
 }
 
 interface UpdateArchiveRequest extends WithForkId {
@@ -438,6 +455,7 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertRequest;
+  [WorldStateMessageType.INSERT]: InsertRequest;
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: UpdateArchiveRequest;
 
@@ -472,6 +490,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.APPEND_LEAVES]: void;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertResponse;
+  [WorldStateMessageType.INSERT]: InsertResponse;
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: void;
 
