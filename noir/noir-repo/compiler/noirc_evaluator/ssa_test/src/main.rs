@@ -16,6 +16,7 @@ fn main() {
     let all_artifacts: Vec<InstructionArtifacts> = all_instructions();
 
     for artifacts in all_artifacts.iter() {
+        println!("{}", artifacts.formatted_ssa);
         let filename = format!("artifacts/{}{}", artifacts.instruction_name, ".acir");
         match save_to_file(&artifacts.serialized_acir, &filename) {
             Ok(_) => (),
