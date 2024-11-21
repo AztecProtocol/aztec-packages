@@ -25,7 +25,7 @@ describe('e2e_epochs', () => {
   let handle: NodeJS.Timeout;
 
   const EPOCH_DURATION = 4;
-  const L1_BLOCK_TIME = 3;
+  const L1_BLOCK_TIME = 5;
   const L2_SLOT_DURATION_IN_L1_BLOCKS = 2;
 
   beforeAll(async () => {
