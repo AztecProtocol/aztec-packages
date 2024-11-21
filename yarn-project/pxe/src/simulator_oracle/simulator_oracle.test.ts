@@ -121,7 +121,6 @@ describe('Simulator oracle', () => {
 
   let recipient: CompleteAddress;
   let recipientOvKeys: KeyValidationRequest;
-  let recipientIvsk: Fq;
   let contractAddress: AztecAddress;
 
   beforeEach(async () => {
@@ -137,7 +136,6 @@ describe('Simulator oracle', () => {
     // Set up recipient account
     recipient = await keyStore.addAccount(new Fr(69), Fr.random());
     const recipientOvskApp = await keyStore.getAppOutgoingViewingSecretKey(recipient.address, contractAddress);
-    recipientIvsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
     await database.addCompleteAddress(recipient);
     recipientOvKeys = new KeyValidationRequest(recipient.publicKeys.masterOutgoingViewingPublicKey, recipientOvskApp);
   });
