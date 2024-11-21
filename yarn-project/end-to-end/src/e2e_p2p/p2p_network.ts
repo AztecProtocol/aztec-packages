@@ -12,6 +12,7 @@ import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
@@ -51,7 +52,7 @@ export class P2PNetworkTest {
 
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-    this.nodePrivateKeys = generateNodePrivateKeys(1, numberOfNodes);
+    this.nodePrivateKeys = generateNodePrivateKeys(PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfNodes);
 
     this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
@@ -108,9 +109,9 @@ export class P2PNetworkTest {
       const txHashes: `0x${string}`[] = [];
       for (let i = 0; i < this.numberOfNodes; i++) {
         const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
+        this.logger.debug(`Adding ${account.address} as validator`);
         const txHash = await rollup.write.addValidator([account.address]);
         txHashes.push(txHash);
-        this.logger.debug(`Adding ${account.address} as validator`);
       }
 
       // Wait for all the transactions adding validators to be mined
