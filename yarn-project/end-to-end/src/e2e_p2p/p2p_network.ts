@@ -34,6 +34,7 @@ export class P2PNetworkTest {
 
   public ctx!: SubsystemsContext;
   public nodePrivateKeys: `0x${string}`[] = [];
+  public nodePublicKeys: string[] = [];
   public peerIdPrivateKeys: string[] = [];
 
   public bootstrapNodeEnr: string = '';
@@ -53,6 +54,7 @@ export class P2PNetworkTest {
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
     this.nodePrivateKeys = generateNodePrivateKeys(PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.nodePublicKeys = this.nodePrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
     this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfNodes);
 
     this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();

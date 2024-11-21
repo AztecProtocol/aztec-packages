@@ -64,7 +64,7 @@ describe('e2e_p2p_rediscovery', () => {
       const node = nodes[i];
       await node.stop();
       t.logger.info(`Node ${i} stopped`);
-      await sleep(1200);
+      await sleep(2500);
 
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
