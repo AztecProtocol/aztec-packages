@@ -56,7 +56,7 @@ export function createNodes(
 ): Promise<AztecNodeService[]> {
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
-    // We run on ports from the bootnode upwards if a port if provided, otherwise we get a random port
+    // We run on ports from the bootnode upwards
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
