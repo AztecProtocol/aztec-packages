@@ -642,8 +642,8 @@ mod test {
             v0, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
             zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
         ];
-        let array1 = builder.array_constant(array_contents.clone().into(), typ.clone());
-        let array2 = builder.array_constant(array_contents.into(), typ.clone());
+        let array1 = builder.insert_make_array(array_contents.clone(), typ.clone());
+        let array2 = builder.insert_make_array(array_contents, typ.clone());
 
         assert_eq!(array1, array2, "arrays were assigned different value ids");
 
