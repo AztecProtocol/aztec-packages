@@ -12,18 +12,18 @@ describe('grumpkin', () => {
     grumpkin = new Grumpkin();
   });
 
-  it('should correctly perform scalar muls', () => {
+  it('should correctly perform scalar muls', async () => {
     const exponent = GrumpkinScalar.random();
 
     const numPoints = 2048;
 
     const inputPoints: Point[] = [];
     for (let i = 0; i < numPoints; ++i) {
-      inputPoints.push(grumpkin.mul(Grumpkin.generator, GrumpkinScalar.random()));
+      inputPoints.push(await grumpkin.mul(Grumpkin.generator, GrumpkinScalar.random()));
     }
 
     const start = new Date().getTime();
-    const outputPoints = grumpkin.batchMul(inputPoints, exponent);
+    const outputPoints = await grumpkin.batchMul(inputPoints, exponent);
     log.debug(`batch mul in: ${new Date().getTime() - start}ms`);
 
     const start2 = new Date().getTime();
@@ -34,7 +34,7 @@ describe('grumpkin', () => {
 
     for (let i = 0; i < numPoints; ++i) {
       const lhs = outputPoints[i];
-      const rhs = grumpkin.mul(inputPoints[i], exponent);
+      const rhs = await grumpkin.mul(inputPoints[i], exponent);
       expect(lhs).toEqual(rhs);
     }
   });

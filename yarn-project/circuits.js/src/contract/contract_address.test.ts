@@ -52,13 +52,13 @@ describe('ContractAddress', () => {
     expect(result).toEqual(Fr.ZERO);
   });
 
-  it('computeContractAddressFromInstance', () => {
+  it('computeContractAddressFromInstance', async () => {
     const secretKey = new Fr(2n);
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const deployer = AztecAddress.fromField(new Fr(7));
-    const publicKeys = deriveKeys(secretKey).publicKeys;
+    const publicKeys = (await deriveKeys(secretKey)).publicKeys;
 
     const address = computeContractAddressFromInstance({
       publicKeys,

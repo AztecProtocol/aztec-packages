@@ -19,16 +19,16 @@ describe('unconstrained_function_membership_proof', () => {
 
   beforeEach(async () => {
     artifact = getTestContractArtifact();
-    contractClass = getContractClassFromArtifact(artifact);
+    contractClass = await getContractClassFromArtifact(artifact);
     unconstrainedFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
     selector = await FunctionSelector.fromNameAndParameters(unconstrainedFunction);
   });
 
   const isUnconstrained = (fn: { functionType: FunctionType }) => fn.functionType === FunctionType.UNCONSTRAINED;
 
-  it('computes and verifies a proof', () => {
+  it('computes and verifies a proof', async () => {
     expect(unconstrainedFunction).toBeDefined();
-    const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
+    const proof = await createUnconstrainedFunctionMembershipProof(selector, artifact);
     const fn = { ...unconstrainedFunction, ...proof, selector };
     expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
@@ -42,19 +42,19 @@ describe('unconstrained_function_membership_proof', () => {
     const unconstrainedFunction = unconstrainedFns[0];
     const selector = await FunctionSelector.fromNameAndParameters(unconstrainedFunction);
 
-    const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
+    const proof = await createUnconstrainedFunctionMembershipProof(selector, artifact);
     expect(proof.artifactTreeSiblingPath.length).toBe(0);
 
     const fn = { ...unconstrainedFunction, ...proof, selector };
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
   // TODO(#5860): Re-enable this test once noir non-determinism is addressed
   test.skip.each(['artifactTreeSiblingPath', 'artifactMetadataHash', 'functionMetadataHash'] as const)(
     'fails proof if %s is mangled',
-    field => {
-      const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
+    async field => {
+      const proof = await createUnconstrainedFunctionMembershipProof(selector, artifact);
       const original = proof[field];
       const mangled = Array.isArray(original) ? [Fr.random(), ...original.slice(1)] : Fr.random();
       const wrong = { ...proof, [field]: mangled };
