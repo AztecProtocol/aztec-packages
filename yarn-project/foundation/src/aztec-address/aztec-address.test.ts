@@ -18,7 +18,7 @@ describe('aztec-address', () => {
   });
 
   describe('random', () => {
-    it('alwways returns a valid address', () => {
+    it('always returns a valid address', () => {
       for (let i = 0; i < 100; ++i) {
         const address = AztecAddress.random();
         expect(address.isValid()).toEqual(true);
