@@ -10,7 +10,7 @@ Welcome to the References section! In this section you will find reference mater
 This page lists popular references. Please see the sidebar for them all.
 
 
-## Popular 
+## Popular
 
 ### Smart contracts
 
@@ -49,7 +49,7 @@ This page lists popular references. Please see the sidebar for them all.
     </CardBody>
   </Card>
 
-  <Card shadow='tl'  link='/reference/developer_references/sandbox_reference/cli_reference'>
+  <Card shadow='tl'  link='/reference/developer_references/cli_reference'>
     <CardHeader>
       <h3>CLI reference</h3>
     </CardHeader>

@@ -25,7 +25,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     size_t key_idx = 0;
     for (auto& [proof, vkey, type] : verification_queue) {
         // Construct stdlib proof directly from the internal native queue data
-        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+        auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
         auto stdlib_vkey =
@@ -261,7 +261,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     auto stdlib_decider_vk =
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
 
-    auto stdlib_proof = bb::convert_proof_to_witness(&builder, fold_proof);
+    auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
 
     // Perform recursive folding verification of the last folding proof
     FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };

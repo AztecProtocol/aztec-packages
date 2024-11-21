@@ -1,6 +1,7 @@
 ---
 title: CLI Reference
 tags: [sandbox]
+sidebar_position: 1
 ---
 
 :::warning

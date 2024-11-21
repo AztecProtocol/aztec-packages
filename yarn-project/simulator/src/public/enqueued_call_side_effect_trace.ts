@@ -320,7 +320,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public traceNewNoteHash(
     contractAddress: AztecAddress,
     noteHash: Fr,
-    leafIndex: Fr,
+    leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyNoteHashPath(),
   ) {
     if (this.noteHashes.length + this.previousSideEffectArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
