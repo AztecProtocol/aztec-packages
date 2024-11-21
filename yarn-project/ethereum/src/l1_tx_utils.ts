@@ -5,12 +5,14 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 import { type DebugLogger } from '@aztec/foundation/log';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
 import {
   type Account,
   type Address,
   type Chain,
+  type GetTransactionReturnType,
   type Hex,
   type HttpTransport,
   type PublicClient,
@@ -58,6 +60,10 @@ export interface L1TxUtilsConfig {
    * How long before considering tx stalled
    */
   stallTimeMs?: number;
+  /**
+   * How long to wait for a tx to be mined before giving up
+   */
+  txTimeoutMs?: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -94,12 +100,17 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   checkIntervalMs: {
     description: 'How often to check tx status',
     env: 'L1_TX_MONITOR_CHECK_INTERVAL_MS',
-    ...numberConfigHelper(30_000),
+    ...numberConfigHelper(10_000),
   },
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(60_000),
+    ...numberConfigHelper(30_000),
+  },
+  txTimeoutMs: {
+    description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
+    env: 'L1_TX_MONITOR_TX_TIMEOUT_MS',
+    ...numberConfigHelper(300_000), // 5 mins
   },
 };
 
@@ -177,7 +188,15 @@ export class L1TxUtils {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
 
-    const tx = await this.publicClient.getTransaction({ hash: initialTxHash });
+    // Retry a few times, in case the tx is not yet propagated.
+    const tx = await retry<GetTransactionReturnType>(
+      () => this.publicClient.getTransaction({ hash: initialTxHash }),
+      `Getting L1 transaction ${initialTxHash} nonce`,
+      makeBackoff([1, 2, 3]),
+      this.logger,
+      true,
+    );
+
     if (tx?.nonce === undefined || tx?.nonce === null) {
       throw new Error(`Failed to get L1 transaction ${initialTxHash} nonce`);
     }
@@ -187,8 +206,10 @@ export class L1TxUtils {
     let currentTxHash = initialTxHash;
     let attempts = 0;
     let lastSeen = Date.now();
+    const initialTxTime = lastSeen;
+    let txTimedOut = false;
 
-    while (true) {
+    while (!txTimedOut) {
       try {
         const currentNonce = await this.publicClient.getTransactionCount({ address: account.address });
         if (currentNonce > nonce) {
@@ -199,7 +220,6 @@ export class L1TxUtils {
                 this.logger?.debug(`L1 Transaction ${hash} confirmed`);
                 if (receipt.status === 'reverted') {
                   this.logger?.error(`L1 Transaction ${hash} reverted`);
-                  throw new Error(`Transaction ${hash} reverted`);
                 }
                 return receipt;
               }
@@ -249,7 +269,12 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       }
+      // Check if tx has timed out.
+      if (gasConfig.txTimeoutMs) {
+        txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs!;
+      }
     }
+    throw new Error(`L1 Transaction ${currentTxHash} timed out`);
   }
 
   /**
