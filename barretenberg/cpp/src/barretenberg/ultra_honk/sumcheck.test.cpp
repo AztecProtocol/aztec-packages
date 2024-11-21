@@ -8,13 +8,14 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-using Flavor = MegaZKFlavor;
+using Flavor = UltraFlavorWithZK;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
@@ -28,13 +29,13 @@ class SumcheckTestsRealCircuit : public ::testing::Test {
  */
 TEST_F(SumcheckTestsRealCircuit, Ultra)
 {
-    using Flavor = MegaZKFlavor;
+    using Flavor = UltraFlavorWithZK;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = MegaCircuitBuilder();
+    auto builder = UltraCircuitBuilder();
     FF a = FF::one();
 
     // Add some basic add gates, with a public input for good measure
@@ -185,6 +186,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     ZKSumcheckData<Flavor> zk_sumcheck_data(log_circuit_size, prover_transcript);
     FF r = FF::random_element();
     decider_pk->proving_key.polynomials.z_perm.at(circuit_size - 1) = r;
+    decider_pk->proving_key.polynomials.lookup_inverses.at(circuit_size - 1) = r.sqr();
     auto prover_output = sumcheck_prover.prove(decider_pk->proving_key.polynomials,
                                                decider_pk->relation_parameters,
                                                decider_pk->alphas,

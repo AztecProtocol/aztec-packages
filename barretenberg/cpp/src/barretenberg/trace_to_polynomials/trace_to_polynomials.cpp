@@ -2,8 +2,8 @@
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
 
 template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
@@ -173,6 +173,8 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
 }
 
 template class TraceToPolynomials<UltraFlavor>;
+template class TraceToPolynomials<UltraFlavorWithZK>;
+
 template class TraceToPolynomials<UltraKeccakFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;

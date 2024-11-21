@@ -6,8 +6,8 @@
 #include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 namespace bb {
@@ -219,12 +219,20 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     const size_t table_offset =
                         dyadic_circuit_size -
                         std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
-                    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset) - MASKING_OFFSET;
+                    info("lookup offset ", lookup_offset);
+                    info("table offset  ", table_offset);
+                    const size_t masking_offset =
+                        (std::min(lookup_offset, table_offset) > MASKING_OFFSET) ? MASKING_OFFSET : 0;
+                    info("not here with Ultra");
+                    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset) - masking_offset;
                     const size_t lookup_inverses_end =
                         std::min(dyadic_circuit_size,
                                  std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
                                           table_offset + MAX_LOOKUP_TABLES_SIZE)) -
-                        MASKING_OFFSET;
+                        masking_offset;
+                    info("lookup inverses end ", lookup_inverses_end);
+                    info("lookup inverses start ", lookup_inverses_start);
+
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {
