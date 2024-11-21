@@ -228,10 +228,10 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   unnullifyNotesAfter(blockNumber: number): Promise<void>;
 
   /**
-   * Resets the indexes used to sync notes to 0 for every
-   * sender and recipient, which will force full resync next time
-   * tagged logs are pulled from the node (as a recipient) and
-   * will reuse the same indexes for the sender.
+   * Resets the indexes used to sync notes to 0 for every sender and recipient, causing the next sync process to
+   * start from scratch, taking longer than usual.
+   * This can help fix desynchronization issues, including finding logs that had previously been overlooked, and
+   * is also required to deal with chain reorgs.
    */
   resetNoteSyncData(): Promise<void>;
 }
