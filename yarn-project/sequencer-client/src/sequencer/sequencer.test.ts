@@ -1,33 +1,33 @@
 import {
-  BlockAttestation,
-  type BlockBuilder,
-  BlockProposal,
-  ConsensusPayload,
-  type EpochProofQuote,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type Tx,
-  TxHash,
-  type UnencryptedL2Log,
-  UnencryptedTxL2Logs,
-  WorldStateRunningState,
-  type WorldStateSynchronizer,
-  makeProcessedTxFromPrivateOnlyTx,
-  mockEpochProofQuote,
-  mockTxForRollup,
+    BlockAttestation,
+    type BlockBuilder,
+    BlockProposal,
+    ConsensusPayload,
+    type EpochProofQuote,
+    type L1ToL2MessageSource,
+    L2Block,
+    type L2BlockSource,
+    MerkleTreeId,
+    type MerkleTreeReadOperations,
+    type MerkleTreeWriteOperations,
+    type Tx,
+    TxHash,
+    type UnencryptedL2Log,
+    UnencryptedTxL2Logs,
+    WorldStateRunningState,
+    type WorldStateSynchronizer,
+    makeProcessedTxFromPrivateOnlyTx,
+    mockEpochProofQuote,
+    mockTxForRollup,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  type ContractDataSource,
-  EthAddress,
-  Fr,
-  GasFees,
-  GlobalVariables,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+    AztecAddress,
+    type ContractDataSource,
+    EthAddress,
+    Fr,
+    GasFees,
+    GlobalVariables,
+    NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -204,7 +204,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of a single tx', async () => {
-    const tx = mockTxForRollup();
+    const tx = await mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
 
@@ -237,7 +237,7 @@ describe('sequencer', () => {
       Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable()[delayedState] + 1),
     );
 
-    const tx = mockTxForRollup();
+    const tx = await mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
 
     p2p.getTxs.mockReturnValueOnce([tx]);
@@ -258,7 +258,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block when it is their turn', async () => {
-    const tx = mockTxForRollup();
+    const tx = await mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
 
@@ -299,7 +299,7 @@ describe('sequencer', () => {
 
   it('builds a block out of several txs rejecting double spends', async () => {
     const doubleSpendTxIndex = 1;
-    const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
+    const txs = [await mockTxForRollup(0x10000), await mockTxForRollup(0x20000), await mockTxForRollup(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
@@ -334,7 +334,7 @@ describe('sequencer', () => {
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
     const invalidChainTxIndex = 1;
-    const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
+    const txs = [await mockTxForRollup(0x10000), await mockTxForRollup(0x20000), await mockTxForRollup(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
@@ -364,7 +364,7 @@ describe('sequencer', () => {
   it('builds a block out of several txs dropping the ones that go over max size', async () => {
     const invalidTransactionIndex = 1;
 
-    const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
+    const txs = [await mockTxForRollup(0x10000), await mockTxForRollup(0x20000), await mockTxForRollup(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
@@ -393,7 +393,7 @@ describe('sequencer', () => {
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
     const txs = times(8, i => {
-      const tx = mockTxForRollup(i * 0x10000);
+      const tx = await mockTxForRollup(i * 0x10000);
       tx.data.constants.txContext.chainId = chainId;
       return tx;
     });
@@ -434,7 +434,7 @@ describe('sequencer', () => {
 
   it('builds a block that contains zero real transactions once flushed', async () => {
     const txs = times(8, i => {
-      const tx = mockTxForRollup(i * 0x10000);
+      const tx = await mockTxForRollup(i * 0x10000);
       tx.data.constants.txContext.chainId = chainId;
       return tx;
     });
@@ -475,7 +475,7 @@ describe('sequencer', () => {
 
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
     const txs = times(8, i => {
-      const tx = mockTxForRollup(i * 0x10000);
+      const tx = await mockTxForRollup(i * 0x10000);
       tx.data.constants.txContext.chainId = chainId;
       return tx;
     });
@@ -518,7 +518,7 @@ describe('sequencer', () => {
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
-    const tx = mockTxForRollup();
+    const tx = await mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
 
     p2p.getTxs.mockReturnValueOnce([tx]);
@@ -593,7 +593,7 @@ describe('sequencer', () => {
         Promise.resolve(slotNumber / BigInt(epochDuration)),
       );
 
-      const tx = mockTxForRollup();
+      const tx = await mockTxForRollup();
       tx.data.constants.txContext.chainId = chainId;
       txHash = tx.getTxHash();
 

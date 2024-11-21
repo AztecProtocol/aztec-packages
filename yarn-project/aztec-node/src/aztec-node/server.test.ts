@@ -88,7 +88,7 @@ describe('aztec node', () => {
 
   describe('tx validation', () => {
     it('tests that the node correctly validates double spends', async () => {
-      const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000)];
+      const txs = [await mockTxForRollup(0x10000), await mockTxForRollup(0x20000)];
       txs.forEach(tx => {
         tx.data.constants.txContext.chainId = chainId;
       });
@@ -118,7 +118,7 @@ describe('aztec node', () => {
     });
 
     it('tests that the node correctly validates chain id', async () => {
-      const tx = mockTxForRollup(0x10000);
+      const tx = await mockTxForRollup(0x10000);
       tx.data.constants.txContext.chainId = chainId;
 
       expect(await node.isValidTx(tx)).toBe(true);
@@ -130,7 +130,7 @@ describe('aztec node', () => {
     });
 
     it('tests that the node correctly validates max block numbers', async () => {
-      const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
+      const txs = [await mockTxForRollup(0x10000), await mockTxForRollup(0x20000), await mockTxForRollup(0x30000)];
       txs.forEach(tx => {
         tx.data.constants.txContext.chainId = chainId;
       });

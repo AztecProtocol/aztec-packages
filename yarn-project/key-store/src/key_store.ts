@@ -51,9 +51,9 @@ export class KeyStore {
       masterOutgoingViewingSecretKey,
       masterTaggingSecretKey,
       publicKeys,
-    } = deriveKeys(sk);
+    } = await deriveKeys(sk);
 
-    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
     const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
@@ -69,16 +69,22 @@ export class KeyStore {
 
     // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
-    await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.masterNullifierPublicKey.hash().toBuffer());
+    await this.#keys.set(
+      `${account.toString()}-npk_m_hash`,
+      (await publicKeys.masterNullifierPublicKey.hash()).toBuffer(),
+    );
     await this.#keys.set(
       `${account.toString()}-ivpk_m_hash`,
-      publicKeys.masterIncomingViewingPublicKey.hash().toBuffer(),
+      (await publicKeys.masterIncomingViewingPublicKey.hash()).toBuffer(),
     );
     await this.#keys.set(
       `${account.toString()}-ovpk_m_hash`,
-      publicKeys.masterOutgoingViewingPublicKey.hash().toBuffer(),
+      (await publicKeys.masterOutgoingViewingPublicKey.hash()).toBuffer(),
     );
-    await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
+    await this.#keys.set(
+      `${account.toString()}-tpk_m_hash`,
+      (await publicKeys.masterTaggingPublicKey.hash()).toBuffer(),
+    );
 
     // At last, we return the newly derived account address
     return Promise.resolve(completeAddress);
@@ -102,7 +108,7 @@ export class KeyStore {
    * @param contractAddress - The contract address to silo the secret key in the key validation request with.
    * @returns The key validation request.
    */
-  public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+  public async getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
     const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkMHash);
 
     // Now we find the master public key for the account
@@ -115,7 +121,7 @@ export class KeyStore {
 
     const pkM = Point.fromBuffer(pkMBuffer);
 
-    if (!pkM.hash().equals(pkMHash)) {
+    if (!(await pkM.hash()).equals(pkMHash)) {
       throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
     }
 
@@ -130,12 +136,12 @@ export class KeyStore {
     const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    if (!(await derivePublicKeyFromSecretKey(skM)).equals(pkM)) {
       throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
     }
 
     // At last we silo the secret key and return the key validation request
-    const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
+    const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
     return Promise.resolve(new KeyValidationRequest(pkM, skApp));
   }
@@ -253,7 +259,7 @@ export class KeyStore {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
+  public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
     const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkM);
 
     const secretKeyBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
@@ -264,7 +270,7 @@ export class KeyStore {
     }
 
     const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    if (!(await derivePublicKeyFromSecretKey(skM)).equals(pkM)) {
       throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 

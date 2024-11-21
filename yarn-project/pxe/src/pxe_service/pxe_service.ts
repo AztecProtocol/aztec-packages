@@ -157,7 +157,7 @@ export class PXEService implements PXE {
 
   public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
     const artifact = await this.db.getContractArtifact(id);
-    return artifact && getContractClassFromArtifact(artifact);
+    return artifact && (await getContractClassFromArtifact(artifact));
   }
 
   public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
@@ -232,7 +232,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    const contractClassId = computeContractClassId(await getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -243,7 +243,7 @@ export class PXEService implements PXE {
 
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
-      const contractClass = getContractClassFromArtifact(artifact);
+      const contractClass = await getContractClassFromArtifact(artifact);
       const contractClassId = computeContractClassId(contractClass);
       if (!contractClassId.equals(instance.contractClassId)) {
         throw new Error(
@@ -711,7 +711,7 @@ export class PXEService implements PXE {
 
   async #registerProtocolContracts() {
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       this.log.info(`Added protocol contract ${name} at ${address.toString()}`);

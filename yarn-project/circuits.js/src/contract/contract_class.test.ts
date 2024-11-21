@@ -8,7 +8,7 @@ import { getContractClassFromArtifact } from './contract_class.js';
 describe('ContractClass', () => {
   it('creates a contract class from a contract compilation artifact', async () => {
     const artifact = getBenchmarkContractArtifact();
-    const contractClass = await getContractClassFromArtifact({
+    const contractClass = await await getContractClassFromArtifact({
       ...artifact,
       artifactHash: Fr.fromString('0x1234'),
     });

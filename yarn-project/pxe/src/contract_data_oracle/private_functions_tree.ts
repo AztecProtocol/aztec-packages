@@ -1,10 +1,10 @@
 import {
-  type ContractClassWithId,
-  FUNCTION_TREE_HEIGHT,
-  MembershipWitness,
-  computePrivateFunctionLeaf,
-  computePrivateFunctionsTree,
-  getContractClassFromArtifact,
+    type ContractClassWithId,
+    FUNCTION_TREE_HEIGHT,
+    MembershipWitness,
+    computePrivateFunctionLeaf,
+    computePrivateFunctionsTree,
+    getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type MerkleTree } from '@aztec/circuits.js/merkle';
 import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
@@ -22,7 +22,7 @@ export class PrivateFunctionsTree {
   private contractClass: ContractClassWithId;
 
   constructor(private readonly artifact: ContractArtifact) {
-    this.contractClass = getContractClassFromArtifact(artifact);
+    this.contractClass = await getContractClassFromArtifact(artifact);
   }
 
   /**

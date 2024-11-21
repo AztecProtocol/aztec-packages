@@ -190,7 +190,7 @@ export class TXE implements TypedOracle {
   }
 
   async addContractArtifact(artifact: ContractArtifact) {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     await this.txeDatabase.addContractArtifact(computeContractClassId(contractClass), artifact);
   }
 

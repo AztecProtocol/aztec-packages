@@ -48,7 +48,7 @@ export class TXEService {
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
     for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await txeDatabase.addContractArtifact(contractClass.id, artifact);
       await txeDatabase.addContractInstance(instance);
     }

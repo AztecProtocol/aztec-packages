@@ -50,7 +50,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   beforeAll(async () => {
     artifact = StatefulTestContract.artifact;
     registrationTxReceipt = await registerContractClass(wallet, artifact).then(c => c.send().wait());
-    contractClass = getContractClassFromArtifact(artifact);
+    contractClass = await getContractClassFromArtifact(artifact);
 
     // TODO(#10007) Remove this call. Node should get the bytecode from the event broadcast.
     expect(await aztecNode.getContractClass(contractClass.id)).toBeUndefined();
@@ -66,7 +66,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
     // TODO(#10007) Remove this test as well.
     it('starts archiver with pre-registered common contracts', async () => {
-      const classId = computeContractClassId(getContractClassFromArtifact(TokenContractArtifact));
+      const classId = computeContractClassId(await getContractClassFromArtifact(TokenContractArtifact));
       expect(await aztecNode.getContractClass(classId)).not.toBeUndefined();
     });
 

@@ -19,9 +19,9 @@ export class PedersenWithCounter extends Pedersen {
    * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
    * purposes.
    */
-  public override hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
+  public override async hash(lhs: Uint8Array, rhs: Uint8Array): Promise<Buffer> {
     this.hashCounter++;
-    return super.hash(lhs, rhs);
+    return await super.hash(lhs, rhs);
   }
 
   /**

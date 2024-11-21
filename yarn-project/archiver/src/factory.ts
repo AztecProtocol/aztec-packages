@@ -33,7 +33,7 @@ export async function createArchiver(
 async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
-    const contract = getCanonicalProtocolContract(name);
+    const contract = await getCanonicalProtocolContract(name);
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],
@@ -53,10 +53,12 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
 async function registerCommonContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   const artifacts = [TokenBridgeContractArtifact, TokenContractArtifact];
-  const classes = artifacts.map(artifact => ({
-    ...getContractClassFromArtifact(artifact),
-    privateFunctions: [],
-    unconstrainedFunctions: [],
-  }));
+  const classes = await Promise.all(
+    artifacts.map(async artifact => ({
+      ...(await getContractClassFromArtifact(artifact)),
+      privateFunctions: [],
+      unconstrainedFunctions: [],
+    })),
+  );
   await store.addContractClasses(classes, blockNumber);
 }

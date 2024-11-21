@@ -19,7 +19,7 @@ describe('unconstrained_function_membership_proof', () => {
 
   beforeEach(async () => {
     artifact = getTestContractArtifact();
-    contractClass = await getContractClassFromArtifact(artifact);
+    contractClass = await await getContractClassFromArtifact(artifact);
     unconstrainedFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
     selector = await FunctionSelector.fromNameAndParameters(unconstrainedFunction);
   });
@@ -46,7 +46,7 @@ describe('unconstrained_function_membership_proof', () => {
     expect(proof.artifactTreeSiblingPath.length).toBe(0);
 
     const fn = { ...unconstrainedFunction, ...proof, selector };
-    const contractClass = await getContractClassFromArtifact(artifact);
+    const contractClass = await await getContractClassFromArtifact(artifact);
     expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 

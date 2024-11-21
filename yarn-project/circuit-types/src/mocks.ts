@@ -1,4 +1,25 @@
-import { AztecAddress, CallContext, ClientIvcProof, type ContractInstanceWithAddress, EthAddress, GasSettings, LogHash, MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, Nullifier, PartialPrivateTailPublicInputsForPublic, PrivateCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs, PrivateToPublicAccumulatedDataBuilder, ScopedLogHash, SerializableContractInstance, computeContractAddressFromInstance, computeContractClassId, getContractClassFromArtifact } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CallContext,
+  ClientIvcProof,
+  type ContractInstanceWithAddress,
+  EthAddress,
+  GasSettings,
+  LogHash,
+  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  Nullifier,
+  PartialPrivateTailPublicInputsForPublic,
+  PrivateCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToPublicAccumulatedDataBuilder,
+  ScopedLogHash,
+  SerializableContractInstance,
+  computeContractAddressFromInstance,
+  computeContractClassId,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
@@ -7,9 +28,13 @@ import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 
-
-
-import { ContractClassTxL2Logs, EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
+import {
+  ContractClassTxL2Logs,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
+  Note,
+  UnencryptedTxL2Logs,
+} from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
 import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
@@ -17,7 +42,6 @@ import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 import { TxEffect } from './tx_effect.js';
-
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
@@ -276,7 +300,7 @@ export const randomContractInstanceWithAddress = async (
 
 export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
-  const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+  const contractClassId = await computeContractClassId(await await getContractClassFromArtifact(artifact));
   return { artifact, instance: randomContractInstanceWithAddress({ contractClassId }) };
 };
 

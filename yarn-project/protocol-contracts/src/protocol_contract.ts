@@ -33,7 +33,7 @@ export async function getCanonicalProtocolContract(name: ProtocolContractName): 
   const address = ProtocolContractAddress[name];
   const salt = ProtocolContractSalt[name];
   // TODO(@spalladino): This computes the contract class from the artifact twice.
-  const contractClass = await getContractClassFromArtifact(artifact);
+  const contractClass = await await getContractClassFromArtifact(artifact);
   const instance = await getContractInstanceFromDeployParams(artifact, { salt });
   return {
     instance: { ...instance, address },

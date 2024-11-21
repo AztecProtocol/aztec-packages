@@ -60,16 +60,16 @@ describe('StandardTree_batchAppend', () => {
 
     expect(pedersen.hashCounter).toEqual(expectedNumHashing);
 
-    const level2Node0 = pedersen.hash(leaves[0], leaves[1]);
-    const level2Node1 = pedersen.hash(leaves[2], leaves[3]);
-    const level2Node2 = pedersen.hash(leaves[4], INITIAL_LEAF);
+    const level2Node0 = await pedersen.hash(leaves[0], leaves[1]);
+    const level2Node1 = await pedersen.hash(leaves[2], leaves[3]);
+    const level2Node2 = await pedersen.hash(leaves[4], INITIAL_LEAF);
 
-    const level2ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
+    const level2ZeroHash = await pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
 
-    const level1Node0 = pedersen.hash(level2Node0, level2Node1);
-    const level1Node1 = pedersen.hash(level2Node2, level2ZeroHash);
+    const level1Node0 = await pedersen.hash(level2Node0, level2Node1);
+    const level1Node1 = await pedersen.hash(level2Node2, level2ZeroHash);
 
-    const root = pedersen.hash(level1Node0, level1Node1);
+    const root = await pedersen.hash(level1Node0, level1Node1);
 
     expect(tree.getRoot(true)).toEqual(root);
   });
