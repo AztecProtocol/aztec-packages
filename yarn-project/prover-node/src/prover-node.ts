@@ -9,13 +9,16 @@ import {
   type MerkleTreeWriteOperations,
   type ProverCoordination,
   type ProverNodeApi,
+  type Service,
   type WorldStateSynchronizer,
+  tryStop,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type Maybe } from '@aztec/foundation/types';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
@@ -48,12 +51,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   constructor(
     private readonly prover: EpochProverManager,
     private readonly publisher: L1Publisher,
-    private readonly l2BlockSource: L2BlockSource,
+    private readonly l2BlockSource: L2BlockSource & Maybe<Service>,
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly contractDataSource: ContractDataSource,
     private readonly worldState: WorldStateSynchronizer,
-    private readonly coordination: ProverCoordination,
-    private readonly simulator: SimulationProvider,
+    private readonly coordination: ProverCoordination & Maybe<Service>,
     private readonly quoteProvider: QuoteProvider,
     private readonly quoteSigner: QuoteSigner,
     private readonly claimsMonitor: ClaimsMonitor,
@@ -166,11 +168,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     await this.epochsMonitor.stop();
     await this.claimsMonitor.stop();
     await this.prover.stop();
-    await this.l2BlockSource.stop();
+    await tryStop(this.l2BlockSource);
     this.publisher.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
-    await this.coordination.stop();
+    await tryStop(this.coordination);
+    await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
 
@@ -233,21 +236,21 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
     await this.worldState.syncImmediate(fromBlock - 1);
-    const db = await this.worldState.fork(fromBlock - 1);
+    // NB: separated the dbs as both a block builder and public processor need to track and update tree state
+    // see public_processor.ts for context
+    const publicDb = await this.worldState.fork(fromBlock - 1);
+    const proverDb = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      this.simulator,
-      this.telemetryClient,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
 
     const cleanUp = async () => {
-      await db.close();
+      await publicDb.close();
+      await proverDb.close();
       this.jobs.delete(job.getId());
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, db, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicDb, proverDb, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -256,15 +259,16 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
-    db: MerkleTreeWriteOperations,
+    publicDb: MerkleTreeWriteOperations,
+    proverDb: MerkleTreeWriteOperations,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
-      db,
+      publicDb,
       epochNumber,
       blocks,
-      this.prover.createEpochProver(db),
+      this.prover.createEpochProver(proverDb),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,

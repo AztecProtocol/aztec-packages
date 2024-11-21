@@ -40,7 +40,6 @@ export class Poseidon2 extends Instruction {
     );
 
     memory.assert({ reads: Poseidon2.stateSize, writes: Poseidon2.stateSize, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -78,7 +77,6 @@ export class KeccakF1600 extends Instruction {
     memory.setSlice(dstOffset, res);
 
     memory.assert({ reads: inputSize, writes: inputSize, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -127,6 +125,5 @@ export class Sha256Compression extends Instruction {
     memory.setSlice(outputOffset, res);
 
     memory.assert({ reads: STATE_SIZE + INPUTS_SIZE, writes: STATE_SIZE, addressing });
-    context.machineState.incrementPc();
   }
 }

@@ -1,4 +1,3 @@
-{{- if not .Values.proverNode.external }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -19,7 +18,7 @@ spec:
         app: prover-node
     spec:
       initContainers:
-        - name: wait-for-boot-node
+        - name: wait-for-services
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh
@@ -27,7 +26,7 @@ spec:
             - |
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
@@ -103,6 +102,8 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: P2P_ENABLED
               value: "{{ .Values.proverNode.p2pEnabled }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
@@ -121,12 +122,14 @@ spec:
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pUdpPort }}"
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: ETHEREUM_SLOT_DURATION
+              value: "{{ .Values.ethereum.blockTime }}"
+            - name: AZTEC_SLOT_DURATION
+              value: "{{ .Values.aztec.slotDuration }}"
+            - name: AZTEC_EPOCH_DURATION
+              value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
+              value: "{{ .Values.aztec.epochProofClaimWindow }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
@@ -179,11 +182,11 @@ spec:
       name: p2p-udp
       protocol: UDP
 ---
-{{if .Values.network.public }}
+{{if .Values.proverNode.public }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-tcp
+  name: prover-node-lb-tcp
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -200,7 +203,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-udp
+  name: prover-node-lb-udp
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
@@ -216,5 +219,5 @@ spec:
     - port: {{ .Values.proverNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
-{{ end }}
+---
 {{ end }}

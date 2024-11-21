@@ -23,10 +23,15 @@ export class ContractInstanceDeployedEvent {
     return toBigIntBE(log.subarray(0, 32)) == DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE;
   }
 
-  static fromLogs(logs: { contractAddress: AztecAddress; data: Buffer }[]) {
+  // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
+  static fromLogs(logs: { maskedContractAddress: Fr; data: Buffer }[]) {
     return logs
       .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log.data))
-      .filter(log => log.contractAddress.equals(AztecAddress.fromBigInt(BigInt(DEPLOYER_CONTRACT_ADDRESS))))
+      .filter(log =>
+        AztecAddress.fromField(log.maskedContractAddress).equals(
+          AztecAddress.fromBigInt(BigInt(DEPLOYER_CONTRACT_ADDRESS)),
+        ),
+      )
       .map(log => ContractInstanceDeployedEvent.fromLogData(log.data));
   }
 

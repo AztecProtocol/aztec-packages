@@ -12,7 +12,6 @@ import {
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeaf,
   type NullifierLeafPreimage,
@@ -24,7 +23,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import assert from 'assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -32,14 +31,24 @@ import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-sta
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
-  type WorldStateStatus,
+  type WorldStateStatusFull,
   blockStateReference,
+  sanitiseFullStatus,
+  sanitiseSummary,
   treeStateReferenceToSnapshot,
   worldStateRevision,
 } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
+import { WorldStateVersion } from './world_state_version.js';
 
-const ROLLUP_ADDRESS_FILE = 'rollup_address';
+export const WORLD_STATE_VERSION_FILE = 'version';
+
+// A crude way of maintaining DB versioning
+// We don't currently have any method of performing data migrations
+// should the world state db structure change
+// For now we will track versions using this hardcoded value and delete
+// the state if a change is detected
+export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: Header | undefined;
@@ -53,31 +62,47 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
+    dbMapSizeKb: number,
     log = createDebugLogger('aztec:world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
-    const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
-    const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr.trim()) : undefined;
+    const worldStateDirectory = join(dataDir, 'world_state');
+    const versionFile = join(worldStateDirectory, WORLD_STATE_VERSION_FILE);
+    const storedWorldStateVersion = await WorldStateVersion.readVersion(versionFile);
 
-    if (currentRollupAddress && !rollupAddress.equals(currentRollupAddress)) {
-      log.warn('Rollup address changed, deleting database');
-      await rm(dataDir, { recursive: true, force: true });
+    if (!storedWorldStateVersion) {
+      log.warn('No world state version found, deleting world state directory');
+      await rm(worldStateDirectory, { recursive: true, force: true });
+    } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
+      log.warn('Rollup address changed, deleting world state directory');
+      await rm(worldStateDirectory, { recursive: true, force: true });
+    } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
+      log.warn('World state version change detected, deleting world state directory');
+      await rm(worldStateDirectory, { recursive: true, force: true });
     }
 
-    await mkdir(dataDir, { recursive: true });
-    await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
+    const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
 
-    const instance = new NativeWorldState(dataDir);
+    await mkdir(worldStateDirectory, { recursive: true });
+    await newWorldStateVersion.writeVersionFile(versionFile);
+
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb);
     const worldState = new this(instance, log, cleanup);
-    await worldState.init();
+    try {
+      await worldState.init();
+    } catch (e) {
+      log.error(`Error initialising world state: ${e}`);
+      throw e;
+    }
+
     return worldState;
   }
 
   static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
     const log = createDebugLogger('aztec:world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
-    log.debug(`Created temporary world state database: ${dataDir}`);
+    const dbMapSizeKb = 10 * 1024 * 1024;
+    log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
@@ -89,10 +114,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, log, cleanup);
   }
 
   protected async init() {
+    const status = await this.getStatusSummary();
+    if (!status.treesAreSynched) {
+      throw new Error('World state trees are out of sync, please delete your data directory and re-sync');
+    }
     this.initialHeader = await this.buildInitialHeader();
     const committed = this.getCommitted();
 
@@ -128,7 +157,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus> {
+  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
     // by circuits.
     const paddedTxEffects = padArrayEnd(
@@ -147,16 +176,16 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       .map(nullifier => new NullifierLeaf(nullifier));
 
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-    const batchesOfPaddedPublicDataWrites: PublicDataTreeLeaf[][] = [];
+    const batchesOfPublicDataWrites: PublicDataTreeLeaf[][] = [];
     for (const txEffect of paddedTxEffects) {
-      const batch: PublicDataTreeLeaf[] = Array(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX).fill(
-        PublicDataTreeLeaf.empty(),
+      batchesOfPublicDataWrites.push(
+        txEffect.publicDataWrites.map(write => {
+          if (write.isEmpty()) {
+            throw new Error('Public data write must not be empty when syncing');
+          }
+          return new PublicDataTreeLeaf(write.leafSlot, write.value);
+        }),
       );
-      for (const [i, write] of txEffect.publicDataWrites.entries()) {
-        batch[i] = new PublicDataTreeLeaf(write.leafIndex, write.newValue);
-      }
-
-      batchesOfPaddedPublicDataWrites.push(batch);
     }
 
     const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
@@ -165,10 +194,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
       paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
       paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-      batchesOfPaddedPublicDataWrites: batchesOfPaddedPublicDataWrites.map(batch => batch.map(serializeLeaf)),
+      batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
-    return response.status;
+    return sanitiseFullStatus(response);
   }
 
   public async close(): Promise<void> {
@@ -187,9 +216,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    return await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
+    const response = await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
       toBlockNumber,
     });
+    return sanitiseSummary(response);
   }
 
   /**
@@ -198,9 +228,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
+    const response = await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
       toBlockNumber,
     });
+    return sanitiseFullStatus(response);
   }
 
   /**
@@ -209,13 +240,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
+    const response = await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
       toBlockNumber,
     });
+    return sanitiseFullStatus(response);
   }
 
-  public async getStatus() {
-    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
+  public async getStatusSummary() {
+    const response = await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
+    return sanitiseSummary(response);
   }
 
   updateLeaf<ID extends IndexedTreeId>(

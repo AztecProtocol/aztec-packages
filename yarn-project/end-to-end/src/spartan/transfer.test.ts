@@ -4,8 +4,8 @@ import { TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
-import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { getConfig, isK8sConfig, startPortForward } from './utils.js';
 
 const config = getConfig(process.env);
 
@@ -57,7 +57,7 @@ describe('token transfer test', () => {
         ...testWallets.wallets.map(async w =>
           (
             await TokenContract.at(testWallets.tokenAddress, w)
-          ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+          ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
         ),
       ]);
 

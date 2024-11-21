@@ -71,30 +71,53 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
     return (ind_value & (1 << operand_idx)) != 0;
 }
 
-std::string to_hex(bb::avm_trace::AvmMemoryTag tag)
+std::string to_hex(AvmMemoryTag tag)
 {
     return to_hex(static_cast<uint8_t>(tag));
 }
 
-std::string to_name(bb::avm_trace::AvmMemoryTag tag)
+std::string to_name(AvmMemoryTag tag)
 {
     switch (tag) {
-    case bb::avm_trace::AvmMemoryTag::FF:
+    case AvmMemoryTag::FF:
         return "Field";
-    case bb::avm_trace::AvmMemoryTag::U1:
+    case AvmMemoryTag::U1:
         return "Uint1";
-    case bb::avm_trace::AvmMemoryTag::U8:
+    case AvmMemoryTag::U8:
         return "Uint8";
-    case bb::avm_trace::AvmMemoryTag::U16:
+    case AvmMemoryTag::U16:
         return "Uint16";
-    case bb::avm_trace::AvmMemoryTag::U32:
+    case AvmMemoryTag::U32:
         return "Uint32";
-    case bb::avm_trace::AvmMemoryTag::U64:
+    case AvmMemoryTag::U64:
         return "Uint64";
-    case bb::avm_trace::AvmMemoryTag::U128:
+    case AvmMemoryTag::U128:
         return "Uint128";
     default:
         throw std::runtime_error("Invalid memory tag");
+        break;
+    }
+}
+
+std::string to_name(AvmError error)
+{
+    switch (error) {
+    case AvmError::NO_ERROR:
+        return "NO ERROR";
+    case AvmError::TAG_ERROR:
+        return "TAG ERROR";
+    case AvmError::ADDR_RES_ERROR:
+        return "ADDRESS RESOLUTION ERROR";
+    case AvmError::DIV_ZERO:
+        return "DIVISION BY ZERO";
+    case AvmError::PARSING_ERROR:
+        return "PARSING ERROR";
+    case AvmError::ENV_VAR_UNKNOWN:
+        return "ENVIRONMENT VARIABLE UNKNOWN";
+    case AvmError::CONTRACT_INST_MEM_UNKNOWN:
+        return "CONTRACT INSTANCE MEMBER UNKNOWN";
+    default:
+        throw std::runtime_error("Invalid error type");
         break;
     }
 }

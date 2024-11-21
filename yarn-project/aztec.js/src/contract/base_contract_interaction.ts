@@ -91,10 +91,7 @@ export abstract class BaseContractInteraction {
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     const txRequest = await this.create({ ...opts, estimateGas: false });
     const simulationResult = await this.wallet.simulateTx(txRequest, true);
-    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
-      simulationResult,
-      (opts?.fee?.gasSettings ?? GasSettings.default()).teardownGasLimits,
-    );
+    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult);
     return { gasLimits, teardownGasLimits };
   }
 
@@ -108,10 +105,7 @@ export abstract class BaseContractInteraction {
     if (fee) {
       const txRequest = await this.wallet.createTxExecutionRequest(request);
       const simulationResult = await this.wallet.simulateTx(txRequest, true);
-      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
-        simulationResult,
-        fee.gasSettings.teardownGasLimits,
-      );
+      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult);
       this.log.debug(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );

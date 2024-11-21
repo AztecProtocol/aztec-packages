@@ -1,7 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { STRING_ENCODING, type UInt32 } from '../shared.js';
 
@@ -27,6 +29,19 @@ export class AppendOnlyTreeSnapshot {
      */
     public nextAvailableLeafIndex: UInt32,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        root: schemas.Fr,
+        nextAvailableLeafIndex: schemas.UInt32,
+      })
+      .transform(({ root, nextAvailableLeafIndex }) => new AppendOnlyTreeSnapshot(root, nextAvailableLeafIndex));
+  }
+
+  toJSON() {
+    return { root: this.root, nextAvailableLeafIndex: this.nextAvailableLeafIndex };
+  }
 
   getSize() {
     return this.root.size + 4;

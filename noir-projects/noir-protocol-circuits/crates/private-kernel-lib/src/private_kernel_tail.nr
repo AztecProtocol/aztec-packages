@@ -57,9 +57,10 @@ mod tests {
     use dep::types::{
         abis::{
             gas::Gas, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            log_hash::ScopedLogHash, max_block_number::MaxBlockNumber,
+            max_block_number::MaxBlockNumber,
         },
         address::{AztecAddress, EthAddress},
+        messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
         tests::fixture_builder::FixtureBuilder,
         traits::is_empty,
@@ -122,60 +123,57 @@ mod tests {
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = 956;
-        let prev_unencrypted_log_preimages_length = 24;
+        let prev_contract_class_logs_hash = 956;
+        let prev_contract_class_log_preimages_length = 24;
         builder.previous_kernel.add_masked_encrypted_log_hash(
             prev_encrypted_logs_hash,
             prev_encrypted_log_preimages_length,
         );
-        builder.previous_kernel.add_unencrypted_log_hash(
-            prev_unencrypted_logs_hash,
-            prev_unencrypted_log_preimages_length,
+        builder.previous_kernel.add_contract_class_log_hash(
+            prev_contract_class_logs_hash,
+            prev_contract_class_log_preimages_length,
         );
         // Logs for the current call stack.
-        let unencrypted_logs_hash = 26;
-        let unencrypted_log_preimages_length = 50;
-        builder.previous_kernel.add_unencrypted_log_hash(
-            unencrypted_logs_hash,
-            unencrypted_log_preimages_length,
+        let encrypted_logs_hash = 26;
+        let encrypted_log_preimages_length = 50;
+        builder.previous_kernel.add_masked_encrypted_log_hash(
+            encrypted_logs_hash,
+            encrypted_log_preimages_length,
         );
 
         let public_inputs = builder.execute();
 
         assert_eq(
             public_inputs.end.encrypted_log_preimages_length,
-            prev_encrypted_log_preimages_length,
+            prev_encrypted_log_preimages_length + encrypted_log_preimages_length,
         );
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length,
-            unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length,
+            public_inputs.end.contract_class_log_preimages_length,
+            prev_contract_class_log_preimages_length,
         );
     }
 
     #[test]
-    fn ordering_of_unencrypted_logs() {
+    fn ordering_of_msgs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 
-        builder.previous_kernel.append_unencrypted_log_hashes(2);
+        builder.previous_kernel.append_l2_to_l1_msgs(2);
 
-        // Reorder the logs
-        let original_logs = builder.previous_kernel.unencrypted_logs_hashes.storage;
-        let mut reversed_logs = [ScopedLogHash::empty(); 2];
-        for i in 0..reversed_logs.len() {
-            reversed_logs[i] = builder.previous_kernel.unencrypted_logs_hashes.pop();
+        // Reorder the msgs
+        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage;
+        let mut reversed_msgs = [ScopedL2ToL1Message::empty(); 2];
+        for i in 0..reversed_msgs.len() {
+            reversed_msgs[i] = builder.previous_kernel.l2_to_l1_msgs.pop();
         }
-        builder.previous_kernel.unencrypted_logs_hashes.extend_from_array(reversed_logs);
+        builder.previous_kernel.l2_to_l1_msgs.extend_from_array(reversed_msgs);
 
         let public_inputs = builder.execute();
 
-        let resulting_encrypted_logs = public_inputs.end.unencrypted_logs_hashes;
+        let resulting_msgs = public_inputs.end.l2_to_l1_msgs;
 
         assert_eq(
-            resulting_encrypted_logs,
-            original_logs.map(|mut log: ScopedLogHash| {
-                log.log_hash.counter = 0;
-                log
-            }),
+            resulting_msgs,
+            original_msgs.map(|mut msg: ScopedL2ToL1Message| msg.expose_to_public()),
         );
     }
 
@@ -235,22 +233,20 @@ mod tests {
     }
 
     #[test]
-    fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
+    fn empty_tx_consumes_fixed_gas() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
 
         // addition follows the form:
-        // teardown gas
         // tx overhead
         // tx nullifier (which has DA and L2 gas)
-        let expected_gas_consumed = Gas::new(300, 300)
-            + Gas::tx_overhead()
+        let expected_gas_consumed = Gas::tx_overhead()
             + Gas::new(
                 DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1,
                 L2_GAS_PER_NULLIFIER * 1,
             );
-        assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
+        assert_eq(public_inputs.gas_used, expected_gas_consumed);
     }
 
     #[test]
@@ -270,7 +266,7 @@ mod tests {
                     4 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
                     1 * L2_GAS_PER_NULLIFIER,
                 ),
-            public_inputs.end.gas_used,
+            public_inputs.gas_used,
         );
     }
 
@@ -279,10 +275,9 @@ mod tests {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_unencrypted_log_hash(42, 5);
+        builder.previous_kernel.add_contract_class_log_hash(42, 12);
         builder.previous_kernel.end_setup();
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
-        builder.previous_kernel.add_unencrypted_log_hash(42, 7);
 
         let public_inputs = builder.execute();
 
@@ -292,7 +287,7 @@ mod tests {
                     (1 * DA_BYTES_PER_FIELD + 25) * DA_GAS_PER_BYTE,
                     1 * L2_GAS_PER_NULLIFIER + 25 * L2_GAS_PER_LOG_BYTE,
                 ),
-            public_inputs.end.gas_used,
+            public_inputs.gas_used,
         );
     }
 

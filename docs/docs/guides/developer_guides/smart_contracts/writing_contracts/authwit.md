@@ -14,7 +14,7 @@ For a guide on using authwit in Aztec.js, [read this](../../js_apps/authwit.md).
 
 ## Introduction
 
-Authentication Witness is a scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
+Authentication Witness (authwit) is a scheme for authentication actions on Aztec, so users can allow third-parties (eg other contracts) to execute an action on their behalf. Authwits can only authorize actions for contracts that your account is calling, they cannot be used to permit other users to take actions on your behalf.
 
 How it works logically is explained in the [concepts](../../../../aztec/concepts/accounts/authwit.md) but we will do a short recap here.
 
@@ -141,7 +141,7 @@ Then you will be able to import it into your contracts as follows.
 
 Based on the diagram earlier on this page let's take a look at how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
 
-#include_code transfer_from /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 The first thing we see in the snippet above, is that if `from` is not the call we are calling the `assert_current_call_valid_authwit` function from [earlier](#private-functions). If the call is not throwing, we are all good and can continue with the transfer.
 
@@ -151,7 +151,7 @@ In the snippet we are constraining the `else` case such that only `nonce = 0` is
 
 Cool, so we have a function that checks if the current call is authenticated, but how do we actually authenticate it? Well, assuming that we use a wallet that is following the spec, we import `computeAuthWitMessageHash` from `aztec.js` to help us compute the hash, and then we simply `addAuthWitness` to the wallet. Behind the scenes this will make the witness available to the oracle.
 
-#include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_private.test.ts typescript
+#include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_in_private.test.ts typescript
 
 Learn more about authwits in Aztec.js by [following this guide](../../js_apps/authwit.md).
 
@@ -161,7 +161,7 @@ With private functions covered, how can we use this in a public function? Well, 
 
 #### Checking if the current call is authenticated
 
-#include_code transfer_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### Authenticating an action in TypeScript
 
@@ -169,7 +169,7 @@ Authenticating an action in the public domain is slightly different from the pri
 
 In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](../../../../aztec/concepts/accounts/authwit.md#what-about-public).
 
-#include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_public.test.ts typescript
+#include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts typescript
 
 #### Updating approval state in Noir
 

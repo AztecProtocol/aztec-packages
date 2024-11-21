@@ -177,10 +177,10 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
 
     // Sort it
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
 #else
-    std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator.end());
+    std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator_uint.end());
 #endif
 
     // Copy the values into the actual polynomial

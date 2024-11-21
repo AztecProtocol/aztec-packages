@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 
 import { mock } from 'jest-mock-extended';
 
@@ -26,8 +26,8 @@ describe('Accrued Substate', () => {
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
 
-  const address = new Fr(1);
-  const sender = new Fr(42);
+  const address = AztecAddress.fromNumber(1);
+  const sender = AztecAddress.fromNumber(42);
   const value0 = new Fr(69); // noteHash or nullifier...
   const value0Offset = 100;
   const value1 = new Fr(420);
@@ -155,7 +155,7 @@ describe('Accrued Substate', () => {
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
-        context.machineState.memory.set(addressOffset, new Field(address));
+        context.machineState.memory.set(addressOffset, new Field(address.toField()));
         await new NullifierExists(
           /*indirect=*/ 0,
           /*nullifierOffset=*/ value0Offset,
@@ -169,14 +169,8 @@ describe('Accrued Substate', () => {
         expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
         const isPending = false;
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          address,
-          /*nullifier=*/ value0,
-          tracedLeafIndex,
-          exists,
-          isPending,
-        );
+        const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, exists);
       });
     });
   });

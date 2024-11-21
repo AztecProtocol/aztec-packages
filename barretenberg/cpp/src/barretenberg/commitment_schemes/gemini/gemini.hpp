@@ -120,7 +120,8 @@ template <typename Curve> class GeminiProver_ {
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,
                                     RefSpan<Polynomial> concatenated_polynomials = {},
-                                    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {});
+                                    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {},
+                                    bool has_zk = false);
 
 }; // namespace bb
 
@@ -330,7 +331,7 @@ template <typename Curve> class GeminiVerifier_ {
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
                 batched_eval_accumulator =
                     Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);

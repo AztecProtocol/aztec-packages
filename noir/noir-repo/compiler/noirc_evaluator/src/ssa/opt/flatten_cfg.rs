@@ -826,8 +826,8 @@ impl<'f> Context<'f> {
                     }
                     Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::MultiScalarMul)) => {
                         let points_array_idx = if matches!(
-                            self.inserter.function.dfg[arguments[0]],
-                            Value::Array { .. }
+                            self.inserter.function.dfg.type_of_value(arguments[0]),
+                            Type::Array { .. }
                         ) {
                             0
                         } else {
@@ -835,15 +835,15 @@ impl<'f> Context<'f> {
                             // which means the array is the second argument
                             1
                         };
-                        let (array_with_predicate, array_typ) = self
-                            .apply_predicate_to_msm_argument(
-                                arguments[points_array_idx],
-                                condition,
-                                call_stack.clone(),
-                            );
+                        let (elements, typ) = self.apply_predicate_to_msm_argument(
+                            arguments[points_array_idx],
+                            condition,
+                            call_stack.clone(),
+                        );
 
-                        arguments[points_array_idx] =
-                            self.inserter.function.dfg.make_array(array_with_predicate, array_typ);
+                        let instruction = Instruction::MakeArray { elements, typ };
+                        let array = self.insert_instruction(instruction, call_stack);
+                        arguments[points_array_idx] = array;
                         Instruction::Call { func, arguments }
                     }
                     _ => Instruction::Call { func, arguments },
@@ -866,7 +866,7 @@ impl<'f> Context<'f> {
     ) -> (im::Vector<ValueId>, Type) {
         let array_typ;
         let mut array_with_predicate = im::Vector::new();
-        if let Value::Array { array, typ } = &self.inserter.function.dfg[argument] {
+        if let Some((array, typ)) = &self.inserter.function.dfg.get_array_constant(argument) {
             array_typ = typ.clone();
             for (i, value) in array.clone().iter().enumerate() {
                 if i % 3 == 2 {
@@ -930,237 +930,156 @@ mod test {
             types::Type,
             value::{Value, ValueId},
         },
+        opt::assert_normalized_ssa_equals,
+        Ssa,
     };
 
     #[test]
     fn basic_jmpif() {
-        // fn main f0 {
-        //   b0(v0: b1):
-        //     jmpif v0, then: b1, else: b2
-        //   b1():
-        //     jmp b3(Field 3)
-        //   b2():
-        //     jmp b3(Field 4)
-        //   b3(v1: Field):
-        //     return v1
-        // }
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-        let b3 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        let v1 = builder.add_block_parameter(b3, Type::field());
-
-        let three = builder.field_constant(3u128);
-        let four = builder.field_constant(4u128);
-
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        builder.terminate_with_jmp(b3, vec![three]);
-
-        builder.switch_to_block(b2);
-        builder.terminate_with_jmp(b3, vec![four]);
-
-        builder.switch_to_block(b3);
-        builder.terminate_with_return(vec![v1]);
-
-        let ssa = builder.finish();
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: u1):
+                jmpif v0 then: b1, else: b2
+              b1():
+                jmp b3(Field 3)
+              b3(v1: Field):
+                return v1
+              b2():
+                jmp b3(Field 4)
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
         assert_eq!(ssa.main().reachable_blocks().len(), 4);
 
-        // Expected output:
-        // fn main f0 {
-        //   b0(v0: u1):
-        //     enable_side_effects v0
-        //     v5 = not v0
-        //     enable_side_effects v5
-        //     enable_side_effects u1 1
-        //     v7 = mul v0, Field 3
-        //     v8 = mul v5, Field 4
-        //     v9 = add v7, v8
-        //     return v9
-        // }
+        let expected = "
+            acir(inline) fn main f0 {
+              b0(v0: u1):
+                enable_side_effects v0
+                v1 = not v0
+                enable_side_effects u1 1
+                v3 = cast v0 as Field
+                v4 = cast v1 as Field
+                v6 = mul v3, Field 3
+                v8 = mul v4, Field 4
+                v9 = add v6, v8
+                return v9
+            }
+            ";
+
         let ssa = ssa.flatten_cfg();
-        assert_eq!(ssa.main().reachable_blocks().len(), 1);
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
     fn modify_constrain() {
-        // fn main f0 {
-        //   b0(v0: u1, v1: u1):
-        //     jmpif v0, then: b1, else: b2
-        //   b1():
-        //     constrain v1
-        //     jmp b2()
-        //   b2():
-        //     return
-        // }
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        let v1 = builder.add_parameter(Type::bool());
-        let v_true = builder.numeric_constant(true, Type::bool());
-
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        builder.insert_constrain(v1, v_true, None);
-        builder.terminate_with_jmp(b2, vec![]);
-
-        builder.switch_to_block(b2);
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish();
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: u1, v1: u1):
+                jmpif v0 then: b1, else: b2
+              b1():
+                constrain v1 == u1 1
+                jmp b2()
+              b2():
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
         assert_eq!(ssa.main().reachable_blocks().len(), 3);
 
-        // Expected output:
-        // fn main f0 {
-        //   b0(v0: u1, v1: u1):
-        //     enable_side_effects v0
-        //     v3 = mul v1, v0
-        //     v4 = eq v3, v0
-        //     constrain v4
-        //     v5 = not v0
-        //     enable_side_effects v5
-        //     enable_side_effects u1 1
-        //     return
-        // }
+        let expected = "
+            acir(inline) fn main f0 {
+              b0(v0: u1, v1: u1):
+                enable_side_effects v0
+                v2 = mul v1, v0
+                constrain v2 == v0
+                v3 = not v0
+                enable_side_effects u1 1
+                return
+            }
+            ";
         let ssa = ssa.flatten_cfg();
         assert_eq!(ssa.main().reachable_blocks().len(), 1);
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
     fn merge_stores() {
-        // fn main f0 {
-        //   b0(v0: u1, v1: &mut Field):
-        //     jmpif v0, then: b1, else: b2
-        //   b1():
-        //     store v1, Field 5
-        //     jmp b2()
-        //   b2():
-        //     return
-        // }
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: u1, v1: &mut Field):
+                jmpif v0 then: b1, else: b2
+              b1():
+                store Field 5 at v1
+                jmp b2()
+              b2():
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
 
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        let v1 = builder.add_parameter(Type::Reference(Arc::new(Type::field())));
-
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        let five = builder.field_constant(5u128);
-        builder.insert_store(v1, five);
-        builder.terminate_with_jmp(b2, vec![]);
-
-        builder.switch_to_block(b2);
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish();
-
-        // Expected output:
-        // fn main f0 {
-        //   b0(v0: u1, v1: reference):
-        //     enable_side_effects v0
-        //     v4 = load v1
-        //     store Field 5 at v1
-        //     v5 = not v0
-        //     store v4 at v1
-        //     enable_side_effects u1 1
-        //     v6 = cast v0 as Field
-        //     v7 = cast v5 as Field
-        //     v8 = mul v6, Field 5
-        //     v9 = mul v7, v4
-        //     v10 = add v8, v9
-        //     store v10 at v1
-        //     return
-        // }
+        let expected = "
+            acir(inline) fn main f0 {
+              b0(v0: u1, v1: &mut Field):
+                enable_side_effects v0
+                v2 = load v1 -> Field
+                store Field 5 at v1
+                v4 = not v0
+                store v2 at v1
+                enable_side_effects u1 1
+                v6 = cast v0 as Field
+                v7 = cast v4 as Field
+                v8 = mul v6, Field 5
+                v9 = mul v7, v2
+                v10 = add v8, v9
+                store v10 at v1
+                return
+            }
+            ";
         let ssa = ssa.flatten_cfg();
-        let main = ssa.main();
-
-        assert_eq!(main.reachable_blocks().len(), 1);
-
-        let store_count = count_instruction(main, |ins| matches!(ins, Instruction::Store { .. }));
-        assert_eq!(store_count, 3);
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
     fn merge_stores_with_else_block() {
-        // fn main f0 {
-        //   b0(v0: u1, v1: ref):
-        //     jmpif v0, then: b1, else: b2
-        //   b1():
-        //     store Field 5 in v1
-        //     jmp b3()
-        //   b2():
-        //     store Field 6 in v1
-        //     jmp b3()
-        //   b3():
-        //     return
-        // }
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: u1, v1: &mut Field):
+                jmpif v0 then: b1, else: b2
+              b1():
+                store Field 5 at v1
+                jmp b3()
+              b2():
+                store Field 6 at v1
+                jmp b3()
+              b3():
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
 
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-        let b3 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        let v1 = builder.add_parameter(Type::Reference(Arc::new(Type::field())));
-
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        let five = builder.field_constant(5u128);
-        builder.insert_store(v1, five);
-        builder.terminate_with_jmp(b3, vec![]);
-
-        builder.switch_to_block(b2);
-        let six = builder.field_constant(6u128);
-        builder.insert_store(v1, six);
-        builder.terminate_with_jmp(b3, vec![]);
-
-        builder.switch_to_block(b3);
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish();
-
-        // Expected output:
-        // fn main f0 {
-        //   b0(v0: u1, v1: reference):
-        //     enable_side_effects v0
-        //     v5 = load v1
-        //     store Field 5 at v1
-        //     v6 = not v0
-        //     store v5 at v1
-        //     enable_side_effects v6
-        //     v8 = load v1
-        //     store Field 6 at v1
-        //     enable_side_effects u1 1
-        //     v9 = cast v0 as Field
-        //     v10 = cast v6 as Field
-        //     v11 = mul v9, Field 5
-        //     v12 = mul v10, Field 6
-        //     v13 = add v11, v12
-        //     store v13 at v1
-        //     return
-        // }
+        let expected = "
+            acir(inline) fn main f0 {
+              b0(v0: u1, v1: &mut Field):
+                enable_side_effects v0
+                v2 = load v1 -> Field
+                store Field 5 at v1
+                v4 = not v0
+                store v2 at v1
+                enable_side_effects v4
+                v5 = load v1 -> Field
+                store Field 6 at v1
+                enable_side_effects u1 1
+                v8 = cast v0 as Field
+                v9 = cast v4 as Field
+                v10 = mul v8, Field 5
+                v11 = mul v9, Field 6
+                v12 = add v10, v11
+                store v12 at v1
+                return
+            }
+            ";
         let ssa = ssa.flatten_cfg();
-        let main = ssa.main();
-        assert_eq!(main.reachable_blocks().len(), 1);
-
-        let store_count = count_instruction(main, |ins| matches!(ins, Instruction::Store { .. }));
-        assert_eq!(store_count, 4);
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     fn count_instruction(function: &Function, f: impl Fn(&Instruction) -> bool) -> usize {
@@ -1340,56 +1259,41 @@ mod test {
         //     };
         // }
         //
-        // // Translates to the following before the flattening pass:
-        // fn main f2 {
-        //   b0(v0: u1):
-        //     jmpif v0 then: b1, else: b2
-        //   b1():
-        //     v2 = allocate
-        //     store Field 0 at v2
-        //     v4 = load v2
-        //     jmp b2()
-        //   b2():
-        //     return
-        // }
+        // Translates to the following before the flattening pass:
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: u1):
+            jmpif v0 then: b1, else: b2
+          b1():
+            v1 = allocate -> &mut Field
+            store Field 0 at v1
+            v3 = load v1 -> Field
+            jmp b2()
+          b2():
+            return
+        }";
         // The bug is that the flattening pass previously inserted a load
         // before the first store to allocate, which loaded an uninitialized value.
         // In this test we assert the ordering is strictly Allocate then Store then Load.
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        let v2 = builder.insert_allocate(Type::field());
-        let zero = builder.field_constant(0u128);
-        builder.insert_store(v2, zero);
-        let _v4 = builder.insert_load(v2, Type::field());
-        builder.terminate_with_jmp(b2, vec![]);
-
-        builder.switch_to_block(b2);
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish().flatten_cfg();
-        let main = ssa.main();
+        let ssa = Ssa::from_str(src).unwrap();
+        let flattened_ssa = ssa.flatten_cfg();
 
         // Now assert that there is not a load between the allocate and its first store
         // The Expected IR is:
-        //
-        // fn main f2 {
-        //   b0(v0: u1):
-        //     enable_side_effects v0
-        //     v6 = allocate
-        //     store Field 0 at v6
-        //     v7 = load v6
-        //     v8 = not v0
-        //     enable_side_effects u1 1
-        //     return
-        // }
+        let expected = "
+        acir(inline) fn main f0 {
+          b0(v0: u1):
+            enable_side_effects v0
+            v1 = allocate -> &mut Field
+            store Field 0 at v1
+            v3 = load v1 -> Field
+            v4 = not v0
+            enable_side_effects u1 1
+            return
+        }
+        ";
+
+        let main = flattened_ssa.main();
         let instructions = main.dfg[main.entry_block()].instructions();
 
         let find_instruction = |predicate: fn(&Instruction) -> bool| {
@@ -1402,6 +1306,8 @@ mod test {
 
         assert!(allocate_index < store_index);
         assert!(store_index < load_index);
+
+        assert_normalized_ssa_equals(flattened_ssa, expected);
     }
 
     /// Work backwards from an instruction to find all the constant values
@@ -1445,40 +1351,29 @@ mod test {
         // Very simplified derived regression test for #1792
         // Tests that it does not simplify to a true constraint an always-false constraint
         // The original function is replaced by the following:
-        // fn main f1 {
-        //   b0():
-        //     jmpif u1 0 then: b1, else: b2
-        //   b1():
-        //     jmp b2()
-        //   b2():
-        //     constrain u1 0 // was incorrectly removed
-        //     return
-        // }
-        let main_id = Id::test_new(1);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
+        let src = "
+            acir(inline) fn main f1 {
+              b0():
+                jmpif u1 0 then: b1, else: b2
+              b1():
+                jmp b2()
+              b2():
+                constrain u1 0 == u1 1 // was incorrectly removed
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
 
-        builder.insert_block(); // entry
-
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-        let v_true = builder.numeric_constant(true, Type::bool());
-        let v_false = builder.numeric_constant(false, Type::bool());
-        builder.terminate_with_jmpif(v_false, b1, b2);
-
-        builder.switch_to_block(b1);
-        builder.terminate_with_jmp(b2, vec![]);
-
-        builder.switch_to_block(b2);
-        builder.insert_constrain(v_false, v_true, None); // should not be removed
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish().flatten_cfg();
-        let main = ssa.main();
-
-        // Assert we have not incorrectly removed a constraint:
-        use Instruction::Constrain;
-        let constrain_count = count_instruction(main, |ins| matches!(ins, Constrain(..)));
-        assert_eq!(constrain_count, 1);
+        let expected = "
+            acir(inline) fn main f0 {
+              b0():
+                enable_side_effects u1 1
+                constrain u1 0 == u1 1
+                return
+            }
+            ";
+        let ssa = ssa.flatten_cfg();
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
@@ -1508,29 +1403,22 @@ mod test {
         //   }
         let main_id = Id::test_new(1);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
-
         builder.insert_block(); // b0
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
         let b3 = builder.insert_block();
-
         let element_type = Arc::new(vec![Type::unsigned(8)]);
         let array_type = Type::Array(element_type.clone(), 2);
         let array = builder.add_parameter(array_type);
-
         let zero = builder.numeric_constant(0_u128, Type::unsigned(8));
-
         let v5 = builder.insert_array_get(array, zero, Type::unsigned(8));
         let v6 = builder.insert_cast(v5, Type::unsigned(32));
         let i_two = builder.numeric_constant(2_u128, Type::unsigned(32));
         let v8 = builder.insert_binary(v6, BinaryOp::Mod, i_two);
         let v9 = builder.insert_cast(v8, Type::bool());
-
         let v10 = builder.insert_allocate(Type::field());
         builder.insert_store(v10, zero);
-
         builder.terminate_with_jmpif(v9, b1, b2);
-
         builder.switch_to_block(b1);
         let one = builder.field_constant(1_u128);
         let v5b = builder.insert_cast(v5, Type::field());
@@ -1538,21 +1426,17 @@ mod test {
         let v14 = builder.insert_cast(v13, Type::unsigned(8));
         builder.insert_store(v10, v14);
         builder.terminate_with_jmp(b3, vec![]);
-
         builder.switch_to_block(b2);
         builder.insert_store(v10, zero);
         builder.terminate_with_jmp(b3, vec![]);
-
         builder.switch_to_block(b3);
         let v_true = builder.numeric_constant(true, Type::bool());
         let v12 = builder.insert_binary(v9, BinaryOp::Eq, v_true);
         builder.insert_constrain(v12, v_true, None);
         builder.terminate_with_return(vec![]);
-
         let ssa = builder.finish();
         let flattened_ssa = ssa.flatten_cfg();
         let main = flattened_ssa.main();
-
         // Now assert that there is not an always-false constraint after flattening:
         let mut constrain_count = 0;
         for instruction in main.dfg[main.entry_block()].instructions() {
