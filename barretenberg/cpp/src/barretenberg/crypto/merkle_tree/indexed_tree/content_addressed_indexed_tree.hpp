@@ -1414,6 +1414,19 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
         response.success = updates_completion_response.success;
         response.message = updates_completion_response.message;
         if (updates_completion_response.success) {
+
+            {
+                TreeMeta meta;
+                ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(meta, *tx, true);
+                std::cout << "Current tree meta " << meta << std::endl;
+                index_t new_total_size = values.size() + meta.size;
+                meta.size = new_total_size;
+                meta.root = store_->get_current_root(*tx, true);
+                std::cout << "New tree meta" << meta << std::endl;
+                store_->put_meta(meta);
+            }
+
             if (capture_witness) {
                 // Split results->update_witnesses between low_leaf_witness_data and insertion_witness_data
                 // Currently we always insert an empty leaf, even if it's an update, so we can split based
@@ -1487,140 +1500,141 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
         [=, this](TypedResponse<SequentialInsertionGenerationResponse>& response) {
             response.inner.highest_index = 0;
             response.inner.updates_to_perform = std::make_shared<std::vector<InsertionUpdates>>();
+
             TreeMeta meta;
-            index_t new_total_size = 0;
-
-            {
-                ReadTransactionPtr tx = store_->create_read_transaction();
-                store_->get_meta(meta, *tx, true);
-                RequestContext requestContext;
-                requestContext.includeUncommitted = true;
-                //  Ensure that the tree is not going to be overfilled
-                new_total_size = values.size() + meta.size;
-                response.inner.highest_index = new_total_size;
-                if (new_total_size > max_size_) {
-                    throw std::runtime_error(format("Unable to insert values into tree ",
-                                                    meta.name,
-                                                    " new size: ",
-                                                    new_total_size,
-                                                    " max size: ",
-                                                    max_size_));
+            ReadTransactionPtr tx = store_->create_read_transaction();
+            store_->get_meta(meta, *tx, true);
+            std::cout << "Current tree meta " << meta << std::endl;
+            RequestContext requestContext;
+            requestContext.includeUncommitted = true;
+            //  Ensure that the tree is not going to be overfilled
+            index_t new_total_size = values.size() + meta.size;
+            response.inner.highest_index = new_total_size;
+            if (new_total_size > max_size_) {
+                throw std::runtime_error(format("Unable to insert values into tree ",
+                                                meta.name,
+                                                " new size: ",
+                                                new_total_size,
+                                                " max size: ",
+                                                max_size_));
+            }
+            for (size_t i = 0; i < values.size(); ++i) {
+                std::cout << "Tree " << meta.name << " inserting value " << i << std::endl;
+                const LeafValueType& new_payload = values[i];
+                index_t index_of_new_leaf = i + meta.size;
+                if (new_payload.is_empty()) {
+                    continue;
                 }
-                for (size_t i = 0; i < values.size(); ++i) {
-                    const LeafValueType& new_payload = values[i];
-                    index_t index_of_new_leaf = i + meta.size;
-                    if (new_payload.is_empty()) {
-                        continue;
-                    }
-                    fr value = new_payload.get_key();
+                fr value = new_payload.get_key();
 
-                    // This gives us the leaf that need updating
-                    index_t low_leaf_index = 0;
-                    bool is_already_present = false;
+                // This gives us the leaf that need updating
+                index_t low_leaf_index = 0;
+                bool is_already_present = false;
 
-                    requestContext.root = store_->get_current_root(*tx, true);
-                    std::tie(is_already_present, low_leaf_index) =
-                        store_->find_low_value(new_payload.get_key(), requestContext, *tx);
-                    // std::cout << "Found low leaf index " << low_leaf_index << std::endl;
+                requestContext.root = store_->get_current_root(*tx, true);
+                std::tie(is_already_present, low_leaf_index) =
+                    store_->find_low_value(new_payload.get_key(), requestContext, *tx);
+                std::cout << "Tree " << meta.name << " low_leaf_index " << low_leaf_index << " is already present? "
+                          << is_already_present << std::endl;
 
-                    // Try and retrieve the leaf pre-image from the cache first.
-                    // If unsuccessful, derive from the tree and hash based lookup
-                    std::optional<IndexedLeafValueType> optional_low_leaf =
-                        store_->get_cached_leaf_by_index(low_leaf_index);
-                    IndexedLeafValueType low_leaf;
+                // std::cout << "Found low leaf index " << low_leaf_index << std::endl;
 
-                    if (optional_low_leaf.has_value()) {
-                        low_leaf = optional_low_leaf.value();
-                        // std::cout << "Found cached low leaf at index: " << low_leaf_index << " : " << low_leaf
-                        //           << std::endl;
-                    } else {
-                        // std::cout << "Looking for leaf at index " << low_leaf_index << std::endl;
-                        std::optional<fr> low_leaf_hash = find_leaf_hash(low_leaf_index, requestContext, *tx, true);
+                // Try and retrieve the leaf pre-image from the cache first.
+                // If unsuccessful, derive from the tree and hash based lookup
+                std::optional<IndexedLeafValueType> optional_low_leaf =
+                    store_->get_cached_leaf_by_index(low_leaf_index);
+                IndexedLeafValueType low_leaf;
 
-                        if (!low_leaf_hash.has_value()) {
-                            // std::cout << "Failed to find low leaf" << std::endl;
-                            throw std::runtime_error(format("Unable to insert values into tree ",
-                                                            meta.name,
-                                                            " failed to find low leaf at index ",
-                                                            low_leaf_index));
-                        }
-                        // std::cout << "Low leaf hash " << low_leaf_hash.value() << std::endl;
+                if (optional_low_leaf.has_value()) {
+                    low_leaf = optional_low_leaf.value();
+                    // std::cout << "Found cached low leaf at index: " << low_leaf_index << " : " << low_leaf
+                    //           << std::endl;
+                } else {
+                    // std::cout << "Looking for leaf at index " << low_leaf_index << std::endl;
+                    std::optional<fr> low_leaf_hash = find_leaf_hash(low_leaf_index, requestContext, *tx, true);
 
-                        std::optional<IndexedLeafValueType> low_leaf_option =
-                            store_->get_leaf_by_hash(low_leaf_hash.value(), *tx, true);
-
-                        if (!low_leaf_option.has_value()) {
-                            // std::cout << "No pre-image" << std::endl;
-                            throw std::runtime_error(format("Unable to insert values into tree ",
-                                                            meta.name,
-                                                            " failed to get leaf pre-image by hash for index ",
-                                                            low_leaf_index));
-                        }
-                        // std::cout << "Low leaf pre-image " << low_leaf_option.value() << std::endl;
-                        low_leaf = low_leaf_option.value();
-                    };
-
-                    InsertionUpdates insertion_update = {
-                        .low_leaf_update =
-                            LeafUpdate{
-                                .leaf_index = low_leaf_index,
-                                .updated_leaf = IndexedLeafValueType::empty(),
-                                .original_leaf = low_leaf,
-                            },
-                        .new_leaf = IndexedLeafValueType::empty(),
-                        .new_leaf_index = index_of_new_leaf,
-                    };
-
-                    // Capture the index and original value of the 'low' leaf
-
-                    if (!is_already_present) {
-                        // Update the current leaf to point it to the new leaf
-                        IndexedLeafValueType new_leaf =
-                            IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
-
-                        low_leaf.nextIndex = index_of_new_leaf;
-                        low_leaf.nextValue = value;
-                        store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
-
-                        // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
-                        //           << std::endl;
-
-                        // std::cout << "Low leaf found at index " << low_leaf_index << " index of new leaf "
-                        //           << index_of_new_leaf << std::endl;
-
-                        store_->put_cached_leaf_by_index(low_leaf_index, low_leaf);
-                        // leaves_pre[low_leaf_index] = low_leaf;
-                        insertion_update.low_leaf_update.updated_leaf = low_leaf;
-
-                        // Update the new leaf
-                        insertion_update.new_leaf = new_leaf;
-                    } else if (IndexedLeafValueType::is_updateable()) {
-                        // Update the current leaf's value, don't change it's link
-                        IndexedLeafValueType replacement_leaf =
-                            IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
-                        // IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
-                        //  don't update the index for this empty leaf
-                        // std::cout << "Low leaf updated at index " << low_leaf_index << " index of new leaf "
-                        //           << index_of_new_leaf << std::endl;
-                        // store_->set_leaf_key_at_index(index_of_new_leaf, empty_leaf);
-                        store_->put_cached_leaf_by_index(low_leaf_index, replacement_leaf);
-                        insertion_update.low_leaf_update.updated_leaf = replacement_leaf;
-                        // The set of appended leaves already has an empty leaf in the slot at index
-                        // 'index_into_appended_leaves'
-                    } else {
+                    if (!low_leaf_hash.has_value()) {
+                        // std::cout << "Failed to find low leaf" << std::endl;
                         throw std::runtime_error(format("Unable to insert values into tree ",
                                                         meta.name,
-                                                        " leaf type ",
-                                                        IndexedLeafValueType::name(),
-                                                        " is not updateable"));
+                                                        " failed to find low leaf at index ",
+                                                        low_leaf_index));
                     }
-                    response.inner.highest_index = std::max(response.inner.highest_index, low_leaf_index);
+                    // std::cout << "Low leaf hash " << low_leaf_hash.value() << std::endl;
 
-                    response.inner.updates_to_perform->push_back(insertion_update);
+                    std::optional<IndexedLeafValueType> low_leaf_option =
+                        store_->get_leaf_by_hash(low_leaf_hash.value(), *tx, true);
+
+                    if (!low_leaf_option.has_value()) {
+                        // std::cout << "No pre-image" << std::endl;
+                        throw std::runtime_error(format("Unable to insert values into tree ",
+                                                        meta.name,
+                                                        " failed to get leaf pre-image by hash for index ",
+                                                        low_leaf_index));
+                    }
+                    // std::cout << "Low leaf pre-image " << low_leaf_option.value() << std::endl;
+                    low_leaf = low_leaf_option.value();
+                };
+
+                InsertionUpdates insertion_update = {
+                    .low_leaf_update =
+                        LeafUpdate{
+                            .leaf_index = low_leaf_index,
+                            .updated_leaf = IndexedLeafValueType::empty(),
+                            .original_leaf = low_leaf,
+                        },
+                    .new_leaf = IndexedLeafValueType::empty(),
+                    .new_leaf_index = index_of_new_leaf,
+                };
+
+                // Capture the index and original value of the 'low' leaf
+
+                if (!is_already_present) {
+                    // Update the current leaf to point it to the new leaf
+                    IndexedLeafValueType new_leaf =
+                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
+
+                    low_leaf.nextIndex = index_of_new_leaf;
+                    low_leaf.nextValue = value;
+                    store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
+                    store_->put_cached_leaf_by_index(index_of_new_leaf, new_leaf);
+
+                    // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
+                    //           << std::endl;
+
+                    // std::cout << "Low leaf found at index " << low_leaf_index << " index of new leaf "
+                    //           << index_of_new_leaf << std::endl;
+
+                    store_->put_cached_leaf_by_index(low_leaf_index, low_leaf);
+                    // leaves_pre[low_leaf_index] = low_leaf;
+                    insertion_update.low_leaf_update.updated_leaf = low_leaf;
+
+                    // Update the new leaf
+                    insertion_update.new_leaf = new_leaf;
+                } else if (IndexedLeafValueType::is_updateable()) {
+                    // Update the current leaf's value, don't change it's link
+                    IndexedLeafValueType replacement_leaf =
+                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
+                    // IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
+                    //  don't update the index for this empty leaf
+                    // std::cout << "Low leaf updated at index " << low_leaf_index << " index of new leaf "
+                    //           << index_of_new_leaf << std::endl;
+                    // store_->set_leaf_key_at_index(index_of_new_leaf, empty_leaf);
+                    store_->put_cached_leaf_by_index(low_leaf_index, replacement_leaf);
+                    insertion_update.low_leaf_update.updated_leaf = replacement_leaf;
+                    // The set of appended leaves already has an empty leaf in the slot at index
+                    // 'index_into_appended_leaves'
+                } else {
+                    throw std::runtime_error(format("Unable to insert values into tree ",
+                                                    meta.name,
+                                                    " leaf type ",
+                                                    IndexedLeafValueType::name(),
+                                                    " is not updateable"));
                 }
+                response.inner.highest_index = std::max(response.inner.highest_index, low_leaf_index);
+
+                response.inner.updates_to_perform->push_back(insertion_update);
             }
-            meta.size = new_total_size;
-            store_->put_meta(meta);
         },
         completion);
 }
