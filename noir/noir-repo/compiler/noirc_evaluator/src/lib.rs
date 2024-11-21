@@ -5,11 +5,9 @@
 
 pub mod errors;
 
-// SSA code to create the SSA based IR
-// for functions and execute different optimizations.
-pub mod ssa;
-
+mod acir;
 pub mod brillig;
+pub mod ssa;
 
 pub use ssa::create_program;
 pub use ssa::ir::instruction::ErrorType;
@@ -28,6 +26,25 @@ pub(crate) fn trim_leading_whitespace_from_lines(src: &str) -> String {
     for line in lines {
         result.push('\n');
         result.push_str(&line[indent..]);
+    }
+    result
+}
+
+/// Trim comments from the lines, ie. content starting with `//`.
+#[cfg(test)]
+pub(crate) fn trim_comments_from_lines(src: &str) -> String {
+    let mut result = String::new();
+    let mut first = true;
+    for line in src.lines() {
+        if !first {
+            result.push('\n');
+        }
+        if let Some(comment) = line.find("//") {
+            result.push_str(line[..comment].trim_end());
+        } else {
+            result.push_str(line);
+        }
+        first = false;
     }
     result
 }

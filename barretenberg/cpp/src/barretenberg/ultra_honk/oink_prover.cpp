@@ -264,6 +264,7 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 

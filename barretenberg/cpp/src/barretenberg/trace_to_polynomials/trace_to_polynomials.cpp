@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
 
@@ -176,6 +176,7 @@ template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraFlavorWithZK>;
 
 template class TraceToPolynomials<UltraKeccakFlavor>;
+template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<plonk::flavor::Standard>;

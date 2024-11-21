@@ -22,7 +22,9 @@ contract ContractClassRegisterer {
     };
 
     use crate::events::{
-        class_registered::ContractClassRegistered,
+        class_registered::{
+            ContractClassRegistered, MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+        },
         private_function_broadcasted::{
             ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
         },
@@ -81,13 +83,6 @@ contract ContractClassRegisterer {
         );
 
         // Emit the contract class id as a nullifier to be able to prove that this class has been (not) registered
-        let event = ContractClassRegistered {
-            contract_class_id,
-            version: 1,
-            artifact_hash,
-            private_functions_root,
-            packed_public_bytecode,
-        };
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode
@@ -100,7 +95,24 @@ contract ContractClassRegisterer {
                 public_bytecode_commitment,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize());
+
+        // TODO(#10007): Drop this conditional and always emit the bytecode. We allow skipping the broadcast
+        // as a stopgap solution to allow txs to fit in Sepolia when we broadcast public bytecode.
+        if bytecode_length_in_fields <= MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
+            let mut event_public_bytecode =
+                [0; MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
+            for i in 0..MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
+                event_public_bytecode[i] = packed_public_bytecode[i];
+            }
+            let event = ContractClassRegistered {
+                contract_class_id,
+                version: 1,
+                artifact_hash,
+                private_functions_root,
+                packed_public_bytecode: event_public_bytecode,
+            };
+            emit_contract_class_log(&mut context, event.serialize());
+        }
     }
 
     #[private]

@@ -48,6 +48,6 @@ export function getSampleUnconstrainedFunctionBroadcastedEventPayload(): Buffer 
   return Buffer.from(readFileSync(path).toString(), 'hex');
 }
 
-function getPathToFixture(name: string) {
+export function getPathToFixture(name: string) {
   return resolve(dirname(fileURLToPath(import.meta.url)), `../../fixtures/${name}`);
 }
