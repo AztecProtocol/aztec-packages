@@ -28,17 +28,6 @@ SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
 SKIP_ARRAY+=(regression_5045)
 
-# if HONK is false, we should skip verify_honk_proof
-if [ "$HONK" == "false" ]; then
-    # Don't run programs with Honk recursive verifier
-    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof)
-fi
-
-if [ "$HONK" == "true" ]; then
-    # Don't run programs with Plonk recursive verifier(s)
-    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_nested_proof)
-fi
-
 if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
   TEST_NAMES=$(cd ../../noir/noir-repo/test_programs/execution_success; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
 fi

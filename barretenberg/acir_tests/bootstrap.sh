@@ -9,16 +9,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-(cd headless-test && yarn && npx playwright install && sudo npx playwright install-deps)
+if [ "${CI:-0}" -eq 1 ]; then
+  npx -y playwright@1.49 install --with-deps
+fi
+
+(cd headless-test && yarn)
 (cd browser-test-app && yarn && yarn build)
 
 if [ "${CI:-0}" -eq 1 ]; then
   COMPILE=1 ./run_acir_tests.sh
 
   # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
-  COMPILE=1 HONK=true BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof &
+  BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof &
   # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
-  HONK=true BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof &
+  BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof &
   # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x &
   # Run a single arbitrary test not involving recursion through bb.js for UltraHonk

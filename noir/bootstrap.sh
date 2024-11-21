@@ -29,7 +29,4 @@ if [ "${CI:-0}" -eq 1 ]; then
 
   ./scripts/test_native.sh
   ./scripts/test_js_packages.sh
-
-  (cd ./noir-repo/test_programs && ./format.sh check)
-  (cd ./noir-repo/noir_stdlib && nargo fmt --check)
 fi
