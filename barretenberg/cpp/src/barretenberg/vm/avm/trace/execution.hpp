@@ -19,7 +19,8 @@ class Execution {
     using TraceBuilderConstructor = std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
                                                                   ExecutionHints execution_hints,
                                                                   uint32_t side_effect_counter,
-                                                                  std::vector<FF> calldata)>;
+                                                                  std::vector<FF> calldata,
+                                                                  AvmPublicInputs new_public_inputs)>;
 
     Execution() = default;
 
@@ -32,7 +33,8 @@ class Execution {
     static std::vector<Row> gen_trace(std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      ExecutionHints const& execution_hints);
+                                      ExecutionHints const& execution_hints,
+                                      AvmPublicInputs const& new_public_inputs = {});
 
     // For testing purposes only.
     static void set_trace_builder_constructor(TraceBuilderConstructor constructor)

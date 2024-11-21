@@ -17,6 +17,7 @@
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
 
 namespace bb::avm_trace {
@@ -43,7 +44,14 @@ class AvmTraceBuilder {
     AvmTraceBuilder(VmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {});
+                    std::vector<FF> calldata = {},
+                    AvmPublicInputs new_public_inputs = {});
+
+    void set_public_call_request(PublicCallRequest const& public_call_request)
+    {
+        this->current_public_call_request = public_call_request;
+    }
+    void set_call_ptr(uint8_t call_ptr) { this->call_ptr = call_ptr; }
 
     uint32_t get_pc() const { return pc; }
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
@@ -242,6 +250,8 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
 
     std::vector<FF> calldata;
+    AvmPublicInputs new_public_inputs;
+    PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
 
     // Return/revert data of the last nested call.

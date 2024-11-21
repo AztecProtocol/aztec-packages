@@ -299,9 +299,11 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
 AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
                                  ExecutionHints execution_hints_,
                                  uint32_t side_effect_counter,
-                                 std::vector<FF> calldata)
+                                 std::vector<FF> calldata,
+                                 AvmPublicInputs new_public_inputs)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : calldata(std::move(calldata))
+    , new_public_inputs(new_public_inputs)
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
@@ -1581,9 +1583,11 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint32_t dst_offset, 
 
 AvmError AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_address(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // FF ia_value = kernel_trace_builder.op_address(clk);
+    FF ia_value = this->current_public_call_request.contract_address;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_address = FF(1);
 
     // Constrain gas cost
@@ -1595,9 +1599,10 @@ AvmError AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_sender(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_sender(clk);
+    FF ia_value = this->current_public_call_request.msg_sender;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_sender = FF(1);
 
     // Constrain gas cost
@@ -1609,9 +1614,10 @@ AvmError AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_function_selector(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U32);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_function_selector(clk);
+    FF ia_value = this->current_public_call_request.function_selector;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U32);
     row.main_sel_op_function_selector = FF(1);
 
     // Constrain gas cost
@@ -1623,9 +1629,10 @@ AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_of
 
 AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_transaction_fee(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_transaction_fee(clk);
+    FF ia_value = new_public_inputs.transaction_fee;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_transaction_fee = FF(1);
 
     // Constrain gas cost
@@ -1637,9 +1644,10 @@ AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offs
 
 AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_is_static_call(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_is_static_call(clk);
+    FF ia_value = this->current_public_call_request.is_static_call;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_is_static_call = FF(1);
 
     // Constrain gas cost
@@ -1655,9 +1663,10 @@ AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_chain_id(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_chain_id(clk);
+    FF ia_value = new_public_inputs.global_variables.chain_id;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_chain_id = FF(1);
 
     // Constrain gas cost
@@ -1669,9 +1678,10 @@ AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_version(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_version(clk);
+    FF ia_value = new_public_inputs.global_variables.version;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_version = FF(1);
 
     // Constrain gas cost
@@ -1683,9 +1693,10 @@ AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_block_number(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_block_number(clk);
+    FF ia_value = new_public_inputs.global_variables.block_number;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_block_number = FF(1);
 
     // Constrain gas cost
@@ -1697,9 +1708,10 @@ AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_timestamp(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U64);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_timestamp(clk);
+    FF ia_value = new_public_inputs.global_variables.timestamp;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U64);
     row.main_sel_op_timestamp = FF(1);
 
     // Constrain gas cost
@@ -1711,9 +1723,10 @@ AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_fee_per_l2_gas(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_fee_per_l2_gas(clk);
+    FF ia_value = new_public_inputs.global_variables.gas_fees.fee_per_l2_gas;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
     // Constrain gas cost
@@ -1725,9 +1738,10 @@ AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_fee_per_da_gas(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // FF ia_value = kernel_trace_builder.op_fee_per_da_gas(clk);
+    FF ia_value = new_public_inputs.global_variables.gas_fees.fee_per_da_gas;
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_da_gas = FF(1);
 
     // Constrain gas cost
