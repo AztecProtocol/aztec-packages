@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732199539315,
+  "lastUpdate": 1732217158894,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "76328ebe88fd1d9dbb041be8cc1692516ed7d2d2",
-          "message": "feat: track active accumulator rows and leverage in IVC folding (#9599)\n\nIf the IVC accumulator does not make use of the full capacity of a given\r\nblock, there will be some number of unused/empty rows at the end of the\r\nblock. We have a mechanism to skip performing relation work at such rows\r\nbut we sometimes still perform relatively expensive operations like\r\n`get_row()` on them. This additional overhead can become very\r\nsignificant if the total accumulator content is much smaller than the\r\nstructured trace size. We can avoid a lot of unnecessary work on these\r\nempty rows by tracking the \"active ranges\" of the execution trace, i.e.\r\nthe regions of the accumulator which correspond to non-zero relation\r\ncontributions.\r\n\r\nThis PR introduces a class `ExecutionTraceUsageTracker` for tracking the\r\nactive regions of the accumulator and computing efficient distribution\r\nof the execution trace rows according to actual content in the\r\nmultithreading context. This logic is leveraged in the combiner and\r\nperturbator computations but can potentially be introduced in other\r\nplaces as well.\r\n\r\nSome high level numbers for the current benchmark case but with the 2^19\r\ncircuit replaced with another 2^17 circuit (i.e. ~2^17 worth of content\r\nin a 2^19 ambient trace)\r\n\r\nMaster:\r\n```\r\nClientIVCBench/Full/6      27137 ms        23345 ms\r\n\r\ncompute_combiner(t)                     5826   22.12%\r\ncompute_perturbator(t)                  2295    8.71%\r\n```\r\n\r\nBranch:\r\n```\r\nClientIVCBench/Full/6      23247 ms        21532 ms\r\n\r\ncompute_combiner(t)                     2804   12.49%\r\ncompute_perturbator(t)                  1522    6.78%\r\n```",
-          "timestamp": "2024-11-04T13:43:50-07:00",
-          "tree_id": "fa3e3024a8e97eeb035328d8964d6358912c2efe",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76328ebe88fd1d9dbb041be8cc1692516ed7d2d2"
-        },
-        "date": 1730754623864,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28490.763504,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27135.315661 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5322.7271650000175,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4954.578381 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83361.85947200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83361861000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15226.426286999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15226427000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2506871906,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2506871906 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 129457965,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 129457965 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 141076910,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141076910 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cc4139a83347b9a726b03bd167bf7e70e6dadda7",
+          "message": "chore: Delete stray todos (#10112)\n\nA few `WORKTODO`s were lingering in the code. This is a tag\r\n@ledwards2225 and I use to mark todos that we intend to delete before a\r\nparticular PR merges. Sometimes they get missed.",
+          "timestamp": "2024-11-21T13:55:48-05:00",
+          "tree_id": "260c50b41d6cfcc43150ad43bd7ef21557b93cf8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc4139a83347b9a726b03bd167bf7e70e6dadda7"
+        },
+        "date": 1732217151017,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28152.36954300002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26239.051099 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5088.158947000011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4760.867148 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84145.571559,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84145572000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15240.000718,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15240001000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3103457078,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3103457078 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141167843,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141167843 ns\nthreads: 1"
           }
         ]
       }
