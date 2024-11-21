@@ -160,7 +160,7 @@
 }
 
 [data-theme="light"] h3, [data-theme="light"] h4, [data-theme="light"] h5, [data-theme="light"] h6 {
- color:  #514167
+ color:  #514167;
 }
 
 ul li::marker {
@@ -325,11 +325,6 @@ html[data-theme="dark"] .sidebar-divider {
   font-weight: bold;
   color: var(--ifm-color-primary);
   font-size: 0.9rem;
-}
-
-.twitter-item {
-  display: flex;
-  align-items: center;
 }
 
 .navbar .dropdown__link::after {
