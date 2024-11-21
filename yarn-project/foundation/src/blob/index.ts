@@ -1,43 +1,24 @@
-import cKzg from 'c-kzg';
-import type { Blob as BlobBuffer } from 'c-kzg';
+import { trustedSetup } from '@paulmillr/trusted-setups/fast.js';
+import { KZG } from 'micro-eth-signer/kzg';
 
 import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
 import { serializeToBuffer } from '../serialize/index.js';
+import { hexToBuffer } from '../string/index.js';
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
-/* eslint-disable import/no-named-as-default-member */
-
-const {
-  BYTES_PER_BLOB,
-  FIELD_ELEMENTS_PER_BLOB,
-  blobToKzgCommitment,
-  computeKzgProof,
-  loadTrustedSetup,
-  verifyKzgProof,
-} = cKzg;
-
-try {
-  loadTrustedSetup();
-} catch (error: any) {
-  if (error.message.includes('trusted setup is already loaded')) {
-    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
-    // and it throws an error if it's already loaded, even though nothing is wrong.
-    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
-  } else {
-    throw new Error(error);
-  }
-}
+const kzg = new KZG(trustedSetup);
 
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
 const VERSIONED_HASH_VERSION_KZG = 0x01;
+export const FIELD_ELEMENTS_PER_BLOB = 4096;
+export const BYTES_PER_BLOB = FIELD_ELEMENTS_PER_BLOB * 32;
 
 /**
  * A class to create, manage, and prove EVM blobs.
  */
 export class Blob {
   /** The blob to be broadcast on L1 in bytes form. */
-  public readonly data: BlobBuffer;
+  public readonly data: Buffer;
   /** The hash of all tx effects inside the blob. Used in generating the challenge z and proving that we have included all required effects. */
   public readonly fieldsHash: Fr;
   /** Challenge point z (= H(H(tx_effects), kzgCommmitment). Used such that p(z) = y. */
@@ -65,14 +46,14 @@ export class Blob {
     this.data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     this.fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : poseidon2Hash(fields);
-    this.commitment = Buffer.from(blobToKzgCommitment(this.data));
+    this.commitment = hexToBuffer(kzg.blobToKzgCommitment(this.data.toString('hex')));
     this.challengeZ = poseidon2Hash([this.fieldsHash, ...this.commitmentToFields()]);
-    const res = computeKzgProof(this.data, this.challengeZ.toBuffer());
-    if (!verifyKzgProof(this.commitment, this.challengeZ.toBuffer(), res[1], res[0])) {
+    const res = kzg.computeProof(this.data.toString('hex'), this.challengeZ.toString());
+    if (!kzg.verifyProof(this.commitment.toString('hex'), this.challengeZ.toString(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
     }
-    this.proof = Buffer.from(res[0]);
-    this.evaluationY = Buffer.from(res[1]);
+    this.proof = hexToBuffer(res[0]);
+    this.evaluationY = hexToBuffer(res[1]);
   }
 
   // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
@@ -131,9 +112,12 @@ export class Blob {
   }
 
   static getViemKzgInstance() {
+    // The Buffer.from() below is required, viem turns the below into Uint8Arrays which causes errors
+    // in the kzg lib, even though the input is defined as Buffer
     return {
-      blobToKzgCommitment: cKzg.blobToKzgCommitment,
-      computeBlobKzgProof: cKzg.computeBlobKzgProof,
+      blobToKzgCommitment: (blob: Buffer) => hexToBuffer(kzg.blobToKzgCommitment(blob.toString('hex'))),
+      computeBlobKzgProof: (blob: Buffer, commitment: Buffer) =>
+        hexToBuffer(kzg.computeBlobProof(blob.toString('hex'), Buffer.from(commitment).toString('hex'))),
     };
   }
 

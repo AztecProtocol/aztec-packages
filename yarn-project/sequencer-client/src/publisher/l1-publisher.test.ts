@@ -168,7 +168,8 @@ describe('L1Publisher', () => {
       account,
       to: rollupContract.address,
       blobs: blobs.map(blob => blob.data),
-      kzg,
+      // Note: since kzg is a nested object, toHaveBeenCalledWith() fails even on identical instances, hence breaking down into .anything()
+      kzg: expect.objectContaining({ blobToKzgCommitment: expect.anything(), computeBlobKzgProof: expect.anything() }),
       maxFeePerBlobGas: 10000000000n,
     });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });

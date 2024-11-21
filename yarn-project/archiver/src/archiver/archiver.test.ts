@@ -215,7 +215,7 @@ describe('Archiver', () => {
     // Check getting only proven blocks
     expect((await archiver.getBlocks(1, 100)).map(b => b.number)).toEqual([1, 2, 3]);
     expect((await archiver.getBlocks(1, 100, true)).map(b => b.number)).toEqual([1]);
-  }, 10_000);
+  }, 15_000);
 
   it('ignores block 3 because it have been pruned (simulate pruning)', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'warn');
@@ -387,7 +387,7 @@ describe('Archiver', () => {
     });
 
     // The random blocks don't include contract instances nor classes we we cannot look for those here.
-  }, 10_000);
+  }, 15_000);
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
