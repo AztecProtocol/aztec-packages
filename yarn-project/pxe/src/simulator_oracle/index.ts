@@ -350,23 +350,29 @@ export class SimulatorOracle implements DBOracle {
     const appTaggingSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
     let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    while (true) {
-      const currentIndexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex);
-      const currentTag = currentIndexedAppTaggingSecret.computeTag(recipient);
+    const WINDOW = 5;
 
-      const [[possibleLog]] = await this.aztecNode.getLogsByTags([currentTag]);
+    let possibleLogs: TxScopedL2Log[][];
 
-      if (possibleLog !== undefined) {
-        currentIndex++;
-      } else {
-        this.log.debug(
-          `Syncing logs for sender ${sender}, secret ${appTaggingSecret}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
-        );
+    do {
+      const currentTags = [...new Array(WINDOW)].map((_, i) => {
+        const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
+        return indexedAppTaggingSecret.computeTag(recipient);
+      });
 
-        await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, currentIndex)]);
-        break;
-      }
-    }
+      possibleLogs = await this.aztecNode.getLogsByTags(currentTags);
+      currentIndex += WINDOW;
+    } while (possibleLogs.every(log => log.length !== 0));
+
+    // We are getting the first empty index, and subtracting it from our WINDOW. So if our first empty index is 1,
+    // and our current index is 5, which means that we went through the loop one time, we take our current index,
+    // and subtract WINDOW - first empty index (= 5-1) from it. This means that new index will be 1.
+    const newIndex = currentIndex - (WINDOW - possibleLogs.findIndex(log => log.length === 0));
+
+    await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, newIndex)]);
+    this.log.debug(
+      `Syncing logs for sender ${sender}, secret ${appTaggingSecret}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
+    );
   }
 
   /**

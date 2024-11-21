@@ -299,8 +299,7 @@ describe('Simulator oracle', () => {
       const indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
       expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
-      // We expect getLogsByTags to be called N + 1 times, where N is the index.
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 * 5 + 3 * 5);
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
     });
 
     it('should sync tagged logs with a sender index offset', async () => {
