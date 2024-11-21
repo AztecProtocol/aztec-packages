@@ -17,12 +17,12 @@ describe('private_function_membership_proof', () => {
   let vkHash: Fr;
   let selector: FunctionSelector;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     artifact = getBenchmarkContractArtifact();
     contractClass = getContractClassFromArtifact(artifact);
     privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.PRIVATE)!;
     vkHash = computeVerificationKeyHash(privateFunction);
-    selector = FunctionSelector.fromNameAndParameters(privateFunction);
+    selector = await FunctionSelector.fromNameAndParameters(privateFunction);
   });
 
   it('computes and verifies a proof', () => {

@@ -1,26 +1,26 @@
 import {
-  type AuthWitness,
-  type AztecNode,
-  CountedLog,
-  CountedNoteLog,
-  CountedPublicExecutionRequest,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
-  Note,
-  NoteAndSlot,
-  type NoteStatus,
-  type PrivateExecutionResult,
-  PublicExecutionRequest,
-  type UnencryptedL2Log,
+    type AuthWitness,
+    type AztecNode,
+    CountedLog,
+    CountedNoteLog,
+    CountedPublicExecutionRequest,
+    EncryptedL2Log,
+    EncryptedL2NoteLog,
+    Note,
+    NoteAndSlot,
+    type NoteStatus,
+    type PrivateExecutionResult,
+    PublicExecutionRequest,
+    type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  CallContext,
-  FunctionSelector,
-  type Header,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PUBLIC_DISPATCH_SELECTOR,
-  PrivateContextInputs,
-  type TxContext,
+    CallContext,
+    FunctionSelector,
+    type Header,
+    PRIVATE_CONTEXT_INPUTS_LENGTH,
+    PUBLIC_DISPATCH_SELECTOR,
+    PrivateContextInputs,
+    type TxContext,
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
@@ -344,7 +344,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // An app providing randomness = 0 signals to not mask the address.
     const maskedContractAddress = randomness.isZero()
       ? contractAddress.toField()
-      : poseidon2HashWithSeparator([contractAddress, randomness], 0);
+      : await poseidon2HashWithSeparator([contractAddress, randomness], 0);
     const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);
   }

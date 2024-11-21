@@ -21,24 +21,24 @@ import { computePrivateFunctionsRoot } from './private_function.js';
  * @param contractClass - Contract class.
  * @returns The identifier.
  */
-export function computeContractClassId(contractClass: ContractClass | ContractClassIdPreimage): Fr {
-  return computeContractClassIdWithPreimage(contractClass).id;
+export async function computeContractClassId(contractClass: ContractClass | ContractClassIdPreimage): Promise<Fr> {
+  return (await computeContractClassIdWithPreimage(contractClass)).id;
 }
 
 /** Computes a contract class id and returns it along with its preimage. */
-export function computeContractClassIdWithPreimage(
+export async function computeContractClassIdWithPreimage(
   contractClass: ContractClass | ContractClassIdPreimage,
-): ContractClassIdPreimage & { id: Fr } {
+): Promise<ContractClassIdPreimage & { id: Fr }> {
   const artifactHash = contractClass.artifactHash;
   const privateFunctionsRoot =
     'privateFunctionsRoot' in contractClass
       ? contractClass.privateFunctionsRoot
-      : computePrivateFunctionsRoot(contractClass.privateFunctions);
+      : await computePrivateFunctionsRoot(contractClass.privateFunctions);
   const publicBytecodeCommitment =
     'publicBytecodeCommitment' in contractClass
       ? contractClass.publicBytecodeCommitment
-      : computePublicBytecodeCommitment(contractClass.packedBytecode);
-  const id = poseidon2HashWithSeparator(
+      : await computePublicBytecodeCommitment(contractClass.packedBytecode);
+  const id = await poseidon2HashWithSeparator(
     [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
     GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
   );
@@ -46,9 +46,9 @@ export function computeContractClassIdWithPreimage(
 }
 
 /** Returns the preimage of a contract class id given a contract class. */
-export function computeContractClassIdPreimage(contractClass: ContractClass): ContractClassIdPreimage {
-  const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
-  const publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
+export async function computeContractClassIdPreimage(contractClass: ContractClass): Promise<ContractClassIdPreimage> {
+  const privateFunctionsRoot = await computePrivateFunctionsRoot(contractClass.privateFunctions);
+  const publicBytecodeCommitment = await computePublicBytecodeCommitment(contractClass.packedBytecode);
   return { artifactHash: contractClass.artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }
 
@@ -59,7 +59,7 @@ export type ContractClassIdPreimage = {
   publicBytecodeCommitment: Fr;
 };
 
-export function computePublicBytecodeCommitment(packedBytecode: Buffer) {
+export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
   // Encode the buffer into field elements (chunked into 32 bytes each)
   const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   // The first element is the length of the bytecode (in bytes)
@@ -69,7 +69,7 @@ export function computePublicBytecodeCommitment(packedBytecode: Buffer) {
   let bytecodeCommitment = new Fr(0);
   for (let i = 0; i < bytecodeLength; i++) {
     // We skip the first element, which is the length of the bytecode
-    bytecodeCommitment = poseidon2Hash([encodedBytecode[i + 1], bytecodeCommitment]);
+    bytecodeCommitment = await poseidon2Hash([encodedBytecode[i + 1], bytecodeCommitment]);
   }
   return bytecodeCommitment;
 }

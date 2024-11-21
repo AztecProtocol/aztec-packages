@@ -111,7 +111,7 @@ export class L1EventPayload {
 }
 
 function ensureMatchedMaskedContractAddress(contractAddress: AztecAddress, randomness: Fr, maskedContractAddress: Fr) {
-  if (!poseidon2HashWithSeparator([contractAddress, randomness], 0).equals(maskedContractAddress)) {
+  if (!await poseidon2HashWithSeparator([contractAddress, randomness], 0).equals(maskedContractAddress)) {
     throw new Error(
       'The provided masked contract address does not match with the incoming address from header and randomness from body',
     );

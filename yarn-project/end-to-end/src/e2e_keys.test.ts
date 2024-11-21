@@ -1,21 +1,21 @@
 import { createAccounts } from '@aztec/accounts/testing';
 import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  Fr,
-  type L2Block,
-  type PXE,
-  type Wallet,
+    type AccountWallet,
+    type AztecAddress,
+    type AztecNode,
+    Fr,
+    type L2Block,
+    type PXE,
+    type Wallet,
 } from '@aztec/aztec.js';
 import {
-  GeneratorIndex,
-  INITIAL_L2_BLOCK_NUM,
-  computeAppNullifierSecretKey,
-  computeAppSecretKey,
-  deriveMasterNullifierSecretKey,
-  deriveMasterOutgoingViewingSecretKey,
-  derivePublicKeyFromSecretKey,
+    GeneratorIndex,
+    INITIAL_L2_BLOCK_NUM,
+    computeAppNullifierSecretKey,
+    computeAppSecretKey,
+    deriveMasterNullifierSecretKey,
+    deriveMasterOutgoingViewingSecretKey,
+    derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
@@ -95,7 +95,7 @@ describe('Keys', () => {
       );
       // 3. Derive all the possible nullifiers using nskApp
       const derivedNullifiers = noteHashes.map(noteHash => {
-        const innerNullifier = poseidon2HashWithSeparator([noteHash, nskApp], GeneratorIndex.NOTE_NULLIFIER);
+        const innerNullifier = await poseidon2HashWithSeparator([noteHash, nskApp], GeneratorIndex.NOTE_NULLIFIER);
         return siloNullifier(contractAddress, innerNullifier);
       });
       // 4. Count the number of derived nullifiers that are in the nullifiers array

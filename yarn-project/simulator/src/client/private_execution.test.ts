@@ -295,7 +295,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // 5 is hardcoded in the test contract
       expect(encryptedLog.randomness).toEqual(new Fr(5));
-      const expectedMaskedAddress = poseidon2HashWithSeparator(
+      const expectedMaskedAddress = await poseidon2HashWithSeparator(
         [result.publicInputs.callContext.contractAddress, new Fr(5)],
         0,
       );
@@ -975,7 +975,7 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2HashWithSeparator(
+      const expectedNullifier = await poseidon2HashWithSeparator(
         [derivedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
@@ -1059,7 +1059,7 @@ describe('Private Execution test suite', () => {
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2HashWithSeparator(
+      const expectedNullifier = await poseidon2HashWithSeparator(
         [derivedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );

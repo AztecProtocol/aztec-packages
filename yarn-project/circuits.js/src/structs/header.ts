@@ -148,8 +148,8 @@ export class Header {
     return Header.fromBuffer(buffer);
   }
 
-  hash(): Fr {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+  async hash(): Promise<Fr> {
+    return await poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 
   [inspect.custom]() {

@@ -62,8 +62,8 @@ export class TxRequest {
     );
   }
 
-  hash() {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.TX_REQUEST);
+  async hash() {
+    return await poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.TX_REQUEST);
   }
 
   static empty() {

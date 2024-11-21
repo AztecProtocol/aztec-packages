@@ -239,7 +239,7 @@ export class KeyStore {
     const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2HashWithSeparator(
+      await poseidon2HashWithSeparator(
         [masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app],
         GeneratorIndex.OVSK_M,
       ),

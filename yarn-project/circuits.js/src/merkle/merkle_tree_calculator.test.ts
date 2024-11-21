@@ -29,11 +29,11 @@ describe('merkle tree root calculator', () => {
     expect(calculator.computeTreeRoot(leaves)).toEqual(expected);
   });
 
-  it('should compute entire tree', () => {
+  it('should compute entire tree', async () => {
     const calculator = new MerkleTreeCalculator(4);
     const leaves = Array.from({ length: 5 }).map((_, i) => new Fr(i).toBuffer());
-    const expectedRoot = calculator.computeTreeRoot(leaves);
-    const result = calculator.computeTree(leaves);
+    const expectedRoot = await calculator.computeTreeRoot(leaves);
+    const result = await calculator.computeTree(leaves);
     expect(result.nodes.length).toEqual(31);
     expect(result.root).toEqual(expectedRoot);
   });

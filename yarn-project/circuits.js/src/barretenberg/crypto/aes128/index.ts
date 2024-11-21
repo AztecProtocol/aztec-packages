@@ -35,7 +35,7 @@ export class Aes128 {
    * @param key - Key to decrypt with.
    * @returns Decrypted data.
    */
-  public decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
+  public async decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
     const api = await BarretenbergSync.getSingleton();
     const paddedBuffer = Buffer.from(
       api.aesDecryptBufferCbc(new RawBuffer(data), new RawBuffer(iv), new RawBuffer(key), data.length),

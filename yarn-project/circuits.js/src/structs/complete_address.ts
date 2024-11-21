@@ -39,32 +39,32 @@ export class CompleteAddress {
     return this.toString();
   }
 
-  static random(): CompleteAddress {
-    return this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
+  static async random(): Promise<CompleteAddress> {
+    return await this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
   }
 
-  static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
-    const { publicKeys } = deriveKeys(secretKey);
-    const address = computeAddress(publicKeys, partialAddress);
+  static async fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
+    const { publicKeys } = await deriveKeys(secretKey);
+    const address = await computeAddress(publicKeys, partialAddress);
 
     return new CompleteAddress(address, publicKeys, partialAddress);
   }
 
-  getPreaddress() {
-    return computePreaddress(this.publicKeys.hash(), this.partialAddress);
+  async getPreaddress() {
+    return computePreaddress(await this.publicKeys.hash(), this.partialAddress);
   }
 
-  static fromSecretKeyAndInstance(
+  static async fromSecretKeyAndInstance(
     secretKey: Fr,
     instance: Parameters<typeof computePartialAddress>[0],
-  ): CompleteAddress {
-    const partialAddress = computePartialAddress(instance);
+  ): Promise<CompleteAddress> {
+    const partialAddress = await computePartialAddress(instance);
     return CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
   }
 
   /** Throws if the address is not correctly derived from the public key and partial address.*/
-  public validate() {
-    const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
+  public async validate() {
+    const expectedAddress = await computeAddress(this.publicKeys, this.partialAddress);
 
     if (!expectedAddress.equals(this.address)) {
       throw new Error(

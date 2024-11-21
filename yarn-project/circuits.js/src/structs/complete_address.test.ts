@@ -5,31 +5,27 @@ import { PublicKeys } from '../types/public_keys.js';
 import { CompleteAddress } from './complete_address.js';
 
 describe('CompleteAddress', () => {
-  it('refuses to add an account with incorrect address for given partial address and pubkey', () => {
-    expect(
-      () =>
-        new CompleteAddress(
-          AztecAddress.random(),
-          new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
-          Fr.random(),
-        ),
-    ).toThrow(/cannot be derived/);
+  it('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
+    const points = await Promise.all([Point.random(), Point.random(), Point.random(), Point.random()]);
+    expect(() => new CompleteAddress(AztecAddress.random(), new PublicKeys(...points), Fr.random())).toThrow(
+      /cannot be derived/,
+    );
   });
 
-  it('equals returns true when 2 instances are equal', () => {
-    const address1 = CompleteAddress.random();
+  it('equals returns true when 2 instances are equal', async () => {
+    const address1 = await CompleteAddress.random();
     const address2 = new CompleteAddress(address1.address, address1.publicKeys, address1.partialAddress);
     expect(address1.equals(address2)).toBe(true);
   });
 
-  it('equals returns true when 2 instances are not equal', () => {
-    const address1 = CompleteAddress.random();
-    const address2 = CompleteAddress.random();
+  it('equals returns true when 2 instances are not equal', async () => {
+    const address1 = await CompleteAddress.random();
+    const address2 = await CompleteAddress.random();
     expect(address1.equals(address2)).toBe(false);
   });
 
-  it('serializes / deserializes correctly', () => {
-    const expectedAddress = CompleteAddress.random();
+  it('serializes / deserializes correctly', async () => {
+    const expectedAddress = await CompleteAddress.random();
     const address = CompleteAddress.fromBuffer(expectedAddress.toBuffer());
     expect(address.equals(expectedAddress)).toBe(true);
   });

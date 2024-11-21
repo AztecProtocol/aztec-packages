@@ -332,10 +332,10 @@ describe('e2e_block_building', () => {
       expect(rct.status).toEqual('success');
       const encryptedLogs = tx.encryptedLogs.unrollLogs();
       expect(encryptedLogs[0].maskedContractAddress).toEqual(
-        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
+        await poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
       );
       expect(encryptedLogs[1].maskedContractAddress).toEqual(
-        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
+        await poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
       );
       // Setting randomness = 0 in app means 'do not mask the address'
       expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());

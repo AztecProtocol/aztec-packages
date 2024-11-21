@@ -81,7 +81,7 @@ export const computeInnerAuthWitHashFromAction = (caller: AztecAddress, action: 
  * @returns The inner hash for the witness
  */
 export const computeInnerAuthWitHash = (args: Fr[]) => {
-  return poseidon2HashWithSeparator(args, GeneratorIndex.AUTHWIT_INNER);
+  return await poseidon2HashWithSeparator(args, GeneratorIndex.AUTHWIT_INNER);
 };
 
 /**
@@ -99,5 +99,5 @@ export const computeInnerAuthWitHash = (args: Fr[]) => {
  * @returns The outer hash for the witness
  */
 const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
-  return poseidon2HashWithSeparator([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
+  return await poseidon2HashWithSeparator([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
 };

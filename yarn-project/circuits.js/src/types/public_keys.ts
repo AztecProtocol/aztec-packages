@@ -7,15 +7,15 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import {
-  DEFAULT_IVPK_M_X,
-  DEFAULT_IVPK_M_Y,
-  DEFAULT_NPK_M_X,
-  DEFAULT_NPK_M_Y,
-  DEFAULT_OVPK_M_X,
-  DEFAULT_OVPK_M_Y,
-  DEFAULT_TPK_M_X,
-  DEFAULT_TPK_M_Y,
-  GeneratorIndex,
+    DEFAULT_IVPK_M_X,
+    DEFAULT_IVPK_M_Y,
+    DEFAULT_NPK_M_X,
+    DEFAULT_NPK_M_Y,
+    DEFAULT_OVPK_M_X,
+    DEFAULT_OVPK_M_Y,
+    DEFAULT_TPK_M_X,
+    DEFAULT_TPK_M_Y,
+    GeneratorIndex,
 } from '../constants.gen.js';
 import { type PublicKey } from './public_key.js';
 
@@ -51,10 +51,10 @@ export class PublicKeys {
     );
   }
 
-  hash() {
+  async hash() {
     return this.isEmpty()
       ? Fr.ZERO
-      : poseidon2HashWithSeparator(
+      : await poseidon2HashWithSeparator(
           [
             this.masterNullifierPublicKey,
             this.masterIncomingViewingPublicKey,
@@ -83,8 +83,8 @@ export class PublicKeys {
     );
   }
 
-  static random(): PublicKeys {
-    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
+  static async random(): Promise<PublicKeys> {
+    return new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random());
   }
 
   /**

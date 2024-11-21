@@ -42,7 +42,7 @@ describe('aes128', () => {
     expect(result).toEqual(expected);
   });
 
-  it('should correctly decrypt input', () => {
+  it('should correctly decrypt input', async () => {
     const data = randomBytes(32);
     const key = randomBytes(16);
     const iv = randomBytes(16);
@@ -57,7 +57,7 @@ describe('aes128', () => {
     decipher.setAutoPadding(false);
     const expected = removePadding(Buffer.concat([decipher.update(ciphertext), decipher.final()]));
 
-    const result: Buffer = aes128.decryptBufferCBC(ciphertext, iv, key);
+    const result: Buffer = await aes128.decryptBufferCBC(ciphertext, iv, key);
 
     expect(result).toEqual(expected);
   });

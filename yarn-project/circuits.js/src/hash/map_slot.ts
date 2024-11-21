@@ -7,12 +7,12 @@ import { type Fr } from '@aztec/foundation/fields';
  * @param key - The key of the map.
  * @returns The slot in the contract storage where the value is stored.
  */
-export function deriveStorageSlotInMap(
+export async function deriveStorageSlotInMap(
   mapSlot: Fr | bigint,
   key: {
     /** Convert key to a field. */
     toField: () => Fr;
   },
-): Fr {
-  return poseidon2Hash([mapSlot, key.toField()]);
+): Promise<Fr> {
+  return await poseidon2Hash([mapSlot, key.toField()]);
 }

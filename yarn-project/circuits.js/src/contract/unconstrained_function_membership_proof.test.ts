@@ -17,11 +17,11 @@ describe('unconstrained_function_membership_proof', () => {
   let vkHash: Fr;
   let selector: FunctionSelector;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     artifact = getTestContractArtifact();
     contractClass = getContractClassFromArtifact(artifact);
     unconstrainedFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
-    selector = FunctionSelector.fromNameAndParameters(unconstrainedFunction);
+    selector = await FunctionSelector.fromNameAndParameters(unconstrainedFunction);
   });
 
   const isUnconstrained = (fn: { functionType: FunctionType }) => fn.functionType === FunctionType.UNCONSTRAINED;
@@ -33,14 +33,14 @@ describe('unconstrained_function_membership_proof', () => {
     expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
-  it('handles a contract with a single function', () => {
+  it('handles a contract with a single function', async () => {
     // Remove all unconstrained functions from the contract but one
     const unconstrainedFns = artifact.functions.filter(isUnconstrained);
     artifact.functions = artifact.functions.filter(fn => !isUnconstrained(fn) || fn === unconstrainedFns[0]);
     expect(artifact.functions.filter(isUnconstrained).length).toBe(1);
 
     const unconstrainedFunction = unconstrainedFns[0];
-    const selector = FunctionSelector.fromNameAndParameters(unconstrainedFunction);
+    const selector = await FunctionSelector.fromNameAndParameters(unconstrainedFunction);
 
     const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
     expect(proof.artifactTreeSiblingPath.length).toBe(0);

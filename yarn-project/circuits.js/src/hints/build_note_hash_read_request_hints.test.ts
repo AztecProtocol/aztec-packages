@@ -21,7 +21,7 @@ import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hi
 describe('buildNoteHashReadRequestHints', () => {
   const contractAddress = AztecAddress.random();
   const settledNoteHashInnerValues = [111, 222, 333];
-  const settledNoteHashes = settledNoteHashInnerValues.map(noteHash => siloNoteHash(contractAddress, new Fr(noteHash)));
+  let settledNoteHashes: Fr[];
   const settledLeafIndexes = [1010n, 2020n, 3030n];
   const oracle = {
     getNoteHashMembershipWitness: (leafIndex: bigint) =>
@@ -83,10 +83,13 @@ describe('buildNoteHashReadRequestHints', () => {
       futureNoteHashes,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, i => makeNoteHash(getNoteHashValue(i)));
     noteHashLeafIndexMap = new Map();
+    settledNoteHashes = await Promise.all(
+      settledNoteHashInnerValues.map(noteHash => siloNoteHash(contractAddress, new Fr(noteHash))),
+    );
     expectedHints = NoteHashReadRequestHintsBuilder.empty(
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,

@@ -101,7 +101,7 @@ export abstract class EntrypointPayload {
    * @returns The hash of the payload
    */
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), this.#generatorIndex);
+    return await poseidon2HashWithSeparator(this.toFields(), this.#generatorIndex);
   }
 
   /** Serializes the function calls to an array of fields. */
@@ -188,5 +188,5 @@ class FeeEntrypointPayload extends EntrypointPayload {
  * @returns A hash of a combined payload.
  */
 export function computeCombinedPayloadHash(appPayload: AppEntrypointPayload, feePayload: FeeEntrypointPayload): Fr {
-  return poseidon2HashWithSeparator([appPayload.hash(), feePayload.hash()], GeneratorIndex.COMBINED_PAYLOAD);
+  return await poseidon2HashWithSeparator([appPayload.hash(), feePayload.hash()], GeneratorIndex.COMBINED_PAYLOAD);
 }

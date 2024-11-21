@@ -41,7 +41,7 @@ export function derivePoseidonAESSecret(ovskApp: GrumpkinScalar, ephPk: PublicKe
   // For performance reasons, we do NOT use the usual `deriveAESSecret` function here and instead we compute it using
   // poseidon. Note that we can afford to use poseidon here instead of deriving shared secret using Diffie-Hellman
   // because for outgoing we are encrypting for ourselves and hence we don't need to perform a key exchange.
-  return poseidon2HashWithSeparator(
+  return await poseidon2HashWithSeparator(
     [ovskApp.hi, ovskApp.lo, ephPk.x, ephPk.y],
     GeneratorIndex.SYMMETRIC_KEY,
   ).toBuffer();

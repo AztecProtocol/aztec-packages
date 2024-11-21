@@ -15,17 +15,20 @@ const cmpFunctionArtifacts = <T extends { selector: FunctionSelector }>(a: T, b:
   a.selector.toField().cmp(b.selector.toField());
 
 /** Creates a ContractClass from a contract compilation artifact. */
-export function getContractClassFromArtifact(
+export async function getContractClassFromArtifact(
   artifact: ContractArtifact | ContractArtifactWithHash,
-): ContractClassWithId & ContractClassIdPreimage {
-  const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : computeArtifactHash(artifact);
-  const artifactPublicFunctions: ContractClass['publicFunctions'] = artifact.functions
-    .filter(f => f.functionType === FunctionType.PUBLIC)
-    .map(f => ({
-      selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-      bytecode: f.bytecode,
-    }))
-    .sort(cmpFunctionArtifacts);
+): Promise<ContractClassWithId & ContractClassIdPreimage> {
+  const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : await computeArtifactHash(artifact);
+  const artifactPublicFunctions: ContractClass['publicFunctions'] = (
+    await Promise.all(
+      artifact.functions
+        .filter(f => f.functionType === FunctionType.PUBLIC)
+        .map(async f => ({
+          selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+          bytecode: f.bytecode,
+        })),
+    )
+  ).sort(cmpFunctionArtifacts);
 
   let packedBytecode = Buffer.alloc(0);
   let dispatchFunction: PublicFunction | undefined = undefined;
@@ -41,10 +44,13 @@ export function getContractClassFromArtifact(
     packedBytecode = dispatchFunction.bytecode;
   }
 
-  const privateFunctions: ContractClass['privateFunctions'] = artifact.functions
-    .filter(f => f.functionType === FunctionType.PRIVATE)
-    .map(getContractClassPrivateFunctionFromArtifact)
-    .sort(cmpFunctionArtifacts);
+  const privateFunctions: ContractClass['privateFunctions'] = (
+    await Promise.all(
+      artifact.functions
+        .filter(f => f.functionType === FunctionType.PRIVATE)
+        .map(getContractClassPrivateFunctionFromArtifact),
+    )
+  ).sort(cmpFunctionArtifacts);
 
   const contractClass: ContractClass = {
     version: 1,
@@ -54,24 +60,24 @@ export function getContractClassFromArtifact(
     packedBytecode,
     privateFunctions,
   };
-  return { ...contractClass, ...computeContractClassIdWithPreimage(contractClass) };
+  return { ...contractClass, ...(await computeContractClassIdWithPreimage(contractClass)) };
 }
 
-export function getContractClassPrivateFunctionFromArtifact(
+export async function getContractClassPrivateFunctionFromArtifact(
   f: FunctionArtifact,
-): ContractClass['privateFunctions'][number] {
+): Promise<ContractClass['privateFunctions'][number]> {
   return {
-    selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-    vkHash: computeVerificationKeyHash(f),
+    selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+    vkHash: await computeVerificationKeyHash(f),
   };
 }
 
 /**
  * For a given private function, computes the hash of its vk.
  */
-export function computeVerificationKeyHash(f: FunctionArtifact) {
+export async function computeVerificationKeyHash(f: FunctionArtifact) {
   if (!f.verificationKey) {
     throw new Error(`Private function ${f.name} must have a verification key`);
   }
-  return hashVK(vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
+  return await hashVK(await vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
 }
