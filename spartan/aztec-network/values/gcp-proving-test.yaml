@@ -45,9 +45,6 @@ proverAgent:
   realProofs: true
   bb:
     hardwareConcurrency: 31
-  nodeSelector:
-    cloud.google.com/compute-class: "Performance"
-    cloud.google.com/machine-family: "t2d"
   resources:
     requests:
       memory: "116Gi"
