@@ -89,8 +89,11 @@ namespace bb {
 
                 if (poly.is_empty()) {
                     // Not set above
-                    poly = Polynomial{ /*memory size*/ col_size, /*largest possible index*/ circuit_subgroup_size };
-                }
+                        poly = Polynomial{ /*memory size*/ col_size,
+                                                  /*largest possible index as virtual size*/ circuit_subgroup_size,
+                                                  /*start_index=*/0,
+                                                  /*disable parallel initialization=*/true
+                               };                }
             });
         }));
 
