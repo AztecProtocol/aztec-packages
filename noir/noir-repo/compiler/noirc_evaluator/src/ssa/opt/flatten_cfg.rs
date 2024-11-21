@@ -819,8 +819,8 @@ impl<'f> Context<'f> {
                     }
                     Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::MultiScalarMul)) => {
                         let points_array_idx = if matches!(
-                            self.inserter.function.dfg[arguments[0]],
-                            Value::Array { .. }
+                            self.inserter.function.dfg.type_of_value(arguments[0]),
+                            Type::Array { .. }
                         ) {
                             0
                         } else {
@@ -828,15 +828,15 @@ impl<'f> Context<'f> {
                             // which means the array is the second argument
                             1
                         };
-                        let (array_with_predicate, array_typ) = self
-                            .apply_predicate_to_msm_argument(
-                                arguments[points_array_idx],
-                                condition,
-                                call_stack.clone(),
-                            );
+                        let (elements, typ) = self.apply_predicate_to_msm_argument(
+                            arguments[points_array_idx],
+                            condition,
+                            call_stack.clone(),
+                        );
 
-                        arguments[points_array_idx] =
-                            self.inserter.function.dfg.make_array(array_with_predicate, array_typ);
+                        let instruction = Instruction::MakeArray { elements, typ };
+                        let array = self.insert_instruction(instruction, call_stack);
+                        arguments[points_array_idx] = array;
                         Instruction::Call { func, arguments }
                     }
                     _ => Instruction::Call { func, arguments },
@@ -859,7 +859,7 @@ impl<'f> Context<'f> {
     ) -> (im::Vector<ValueId>, Type) {
         let array_typ;
         let mut array_with_predicate = im::Vector::new();
-        if let Value::Array { array, typ } = &self.inserter.function.dfg[argument] {
+        if let Some((array, typ)) = &self.inserter.function.dfg.get_array_constant(argument) {
             array_typ = typ.clone();
             for (i, value) in array.clone().iter().enumerate() {
                 if i % 3 == 2 {
@@ -1213,56 +1213,41 @@ mod test {
         //     };
         // }
         //
-        // // Translates to the following before the flattening pass:
-        // fn main f2 {
-        //   b0(v0: u1):
-        //     jmpif v0 then: b1, else: b2
-        //   b1():
-        //     v2 = allocate
-        //     store Field 0 at v2
-        //     v4 = load v2
-        //     jmp b2()
-        //   b2():
-        //     return
-        // }
+        // Translates to the following before the flattening pass:
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: u1):
+            jmpif v0 then: b1, else: b2
+          b1():
+            v1 = allocate -> &mut Field
+            store Field 0 at v1
+            v3 = load v1 -> Field
+            jmp b2()
+          b2():
+            return
+        }";
         // The bug is that the flattening pass previously inserted a load
         // before the first store to allocate, which loaded an uninitialized value.
         // In this test we assert the ordering is strictly Allocate then Store then Load.
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        let v2 = builder.insert_allocate(Type::field());
-        let zero = builder.field_constant(0u128);
-        builder.insert_store(v2, zero);
-        let _v4 = builder.insert_load(v2, Type::field());
-        builder.terminate_with_jmp(b2, vec![]);
-
-        builder.switch_to_block(b2);
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish().flatten_cfg();
-        let main = ssa.main();
+        let ssa = Ssa::from_str(src).unwrap();
+        let flattened_ssa = ssa.flatten_cfg();
 
         // Now assert that there is not a load between the allocate and its first store
         // The Expected IR is:
-        //
-        // fn main f2 {
-        //   b0(v0: u1):
-        //     enable_side_effects v0
-        //     v6 = allocate
-        //     store Field 0 at v6
-        //     v7 = load v6
-        //     v8 = not v0
-        //     enable_side_effects u1 1
-        //     return
-        // }
+        let expected = "
+        acir(inline) fn main f0 {
+          b0(v0: u1):
+            enable_side_effects v0
+            v1 = allocate -> &mut Field
+            store Field 0 at v1
+            v3 = load v1 -> Field
+            v4 = not v0
+            enable_side_effects u1 1
+            return
+        }
+        ";
+
+        let main = flattened_ssa.main();
         let instructions = main.dfg[main.entry_block()].instructions();
 
         let find_instruction = |predicate: fn(&Instruction) -> bool| {
@@ -1275,6 +1260,8 @@ mod test {
 
         assert!(allocate_index < store_index);
         assert!(store_index < load_index);
+
+        assert_normalized_ssa_equals(flattened_ssa, expected);
     }
 
     /// Work backwards from an instruction to find all the constant values
@@ -1370,29 +1357,22 @@ mod test {
         //   }
         let main_id = Id::test_new(1);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
-
         builder.insert_block(); // b0
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
         let b3 = builder.insert_block();
-
         let element_type = Arc::new(vec![Type::unsigned(8)]);
         let array_type = Type::Array(element_type.clone(), 2);
         let array = builder.add_parameter(array_type);
-
         let zero = builder.numeric_constant(0_u128, Type::unsigned(8));
-
         let v5 = builder.insert_array_get(array, zero, Type::unsigned(8));
         let v6 = builder.insert_cast(v5, Type::unsigned(32));
         let i_two = builder.numeric_constant(2_u128, Type::unsigned(32));
         let v8 = builder.insert_binary(v6, BinaryOp::Mod, i_two);
         let v9 = builder.insert_cast(v8, Type::bool());
-
         let v10 = builder.insert_allocate(Type::field());
         builder.insert_store(v10, zero);
-
         builder.terminate_with_jmpif(v9, b1, b2);
-
         builder.switch_to_block(b1);
         let one = builder.field_constant(1_u128);
         let v5b = builder.insert_cast(v5, Type::field());
@@ -1400,21 +1380,17 @@ mod test {
         let v14 = builder.insert_cast(v13, Type::unsigned(8));
         builder.insert_store(v10, v14);
         builder.terminate_with_jmp(b3, vec![]);
-
         builder.switch_to_block(b2);
         builder.insert_store(v10, zero);
         builder.terminate_with_jmp(b3, vec![]);
-
         builder.switch_to_block(b3);
         let v_true = builder.numeric_constant(true, Type::bool());
         let v12 = builder.insert_binary(v9, BinaryOp::Eq, v_true);
         builder.insert_constrain(v12, v_true, None);
         builder.terminate_with_return(vec![]);
-
         let ssa = builder.finish();
         let flattened_ssa = ssa.flatten_cfg();
         let main = flattened_ssa.main();
-
         // Now assert that there is not an always-false constraint after flattening:
         let mut constrain_count = 0;
         for instruction in main.dfg[main.entry_block()].instructions() {
