@@ -1,5 +1,6 @@
 import {
   type AztecNode,
+  type InBlock,
   L1NotePayload,
   type L2Block,
   type L2BlockNumber,
@@ -441,7 +442,12 @@ export class SimulatorOracle implements DBOracle {
 
       result.set(
         recipient.toString(),
-        logs.filter(log => log.blockNumber <= maxBlockNumber),
+        // Remove logs with a block number higher than the max block number
+        // Duplicates are likely to happen due to the sliding window, so we also filter them out
+        logs.filter(
+          (log, index, self) =>
+            log.blockNumber <= maxBlockNumber && index === self.findIndex(otherLog => otherLog.equals(log)),
+        ),
       );
     }
     return result;
@@ -469,7 +475,7 @@ export class SimulatorOracle implements DBOracle {
     const incomingNotes: IncomingNoteDao[] = [];
     const outgoingNotes: OutgoingNoteDao[] = [];
 
-    const txEffectsCache = new Map<string, TxEffect | undefined>();
+    const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
       const incomingNotePayload = L1NotePayload.decryptAsIncoming(
@@ -513,8 +519,10 @@ export class SimulatorOracle implements DBOracle {
           incomingNotePayload ? computePoint(recipient) : undefined,
           outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
           payload!,
-          txEffect.txHash,
-          txEffect.noteHashes,
+          txEffect.data.txHash,
+          txEffect.l2BlockNumber,
+          txEffect.l2BlockHash,
+          txEffect.data.noteHashes,
           scopedLog.dataStartIndexForTx,
           excludedIndices.get(scopedLog.txHash.toString())!,
           this.log,
@@ -557,15 +565,17 @@ export class SimulatorOracle implements DBOracle {
     }
     const nullifiedNotes: IncomingNoteDao[] = [];
     const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
-    const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
-      'latest',
-      MerkleTreeId.NULLIFIER_TREE,
-      currentNotesForRecipient.map(note => note.siloedNullifier),
-    );
+    const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
+    const currentBlockNumber = await this.getBlockNumber();
+    const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock(currentBlockNumber, nullifiersToCheck);
 
-    const foundNullifiers = currentNotesForRecipient
-      .filter((_, i) => nullifierIndexes[i] !== undefined)
-      .map(note => note.siloedNullifier);
+    const foundNullifiers = nullifiersToCheck
+      .map((nullifier, i) => {
+        if (nullifierIndexes[i] !== undefined) {
+          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+        }
+      })
+      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
     await this.db.removeNullifiedNotes(foundNullifiers, computePoint(recipient));
     nullifiedNotes.forEach(noteDao => {

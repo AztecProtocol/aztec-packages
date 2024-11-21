@@ -5,7 +5,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
+import { getConfig, isK8sConfig, startPortForward } from './utils.js';
 
 const config = getConfig(process.env);
 

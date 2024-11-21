@@ -48,7 +48,7 @@ describe('Logs', () => {
 
       const txEffect = await node.getTxEffect(tx.txHash);
 
-      const encryptedLogs = txEffect!.encryptedLogs.unrollLogs();
+      const encryptedLogs = txEffect!.data.encryptedLogs.unrollLogs();
       expect(encryptedLogs.length).toBe(3);
 
       const decryptedEvent0 = L1EventPayload.decryptAsIncoming(encryptedLogs[0], wallets[0].getEncryptionSecret())!;
