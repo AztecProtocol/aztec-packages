@@ -275,7 +275,7 @@ jobs:
         with:
           concurrency_key: publish-npm
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      
+
       - name: Publish bb.js NPM package
         run: |
           DEPLOY_TAG=${{ env.DEPLOY_TAG }}
@@ -335,10 +335,10 @@ jobs:
         working-directory: ./aztec-up/terraform
         run: |
           terraform init
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            TAG=master
-          else
+          if [ -n "${{ env.DEPLOY_TAG }}" ]; then
             TAG=${{ env.DEPLOY_TAG }}
+          else
+            TAG=${{ github.ref_name }}
           fi
           export TF_VAR_VERSION=${TAG#aztec-packages-v}
           terraform apply -auto-approve
