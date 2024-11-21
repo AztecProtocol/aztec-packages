@@ -5,7 +5,7 @@ import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
  * Grumpkin elliptic curve operations.
  */
 export class Grumpkin {
-  private wasm = BarretenbergSync.getSingleton().getWasm();
+  private wasm = BarretenbergSync.getSingleton().then(api => api.getWasm());
 
   // prettier-ignore
   static generator = Point.fromBuffer(Buffer.from([
@@ -29,11 +29,12 @@ export class Grumpkin {
    * @param scalar - Scalar to multiply by.
    * @returns Result of the multiplication.
    */
-  public mul(point: Point, scalar: GrumpkinScalar): Point {
-    this.wasm.writeMemory(0, point.toBuffer());
-    this.wasm.writeMemory(64, scalar.toBuffer());
-    this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
-    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(96, 160)));
+  public async mul(point: Point, scalar: GrumpkinScalar): Promise<Point> {
+    const wasm = await this.wasm;
+    wasm.writeMemory(0, point.toBuffer());
+    wasm.writeMemory(64, scalar.toBuffer());
+    wasm.call('ecc_grumpkin__mul', 0, 64, 96);
+    return Point.fromBuffer(Buffer.from(wasm.getMemorySlice(96, 160)));
   }
 
   /**
@@ -42,11 +43,12 @@ export class Grumpkin {
    * @param b - Point b to add to a
    * @returns Result of the addition.
    */
-  public add(a: Point, b: Point): Point {
-    this.wasm.writeMemory(0, a.toBuffer());
-    this.wasm.writeMemory(64, b.toBuffer());
-    this.wasm.call('ecc_grumpkin__add', 0, 64, 128);
-    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(128, 192)));
+  public async add(a: Point, b: Point): Promise<Point> {
+    const wasm = await this.wasm;
+    wasm.writeMemory(0, a.toBuffer());
+    wasm.writeMemory(64, b.toBuffer());
+    wasm.call('ecc_grumpkin__add', 0, 64, 128);
+    return Point.fromBuffer(Buffer.from(wasm.getMemorySlice(128, 192)));
   }
 
   /**
@@ -55,20 +57,21 @@ export class Grumpkin {
    * @param scalar - Scalar to multiply by.
    * @returns Points multiplied by the scalar.
    */
-  public batchMul(points: Point[], scalar: GrumpkinScalar) {
+  public async batchMul(points: Point[], scalar: GrumpkinScalar) {
+    const wasm = await this.wasm;
     const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
-    const mem = this.wasm.call('bbmalloc', pointsByteLength * 2);
+    const mem = wasm.call('bbmalloc', pointsByteLength * 2);
 
-    this.wasm.writeMemory(mem, concatenatedPoints);
-    this.wasm.writeMemory(0, scalar.toBuffer());
-    this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + pointsByteLength);
+    wasm.writeMemory(mem, concatenatedPoints);
+    wasm.writeMemory(0, scalar.toBuffer());
+    wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + pointsByteLength);
 
     const result: Buffer = Buffer.from(
-      this.wasm.getMemorySlice(mem + pointsByteLength, mem + pointsByteLength + pointsByteLength),
+      wasm.getMemorySlice(mem + pointsByteLength, mem + pointsByteLength + pointsByteLength),
     );
-    this.wasm.call('bbfree', mem);
+    wasm.call('bbfree', mem);
 
     const parsedResult: Point[] = [];
     for (let i = 0; i < pointsByteLength; i += 64) {
@@ -81,9 +84,10 @@ export class Grumpkin {
    * Gets a random field element.
    * @returns Random field element.
    */
-  public getRandomFr(): Fr {
-    this.wasm.call('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', 0);
-    return Fr.fromBuffer(Buffer.from(this.wasm.getMemorySlice(0, 32)));
+  public async getRandomFr(): Promise<Fr> {
+    const wasm = await this.wasm;
+    wasm.call('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', 0);
+    return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(0, 32)));
   }
 
   /**
@@ -91,9 +95,10 @@ export class Grumpkin {
    * @param uint512Buf - The buffer to convert.
    * @returns Buffer representation of the field element.
    */
-  public reduce512BufferToFr(uint512Buf: Buffer): Fr {
-    this.wasm.writeMemory(0, uint512Buf);
-    this.wasm.call('ecc_grumpkin__reduce512_buffer_mod_circuit_modulus', 0, 64);
-    return Fr.fromBuffer(Buffer.from(this.wasm.getMemorySlice(64, 96)));
+  public async reduce512BufferToFr(uint512Buf: Buffer): Promise<Fr> {
+    const wasm = await this.wasm;
+    wasm.writeMemory(0, uint512Buf);
+    wasm.call('ecc_grumpkin__reduce512_buffer_mod_circuit_modulus', 0, 64);
+    return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(64, 96)));
   }
 }

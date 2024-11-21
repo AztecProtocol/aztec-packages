@@ -4,7 +4,7 @@ import { BarretenbergSync } from '@aztec/bb.js';
  * Secp256k1 elliptic curve operations.
  */
 export class Secp256k1 {
-  private wasm = BarretenbergSync.getSingleton().getWasm();
+  private wasm = BarretenbergSync.getSingleton().then(api => api.getWasm());
 
   // prettier-ignore
   static generator = Buffer.from([
@@ -28,20 +28,22 @@ export class Secp256k1 {
    * @param scalar - Scalar to multiply by.
    * @returns Result of the multiplication.
    */
-  public mul(point: Uint8Array, scalar: Uint8Array) {
-    this.wasm.writeMemory(0, point);
-    this.wasm.writeMemory(64, scalar);
-    this.wasm.call('ecc_secp256k1__mul', 0, 64, 96);
-    return Buffer.from(this.wasm.getMemorySlice(96, 160));
+  public async mul(point: Uint8Array, scalar: Uint8Array) {
+    const wasm = await this.wasm;
+    wasm.writeMemory(0, point);
+    wasm.writeMemory(64, scalar);
+    wasm.call('ecc_secp256k1__mul', 0, 64, 96);
+    return Buffer.from(wasm.getMemorySlice(96, 160));
   }
 
   /**
    * Gets a random field element.
    * @returns Random field element.
    */
-  public getRandomFr() {
-    this.wasm.call('ecc_secp256k1__get_random_scalar_mod_circuit_modulus', 0);
-    return Buffer.from(this.wasm.getMemorySlice(0, 32));
+  public async getRandomFr() {
+    const wasm = await this.wasm;
+    wasm.call('ecc_secp256k1__get_random_scalar_mod_circuit_modulus', 0);
+    return Buffer.from(wasm.getMemorySlice(0, 32));
   }
 
   /**
@@ -49,9 +51,10 @@ export class Secp256k1 {
    * @param uint512Buf - The buffer to convert.
    * @returns Buffer representation of the field element.
    */
-  public reduce512BufferToFr(uint512Buf: Buffer) {
-    this.wasm.writeMemory(0, uint512Buf);
-    this.wasm.call('ecc_secp256k1__reduce512_buffer_mod_circuit_modulus', 0, 64);
-    return Buffer.from(this.wasm.getMemorySlice(64, 96));
+  public async reduce512BufferToFr(uint512Buf: Buffer) {
+    const wasm = await this.wasm;
+    wasm.writeMemory(0, uint512Buf);
+    wasm.call('ecc_secp256k1__reduce512_buffer_mod_circuit_modulus', 0, 64);
+    return Buffer.from(wasm.getMemorySlice(64, 96));
   }
 }

@@ -7,12 +7,13 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
  * Create a pedersen commitment (point) from an array of input fields.
  * Left pads any inputs less than 32 bytes.
  */
-export function pedersenCommit(input: Buffer[], offset = 0) {
+export async function pedersenCommit(input: Buffer[], offset = 0) {
   if (!input.every(i => i.length <= 32)) {
     throw new Error('All Pedersen Commit input buffers must be <= 32 bytes.');
   }
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
-  const point = BarretenbergSync.getSingleton().pedersenCommit(
+  const api = await BarretenbergSync.getSingleton();
+  const point = api.pedersenCommit(
     input.map(i => new FrBarretenberg(i)),
     offset,
   );
@@ -27,11 +28,12 @@ export function pedersenCommit(input: Buffer[], offset = 0) {
  * @param index - The separator index to use for the hash.
  * @returns The pedersen hash.
  */
-export function pedersenHash(input: Fieldable[], index = 0): Fr {
+export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
   const inputFields = serializeToFields(input);
+  const api = await BarretenbergSync.getSingleton();
   return Fr.fromBuffer(
     Buffer.from(
-      BarretenbergSync.getSingleton()
+     api
         .pedersenHash(
           inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
           index,
@@ -44,6 +46,7 @@ export function pedersenHash(input: Fieldable[], index = 0): Fr {
 /**
  * Create a pedersen hash from an arbitrary length buffer.
  */
-export function pedersenHashBuffer(input: Buffer, index = 0) {
-  return Buffer.from(BarretenbergSync.getSingleton().pedersenHashBuffer(input, index).toBuffer());
+export async function pedersenHashBuffer(input: Buffer, index = 0) {
+  const api = await BarretenbergSync.getSingleton();
+  return Buffer.from(api.pedersenHashBuffer(input, index).toBuffer());
 }

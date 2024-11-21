@@ -285,8 +285,9 @@ export class Fr extends BaseField {
    * Computes a square root of the field element.
    * @returns A square root of the field element (null if it does not exist).
    */
-  sqrt(): Fr | null {
-    const wasm = BarretenbergSync.getSingleton().getWasm();
+  async sqrt(): Promise<Fr | null> {
+    const api = await BarretenbergSync.getSingleton();
+    const wasm = api.getWasm();
     wasm.writeMemory(0, this.toBuffer());
     wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
     const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));

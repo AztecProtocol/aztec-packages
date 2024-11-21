@@ -111,7 +111,7 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return barretenbergSyncSingletonPromise;
   }
 
-  static getSingleton() {
+  static async getSingleton() {
     if (!barretenbergSyncSingleton) {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
