@@ -3,10 +3,9 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import { join } from 'path';
 
+import { type DataStoreConfig } from './config.js';
 import { type AztecKVStore } from './interfaces/store.js';
 import { AztecLmdbStore } from './lmdb/store.js';
-
-export type DataStoreConfig = { dataDirectory: string | undefined; l1Contracts: { rollupAddress: EthAddress } };
 
 export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
   let { dataDirectory } = config;
@@ -16,10 +15,14 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
 
   log.info(
     dataDirectory
-      ? `Creating ${name} data store at directory ${dataDirectory}`
-      : `Creating ${name} ephemeral data store`,
+      ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
+      : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
-  return initStoreForRollup(AztecLmdbStore.open(dataDirectory, false), config.l1Contracts.rollupAddress, log);
+  return initStoreForRollup(
+    AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false),
+    config.l1Contracts.rollupAddress,
+    log,
+  );
 }
 
 /**
@@ -59,6 +62,7 @@ async function initStoreForRollup<T extends AztecKVStore>(
  * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional
  * @returns A new store
  */
-export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
-  return AztecLmdbStore.open(undefined, ephemeral);
+export function openTmpStore(ephemeral: boolean = false): AztecLmdbStore {
+  const mapSize = 1024 * 1024 * 10; // 10 GB map size
+  return AztecLmdbStore.open(undefined, mapSize, ephemeral);
 }

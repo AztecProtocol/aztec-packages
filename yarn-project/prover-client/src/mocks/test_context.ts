@@ -13,11 +13,8 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
-  type PublicExecutionResult,
-  PublicExecutionResultBuilder,
-  type PublicExecutor,
   PublicProcessor,
-  RealPublicKernelCircuitSimulator,
+  PublicTxSimulator,
   type SimulationProvider,
   WASMSimulator,
   type WorldStateDB,
@@ -26,10 +23,12 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
+import { jest } from '@jest/globals';
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
+import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
@@ -38,7 +37,7 @@ import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixt
 
 export class TestContext {
   constructor(
-    public publicExecutor: MockProxy<PublicExecutor>,
+    public publicTxSimulator: PublicTxSimulator,
     public worldStateDB: MockProxy<WorldStateDB>,
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
@@ -67,9 +66,7 @@ export class TestContext {
     const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
-    const publicExecutor = mock<PublicExecutor>();
     const worldStateDB = mock<WorldStateDB>();
-    const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
     // Separated dbs for public processor and prover - see public_processor for context
@@ -86,13 +83,13 @@ export class TestContext {
       proverDb = await ws.getLatest();
     }
 
-    const processor = PublicProcessor.create(
+    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, telemetry, globalVariables);
+    const processor = new PublicProcessor(
       publicDb,
-      publicExecutor,
-      publicKernel,
       globalVariables,
       Header.empty(),
       worldStateDB,
+      publicTxSimulator,
       telemetry,
     );
 
@@ -127,7 +124,7 @@ export class TestContext {
     agent.start(queue);
 
     return new this(
-      publicExecutor,
+      publicTxSimulator,
       worldStateDB,
       processor,
       simulationProvider,
@@ -157,25 +154,24 @@ export class TestContext {
   ) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
-      execution: PublicExecutionRequest,
-      _globalVariables: GlobalVariables,
+      executionRequest: PublicExecutionRequest,
       allocatedGas: Gas,
-      _transactionFee?: Fr,
+      _transactionFee: Fr,
+      _fnName: string,
     ) => {
       for (const tx of txs) {
         const allCalls = tx.publicTeardownFunctionCall.isEmpty()
           ? tx.enqueuedPublicFunctionCalls
           : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
         for (const request of allCalls) {
-          if (execution.callContext.equals(request.callContext)) {
-            const result = PublicExecutionResultBuilder.empty().build({
-              endGasLeft: allocatedGas,
-            });
-            return Promise.resolve(result);
+          if (executionRequest.callContext.equals(request.callContext)) {
+            return Promise.resolve(
+              new AvmFinalizedCallResult(/*reverted=*/ false, /*output=*/ [], /*gasLeft=*/ allocatedGas),
+            );
           }
         }
       }
-      throw new Error(`Unexpected execution request: ${execution}`);
+      throw new Error(`Unexpected execution request: ${executionRequest}`);
     };
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
@@ -186,21 +182,36 @@ export class TestContext {
     );
   }
 
-  public async processPublicFunctionsWithMockExecutorImplementation(
+  private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
     txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
-      execution: PublicExecutionRequest,
-      globalVariables: GlobalVariables,
+      executionRequest: PublicExecutionRequest,
       allocatedGas: Gas,
-      transactionFee?: Fr,
-    ) => Promise<PublicExecutionResult>,
+      transactionFee: Fr,
+      fnName: string,
+    ) => Promise<AvmFinalizedCallResult>,
   ) {
+    // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
+    const simulateInternal: jest.SpiedFunction<
+      (
+        stateManager: AvmPersistableStateManager,
+        executionResult: any,
+        allocatedGas: Gas,
+        transactionFee: any,
+        fnName: any,
+      ) => Promise<AvmFinalizedCallResult>
+    > = jest.spyOn(
+      this.publicTxSimulator as unknown as {
+        simulateEnqueuedCallInternal: PublicTxSimulator['simulateEnqueuedCallInternal'];
+      },
+      'simulateEnqueuedCallInternal',
+    );
     if (executorMock) {
-      this.publicExecutor.simulate.mockImplementation(executorMock);
+      simulateInternal.mockImplementation(executorMock);
     }
     return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
   }

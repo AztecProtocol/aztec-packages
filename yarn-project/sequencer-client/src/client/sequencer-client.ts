@@ -2,7 +2,7 @@ import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchroniz
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type P2P } from '@aztec/p2p';
-import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
@@ -40,13 +40,12 @@ export class SequencerClient {
     contractDataSource: ContractDataSource,
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
-    simulationProvider: SimulationProvider,
     telemetryClient: TelemetryClient,
   ) {
     const publisher = new L1Publisher(config, telemetryClient);
     const globalsBuilder = new GlobalVariableBuilder(config);
 
-    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, simulationProvider, telemetryClient);
+    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, telemetryClient);
 
     const rollup = publisher.getRollupContract();
     const [l1GenesisTime, slotDuration] = await Promise.all([

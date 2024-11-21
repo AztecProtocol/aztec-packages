@@ -36,7 +36,7 @@ class MegaFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = CircuitBuilder::Arithmetization::TraceBlocks;
+    using TraceBlocks = MegaExecutionTraceBlocks;
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
@@ -581,11 +581,12 @@ class MegaFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             set_metadata(proving_key);
-            if (proving_key.commitment_key == nullptr) {
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            auto& ck = proving_key.commitment_key;
+            if (!ck || ck->srs->get_monomial_size() < proving_key.circuit_size) {
+                ck = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = ck->commit(polynomial);
             }
         }
 
@@ -625,7 +626,7 @@ class MegaFlavor {
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,

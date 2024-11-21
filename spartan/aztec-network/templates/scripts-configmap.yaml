@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-scripts
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  setup-service-addresses.sh: |
+    {{ .Files.Get "files/config/setup-service-addresses.sh" | nindent 4 }}
+  setup-p2p-addresses.sh: |
+    {{ .Files.Get "files/config/setup-p2p-addresses.sh" | nindent 4 }}
+  configure-validator-env.sh: |
+    {{ .Files.Get "files/config/config-validator-env.sh" | nindent 4 }}
+  configure-prover-env.sh: |
+    {{ .Files.Get "files/config/config-prover-env.sh" | nindent 4 }}
+  deploy-l1-contracts.sh: |
+    {{ .Files.Get "files/config/deploy-l1-contracts.sh" | nindent 4 }}

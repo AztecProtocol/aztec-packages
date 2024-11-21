@@ -3,10 +3,10 @@ import { type ProverCoordination } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -25,7 +25,7 @@ import { QuoteSigner } from './quote-signer.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
-  config: ProverNodeConfig,
+  config: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
     log?: DebugLogger;
@@ -41,8 +41,6 @@ export async function createProverNode(
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
-
-  const simulationProvider = await createSimulationProvider(config, log);
 
   const prover = await createProverClient(config, telemetry);
 
@@ -81,7 +79,6 @@ export async function createProverNode(
     archiver,
     worldStateSynchronizer,
     proverCoordination,
-    simulationProvider,
     quoteProvider,
     quoteSigner,
     claimsMonitor,

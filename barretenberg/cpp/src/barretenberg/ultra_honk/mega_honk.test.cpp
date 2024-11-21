@@ -119,7 +119,7 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     Prover prover(proving_key);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
@@ -258,7 +258,7 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
 
-    TraceSettings trace_settings{ TraceStructure::TINY_TEST };
+    TraceSettings trace_settings{ TINY_TEST_STRUCTURE };
 
     { // Overflow in Arithmetic block only
         Builder builder;

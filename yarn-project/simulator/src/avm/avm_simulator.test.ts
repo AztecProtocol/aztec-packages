@@ -138,7 +138,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const contractClass = makeContractClassPublic(0, publicFn);
     const contractInstance = makeContractInstanceFromClassId(contractClass.id);
 
-    // The values here should match those in `avm_simulator.test.ts`
+    // The values here should match those in getContractInstance test case
     const instanceGet = new SerializableContractInstance({
       version: 1,
       salt: new Fr(0x123),
@@ -905,7 +905,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
             //calldata: expect.arrayContaining(environment.calldata), // top-level call forwards args
           }),
           /*startGasLeft=*/ expect.anything(),
-          /*endGasLeft=*/ expect.anything(),
           /*bytecode=*/ expect.anything(),
           /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
           /*functionName=*/ expect.anything(),
