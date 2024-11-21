@@ -27,8 +27,7 @@ fn tail_to_public_output_composer_succeeds() {
 
     builder.previous_kernel.add_masked_encrypted_log_hash(2001, 2);
 
-    builder.previous_kernel.add_unencrypted_log_hash(3001, 51);
-    builder.previous_kernel.add_unencrypted_log_hash(3002, 9);
+    builder.previous_kernel.add_contract_class_log_hash(3002, 9);
 
     builder.previous_kernel.append_public_call_requests(2);
 
@@ -48,8 +47,6 @@ fn tail_to_public_output_composer_succeeds() {
     builder.previous_kernel.add_masked_encrypted_log_hash(2002, 6);
     builder.previous_kernel.add_masked_encrypted_log_hash(2003, 24);
 
-    builder.previous_kernel.add_unencrypted_log_hash(3002, 4);
-
     builder.previous_kernel.append_public_call_requests(3);
 
     // Get ordered items before shuffling for verifying with the output later.
@@ -57,7 +54,6 @@ fn tail_to_public_output_composer_succeeds() {
 
     // Shuffle ordered items.
     swap_items(&mut builder.previous_kernel.l2_to_l1_msgs, 0, 1);
-    swap_items(&mut builder.previous_kernel.unencrypted_logs_hashes, 0, 2);
     swap_items(&mut builder.previous_kernel.public_call_requests, 1, 2);
 
     // Output.
@@ -115,15 +111,11 @@ fn tail_to_public_output_composer_succeeds() {
         [log_hashes[1], log_hashes[2]],
     );
 
-    // unencrypted_logs_hashes
-    let log_hashes = data.unencrypted_logs_hashes;
+    // contract_class_logs_hashes
+    let log_hashes = data.contract_class_logs_hashes;
     assert_array_eq(
-        output.non_revertible_accumulated_data.unencrypted_logs_hashes,
-        [log_hashes[0], log_hashes[1]],
-    );
-    assert_array_eq(
-        output.revertible_accumulated_data.unencrypted_logs_hashes,
-        [log_hashes[2]],
+        output.non_revertible_accumulated_data.contract_class_logs_hashes,
+        [log_hashes[0]],
     );
 
     // public_call_requests
@@ -146,8 +138,7 @@ fn tail_to_public_output_composer_succeeds() {
     let mut total_log_length = 12
         + 8 // note_encrypted_log_hash
         + 2 // encrypted_log_hash
-        + 51
-        + 9; // unencrypted_log_hash
+        + 9; // contract_class_log_hash
     // Gas: revertible
     {
         num_note_hashes += 2;
@@ -156,8 +147,7 @@ fn tail_to_public_output_composer_succeeds() {
         num_msgs += 1;
         total_log_length += 20 // note_encrypted_log_hash
             + 6
-            + 24 // encrypted_log_hash
-            + 4; // unencrypted_log_hash
+            + 24; // encrypted_log_hash
     }
 
     let num_da_effects = num_note_hashes + num_nullifiers + num_msgs;

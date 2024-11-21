@@ -1,11 +1,10 @@
 import { Fr } from '@aztec/circuits.js';
-import { type ZodFor } from '@aztec/foundation/schemas';
-import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
 import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
 /** Response for the getUnencryptedLogs archiver call. */
@@ -21,7 +20,7 @@ export const GetUnencryptedLogsResponseSchema = z.object({
   maxLogsHit: z.boolean(),
 }) satisfies ZodFor<GetUnencryptedLogsResponse>;
 
-export class TxScopedEncryptedL2NoteLog {
+export class TxScopedL2Log {
   constructor(
     /*
      * Hash of the tx where the log is included
@@ -33,9 +32,17 @@ export class TxScopedEncryptedL2NoteLog {
      */
     public dataStartIndexForTx: number,
     /*
-     * The encrypted note log
+     * The block this log is included in
      */
-    public log: EncryptedL2NoteLog,
+    public blockNumber: number,
+    /*
+     * Indicates if the log comes from the unencrypted logs stream (partial note)
+     */
+    public isFromPublic: boolean,
+    /*
+     * The log data
+     */
+    public logData: Buffer,
   ) {}
 
   static get schema() {
@@ -43,27 +50,48 @@ export class TxScopedEncryptedL2NoteLog {
       .object({
         txHash: TxHash.schema,
         dataStartIndexForTx: z.number(),
-        log: EncryptedL2NoteLog.schema,
+        blockNumber: z.number(),
+        isFromPublic: z.boolean(),
+        logData: schemas.BufferB64,
       })
       .transform(
-        ({ txHash, dataStartIndexForTx, log }) => new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, log),
+        ({ txHash, dataStartIndexForTx, blockNumber, isFromPublic, logData }) =>
+          new TxScopedL2Log(txHash, dataStartIndexForTx, blockNumber, isFromPublic, logData),
       );
   }
 
   toBuffer() {
-    return Buffer.concat([this.txHash.toBuffer(), numToUInt32BE(this.dataStartIndexForTx), this.log.toBuffer()]);
+    return Buffer.concat([
+      this.txHash.toBuffer(),
+      numToUInt32BE(this.dataStartIndexForTx),
+      numToUInt32BE(this.blockNumber),
+      boolToBuffer(this.isFromPublic),
+      this.logData,
+    ]);
   }
 
   static fromBuffer(buffer: Buffer) {
     const reader = BufferReader.asReader(buffer);
-    return new TxScopedEncryptedL2NoteLog(
+    return new TxScopedL2Log(
       TxHash.fromField(reader.readObject(Fr)),
       reader.readNumber(),
-      EncryptedL2NoteLog.fromBuffer(reader.readToEnd()),
+      reader.readNumber(),
+      reader.readBoolean(),
+      reader.readToEnd(),
     );
   }
 
   static random() {
-    return new TxScopedEncryptedL2NoteLog(TxHash.random(), 1, EncryptedL2NoteLog.random());
+    return new TxScopedL2Log(TxHash.random(), 1, 1, false, Fr.random().toBuffer());
+  }
+
+  equals(other: TxScopedL2Log) {
+    return (
+      this.txHash.equals(other.txHash) &&
+      this.dataStartIndexForTx === other.dataStartIndexForTx &&
+      this.blockNumber === other.blockNumber &&
+      this.isFromPublic === other.isFromPublic &&
+      this.logData.equals(other.logData)
+    );
   }
 }

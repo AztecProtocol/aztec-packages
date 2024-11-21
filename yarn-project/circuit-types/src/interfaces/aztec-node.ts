@@ -21,7 +21,9 @@ import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas'
 
 import { z } from 'zod';
 
+import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
+import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -30,7 +32,7 @@ import {
   type LogFilter,
   LogFilterSchema,
   LogType,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
@@ -48,15 +50,38 @@ import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-c
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode extends ProverCoordination {
+export interface AztecNode
+  extends ProverCoordination,
+    Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
-   * Find the index of the given leaf in the given tree.
+   * Returns the tips of the L2 chain.
+   */
+  getL2Tips(): Promise<L2Tips>;
+
+  /**
+   * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The value to search for
-   * @returns The index of the given leaf in the given tree or undefined if not found.
+   * @param leafValue - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeavesIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]>;
+
+  /**
+   * Returns the indexes of the given nullifiers in the nullifier tree,
+   * scoped to the block they were included in.
+   * @param blockNumber - The block number at which to get the data.
+   * @param nullifiers - The nullifiers to search for.
+   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
+   */
+  findNullifiersIndexesWithBlock(
+    blockNumber: L2BlockNumber,
+    nullifiers: Fr[],
+  ): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
@@ -258,12 +283,19 @@ export interface AztecNode extends ProverCoordination {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
    array implies no logs match that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -287,7 +319,7 @@ export interface AztecNode extends ProverCoordination {
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
    * @returns The requested tx effect.
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
 
   /**
    * Method to retrieve pending txs.
@@ -325,7 +357,7 @@ export interface AztecNode extends ProverCoordination {
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getHeader(blockNumber?: L2BlockNumber): Promise<Header>;
+  getBlockHeader(blockNumber?: L2BlockNumber): Promise<Header>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -380,15 +412,28 @@ export interface AztecNode extends ProverCoordination {
    * @param epoch - The epoch for which to get the quotes
    */
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+
+  /**
+   * Adds a contract class bypassing the registerer.
+   * TODO(#10007): Remove this method.
+   * @param contractClass - The class to register.
+   */
+  addContractClass(contractClass: ContractClassPublic): Promise<void>;
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   ...ProverCoordinationApiSchema,
 
-  findLeafIndex: z
+  getL2Tips: z.function().args().returns(L2TipsSchema),
+  findLeavesIndexes: z
     .function()
-    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), schemas.Fr)
-    .returns(schemas.BigInt.optional()),
+    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
+    .returns(z.array(optional(schemas.BigInt))),
+
+  findNullifiersIndexesWithBlock: z
+    .function()
+    .args(L2BlockNumberSchema, z.array(schemas.Fr))
+    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
   getNullifierSiblingPath: z
     .function()
@@ -463,16 +508,18 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
 
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
-    .returns(z.array(z.array(TxScopedEncryptedL2NoteLog.schema))),
+    .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),
 
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(TxEffect.schema.optional()),
+  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
 
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
 
@@ -482,7 +529,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
-  getHeader: z.function().args(optional(L2BlockNumberSchema)).returns(Header.schema),
+  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(Header.schema),
 
   simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
 
@@ -501,6 +548,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
 
   getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
+
+  // TODO(#10007): Remove this method
+  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
 export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {

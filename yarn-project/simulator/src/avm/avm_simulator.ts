@@ -1,12 +1,20 @@
-import { MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  Fr,
+  type FunctionSelector,
+  type GlobalVariables,
+  MAX_L2_GAS_PER_ENQUEUED_CALL,
+} from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from '../public/side_effect_errors.js';
-import type { AvmContext } from './avm_context.js';
+import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
+import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas } from './avm_gas.js';
+import { AvmMachineState } from './avm_machine_state.js';
 import { isAvmBytecode } from './bytecode_utils.js';
 import {
   AvmExecutionError,
@@ -15,6 +23,7 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
+import { type AvmPersistableStateManager } from './journal/journal.js';
 import { decodeInstructionFromBytecode } from './serialization/bytecode_serialization.js';
 
 type OpcodeTally = {
@@ -30,8 +39,8 @@ type PcTally = {
 export class AvmSimulator {
   private log: DebugLogger;
   private bytecode: Buffer | undefined;
-  public opcodeTallies: Map<string, OpcodeTally> = new Map();
-  public pcTallies: Map<number, PcTally> = new Map();
+  private opcodeTallies: Map<string, OpcodeTally> = new Map();
+  private pcTallies: Map<number, PcTally> = new Map();
 
   constructor(private context: AvmContext) {
     assert(
@@ -39,6 +48,33 @@ export class AvmSimulator {
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
     this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
+  }
+
+  public static create(
+    stateManager: AvmPersistableStateManager,
+    address: AztecAddress,
+    sender: AztecAddress,
+    functionSelector: FunctionSelector, // may be temporary (#7224)
+    transactionFee: Fr,
+    globals: GlobalVariables,
+    isStaticCall: boolean,
+    calldata: Fr[],
+    allocatedGas: Gas,
+  ) {
+    const avmExecutionEnv = new AvmExecutionEnvironment(
+      address,
+      sender,
+      functionSelector,
+      /*contractCallDepth=*/ Fr.zero(),
+      transactionFee,
+      globals,
+      isStaticCall,
+      calldata,
+    );
+
+    const avmMachineState = new AvmMachineState(allocatedGas);
+    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
+    return new AvmSimulator(avmContext);
   }
 
   /**
@@ -119,7 +155,7 @@ export class AvmSimulator {
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
       const revertReason = reverted ? revertReasonFromExplicitRevert(output, this.context) : undefined;
-      const results = new AvmContractCallResult(reverted, output, revertReason);
+      const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.printOpcodeTallies();
@@ -134,7 +170,7 @@ export class AvmSimulator {
 
       const revertReason = revertReasonFromExceptionalHalt(err, this.context);
       // Note: "exceptional halts" cannot return data, hence [].
-      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], revertReason);
+      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.printOpcodeTallies();

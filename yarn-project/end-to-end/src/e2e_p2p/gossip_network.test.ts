@@ -3,7 +3,7 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
-import { METRICS_PORT } from '../fixtures/fixtures.js';
+// import { METRICS_PORT } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -60,7 +60,8 @@ describe('e2e_p2p_network', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
-      METRICS_PORT,
+      // Uncomment to collect metrics - run in aztec-packages `docker compose --profile metrics up`
+      // METRICS_PORT,
     );
 
     // wait a bit for peers to discover each other

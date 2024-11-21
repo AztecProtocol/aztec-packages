@@ -171,7 +171,7 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
         this.wallets.map(w =>
-          this.token.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
+          this.token.methods.mint_to_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
         ),
       );
     }
@@ -218,7 +218,7 @@ class TestVariant {
         const sender = this.wallets[i].getAddress();
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer_public(sender, recipient, 1n, 0).send());
+        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send());
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.Spam) {

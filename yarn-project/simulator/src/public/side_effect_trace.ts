@@ -12,7 +12,6 @@ import {
   AvmPublicDataWriteTreeHint,
   type AztecAddress,
   CallContext,
-  type CombinedConstantData,
   type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
@@ -44,16 +43,14 @@ import {
   ReadRequest,
   SerializableContractInstance,
   TreeLeafReadRequest,
-  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { createSimulationError } from '../common/errors.js';
 import {
   type EnqueuedPublicCallExecutionResultWithSideEffects,
   type PublicFunctionCallResult,
@@ -106,8 +103,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
+  public fork() {
+    return new PublicSideEffectTrace(this.sideEffectCounter);
   }
 
   public getCounter() {
@@ -382,8 +379,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
@@ -399,9 +394,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     const result = nestedCallTrace.toPublicFunctionCallResult(
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
-      avmCallResults,
+      avmCallResults.finalize(),
       functionName,
     );
     this.sideEffectCounter = result.endSideEffectCounter.toNumber();
@@ -412,8 +406,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.nestedExecutions.push(result);
 
     const gasUsed = new Gas(
-      result.startGasLeft.daGas - result.endGasLeft.daGas,
-      result.startGasLeft.l2Gas - result.endGasLeft.l2Gas,
+      result.startGasLeft.daGas - avmCallResults.gasLeft.daGas,
+      result.startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
     );
 
     this.publicCallRequests.push(resultToPublicCallRequest(result));
@@ -430,8 +424,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    _enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     _publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -442,16 +434,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     throw new Error('Not implemented');
   }
 
-  public traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    _appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    _publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    _calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    _reverted: boolean,
-  ) {
+  public merge(_nestedTrace: this, _reverted: boolean = false) {
     throw new Error('Not implemented');
   }
 
@@ -463,12 +446,10 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
   ): PublicFunctionCallResult {
@@ -478,16 +459,14 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       startSideEffectCounter: new Fr(this.startSideEffectCounter),
       endSideEffectCounter: new Fr(this.sideEffectCounter),
       startGasLeft,
-      endGasLeft,
+      endGasLeft: avmCallResults.gasLeft,
       transactionFee: avmEnvironment.transactionFee,
 
       bytecode,
       calldata: avmEnvironment.calldata,
       returnValues: avmCallResults.output,
       reverted: avmCallResults.reverted,
-      revertReason: avmCallResults.revertReason
-        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
-        : undefined,
+      revertReason: avmCallResults.revertReason,
 
       contractStorageReads: this.contractStorageReads,
       contractStorageUpdateRequests: this.contractStorageUpdateRequests,
@@ -513,28 +492,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public toPublicEnqueuedCallExecutionResult(
-    /** How much gas was left after this public execution. */
-    _endGasLeft: Gas,
     /** The call's results */
-    _avmCallResults: AvmContractCallResult,
+    _avmCallResults: AvmFinalizedCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects {
-    throw new Error('Not implemented');
-  }
-
-  public toVMCircuitPublicInputs(
-    /** Constants. */
-    _constants: CombinedConstantData,
-    /** The call request that triggered public execution. */
-    _callRequest: PublicCallRequest,
-    /** How much gas was available for this public execution. */
-    _startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    _endGasLeft: Gas,
-    /** Transaction fee. */
-    _transactionFee: Fr,
-    /** The call's results */
-    _avmCallResults: AvmContractCallResult,
-  ): VMCircuitPublicInputs {
     throw new Error('Not implemented');
   }
 

@@ -9,7 +9,6 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateCircuitPublicInputs,
@@ -24,13 +23,18 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
+import {
+  ContractClassTxL2Logs,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
+  Note,
+  UnencryptedTxL2Logs,
+} from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
 import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
@@ -89,7 +93,7 @@ export const mockPrivateExecutionResult = (
           .map((log, index) => new CountedLog(log, index))
       : [],
     hasLogs
-      ? UnencryptedTxL2Logs.random(2, 3)
+      ? ContractClassTxL2Logs.random(1, 1)
           .unrollLogs()
           .map((log, index) => new CountedLog(log, index))
       : [],
@@ -121,7 +125,7 @@ export const mockTx = (
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
-  const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
+  const contractClassLog = hasLogs ? ContractClassTxL2Logs.random(1, 1) : ContractClassTxL2Logs.empty();
   data.constants.txContext.gasSettings = GasSettings.default();
   data.feePayer = feePayer;
 
@@ -151,11 +155,11 @@ export const mockTx = (
 
     data.forPublic.nonRevertibleAccumulatedData = nonRevertibleBuilder
       .pushNullifier(firstNullifier.value)
-      .withPublicCallStack(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
+      .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
 
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
-      .withPublicCallStack(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
+      .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
 
     if (hasLogs) {
@@ -186,31 +190,20 @@ export const mockTx = (
         });
         functionCount++;
       });
-      nonRevertibleIndex = 0;
-      revertibleIndex = 0;
-      functionCount = 0;
-      unencryptedLogs.functionLogs.forEach(functionLog => {
-        functionLog.logs.forEach(log => {
-          if (data.forPublic) {
-            const hash = new ScopedLogHash(
-              new LogHash(
-                Fr.fromBuffer(log.hash()),
-                i++,
-                // +4 for encoding the length of the buffer
-                new Fr(log.length + 4),
-              ),
-              log.contractAddress,
-            );
-            // make the first log non-revertible
-            if (functionCount === 0) {
-              data.forPublic.nonRevertibleAccumulatedData.unencryptedLogsHashes[nonRevertibleIndex++] = hash;
-            } else {
-              data.forPublic.revertibleAccumulatedData.unencryptedLogsHashes[revertibleIndex++] = hash;
-            }
-          }
-        });
-        functionCount++;
-      });
+      // We have a single contract class log
+      const contractClassUnencryptedLog = contractClassLog.functionLogs[0].logs[0];
+      if (data.forPublic) {
+        const hash = new ScopedLogHash(
+          new LogHash(
+            Fr.fromBuffer(contractClassUnencryptedLog.hash()),
+            i++,
+            // +4 for encoding the length of the buffer
+            new Fr(contractClassUnencryptedLog.length + 4),
+          ),
+          contractClassUnencryptedLog.contractAddress,
+        );
+        data.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = hash;
+      }
     }
   } else {
     data.forRollup!.end.nullifiers[0] = firstNullifier.value;
@@ -232,13 +225,6 @@ export const mockTx = (
       ScopedLogHash.empty(),
       MAX_ENCRYPTED_LOGS_PER_TX,
     );
-    data.forRollup!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty);
-    unencryptedLogs.unrollLogs().forEach((log, i) => {
-      data.forRollup!.end.unencryptedLogsHashes[i] = new ScopedLogHash(
-        new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
-        log.contractAddress,
-      );
-    });
   }
 
   const tx = new Tx(
@@ -246,7 +232,8 @@ export const mockTx = (
     ClientIvcProof.empty(),
     noteEncryptedLogs,
     encryptedLogs,
-    unencryptedLogs,
+    UnencryptedTxL2Logs.empty(),
+    contractClassLog,
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
   );

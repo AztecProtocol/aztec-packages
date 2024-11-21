@@ -4,7 +4,8 @@ import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';

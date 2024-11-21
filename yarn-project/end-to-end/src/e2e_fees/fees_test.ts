@@ -270,7 +270,7 @@ export class FeesTest {
       'fund_alice',
       async () => {
         await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
-        await this.bananaCoin.methods.mint_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send().wait();
+        await this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send().wait();
       },
       () => Promise.resolve(),
     );

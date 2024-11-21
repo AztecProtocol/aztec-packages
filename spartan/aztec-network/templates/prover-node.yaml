@@ -18,7 +18,7 @@ spec:
         app: prover-node
     spec:
       initContainers:
-        - name: wait-for-boot-node
+        - name: wait-for-services
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh
@@ -182,11 +182,11 @@ spec:
       name: p2p-udp
       protocol: UDP
 ---
-{{if .Values.network.public }}
+{{if .Values.proverNode.public }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-tcp
+  name: prover-node-lb-tcp
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -203,7 +203,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-udp
+  name: prover-node-lb-udp
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"

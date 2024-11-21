@@ -45,8 +45,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = ECCVMFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = ECCVMFlavor::NUM_WITNESS_ENTITIES;
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = ECCVMFlavor::NUM_ALL_WITNESS_ENTITIES;
 
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = ECCVMFlavor::REPEATED_COMMITMENTS;
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;

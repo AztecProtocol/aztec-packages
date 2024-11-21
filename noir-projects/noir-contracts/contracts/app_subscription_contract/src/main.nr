@@ -96,7 +96,7 @@ contract AppSubscription {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
         Token::at(storage.subscription_token_address.read_private())
-            .transfer_from(
+            .transfer_in_private(
                 context.msg_sender(),
                 storage.subscription_recipient_address.read_private(),
                 storage.subscription_price.read_private(),

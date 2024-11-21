@@ -49,7 +49,7 @@ spec:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: AZTEC_NODE_URL
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+              value: {{ include "aztec-network.validatorUrl" . | quote }}
             - name: LOG_JSON
               value: "1"
             - name: LOG_LEVEL
@@ -102,7 +102,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-pxe-lb
+  name: pxe-lb
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:

@@ -201,6 +201,12 @@ describe('Archiver', () => {
       expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
     });
 
+    blockNumbers.forEach(async x => {
+      const expectedTotalNumContractClassLogs = 4;
+      const contractClassLogs = await archiver.getContractClassLogs({ fromBlock: x, toBlock: x + 1 });
+      expect(contractClassLogs.logs.length).toEqual(expectedTotalNumContractClassLogs);
+    });
+
     // Check last proven block number
     const provenBlockNumber = await archiver.getProvenBlockNumber();
     expect(provenBlockNumber).toEqual(1);
@@ -450,7 +456,7 @@ function makeRollupTx(l2Block: L2Block) {
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [header, archive, blockHash, [], [], body],
+    args: [{ header, archive, blockHash, txHashes: [] }, [], body],
   });
   return { input } as Transaction<bigint, number>;
 }

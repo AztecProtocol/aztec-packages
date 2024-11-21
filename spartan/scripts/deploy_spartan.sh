@@ -72,3 +72,11 @@ if ! upgrade | tee "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
     upgrade
   fi
 fi
+
+if ! upgrade | tee "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
+  if grep 'cannot patch "'$NAMESPACE'-aztec-network-deploy-l1-verifier"' "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
+    kubectl delete job $NAMESPACE-aztec-network-deploy-l1-verifier -n $NAMESPACE
+    upgrade
+  fi
+fi
+

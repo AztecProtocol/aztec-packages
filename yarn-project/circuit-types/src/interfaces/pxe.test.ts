@@ -22,6 +22,7 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
+import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
@@ -29,6 +30,7 @@ import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { AuthWitness } from '../auth_witness.js';
+import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
@@ -36,12 +38,13 @@ import { ExtendedNote, type OutgoingNotesFilter, UniqueNote } from '../notes/ind
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
-import { type NoteProcessorStats } from '../stats/stats.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
 import { type SyncStatus } from './sync-status.js';
+
+jest.setTimeout(12_000);
 
 describe('PXESchema', () => {
   let handler: MockPXE;
@@ -176,8 +179,10 @@ describe('PXESchema', () => {
   });
 
   it('getTxEffect', async () => {
-    const result = await context.client.getTxEffect(TxHash.random());
-    expect(result).toBeInstanceOf(TxEffect);
+    const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
+    expect(data).toBeInstanceOf(TxEffect);
+    expect(l2BlockHash).toMatch(/0x[a-fA-F0-9]{64}/);
+    expect(l2BlockNumber).toBe(1);
   });
 
   it('getPublicStorageAt', async () => {
@@ -223,6 +228,11 @@ describe('PXESchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
+  it('getContractClassLogs', async () => {
+    const result = await context.client.getContractClassLogs({ contractAddress: address });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  });
+
   it('getBlockNumber', async () => {
     const result = await context.client.getBlockNumber();
     expect(result).toBe(1);
@@ -248,19 +258,9 @@ describe('PXESchema', () => {
     expect(result).toBe(true);
   });
 
-  it('isAccountStateSynchronized', async () => {
-    const result = await context.client.isAccountStateSynchronized(address);
-    expect(result).toBe(true);
-  });
-
   it('getSyncStatus', async () => {
     const result = await context.client.getSyncStatus();
     expect(result).toEqual(await handler.getSyncStatus());
-  });
-
-  it('getSyncStats', async () => {
-    const result = await context.client.getSyncStats();
-    expect(result).toEqual(await handler.getSyncStats());
   });
 
   it('getContractInstance', async () => {
@@ -404,9 +404,9 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxEffect.random());
+    return Promise.resolve({ data: TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 });
   }
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);
@@ -459,6 +459,10 @@ class MockPXE implements PXE {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    expect(filter.contractAddress).toEqual(this.address);
+    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+  }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
   }
@@ -492,28 +496,9 @@ class MockPXE implements PXE {
   isGlobalStateSynchronized(): Promise<boolean> {
     return Promise.resolve(true);
   }
-  isAccountStateSynchronized(account: AztecAddress): Promise<boolean> {
-    expect(account).toEqual(this.address);
-    return Promise.resolve(true);
-  }
   getSyncStatus(): Promise<SyncStatus> {
     return Promise.resolve({
       blocks: 1,
-      notes: { [this.address.toString()]: 1 },
-    });
-  }
-  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }> {
-    return Promise.resolve({
-      [this.address.toString()]: {
-        seen: 1,
-        deferredIncoming: 1,
-        deferredOutgoing: 1,
-        decryptedIncoming: 1,
-        decryptedOutgoing: 1,
-        failed: 1,
-        blocks: 1,
-        txs: 1,
-      },
     });
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

@@ -73,6 +73,7 @@ export function orderAttestations(attestations: BlockAttestation[], orderAddress
   return orderedAttestations;
 }
 
-export function getSecondsIntoSlot(l1GenesisTime: number, aztecSlotDuration: number): number {
-  return (Date.now() / 1000 - l1GenesisTime) % aztecSlotDuration;
+export function getSecondsIntoSlot(l1GenesisTime: number, aztecSlotDuration: number, slotNumber: number): number {
+  const slotStartTimestamp = l1GenesisTime + slotNumber * aztecSlotDuration;
+  return Date.now() / 1000 - slotStartTimestamp;
 }

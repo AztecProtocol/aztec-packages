@@ -13,9 +13,9 @@ export function getBenchmarkContractArtifact(): ContractArtifact {
   return loadContractArtifact(content);
 }
 
-// Copied from the build output for the contract `Benchmarking` in noir-contracts
+// Copied from the build output for the contract `Test` in noir-contracts
 export function getTestContractArtifact(): ContractArtifact {
-  const path = getPathToFixture('Benchmarking.test.json');
+  const path = getPathToFixture('Test.test.json');
   const content = JSON.parse(readFileSync(path).toString()) as NoirCompiledContract;
   return loadContractArtifact(content);
 }
@@ -48,6 +48,6 @@ export function getSampleUnconstrainedFunctionBroadcastedEventPayload(): Buffer 
   return Buffer.from(readFileSync(path).toString(), 'hex');
 }
 
-function getPathToFixture(name: string) {
+export function getPathToFixture(name: string) {
   return resolve(dirname(fileURLToPath(import.meta.url)), `../../fixtures/${name}`);
 }

@@ -12,7 +12,8 @@ contract TokenBridge {
     use dep::aztec::prelude::{AztecAddress, EthAddress, SharedImmutable};
 
     use dep::token_portal_content_hash_lib::{
-        get_mint_private_content_hash, get_mint_public_content_hash, get_withdraw_content_hash,
+        get_mint_to_private_content_hash, get_mint_to_public_content_hash,
+        get_withdraw_content_hash,
     };
 
     use dep::token::Token;
@@ -54,7 +55,7 @@ contract TokenBridge {
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[public]
     fn claim_public(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
-        let content_hash = get_mint_public_content_hash(to, amount);
+        let content_hash = get_mint_to_public_content_hash(to, amount);
 
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(
@@ -65,7 +66,7 @@ contract TokenBridge {
         );
 
         // Mint tokens
-        Token::at(storage.token.read_public()).mint_public(to, amount).call(&mut context);
+        Token::at(storage.token.read_public()).mint_to_public(to, amount).call(&mut context);
     }
     // docs:end:claim_public
 
@@ -103,7 +104,7 @@ contract TokenBridge {
         message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(amount);
+        let content_hash = get_mint_to_private_content_hash(amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
@@ -143,7 +144,7 @@ contract TokenBridge {
         TokenBridge::at(context.this_address())._assert_token_is_same(token).enqueue(&mut context);
         // docs:end:call_assert_token_is_same
         // Burn tokens
-        Token::at(token).burn(context.msg_sender(), amount, nonce).call(&mut context);
+        Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
     }
     /// docs:end:exit_to_l1_private
     // docs:start:get_token

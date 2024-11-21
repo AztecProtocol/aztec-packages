@@ -96,7 +96,6 @@ export class BlacklistTokenContractTest {
       this.other = this.wallets[1];
       this.blacklisted = this.wallets[2];
       this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
     await this.snapshotManager.snapshot(

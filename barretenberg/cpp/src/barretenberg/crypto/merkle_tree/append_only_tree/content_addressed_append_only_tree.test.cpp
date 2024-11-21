@@ -141,7 +141,7 @@ void check_historic_sibling_path(TreeType& tree,
 void commit_tree(TreeType& tree, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    TreeType::CommitCallback completion = [&](const TypedResponse<CommitResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -163,7 +163,7 @@ void rollback_tree(TreeType& tree)
 void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -174,7 +174,7 @@ void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expe
 void unwind_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -455,10 +455,13 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     }
     add_values(tree, values);
 
+    std::stringstream ss;
+    ss << "Unable to append leaves to tree " << name << " new size: 17 max size: 16";
+
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddDataResponse>& response) {
         EXPECT_EQ(response.success, false);
-        EXPECT_EQ(response.message, "Tree is full");
+        EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
     tree.add_value(VALUES[16], add_completion);
@@ -501,7 +504,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 
         // trying to commit that should fail
         Signal signal;
-        auto completion = [&](const Response& response) -> void {
+        auto completion = [&](const TypedResponse<CommitResponse>& response) -> void {
             EXPECT_EQ(response.success, false);
             signal.signal_level();
         };
@@ -1041,7 +1044,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_single_whilst_readin
         Signal signal(1 + num_reads);
 
         auto add_completion = [&](const TypedResponse<AddDataResponse>&) {
-            auto commit_completion = [&](const Response&) { signal.signal_decrement(); };
+            auto commit_completion = [&](const TypedResponse<CommitResponse>&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
         tree.add_value(VALUES[0], add_completion);

@@ -1,20 +1,18 @@
 import { type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
-  type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
   type NullifierLeafPreimage,
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   type SerializableContractInstance,
-  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { assert } from 'console';
 
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
@@ -27,11 +25,12 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     public readonly enqueuedCallTrace: PublicEnqueuedCallSideEffectTrace,
   ) {}
 
-  public fork(incrementSideEffectCounter: boolean = false) {
-    return new DualSideEffectTrace(
-      this.innerCallTrace.fork(incrementSideEffectCounter),
-      this.enqueuedCallTrace.fork(incrementSideEffectCounter),
-    );
+  public fork() {
+    return new DualSideEffectTrace(this.innerCallTrace.fork(), this.enqueuedCallTrace.fork());
+  }
+
+  public merge(nestedTrace: this, reverted: boolean = false) {
+    this.enqueuedCallTrace.merge(nestedTrace.enqueuedCallTrace, reverted);
   }
 
   public getCounter() {
@@ -192,8 +191,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
@@ -205,7 +202,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
       nestedCallTrace.innerCallTrace,
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,
@@ -214,7 +210,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
       nestedCallTrace.enqueuedCallTrace,
       nestedEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,
@@ -222,8 +217,6 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceEnqueuedCall(
-    /** The trace of the enqueued call. */
-    enqueuedCallTrace: this,
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -231,42 +224,17 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ) {
-    this.enqueuedCallTrace.traceEnqueuedCall(
-      enqueuedCallTrace.enqueuedCallTrace,
-      publicCallRequest,
-      calldata,
-      reverted,
-    );
-  }
-
-  public traceExecutionPhase(
-    /** The trace of the enqueued call. */
-    appLogicTrace: this,
-    /** The call request from private that enqueued this call. */
-    publicCallRequests: PublicCallRequest[],
-    /** The call's calldata */
-    calldatas: Fr[][],
-    /** Did the any enqueued call in app logic revert? */
-    reverted: boolean,
-  ) {
-    this.enqueuedCallTrace.traceExecutionPhase(
-      appLogicTrace.enqueuedCallTrace,
-      publicCallRequests,
-      calldatas,
-      reverted,
-    );
+    this.enqueuedCallTrace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
   }
 
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
   public toPublicEnqueuedCallExecutionResult(
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
   ): EnqueuedPublicCallExecutionResultWithSideEffects {
-    return this.enqueuedCallTrace.toPublicEnqueuedCallExecutionResult(endGasLeft, avmCallResults);
+    return this.enqueuedCallTrace.toPublicEnqueuedCallExecutionResult(avmCallResults);
   }
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
@@ -276,46 +244,19 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
     /** The call's results */
-    avmCallResults: AvmContractCallResult,
+    avmCallResults: AvmFinalizedCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
   ): PublicFunctionCallResult {
     return this.innerCallTrace.toPublicFunctionCallResult(
       avmEnvironment,
       startGasLeft,
-      endGasLeft,
       bytecode,
       avmCallResults,
       functionName,
-    );
-  }
-
-  public toVMCircuitPublicInputs(
-    /** Constants */
-    constants: CombinedConstantData,
-    /** The call request that triggered public execution. */
-    callRequest: PublicCallRequest,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    endGasLeft: Gas,
-    /** Transaction fee. */
-    transactionFee: Fr,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-  ): VMCircuitPublicInputs {
-    return this.enqueuedCallTrace.toVMCircuitPublicInputs(
-      constants,
-      callRequest,
-      startGasLeft,
-      endGasLeft,
-      transactionFee,
-      avmCallResults,
     );
   }
 

@@ -29,11 +29,13 @@ pub comptime fn aztec(m: Module) -> Quoted {
         generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
+    let sync_notes = generate_sync_notes();
     quote {
         $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
         $public_dispatch
+        $sync_notes
     }
 }
 
@@ -172,4 +174,12 @@ comptime fn generate_note_exports() -> Quoted {
             generate_note_export(s, note_type_id, fields)
         })
         .join(quote {})
+}
+
+comptime fn generate_sync_notes() -> Quoted {
+    quote {
+        unconstrained fn sync_notes() {
+            aztec::oracle::notes::sync_notes();
+        }
+    }
 }

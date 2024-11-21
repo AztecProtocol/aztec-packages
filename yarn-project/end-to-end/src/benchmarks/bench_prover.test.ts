@@ -5,7 +5,7 @@ import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
 import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
 
@@ -115,7 +115,7 @@ describe('benchmarks/proving', () => {
     const from = initialSchnorrWallet.getAddress(); // we are setting from to initial schnorr wallet here because of TODO(#9887)
     await Promise.all([
       initialGasContract.methods.claim(initialFpContract.address, 1e12, claimSecret, messageLeafIndex).send().wait(),
-      initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialTokenContract.methods.mint_to_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
       initialTokenContract.methods.mint_to_private(from, initialSchnorrWallet.getAddress(), 1e12).send().wait(),
     ]);
   });
@@ -142,17 +142,18 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('Starting PXEs configured with real proofs');
     provingPxes = [];
     for (let i = 0; i < 4; i++) {
-      const pxe = await createPXEService(
-        ctx.aztecNode,
-        {
-          proverEnabled: true,
-          bbBinaryPath: bbConfig.bbBinaryPath,
-          bbWorkingDirectory: bbConfig.bbWorkingDirectory,
-          l2BlockPollingIntervalMS: 1000,
-          l2StartingBlock: 1,
-        },
-        `proving-pxe-${i}`,
-      );
+      const l1Contracts = await ctx.aztecNode.getL1ContractAddresses();
+      const pxeConfig = {
+        proverEnabled: true,
+        bbBinaryPath: bbConfig.bbBinaryPath,
+        bbWorkingDirectory: bbConfig.bbWorkingDirectory,
+        l2BlockPollingIntervalMS: 1000,
+        l2StartingBlock: 1,
+        dataDirectory: undefined,
+        dataStoreMapSizeKB: 1024 * 1024,
+        l1Contracts,
+      } as PXEServiceConfig;
+      const pxe = await createPXEService(ctx.aztecNode, pxeConfig, `proving-pxe-${i}`);
 
       await getSchnorrAccount(pxe, schnorrWalletEncKey, schnorrWalletSigningKey, schnorrWalletSalt).register();
       await pxe.registerContract(initialTokenContract);
@@ -183,7 +184,7 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('+----------------------+');
 
     const fnCalls = [
-      (await getTokenContract(0)).methods.transfer_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(0)).methods.transfer_in_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
       (await getTokenContract(1)).methods.transfer(recipient.address, 1000),
       // (await getTestContractOnPXE(2)).methods.emit_unencrypted(43),
       // (await getTestContractOnPXE(3)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
