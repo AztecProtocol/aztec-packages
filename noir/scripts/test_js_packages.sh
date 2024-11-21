@@ -26,16 +26,16 @@ yarn workspaces foreach \
   --exclude @noir-lang/noir_wasm \
   run test
 
-yarn workspaces foreach \
-  --parallel \
-  --verbose \
-  --include integration-tests \
-  --include @noir-lang/noir_wasm \
-  run test:node
+# Circular dependency on bb.
+# yarn workspaces foreach \
+#   --parallel \
+#   --verbose \
+#   --include integration-tests \
+#   --include @noir-lang/noir_wasm \
+#   run test:node
 
-./.github/scripts/playwright-install.sh
-yarn workspaces foreach \
-  --verbose \
-  --include integration-tests \
-  --include @noir-lang/noir_wasm \
-  run test:browser
+# yarn workspaces foreach \
+#   --verbose \
+#   --include integration-tests \
+#   --include @noir-lang/noir_wasm \
+#   run test:browser
