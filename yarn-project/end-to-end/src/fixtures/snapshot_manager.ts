@@ -64,6 +64,7 @@ export function createSnapshotManager(
   config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    initialValidators: [],
   },
 ) {
   return dataPath
