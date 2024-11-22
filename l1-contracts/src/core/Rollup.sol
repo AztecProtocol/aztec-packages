@@ -19,7 +19,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
-import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
@@ -429,15 +428,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       Errors.Rollup__ProofRightAlreadyClaimed()
     );
     return epochToProve;
-  }
-
-  function computeTxsEffectsHash(bytes calldata _body)
-    external
-    pure
-    override(IRollup)
-    returns (bytes32)
-  {
-    return TxsDecoder.decode(_body);
   }
 
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)

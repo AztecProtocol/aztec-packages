@@ -131,7 +131,6 @@ export class Body {
 
   /**
    * Computes the number of transactions in the block including padding transactions.
-   * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad
    */
   get numberOfTxsIncludingPadded() {
     const numTxEffects = this.txEffects.length;

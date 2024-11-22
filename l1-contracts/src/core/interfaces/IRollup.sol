@@ -108,5 +108,4 @@ interface IRollup {
     DataStructures.SubmitProofArgs calldata _submitArgs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
-  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

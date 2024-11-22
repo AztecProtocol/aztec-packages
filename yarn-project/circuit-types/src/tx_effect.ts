@@ -177,7 +177,7 @@ export class TxEffect {
   /**
    * Computes txOutHash of this tx effect.
    * TODO(#7218): Revert to fixed height tree for outbox
-   * @dev Follows computeTxOutHash in TxsDecoder.sol and new_sha in variable_merkle_tree.nr
+   * @dev Follows new_sha in variable_merkle_tree.nr
    */
   txOutHash() {
     const { l2ToL1Msgs } = this;

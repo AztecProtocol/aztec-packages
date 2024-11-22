@@ -24,7 +24,6 @@ import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
 
@@ -49,7 +48,6 @@ contract RollupTest is DecoderBase, TimeFns {
   Rollup internal rollup;
   Leonidas internal leo;
   MerkleTestUtil internal merkleTestUtil;
-  TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   IProofCommitmentEscrow internal proofCommitmentEscrow;
@@ -102,7 +100,6 @@ contract RollupTest is DecoderBase, TimeFns {
     registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();
-    txsHelper = new TxsDecoderHelper();
 
     privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
     signer = vm.addr(privateKey);

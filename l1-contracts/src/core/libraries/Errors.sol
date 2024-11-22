@@ -79,10 +79,6 @@ library Errors {
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
 
-  //TxsDecoder
-  error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
-  error TxsDecoder__TxsTooLarge(uint256 expected, uint256 actual); // 0xc7d44a62
-
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
   error HeaderLib__InvalidSlotNumber(Slot expected, Slot actual); // 0x09ba91ff

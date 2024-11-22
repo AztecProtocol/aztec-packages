@@ -17,7 +17,6 @@ import {Leonidas} from "../harnesses/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
@@ -45,7 +44,6 @@ contract SpartaTest is DecoderBase {
   Outbox internal outbox;
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
-  TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   SignatureLib.Signature internal emptySignature;
@@ -90,7 +88,6 @@ contract SpartaTest is DecoderBase {
     outbox = Outbox(address(rollup.OUTBOX()));
 
     merkleTestUtil = new MerkleTestUtil();
-    txsHelper = new TxsDecoderHelper();
 
     _;
   }
