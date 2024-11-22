@@ -1,3 +1,4 @@
+// docs:start:imports
 mod types;
 mod test;
 
@@ -16,21 +17,17 @@ contract NFT {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public, view},
+            events::event, functions::{initializer, internal, private, public, view},
             storage::storage,
-        },
-        note::constants::MAX_NOTES_PER_PAGE,
-        oracle::random::random,
+        }, note::constants::MAX_NOTES_PER_PAGE, oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicMutable, SharedImmutable,
-        },
-        protocol_types::{point::Point, traits::Serialize},
-        utils::comparison::Comparator,
+        }, protocol_types::{point::Point, traits::Serialize}, utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
     use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
+    // docs:end:imports
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
@@ -42,6 +39,7 @@ contract NFT {
         token_id: Field,
     }
 
+    // docs:start:storage_struct
     #[storage]
     struct Storage<Context> {
         // The symbol of the NFT
@@ -59,7 +57,9 @@ contract NFT {
         // A map from token ID to the public owner of the NFT.
         public_owners: Map<Field, PublicMutable<AztecAddress, Context>, Context>,
     }
+    // docs:end:storage_struct
 
+    // docs:start:constructor
     #[public]
     #[initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
@@ -69,19 +69,25 @@ contract NFT {
         storage.name.initialize(FieldCompressedString::from_string(name));
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
     }
+    // docs:end:constructor
 
+    // docs:start:admin
     #[public]
     fn set_admin(new_admin: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.admin.write(new_admin);
     }
+    // docs:end:admin
 
+    // docs:start:minter
     #[public]
     fn set_minter(minter: AztecAddress, approve: bool) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.minters.at(minter).write(approve);
     }
+    // docs:end:minter
 
+    // docs:start:mint
     #[public]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(token_id != 0, "zero token ID not supported");
@@ -92,6 +98,7 @@ contract NFT {
 
         storage.public_owners.at(token_id).write(to);
     }
+    // docs:end:mint
 
     #[public]
     #[view]
@@ -129,6 +136,7 @@ contract NFT {
         storage.minters.at(minter).read()
     }
 
+    // docs:start:transfer_in_public
     #[public]
     fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
@@ -142,8 +150,10 @@ contract NFT {
 
         public_owners_storage.write(to);
     }
+    // docs:end:transfer_in_public
 
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
+    // docs:start:transfer_to_private
     #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
         let from = context.msg_sender();
@@ -159,6 +169,7 @@ contract NFT {
             &mut context,
         );
     }
+    // docs:end:transfer_to_private
 
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
     /// `finalize_transfer_to_private. Returns a hiding point slot.
@@ -237,11 +248,13 @@ contract NFT {
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
+    // docs:start:finalize_transfer_to_private
     #[public]
     fn finalize_transfer_to_private(token_id: Field, hiding_point_slot: Field) {
         let from = context.msg_sender();
         _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_transfer_to_private
 
     #[public]
     #[internal]
@@ -347,6 +360,7 @@ contract NFT {
     /// Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was
     /// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
     /// values for non-existing notes.
+    // docs:start:get_private_nfts
     unconstrained fn get_private_nfts(
         owner: AztecAddress,
         page_index: u32,
@@ -365,5 +379,6 @@ contract NFT {
         let page_limit_reached = notes.len() == options.limit;
         (owned_nft_ids, page_limit_reached)
     }
+    // docs:end:get_private_nfts
 }
 
