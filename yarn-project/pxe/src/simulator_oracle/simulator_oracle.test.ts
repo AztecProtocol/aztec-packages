@@ -273,7 +273,7 @@ describe('Simulator oracle', () => {
         await keyStore.addAccount(sender.secretKey, sender.completeAddress.partialAddress);
       }
 
-      const senderOffset = 0;
+      let senderOffset = 0;
       generateMockLogs(senderOffset);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
@@ -296,10 +296,28 @@ describe('Simulator oracle', () => {
         );
       }
 
-      const indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
+      let indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
       expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
+      // Two windows are fetch for each sender
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
+      aztecNode.getLogsByTags.mockReset();
+
+      // We add more logs at the end of the window to make sure we only detect them and bump the indexes if it lies within our window
+      senderOffset = 11;
+      generateMockLogs(senderOffset);
+      for (let i = 0; i < senders.length; i++) {
+        await simulatorOracle.syncTaggedLogsAsSender(
+          contractAddress,
+          senders[i].completeAddress.address,
+          recipient.address,
+        );
+      }
+
+      indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 13, 13, 13, 13, 13]);
+
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
 
     it('should sync tagged logs with a sender index offset', async () => {

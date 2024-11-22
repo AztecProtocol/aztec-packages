@@ -346,30 +346,50 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<void> {
-    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     const appTaggingSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
     let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    const WINDOW = 5;
+    const INDEX_OFFSET = 10;
 
-    let possibleLogs: TxScopedL2Log[][];
+    let previousEmptyBack = 0;
+    let currentEmptyBack = 0;
+    let currentEmptyFront: number;
+
+    // The below code is trying to find the index of the start of the first window in which for all elements of window, we do not see logs.
+    // We take our window size, and fetch the node for these logs. We store both the amount of empty consecutive slots from the front and the back.
+    // We use our current empty consecutive slots from the front, as well as the previous consecutive empty slots from the back to see if we ever hit a time where there
+    // is a window in which we see the combination of them to be greater than the window's size. If true, we rewind current index to the start of said window and use it.
+    // Assuming two windows of 5:
+    // [0, 1, 0, 0, 0], [0, 0, 0, 1, 1]
+    // We can see that when processing the second window, the previous amount of empty slots from the back of the window (3), added with the empty elements from the front of the window (3)
+    // is greater than 5 (6) and therefore we have found a window to use.
+    // We simply need to take the number of elements (10) - the size of the window (5) - the number of consecutive empty elements from the back of the last window (3) = 2;
+    // This is the first index of our desired window.
 
     do {
-      const currentTags = [...new Array(WINDOW)].map((_, i) => {
+      const currentTags = [...new Array(INDEX_OFFSET)].map((_, i) => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
         return indexedAppTaggingSecret.computeTag(recipient);
       });
+      previousEmptyBack = currentEmptyBack;
 
-      possibleLogs = await this.aztecNode.getLogsByTags(currentTags);
-      currentIndex += WINDOW;
-    } while (possibleLogs.every(log => log.length !== 0));
+      const possibleLogs = await this.aztecNode.getLogsByTags(currentTags);
 
-    // We are getting the first empty index, and subtracting it from our WINDOW. So if our first empty index is 1,
-    // and our current index is 5, which means that we went through the loop one time, we take our current index,
-    // and subtract WINDOW - first empty index (= 5-1) from it. This means that new index will be 1.
-    const newIndex = currentIndex - (WINDOW - possibleLogs.findIndex(log => log.length === 0));
+      const indexOfFirstLog = possibleLogs.findIndex(possibleLog => possibleLog.length !== 0);
+      currentEmptyFront = indexOfFirstLog === -1 ? INDEX_OFFSET : indexOfFirstLog;
+
+      const indexOfLastLog = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
+      currentEmptyBack = indexOfLastLog === -1 ? INDEX_OFFSET : INDEX_OFFSET - 1 - indexOfLastLog;
+
+      currentIndex += INDEX_OFFSET;
+    } while (currentEmptyFront + previousEmptyBack < INDEX_OFFSET);
+
+    // We unwind the entire current window and the amount of consecutive empty slots from the previous window
+    const newIndex = currentIndex - (INDEX_OFFSET + previousEmptyBack);
 
     await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, newIndex)]);
+
+    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     this.log.debug(
       `Syncing logs for sender ${sender}, secret ${appTaggingSecret}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
     );
