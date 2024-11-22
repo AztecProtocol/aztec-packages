@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732296668694,
+  "lastUpdate": 1732308205019,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c95e5fd5606b7f14b1e2e43ecc770d5f22d294a0",
-          "message": "feat: constify eccvm and translator (#9661)\n\nMakes the proof size of ECCVM constant by making the sumcheck gate\r\nchallenges and IPA constant.\r\nFixes the ECCVM recursive verifier size (besides the MSM in the IPA\r\nRecursive verifier) as a result.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1009.",
-          "timestamp": "2024-11-07T00:38:15Z",
-          "tree_id": "47904449d423103db6c7d9916d08c11be481026d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c95e5fd5606b7f14b1e2e43ecc770d5f22d294a0"
-        },
-        "date": 1730941845213,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29939.250129999975,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28122.691898 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5468.394803000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5100.773519999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89269.495561,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89269498000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15324.819712,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15324820000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3065985947,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3065985947 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141622772,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141622772 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,64 @@ window.BENCHMARK_DATA = {
             "value": 142228431,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142228431 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "just-mitch",
+            "username": "just-mitch",
+            "email": "68168980+just-mitch@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dc528dadcf1c68643eb77c3ea4280161dd9ac225",
+          "message": "feat: terraform for release deployments (#10091)\n\nsimply run `spartan/terraform/deploy-release/deploy.sh`. Gives a public\r\nnetwork with 3 validators in GCP with proving on.\r\n\r\nFix #10144",
+          "timestamp": "2024-11-22T20:35:43Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dc528dadcf1c68643eb77c3ea4280161dd9ac225"
+        },
+        "date": 1732308198256,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28125.476421000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26280.730135 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5014.583509999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4613.58141 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84166.82906,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84166829000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15226.159180999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15226159000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3099154540,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3099154540 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142222198,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142222198 ns\nthreads: 1"
           }
         ]
       }
