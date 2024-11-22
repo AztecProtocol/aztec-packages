@@ -25,7 +25,6 @@ describe('e2e_p2p_reqresp_tx', () => {
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
-      // Read the metrics port from the environment variables METRICS_PORT
       metricsPort: getMetricsPort(),
     });
     await t.applyBaseSnapshots();

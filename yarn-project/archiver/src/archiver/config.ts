@@ -1,4 +1,10 @@
-import { type L1ContractAddresses, type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  l1ContractsConfigMappings,
+  l1ReaderConfigMappings,
+} from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /**
@@ -32,14 +38,10 @@ export type ArchiverConfig = {
    */
   l1Contracts: L1ContractAddresses;
 
-  /**
-   * Optional dir to store data. If omitted will store in memory.
-   */
-  dataDirectory: string | undefined;
-
   /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
   maxLogs?: number;
-} & L1ReaderConfig;
+} & L1ReaderConfig &
+  L1ContractsConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   archiverUrl: {
@@ -50,11 +52,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
-    ...numberConfigHelper(1000),
-  },
-  dataDirectory: {
-    env: 'DATA_DIRECTORY',
-    description: 'Optional dir to store data. If omitted will store in memory.',
+    ...numberConfigHelper(1_000),
   },
   maxLogs: {
     env: 'ARCHIVER_MAX_LOGS',
@@ -67,6 +65,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'The polling interval viem uses in ms',
     ...numberConfigHelper(1000),
   },
+  ...l1ContractsConfigMappings,
 };
 
 /**

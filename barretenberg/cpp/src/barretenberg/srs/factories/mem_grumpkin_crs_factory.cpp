@@ -45,7 +45,7 @@ MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement
     : prover_crs_(std::make_shared<MemProverCrs<Grumpkin>>(points))
     , verifier_crs_(std::make_shared<MemVerifierCrs>(points))
 {
-    vinfo("Initializing ",
+    vinfo("Initialized ",
           curve::Grumpkin::name,
           " prover CRS from memory with num points = ",
           prover_crs_->get_monomial_size());

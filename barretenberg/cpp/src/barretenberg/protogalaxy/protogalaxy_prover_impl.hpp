@@ -170,14 +170,18 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         }
     }
     run_oink_prover_on_each_incomplete_key();
+    vinfo("oink prover on each incomplete key");
 
     std::tie(deltas, perturbator) = perturbator_round(accumulator);
+    vinfo("perturbator round");
 
     std::tie(accumulator->gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient) =
         combiner_quotient_round(accumulator->gate_challenges, deltas, keys_to_fold);
+    vinfo("combiner quotient round");
 
     const FoldingResult<Flavor> result = update_target_sum_and_fold(
         keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
+    vinfo("folded");
 
     return result;
 }

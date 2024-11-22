@@ -252,7 +252,8 @@ export const browserTestSuite = (
           console.log(`Contract Deployed: ${token.address}`);
 
           // We mint tokens to the owner
-          await token.methods.mint_to_private(owner.getAddress(), initialBalance).send().wait();
+          const from = owner.getAddress(); // we are setting from to owner here because of TODO(#9887)
+          await token.methods.mint_to_private(from, owner.getAddress(), initialBalance).send().wait();
 
           return [txHash.toString(), token.address.toString()];
         },

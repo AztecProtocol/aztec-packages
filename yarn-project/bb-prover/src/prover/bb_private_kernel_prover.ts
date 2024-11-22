@@ -276,7 +276,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await promise;
   }
 
-  private async simulate<I extends { toBuffer: () => Buffer }, O extends { toBuffer: () => Buffer }>(
+  private async simulate<
+    I extends { toBuffer: () => Buffer },
+    O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+  >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
     convertInputs: (inputs: I) => WitnessMap,
@@ -335,7 +338,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
 
     if (vkResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
+      this.log.error(`Failed to generate verification key for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
       throw new Error(vkResult.reason);
     }
 

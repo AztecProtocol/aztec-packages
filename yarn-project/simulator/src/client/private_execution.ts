@@ -61,7 +61,7 @@ export async function executePrivateFunction(
 
   const noteEncryptedLogs = context.getNoteEncryptedLogs();
   const encryptedLogs = context.getEncryptedLogs();
-  const unencryptedLogs = context.getUnencryptedLogs();
+  const contractClassLogs = context.getContractClassLogs();
 
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
 
@@ -76,7 +76,7 @@ export async function executePrivateFunction(
 
   return new PrivateExecutionResult(
     acir,
-    Buffer.from(artifact.verificationKey!, 'hex'),
+    Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
     noteHashLeafIndexMap,
@@ -88,7 +88,7 @@ export async function executePrivateFunction(
     publicTeardownFunctionCall,
     noteEncryptedLogs,
     encryptedLogs,
-    unencryptedLogs,
+    contractClassLogs,
   );
 }
 

@@ -16,12 +16,11 @@ import {
   UnencryptedTxL2Logs,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-  makeProcessedTx,
+  makeProcessedTxFromPrivateOnlyTx,
   mockEpochProofQuote,
   mockTxForRollup,
 } from '@aztec/circuit-types';
 import {
-  AZTEC_EPOCH_DURATION,
   AztecAddress,
   type ContractDataSource,
   EthAddress,
@@ -30,6 +29,7 @@ import {
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -69,6 +69,8 @@ describe('sequencer', () => {
 
   let sequencer: TestSubject;
 
+  const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
+  const slotDuration = DefaultL1ContractsConfig.aztecSlotDuration;
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
@@ -144,7 +146,9 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [
-        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs()))),
+        await Promise.all(
+          txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, block.header.globalVariables)),
+        ),
         [],
         [],
       ],
@@ -179,6 +183,7 @@ describe('sequencer', () => {
       createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
     });
 
+    const l1GenesisTime = Math.floor(Date.now() / 1000);
     sequencer = new TestSubject(
       publisher,
       // TDOO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
@@ -191,10 +196,11 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
+      l1GenesisTime,
+      slotDuration,
       new NoopTelemetryClient(),
       { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
-    sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000));
   });
 
   it('builds a block out of a single tx', async () => {
@@ -226,8 +232,10 @@ describe('sequencer', () => {
     },
     // It would be nice to add the other states, but we would need to inject delays within the `work` loop
   ])('does not build a block if it does not have enough time left in the slot', async ({ delayedState }) => {
-    // trick the sequencer into thinking that we are just too far into the slot
-    sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000) - (sequencer.getTimeTable()[delayedState] + 1));
+    // trick the sequencer into thinking that we are just too far into slot 1
+    sequencer.setL1GenesisTime(
+      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable()[delayedState] + 1),
+    );
 
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
@@ -545,7 +553,7 @@ describe('sequencer', () => {
     let txHash: TxHash;
     let currentEpoch = 0n;
     const setupForBlockNumber = (blockNumber: number) => {
-      currentEpoch = BigInt(blockNumber) / BigInt(AZTEC_EPOCH_DURATION);
+      currentEpoch = BigInt(blockNumber) / BigInt(epochDuration);
       // Create a new block and header
       block = L2Block.random(blockNumber);
 
@@ -582,7 +590,7 @@ describe('sequencer', () => {
       ]);
 
       publisher.getEpochForSlotNumber.mockImplementation((slotNumber: bigint) =>
-        Promise.resolve(slotNumber / BigInt(AZTEC_EPOCH_DURATION)),
+        Promise.resolve(slotNumber / BigInt(epochDuration)),
       );
 
       const tx = mockTxForRollup();
@@ -594,7 +602,7 @@ describe('sequencer', () => {
     };
 
     it('submits a valid proof quote with a block', async () => {
-      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
       const proofQuote = mockEpochProofQuote(
@@ -639,7 +647,7 @@ describe('sequencer', () => {
     });
 
     it('does not submit a quote with an expired slot number', async () => {
-      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
       const proofQuote = mockEpochProofQuote(
@@ -663,7 +671,7 @@ describe('sequencer', () => {
     });
 
     it('does not submit a valid quote if unable to claim epoch', async () => {
-      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
       const proofQuote = mockEpochProofQuote(
@@ -685,7 +693,7 @@ describe('sequencer', () => {
     });
 
     it('does not submit an invalid quote', async () => {
-      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
       const proofQuote = mockEpochProofQuote(
@@ -710,7 +718,7 @@ describe('sequencer', () => {
     });
 
     it('only selects valid quotes', async () => {
-      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
       // Create 1 valid quote and 3 that have a higher fee but are invalid
@@ -765,7 +773,7 @@ describe('sequencer', () => {
     });
 
     it('selects the lowest cost valid quote', async () => {
-      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
       // Create 3 valid quotes with different fees.
@@ -835,7 +843,7 @@ class TestSubject extends Sequencer {
   }
 
   public override doRealWork() {
-    this.setState(SequencerState.IDLE, true /** force */);
+    this.setState(SequencerState.IDLE, 0, true /** force */);
     return super.doRealWork();
   }
 }

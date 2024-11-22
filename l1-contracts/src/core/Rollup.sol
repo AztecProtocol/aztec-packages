@@ -16,6 +16,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -40,6 +41,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using SafeERC20 for IERC20;
+  using ProposeLib for ProposeArgs;
 
   struct ChainTips {
     uint256 pendingBlockNumber;
@@ -52,12 +54,18 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slotNumber;
   }
 
+  struct Config {
+    uint256 aztecSlotDuration;
+    uint256 aztecEpochDuration;
+    uint256 targetCommitteeSize;
+    uint256 aztecEpochProofClaimWindowInL2Slots;
+  }
+
   // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
   // for justification of CLAIM_DURATION_IN_L2_SLOTS.
-  uint256 public constant CLAIM_DURATION_IN_L2_SLOTS =
-    Constants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS;
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
 
+  uint256 public immutable CLAIM_DURATION_IN_L2_SLOTS;
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
@@ -66,6 +74,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
   IRewardDistributor public immutable REWARD_DISTRIBUTOR;
   IERC20 public immutable ASSET;
+
   IVerifier public epochProofVerifier;
 
   ChainTips public tips;
@@ -91,19 +100,30 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
-    address[] memory _validators
-  ) Leonidas(_ares) {
+    address[] memory _validators,
+    Config memory _config
+  )
+    Leonidas(
+      _ares,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.targetCommitteeSize
+    )
+  {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     REWARD_DISTRIBUTOR = _rewardDistributor;
     ASSET = _fpcJuicePortal.UNDERLYING();
-    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(ASSET, address(this));
+    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(
+      ASSET, address(this), _config.aztecSlotDuration, _config.aztecEpochDuration
+    );
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
     protocolContractTreeRoot = _protocolContractTreeRoot;
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
+    CLAIM_DURATION_IN_L2_SLOTS = _config.aztecEpochProofClaimWindowInL2Slots;
 
     // Genesis block
     blocks[0] = BlockLog({
@@ -181,22 +201,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
    *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
+   * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
   function proposeAndClaim(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
+    ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
-    propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
+    propose(_args, _signatures, _body);
     claimEpochProofRight(_quote);
   }
 
@@ -446,29 +461,27 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
    *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
+   * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
   function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
+    ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) public override(IRollup) {
     if (canPrune()) {
       _prune();
     }
+    // The `body` is passed outside the "args" as it does not directly need to be in the digest
+    // as long as the `txsEffectsHash` is included and matches what is in the header.
+    // Which we are checking in the `_validateHeader` call below.
     bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 
     // Decode and validate header
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    HeaderLib.Header memory header = HeaderLib.decode(_args.header);
 
-    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
+    bytes32 digest = _args.digest();
     setupEpoch();
     _validateHeader({
       _header: header,
@@ -482,8 +495,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 blockNumber = ++tips.pendingBlockNumber;
 
     blocks[blockNumber] = BlockLog({
-      archive: _archive,
-      blockHash: _blockHash,
+      archive: _args.archive,
+      blockHash: _args.blockHash,
       slotNumber: Slot.wrap(header.globalVariables.slotNumber)
     });
 
@@ -500,7 +513,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 l2ToL1TreeMinHeight = min + 1;
     OUTBOX.insert(blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight);
 
-    emit L2BlockProposed(blockNumber, _archive);
+    emit L2BlockProposed(blockNumber, _args.archive);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
@@ -640,7 +653,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // out_hash: root of this epoch's l2 to l1 message tree
     publicInputs[8] = _args[5];
 
-    uint256 feesLength = Constants.AZTEC_EPOCH_DURATION * 2;
+    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
     for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[9 + i] = _fees[i];
@@ -702,8 +715,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     );
 
     require(
-      currentSlot.positionInEpoch() < CLAIM_DURATION_IN_L2_SLOTS,
-      Errors.Rollup__NotInClaimPhase(currentSlot.positionInEpoch(), CLAIM_DURATION_IN_L2_SLOTS)
+      positionInEpoch(currentSlot) < CLAIM_DURATION_IN_L2_SLOTS,
+      Errors.Rollup__NotInClaimPhase(positionInEpoch(currentSlot), CLAIM_DURATION_IN_L2_SLOTS)
     );
 
     // if the epoch to prove is not the one that has been claimed,
@@ -794,16 +807,16 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     Slot currentSlot = getSlotAt(_ts);
     Epoch oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
-    Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
+    Slot startSlotOfPendingEpoch = toSlots(oldestPendingEpoch);
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
     // we prune the pending chain back to the end of epoch 1 if:
     // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
     // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
     bool inClaimPhase = currentSlot
-      < startSlotOfPendingEpoch + Epoch.wrap(1).toSlots() + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
+      < startSlotOfPendingEpoch + toSlots(Epoch.wrap(1)) + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
 
-    bool claimExists = currentSlot < startSlotOfPendingEpoch + Epoch.wrap(2).toSlots()
+    bool claimExists = currentSlot < startSlotOfPendingEpoch + toSlots(Epoch.wrap(2))
       && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0);
 
     if (inClaimPhase || claimExists) {

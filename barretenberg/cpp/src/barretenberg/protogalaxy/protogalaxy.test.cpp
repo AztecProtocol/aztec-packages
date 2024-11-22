@@ -48,16 +48,16 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void construct_circuit(Builder& builder)
     {
         MockCircuits::add_arithmetic_gates(builder);
-        if constexpr (IsGoblinFlavor<Flavor>) {
+        if constexpr (IsMegaFlavor<Flavor>) {
             GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
     }
 
     // Construct decider keys for a provided circuit and add to tuple
-    static void construct_keys(TupleOfKeys& keys, Builder& builder, TraceStructure structure = TraceStructure::NONE)
+    static void construct_keys(TupleOfKeys& keys, Builder& builder, TraceSettings trace_settings = TraceSettings{})
     {
 
-        auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, structure);
+        auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
         auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->proving_key);
         auto decider_verification_keys = std::make_shared<DeciderVerificationKey>(verification_key);
         get<0>(keys).emplace_back(decider_proving_key);
@@ -65,7 +65,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     // Construct a given numer of decider key pairs
-    static TupleOfKeys construct_keys(size_t num_keys, TraceStructure structure = TraceStructure::NONE)
+    static TupleOfKeys construct_keys(size_t num_keys, TraceSettings trace_settings = TraceSettings{})
     {
         TupleOfKeys keys;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
@@ -73,7 +73,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             auto builder = typename Flavor::CircuitBuilder();
             construct_circuit(builder);
 
-            construct_keys(keys, builder, structure);
+            construct_keys(keys, builder, trace_settings);
         }
         return keys;
     }
@@ -143,7 +143,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
                                                                      decider_pk->relation_parameters.eta_two,
                                                                      decider_pk->relation_parameters.eta_three);
         decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-        decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+        decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                                 decider_pk->final_active_wire_idx + 1);
 
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();
@@ -442,13 +443,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy_structured_trace()
     {
-        TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-        TupleOfKeys keys_1 = construct_keys(2, trace_structure);
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+        TupleOfKeys keys_1 = construct_keys(2, trace_settings);
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
-        TupleOfKeys keys_2 = construct_keys(1, trace_structure); // just one key pair
+        TupleOfKeys keys_2 = construct_keys(1, trace_settings); // just one key pair
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
@@ -465,7 +466,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy_structured_trace_inhomogeneous_circuits()
     {
-        TraceStructure trace_structure = TraceStructure::SMALL_TEST;
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
         // Construct three circuits to be folded, each with a different number of constraints
         Builder builder1;
@@ -482,8 +483,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the decider key pairs for the first two circuits
         TupleOfKeys keys_1;
-        construct_keys(keys_1, builder1, trace_structure);
-        construct_keys(keys_1, builder2, trace_structure);
+        construct_keys(keys_1, builder1, trace_settings);
+        construct_keys(keys_1, builder2, trace_settings);
 
         // Fold the first two pairs
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
@@ -491,7 +492,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the decider key pair for the third circuit
         TupleOfKeys keys_2;
-        construct_keys(keys_2, builder3, trace_structure);
+        construct_keys(keys_2, builder3, trace_settings);
 
         // Fold 3rd pair of keys into their respective accumulators
         auto [prover_accumulator_2, verifier_accumulator_2] =

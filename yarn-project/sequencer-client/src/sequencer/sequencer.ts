@@ -12,7 +12,6 @@ import {
 import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
-  AZTEC_SLOT_DURATION,
   AppendOnlyTreeSnapshot,
   ContentCommitment,
   GENESIS_ARCHIVE_ROOT,
@@ -85,7 +84,7 @@ export class Sequencer {
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
-  protected l1GenesisTime: number;
+
   /**
    * The maximum number of seconds that the sequencer can be into a slot to transition to a particular state.
    * For example, in order to transition into WAITING_FOR_ATTESTATIONS, the sequencer can be at most 3 seconds into the slot.
@@ -104,15 +103,15 @@ export class Sequencer {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
     private txValidatorFactory: TxValidatorFactory,
+    protected l1GenesisTime: number,
+    private aztecSlotDuration: number,
     telemetry: TelemetryClient,
     private config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.l1GenesisTime = 0;
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
-    this.setTimeTable();
   }
 
   get tracer(): Tracer {
@@ -162,33 +161,31 @@ export class Sequencer {
     this.config = config;
   }
 
-  public setTimeTable() {
+  private setTimeTable() {
     const newTimeTable: Record<SequencerState, number> = {
-      [SequencerState.STOPPED]: AZTEC_SLOT_DURATION,
-      [SequencerState.IDLE]: AZTEC_SLOT_DURATION,
-      [SequencerState.SYNCHRONIZING]: AZTEC_SLOT_DURATION,
-      [SequencerState.PROPOSER_CHECK]: AZTEC_SLOT_DURATION, // We always want to allow the full slot to check if we are the proposer
-      [SequencerState.WAITING_FOR_TXS]: 3,
-      [SequencerState.CREATING_BLOCK]: 5,
-      [SequencerState.PUBLISHING_BLOCK_TO_PEERS]: 5 + this.maxTxsPerBlock * 2, // if we take 5 seconds to create block, then 4 transactions at 2 seconds each
-      [SequencerState.WAITING_FOR_ATTESTATIONS]: 5 + this.maxTxsPerBlock * 2 + 3, // it shouldn't take 3 seconds to publish to peers
-      [SequencerState.PUBLISHING_BLOCK]: 5 + this.maxTxsPerBlock * 2 + 3 + 5, // wait 5 seconds for attestations
+      [SequencerState.STOPPED]: this.aztecSlotDuration,
+      [SequencerState.IDLE]: this.aztecSlotDuration,
+      [SequencerState.SYNCHRONIZING]: this.aztecSlotDuration,
+      [SequencerState.PROPOSER_CHECK]: this.aztecSlotDuration, // We always want to allow the full slot to check if we are the proposer
+      [SequencerState.WAITING_FOR_TXS]: 5,
+      [SequencerState.CREATING_BLOCK]: 7,
+      [SequencerState.PUBLISHING_BLOCK_TO_PEERS]: 7 + this.maxTxsPerBlock * 2, // if we take 5 seconds to create block, then 4 transactions at 2 seconds each
+      [SequencerState.WAITING_FOR_ATTESTATIONS]: 7 + this.maxTxsPerBlock * 2 + 3, // it shouldn't take 3 seconds to publish to peers
+      [SequencerState.PUBLISHING_BLOCK]: 7 + this.maxTxsPerBlock * 2 + 3 + 5, // wait 5 seconds for attestations
     };
-    if (this.enforceTimeTable && newTimeTable[SequencerState.PUBLISHING_BLOCK] > AZTEC_SLOT_DURATION) {
+    if (this.enforceTimeTable && newTimeTable[SequencerState.PUBLISHING_BLOCK] > this.aztecSlotDuration) {
       throw new Error('Sequencer cannot publish block in less than a slot');
     }
     this.timeTable = newTimeTable;
   }
+
   /**
-   * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
+   * Starts the sequencer and moves to IDLE state.
    */
-  public async start() {
-    const rollup = this.publisher.getRollupContract();
-    const [l1GenesisTime] = await Promise.all([rollup.read.GENESIS_TIME()] as const);
-    this.l1GenesisTime = Number(l1GenesisTime);
+  public start() {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
-    this.setState(SequencerState.IDLE, true /** force */);
+    this.setState(SequencerState.IDLE, 0, true /** force */);
     this.log.info('Sequencer started');
     return Promise.resolve();
   }
@@ -200,7 +197,7 @@ export class Sequencer {
     this.log.debug(`Stopping sequencer`);
     await this.runningPromise?.stop();
     this.publisher.interrupt();
-    this.setState(SequencerState.STOPPED, true /** force */);
+    this.setState(SequencerState.STOPPED, 0, true /** force */);
     this.log.info('Stopped sequencer');
   }
 
@@ -211,7 +208,7 @@ export class Sequencer {
     this.log.info('Restarting sequencer');
     this.publisher.restart();
     this.runningPromise!.start();
-    this.setState(SequencerState.IDLE, true /** force */);
+    this.setState(SequencerState.IDLE, 0, true /** force */);
   }
 
   /**
@@ -231,7 +228,7 @@ export class Sequencer {
    *          - If our block for some reason is not included, revert the state
    */
   protected async doRealWork() {
-    this.setState(SequencerState.SYNCHRONIZING);
+    this.setState(SequencerState.SYNCHRONIZING, 0);
     // Update state when the previous block has been synced
     const prevBlockSynced = await this.isBlockSynced();
     // Do not go forward with new block if the previous one has not been mined and processed
@@ -242,7 +239,7 @@ export class Sequencer {
 
     this.log.debug('Previous block has been mined and processed');
 
-    this.setState(SequencerState.PROPOSER_CHECK);
+    this.setState(SequencerState.PROPOSER_CHECK, 0);
 
     const chainTip = await this.l2BlockSource.getBlock(-1);
     const historicalHeader = chainTip?.header;
@@ -276,8 +273,9 @@ export class Sequencer {
     if (!this.shouldProposeBlock(historicalHeader, {})) {
       return;
     }
+    const secondsIntoSlot = getSecondsIntoSlot(this.l1GenesisTime, this.aztecSlotDuration, Number(slot));
 
-    this.setState(SequencerState.WAITING_FOR_TXS);
+    this.setState(SequencerState.WAITING_FOR_TXS, secondsIntoSlot);
 
     // Get txs to build the new block.
     const pendingTxs = this.p2pClient.getTxs('pending');
@@ -322,7 +320,7 @@ export class Sequencer {
     } catch (err) {
       this.log.error(`Error assembling block`, (err as any).stack);
     }
-    this.setState(SequencerState.IDLE);
+    this.setState(SequencerState.IDLE, 0);
   }
 
   protected async work() {
@@ -336,7 +334,7 @@ export class Sequencer {
         throw err;
       }
     } finally {
-      this.setState(SequencerState.IDLE);
+      this.setState(SequencerState.IDLE, 0);
     }
   }
 
@@ -360,7 +358,7 @@ export class Sequencer {
         throw new Error(msg);
       }
 
-      this.log.info(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
+      this.log.verbose(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
       const msg = prettyLogViemErrorMsg(err);
@@ -376,7 +374,7 @@ export class Sequencer {
       return true;
     }
 
-    if (this.timeTable[proposedState] === AZTEC_SLOT_DURATION) {
+    if (this.timeTable[proposedState] === this.aztecSlotDuration) {
       return true;
     }
 
@@ -395,14 +393,13 @@ export class Sequencer {
     return true;
   }
 
-  setState(proposedState: SequencerState, force: boolean = false) {
+  setState(proposedState: SequencerState, secondsIntoSlot: number, force: boolean = false) {
     if (this.state === SequencerState.STOPPED && force !== true) {
       this.log.warn(
         `Cannot set sequencer from ${this.state} to ${proposedState} as it is stopped. Set force=true to override.`,
       );
       return;
     }
-    const secondsIntoSlot = getSecondsIntoSlot(this.l1GenesisTime);
     if (!this.doIHaveEnoughTimeLeft(proposedState, secondsIntoSlot)) {
       throw new SequencerTooSlowError(this.state, proposedState, this.timeTable[proposedState], secondsIntoSlot);
     }
@@ -499,7 +496,12 @@ export class Sequencer {
 
     this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
     const workTimer = new Timer();
-    this.setState(SequencerState.CREATING_BLOCK);
+    const secondsIntoSlot = getSecondsIntoSlot(
+      this.l1GenesisTime,
+      this.aztecSlotDuration,
+      newGlobalVariables.slotNumber.toNumber(),
+    );
+    this.setState(SequencerState.CREATING_BLOCK, secondsIntoSlot);
     this.log.info(
       `Building blockNumber=${newGlobalVariables.blockNumber.toNumber()} txCount=${
         validTxs.length
@@ -561,7 +563,7 @@ export class Sequencer {
       await this.publisher.validateBlockForSubmission(block.header);
 
       const workDuration = workTimer.ms();
-      this.log.verbose(
+      this.log.info(
         `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
           'hex',
         )})`,
@@ -576,7 +578,7 @@ export class Sequencer {
       );
 
       if (this.isFlushing) {
-        this.log.verbose(`Flushing completed`);
+        this.log.info(`Flushing completed`);
       }
 
       const txHashes = validTxs.map(tx => tx.getTxHash());
@@ -590,7 +592,7 @@ export class Sequencer {
       this.log.verbose('Collecting proof quotes');
 
       const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
-      this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
+      this.log.info(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
 
       try {
         await this.publishL2Block(block, attestations, txHashes, proofQuote);
@@ -638,16 +640,28 @@ export class Sequencer {
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
-    this.log.verbose('Creating block proposal');
+    this.log.info('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
-    this.setState(SequencerState.PUBLISHING_BLOCK_TO_PEERS);
-    this.log.verbose('Broadcasting block proposal to validators');
+    let secondsIntoSlot = getSecondsIntoSlot(
+      this.l1GenesisTime,
+      this.aztecSlotDuration,
+      block.header.globalVariables.slotNumber.toNumber(),
+    );
+
+    this.setState(SequencerState.PUBLISHING_BLOCK_TO_PEERS, secondsIntoSlot);
+    this.log.info('Broadcasting block proposal to validators');
     this.validatorClient.broadcastBlockProposal(proposal);
 
-    this.setState(SequencerState.WAITING_FOR_ATTESTATIONS);
+    secondsIntoSlot = getSecondsIntoSlot(
+      this.l1GenesisTime,
+      this.aztecSlotDuration,
+      block.header.globalVariables.slotNumber.toNumber(),
+    );
+
+    this.setState(SequencerState.WAITING_FOR_ATTESTATIONS, secondsIntoSlot);
     const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
-    this.log.verbose(`Collected attestations from validators, number of attestations: ${attestations.length}`);
+    this.log.info(`Collected attestations from validators, number of attestations: ${attestations.length}`);
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return orderAttestations(attestations, committee);
@@ -664,7 +678,7 @@ export class Sequencer {
 
       // Get quotes for the epoch to be proven
       const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
-      this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
+      this.log.info(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
       for (const quote of quotes) {
         this.log.verbose(inspect(quote.payload));
       }
@@ -675,7 +689,7 @@ export class Sequencer {
 
       const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
       if (!validQuotes.length) {
-        this.log.verbose(`Failed to find any valid proof quotes`);
+        this.log.warn(`Failed to find any valid proof quotes`);
         return undefined;
       }
       // pick the quote with the lowest fee
@@ -702,8 +716,13 @@ export class Sequencer {
     txHashes?: TxHash[],
     proofQuote?: EpochProofQuote,
   ) {
+    const secondsIntoSlot = getSecondsIntoSlot(
+      this.l1GenesisTime,
+      this.aztecSlotDuration,
+      block.header.globalVariables.slotNumber.toNumber(),
+    );
     // Publishes new block to the network and awaits the tx to be mined
-    this.setState(SequencerState.PUBLISHING_BLOCK);
+    this.setState(SequencerState.PUBLISHING_BLOCK, secondsIntoSlot);
 
     const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
     if (!publishedL2Block) {

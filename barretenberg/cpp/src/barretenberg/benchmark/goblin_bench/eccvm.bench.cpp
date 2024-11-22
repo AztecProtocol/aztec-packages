@@ -61,7 +61,7 @@ void eccvm_prove(State& state) noexcept
     Builder builder = generate_trace(target_num_gates);
     ECCVMProver prover(builder);
     for (auto _ : state) {
-        auto proof = prover.construct_proof();
+        ECCVMProof proof = prover.construct_proof();
     };
 }
 

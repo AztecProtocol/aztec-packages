@@ -8,7 +8,6 @@ import {
   type ProcessedTx,
   type TxEffect,
   makeEmptyProcessedTx,
-  toTxEffect,
 } from '@aztec/circuit-types';
 import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -68,9 +67,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private async buildBlock(): Promise<L2Block> {
     this.logger.verbose(`Finalising block`);
-    const nonEmptyTxEffects: TxEffect[] = this.txs
-      .map(tx => toTxEffect(tx, this.globalVariables!.gasFees))
-      .filter(txEffect => !txEffect.isEmpty());
+    const nonEmptyTxEffects: TxEffect[] = this.txs.map(tx => tx.txEffect).filter(txEffect => !txEffect.isEmpty());
     const body = new Body(nonEmptyTxEffects);
     const header = await buildHeaderFromTxEffects(body, this.globalVariables!, this.l1ToL2Messages!, this.db);
 

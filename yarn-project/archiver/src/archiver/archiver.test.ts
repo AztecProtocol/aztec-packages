@@ -6,7 +6,8 @@ import {
   LogType,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { ETHEREUM_SLOT_DURATION, GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -60,7 +61,7 @@ describe('Archiver', () => {
     now = +new Date();
     publicClient = mock<PublicClient<HttpTransport, Chain>>({
       getBlock: ((args: any) => ({
-        timestamp: args.blockNumber * BigInt(ETHEREUM_SLOT_DURATION) + BigInt(now),
+        timestamp: args.blockNumber * BigInt(DefaultL1ContractsConfig.ethereumSlotDuration) + BigInt(now),
       })) as any,
     });
 
@@ -98,7 +99,10 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    blocks.forEach((b, i) => (b.header.globalVariables.timestamp = new Fr(now + ETHEREUM_SLOT_DURATION * (i + 1))));
+    blocks.forEach(
+      (b, i) =>
+        (b.header.globalVariables.timestamp = new Fr(now + DefaultL1ContractsConfig.ethereumSlotDuration * (i + 1))),
+    );
     const rollupTxs = blocks.map(makeRollupTx);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
@@ -195,6 +199,12 @@ describe('Archiver', () => {
       const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * 2;
       const totalNumUnencryptedLogs = UnencryptedL2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
       expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
+    });
+
+    blockNumbers.forEach(async x => {
+      const expectedTotalNumContractClassLogs = 4;
+      const contractClassLogs = await archiver.getContractClassLogs({ fromBlock: x, toBlock: x + 1 });
+      expect(contractClassLogs.logs.length).toEqual(expectedTotalNumContractClassLogs);
     });
 
     // Check last proven block number
@@ -446,7 +456,7 @@ function makeRollupTx(l2Block: L2Block) {
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [header, archive, blockHash, [], [], body],
+    args: [{ header, archive, blockHash, txHashes: [] }, [], body],
   });
   return { input } as Transaction<bigint, number>;
 }

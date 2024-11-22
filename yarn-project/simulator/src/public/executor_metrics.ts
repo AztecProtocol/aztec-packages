@@ -10,7 +10,6 @@ import {
 export class ExecutorMetrics {
   private fnCount: UpDownCounter;
   private fnDuration: Histogram;
-  private bytecodeSize: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicExecutor') {
     const meter = client.getMeter(name);
@@ -24,19 +23,12 @@ export class ExecutorMetrics {
       unit: 'ms',
       valueType: ValueType.INT,
     });
-
-    this.bytecodeSize = meter.createHistogram(Metrics.PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE, {
-      description: 'Size of the function bytecode',
-      unit: 'By',
-      valueType: ValueType.INT,
-    });
   }
 
-  recordFunctionSimulation(bytecodeSize: number, durationMs: number) {
+  recordFunctionSimulation(durationMs: number) {
     this.fnCount.add(1, {
       [Attributes.OK]: true,
     });
-    this.bytecodeSize.record(bytecodeSize);
     this.fnDuration.record(Math.ceil(durationMs));
   }
 

@@ -7,10 +7,10 @@ use dep::types::{
 
 pub struct ConstantRollupData {
     // Archive tree snapshot at the very beginning of the entire rollup.
-    last_archive: AppendOnlyTreeSnapshot,
-    vk_tree_root: Field,
-    protocol_contract_tree_root: Field,
-    global_variables: GlobalVariables,
+    pub last_archive: AppendOnlyTreeSnapshot,
+    pub vk_tree_root: Field,
+    pub protocol_contract_tree_root: Field,
+    pub global_variables: GlobalVariables,
 }
 
 impl Eq for ConstantRollupData {
@@ -44,7 +44,7 @@ impl Serialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
 
         assert_eq(fields.len(), CONSTANT_ROLLUP_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

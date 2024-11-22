@@ -8,7 +8,7 @@ import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
+import {Rollup} from "../harnesses/Rollup.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -81,6 +81,8 @@ contract DepositToAztecPublic is Test {
     uint256 amount = 100 ether;
     uint256 expectedIndex = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(feeJuicePortal), block.chainid),
       recipient: DataStructures.L2Actor(feeJuicePortal.L2_TOKEN_ADDRESS(), 1 + numberOfRollups),

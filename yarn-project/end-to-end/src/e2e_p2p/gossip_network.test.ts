@@ -3,6 +3,7 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
+// import { METRICS_PORT } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions, getMetricsPort } from './shared.js';

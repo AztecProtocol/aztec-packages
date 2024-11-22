@@ -142,6 +142,7 @@ template <typename Curve_> class IPA {
 
         size_t poly_length = polynomial.size();
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
         // Step 1.
         // Send polynomial degree + 1 = d to the verifier
         transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_length));
@@ -283,6 +284,10 @@ template <typename Curve_> class IPA {
         }
 
         // Step 7
+        // Send G_0 to the verifier
+        transcript->send_to_verifier("IPA:G_0", G_vec_local[0]);
+
+        // Step 8
         // Send a_0 to the verifier
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
     }
@@ -312,7 +317,7 @@ template <typename Curve_> class IPA {
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    static bool reduce_verify_internal(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify_internal_native(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -409,6 +414,8 @@ template <typename Curve_> class IPA {
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
            s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
+        Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        ASSERT(G_zero == G_zero_sent && "G_0 should be equal to G_0 sent in transcript.");
 
         // Step 9.
         // Receive a₀ from the prover
@@ -436,8 +443,7 @@ template <typename Curve_> class IPA {
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
      * function with parallelisation
      */
-    static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
-                                                      const OpeningClaim<Curve>& opening_claim,
+    static VerifierAccumulator reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
@@ -448,9 +454,7 @@ template <typename Curve_> class IPA {
                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
                                        // Grumpkin
 
-        // Ensure polynomial length cannot be changed from its default specified valued
-        poly_length_var.fix_witness();
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
 
         // Step 2.
@@ -505,47 +509,15 @@ template <typename Curve_> class IPA {
             }
         }
 
-
         // Step 5.
-        // Construct vector s
-        // We implement a linear-time algorithm to optimally compute this vector
-        // Note: currently requires an extra vector of size `poly_length / 2` to cache temporaries
-        //       this might able to be optimized if we care enough, but the size of this poly shouldn't be large relative to the builder polynomial sizes
-        std::vector<Fr> s_vec_temporaries(poly_length / 2);
-        std::vector<Fr> s_vec(poly_length);
-
-        Fr* previous_round_s = &s_vec_temporaries[0];
-        Fr* current_round_s = &s_vec[0];
-        // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_length & 1) == 0)
-        {
-            std::swap(previous_round_s, current_round_s);
-        }
-        previous_round_s[0] = Fr(1);
-        for (size_t i = 0; i < log_poly_length; ++i)
-        {
-            const size_t round_size = 1 << (i + 1);
-            const Fr round_challenge = round_challenges_inv[i];
-            for (size_t j = 0; j < round_size / 2; ++j)
-            {
-                current_round_s[j * 2] = previous_round_s[j];
-                current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
-            }
-            std::swap(current_round_s, previous_round_s);
-        }
+        // Receive G₀ from the prover
+        Commitment G_zero = transcript->template receive_from_prover<Commitment>("IPA:G_0");
 
         // Step 6.
         // Receive a₀ from the prover
         const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         // Step 7.
-        // Compute G₀
-        // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
-        // batch_mul directly on it.
-        const std::vector<Commitment> srs_elements = vk->get_monomial_points();
-        Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
-
-        // Step 8.
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) + a₀ * b₀) ⋅ U
         // This is a combination of several IPA relations into a large batch mul
         // which should be equal to -C
@@ -556,7 +528,7 @@ template <typename Curve_> class IPA {
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         ipa_relation.assert_equal(-opening_claim.commitment);
 
-        ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
+        ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value() && "IPA relation failed.");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of a field_t.
         Fr stdlib_log_poly_length(static_cast<uint256_t>(log_poly_length));
         return {stdlib_log_poly_length, round_challenges_inv, G_zero};
@@ -597,7 +569,7 @@ template <typename Curve_> class IPA {
                                              const auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
-        return reduce_verify_internal(vk, opening_claim, transcript);
+        return reduce_verify_internal_native(vk, opening_claim, transcript);
     }
 
     /**
@@ -613,12 +585,11 @@ template <typename Curve_> class IPA {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
     // implemented
-    static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
-                                             const OpeningClaim<Curve>& opening_claim,
+    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(Curve::is_stdlib_type)
     {
-        return reduce_verify_internal(vk, opening_claim, transcript);
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
     /**
      * @brief A method that produces an IPA opening claim from Shplemini accumulator containing vectors of commitments
@@ -662,7 +633,7 @@ template <typename Curve_> class IPA {
         requires(!Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
-        return reduce_verify_internal(vk, opening_claim, transcript);
+        return reduce_verify_internal_native(vk, opening_claim, transcript);
     }
 
     /**
@@ -674,12 +645,12 @@ template <typename Curve_> class IPA {
      * @return VerifierAccumulator
      */
     static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
-                                                                 const std::shared_ptr<VK>& vk,
+                                                                 [[maybe_unused]] const std::shared_ptr<VK>& vk,
                                                                  auto& transcript)
         requires(Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
-        return reduce_verify_internal(vk, opening_claim, transcript);
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
@@ -778,8 +749,8 @@ template <typename Curve_> class IPA {
     }
 
     /**
-     * @brief Takes two IPA claims and accumulates them into 1 IPA claim.
-     * @details We create an IPA accumulator by running the IPA recursive verifier on each claim. Then, we generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated polynomial. 
+     * @brief Takes two IPA claims and accumulates them into 1 IPA claim. Also computes IPA proof for the claim.
+     * @details We create an IPA accumulator by running the IPA recursive verifier on each claim. Then, we generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated polynomial, and generate the IPA proof for the accumulated claim.
      * More details are described here: https://hackmd.io/IXoLIPhVT_ej8yhZ_Ehvuw?both.
      * 
      * @param verifier_ck 
@@ -787,15 +758,16 @@ template <typename Curve_> class IPA {
      * @param claim_1 
      * @param transcript_2 
      * @param claim_2 
-     * @return std::pair<OpeningClaim<Curve>, Polynomial<bb::fq>> 
+     * @return std::pair<OpeningClaim<Curve>, HonkProof> 
      */
-    static std::pair<OpeningClaim<Curve>, Polynomial<bb::fq>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
+    static std::pair<OpeningClaim<Curve>, HonkProof> accumulate(const std::shared_ptr<CommitmentKey<curve::Grumpkin>>& ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
     requires Curve::is_stdlib_type
     {
+        using NativeCurve = curve::Grumpkin;
         using Builder = typename Curve::Builder;
         // Step 1: Run the verifier for each IPA instance
-        VerifierAccumulator pair_1 = reduce_verify(verifier_ck, claim_1, transcript_1);
-        VerifierAccumulator pair_2 = reduce_verify(verifier_ck, claim_2, transcript_2);
+        VerifierAccumulator pair_1 = reduce_verify(claim_1, transcript_1);
+        VerifierAccumulator pair_2 = reduce_verify(claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
@@ -822,7 +794,23 @@ template <typename Curve_> class IPA {
         for (Fr u_inv_i : pair_2.u_challenges_inv) {
             native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
-        return {output_claim, create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()))};
+        
+        // Compute proof for the claim
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
+                                                     bb::fq(output_claim.opening_pair.evaluation.get_value()) };
+        Polynomial<fq> challenge_poly = create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()));
+
+        ASSERT(challenge_poly.evaluate(opening_pair.challenge) == opening_pair.evaluation && "Opening claim does not hold for challenge polynomial.");
+
+        IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
+
+        // Since we know this circuit will not have any more IPA claims to accumulate, add IPA Claim to public inputs of circuit and add the proof to the builder.
+        Builder* builder = r.get_context();
+        builder->add_ipa_claim(output_claim.get_witness_indices());
+        builder->ipa_proof = prover_transcript->proof_data;
+
+        return {output_claim, prover_transcript->proof_data};
     }
 };
 

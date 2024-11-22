@@ -545,6 +545,18 @@ export class BarretenbergApi {
     return out as any;
   }
 
+  async acirProveAndVerifyAztecClient(acirVec: Uint8Array[], witnessVec: Uint8Array[]): Promise<boolean> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_and_verify_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirProveUltraHonk(acirVec: Uint8Array, recursive: boolean, witnessVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, recursive, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
@@ -581,6 +593,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async getHonkSolidityVerifier(acirVec: Uint8Array, recursive: boolean): Promise<string> {
+    const inArgs = [acirVec, recursive].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'get_honk_solidity_verifier_vk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirProofAsFieldsUltraHonk(proofBuf: Uint8Array): Promise<Fr[]> {
     const inArgs = [proofBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
@@ -598,6 +622,18 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = await this.wasm.callWasmExport(
       'acir_vk_as_fields_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirVkAsFieldsMegaHonk(vkBuf: Uint8Array): Promise<Fr[]> {
+    const inArgs = [vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = await this.wasm.callWasmExport(
+      'acir_vk_as_fields_mega_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1175,6 +1211,18 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = this.wasm.callWasmExport(
       'acir_vk_as_fields_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirVkAsFieldsMegaHonk(vkBuf: Uint8Array): Fr[] {
+    const inArgs = [vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = this.wasm.callWasmExport(
+      'acir_vk_as_fields_mega_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

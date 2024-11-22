@@ -11,7 +11,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
@@ -96,53 +96,58 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         X_LOW_Y_HI,
         X_HIGH_Z_1,
         Y_LOW_Z_2,
-        P_X_LOW_LIMBS,                    // P.xₗₒ split into 2 68 bit limbs
+        P_X_LOW_LIMBS,               // P.xₗₒ split into 2 68 bit limbs
+        P_X_HIGH_LIMBS,              // P.xₕᵢ split into a 68 and a 50 bit limb
+        P_Y_LOW_LIMBS,               // P.yₗₒ split into 2 68 bit limbs
+        P_Y_HIGH_LIMBS,              // P.yₕᵢ split into a 68 and a 50 bit limb
+        Z_LOW_LIMBS,                 // Low limbs of z_1 and z_2 (68 bits each)
+        Z_HIGH_LIMBS,                // High Limbs of z_1 and z_2 (60 bits each)
+        ACCUMULATORS_BINARY_LIMBS_0, // Contain 68-bit limbs of current and previous accumulator (previous at higher
+                                     // indices because of the nuances of KZG commitment).
+        ACCUMULATORS_BINARY_LIMBS_1,
+        ACCUMULATORS_BINARY_LIMBS_2,
+        ACCUMULATORS_BINARY_LIMBS_3, // Highest limb is 50 bits (254 mod 68)    P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low
+                                     // limbs split further into smaller chunks for range constraints
+        QUOTIENT_LOW_BINARY_LIMBS,   // Quotient limbs
+        QUOTIENT_HIGH_BINARY_LIMBS,
+        RELATION_WIDE_LIMBS,              // Limbs for checking the correctness of  mod 2²⁷² relations.
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split further into smaller chunks for range constraints
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_1,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_2,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_X_HIGH_LIMBS,                    // P.xₕᵢ split into a 68 and a 50 bit limb
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_Y_LOW_LIMBS,                    // P.yₗₒ split into 2 68 bit limbs
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split into chunks for range constraints
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_Y_HIGH_LIMBS,                    // P.yₕᵢ split into a 68 and a 50 bit limb
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        Z_LOW_LIMBS,                    // Low limbs of z_1 and z_2 (68 bits each)
         Z_LOW_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for low limbs of z_1 and z_2
         Z_LOW_LIMBS_RANGE_CONSTRAINT_1,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_2,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_3,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_4,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        Z_HIGH_LIMBS,                    // High Limbs of z_1 and z_2 (60 bits each)
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for high limbs of z_1 and z_2
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        ACCUMULATORS_BINARY_LIMBS_0, // Contain 68-bit limbs of current and previous accumulator (previous at higher
-                                     // indices because of the nuances of KZG commitment).
-        ACCUMULATORS_BINARY_LIMBS_1,
-        ACCUMULATORS_BINARY_LIMBS_2,
-        ACCUMULATORS_BINARY_LIMBS_3,              // Highest limb is 50 bits (254 mod 68)
+
         ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for the current accumulator limbs (no need to
                                                   // redo previous accumulator)
         ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1,
@@ -156,8 +161,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        QUOTIENT_LOW_BINARY_LIMBS, // Quotient limbs
-        QUOTIENT_HIGH_BINARY_LIMBS,
+
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAIN_0, // Range constraints for quotient
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAIN_1,
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAIN_2,
@@ -170,7 +174,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_3,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_4,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_TAIL,
-        RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations.
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
@@ -314,7 +317,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<Fr, NUM_BINARY_LIMBS> v_cubed_limbs = { 0 };
         std::array<Fr, NUM_BINARY_LIMBS> v_quarted_limbs = { 0 };
     };
-    static constexpr std::string_view NAME_STRING = "TranslatorArithmetization";
+
+    static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
 
     // The challenge that is used for batching together evaluations of several polynomials
     Fq batching_challenge_v;

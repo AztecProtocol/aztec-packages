@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
-import { MAX_L2_GAS_PER_ENQUEUED_CALL } from '../constants.gen.js';
 import { type GasFees } from './gas_fees.js';
 import { type UInt32 } from './shared.js';
 
@@ -14,6 +15,15 @@ export type GasDimensions = (typeof GasDimensions)[number];
 /** Gas amounts in each dimension. */
 export class Gas {
   constructor(public readonly daGas: UInt32, public readonly l2Gas: UInt32) {}
+
+  static get schema() {
+    return z
+      .object({
+        daGas: schemas.UInt32,
+        l2Gas: schemas.UInt32,
+      })
+      .transform(Gas.from);
+  }
 
   clone(): Gas {
     return new Gas(this.daGas, this.l2Gas);
@@ -35,9 +45,8 @@ export class Gas {
     return new Gas(0, 0);
   }
 
-  /** Returns large enough gas amounts for testing purposes. */
-  static test() {
-    return new Gas(1e9, MAX_L2_GAS_PER_ENQUEUED_CALL);
+  static random() {
+    return new Gas(Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9));
   }
 
   isEmpty() {

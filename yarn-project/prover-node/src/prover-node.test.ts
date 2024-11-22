@@ -25,7 +25,7 @@ import {
 } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
@@ -48,7 +48,6 @@ describe('prover-node', () => {
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let coordination: MockProxy<ProverCoordination> | ProverCoordination;
-  let simulator: MockProxy<SimulationProvider>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
   let bondManager: MockProxy<BondManager>;
@@ -97,7 +96,6 @@ describe('prover-node', () => {
       contractDataSource,
       worldState,
       coordination,
-      simulator,
       quoteProvider,
       quoteSigner,
       claimsMonitor,
@@ -115,7 +113,6 @@ describe('prover-node', () => {
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
     coordination = mock<ProverCoordination>();
-    simulator = mock<SimulationProvider>();
     quoteProvider = mock<QuoteProvider>();
     quoteSigner = mock<QuoteSigner>();
     bondManager = mock<BondManager>();

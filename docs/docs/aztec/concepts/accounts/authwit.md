@@ -205,7 +205,7 @@ In order for another user to be able to take actions on your behalf, they would 
 
 ### Other use-cases
 
-We don't need to limit ourselves to the `transfer` function, we can use the same scheme for any function that requires authentication. For example, for authenticating to burn or shield assets or to vote in a governance contract or perform an operation on a lending protocol.
+We don't need to limit ourselves to the `transfer` function, we can use the same scheme for any function that requires authentication. For example, for authenticating to burn, transferring assets from public to private, or to vote in a governance contract or perform an operation on a lending protocol.
 
 ### Next Steps
 

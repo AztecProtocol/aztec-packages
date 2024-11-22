@@ -17,16 +17,24 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-node
     spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
+      {{- end }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
-        - name: wait-for-boot-node
-          image: {{ .Values.images.curl.image }}
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
+        - name: wait-for-services
+          image: {{ .Values.images.aztec.image }}
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
+              source /shared/config/service-addresses
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                ${ETHEREUM_HOST} | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
@@ -38,26 +46,31 @@ spec:
               done
               echo "OpenTelemetry collector is ready!"
               {{- end }}
-              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+              until curl --head --silent $BOOT_NODE_HOST/status; do
                 echo "Waiting for boot node..."
                 sleep 5
               done
               echo "Boot node is ready!"
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
         - name: configure-prover-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
-            - "/bin/sh"
+            - "/bin/bash"
             - "-c"
-            - "cp /scripts/configure-prover-env.sh /tmp/configure-prover-env.sh && chmod +x /tmp/configure-prover-env.sh && /tmp/configure-prover-env.sh {{ include "aztec-network.bootNodeUrl" . }}"
+            - "cp /scripts/configure-prover-env.sh /tmp/configure-prover-env.sh && \
+               chmod +x /tmp/configure-prover-env.sh && \
+               source /shared/config/service-addresses && \
+               /tmp/configure-prover-env.sh ${BOOT_NODE_HOST}"
           volumeMounts:
-            - name: shared-volume
-              mountPath: /shared
+            - name: contracts-env
+              mountPath: /shared/contracts
             - name: scripts
               mountPath: /scripts
-          env:
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
+            - name: config
+              mountPath: /shared/config
 
       containers:
         - name: prover-node
@@ -66,16 +79,25 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver"
+            - |
+              source /shared/contracts/contracts.env && \
+              source /shared/p2p/p2p-addresses && \
+              source /shared/config/service-addresses && \
+              env && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver
           volumeMounts:
-            - name: shared-volume
-              mountPath: /shared
+            - name: contracts-env
+              mountPath: /shared/contracts
+            - name: p2p-addresses
+              mountPath: /shared/p2p
+            - name: config
+              mountPath: /shared/config
           env:
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: PORT
+            - name: AZTEC_PORT
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverNode.logLevel }}"
@@ -83,8 +105,6 @@ spec:
               value: "1"
             - name: DEBUG
               value: "{{ .Values.proverNode.debug }}"
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.proverNode.realProofs }}"
             - name: PROVER_AGENT_ENABLED
@@ -102,24 +122,22 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: P2P_ENABLED
               value: "{{ .Values.proverNode.p2pEnabled }}"
-            - name: P2P_TCP_ANNOUNCE_ADDR
-              {{- if .Values.proverNode.externalTcpHost }}
-              value: "{{ .Values.proverNode.externalTcpHost }}:{{ .Values.proverNode.service.p2pTcpPort }}"
-              {{- else }}
-              value: "$(POD_IP):{{ .Values.proverNode.service.p2pTcpPort }}"
-              {{- end }}
-            - name: P2P_UDP_ANNOUNCE_ADDR
-              {{- if .Values.proverNode.externalUdpHost }}
-              value: "{{ .Values.proverNode.externalUdpHost }}:{{ .Values.proverNode.service.p2pUdpPort }}"
-              {{- else }}
-              value: "$(POD_IP):{{ .Values.proverNode.service.p2pUdpPort }}"
-              {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pUdpPort }}"
+            - name: ETHEREUM_SLOT_DURATION
+              value: "{{ .Values.ethereum.blockTime }}"
+            - name: AZTEC_SLOT_DURATION
+              value: "{{ .Values.aztec.slotDuration }}"
+            - name: AZTEC_EPOCH_DURATION
+              value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
+              value: "{{ .Values.aztec.epochProofClaimWindow }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
@@ -130,7 +148,13 @@ spec:
       volumes:
         - name: scripts
           configMap:
-            name: {{ include "aztec-network.fullname" . }}-configure-prover-env
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: contracts-env
+          emptyDir: {}
+        - name: p2p-addresses
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: shared-volume
@@ -141,16 +165,7 @@ spec:
       resources:
         requests:
           storage: {{ .Values.proverNode.storage }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-configure-prover-env
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-data:
-  configure-prover-env.sh: |
-    {{ .Files.Get "files/config/config-prover-env.sh" | nindent 4 }}
+{{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
@@ -171,43 +186,4 @@ spec:
     - port: {{ .Values.proverNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
----
-{{if .Values.network.public }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-tcp
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-spec:
-  type: LoadBalancer
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: prover-node
-  ports:
-    - port: {{ .Values.proverNode.service.nodePort }}
-      name: node
-    - port: {{ .Values.proverNode.service.p2pTcpPort }}
-      name: p2p-tcp
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-udp
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-spec:
-  type: LoadBalancer
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: prover-node
-  ports:
-    - port: {{ .Values.proverNode.service.p2pUdpPort }}
-      name: p2p-udp
-      protocol: UDP
----
 {{ end }}

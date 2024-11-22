@@ -8,12 +8,9 @@ import {
   type DebugLogger,
   type DeployL1Contracts,
   EthAddress,
-  ExtendedNote,
   type Fq,
   Fr,
-  Note,
   type PXE,
-  type TxHash,
   createDebugLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
@@ -37,7 +34,6 @@ import solc from 'solc';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
-import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
@@ -222,17 +218,8 @@ export class FullProverTest {
       await result.pxe.registerContract(this.fakeProofsAsset);
 
       for (let i = 0; i < 2; i++) {
-        await waitRegisteredAccountSynced(
-          result.pxe,
-          this.keys[i][0],
-          this.wallets[i].getCompleteAddress().partialAddress,
-        );
-
-        await waitRegisteredAccountSynced(
-          this.pxe,
-          this.keys[i][0],
-          this.wallets[i].getCompleteAddress().partialAddress,
-        );
+        await result.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
+        await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
       }
 
       const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
@@ -327,19 +314,6 @@ export class FullProverTest {
     await this.acvmConfigCleanup?.();
   }
 
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.fakeProofsAsset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
-  }
-
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
@@ -352,7 +326,7 @@ export class FullProverTest {
 
         this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
         await asset.methods
-          .mint_public(accounts[0].address, privateAmount + publicAmount)
+          .mint_to_public(accounts[0].address, privateAmount + publicAmount)
           .send()
           .wait(waitOpts);
 
@@ -375,8 +349,7 @@ export class FullProverTest {
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(amount);
-        tokenSim.redeemShield(address, amount);
+        tokenSim.mintPrivate(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));

@@ -200,7 +200,7 @@ class WorldState {
     /**
      * @brief Commits the current state of the world state.
      */
-    bool commit();
+    std::pair<bool, std::string> commit(WorldStateStatusFull& status);
 
     /**
      * @brief Rolls back any uncommitted changes made to the world state.
@@ -210,12 +210,12 @@ class WorldState {
     uint64_t create_fork(const std::optional<index_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
-    WorldStateStatus set_finalised_blocks(const index_t& toBlockNumber);
-    WorldStateStatus unwind_blocks(const index_t& toBlockNumber);
-    WorldStateStatus remove_historical_blocks(const index_t& toBlockNumber);
+    WorldStateStatusSummary set_finalised_blocks(const index_t& toBlockNumber);
+    WorldStateStatusFull unwind_blocks(const index_t& toBlockNumber);
+    WorldStateStatusFull remove_historical_blocks(const index_t& toBlockNumber);
 
-    void get_status(WorldStateStatus& status) const;
-    WorldStateStatus sync_block(
+    void get_status_summary(WorldStateStatusSummary& status) const;
+    WorldStateStatusFull sync_block(
         const StateReference& block_state_ref,
         const bb::fr& block_header_hash,
         const std::vector<bb::fr>& notes,
@@ -243,9 +243,13 @@ class WorldState {
     Fork::SharedPtr create_new_fork(const index_t& blockNumber);
     void remove_forks_for_block(const index_t& blockNumber);
 
-    bool unwind_block(const index_t& blockNumber);
-    bool remove_historical_block(const index_t& blockNumber);
+    bool unwind_block(const index_t& blockNumber, WorldStateStatusFull& status);
+    bool remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status);
     bool set_finalised_block(const index_t& blockNumber);
+
+    void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
+
+    void validate_trees_are_equally_synched();
 
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);
@@ -258,7 +262,99 @@ class WorldState {
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,
                                               bool initial_state = false);
+
+    static bool determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaResponses);
+
+    static void get_status_summary_from_meta_responses(WorldStateStatusSummary& status,
+                                                       std::array<TreeMeta, NUM_TREES>& metaResponses);
+
+    static void populate_status_summary(WorldStateStatusFull& status);
+
+    template <typename TreeType>
+    void commit_tree(TreeDBStats& dbStats,
+                     Signal& signal,
+                     TreeType& tree,
+                     std::atomic_bool& success,
+                     std::string& message,
+                     TreeMeta& meta);
+
+    template <typename TreeType>
+    void unwind_tree(TreeDBStats& dbStats,
+                     Signal& signal,
+                     TreeType& tree,
+                     std::atomic_bool& success,
+                     std::string& message,
+                     TreeMeta& meta,
+                     const index_t& blockNumber);
+
+    template <typename TreeType>
+    void remove_historic_block_for_tree(TreeDBStats& dbStats,
+                                        Signal& signal,
+                                        TreeType& tree,
+                                        std::atomic_bool& success,
+                                        std::string& message,
+                                        TreeMeta& meta,
+                                        const index_t& blockNumber);
 };
+
+template <typename TreeType>
+void WorldState::commit_tree(TreeDBStats& dbStats,
+                             Signal& signal,
+                             TreeType& tree,
+                             std::atomic_bool& success,
+                             std::string& message,
+                             TreeMeta& meta)
+{
+    tree.commit([&](TypedResponse<CommitResponse>& response) {
+        bool expected = true;
+        if (!response.success && success.compare_exchange_strong(expected, false)) {
+            message = response.message;
+        }
+        dbStats = std::move(response.inner.stats);
+        meta = std::move(response.inner.meta);
+        signal.signal_decrement();
+    });
+}
+
+template <typename TreeType>
+void WorldState::unwind_tree(TreeDBStats& dbStats,
+                             Signal& signal,
+                             TreeType& tree,
+                             std::atomic_bool& success,
+                             std::string& message,
+                             TreeMeta& meta,
+                             const index_t& blockNumber)
+{
+    tree.unwind_block(blockNumber, [&](TypedResponse<UnwindResponse>& response) {
+        bool expected = true;
+        if (!response.success && success.compare_exchange_strong(expected, false)) {
+            message = response.message;
+        }
+        dbStats = std::move(response.inner.stats);
+        meta = std::move(response.inner.meta);
+        signal.signal_decrement();
+    });
+}
+
+template <typename TreeType>
+void WorldState::remove_historic_block_for_tree(TreeDBStats& dbStats,
+                                                Signal& signal,
+                                                TreeType& tree,
+                                                std::atomic_bool& success,
+                                                std::string& message,
+                                                TreeMeta& meta,
+                                                const index_t& blockNumber)
+{
+    tree.remove_historic_block(blockNumber, [&](TypedResponse<RemoveHistoricResponse>& response) {
+        bool expected = true;
+        if (!response.success && success.compare_exchange_strong(expected, false)) {
+            message = response.message;
+        }
+        dbStats = std::move(response.inner.stats);
+        meta = std::move(response.inner.meta);
+        signal.signal_decrement();
+    });
+}
 
 template <typename T>
 std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(const WorldStateRevision& rev,

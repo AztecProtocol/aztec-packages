@@ -2,47 +2,66 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-
 type Timestamp is uint256;
 
 type Slot is uint256;
 
 type Epoch is uint256;
 
+abstract contract TimeFns {
+  // @note  @LHerskind  The multiple cause pain and suffering in the E2E tests as we introduce
+  //                    a timeliness requirement into the publication that did not exists before,
+  //                    and at the same time have a setup that will impact the time at every tx
+  //                    because of auto-mine. By using just 1, we can make our test work
+  //                    but anything using an actual working chain would eat dung as simulating
+  //                    transactions is slower than an actual ethereum slot.
+  //
+  //                    The value should be a higher multiple for any actual chain
+  // @todo  #8019
+  uint256 public immutable SLOT_DURATION;
+
+  // The duration of an epoch in slots
+  // @todo  @LHerskind - This value should be updated when we are not blind.
+  // @todo  #8020
+  uint256 public immutable EPOCH_DURATION;
+
+  constructor(uint256 _slotDuration, uint256 _epochDuration) {
+    SLOT_DURATION = _slotDuration;
+    EPOCH_DURATION = _epochDuration;
+  }
+
+  function toTimestamp(Slot _a) internal view returns (Timestamp) {
+    return Timestamp.wrap(Slot.unwrap(_a) * SLOT_DURATION);
+  }
+
+  function slotFromTimestamp(Timestamp _a) internal view returns (Slot) {
+    return Slot.wrap(Timestamp.unwrap(_a) / SLOT_DURATION);
+  }
+
+  function positionInEpoch(Slot _a) internal view returns (uint256) {
+    return Slot.unwrap(_a) % EPOCH_DURATION;
+  }
+
+  function toSlots(Epoch _a) internal view returns (Slot) {
+    return Slot.wrap(Epoch.unwrap(_a) * EPOCH_DURATION);
+  }
+
+  function toTimestamp(Epoch _a) internal view returns (Timestamp) {
+    return toTimestamp(toSlots(_a));
+  }
+
+  function epochFromTimestamp(Timestamp _a) internal view returns (Epoch) {
+    return Epoch.wrap(Timestamp.unwrap(_a) / (EPOCH_DURATION * SLOT_DURATION));
+  }
+}
+
 library SlotLib {
-  function toTimestamp(Slot _a) internal pure returns (Timestamp) {
-    return Timestamp.wrap(Slot.unwrap(_a) * Constants.AZTEC_SLOT_DURATION);
-  }
-
-  function fromTimestamp(Timestamp _a) internal pure returns (Slot) {
-    return Slot.wrap(Timestamp.unwrap(_a) / Constants.AZTEC_SLOT_DURATION);
-  }
-
-  function positionInEpoch(Slot _a) internal pure returns (uint256) {
-    return Slot.unwrap(_a) % Constants.AZTEC_EPOCH_DURATION;
-  }
-
   function unwrap(Slot _a) internal pure returns (uint256) {
     return Slot.unwrap(_a);
   }
 }
 
 library EpochLib {
-  function toSlots(Epoch _a) internal pure returns (Slot) {
-    return Slot.wrap(Epoch.unwrap(_a) * Constants.AZTEC_EPOCH_DURATION);
-  }
-
-  function toTimestamp(Epoch _a) internal pure returns (Timestamp) {
-    return SlotLib.toTimestamp(toSlots(_a));
-  }
-
-  function fromTimestamp(Timestamp _a) internal pure returns (Epoch) {
-    return Epoch.wrap(
-      Timestamp.unwrap(_a) / (Constants.AZTEC_EPOCH_DURATION * Constants.AZTEC_SLOT_DURATION)
-    );
-  }
-
   function unwrap(Epoch _a) internal pure returns (uint256) {
     return Epoch.unwrap(_a);
   }
@@ -87,6 +106,10 @@ function eqTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
 
 function addSlot(Slot _a, Slot _b) pure returns (Slot) {
   return Slot.wrap(Slot.unwrap(_a) + Slot.unwrap(_b));
+}
+
+function subSlot(Slot _a, Slot _b) pure returns (Slot) {
+  return Slot.wrap(Slot.unwrap(_a) - Slot.unwrap(_b));
 }
 
 function eqSlot(Slot _a, Slot _b) pure returns (bool) {
@@ -176,5 +199,6 @@ using {
   gtSlot as >,
   lteSlot as <=,
   ltSlot as <,
-  addSlot as +
+  addSlot as +,
+  subSlot as -
 } for Slot global;

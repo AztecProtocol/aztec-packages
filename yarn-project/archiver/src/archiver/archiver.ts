@@ -1,6 +1,8 @@
 import {
+  type EncryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
@@ -11,10 +13,11 @@ import {
   type L2Tips,
   type LogFilter,
   type LogType,
+  type NullifierWithBlockSource,
   type TxEffect,
   type TxHash,
   type TxReceipt,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -23,7 +26,6 @@ import {
   type ContractDataSource,
   ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
-  ETHEREUM_SLOT_DURATION,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
@@ -73,7 +75,11 @@ import { type L1Published } from './structs/published.js';
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
-export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
+export type ArchiveSource = L2BlockSource &
+  L2LogsSource &
+  ContractDataSource &
+  L1ToL2MessageSource &
+  NullifierWithBlockSource;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -161,6 +167,8 @@ export class Archiver implements ArchiveSource {
       rollup.read.GENESIS_TIME(),
     ] as const);
 
+    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
@@ -169,7 +177,7 @@ export class Archiver implements ArchiveSource {
       archiverStore,
       config.archiverPollingIntervalMS ?? 10_000,
       new ArchiverInstrumentation(telemetry),
-      { l1StartBlock, l1GenesisTime },
+      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -270,7 +278,7 @@ export class Archiver implements ArchiveSource {
   private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
 
-    const time = (this.l1Timestamp ?? 0n) + BigInt(ETHEREUM_SLOT_DURATION);
+    const time = (this.l1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
 
     const canPrune =
       localPendingBlockNumber > provenBlockNumber &&
@@ -502,7 +510,7 @@ export class Archiver implements ArchiveSource {
   }
 
   public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
-    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     const blocks: L2Block[] = [];
 
     // Walk the list of blocks backwards and filter by slots matching the requested epoch.
@@ -523,7 +531,7 @@ export class Archiver implements ArchiveSource {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');
     const slot = header?.globalVariables.slotNumber.toBigInt();
-    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber);
+    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     if (slot && slot >= endSlot) {
       return true;
     }
@@ -587,7 +595,7 @@ export class Archiver implements ArchiveSource {
     }
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash) {
     return this.store.getTxEffect(txHash);
   }
 
@@ -637,8 +645,19 @@ export class Archiver implements ArchiveSource {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
+  }
+
+  /**
+   * Returns the provided nullifier indexes scoped to the block
+   * they were first included in, or undefined if they're not present in the tree
+   * @param blockNumber Max block number to search for the nullifiers
+   * @param nullifiers Nullifiers to get
+   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
+   */
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   /**
@@ -648,6 +667,15 @@ export class Archiver implements ArchiveSource {
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getContractClassLogs(filter);
   }
 
   /**
@@ -699,6 +727,12 @@ export class Archiver implements ArchiveSource {
 
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
+  }
+
+  // TODO(#10007): Remove this method
+  async addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    await this.store.addContractClasses([contractClass], 0);
+    return;
   }
 
   addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
@@ -753,6 +787,8 @@ class ArchiverStoreHelper
       ArchiverDataStore,
       | 'addLogs'
       | 'deleteLogs'
+      | 'addNullifiers'
+      | 'deleteNullifiers'
       | 'addContractClasses'
       | 'deleteContractClasses'
       | 'addContractInstances'
@@ -763,6 +799,11 @@ class ArchiverStoreHelper
   #log = createDebugLogger('aztec:archiver:block-helper');
 
   constructor(private readonly store: ArchiverDataStore) {}
+
+  // TODO(#10007): Remove this method
+  addContractClasses(contractClasses: ContractClassPublic[], blockNum: number): Promise<boolean> {
+    return this.store.addContractClasses(contractClasses, blockNum);
+  }
 
   /**
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
@@ -788,7 +829,7 @@ class ArchiverStoreHelper
    * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateDeployedContractInstances(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
+  async #updateDeployedContractInstances(allLogs: EncryptedL2Log[], blockNum: number, operation: Operation) {
     const contractInstances = ContractInstanceDeployedEvent.fromLogs(allLogs).map(e => e.toContractInstance());
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
@@ -867,19 +908,23 @@ class ArchiverStoreHelper
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...(await Promise.all(
         blocks.map(async block => {
-          const blockLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+          const contractClassLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
             .flatMap(txLog => txLog.unrollLogs());
-
+          // ContractInstanceDeployed event logs are now broadcast in .encryptedLogs
+          const allEncryptedLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.encryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
           return (
             await Promise.all([
-              this.#updateRegisteredContractClasses(blockLogs, block.data.number, Operation.Store),
-              this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Store),
-              this.#storeBroadcastedIndividualFunctions(blockLogs, block.data.number),
+              this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
+              this.#updateDeployedContractInstances(allEncryptedLogs, block.data.number, Operation.Store),
+              this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
             ])
           ).every(Boolean);
         }),
       )),
+      this.store.addNullifiers(blocks.map(block => block.data)),
       this.store.addBlocks(blocks),
     ].every(Boolean);
   }
@@ -897,11 +942,15 @@ class ArchiverStoreHelper
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...(await Promise.all(
         blocks.map(async block => {
-          const blockLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+          const contractClassLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
             .flatMap(txLog => txLog.unrollLogs());
-          await this.#updateRegisteredContractClasses(blockLogs, block.data.number, Operation.Delete);
-          await this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Delete);
+          // ContractInstanceDeployed event logs are now broadcast in .encryptedLogs
+          const allEncryptedLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.encryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
+          await this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete);
+          await this.#updateDeployedContractInstances(allEncryptedLogs, block.data.number, Operation.Delete);
         }),
       )),
       this.store.deleteLogs(blocks.map(b => b.data)),
@@ -915,7 +964,7 @@ class ArchiverStoreHelper
   getBlockHeaders(from: number, limit: number): Promise<Header[]> {
     return this.store.getBlockHeaders(from, limit);
   }
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.store.getTxEffect(txHash);
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
@@ -937,11 +986,17 @@ class ArchiverStoreHelper
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
+  }
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);
+  }
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<number> {
     return this.store.getSynchedL2BlockNumber();
@@ -990,9 +1045,15 @@ class ArchiverStoreHelper
 type L1RollupConstants = {
   l1StartBlock: bigint;
   l1GenesisTime: bigint;
+  slotDuration: number;
+  epochDuration: number;
+  ethereumSlotDuration: number;
 };
 
 const EmptyL1RollupConstants: L1RollupConstants = {
   l1StartBlock: 0n,
   l1GenesisTime: 0n,
+  epochDuration: 0,
+  slotDuration: 0,
+  ethereumSlotDuration: 0,
 };

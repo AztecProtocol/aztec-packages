@@ -4,6 +4,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini_impl.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -27,11 +28,13 @@ template <typename Curve> class ShpleminiProver_ {
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
-                              RefSpan<Polynomial> concatenated_polynomials = {},
-                              const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {},
                               const std::vector<bb::Univariate<FF, LENGTH>>& libra_univariates = {},
-                              const std::vector<FF>& libra_evaluations = {})
+                              const std::vector<FF>& libra_evaluations = {},
+                              RefSpan<Polynomial> concatenated_polynomials = {},
+                              const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
+        // While Shplemini is not templated on Flavor, we derive ZK flag this way
+        const bool has_zk = !libra_evaluations.empty();
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -39,7 +42,8 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        commitment_key,
                                                                        transcript,
                                                                        concatenated_polynomials,
-                                                                       groups_to_be_concatenated);
+                                                                       groups_to_be_concatenated,
+                                                                       has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
         size_t idx = 0;
@@ -51,7 +55,7 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims.push_back(new_claim);
             idx++;
         }
-        OpeningClaim batched_claim =
+        const OpeningClaim batched_claim =
             ShplonkProver::prove(commitment_key, opening_claims, transcript, libra_opening_claims);
         return batched_claim;
     };
@@ -129,10 +133,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
-        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-        RefSpan<Fr> concatenated_evaluations = {},
+        const RepeatedCommitmentsData& repeated_commitments = {},
         RefSpan<Commitment> libra_univariate_commitments = {},
-        const std::vector<Fr>& libra_univariate_evaluations = {})
+        const std::vector<Fr>& libra_univariate_evaluations = {},
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        RefSpan<Fr> concatenated_evaluations = {})
 
     {
 
@@ -142,6 +147,17 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
+        }
+
+        Fr batched_evaluation = Fr{ 0 };
+
+        // While Shplemini is not templated on Flavor, we derive ZK flag this way
+        const bool has_zk = !libra_univariate_evaluations.empty();
+        Commitment hiding_polynomial_commitment;
+        if (has_zk) {
+            hiding_polynomial_commitment =
+                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+            batched_evaluation += transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
         }
 
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
@@ -224,9 +240,13 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
         }
 
+        if (has_zk) {
+            commitments.emplace_back(hiding_polynomial_commitment);
+            scalars.emplace_back(-unshifted_scalar); // corresponds to ρ⁰
+        }
+
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-        Fr batched_evaluation = Fr(0);
         batch_multivariate_opening_claims(unshifted_commitments,
                                           shifted_commitments,
                                           unshifted_evaluations,
@@ -237,6 +257,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                           commitments,
                                           scalars,
                                           batched_evaluation,
+                                          has_zk,
                                           concatenation_scalars,
                                           concatenation_group_commitments,
                                           concatenated_evaluations);
@@ -269,9 +290,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
 
+        remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
+
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
-        if (!libra_univariate_evaluations.empty()) {
+        if (has_zk) {
             add_zk_data(commitments,
                         scalars,
                         libra_univariate_commitments,
@@ -345,11 +368,18 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Commitment>& commitments,
         std::vector<Fr>& scalars,
         Fr& batched_evaluation,
+        const bool has_zk = false,
         std::vector<Fr> concatenated_scalars = {},
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
     {
         Fr current_batching_challenge = Fr(1);
+
+        if (has_zk) {
+            // ρ⁰ is used to batch the hiding polynomial
+            current_batching_challenge *= multivariate_batching_challenge;
+        }
+
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector
@@ -468,12 +498,92 @@ template <typename Curve> class ShpleminiVerifier_ {
     }
 
     /**
+     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by the
+     * verifier.
+     *
+     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are duplicated
+     * because they correspond to polynomials whose shifts also evaluated or used in concatenation groups in
+     * Translator. This method combines the scalars associated with these repeating commitments, reducing the total
+     * number of scalar multiplications required during the verification.
+     *
+     * More specifically, the Shplemini verifier receives two or three groups of commitments: get_unshifted() and
+     * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; and get_unshifted_without_concatenated(),
+     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments are
+     * then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a vector
+     * of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over these ranges
+     * and sums the scalar multipliers corresponding to the same group element. After combining the scalars, we erase
+     * corresponding entries in both vectors.
+     *
+     */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
+    static void remove_repeated_commitments(std::vector<Commitment>& commitments,
+                                            std::vector<Fr>& scalars,
+                                            const RepeatedCommitmentsData& repeated_commitments,
+                                            bool has_zk)
+    {
+        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding scalar
+        // factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector with
+        // commitments to prover polynomials
+        const size_t offset = has_zk ? 2 : 1;
+
+        // Extract the indices from the container, which is normally created in a given Flavor
+        const size_t& first_range_to_be_shifted_start = repeated_commitments.first_range_to_be_shifted_start + offset;
+        const size_t& first_range_shifted_start = repeated_commitments.first_range_shifted_start + offset;
+        const size_t& first_range_size = repeated_commitments.first_range_size;
+
+        const size_t& second_range_to_be_shifted_start = repeated_commitments.second_range_to_be_shifted_start + offset;
+        const size_t& second_range_shifted_start = repeated_commitments.second_range_shifted_start + offset;
+        const size_t& second_range_size = repeated_commitments.second_range_size;
+
+        // Iterate over the first range of to-be-shifted scalars and their shifted counterparts
+        for (size_t i = 0; i < first_range_size; i++) {
+            size_t idx_to_be_shifted = i + first_range_to_be_shifted_start;
+            size_t idx_shifted = i + first_range_shifted_start;
+            scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
+        }
+
+        // Iterate over the second range of to-be-shifted precomputed scalars and their shifted counterparts (if
+        // provided)
+        for (size_t i = 0; i < second_range_size; i++) {
+            size_t idx_to_be_shifted = i + second_range_to_be_shifted_start;
+            size_t idx_shifted = i + second_range_shifted_start;
+            scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
+        }
+
+        if (second_range_shifted_start > first_range_shifted_start) {
+            // Erase the shifted scalars and commitments from the second range (if provided)
+            for (size_t i = 0; i < second_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
+            }
+
+            // Erase the shifted scalars and commitments from the first range
+            for (size_t i = 0; i < first_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
+            }
+        } else {
+            // Erase the shifted scalars and commitments from the first range
+            for (size_t i = 0; i < first_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
+            }
+            // Erase the shifted scalars and commitments from the second range (if provided)
+            for (size_t i = 0; i < second_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
+            }
+        }
+    }
+
+    /**
      * @brief Add the opening data corresponding to Libra masking univariates to the batched opening claim
      *
      * @details After verifying ZK Sumcheck, the verifier has to validate the claims about the evaluations of Libra
-     * univariates used to mask Sumcheck round univariates. To minimize the overhead of such openings, we continue the
-     * Shplonk batching started in Gemini, i.e. we add new claims multiplied by a suitable power of the Shplonk batching
-     * challenge and re-use the evaluation challenge sampled to prove the evaluations of Gemini polynomials.
+     * univariates used to mask Sumcheck round univariates. To minimize the overhead of such openings, we continue
+     * the Shplonk batching started in Gemini, i.e. we add new claims multiplied by a suitable power of the Shplonk
+     * batching challenge and re-use the evaluation challenge sampled to prove the evaluations of Gemini
+     * polynomials.
      *
      * @param commitments
      * @param scalars
@@ -515,8 +625,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         if constexpr (!Curve::is_stdlib_type) {
             Fr::batch_invert(denominators);
         }
-        // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to the
-        // constant term
+        // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to
+        // the constant term
         for (const auto [libra_univariate_commitment, denominator, libra_univariate_evaluation] :
              zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
             commitments.push_back(std::move(libra_univariate_commitment));

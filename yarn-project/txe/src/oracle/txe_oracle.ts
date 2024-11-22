@@ -6,7 +6,6 @@ import {
   type NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
-  PublicDataWrite,
   PublicExecutionRequest,
   SimulationError,
   type UnencryptedL2Log,
@@ -14,24 +13,25 @@ import {
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
-  CombinedConstantData,
   type ContractInstance,
   type ContractInstanceWithAddress,
   Gas,
+  GasFees,
+  GlobalVariables,
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
-  type PublicDataUpdateRequest,
-  TaggingSecret,
+  type PublicDataWrite,
   computeContractClassId,
   computeTaggingSecret,
   deriveKeys,
@@ -60,7 +60,8 @@ import {
   type NoteData,
   Oracle,
   type PackedValuesCache,
-  PublicExecutor,
+  type PublicTxResult,
+  PublicTxSimulator,
   type TypedOracle,
   acvm,
   createSimulationError,
@@ -71,10 +72,10 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator';
+import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
-import { type EnqueuedPublicCallExecutionResultWithSideEffects } from '../../../simulator/src/public/execution.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
@@ -136,7 +137,7 @@ export class TXE implements TypedOracle {
     return this.functionSelector;
   }
 
-  setMsgSender(msgSender: Fr) {
+  setMsgSender(msgSender: AztecAddress) {
     this.msgSender = msgSender;
   }
 
@@ -220,26 +221,17 @@ export class TXE implements TypedOracle {
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 
-  async addPublicDataWrites(writes: PublicDataUpdateRequest[]) {
+  async addPublicDataWrites(writes: PublicDataWrite[]) {
     const db = await this.trees.getLatest();
-
-    // only insert the last write to a given slot
-    const uniqueWritesSet = new Map<bigint, PublicDataUpdateRequest>();
-    for (const write of writes) {
-      uniqueWritesSet.set(write.leafSlot.toBigInt(), write);
-    }
-    const uniqueWrites = Array.from(uniqueWritesSet.values());
-
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      uniqueWrites.map(w => new PublicDataTreeLeaf(w.leafSlot, w.newValue).toBuffer()),
+      writes.map(w => new PublicDataTreeLeaf(w.leafSlot, w.value).toBuffer()),
       0,
     );
   }
 
   async addSiloedNullifiers(siloedNullifiers: Fr[]) {
     const db = await this.trees.getLatest();
-
     await db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       siloedNullifiers.map(n => n.toBuffer()),
@@ -252,10 +244,13 @@ export class TXE implements TypedOracle {
     await this.addSiloedNullifiers(siloedNullifiers);
   }
 
-  async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
+  async addSiloedNoteHashes(siloedNoteHashes: Fr[]) {
     const db = await this.trees.getLatest();
-    const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
+  }
+  async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
+    const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
+    await this.addSiloedNoteHashes(siloedNoteHashes);
   }
 
   // TypedOracle
@@ -346,16 +341,16 @@ export class TXE implements TypedOracle {
   }
 
   async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
-    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    const db = await this.#getTreesAt(blockNumber);
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
     } else {
-      const preimage = (await committedDb.getLeafPreimage(
+      const preimage = (await db.getLeafPreimage(
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
+      const path = await db.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       );
@@ -466,12 +461,12 @@ export class TXE implements TypedOracle {
     _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
-  ): Promise<MessageLoadOracleInputs<16>> {
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new Error('Method not implemented.');
   }
 
   async storageRead(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
     numberOfElements: number,
@@ -504,14 +499,14 @@ export class TXE implements TypedOracle {
     const publicDataWrites = values.map((value, i) => {
       const storageSlot = startStorageSlot.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      publicDataWrites.map(write => write.toBuffer()),
+      0,
     );
-    return publicDataWrites.map(write => write.newValue);
+    return publicDataWrites.map(write => write.value);
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
@@ -529,7 +524,7 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
 
@@ -548,8 +543,8 @@ export class TXE implements TypedOracle {
     );
 
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
@@ -561,55 +556,53 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    try {
-      const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-        err.message = resolveAssertionMessageFromError(err, artifact);
+    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+      err.message = resolveAssertionMessageFromError(err, artifact);
 
-        const execError = new ExecutionError(
-          err.message,
-          {
-            contractAddress: targetContractAddress,
-            functionSelector,
-          },
-          extractCallStack(err, artifact.debug),
-          { cause: err },
-        );
-        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
-        throw createSimulationError(execError);
-      });
-      const duration = timer.ms();
-      const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
-
-      const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
-      this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
-        circuitName: 'app-circuit',
-        duration,
-        eventName: 'circuit-witness-generation',
-        inputSize: initialWitnessSize,
-        outputSize: publicInputs.toBuffer().length,
-        appCircuitName: 'noname',
-      } satisfies CircuitWitnessGenerationStats);
-
-      // Apply side effects
-      const endSideEffectCounter = publicInputs.endSideEffectCounter;
-      this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
-
-      await this.addNullifiers(
-        targetContractAddress,
-        publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+      const execError = new ExecutionError(
+        err.message,
+        {
+          contractAddress: targetContractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
       );
+      this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+      throw createSimulationError(execError);
+    });
+    const duration = timer.ms();
+    const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
-      await this.addNoteHashes(
-        targetContractAddress,
-        publicInputs.noteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
-      );
+    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
+      circuitName: 'app-circuit',
+      duration,
+      eventName: 'circuit-witness-generation',
+      inputSize: initialWitnessSize,
+      outputSize: publicInputs.toBuffer().length,
+      appCircuitName: 'noname',
+    } satisfies CircuitWitnessGenerationStats);
 
-      return { endSideEffectCounter, returnsHash: publicInputs.returnsHash };
-    } finally {
-      this.setContractAddress(currentContractAddress);
-      this.setMsgSender(currentMessageSender);
-      this.setFunctionSelector(currentFunctionSelector);
-    }
+    // Apply side effects
+    const endSideEffectCounter = publicInputs.endSideEffectCounter;
+    this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
+
+    await this.addNullifiers(
+      targetContractAddress,
+      publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+    );
+
+    await this.addNoteHashes(
+      targetContractAddress,
+      publicInputs.noteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
+    );
+
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    return { endSideEffectCounter, returnsHash: publicInputs.returnsHash };
   }
 
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
@@ -626,9 +619,12 @@ export class TXE implements TypedOracle {
       sideEffectCounter,
       isStaticCall,
     );
+    const privateContextInputsAsFields = privateContextInputs.toFields();
+    if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
+      throw new Error('Invalid private context inputs size');
+    }
 
-    const fields = [...privateContextInputs.toFields(), ...args];
-
+    const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -652,39 +648,32 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  private async executePublicFunction(args: Fr[], callContext: CallContext) {
-    const execution = new PublicExecutionRequest(callContext, args);
+  private async executePublicFunction(args: Fr[], callContext: CallContext, isTeardown: boolean = false) {
+    const executionRequest = new PublicExecutionRequest(callContext, args);
 
     const db = await this.trees.getLatest();
-    const previousBlockState = await this.#getTreesAt(this.blockNumber - 1);
 
-    const combinedConstantData = CombinedConstantData.empty();
-    combinedConstantData.globalVariables.chainId = this.chainId;
-    combinedConstantData.globalVariables.version = this.version;
-    combinedConstantData.globalVariables.blockNumber = new Fr(this.blockNumber);
-    combinedConstantData.historicalHeader.globalVariables.chainId = this.chainId;
-    combinedConstantData.historicalHeader.globalVariables.version = this.version;
-    combinedConstantData.historicalHeader.globalVariables.blockNumber = new Fr(this.blockNumber - 1);
-    combinedConstantData.historicalHeader.state = await db.getStateReference();
-    combinedConstantData.historicalHeader.lastArchive.root = Fr.fromBuffer(
-      (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
-    );
+    const globalVariables = GlobalVariables.empty();
+    globalVariables.chainId = this.chainId;
+    globalVariables.version = this.version;
+    globalVariables.blockNumber = new Fr(this.blockNumber);
+    globalVariables.gasFees = GasFees.default();
 
-    combinedConstantData.txContext.chainId = this.chainId;
-    combinedConstantData.txContext.version = this.version;
-
-    const simulator = new PublicExecutor(
+    const simulator = new PublicTxSimulator(
+      db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
+      globalVariables,
+      /*realAvmProvingRequests=*/ false,
     );
-    const executionResult = await simulator.simulateIsolatedEnqueuedCall(
-      execution,
-      combinedConstantData.globalVariables,
-      Gas.test(),
-      /*transactionFee=*/ Fr.ONE,
-      /*startSideEffectCounter=*/ this.sideEffectCounter,
-    );
-    return Promise.resolve(executionResult);
+
+    // When setting up a teardown call, we tell it that
+    // private execution used Gas(1, 1) so it can compute a tx fee.
+    const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
+    const tx = createTxForPublicCall(executionRequest, gasUsedByPrivate, isTeardown);
+
+    const result = await simulator.simulate(tx);
+    return Promise.resolve(result);
   }
 
   async enqueuePublicFunctionCall(
@@ -693,10 +682,11 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     _sideEffectCounter: number,
     isStaticCall: boolean,
+    isTeardown = false,
   ): Promise<Fr> {
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
@@ -712,10 +702,10 @@ export class TXE implements TypedOracle {
     const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
     const newArgsHash = this.packedValuesCache.pack(args);
 
-    const executionResult = await this.executePublicFunction(args, callContext);
+    const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 
     // Poor man's revert handling
-    if (executionResult.reverted) {
+    if (!executionResult.revertCode.isOK()) {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           executionResult.revertReason,
@@ -730,13 +720,13 @@ export class TXE implements TypedOracle {
     }
 
     // Apply side effects
-    this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber();
-    await this.addPublicDataWrites(executionResult.sideEffects.publicDataWrites);
-    await this.addNoteHashes(
-      targetContractAddress,
-      executionResult.sideEffects.noteHashes.map(noteHash => noteHash.value),
-    );
-    await this.addSiloedNullifiers(executionResult.sideEffects.nullifiers.map(nullifier => nullifier.value));
+    const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
+    const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
+    const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
+    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+    await this.addPublicDataWrites(publicDataWrites);
+    await this.addSiloedNoteHashes(noteHashes);
+    await this.addSiloedNullifiers(nullifiers);
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
@@ -760,6 +750,7 @@ export class TXE implements TypedOracle {
       argsHash,
       sideEffectCounter,
       isStaticCall,
+      /*isTeardown=*/ true,
     );
   }
 
@@ -781,61 +772,37 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  async incrementAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
-    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
-    await this.txeDatabase.incrementTaggingSecretsIndexes([directionalSecret]);
+  async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+    const directionalSecret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    await this.txeDatabase.incrementTaggingSecretsIndexesAsSender([directionalSecret]);
   }
 
-  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
-    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([directionalSecret]);
-    return IndexedTaggingSecret.fromTaggingSecret(directionalSecret, index);
+  async getAppTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    const secret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexesAsSender([secret]);
+    return new IndexedTaggingSecret(secret, index);
   }
 
-  async #calculateDirectionalSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+  async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    // Get the index of the secret, ensuring the directionality (sender -> recipient)
-    const directionalSecret = new TaggingSecret(siloedSecret, recipient);
-    return directionalSecret;
+    return siloedSecret;
   }
 
-  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
-    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
-    const completeAddresses = await this.txeDatabase.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const senders = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
-    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
-    const secrets = senders.map(({ address: sender }) => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
-      return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
-    });
-    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
-    const indexes = await this.txeDatabase.getTaggingSecretsIndexes(directionalSecrets);
-    return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
-  }
-
-  syncNotes(_recipient: AztecAddress) {
+  syncNotes() {
     // TODO: Implement
     return Promise.resolve();
   }
 
   // AVM oracles
 
-  async avmOpcodeCall(
-    targetContractAddress: AztecAddress,
-    args: Fr[],
-    isStaticCall: boolean,
-  ): Promise<EnqueuedPublicCallExecutionResultWithSideEffects> {
+  async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean): Promise<PublicTxResult> {
     // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
 
@@ -848,17 +815,17 @@ export class TXE implements TypedOracle {
 
     const executionResult = await this.executePublicFunction(args, callContext);
     // Save return/revert data for later.
-    this.nestedCallReturndata = executionResult.returnValues;
+    this.nestedCallReturndata = executionResult.processedPhases[0]!.returnValues[0].values!;
 
     // Apply side effects
-    if (!executionResult.reverted) {
-      this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber();
-      await this.addPublicDataWrites(executionResult.sideEffects.publicDataWrites);
-      await this.addNoteHashes(
-        targetContractAddress,
-        executionResult.sideEffects.noteHashes.map(noteHash => noteHash.value),
-      );
-      await this.addSiloedNullifiers(executionResult.sideEffects.nullifiers.map(nullifier => nullifier.value));
+    if (executionResult.revertCode.isOK()) {
+      const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
+      const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
+      const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
+      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+      await this.addPublicDataWrites(publicDataWrites);
+      await this.addSiloedNoteHashes(noteHashes);
+      await this.addSiloedNullifiers(nullifiers);
     }
 
     this.setContractAddress(currentContractAddress);

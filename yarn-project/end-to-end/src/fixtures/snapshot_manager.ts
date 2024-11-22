@@ -17,7 +17,7 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type DeployL1ContractsArgs, createL1Clients, l1Artifacts } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
@@ -341,6 +341,7 @@ async function setupFromFresh(
     salt: opts.salt,
     initialValidators: opts.initialValidators,
     ...deployL1ContractsArgs,
+    ...getL1ContractsConfigEnvVars(),
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
@@ -539,6 +540,11 @@ export const addAccounts =
         return provenTx;
       }),
     );
+
+    logger.verbose('Account deployment tx hashes:');
+    for (const provenTx of provenTxs) {
+      logger.verbose(provenTx.getTxHash().to0xString());
+    }
 
     logger.verbose('Deploying accounts...');
     const txs = await Promise.all(provenTxs.map(provenTx => provenTx.send()));

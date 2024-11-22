@@ -1,5 +1,4 @@
 import type { BlockAttestation, EthAddress } from '@aztec/circuit-types';
-import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { Signature } from '@aztec/foundation/eth-signature';
 
 export enum SequencerState {
@@ -74,6 +73,7 @@ export function orderAttestations(attestations: BlockAttestation[], orderAddress
   return orderedAttestations;
 }
 
-export function getSecondsIntoSlot(l1GenesisTime: number): number {
-  return (Date.now() / 1000 - l1GenesisTime) % AZTEC_SLOT_DURATION;
+export function getSecondsIntoSlot(l1GenesisTime: number, aztecSlotDuration: number, slotNumber: number): number {
+  const slotStartTimestamp = l1GenesisTime + slotNumber * aztecSlotDuration;
+  return Date.now() / 1000 - slotStartTimestamp;
 }

@@ -1,12 +1,17 @@
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AvmProofData } from './avm_proof_data.js';
-import { BaseRollupHints } from './base_rollup_hints.js';
+import { PublicBaseRollupHints } from './base_rollup_hints.js';
 import { PublicTubeData } from './public_tube_data.js';
 
 export class PublicBaseRollupInputs {
-  constructor(public tubeData: PublicTubeData, public avmProofData: AvmProofData, public hints: BaseRollupHints) {}
+  constructor(
+    public tubeData: PublicTubeData,
+    public avmProofData: AvmProofData,
+    public hints: PublicBaseRollupHints,
+  ) {}
 
   static from(fields: FieldsOf<PublicBaseRollupInputs>): PublicBaseRollupInputs {
     return new PublicBaseRollupInputs(...PublicBaseRollupInputs.getFields(fields));
@@ -21,7 +26,7 @@ export class PublicBaseRollupInputs {
     return new PublicBaseRollupInputs(
       reader.readObject(PublicTubeData),
       reader.readObject(AvmProofData),
-      reader.readObject(BaseRollupHints),
+      reader.readObject(PublicBaseRollupHints),
     );
   }
 
@@ -37,6 +42,16 @@ export class PublicBaseRollupInputs {
   }
 
   static empty() {
-    return new PublicBaseRollupInputs(PublicTubeData.empty(), AvmProofData.empty(), BaseRollupHints.empty());
+    return new PublicBaseRollupInputs(PublicTubeData.empty(), AvmProofData.empty(), PublicBaseRollupHints.empty());
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(PublicBaseRollupInputs);
   }
 }

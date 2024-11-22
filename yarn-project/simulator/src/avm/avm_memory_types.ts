@@ -7,6 +7,7 @@ import {
   MEM_TAG_U64,
   MEM_TAG_U128,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -39,6 +40,10 @@ export abstract class MemoryValue {
   // To field
   public toFr(): Fr {
     return new Fr(this.toBigInt());
+  }
+
+  public toAztecAddress(): AztecAddress {
+    return new AztecAddress(this.toFr());
   }
 
   // To number. Throws if exceeds max safe int.
