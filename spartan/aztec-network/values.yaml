@@ -94,6 +94,7 @@ validator:
     enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
