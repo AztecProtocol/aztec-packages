@@ -10,7 +10,7 @@ use dep::types::{
         log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::is_empty,
+    traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 
@@ -39,10 +39,34 @@ impl TailOutputValidator {
     fn validate_empty_values(self) {
         assert(is_empty(self.output.start_state), "start_state must be empty");
         assert_eq(self.output.revert_code, 0, "revert_code must be empty");
+        assert(
+            is_empty_array(self.output.end.unencrypted_logs_hashes),
+            "unencrypted logs in private must be empty",
+        );
     }
 
     fn validate_propagated_values(self) {
-        assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
+        assert_eq(
+            self.output.constants.historical_header,
+            self.previous_kernel.constants.historical_header,
+            "mismatch historical_header",
+        );
+        assert_eq(
+            self.output.constants.tx_context,
+            self.previous_kernel.constants.tx_context,
+            "mismatch tx_context",
+        );
+        assert_eq(
+            self.output.constants.vk_tree_root,
+            self.previous_kernel.constants.vk_tree_root,
+            "mismatch vk_tree_root",
+        );
+        assert_eq(
+            self.output.constants.protocol_contract_tree_root,
+            self.previous_kernel.constants.protocol_contract_tree_root,
+            "mismatch protocol_contract_tree_root",
+        );
+        assert(is_empty(self.output.constants.global_variables), "global_variables must be empty");
 
         assert_eq(
             self.output.rollup_validation_requests,
@@ -95,24 +119,20 @@ impl TailOutputValidator {
             |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev.expose_to_public(),
             self.hints.sorted_l2_to_l1_msg_hints,
         );
-
-        // unencrypted_log_hashes
+        // contract_class_logs
         assert_exposed_sorted_transformed_value_array(
-            self.previous_kernel.end.unencrypted_logs_hashes,
-            self.output.end.unencrypted_logs_hashes,
+            self.previous_kernel.end.contract_class_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
             |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
-            self.hints.sorted_unencrypted_log_hash_hints,
+            self.hints.sorted_contract_class_log_hash_hints,
         );
     }
 
     fn validate_gas_used(self) {
-        let gas_used = meter_gas_used(
-            self.output.end,
-            self.output.constants.tx_context.gas_settings,
-        );
-        assert(self.output.end.gas_used == gas_used, "incorrect metered gas used");
+        let gas_used = meter_gas_used(self.output.end);
+        assert(self.output.gas_used == gas_used, "incorrect metered gas used");
 
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
-        assert(self.output.end.gas_used.within(limits), "The gas used exceeds the gas limits");
+        assert(self.output.gas_used.within(limits), "The gas used exceeds the gas limits");
     }
 }

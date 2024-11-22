@@ -7,6 +7,7 @@ import {
   MEM_TAG_U64,
   MEM_TAG_U128,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -39,6 +40,10 @@ export abstract class MemoryValue {
   // To field
   public toFr(): Fr {
     return new Fr(this.toBigInt());
+  }
+
+  public toAztecAddress(): AztecAddress {
+    return new AztecAddress(this.toFr());
   }
 
   // To number. Throws if exceeds max safe int.
@@ -227,8 +232,8 @@ export class TaggedMemory implements TaggedMemoryInterface {
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';
 
-  // FIXME: memory should be 2^32, but TS doesn't allow for arrays that big.
-  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 2n);
+  // FIXME: memory should be 2^32, but TS max array size is: 2^32 - 1
+  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 1n);
   private _mem: MemoryValue[];
 
   constructor() {
@@ -259,8 +264,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     const value = this._mem.slice(offset, offset + size);
     TaggedMemory.log.debug(`getSlice(${offset}, ${size}) = ${value}`);
     for (let i = 0; i < value.length; i++) {
@@ -273,14 +277,12 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getSliceAs<T>(offset: number, size: number): T[] {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     return this.getSlice(offset, size) as T[];
   }
 
   public getSliceTags(offset: number, size: number): TypeTag[] {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size).map(TaggedMemory.getTag);
   }
 
@@ -291,8 +293,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public setSlice(offset: number, vs: MemoryValue[]) {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + vs.length < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + vs.length <= TaggedMemory.MAX_MEMORY_SIZE);
     // We may need to extend the memory size, otherwise splice doesn't insert.
     if (offset + vs.length > this._mem.length) {
       this._mem.length = offset + vs.length;

@@ -13,7 +13,7 @@ export default {
   module: {
     rules: [
       {
-        test: /\.wasm$/,
+        test: /\.wasm\.gz$/,
         type: 'asset/inline',
       },
       {
@@ -53,8 +53,8 @@ export default {
   resolve: {
     plugins: [new ResolveTypeScriptPlugin()],
     fallback: {
-      "os": false
-    }
+      os: false,
+    },
   },
   devServer: {
     hot: false,

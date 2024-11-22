@@ -3,7 +3,7 @@ use crate::hash::accumulate_sha256;
 // For now we only care about the root
 pub struct VariableMerkleTree {
     // leaves: [Field; N],
-    root: Field,
+    pub root: Field,
 }
 
 unconstrained fn get_height(input: u32, start: u8) -> u8 {

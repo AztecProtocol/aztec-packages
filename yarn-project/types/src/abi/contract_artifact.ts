@@ -4,16 +4,15 @@ import {
   type AbiType,
   type BasicValue,
   type ContractArtifact,
+  ContractArtifactSchema,
   type ContractNote,
   type FieldLayout,
   type FunctionArtifact,
   FunctionType,
   type IntegerValue,
-  NoteSelector,
   type StructValue,
   type TypedStructFieldValue,
 } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
 
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
@@ -23,7 +22,6 @@ import {
   AZTEC_VIEW_ATTRIBUTE,
   type NoirCompiledContract,
 } from '../noir/index.js';
-import { mockVerificationKey } from './mocked_keys.js';
 
 /**
  * Serializes a contract artifact to a buffer for storage.
@@ -54,18 +52,7 @@ export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
  * @returns Deserialized artifact.
  */
 export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
-  return JSON.parse(buffer.toString('utf-8'), (key, value) => {
-    if (key === 'bytecode' && typeof value === 'string') {
-      return Buffer.from(value, 'base64');
-    }
-    if (typeof value === 'object' && value !== null && value.type === 'NoteSelector') {
-      return new NoteSelector(Number(value.value));
-    }
-    if (typeof value === 'object' && value !== null && value.type === 'Fr') {
-      return new Fr(BigInt(value.value));
-    }
-    return value;
-  });
+  return ContractArtifactSchema.parse(JSON.parse(buffer.toString('utf-8')));
 }
 
 /**
@@ -129,12 +116,15 @@ function generateFunctionParameter(param: NoirCompiledContractFunctionParameter)
 type NoirCompiledContractFunction = NoirCompiledContract['functions'][number];
 
 /**
- * Generates a function build artifact. Replaces verification key with a mock value.
+ * Generates a function build artifact.
  * @param fn - Noir function entry.
  * @param contract - Parent contract.
  * @returns Function artifact.
  */
-function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: NoirCompiledContract): FunctionArtifact {
+function generateFunctionArtifact(
+  fn: NoirCompiledContractFunction,
+  contract: NoirCompiledContract,
+): Omit<FunctionArtifact, 'bytecode'> & { bytecode: string } {
   if (fn.custom_attributes === undefined) {
     throw new Error(
       `No custom attributes found for contract function ${fn.name}. Try rebuilding the contract with the latest nargo version.`,
@@ -179,10 +169,11 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
     isInitializer: fn.custom_attributes.includes(AZTEC_INITIALIZER_ATTRIBUTE),
     parameters,
     returnTypes,
-    bytecode: Buffer.from(fn.bytecode, 'base64'),
-    verificationKey: mockVerificationKey,
+    bytecode: fn.bytecode,
     debugSymbols: fn.debug_symbols,
     errorTypes: fn.abi.error_types,
+    ...(fn.assert_messages ? { assertMessages: fn.assert_messages } : undefined),
+    ...(fn.verification_key ? { verificationKey: fn.verification_key } : undefined),
   };
 }
 
@@ -238,11 +229,11 @@ function getStorageLayout(input: NoirCompiledContract) {
     return {};
   }
 
-  return storageFields.reduce((acc: Record<string, FieldLayout>, field) => {
+  return storageFields.reduce((acc: Record<string, Omit<FieldLayout, 'slot'> & { slot: string }>, field) => {
     const name = field.name;
     const slot = field.value.fields[0].value as IntegerValue;
     acc[name] = {
-      slot: Fr.fromString(slot.value),
+      slot: slot.value,
     };
     return acc;
   }, {});
@@ -262,7 +253,7 @@ function getNoteTypes(input: NoirCompiledContract) {
     return {};
   }
 
-  return notes.reduce((acc: Record<string, ContractNote>, note) => {
+  return notes.reduce((acc: Record<string, Omit<ContractNote, 'id'> & { id: string }>, note) => {
     const noteFields = note.fields;
 
     // We find note type id by looking for respective kinds as each of them is unique
@@ -274,7 +265,7 @@ function getNoteTypes(input: NoirCompiledContract) {
       throw new Error(`Could not find note type id, name or fields for note ${note}`);
     }
 
-    const noteTypeId = NoteSelector.fromField(Fr.fromString(rawNoteTypeId.value));
+    const noteTypeId = rawNoteTypeId.value as string;
     const name = rawName.value as string;
 
     // Note type id is encoded as a hex string
@@ -301,15 +292,15 @@ function getNoteTypes(input: NoirCompiledContract) {
  */
 function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion?: string): ContractArtifact {
   try {
-    return {
+    return ContractArtifactSchema.parse({
       name: contract.name,
       functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
       outputs: contract.outputs,
       storageLayout: getStorageLayout(contract),
       notes: getNoteTypes(contract),
       fileMap: contract.file_map,
-      aztecNrVersion,
-    };
+      ...(aztecNrVersion ? { aztecNrVersion } : {}),
+    });
   } catch (err) {
     throw new Error(`Could not generate contract artifact for ${contract.name}: ${err}`);
   }

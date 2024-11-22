@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -7,6 +8,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
@@ -50,6 +52,37 @@ template <class Builder> class CycleGroupTest : public ::testing::Test {
 
 using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
+
+STANDARD_TESTING_TAGS
+/**
+ * @brief Check basic tag interactions
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    // Set the whole tag first
+    a.set_origin_tag(next_challenge_tag);
+    // Set tags of x an y
+    a.x.set_origin_tag(submitted_value_origin_tag);
+    a.y.set_origin_tag(challenge_origin_tag);
+
+    // The tag of the _is_point_at_infinity member should stay as next_challenge_tag, so the whole thing should be the
+    // union of all 3
+
+    EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
+
+#ifndef NDEBUG
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, TestFixture::generators[1]);
+    b.x.set_origin_tag(instant_death_tag);
+    // Even requesting the tag of the whole structure can cause instant death
+    EXPECT_THROW(b.get_origin_tag(), std::runtime_error);
+#endif
+}
 
 /**
  * @brief Checks that a point on the curve passes the validate_is_on_curve check
@@ -110,29 +143,62 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
-    size_t num_repetitions = 5;
-    for (size_t i = 0; i < num_repetitions; ++i) {
-        cycle_group_ct input_a(Element::random_element());
-        cycle_group_ct input_b(Element::random_element());
-        input_b.set_point_at_infinity(true);
-        auto standard_a = input_a.get_standard_form();
-        auto standard_b = input_b.get_standard_form();
-        EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), false);
-        EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
-        auto input_a_x = input_a.x.get_value();
-        auto input_a_y = input_a.y.get_value();
+    cycle_group_ct input_a = cycle_group_ct::from_witness(&builder, Element::random_element());
+    cycle_group_ct input_b = cycle_group_ct::from_witness(&builder, Element::random_element());
+    cycle_group_ct input_c = cycle_group_ct(Element::random_element());
+    cycle_group_ct input_d = cycle_group_ct(Element::random_element());
 
-        auto standard_a_x = standard_a.x.get_value();
-        auto standard_a_y = standard_a.y.get_value();
+    input_b.set_point_at_infinity(true);
+    input_d.set_point_at_infinity(true);
 
-        auto standard_b_x = standard_b.x.get_value();
-        auto standard_b_y = standard_b.y.get_value();
+    // Assign different tags to all inputs
+    input_a.set_origin_tag(submitted_value_origin_tag);
+    input_b.set_origin_tag(challenge_origin_tag);
+    input_c.set_origin_tag(next_challenge_tag);
+    input_d.set_origin_tag(first_two_merged_tag);
 
-        EXPECT_EQ(input_a_x, standard_a_x);
-        EXPECT_EQ(input_a_y, standard_a_y);
-        EXPECT_EQ(standard_b_x, 0);
-        EXPECT_EQ(standard_b_y, 0);
-    }
+    auto standard_a = input_a.get_standard_form();
+    auto standard_b = input_b.get_standard_form();
+    auto standard_c = input_c.get_standard_form();
+    auto standard_d = input_d.get_standard_form();
+
+    EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), false);
+    EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
+    EXPECT_EQ(standard_c.is_point_at_infinity().get_value(), false);
+    EXPECT_EQ(standard_d.is_point_at_infinity().get_value(), true);
+
+    // Ensure that the tags in the standard form remain the same
+    EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(standard_b.get_origin_tag(), challenge_origin_tag);
+    EXPECT_EQ(standard_c.get_origin_tag(), next_challenge_tag);
+    EXPECT_EQ(standard_d.get_origin_tag(), first_two_merged_tag);
+
+    auto input_a_x = input_a.x.get_value();
+    auto input_a_y = input_a.y.get_value();
+    auto input_c_x = input_c.x.get_value();
+    auto input_c_y = input_c.y.get_value();
+
+    auto standard_a_x = standard_a.x.get_value();
+    auto standard_a_y = standard_a.y.get_value();
+
+    auto standard_b_x = standard_b.x.get_value();
+    auto standard_b_y = standard_b.y.get_value();
+
+    auto standard_c_x = standard_c.x.get_value();
+    auto standard_c_y = standard_c.y.get_value();
+
+    auto standard_d_x = standard_d.x.get_value();
+    auto standard_d_y = standard_d.y.get_value();
+
+    EXPECT_EQ(input_a_x, standard_a_x);
+    EXPECT_EQ(input_a_y, standard_a_y);
+    EXPECT_EQ(standard_b_x, 0);
+    EXPECT_EQ(standard_b_y, 0);
+    EXPECT_EQ(input_c_x, standard_c_x);
+    EXPECT_EQ(input_c_y, standard_c_y);
+    EXPECT_EQ(standard_d_x, 0);
+    EXPECT_EQ(standard_d_y, 0);
+
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
@@ -142,18 +208,29 @@ TYPED_TEST(CycleGroupTest, TestDbl)
 
     auto lhs = TestFixture::generators[0];
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct(lhs);
+    // Assign two different tags
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
     cycle_group_ct c;
+    cycle_group_ct d;
     std::cout << "pre = " << builder.get_estimated_num_finalized_gates() << std::endl;
     for (size_t i = 0; i < 3; ++i) {
         c = a.dbl();
     }
     std::cout << "post = " << builder.get_estimated_num_finalized_gates() << std::endl;
+    d = b.dbl();
     AffineElement expected(Element(lhs).dbl());
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
+    EXPECT_EQ(d.get_value(), expected);
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
+
+    // Ensure the tags stay the same after doubling
+    EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(d.get_origin_tag(), challenge_origin_tag);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
@@ -165,10 +242,15 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
         [&](const AffineElement& lhs, const AffineElement& rhs, const bool lhs_constant, const bool rhs_constant) {
             cycle_group_ct a = lhs_constant ? cycle_group_ct(lhs) : cycle_group_ct::from_witness(&builder, lhs);
             cycle_group_ct b = rhs_constant ? cycle_group_ct(rhs) : cycle_group_ct::from_witness(&builder, rhs);
+            // Assign two different tags
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
             cycle_group_ct c = a.unconditional_add(b);
             AffineElement expected(Element(lhs) + Element(rhs));
             AffineElement result = c.get_value();
             EXPECT_EQ(result, expected);
+            // Ensure the tags in the result are merged
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
         };
 
     add(TestFixture::generators[0], TestFixture::generators[1], false, false);
@@ -234,56 +316,81 @@ TYPED_TEST(CycleGroupTest, TestAdd)
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+        // Here and in the following cases we assign two different tags
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
         cycle_group_ct c = a + b;
         AffineElement expected(Element(lhs) + Element(rhs));
         AffineElement result = c.get_value();
         EXPECT_EQ(result, expected);
+        // We expect the tags to be merged in the result
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 2. lhs is point at infinity
     {
         cycle_group_ct a = point_at_infinity;
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a + b;
         AffineElement result = c.get_value();
         EXPECT_EQ(result, rhs);
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 3. rhs is point at infinity
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = point_at_infinity;
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a + b;
         AffineElement result = c.get_value();
         EXPECT_EQ(result, lhs);
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 4. both points are at infinity
     {
         cycle_group_ct a = point_at_infinity;
         cycle_group_ct b = point_at_infinity;
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a + b;
         EXPECT_TRUE(c.is_point_at_infinity().get_value());
         EXPECT_TRUE(c.get_value().is_point_at_infinity());
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 5. lhs = -rhs
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, -lhs);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a + b;
         EXPECT_TRUE(c.is_point_at_infinity().get_value());
         EXPECT_TRUE(c.get_value().is_point_at_infinity());
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 6. lhs = rhs
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, lhs);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a + b;
         AffineElement expected((Element(lhs)).dbl());
         AffineElement result = c.get_value();
         EXPECT_EQ(result, expected);
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     bool proof_result = CircuitChecker::check(builder);
@@ -295,20 +402,26 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
-    auto add =
+    auto subtract =
         [&](const AffineElement& lhs, const AffineElement& rhs, const bool lhs_constant, const bool rhs_constant) {
             cycle_group_ct a = lhs_constant ? cycle_group_ct(lhs) : cycle_group_ct::from_witness(&builder, lhs);
             cycle_group_ct b = rhs_constant ? cycle_group_ct(rhs) : cycle_group_ct::from_witness(&builder, rhs);
+            // Assign two different tags
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+
             cycle_group_ct c = a.unconditional_subtract(b);
             AffineElement expected(Element(lhs) - Element(rhs));
             AffineElement result = c.get_value();
             EXPECT_EQ(result, expected);
+            // Expect tags to be merged in the result
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
         };
 
-    add(TestFixture::generators[0], TestFixture::generators[1], false, false);
-    add(TestFixture::generators[0], TestFixture::generators[1], false, true);
-    add(TestFixture::generators[0], TestFixture::generators[1], true, false);
-    add(TestFixture::generators[0], TestFixture::generators[1], true, true);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], false, false);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], false, true);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], true, false);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -370,56 +483,82 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+        // Here and in the following cases we set 2 different tags to a and b
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a - b;
         AffineElement expected(Element(lhs) - Element(rhs));
         AffineElement result = c.get_value();
         EXPECT_EQ(result, expected);
+        // We expect the tag of the result to be the union of a and b tags
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 2. lhs is point at infinity
     {
         cycle_group_ct a = point_at_infinity;
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a - b;
         AffineElement result = c.get_value();
         EXPECT_EQ(result, -rhs);
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 3. rhs is point at infinity
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = point_at_infinity;
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a - b;
         AffineElement result = c.get_value();
         EXPECT_EQ(result, lhs);
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 4. both points are at infinity
     {
         cycle_group_ct a = point_at_infinity;
         cycle_group_ct b = point_at_infinity;
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a - b;
         EXPECT_TRUE(c.is_point_at_infinity().get_value());
         EXPECT_TRUE(c.get_value().is_point_at_infinity());
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 5. lhs = -rhs
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, -lhs);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a - b;
         AffineElement expected((Element(lhs)).dbl());
         AffineElement result = c.get_value();
         EXPECT_EQ(result, expected);
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     // case 6. lhs = rhs
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, lhs);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
         cycle_group_ct c = a - b;
         EXPECT_TRUE(c.is_point_at_infinity().get_value());
         EXPECT_TRUE(c.get_value().is_point_at_infinity());
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
     bool proof_result = CircuitChecker::check(builder);
@@ -432,7 +571,24 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     auto builder = Builder();
 
     const size_t num_muls = 1;
+    /**
+     * @brief Assign different tags to all points and scalars and return the union of that tag
+     *
+     *@details We assign the tags with the same round index to a (point,scalar) pair, but the point is treated as
+     *submitted value, while scalar as a challenge. Merging these tags should not run into any edgecases
+     */
+    auto assign_and_merge_tags = [](auto& points, auto& scalars) {
+        OriginTag merged_tag;
+        for (size_t i = 0; i < points.size(); i++) {
+            const auto point_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/true);
+            const auto scalar_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/false);
 
+            merged_tag = OriginTag(merged_tag, OriginTag(point_tag, scalar_tag));
+            points[i].set_origin_tag(point_tag);
+            scalars[i].set_origin_tag(scalar_tag);
+        }
+        return merged_tag;
+    };
     // case 1, general MSM with inputs that are combinations of constant and witnesses
     {
         std::vector<cycle_group_ct> points;
@@ -463,8 +619,14 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back(cycle_group_ct(element));
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
+
+        // Here and in the following cases assign different tags to points and scalars and get the union of them back
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
+
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
+        // The tag should the union of all tags
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     // case 2, MSM that produces point at infinity
@@ -480,8 +642,12 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, -scalar));
 
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
+
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
+
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     // case 3. Multiply by zero
@@ -493,8 +659,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         typename Group::subgroup_field scalar = 0;
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     // case 4. Inputs are points at infinity
@@ -519,8 +688,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back(point);
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
         }
+
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     // case 5, fixed-base MSM with inputs that are combinations of constant and witnesses (group elements are in
@@ -547,9 +719,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
             scalars_native.emplace_back(uint256_t(scalar));
         }
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
         EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are
@@ -584,8 +758,10 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
             scalars_native.emplace_back(scalar);
         }
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     // case 7, Fixed-base MSM where input scalars are 0
@@ -605,8 +781,10 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back((element));
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
+        const auto expected_tag = assign_and_merge_tags(points, scalars);
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
+        EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 
     bool check_result = CircuitChecker::check(builder);
@@ -624,28 +802,34 @@ TYPED_TEST(CycleGroupTest, TestMul)
     {
         cycle_group_ct point;
         typename cycle_group_ct::cycle_scalar scalar;
+        cycle_group_ct result;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = TestFixture::generators[i];
             typename Group::subgroup_field native_scalar = Group::subgroup_field::random_element(&engine);
+            auto expected_result = element * native_scalar;
 
             // 1: add entry where point, scalar are witnesses
             point = (cycle_group_ct::from_witness(&builder, element));
             scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
-            EXPECT_EQ((point * scalar).get_value(), (element * native_scalar));
+            point.set_origin_tag(submitted_value_origin_tag);
+            scalar.set_origin_tag(challenge_origin_tag);
+            result = point * scalar;
+
+            EXPECT_EQ((result).get_value(), (expected_result));
 
             // 2: add entry where point is constant, scalar is witness
             point = (cycle_group_ct(element));
             scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
 
-            EXPECT_EQ((point * scalar).get_value(), (element * native_scalar));
+            EXPECT_EQ((result).get_value(), (expected_result));
 
             // 3: add entry where point is witness, scalar is constant
             point = (cycle_group_ct::from_witness(&builder, element));
-            EXPECT_EQ((point * scalar).get_value(), (element * native_scalar));
+            EXPECT_EQ((result).get_value(), (expected_result));
 
             // 4: add entry where point is constant, scalar is constant
             point = (cycle_group_ct(element));
-            EXPECT_EQ((point * scalar).get_value(), (element * native_scalar));
+            EXPECT_EQ((result).get_value(), (expected_result));
         }
     }
 
@@ -684,14 +868,13 @@ TYPED_TEST(CycleGroupTest, TestConversionFromBigfield)
         } else {
             big_elt = FF_ct(elt);
         }
-        cycle_scalar_ct scalar_from_big(big_elt);
-        EXPECT_EQ(elt, scalar_from_big.get_value());
-        cycle_scalar_ct scalar_from_elt(big_elt);
-        EXPECT_EQ(elt, scalar_from_elt.get_value());
+        big_elt.set_origin_tag(submitted_value_origin_tag);
+        cycle_scalar_ct scalar_from_big_elt(big_elt);
+        EXPECT_EQ(elt, scalar_from_big_elt.get_value());
+        EXPECT_EQ(scalar_from_big_elt.get_origin_tag(), big_elt.get_origin_tag());
         if (construct_witnesses) {
             EXPECT_FALSE(big_elt.is_constant());
-            EXPECT_FALSE(scalar_from_big.is_constant());
-            EXPECT_FALSE(scalar_from_elt.is_constant());
+            EXPECT_FALSE(scalar_from_big_elt.is_constant());
             EXPECT_TRUE(CircuitChecker::check(builder));
         }
     };

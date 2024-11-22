@@ -2,6 +2,12 @@ nameOverride: ""
 fullnameOverride: ""
 
 network:
+  # If true, pods will use host networking.
+  # This is to ensure that nodes are individually addressable from the outside.
+  # Under the current configuration, this also means that there must be a unique
+  # physical node in the cluster for each pod that participates in peer-to-peer.
+  # I.e. the sum of the number of validator, boot node, and prover nodes must be
+  # less than the number of physical nodes in the cluster.
   public: false
   setupL2Contracts: true
 
@@ -19,11 +25,17 @@ images:
   foundry:
     image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
     pullPolicy: IfNotPresent
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
+
+aztec:
+  slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
+  epochDuration: 16 # how many L2 slots in an epoch
+  epochProofClaimWindow: 13 # in L2 slots
 
 bootNode:
-  external: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  externalHost: ""
   replicas: 1
   service:
     p2pTcpPort: 40400
@@ -35,6 +47,7 @@ bootNode:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+  realProofs: false
   validator:
     disabled: true
   p2p:
@@ -59,9 +72,10 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  external: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  # If true, the validator will use its peers to serve as the boot node.
+  # This cannot be used when the network first starts up.
+  # But it must be used if the boot node is killed, and the validator is restarted.
+  dynamicBootNode: false
   replicas: 1
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -76,8 +90,11 @@ validator:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+    maxTxsPerBlock: 4
+    enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
@@ -89,12 +106,9 @@ validator:
     requests:
       memory: "2Gi"
       cpu: "200m"
-  storage: "8Gi"
 
 proverNode:
-  external: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  externalHost: ""
   replicas: 1
   p2pEnabled: true
   service:
@@ -112,15 +126,13 @@ proverNode:
   storage: "8Gi"
 
 pxe:
-  external: false
-  externalHost: ""
+  proverEnabled: false
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
+  proverEnable: false
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   replicas: 1
   service:
-    port: 8080
-    targetPort: 8080
-    nodePort: ""
+    nodePort: 8081
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -134,6 +146,7 @@ pxe:
 
 bot:
   enabled: true
+  nodeUrl: ""
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
   replicas: 1
@@ -146,11 +159,11 @@ bot:
   botNoStart: false
   pxeProverEnabled: false
   proverRealProofs: false
+  maxErrors: 3
+  stopIfUnhealthy: true
   service:
     type: ClusterIP
-    port: 8080
-    targetPort: 8080
-    nodePort: ""
+    nodePort: 8082
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -163,16 +176,13 @@ bot:
       cpu: "200m"
 
 ethereum:
-  external: false
   externalHost: ""
   replicas: 1
-  chainId: 31337
-  blockTime: 12
+  chainId: 1337
+  blockTime: 12sec
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
-  forkUrl: ""
-  forkBlockNumber: ""
   args: ""
   service:
     type: ClusterIP
@@ -189,16 +199,23 @@ ethereum:
     requests:
       memory: "2Gi"
       cpu: "200m"
-  storage: "8Gi"
+  storage: "80Gi"
 
 proverAgent:
+  service:
+    nodePort: 8083
   enabled: true
   replicas: 1
+  gke:
+    spotEnabled: false
+  logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
   concurrency: 1
   bb:
     hardwareConcurrency: ""
+  nodeSelector: {}
+  resources: {}
 
 jobs:
   deployL1Verifier:

@@ -15,11 +15,11 @@ use crate::{
 };
 
 pub struct PrivateValidationRequests {
-    for_rollup: RollupValidationRequests,
-    note_hash_read_requests: [ScopedReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    scoped_key_validation_requests_and_generators: [ScopedKeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
-    split_counter: Option<u32>,
+    pub for_rollup: RollupValidationRequests,
+    pub note_hash_read_requests: [ScopedReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pub scoped_key_validation_requests_and_generators: [ScopedKeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+    pub split_counter: Option<u32>,
 }
 
 impl Serialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationRequests {
@@ -46,7 +46,7 @@ impl Serialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationRequests
 
         assert_eq(fields.len(), PRIVATE_VALIDATION_REQUESTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -70,7 +70,13 @@ impl Deserialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationReques
                          MAX_KEY_VALIDATION_REQUESTS_PER_TX
                     ],
                 ),
-            split_counter: Option { _is_some: reader.read_bool(), _value: reader.read_u32() },
+            split_counter: if reader.read_bool() {
+                Option::some(reader.read_u32())
+            } else {
+                // We need to read the final reader value even if we don't use it in order to flush the reader.
+                let _ = reader.read_u32();
+                Option::none()
+            },
         };
 
         reader.finish();

@@ -1,6 +1,7 @@
 import { Vector } from '@aztec/circuits.js';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
@@ -9,6 +10,14 @@ import { BufferReader } from '@aztec/foundation/serialize';
  * additional operations on the underlying field elements.
  */
 export class Payload extends Vector<Fr> {
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Payload);
+  }
+
   /**
    * Create a Note instance from a Buffer or BufferReader.
    * The input 'buffer' can be either a Buffer containing the serialized Fr elements or a BufferReader instance.
@@ -57,7 +66,7 @@ export class Payload extends Vector<Fr> {
     return this.items.length;
   }
 
-  equals(other: Note) {
+  equals(other: Payload) {
     return this.items.every((item, index) => item.equals(other.items[index]));
   }
 }

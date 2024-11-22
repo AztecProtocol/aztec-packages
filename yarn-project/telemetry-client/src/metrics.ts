@@ -41,6 +41,7 @@ export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 
+export const SEQUENCER_STATE_TRANSITION_BUFFER_DURATION = 'aztec.sequencer.state_transition_buffer.duration';
 export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block.build_duration';
 export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
 export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
@@ -79,3 +80,6 @@ export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size'
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
+
+export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
+export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';

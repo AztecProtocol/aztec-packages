@@ -369,25 +369,24 @@ fn validate_propagated_from_private_call_encrypted_log_hashes_output_one_more_fa
 }
 
 /**
- * unencrypted_log_hashes
+ * contract_class_log_hashes
  */
 #[test]
-fn validate_propagated_from_private_call_unencrypted_log_hashes_succeeds() {
+fn validate_propagated_from_private_call_contract_class_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_unencrypted_log_hashes(2);
-    builder.output.append_unencrypted_log_hashes(2);
+    builder.private_call.add_contract_class_log_hash(2, 1);
+    builder.output.add_contract_class_log_hash(2, 1);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_unencrypted_log_hashes_output_one_more_fails() {
+fn validate_propagated_from_private_call_contract_class_log_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_unencrypted_log_hashes(2);
     // Propagate 1 more item to the output.
-    builder.output.append_unencrypted_log_hashes(3);
+    builder.output.add_contract_class_log_hash(2, 1);
 
     builder.validate_as_inner_call();
 }

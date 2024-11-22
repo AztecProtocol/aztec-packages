@@ -1,7 +1,8 @@
 import type { ClientProtocolCircuitVerifier, L2BlockSource, WorldStateSynchronizer } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { type DataStoreConfig, createStore } from '@aztec/kv-store/utils';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { createStore } from '@aztec/kv-store/utils';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -49,7 +50,7 @@ export const createP2PClient = async (
 
     // Create peer discovery service
     const peerId = await createLibP2PPeerId(config.peerIdPrivateKey);
-    const discoveryService = new DiscV5Service(peerId, config);
+    const discoveryService = new DiscV5Service(peerId, config, telemetry);
 
     p2pService = await LibP2PService.new(
       config,

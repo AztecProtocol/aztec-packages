@@ -125,10 +125,18 @@ export class UltraPlonkBackend {
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
 
+  /** @description Returns the verification key */
   async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);
     return await this.api.acirGetVerificationKey(this.acirComposer);
+  }
+
+  /** @description Returns a solidity verifier */
+  async getSolidityVerifier(): Promise<string> {
+    await this.instantiate();
+    await this.api.acirInitVerificationKey(this.acirComposer);
+    return await this.api.acirGetSolidityVerifier(this.acirComposer);
   }
 
   async destroy(): Promise<void> {
@@ -218,6 +226,13 @@ export class UltraHonkBackend {
     return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
   }
 
+  /** @description Returns a solidity verifier */
+  async getSolidityVerifier(): Promise<string> {
+    await this.instantiate();
+    await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    return await this.api.getHonkSolidityVerifier(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+  }
+
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
   async generateRecursiveProofArtifacts(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -248,6 +263,38 @@ export class UltraHonkBackend {
       // they expect
       vkHash: '',
     };
+  }
+
+  async destroy(): Promise<void> {
+    if (!this.api) {
+      return;
+    }
+    await this.api.destroy();
+  }
+}
+
+export class AztecClientBackend {
+  // These type assertions are used so that we don't
+  // have to initialize `api` in the constructor.
+  // These are initialized asynchronously in the `init` function,
+  // constructors cannot be asynchronous which is why we do this.
+
+  protected api!: Barretenberg;
+
+  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+
+  /** @ignore */
+  async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.options);
+      await api.initSRSClientIVC();
+      this.api = api;
+    }
+  }
+
+  async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
+    await this.instantiate();
+    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
   }
 
   async destroy(): Promise<void> {

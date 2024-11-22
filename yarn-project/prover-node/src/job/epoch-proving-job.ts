@@ -5,12 +5,14 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProverCoordination,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
+import { KernelCircuitPublicInputs, NULLIFIER_SUBTREE_HEIGHT, PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -111,6 +113,11 @@ export class EpochProvingJob {
           uuid: this.uuid,
         });
 
+        if (txCount > txs.length) {
+          // If this block has a padding tx, ensure that the public processor's db has its state
+          await this.addPaddingTxState();
+        }
+
         // Mark block as completed and update archive tree
         await this.prover.setBlockCompleted(block.header);
         previousHeader = block.header;
@@ -177,6 +184,25 @@ export class EpochProvingJob {
     }
 
     return processedTxs;
+  }
+
+  private async addPaddingTxState() {
+    const emptyKernelOutput = KernelCircuitPublicInputs.empty();
+    await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, emptyKernelOutput.end.noteHashes);
+    await this.db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      emptyKernelOutput.end.nullifiers.map(n => n.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+    const allPublicDataWrites = emptyKernelOutput.end.publicDataWrites
+      .filter(write => !write.isEmpty())
+      .map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value));
+
+    await this.db.batchInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      allPublicDataWrites.map(x => x.toBuffer()),
+      0,
+    );
   }
 }
 

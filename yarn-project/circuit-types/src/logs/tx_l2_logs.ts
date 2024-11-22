@@ -1,15 +1,18 @@
 import {
   Fr,
   type LogHash,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
+import { z } from 'zod';
 
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
 import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
@@ -133,11 +136,11 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
     for (const fnLogs of this.functionLogs) {
       let include = false;
       for (const log of fnLogs.logs) {
-        let contractAddress;
+        let contractAddress: any;
         if ('contractAddress' in log) {
           contractAddress = log.contractAddress;
         } else if ('maskedContractAddress' in log) {
-          contractAddress = log.maskedContractAddress;
+          contractAddress = new AztecAddress(log.maskedContractAddress);
         } else {
           throw new Error("Can't run filterScoped in logs without contractAddress or maskedContractAddress");
         }
@@ -158,6 +161,12 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
 }
 
 export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(UnencryptedFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new UnencryptedTxL2Logs(functionLogs));
+  }
+
   /** Creates an empty instance. */
   public static empty() {
     return new UnencryptedTxL2Logs([]);
@@ -246,6 +255,12 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
 }
 
 export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(EncryptedNoteFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new EncryptedNoteTxL2Logs(functionLogs));
+  }
+
   /** Creates an empty instance. */
   public static empty() {
     return new EncryptedNoteTxL2Logs([]);
@@ -333,6 +348,12 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
 }
 
 export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(EncryptedFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new EncryptedTxL2Logs(functionLogs));
+  }
+
   /** Creates an empty instance. */
   public static empty() {
     return new EncryptedTxL2Logs([]);
@@ -413,6 +434,99 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
     }
     // pad the end of logs with 0s
     for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - siloedLogHashes.length; i++) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
+    }
+
+    return sha256Trunc(allSiloedLogHashes);
+  }
+}
+
+export class ContractClassTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(UnencryptedFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new ContractClassTxL2Logs(functionLogs));
+  }
+
+  /** Creates an empty instance. */
+  public static empty() {
+    return new ContractClassTxL2Logs([]);
+  }
+
+  /**
+   * Deserializes logs from a buffer.
+   * @param buf - The buffer containing the serialized logs.
+   * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
+   * @returns A new L2Logs object.
+   */
+  public static fromBuffer(buf: Buffer | BufferReader, isLengthPrefixed = true): ContractClassTxL2Logs {
+    const reader = BufferReader.asReader(buf);
+
+    // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
+    const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
+    const serializedFunctionLogs = reader.readBufferArray(logsBufLength);
+
+    const functionLogs = serializedFunctionLogs.map(logs => UnencryptedFunctionL2Logs.fromBuffer(logs, false));
+    return new ContractClassTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
+   * @param numCalls - The number of function calls in the tx.
+   * @param numLogsPerCall - The number of logs emitted in each function call.
+   * @param logType - The type of logs to generate.
+   * @returns A new `TxL2Logs` object.
+   */
+  public static random(numCalls: number, numLogsPerCall: number): ContractClassTxL2Logs {
+    if (numCalls * numLogsPerCall > MAX_CONTRACT_CLASS_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_CONTRACT_CLASS_LOGS_PER_TX})`,
+      );
+    }
+    const functionLogs: UnencryptedFunctionL2Logs[] = [];
+    for (let i = 0; i < numCalls; i++) {
+      functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
+    }
+    return new ContractClassTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Convert a plain JSON object to a TxL2Logs class object.
+   * @param obj - A plain TxL2Logs JSON object.
+   * @returns A TxL2Logs class object.
+   */
+  public static fromJSON(obj: any) {
+    const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
+    return new ContractClassTxL2Logs(functionLogs);
+  }
+
+  /**
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelUnencryptedLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  public override hash(): Buffer {
+    const unrolledLogs = this.unrollLogs();
+    return ContractClassTxL2Logs.hashSiloedLogs(unrolledLogs.map(log => log.getSiloedHash()));
+  }
+
+  /**
+   * Hashes siloed contract class logs as in the same way as the base rollup would.
+   * @param siloedLogHashes - The siloed log hashes
+   * @returns The hash of the logs.
+   */
+  public static hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
+    if (siloedLogHashes.length == 0) {
+      return Buffer.alloc(32);
+    }
+
+    let allSiloedLogHashes = Buffer.alloc(0);
+    for (const siloedLogHash of siloedLogHashes) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
+    }
+    // pad the end of logs with 0s
+    for (let i = 0; i < MAX_CONTRACT_CLASS_LOGS_PER_TX - siloedLogHashes.length; i++) {
       allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
     }
 

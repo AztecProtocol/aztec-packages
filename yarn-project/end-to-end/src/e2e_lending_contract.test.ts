@@ -56,7 +56,8 @@ describe('e2e_lending_contract', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues } = await setup(1));
+    const ctx = await setup(1);
+    ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
 
@@ -74,6 +75,7 @@ describe('e2e_lending_contract', () => {
       cc,
       lendingAccount,
       rate,
+      ctx.config.ethereumSlotDuration,
       rollup,
       lendingContract,
       new TokenSimulator(collateralAsset, wallet, logger, [lendingContract.address, wallet.getAddress()]),
@@ -98,18 +100,16 @@ describe('e2e_lending_contract', () => {
       const mintAmount = 10000n;
       for (const asset of assets) {
         await Promise.all([
-          asset.methods.mint_public(lendingAccount.address, mintAmount).send().wait(),
+          asset.methods.mint_to_public(lendingAccount.address, mintAmount).send().wait(),
           mintTokensToPrivate(asset, wallet, lendingAccount.address, mintAmount),
         ]);
       }
     }
 
     lendingSim.mintStableCoinOutsideLoan(lendingAccount.address, 10000n, true);
-    lendingSim.stableCoin.redeemShield(lendingAccount.address, 10000n);
     lendingSim.mintStableCoinOutsideLoan(lendingAccount.address, 10000n, false);
 
-    lendingSim.collateralAsset.mintPrivate(10000n);
-    lendingSim.collateralAsset.redeemShield(lendingAccount.address, 10000n);
+    lendingSim.collateralAsset.mintPrivate(lendingAccount.address, 10000n);
     lendingSim.collateralAsset.mintPublic(lendingAccount.address, 10000n);
   });
 
@@ -201,7 +201,7 @@ describe('e2e_lending_contract', () => {
         .setPublicAuthWit(
           {
             caller: lendingContract.address,
-            action: collateralAsset.methods.transfer_public(
+            action: collateralAsset.methods.transfer_in_public(
               lendingAccount.address,
               lendingContract.address,
               depositAmount,
@@ -271,7 +271,7 @@ describe('e2e_lending_contract', () => {
       const nonce = Fr.random();
       await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce),
+        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP);
@@ -295,7 +295,7 @@ describe('e2e_lending_contract', () => {
       const nonce = Fr.random();
       await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce),
+        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP);

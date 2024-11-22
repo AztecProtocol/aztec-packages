@@ -36,8 +36,7 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -60,8 +59,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
  */
 TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -88,8 +86,7 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     size_t NUM_CIRCUITS = 6;
 
@@ -97,7 +94,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
     std::vector<std::shared_ptr<VerificationKey>> precomputed_vks;
     {
         MockCircuitProducer circuit_producer;
-        precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_structure);
+        precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings);
     }
 
     MockCircuitProducer circuit_producer;
@@ -122,8 +119,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
  */
 TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { Crs, Barretenberg, RawBuffer } from './index.js';
-import { GrumpkinCrs } from './crs/node/index.js';
+import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
+import { ungzip } from 'pako';
 import { Command } from 'commander';
+import { decode } from '@msgpack/msgpack';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
 createDebug.log = console.error.bind(console);
@@ -31,6 +32,26 @@ function getBytecode(bytecodePath: string) {
   const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
   return decompressed;
+}
+
+function base64ToUint8Array(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function readStack(bytecodePath: string, numToDrop = 0) {
+  const encodedPackedZippedBytecodeArray = readFileSync(bytecodePath, 'utf-8');
+  const packedZippedBytecodeArray = base64ToUint8Array(encodedPackedZippedBytecodeArray);
+  const zipped = decode(
+    packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop),
+  ) as Uint8Array[];
+  const bytecodeArray = zipped.map((arr: Uint8Array) => ungzip(arr));
+  return bytecodeArray;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
@@ -105,12 +126,12 @@ async function initUltraHonk(bytecodePath: string, recursive: boolean, crsPath: 
   return { api, circuitSize, dyadicCircuitSize };
 }
 
-async function initClientIVC(bytecodePath: string, recursive: boolean, crsPath: string) {
+async function initClientIVC(crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
   debug('loading BN254 and Grumpkin crs...');
-  const crs = await Crs.new(2 ** 18 + 1, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, crsPath);
+  const crs = await Crs.new(2 ** 21 + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -202,6 +223,22 @@ export async function proveAndVerifyMegaHonk(
   /* eslint-enable camelcase */
 }
 
+export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const { api } = await initClientIVC(crsPath);
+  try {
+    const bytecode = readStack(bytecodePath);
+    const witness = readStack(witnessPath);
+
+    const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
+    console.log(`verified?: ${verified}`);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
 export async function foldAndVerifyProgram(
   bytecodePath: string,
   recursive: boolean,
@@ -209,7 +246,7 @@ export async function foldAndVerifyProgram(
   crsPath: string,
 ) {
   /* eslint-disable camelcase */
-  const { api } = await initClientIVC(bytecodePath, recursive, crsPath);
+  const { api } = await initClientIVC(crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
@@ -533,6 +570,17 @@ program
   .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
     handleGlobalOptions();
     const result = await proveAndVerifyMegaHonk(bytecodePath, recursive, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('client_ivc_prove_and_verify')
+  .description('Generate a ClientIVC proof.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.msgpack.b64')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack.b64')
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 

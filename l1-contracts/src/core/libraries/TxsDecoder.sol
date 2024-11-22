@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -56,6 +56,7 @@ library TxsDecoder {
     uint256 noteEncryptedLogsLength;
     uint256 encryptedLogsLength;
     uint256 unencryptedLogsLength;
+    uint256 contractClassLogsLength;
   }
 
   struct Counts {
@@ -72,9 +73,11 @@ library TxsDecoder {
     uint256 kernelNoteEncryptedLogsLength;
     uint256 kernelEncryptedLogsLength;
     uint256 kernelUnencryptedLogsLength;
+    uint256 kernelContractClassLogsLength;
     bytes32 noteEncryptedLogsHash;
     bytes32 encryptedLogsHash;
     bytes32 unencryptedLogsHash;
+    bytes32 contractClassLogsHash;
     bytes32 txOutHash;
   }
 
@@ -166,8 +169,12 @@ library TxsDecoder {
         offsets.unencryptedLogsLength = offset;
         offset += 0x20;
 
+        // CONTRACT CLASS LOGS LENGTH
+        offsets.contractClassLogsLength = offset;
+        offset += 0x20;
+
         /**
-         * Compute note, encrypted and unencrypted logs hashes corresponding to the current leaf.
+         * Compute note, encrypted, unencrypted, and contract class logs hashes corresponding to the current leaf.
          * Note: will advance offsets by the number of bytes processed.
          */
         // NOTE ENCRYPTED LOGS HASH
@@ -178,7 +185,11 @@ library TxsDecoder {
           computeKernelEncryptedLogsHash(offset, _body);
         // UNENCRYPTED LOGS HASH
         (vars.unencryptedLogsHash, offset, vars.kernelUnencryptedLogsLength) =
-          computeKernelUnencryptedLogsHash(offset, _body);
+          computeKernelUnencryptedLogsHash(offset, _body, false);
+        // CONTRACT CLASS LOGS HASH
+        // Note: the logic for unenc. and contract class logs hashing is the same:
+        (vars.contractClassLogsHash, offset, vars.kernelContractClassLogsLength) =
+          computeKernelUnencryptedLogsHash(offset, _body, true);
         // TX LEVEL OUT HASH
         (vars.txOutHash) = computeTxOutHash(offsets.l2ToL1Msgs, _body);
 
@@ -206,6 +217,14 @@ library TxsDecoder {
           Errors.TxsDecoder__InvalidLogsLength(
             uint256(bytes32(slice(_body, offsets.unencryptedLogsLength, 0x20))),
             vars.kernelUnencryptedLogsLength
+          )
+        );
+        require(
+          uint256(bytes32(slice(_body, offsets.contractClassLogsLength, 0x20)))
+            == vars.kernelContractClassLogsLength,
+          Errors.TxsDecoder__InvalidLogsLength(
+            uint256(bytes32(slice(_body, offsets.contractClassLogsLength, 0x20))),
+            vars.kernelContractClassLogsLength
           )
         );
 
@@ -239,10 +258,18 @@ library TxsDecoder {
           ),
           bytes.concat(
             slice(_body, offsets.noteEncryptedLogsLength, 0x20),
-            slice(_body, offsets.encryptedLogsLength, 0x20),
-            slice(_body, offsets.unencryptedLogsLength, 0x20)
+            slice(_body, offsets.encryptedLogsLength, 0x20)
           ),
-          bytes.concat(vars.noteEncryptedLogsHash, vars.encryptedLogsHash, vars.unencryptedLogsHash)
+          bytes.concat(
+            slice(_body, offsets.unencryptedLogsLength, 0x20),
+            slice(_body, offsets.contractClassLogsLength, 0x20)
+          ),
+          bytes.concat(
+            vars.noteEncryptedLogsHash,
+            vars.encryptedLogsHash,
+            vars.unencryptedLogsHash,
+            vars.contractClassLogsHash
+          )
         );
 
         vars.baseLeaves[i] = Hash.sha256ToField(vars.baseLeaf);
@@ -251,7 +278,7 @@ library TxsDecoder {
       // We pad base leaves with hashes of empty tx effect.
       for (uint256 i = numTxEffects; i < vars.baseLeaves.length; i++) {
         // Value taken from tx_effect.test.ts "hash of empty tx effect matches snapshot" test case
-        vars.baseLeaves[i] = hex"00f0aa51fc81f8242316fcf2cb3b28196241ed3fa26dd320a959bce6c529b270";
+        vars.baseLeaves[i] = hex"00c2dece9c9f14c67b8aafabdcb80793f1cffe95a801e15d648fd214a0522ee8";
       }
     }
 
@@ -421,18 +448,18 @@ library TxsDecoder {
   }
 
   /**
-   * @notice Computes unencrypted logs hash as is done in the kernel circuits.
+   * @notice Computes unencrypted or contract class logs hash as is done in the kernel circuits.
    * @param _offsetInBlock - The offset of kernel's logs in a block.
    * @param _body - The L2 block calldata.
    * @return The hash of the logs and offset in a block after processing the logs.
-   * @dev See above for details. The only difference here is that unencrypted logs are
+   * @dev See above for details. The only difference here is that unencrypted and contract class logs are
    * siloed with their contract address.
    */
-  function computeKernelUnencryptedLogsHash(uint256 _offsetInBlock, bytes calldata _body)
-    internal
-    pure
-    returns (bytes32, uint256, uint256)
-  {
+  function computeKernelUnencryptedLogsHash(
+    uint256 _offsetInBlock,
+    bytes calldata _body,
+    bool _contractClassLogs
+  ) internal pure returns (bytes32, uint256, uint256) {
     uint256 offset = _offsetInBlock;
     uint256 remainingLogsLength = read4(_body, offset);
     uint256 kernelLogsLength = remainingLogsLength;
@@ -473,10 +500,17 @@ library TxsDecoder {
     }
 
     // padded to MAX_LOGS * 32 bytes
-    flattenedLogHashes = bytes.concat(
-      flattenedLogHashes,
-      new bytes(Constants.MAX_UNENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
-    );
+    if (_contractClassLogs) {
+      flattenedLogHashes = bytes.concat(
+        flattenedLogHashes,
+        new bytes(Constants.MAX_CONTRACT_CLASS_LOGS_PER_TX * 32 - flattenedLogHashes.length)
+      );
+    } else {
+      flattenedLogHashes = bytes.concat(
+        flattenedLogHashes,
+        new bytes(Constants.MAX_UNENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
+      );
+    }
 
     bytes32 kernelPublicInputsLogsHash = Hash.sha256ToField(flattenedLogHashes);
 

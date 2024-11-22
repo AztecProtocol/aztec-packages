@@ -60,8 +60,8 @@ library Add2UltraVerificationKey {
             mstore(add(_vk, 0x5e0), 0x08579320bf2aa71698b64152f1f3f4afe1873af96d6403dcaf56908dc78c6704) // vk.ID3.y
             mstore(add(_vk, 0x600), 0x2eea648c8732596b1314fe2a4d2f05363f0c994e91cecad25835338edee2294f) // vk.ID4.x
             mstore(add(_vk, 0x620), 0x0ab49886c2b94bd0bd3f6ed1dbbe2cb2671d2ae51d31c1210433c3972bb64578) // vk.ID4.y
-            mstore(add(_vk, 0x640), 0x00) // vk.contains_recursive_proof
-            mstore(add(_vk, 0x660), 0) // vk.recursive_proof_public_input_indices
+            mstore(add(_vk, 0x640), 0x00) // vk.contains_pairing_point_accumulator
+            mstore(add(_vk, 0x660), 0) // vk.pairing_point_accumulator_public_input_indices
             mstore(add(_vk, 0x680), 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1) // vk.g2_x.X.c1
             mstore(add(_vk, 0x6a0), 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0) // vk.g2_x.X.c0
             mstore(add(_vk, 0x6c0), 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4) // vk.g2_x.Y.c1

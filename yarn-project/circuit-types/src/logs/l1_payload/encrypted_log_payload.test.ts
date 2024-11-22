@@ -6,7 +6,6 @@ import {
   PRIVATE_LOG_SIZE_IN_BYTES,
   computeAddressSecret,
   computeOvskApp,
-  computePoint,
   deriveKeys,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
@@ -83,7 +82,7 @@ describe('EncryptedLogPayload', () => {
       ephSk.hi,
       ephSk.lo,
       recipient,
-      computePoint(recipient).toCompressedBuffer(),
+      recipient.toAddressPoint().toCompressedBuffer(),
     );
     const outgoingBodyCiphertext = encrypt(
       outgoingBodyPlaintext,
@@ -115,17 +114,15 @@ describe('EncryptedLogPayload', () => {
     );
 
     // We set a random secret, as it is simply the result of an oracle call, and we are not actually computing this in nr.
-    const logTag = new IndexedTaggingSecret(
-      new Fr(69420),
+    const logTag = new IndexedTaggingSecret(new Fr(69420), 1337).computeTag(
       AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn),
-      1337,
-    ).computeTag();
+    );
     const tagString = logTag.toString().slice(2);
 
     let byteArrayString = `[${tagString.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
-      'tag_from_typescript',
+      'encrypted_log_from_typescript',
       byteArrayString,
     );
 

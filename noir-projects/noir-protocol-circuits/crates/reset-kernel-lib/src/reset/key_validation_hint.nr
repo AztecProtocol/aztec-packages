@@ -121,5 +121,5 @@ pub unconstrained fn get_unverified_key_validation_requests<let REQUEST_LEN: u32
             propagated.push(key_validation_requests[i]);
         }
     }
-    propagated.storage
+    propagated.storage()
 }
