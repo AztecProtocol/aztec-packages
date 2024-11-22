@@ -241,10 +241,6 @@ export class TaggedMemory implements TaggedMemoryInterface {
     this._mem = [];
   }
 
-  public getMaxMemorySize(): number {
-    return TaggedMemory.MAX_MEMORY_SIZE;
-  }
-
   /** Returns a MeteredTaggedMemory instance to track the number of reads and writes if TRACK_MEMORY_ACCESSES is set. */
   public track(type: string = 'instruction'): TaggedMemoryInterface {
     return TaggedMemory.TRACK_MEMORY_ACCESSES ? new MeteredTaggedMemory(this, type) : this;
@@ -473,10 +469,6 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
         `Incorrect number of memory writes for ${this.type}: expected ${expectedWrites} but executed ${actualWrites}`,
       );
     }
-  }
-
-  public getMaxMemorySize(): number {
-    return this.wrapped.getMaxMemorySize();
   }
 
   public track(type: string = 'instruction'): MeteredTaggedMemory {
