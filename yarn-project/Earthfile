@@ -53,10 +53,7 @@ build:
     RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
 
 build-docs:
-    # Prefetch targets to not wait for +deps.
-    BUILD ../barretenberg/ts/+build
     FROM +deps
-
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
     COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
     COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
