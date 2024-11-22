@@ -28,6 +28,11 @@ struct ReturnDataError {
     AvmError error;
 };
 
+struct RowWithError {
+    Row row;
+    AvmError error;
+};
+
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
 // At the end of circuit building, mainTrace can be moved to AvmCircuitBuilder by calling
@@ -86,19 +91,19 @@ class AvmTraceBuilder {
 
     // Execution Environment
     AvmError op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
-    void op_address(uint8_t indirect, uint32_t dst_offset);
-    void op_sender(uint8_t indirect, uint32_t dst_offset);
-    void op_function_selector(uint8_t indirect, uint32_t dst_offset);
-    void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
-    void op_is_static_call(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_address(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_sender(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_function_selector(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Globals
-    void op_chain_id(uint8_t indirect, uint32_t dst_offset);
-    void op_version(uint8_t indirect, uint32_t dst_offset);
-    void op_block_number(uint8_t indirect, uint32_t dst_offset);
-    void op_timestamp(uint8_t indirect, uint32_t dst_offset);
-    void op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
-    void op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_chain_id(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_version(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_block_number(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_timestamp(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Calldata
     AvmError op_calldata_copy(uint8_t indirect,
@@ -112,8 +117,8 @@ class AvmTraceBuilder {
                                 uint32_t dst_offset);
 
     // Machine State - Gas
-    void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
-    void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Machine State - Internal Control Flow
     // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
@@ -265,16 +270,16 @@ class AvmTraceBuilder {
     AvmRangeCheckBuilder range_check_builder;
     AvmBytecodeTraceBuilder bytecode_trace_builder;
 
-    Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
+    RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
-    Row create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
+    RowWithError create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
 
-    Row create_kernel_output_opcode_with_metadata(uint8_t indirect,
-                                                  uint32_t clk,
-                                                  uint32_t data_offset,
-                                                  AvmMemoryTag data_r_tag,
-                                                  uint32_t metadata_offset,
-                                                  AvmMemoryTag metadata_r_tag);
+    RowWithError create_kernel_output_opcode_with_metadata(uint8_t indirect,
+                                                           uint32_t clk,
+                                                           uint32_t data_offset,
+                                                           AvmMemoryTag data_r_tag,
+                                                           uint32_t metadata_offset,
+                                                           AvmMemoryTag metadata_r_tag);
 
     Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
                                                                        uint32_t data_offset,
@@ -286,10 +291,10 @@ class AvmTraceBuilder {
                                                    uint32_t leaf_index,
                                                    uint32_t metadata_offset);
 
-    Row create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
-                                                             uint32_t clk,
-                                                             uint32_t data_offset,
-                                                             uint32_t metadata_offset);
+    RowWithError create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
+                                                                      uint32_t clk,
+                                                                      uint32_t data_offset,
+                                                                      uint32_t metadata_offset);
 
     AvmError constrain_external_call(OpCode opcode,
                                      uint16_t indirect,
@@ -299,7 +304,7 @@ class AvmTraceBuilder {
                                      uint32_t args_size_offset,
                                      uint32_t success_offset);
 
-    void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
+    AvmError execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
 
