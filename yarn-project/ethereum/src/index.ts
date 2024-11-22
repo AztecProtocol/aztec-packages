@@ -5,3 +5,4 @@ export * from './l1_reader.js';
 export * from './ethereum_chain.js';
 export * from './utils.js';
 export * from './config.js';
+export * from './types.js';

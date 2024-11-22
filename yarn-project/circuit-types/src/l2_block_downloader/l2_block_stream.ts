@@ -5,7 +5,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type L2Block } from '../l2_block.js';
 import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
 
-/** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver. */
+/** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
@@ -119,7 +119,12 @@ export class L2BlockStream {
     const sourceBlockHash =
       args.sourceCache.find(id => id.number === blockNumber && id.hash)?.hash ??
       (await this.l2BlockSource.getBlockHeader(blockNumber).then(h => h?.hash().toString()));
-    this.log.debug(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });
+    this.log.debug(`Comparing block hashes for block ${blockNumber}`, {
+      localBlockHash,
+      sourceBlockHash,
+      sourceCacheNumber: args.sourceCache[0]?.number,
+      sourceCacheHash: args.sourceCache[0]?.hash,
+    });
     return localBlockHash === sourceBlockHash;
   }
 
