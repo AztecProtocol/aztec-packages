@@ -1530,8 +1530,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
             // TODO(Alvaro) Document why we're caching the tree frontier here
             if (meta.size > 0) {
                 requestContext.root = store_->get_current_root(*tx, true);
-                std::cout << "HACK " << find_leaf_hash(meta.size - 1, requestContext, *tx, true).has_value()
-                          << std::endl;
+                find_leaf_hash(meta.size - 1, requestContext, *tx, true)
             }
 
             for (size_t i = 0; i < values.size(); ++i) {
