@@ -6,6 +6,12 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [aztec.js] Random addresses are now valid
+
+The `AztecAddress.random()` function now returns valid addresses, i.e. addresses that can receive encrypted messages and therefore have notes be sent to them. `AztecAddress.isValid()` was also added to check for validity of an address.
+
 ## 0.63.0
 ### [PXE] Note tagging and discovery
 

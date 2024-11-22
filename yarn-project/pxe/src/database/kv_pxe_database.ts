@@ -13,7 +13,6 @@ import {
   type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
-  computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -327,7 +326,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner ? computePoint(filter.owner) : undefined;
+    const publicKey: PublicKey | undefined = filter.owner ? filter.owner.toAddressPoint() : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
