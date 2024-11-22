@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732288669143,
+  "lastUpdate": 1732296668694,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "wraitii@users.noreply.github.com",
-            "name": "Lancelot de Ferrière",
-            "username": "wraitii"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "047a96431f7f34f16fa1ad6cb21e652645378d93",
-          "message": "Rename DISABLE_TBB flag and disable on MacOS by default (#9747)\n\nPer #9746 , mac os compilation on ARM fails by default because of\r\n`std::execution::par_unseq`.\r\n\r\nThis PR fixes that by explicitly disabling it on MacOS since apple clang\r\ndoesn't support it. There's probably a better plug somewhere but I'm not\r\nultra-familiar with how you setup the build system, should this be a\r\npreset, should this be based on apple-clang specifically, etc. Can adapt\r\nthe PR as needed.\r\n\r\nI also rename DISABLE_TBB here because it seems to me that this should\r\nbe part of the native C++20 support on other platforms, but I have to\r\nadmit I'm really unfamiliar with the details here and I'm not sure if\r\nintel TBB is needed, or indeed what it does exactly. Can cut this from\r\nthe PR.\r\n\r\nLikewise, this turns parallel algorithms ON by default on the same C++20\r\nassumption, but that could well not work.",
-          "timestamp": "2024-11-05T14:14:13-05:00",
-          "tree_id": "9a600aa0a879b587fb52cb20fd98819c85f3410f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/047a96431f7f34f16fa1ad6cb21e652645378d93"
-        },
-        "date": 1730836209872,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29834.218410999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27822.74104 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5390.001780000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4985.522631 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 88529.81214400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 88529814000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15196.312047000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15196313000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3028439701,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3028439701 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143016636,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143016636 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 141433643,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141433643 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ceaeda50d2fd391edda3ee8186b86558b7f092e2",
+          "message": "feat(avm): error handling for address resolution (#9994)\n\nResolves #9131",
+          "timestamp": "2024-11-22T16:57:02Z",
+          "tree_id": "dfd466c092ae6e04c5645da3ac3b5868e417878b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ceaeda50d2fd391edda3ee8186b86558b7f092e2"
+        },
+        "date": 1732296660880,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28060.623609999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26055.627086 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5004.604775999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4682.06413 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83908.31017499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83908311000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15134.423071,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15134424000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3092585193,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3092585193 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142228431,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142228431 ns\nthreads: 1"
           }
         ]
       }
