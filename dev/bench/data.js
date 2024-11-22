@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732217158894,
+  "lastUpdate": 1732271053795,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a935d091cfad0e4861ec840a59372fdf177518d",
-          "message": "feat: IPA Accumulation implementation (#9494)\n\nAdds new functions to the IPA class that accumulate two IPA claims in\r\ncircuit, and does prover work to prove new accumulated IPA claim.\r\n\r\nAlso adds new tests for IPA recursion. The new RecursiveSmall test\r\nallowed us to find a subtle bug in IPA where one value was not being\r\nnegated, leading to an incorrect identity. This was not caught\r\npreviously because this value, the evaluation, was always 0 in the\r\nexisting tests, as Shplonk always sets it to 0.",
-          "timestamp": "2024-11-04T21:21:42Z",
-          "tree_id": "f937b36073a84d8645cdf4f4df3b0a7ec0843ce6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a935d091cfad0e4861ec840a59372fdf177518d"
-        },
-        "date": 1730757644650,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28611.32545799998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27217.204361 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5346.0542790000145,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5044.609014 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83664.27564600001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83664278000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15115.154873,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15115154000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2481250970,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2481250970 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127502136,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127502136 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 141167843,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141167843 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karl.lye@gmail.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "62a6b662f1ef20a603177c55c199de4a79b65b5c",
+          "message": "fix: strip wasm debug (#9987)\n\nEnsures wasms are stripped of debug info to reduce size.\r\nGzips them for inlining into the webpack bundle.\r\nBundle is now 6.8MB.",
+          "timestamp": "2024-11-22T17:48:45+08:00",
+          "tree_id": "42189f3824118e28783bea95323e1acaa75228c2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/62a6b662f1ef20a603177c55c199de4a79b65b5c"
+        },
+        "date": 1732271046921,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27345.619646000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25109.661844000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4574.616918000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4272.097384999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86175.28333199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86175285000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16347.593065000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16347595000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3022765538,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3022765538 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132029384,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132029384 ns\nthreads: 1"
           }
         ]
       }
