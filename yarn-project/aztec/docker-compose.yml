@@ -2,10 +2,20 @@ version: '3'
 services:
   ethereum:
     image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
-    command: >
-      'anvil --host 0.0.0.0 --chain-id 31337 --port 8545 --silent'
+    entrypoint: >
+      sh -c '
+      if [ -n "$$FORK_BLOCK_NUMBER" ] && [ -n "$$FORK_URL" ]; then
+        exec anvil --silent -p "$$ANVIL_PORT" --host 0.0.0.0 --chain-id 31337 --fork-url "$$FORK_URL" --fork-block-number "$$FORK_BLOCK_NUMBER"
+      else
+        exec anvil --silent -p "$$ANVIL_PORT" --host 0.0.0.0 --chain-id 31337
+      fi'
     ports:
-      - 8545:8545
+      - "${ANVIL_PORT:-8545}:${ANVIL_PORT:-8545}"
+    environment:
+      FORK_URL:
+      FORK_BLOCK_NUMBER:
+      ANVIL_PORT: ${ANVIL_PORT:-8545}
+
   aztec:
     image: 'aztecprotocol/aztec:${SANDBOX_VERSION:-latest}'
     ports:
