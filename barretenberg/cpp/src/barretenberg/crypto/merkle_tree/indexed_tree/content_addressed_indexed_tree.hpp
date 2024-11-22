@@ -1526,12 +1526,19 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                                                 max_size_));
             }
             // The highest index touched will be the last leaf index, since we append a zero for updates
-            response.inner.highest_index = new_total_size;
+            response.inner.highest_index = new_total_size - 1;
+            // TODO(Alvaro) Document why we're caching the tree frontier here
+            if (meta.size > 0) {
+                requestContext.root = store_->get_current_root(*tx, true);
+                std::cout << "HACK " << find_leaf_hash(meta.size - 1, requestContext, *tx, true).has_value()
+                          << std::endl;
+            }
 
             for (size_t i = 0; i < values.size(); ++i) {
                 const LeafValueType& new_payload = values[i];
                 if (new_payload.is_empty()) {
-                    continue;
+                    throw std::runtime_error(
+                        format("Unable to insert values into tree ", meta.name, " tried to insert empty leaf  ", i));
                 }
                 index_t index_of_new_leaf = i + meta.size;
                 fr value = new_payload.get_key();
@@ -1614,7 +1621,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                                                     IndexedLeafValueType::name(),
                                                     " is not updateable"));
                 }
-                response.inner.highest_index = std::max(response.inner.highest_index, low_leaf_index);
 
                 response.inner.updates_to_perform->push_back(insertion_update);
             }
