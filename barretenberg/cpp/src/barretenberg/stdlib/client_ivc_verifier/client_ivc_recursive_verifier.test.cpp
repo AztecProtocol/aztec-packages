@@ -145,9 +145,16 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
         tube_proof, stdlib::recursion::init_default_aggregation_state<Builder, Flavor::Curve>(base_builder));
     info("UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     base_builder.add_pairing_point_accumulator(output.agg_obj.get_witness_indices());
-    // base_builder.add_ipa_claim()
+    base_builder.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
+    base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
+
+    // Natively verify the IPA proof for the base rollup circuit
+    auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
+    auto ipa_transcript = std::make_shared<NativeTranscript>(base_proving_key->proving_key.ipa_proof);
+    IPA<curve::Grumpkin>::reduce_verify(
+        ipa_verification_key, output.ipa_opening_claim.get_native_opening_claim(), ipa_transcript);
 }
 
 } // namespace bb::stdlib::recursion::honk

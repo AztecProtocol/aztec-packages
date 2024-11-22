@@ -53,6 +53,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
     class VerificationKey
         : public VerificationKey_<UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        bool contains_ipa_claim;                                // needs to be a circuit constant
+        IPAClaimPubInputIndices ipa_claim_public_input_indices; // needs to be a circuit constant
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
@@ -67,6 +70,8 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+            : contains_ipa_claim(native_key->contains_ipa_claim)
+            , ipa_claim_public_input_indices(native_key->ipa_claim_public_input_indices)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
@@ -100,8 +105,11 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->contains_pairing_point_accumulator =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-
             for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
+                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            }
+            contains_ipa_claim = bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            for (uint32_t& idx : this->ipa_claim_public_input_indices) {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
