@@ -46,7 +46,6 @@ async function queryGrafana(expr: string): Promise<number> {
 
 // Function to check alerts based on expressions
 async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
-  let commentMessage = '';
   let alertTriggered = false;
 
   for (const alert of alerts) {
@@ -55,19 +54,14 @@ async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
     const metricValue = await queryGrafana(alert.expr);
     logger.info(`Metric value: ${metricValue}`);
     if (metricValue > 0) {
-      // Adjust condition as needed
-      const message = `Alert ${alert.alert} triggered! Value: ${metricValue}`;
-      logger.error(message);
-
-      commentMessage += message + '\n\n';
+      logger.error(`Alert ${alert.alert} triggered! Value: ${metricValue}`);
       alertTriggered = true;
     } else {
       logger.info(`Alert ${alert.alert} passed.`);
     }
   }
 
-  // If any alerts have been triggered
-  // We post a comment on the PR and fail the test
+  // If any alerts have been triggered we fail the test
   if (alertTriggered) {
     throw new Error('Test failed due to triggered alert');
   }
