@@ -309,10 +309,10 @@ export function buildHeaderFromCircuitOutputs(
   updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
   logger?: DebugLogger,
 ) {
-  const blobHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
+  const blobsHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-    blobHash,
+    blobsHash,
     parityPublicInputs.shaRoot.toBuffer(),
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );

@@ -482,35 +482,33 @@ mod tests {
         assert_eq(lhs, rhs);
     }
 
-    // TODO(Miranda): Uncomment this test when noir fix has been synced
-    // #[test]
-    // unconstrained fn test_base() {
-    //     let mut tx_data = FixtureBuilder::new();
-    //     // Add some random bits of state
-    //     tx_data.append_note_hashes_with_logs(50);
-    //     tx_data.set_first_nullifier();
-    //     tx_data.append_nullifiers(50);
-    //     tx_data.append_l2_to_l1_msgs(5);
-    //     tx_data.append_public_data_update_requests(5);
-    //     tx_data.append_unencrypted_log_hashes(5);
-    //     let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-    //     let blob_fields = tx_data.to_combined_accumulated_data().serialize();
-    //     for i in 0..blob_fields.len() {
-    //         blob[i] = blob_fields[i];
-    //     }
-    //     let mut sponge_blob = SpongeBlob::new(blob_fields.len());
-    //     sponge_blob.absorb(blob_fields, blob_fields.len());
+    #[test]
+    unconstrained fn test_base() {
+        let mut tx_data = FixtureBuilder::new();
+        // Add some random bits of state
+        tx_data.append_note_hashes_with_logs(50);
+        tx_data.set_first_nullifier();
+        tx_data.append_nullifiers(50);
+        tx_data.append_l2_to_l1_msgs(5);
+        tx_data.append_unencrypted_log_hashes(5);
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        for i in 0..blob_fields.len() {
+            blob[i] = blob_fields[i];
+        }
+        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+        sponge_blob.absorb(blob_fields, blob_fields.len());
 
-    //     let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-    //     let padded_blob_fields = pad_end(blob, 0);
-    //     let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-    //     let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-    //     let expected_z = std::hash::poseidon2::Poseidon2::hash(
-    //         [sponge_blob.squeeze(), kzg_commitment_in[0], kzg_commitment_in[1]],
-    //         3,
-    //     );
-    //     assert(expected_z == output.z);
-    // }
+        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let expected_z = std::hash::poseidon2::Poseidon2::hash(
+            [sponge_blob.squeeze(), kzg_commitment_in.inner[0], kzg_commitment_in.inner[1]],
+            3,
+        );
+        assert(expected_z == output.z);
+    }
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
     #[test]

@@ -301,8 +301,7 @@ describe('sequencer', () => {
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const validTxs = txs.filter((_, i) => i !== doubleSpendTxIndex);
-    const validTxHashes = validTxs.map(tx => tx.getTxHash());
+    const validTxHashes = txs.filter((_, i) => i !== doubleSpendTxIndex).map(tx => tx.getTxHash());
 
     const doubleSpendTx = txs[doubleSpendTxIndex];
 
@@ -337,8 +336,7 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
     });
     const invalidChainTx = txs[invalidChainTxIndex];
-    const validTxs = txs.filter((_, i) => i !== invalidChainTxIndex);
-    const validTxHashes = validTxs.map(tx => tx.getTxHash());
+    const validTxHashes = txs.filter((_, i) => i !== invalidChainTxIndex).map(tx => tx.getTxHash());
 
     p2p.getTxs.mockReturnValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
@@ -366,8 +364,7 @@ describe('sequencer', () => {
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const validTxs = txs.filter((_, i) => i !== invalidTransactionIndex);
-    const validTxHashes = validTxs.map(tx => tx.getTxHash());
+    const validTxHashes = txs.filter((_, i) => i !== invalidTransactionIndex).map(tx => tx.getTxHash());
 
     p2p.getTxs.mockReturnValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
@@ -417,10 +414,8 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
-    const validTxs = txs.slice(0, 4);
-    p2p.getTxs.mockReturnValueOnce(validTxs);
-
-    const txHashes = validTxs.map(tx => tx.getTxHash());
+    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
+    const txHashes = txs.slice(0, 4).map(tx => tx.getTxHash());
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
