@@ -78,24 +78,17 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                        bb::parallel_for(num_unshifted, [&](size_t i) {
                            auto& poly = unshifted[i];
                            const auto col_idx = polys_to_cols_unshifted_idx[i];
-                           size_t col_size = 0;
-
-                           // We fully allocate the inverse polynomials. We leave this potential memory optimization for
-                           // later.
-                           if (derived_labels_set.contains(labels[i])) {
-                               col_size = num_rows;
-                           } else {
-                               col_size = col_nonzero_size[col_idx];
-                           }
+                           const bool is_derived = derived_labels_set.contains(labels[i]);
 
                            if (poly.is_empty()) {
-                               // Not set above
-                               poly = Polynomial{ /*memory size*/
-                                                  col_size,
-                                                  /*largest possible index as virtual size*/ circuit_subgroup_size,
-                                                  /*start_index=*/0,
-                                                  /*/*disable parallel initialisation=*/true
-                               };
+                               // Not set above. Non-derived unshifted polynomials are initialized below. The
+                               // non-derived ones do need to be initialized with zeros and are fully allocated (size ==
+                               // num_rows).
+                               poly = is_derived
+                                          ? Polynomial::create_non_parallel_zero_init(num_rows, circuit_subgroup_size)
+                                          : Polynomial{ col_nonzero_size[col_idx],
+                                                        circuit_subgroup_size,
+                                                        Polynomial::DontZeroMemory::FLAG };
                            }
                        });
                    }));
