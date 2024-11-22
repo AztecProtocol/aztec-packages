@@ -725,9 +725,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: kind-network-${{ matrix.config.test }}
       - name: Setup and KIND Network Test
         timeout-minutes: ${{ matrix.config.timeout }}
         uses: ./.github/ensure-tester-with-images
