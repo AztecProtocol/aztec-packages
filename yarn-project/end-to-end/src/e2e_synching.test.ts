@@ -11,7 +11,6 @@
  *
  *        To run the Setup run with the `AZTEC_GENERATE_TEST_DATA=1` flag. Without
  *        this flag, we will run in execution.
- *
  *        There is functionality to store the `stats` of a sync, but currently we
  *        will simply be writing it to the log instead.
  *
