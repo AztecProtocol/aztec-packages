@@ -31,8 +31,7 @@ describe('private_function_membership_proof', () => {
     expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
-  // TODO(#5860): Re-enable this test once noir non-determinism is addressed
-  test.skip.each([
+  test.each([
     'artifactTreeSiblingPath',
     'artifactMetadataHash',
     'functionMetadataHash',

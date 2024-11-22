@@ -12,6 +12,10 @@ import { generatePrivateKey } from 'viem/accounts';
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
+// Setup snapshots will create a node with index 0, so all of our loops here
+// need to start from 1 to avoid running validators with the same key
+export const PRIVATE_KEYS_START_INDEX = 1;
+
 export interface NodeContext {
   node: AztecNodeService;
   pxeService: PXEService;
@@ -52,11 +56,19 @@ export function createNodes(
 ): Promise<AztecNodeService[]> {
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
-    // We run on ports from the bootnode upwards if a port if provided, otherwise we get a random port
+    // We run on ports from the bootnode upwards
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
-    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir, metricsPort);
+    const nodePromise = createNode(
+      config,
+      peerIdPrivateKeys[i],
+      port,
+      bootstrapNodeEnr,
+      i + PRIVATE_KEYS_START_INDEX,
+      dataDir,
+      metricsPort,
+    );
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);
@@ -95,7 +107,7 @@ export async function createValidatorConfig(
   bootstrapNodeEnr?: string,
   port?: number,
   peerIdPrivateKey?: string,
-  accountIndex: number = 0,
+  accountIndex: number = 1,
   dataDirectory?: string,
 ) {
   peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
@@ -114,8 +126,6 @@ export async function createValidatorConfig(
     tcpListenAddress: `0.0.0.0:${port}`,
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
-    minTxsPerBlock: config.minTxsPerBlock,
-    maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
     blockCheckIntervalMS: 1000,
     transactionProtocol: '',

@@ -12,6 +12,7 @@ import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
@@ -33,6 +34,7 @@ export class P2PNetworkTest {
 
   public ctx!: SubsystemsContext;
   public nodePrivateKeys: `0x${string}`[] = [];
+  public nodePublicKeys: string[] = [];
   public peerIdPrivateKeys: string[] = [];
 
   public bootstrapNodeEnr: string = '';
@@ -51,7 +53,8 @@ export class P2PNetworkTest {
 
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-    this.nodePrivateKeys = generateNodePrivateKeys(1, numberOfNodes);
+    this.nodePrivateKeys = generateNodePrivateKeys(PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.nodePublicKeys = this.nodePrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
     this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfNodes);
 
     this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
@@ -108,15 +111,10 @@ export class P2PNetworkTest {
       const txHashes: `0x${string}`[] = [];
       for (let i = 0; i < this.numberOfNodes; i++) {
         const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
+        this.logger.debug(`Adding ${account.address} as validator`);
         const txHash = await rollup.write.addValidator([account.address]);
         txHashes.push(txHash);
-        this.logger.debug(`Adding ${account.address} as validator`);
       }
-
-      // Remove the setup validator
-      const initialValidatorAddress = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`).address;
-      const txHash = await rollup.write.removeValidator([initialValidatorAddress]);
-      txHashes.push(txHash);
 
       // Wait for all the transactions adding validators to be mined
       await Promise.all(
@@ -150,12 +148,52 @@ export class P2PNetworkTest {
     });
   }
 
+  async removeInitialNode() {
+    await this.snapshotManager.snapshot(
+      'remove-inital-validator',
+      async ({ deployL1ContractsValues, aztecNodeConfig }) => {
+        const rollup = getContract({
+          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+          abi: RollupAbi,
+          client: deployL1ContractsValues.walletClient,
+        });
+
+        // Remove the setup validator
+        const initialValidatorAddress = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`).address;
+        const txHash = await rollup.write.removeValidator([initialValidatorAddress]);
+
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: txHash,
+        });
+
+        //@note   Now we jump ahead to the next epoch such that the validator committee is picked
+        //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
+        //        Which means that the validator set will still be empty! So anyone can propose.
+        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
+        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        try {
+          await cheatCodes.warp(Number(timestamp));
+        } catch (err) {
+          this.logger.debug('Warp failed, time already satisfied');
+        }
+
+        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: await deployL1ContractsValues.walletClient.sendTransaction({
+            to: this.baseAccount.address,
+            value: 1n,
+            account: this.baseAccount,
+          }),
+        });
+
+        await this.ctx.aztecNode.stop();
+      },
+    );
+  }
+
   async setup() {
     this.ctx = await this.snapshotManager.setup();
-
-    // TODO(md): make it such that the test can set these up
-    this.ctx.aztecNodeConfig.minTxsPerBlock = 4;
-    this.ctx.aztecNodeConfig.maxTxsPerBlock = 4;
   }
 
   async stopNodes(nodes: AztecNodeService[]) {

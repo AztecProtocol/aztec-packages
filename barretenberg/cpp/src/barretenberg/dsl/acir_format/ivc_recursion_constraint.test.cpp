@@ -213,7 +213,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         // Construct kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc);
-        // WORKTODO: this would normally happen in accumulate()
+        // Note that this would normally happen in accumulate()
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);

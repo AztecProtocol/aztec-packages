@@ -129,7 +129,6 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
     return format("[", join(map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
-// WORKTODO: delete?
 std::string honk_vk_to_json(std::vector<bb::fr>& data)
 {
     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
