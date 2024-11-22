@@ -31,7 +31,7 @@ describe('prover/orchestrator/public-functions', () => {
     ] as const)(
       'builds an L2 block with %i non-revertible and %i revertible calls',
       async (numberOfNonRevertiblePublicCallRequests: number, numberOfRevertiblePublicCallRequests: number) => {
-        const tx = mockTx(1000 * testCount++, {
+        const tx = await mockTx(1000 * testCount++, {
           numberOfNonRevertiblePublicCallRequests,
           numberOfRevertiblePublicCallRequests,
         });

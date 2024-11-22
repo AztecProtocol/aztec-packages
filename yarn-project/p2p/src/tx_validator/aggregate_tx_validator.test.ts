@@ -4,7 +4,7 @@ import { AggregateTxValidator } from './aggregate_tx_validator.js';
 
 describe('AggregateTxValidator', () => {
   it('allows txs that pass all validation', async () => {
-    const txs = [mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)];
+    const txs = await Promise.all([mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)]);
     const agg = new AggregateTxValidator(
       new TxDenyList(txs[0].getTxHash(), txs[1].getTxHash()),
       new TxDenyList(txs[2].getTxHash(), txs[3].getTxHash()),

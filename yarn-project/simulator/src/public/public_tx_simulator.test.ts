@@ -1,26 +1,26 @@
 import {
-  type MerkleTreeWriteOperations,
-  SimulationError,
-  type TreeInfo,
-  TxExecutionPhase,
-  mockTx,
+    type MerkleTreeWriteOperations,
+    SimulationError,
+    type TreeInfo,
+    TxExecutionPhase,
+    mockTx,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
-  AztecAddress,
-  Fr,
-  Gas,
-  GasFees,
-  GasSettings,
-  GlobalVariables,
-  Header,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PartialStateReference,
-  PublicDataTreeLeafPreimage,
-  PublicDataWrite,
-  RevertCode,
-  StateReference,
-  countAccumulatedItems,
+    AppendOnlyTreeSnapshot,
+    AztecAddress,
+    Fr,
+    Gas,
+    GasFees,
+    GasSettings,
+    GlobalVariables,
+    Header,
+    PUBLIC_DATA_TREE_HEIGHT,
+    PartialStateReference,
+    PublicDataTreeLeafPreimage,
+    PublicDataWrite,
+    RevertCode,
+    StateReference,
+    countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
@@ -77,7 +77,7 @@ describe('public_tx_simulator', () => {
     numberOfAppLogicCalls?: number;
     hasPublicTeardownCall?: boolean;
   }) => {
-    const tx = mockTx(1, {
+    const tx = await mockTx(1, {
       numberOfNonRevertiblePublicCallRequests: numberOfSetupCalls,
       numberOfRevertiblePublicCallRequests: numberOfAppLogicCalls,
       hasPublicTeardownCallRequest: hasPublicTeardownCall,
@@ -428,7 +428,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('fails a transaction that reverts in setup', async function () {
-    const tx = mockTx(1, {
+    const tx = await mockTx(1, {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
       hasPublicTeardownCallRequest: true,

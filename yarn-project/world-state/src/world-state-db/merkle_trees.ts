@@ -304,21 +304,21 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The current state reference
    */
-  public getStateReference(includeUncommitted: boolean): Promise<StateReference> {
-    const getAppendOnlyTreeSnapshot = (treeId: MerkleTreeId) => {
+  public async getStateReference(includeUncommitted: boolean): Promise<StateReference> {
+    const getAppendOnlyTreeSnapshot = async (treeId: MerkleTreeId) => {
       const tree = this.trees[treeId] as AppendOnlyTree;
       return new AppendOnlyTreeSnapshot(
-        Fr.fromBuffer(tree.getRoot(includeUncommitted)),
+        Fr.fromBuffer(await tree.getRoot(includeUncommitted)),
         Number(tree.getNumLeaves(includeUncommitted)),
       );
     };
 
     const state = new StateReference(
-      getAppendOnlyTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      await getAppendOnlyTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
       new PartialStateReference(
-        getAppendOnlyTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
-        getAppendOnlyTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-        getAppendOnlyTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
+        await getAppendOnlyTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
+        await getAppendOnlyTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
+        await getAppendOnlyTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
       ),
     );
     return Promise.resolve(state);
@@ -528,7 +528,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
       throw new Error('State in header does not match current state');
     }
 
-    const blockHash = header.hash();
+    const blockHash = await header.hash();
     await this.#appendLeaves(MerkleTreeId.ARCHIVE, [blockHash]);
   }
 
@@ -538,10 +538,10 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The tree info for the specified tree.
    */
-  #getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
+  async #getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     const treeInfo = {
       treeId,
-      root: this.trees[treeId].getRoot(includeUncommitted),
+      root: await this.trees[treeId].getRoot(includeUncommitted),
       size: this.trees[treeId].getNumLeaves(includeUncommitted),
       depth: this.trees[treeId].getDepth(),
     } as TreeInfo;
@@ -631,11 +631,13 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
       [l2Block.header.state.l1ToL2MessageTree.root, MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
       [l2Block.archive.root, MerkleTreeId.ARCHIVE],
     ] as const;
-    const compareRoot = (root: Fr, treeId: MerkleTreeId) => {
-      const treeRoot = this.trees[treeId].getRoot(true);
+    const compareRoot = async (root: Fr, treeId: MerkleTreeId) => {
+      const treeRoot = await this.trees[treeId].getRoot(true);
       return treeRoot.equals(root.toBuffer());
     };
-    const ourBlock = treeRootWithIdPairs.every(([root, id]) => compareRoot(root, id));
+    const ourBlock = (await Promise.all(treeRootWithIdPairs.map(([root, id]) => compareRoot(root, id)))).every(
+      (x: boolean) => x,
+    );
     if (ourBlock) {
       this.log.verbose(`Block ${l2Block.number} is ours, committing world state`);
       await this.#commit();

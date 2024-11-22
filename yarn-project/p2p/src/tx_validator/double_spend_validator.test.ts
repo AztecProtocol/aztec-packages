@@ -30,7 +30,7 @@ describe('DoubleSpendTxValidator', () => {
   });
 
   it('rejects duplicates across phases', async () => {
-    const badTx = mockTx(1, {
+    const badTx = await mockTx(1, {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
     });
@@ -47,7 +47,7 @@ describe('DoubleSpendTxValidator', () => {
   });
 
   it('rejects duplicates against history', async () => {
-    const badTx = mockTx();
+    const badTx = await mockTx();
     nullifierSource.getNullifierIndex.mockReturnValueOnce(Promise.resolve(1n));
     await expect(txValidator.validateTxs([badTx])).resolves.toEqual([[], [badTx]]);
   });

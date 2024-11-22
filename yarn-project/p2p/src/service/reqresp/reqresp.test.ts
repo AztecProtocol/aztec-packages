@@ -116,7 +116,7 @@ describe('ReqResp', () => {
 
   describe('TX REQ PROTOCOL', () => {
     it('Can request a Tx from TxHash', async () => {
-      const tx = mockTx();
+      const tx = await mockTx();
       const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
@@ -142,7 +142,7 @@ describe('ReqResp', () => {
     });
 
     it('Does not crash if tx hash returns undefined', async () => {
-      const tx = mockTx();
+      const tx = await mockTx();
       const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
@@ -231,7 +231,7 @@ describe('ReqResp', () => {
     });
 
     it('Should penalize peer if transaction validation fails', async () => {
-      const tx = mockTx();
+      const tx = await mockTx();
       const txHash = tx.getTxHash();
 
       // Mock that the node will respond with the tx

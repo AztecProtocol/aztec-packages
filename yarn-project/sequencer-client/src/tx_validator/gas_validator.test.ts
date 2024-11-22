@@ -29,7 +29,7 @@ describe('GasTxValidator', () => {
   let feeLimit: bigint;
 
   beforeEach(() => {
-    tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = AztecAddress.random();
     tx.data.constants.txContext.gasSettings = GasSettings.default();
     payer = tx.data.feePayer;

@@ -15,8 +15,8 @@ describe('MetadataTxValidator', () => {
   });
 
   it('allows only transactions for the right chain', async () => {
-    const goodTxs = [mockTx(1), await mockTxForRollup(2)];
-    const badTxs = [mockTx(3), await mockTxForRollup(4)];
+    const goodTxs = [await mockTx(1), await mockTxForRollup(2)];
+    const badTxs = [await mockTx(3), await mockTxForRollup(4)];
 
     goodTxs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;

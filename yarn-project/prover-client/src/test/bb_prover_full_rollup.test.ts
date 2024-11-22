@@ -46,7 +46,7 @@ describe('prover/bb_prover/full-rollup', () => {
         const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
         const txs = times(nonEmptyTxs, (i: number) => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
-          const tx = mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
+          const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
           tx.data.constants.historicalHeader = initialHeader;
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;

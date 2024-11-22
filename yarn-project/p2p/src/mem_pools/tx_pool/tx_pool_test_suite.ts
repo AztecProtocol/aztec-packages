@@ -14,7 +14,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Adds txs to the pool as pending', async () => {
-    const tx1 = mockTx();
+    const tx1 = await mockTx();
 
     await pool.addTxs([tx1]);
     const poolTx = pool.getTxByHash(tx1.getTxHash());
@@ -24,7 +24,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Removes txs from the pool', async () => {
-    const tx1 = mockTx();
+    const tx1 = await mockTx();
 
     await pool.addTxs([tx1]);
     await pool.deleteTxs([tx1.getTxHash()]);
@@ -34,8 +34,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Marks txs as mined', async () => {
-    const tx1 = mockTx(1);
-    const tx2 = mockTx(2);
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
 
     await pool.addTxs([tx1, tx2]);
     await pool.markAsMined([tx1.getTxHash()], 1);
@@ -47,8 +47,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Marks txs as pending after being mined', async () => {
-    const tx1 = mockTx(1);
-    const tx2 = mockTx(2);
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
 
     await pool.addTxs([tx1, tx2]);
     await pool.markAsMined([tx1.getTxHash()], 1);
@@ -61,9 +61,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Only marks txs as pending if they are known', async () => {
-    const tx1 = mockTx(1);
+    const tx1 = await mockTx(1);
     // simulate a situation where not all peers have all the txs
-    const someTxHashThatThisPeerDidNotSee = mockTx(2).getTxHash();
+    const someTxHashThatThisPeerDidNotSee = await (await mockTx(2)).getTxHash();
     await pool.addTxs([tx1]);
     // this peer knows that tx2 was mined, but it does not have the tx object
     await pool.markAsMined([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);
@@ -79,9 +79,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Returns all transactions in the pool', async () => {
-    const tx1 = mockTx(1);
-    const tx2 = mockTx(2);
-    const tx3 = mockTx(3);
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
+    const tx3 = await mockTx(3);
 
     await pool.addTxs([tx1, tx2, tx3]);
 
@@ -91,9 +91,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('Returns all txHashes in the pool', async () => {
-    const tx1 = mockTx(1);
-    const tx2 = mockTx(2);
-    const tx3 = mockTx(3);
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
+    const tx3 = await mockTx(3);
 
     await pool.addTxs([tx1, tx2, tx3]);
 

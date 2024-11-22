@@ -33,9 +33,9 @@ export const mockAttestation = async (
 
   const payload = new ConsensusPayload(header, archive, txs);
 
-  const message: `0x${string}` = `0x${payload
-    .getPayloadToSign(SignatureDomainSeperator.blockAttestation)
-    .toString('hex')}`;
+  const message: `0x${string}` = `0x${(
+    await payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation)
+  ).toString('hex')}`;
   const sigString = await signer.signMessage({ message });
 
   const signature = Signature.from0xString(sigString);

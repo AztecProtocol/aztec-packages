@@ -258,7 +258,7 @@ describe('world-state integration', () => {
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   // Skip validation for the sake of this test
-  protected override verifyMessagesHashToInHash(_l1ToL2Messages: Fr[], _inHash: Buffer): void {}
+  protected override async verifyMessagesHashToInHash(_l1ToL2Messages: Fr[], _inHash: Buffer): Promise<void> {}
 
   // Stops the block stream but not the db so we can reuse it for another synchronizer
   public async stopBlockStream() {
