@@ -37,7 +37,6 @@ build:
     BUILD ../noir/+nargo
     BUILD --pass-args ../noir-projects/+build
     BUILD ../l1-contracts/+build
-    BUILD ../barretenberg/ts/+build
     BUILD ../noir/+packages
     FROM +deps
 
@@ -55,6 +54,7 @@ build:
 
 build-docs:
     # Prefetch targets to not wait for +deps.
+    BUILD ../barretenberg/ts/+build
     FROM +deps
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
