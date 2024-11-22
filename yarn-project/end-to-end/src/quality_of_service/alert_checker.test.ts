@@ -1,7 +1,6 @@
 import { type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-import { Octokit } from '@octokit/rest';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { dirname, join } from 'path';

@@ -40,7 +40,7 @@ docker run \
     -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
     -e FAKE_PROOFS="$FAKE_PROOFS" \
     -e METRICS_PORT="4318" \
-    -e AZTEC_BOT_GITHUB_TOKEN="$AZTEC_BOT_GITHUB_TOKEN" \
+    -e COLLECT_METRICS="true" \
     -e PULL_REQUEST="$PULL_REQUEST" \
     $env_args \
     --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \

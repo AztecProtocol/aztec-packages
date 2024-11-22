@@ -190,13 +190,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         this->overflow.fixed_size = settings.overflow_capacity;
     }
 
-    // WORKTODO: use or remove
-    MegaExecutionTraceBlocks(const TraceSettings& settings)
-        : MegaExecutionTraceBlocks()
-    {
-        set_fixed_block_sizes(settings);
-    }
-
     void compute_offsets(bool is_structured)
     {
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
