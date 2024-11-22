@@ -16,10 +16,10 @@ export class MockL2BlockSource implements L2BlockSource {
 
   private log = createDebugLogger('aztec:archiver:mock_l2_block_source');
 
-  public createBlocks(numBlocks: number) {
+  public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
-      const block = L2Block.random(blockNum);
+      const block = await L2Block.random(blockNum);
       this.l2Blocks.push(block);
     }
 
@@ -134,7 +134,7 @@ export class MockL2BlockSource implements L2BlockSource {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+  public async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     for (const block of this.l2Blocks) {
       for (const txEffect of block.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
@@ -144,7 +144,7 @@ export class MockL2BlockSource implements L2BlockSource {
               TxStatus.SUCCESS,
               '',
               txEffect.transactionFee.toBigInt(),
-              block.hash().toBuffer(),
+              (await block.hash()).toBuffer(),
               block.number,
             ),
           );

@@ -108,7 +108,7 @@ describe('e2e_token_contract transfer private', () => {
       const action = asset
         .withWallet(wallets[1])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce);
-      const messageHash = computeAuthWitMessageHash(
+      const messageHash = await computeAuthWitMessageHash(
         { caller: accounts[1].address, action: action.request() },
         {
           chainId: wallets[0].getChainId(),
@@ -131,7 +131,7 @@ describe('e2e_token_contract transfer private', () => {
       const action = asset
         .withWallet(wallets[2])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce);
-      const expectedMessageHash = computeAuthWitMessageHash(
+      const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: accounts[2].address, action: action.request() },
         {
           chainId: wallets[0].getChainId(),

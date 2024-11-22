@@ -57,7 +57,7 @@ describe('Archiver', () => {
 
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT).toString();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     now = +new Date();
     publicClient = mock<PublicClient<HttpTransport, Chain>>({
       getBlock: ((args: any) => ({
@@ -78,7 +78,7 @@ describe('Archiver', () => {
       instrumentation,
     );
 
-    blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
+    blocks = await Promise.all(blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2)));
 
     rollupRead = mock<MockRollupContractRead>();
     rollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
@@ -103,7 +103,7 @@ describe('Archiver', () => {
       (b, i) =>
         (b.header.globalVariables.timestamp = new Fr(now + DefaultL1ContractsConfig.ethereumSlotDuration * (i + 1))),
     );
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
 
@@ -224,7 +224,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
 
     // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
     publicClient.getBlockNumber.mockResolvedValue(102n);
@@ -269,7 +269,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
 
     publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n);
     rollupRead.status
@@ -316,7 +316,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
 
     publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
 
@@ -448,11 +448,11 @@ function makeMessageSentEventWithIndexInL2BlockSubtree(
  * @param block - The L2Block.
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
-function makeRollupTx(l2Block: L2Block) {
+async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const body = toHex(l2Block.body.toBuffer());
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const blockHash = toHex(l2Block.header.hash().toBuffer());
+  const blockHash = toHex((await l2Block.header.hash()).toBuffer());
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',

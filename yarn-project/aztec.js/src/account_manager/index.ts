@@ -38,7 +38,7 @@ export class AccountManager {
       const { publicKeys } = await deriveKeys(secretKey);
 
       return await getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
-        constructorArgs: this.accountContract.getDeploymentArgs(),
+        constructorArgs: await this.accountContract.getDeploymentArgs(),
         salt,
         publicKeys,
       });
@@ -139,7 +139,7 @@ export class AccountManager {
     // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
     // If we used getWallet, the deployment would get routed via the account contract entrypoint
     // and it can't be used unless the contract is initialized
-    const args = this.accountContract.getDeploymentArgs() ?? [];
+    const args = (await this.accountContract.getDeploymentArgs()) ?? [];
     return new DeployAccountMethod(
       this.accountContract.getAuthWitnessProvider(await this.getCompleteAddress()),
       await this.getPublicKeys(),

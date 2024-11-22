@@ -135,7 +135,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const bytecode = getAvmTestContractBytecode('public_dispatch');
     const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
     const publicFn: PublicFunction = { bytecode, selector: fnSelector };
-    const contractClass = makeContractClassPublic(0, publicFn);
+    const contractClass = await makeContractClassPublic(0, publicFn);
     const contractInstance = makeContractInstanceFromClassId(contractClass.id);
 
     // The values here should match those in getContractInstance test case
@@ -918,7 +918,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
@@ -943,7 +943,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
@@ -971,7 +971,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const artifact = getAvmTestContractArtifact('public_dispatch');
         mockGetBytecode(worldStateDB, artifact.bytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
@@ -995,7 +995,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
@@ -1026,7 +1026,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
@@ -1050,7 +1050,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });

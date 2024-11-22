@@ -608,7 +608,7 @@ export const uniswapL1L2TestSuite = (
       // swap should fail since no withdraw approval to uniswap:
       const nonceForWETHTransferToPublicApproval = new Fr(2n);
 
-      const expectedMessageHash = computeAuthWitMessageHash(
+      const expectedMessageHash = await computeAuthWitMessageHash(
         {
           caller: uniswapL2Contract.address,
           action: wethCrossChainHarness.l2Token.methods

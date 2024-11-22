@@ -47,9 +47,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       },
     });
 
-    beforeEach(() => {
+    beforeEach(async () => {
       store = getStore();
-      blocks = times(10, i => makeL1Published(L2Block.random(i + 1), i + 10));
+      blocks = await Promise.all(times(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10)));
     });
 
     describe('addBlocks', () => {
@@ -77,7 +77,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('can unwind multiple empty blocks', async () => {
-        const emptyBlocks = times(10, i => makeL1Published(L2Block.random(i + 1, 0), i + 10));
+        const emptyBlocks = await Promise.all(
+          times(10, async i => makeL1Published(await L2Block.random(i + 1, 0), i + 10)),
+        );
         await store.addBlocks(emptyBlocks);
         expect(await store.getSynchedL2BlockNumber()).toBe(10);
 
@@ -286,7 +288,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractInstance = { ...SerializableContractInstance.random(), address: AztecAddress.random() };
+        contractInstance = { ...(await SerializableContractInstance.random()), address: AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });
 
@@ -309,7 +311,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractClass = makeContractClassPublic();
+        contractClass = await makeContractClassPublic();
         await store.addContractClasses([contractClass], blockNum);
       });
 
@@ -375,17 +377,19 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let unencryptedLogTags: { [i: number]: { [j: number]: Buffer[] } } = {};
 
       beforeEach(async () => {
-        blocks = times(numBlocks, (index: number) => ({
-          data: L2Block.random(
-            index + 1,
-            txsPerBlock,
-            numPrivateFunctionCalls,
-            numPublicFunctionCalls,
-            numEncryptedLogsPerFn,
-            numUnencryptedLogsPerFn,
-          ),
-          l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
-        }));
+        blocks = await Promise.all(
+          times(numBlocks, async (index: number) => ({
+            data: await L2Block.random(
+              index + 1,
+              txsPerBlock,
+              numPrivateFunctionCalls,
+              numPublicFunctionCalls,
+              numEncryptedLogsPerFn,
+              numUnencryptedLogsPerFn,
+            ),
+            l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+          })),
+        );
         // Last block has the note encrypted log tags of the first tx copied from the previous block
         blocks[numBlocks - 1].data.body.noteEncryptedLogs.txLogs[0].functionLogs.forEach((fnLogs, fnIndex) => {
           fnLogs.logs.forEach((log, logIndex) => {
@@ -547,10 +551,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let blocks: L1Published<L2Block>[];
 
       beforeEach(async () => {
-        blocks = times(numBlocks, (index: number) => ({
-          data: L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
-          l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
-        }));
+        blocks = await Promise.all(
+          times(numBlocks, async (index: number) => ({
+            data: await L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
+            l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+          })),
+        );
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));
@@ -733,8 +739,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const numBlocks = 10;
       const nullifiersPerBlock = new Map<number, Fr[]>();
 
-      beforeEach(() => {
-        blocks = times(numBlocks, (index: number) => L2Block.random(index + 1, 1));
+      beforeEach(async () => {
+        blocks = await Promise.all(times(numBlocks, (index: number) => L2Block.random(index + 1, 1)));
 
         blocks.forEach((block, blockIndex) => {
           nullifiersPerBlock.set(

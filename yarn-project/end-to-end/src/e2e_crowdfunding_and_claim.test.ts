@@ -336,7 +336,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
     const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointPackedValues = await PackedValues.fromValues(call.args);
     const request = new TxExecutionRequest(
       call.to,
       call.selector,

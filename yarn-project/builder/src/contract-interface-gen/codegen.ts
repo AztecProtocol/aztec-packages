@@ -60,7 +60,7 @@ async function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts
     relativeArtifactPath = `./${relativeArtifactPath}`;
   }
 
-  const tsWrapper = generateTypescriptContractInterface(aztecAbi, relativeArtifactPath);
+  const tsWrapper = await generateTypescriptContractInterface(aztecAbi, relativeArtifactPath);
   const outputFilePath = `${outputPath}/${aztecAbi.name}.ts`;
 
   await writeFile(outputFilePath, tsWrapper);

@@ -101,7 +101,7 @@ describe('sequencer', () => {
     lastBlockNumber = 0;
     hash = Fr.ZERO.toString();
 
-    block = L2Block.random(lastBlockNumber + 1);
+    block = await L2Block.random(lastBlockNumber + 1);
 
     mockedGlobalVariables = new GlobalVariables(
       chainId,
@@ -397,7 +397,7 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
       return tx;
     });
-    const block = L2Block.random(lastBlockNumber + 1);
+    const block = await L2Block.random(lastBlockNumber + 1);
 
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -438,7 +438,7 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
       return tx;
     });
-    const block = L2Block.random(lastBlockNumber + 1);
+    const block = await L2Block.random(lastBlockNumber + 1);
 
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -479,7 +479,7 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
       return tx;
     });
-    const block = L2Block.random(lastBlockNumber + 1);
+    const block = await L2Block.random(lastBlockNumber + 1);
 
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -555,7 +555,7 @@ describe('sequencer', () => {
     const setupForBlockNumber = (blockNumber: number) => {
       currentEpoch = BigInt(blockNumber) / BigInt(epochDuration);
       // Create a new block and header
-      block = L2Block.random(blockNumber);
+      block = await L2Block.random(blockNumber);
 
       mockedGlobalVariables = new GlobalVariables(
         chainId,

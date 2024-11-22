@@ -43,18 +43,24 @@ export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWi
 export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
   return Promise.all(
-    INITIAL_TEST_SECRET_KEYS.filter(initialSecretKey => {
-      const initialEncryptionKey = deriveMasterIncomingViewingSecretKey(initialSecretKey);
-      const publicKey = generatePublicKey(initialEncryptionKey);
-      return (
-        registeredAccounts.find(registered => registered.publicKeys.masterIncomingViewingPublicKey.equals(publicKey)) !=
-        undefined
-      );
-    }).map(secretKey => {
-      const signingKey = deriveSigningKey(secretKey);
-      // TODO(#5726): use actual salt here instead of hardcoding Fr.ZERO
-      return getSchnorrAccount(pxe, secretKey, signingKey, Fr.ZERO).getWallet();
-    }),
+    (
+      await Promise.all(
+        INITIAL_TEST_SECRET_KEYS.map(async initialSecretKey => {
+          const initialEncryptionKey = deriveMasterIncomingViewingSecretKey(initialSecretKey);
+          const publicKey = await generatePublicKey(initialEncryptionKey);
+          const found = registeredAccounts.find(registered =>
+            registered.publicKeys.masterIncomingViewingPublicKey.equals(publicKey),
+          );
+          return found ? initialSecretKey : undefined;
+        }),
+      )
+    )
+      .filter(secretKey => !!secretKey)
+      .map(secretKey => {
+        const signingKey = deriveSigningKey(secretKey);
+        // TODO(#5726): use actual salt here instead of hardcoding Fr.ZERO
+        return getSchnorrAccount(pxe, secretKey, signingKey, Fr.ZERO).getWallet();
+      }),
   );
 }
 

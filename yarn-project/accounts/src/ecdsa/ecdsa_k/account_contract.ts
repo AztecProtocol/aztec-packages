@@ -16,8 +16,8 @@ export class EcdsaKAccountContract extends DefaultAccountContract {
     super(EcdsaKAccountContractArtifact as ContractArtifact);
   }
 
-  getDeploymentArgs() {
-    const signingPublicKey = new Ecdsa().computePublicKey(this.signingPrivateKey);
+  async getDeploymentArgs() {
+    const signingPublicKey = await new Ecdsa().computePublicKey(this.signingPrivateKey);
     return [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)];
   }
 
@@ -30,9 +30,9 @@ export class EcdsaKAccountContract extends DefaultAccountContract {
 class EcdsaKAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: Buffer) {}
 
-  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+  async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const ecdsa = new Ecdsa();
-    const signature = ecdsa.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
+    const signature = await ecdsa.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
     return Promise.resolve(new AuthWitness(messageHash, [...signature.r, ...signature.s]));
   }
 }

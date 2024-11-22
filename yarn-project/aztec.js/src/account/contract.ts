@@ -18,7 +18,7 @@ export interface AccountContract {
   /**
    * Returns the deployment arguments for this instance, or undefined if this contract does not require deployment.
    */
-  getDeploymentArgs(): any[] | undefined;
+  getDeploymentArgs(): Promise<any[] | undefined>;
 
   /**
    * Returns the account interface for this account contract given a deployment at the provided address.

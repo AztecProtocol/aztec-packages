@@ -425,7 +425,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+  public async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     for (const block of this.l2Blocks) {
       for (const txEffect of block.data.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
@@ -435,7 +435,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
               TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
-              block.data.hash().toBuffer(),
+              (await block.data.hash()).toBuffer(),
               block.data.number,
             ),
           );

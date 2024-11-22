@@ -51,7 +51,10 @@ describe('Logs', () => {
       const encryptedLogs = txEffect!.data.encryptedLogs.unrollLogs();
       expect(encryptedLogs.length).toBe(3);
 
-      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(encryptedLogs[0], wallets[0].getEncryptionSecret())!;
+      const decryptedEvent0 = (await L1EventPayload.decryptAsIncoming(
+        encryptedLogs[0],
+        await wallets[0].getEncryptionSecret(),
+      ))!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
       expect(decryptedEvent0.randomness).toStrictEqual(randomness[0]);
@@ -65,7 +68,10 @@ describe('Logs', () => {
       expect(event0?.value0).toStrictEqual(preimage[0].toBigInt());
       expect(event0?.value1).toStrictEqual(preimage[1].toBigInt());
 
-      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(encryptedLogs[2], wallets[0].getEncryptionSecret())!;
+      const decryptedEvent1 = (await L1EventPayload.decryptAsIncoming(
+        encryptedLogs[2],
+        await wallets[0].getEncryptionSecret(),
+      ))!;
 
       const event1Metadata = new EventMetadata<ExampleEvent1>(TestLogContract.events.ExampleEvent1);
 

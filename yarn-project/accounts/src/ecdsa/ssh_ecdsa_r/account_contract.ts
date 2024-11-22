@@ -21,7 +21,7 @@ export class EcdsaRSSHAccountContract extends DefaultAccountContract {
     super(EcdsaRAccountContractArtifact as ContractArtifact);
   }
 
-  getDeploymentArgs() {
+  async getDeploymentArgs() {
     return [this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)];
   }
 

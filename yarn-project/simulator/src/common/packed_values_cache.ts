@@ -48,7 +48,7 @@ export class PackedValuesCache {
     if (values.length === 0) {
       return Fr.ZERO;
     }
-    const packedValues = PackedValues.fromValues(values);
+    const packedValues = await PackedValues.fromValues(values);
     this.cache.set(packedValues.hash.value, packedValues.values);
     return packedValues.hash;
   }

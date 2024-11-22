@@ -196,7 +196,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
-        const messageHash = computeAuthWitMessageHash(
+        const messageHash = await computeAuthWitMessageHash(
           { caller: wallets[1].getAddress(), action: action.request() },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
@@ -215,7 +215,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
-        const expectedMessageHash = computeAuthWitMessageHash(
+        const expectedMessageHash = await computeAuthWitMessageHash(
           { caller: wallets[2].getAddress(), action: action.request() },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );

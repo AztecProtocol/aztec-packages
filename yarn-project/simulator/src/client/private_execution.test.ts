@@ -1,52 +1,52 @@
 import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
-  EncryptedNoteFunctionL2Logs,
-  type L1ToL2Message,
-  type L2BlockNumber,
-  Note,
-  PackedValues,
-  type PrivateExecutionResult,
-  PublicExecutionRequest,
-  TxExecutionRequest,
-  collectSortedEncryptedLogs,
+    type AztecNode,
+    CountedPublicExecutionRequest,
+    EncryptedNoteFunctionL2Logs,
+    type L1ToL2Message,
+    type L2BlockNumber,
+    Note,
+    PackedValues,
+    type PrivateExecutionResult,
+    PublicExecutionRequest,
+    TxExecutionRequest,
+    collectSortedEncryptedLogs,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
-  CallContext,
-  CompleteAddress,
-  GasSettings,
-  GeneratorIndex,
-  type GrumpkinScalar,
-  Header,
-  IndexedTaggingSecret,
-  KeyValidationRequest,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
-  PartialStateReference,
-  StateReference,
-  TxContext,
-  computeAppNullifierSecretKey,
-  computeOvskApp,
-  deriveKeys,
-  getContractInstanceFromDeployParams,
-  getNonEmptyItems,
+    AppendOnlyTreeSnapshot,
+    CallContext,
+    CompleteAddress,
+    GasSettings,
+    GeneratorIndex,
+    type GrumpkinScalar,
+    Header,
+    IndexedTaggingSecret,
+    KeyValidationRequest,
+    L1_TO_L2_MSG_TREE_HEIGHT,
+    NOTE_HASH_TREE_HEIGHT,
+    PUBLIC_DATA_TREE_HEIGHT,
+    PUBLIC_DISPATCH_SELECTOR,
+    PartialStateReference,
+    StateReference,
+    TxContext,
+    computeAppNullifierSecretKey,
+    computeOvskApp,
+    deriveKeys,
+    getContractInstanceFromDeployParams,
+    getNonEmptyItems,
 } from '@aztec/circuits.js';
 import {
-  computeNoteHashNonce,
-  computeSecretHash,
-  computeVarArgsHash,
-  deriveStorageSlotInMap,
+    computeNoteHashNonce,
+    computeSecretHash,
+    computeVarArgsHash,
+    deriveStorageSlotInMap,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
-  type FunctionArtifact,
-  FunctionSelector,
-  type NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
+    type FunctionArtifact,
+    FunctionSelector,
+    type NoteSelector,
+    encodeArguments,
+    getFunctionArtifact,
 } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -59,12 +59,12 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
-  ChildContractArtifact,
-  ImportTestContractArtifact,
-  ParentContractArtifact,
-  PendingNoteHashesContractArtifact,
-  StatefulTestContractArtifact,
-  TestContractArtifact,
+    ChildContractArtifact,
+    ImportTestContractArtifact,
+    ParentContractArtifact,
+    PendingNoteHashesContractArtifact,
+    StatefulTestContractArtifact,
+    TestContractArtifact,
 } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -126,7 +126,7 @@ describe('Private Execution test suite', () => {
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const packedArguments = PackedValues.fromValues(encodeArguments(artifact, args));
+    const packedArguments = await PackedValues.fromValues(encodeArguments(artifact, args));
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: packedArguments.hash,

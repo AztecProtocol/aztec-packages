@@ -81,7 +81,7 @@ describe('External Calls', () => {
       );
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
-      const contractClass = makeContractClassPublic(0, {
+      const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
@@ -132,7 +132,7 @@ describe('External Calls', () => {
       );
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
-      const contractClass = makeContractClassPublic(0, {
+      const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
@@ -217,7 +217,7 @@ describe('External Calls', () => {
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
-      const contractClass = makeContractClassPublic(0, {
+      const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });

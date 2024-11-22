@@ -34,7 +34,7 @@ describe('In-Memory P2P Client', () => {
   let client: P2PClient;
   const telemetryClient: TelemetryClient = new NoopTelemetryClient();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     txPool = {
       addTxs: jest.fn(),
       getTxByHash: jest.fn().mockReturnValue(undefined),
@@ -71,7 +71,7 @@ describe('In-Memory P2P Client', () => {
     };
 
     blockSource = new MockL2BlockSource();
-    blockSource.createBlocks(100);
+    await blockSource.createBlocks(100);
 
     mempools = {
       txPool,

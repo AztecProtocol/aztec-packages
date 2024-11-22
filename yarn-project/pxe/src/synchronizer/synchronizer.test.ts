@@ -34,7 +34,7 @@ describe('Synchronizer', () => {
   });
 
   it('sets header from latest block', async () => {
-    const block = L2Block.random(1, 4);
+    const block = await L2Block.random(1, 4);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = database.getHeader();

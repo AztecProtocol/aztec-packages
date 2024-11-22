@@ -16,7 +16,7 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
     super(SchnorrSingleKeyAccountContractArtifact as ContractArtifact);
   }
 
-  getDeploymentArgs(): undefined {
+  async getDeploymentArgs(): Promise<undefined> {
     return undefined;
   }
 
@@ -33,9 +33,9 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private privateKey: GrumpkinScalar, private account: CompleteAddress) {}
 
-  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+  async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);
     const witness = [...this.account.publicKeys.toFields(), ...signature.toBuffer(), this.account.partialAddress];
     return Promise.resolve(new AuthWitness(messageHash, witness));
   }

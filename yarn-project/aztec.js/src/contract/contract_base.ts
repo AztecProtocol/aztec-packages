@@ -18,7 +18,7 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
   /**
    * The unique identifier for a contract function in bytecode.
    */
-  readonly selector: FunctionSelector;
+  readonly selector: Promise<FunctionSelector>;
 };
 
 /**

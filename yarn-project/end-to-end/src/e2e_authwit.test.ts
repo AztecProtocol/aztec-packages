@@ -90,8 +90,8 @@ describe('e2e_authwit_tests', () => {
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
           const intent = { consumer: auth.address, innerHash };
 
-          const messageHash = computeAuthWitMessageHash(intent, { chainId: Fr.random(), version });
-          const expectedMessageHash = computeAuthWitMessageHash(intent, { chainId, version });
+          const messageHash = await computeAuthWitMessageHash(intent, { chainId: Fr.random(), version });
+          const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
 
           expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
             isValidInPrivate: false,
@@ -122,9 +122,9 @@ describe('e2e_authwit_tests', () => {
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
           const intent = { consumer: auth.address, innerHash };
 
-          const messageHash = computeAuthWitMessageHash(intent, { chainId, version: Fr.random() });
+          const messageHash = await computeAuthWitMessageHash(intent, { chainId, version: Fr.random() });
 
-          const expectedMessageHash = computeAuthWitMessageHash(intent, { chainId, version });
+          const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
 
           expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
             isValidInPrivate: false,
