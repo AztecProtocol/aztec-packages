@@ -651,6 +651,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   /**
    * @notice  Gets the mana base fee components
+   *          For more context, consult:
+   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
    *
    * @dev     TODO #10004 - As part of the refactor, will likely get rid of this function or make it private
    *          keeping it public for now makes it simpler to test.
@@ -673,9 +675,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     L1FeeData memory fees = getCurrentL1Fees();
     uint256 dataCost =
       Math.mulDiv(3 * BLOB_GAS_PER_BLOB, fees.blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
-    uint256 casUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
+    uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
       + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
-    uint256 gasCost = Math.mulDiv(casUsed, fees.baseFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 gasCost = Math.mulDiv(gasUsed, fees.baseFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
     uint256 provingCost = FeeMath.provingCostPerMana(
       blocks[tips.pendingBlockNumber].feeHeader.provingCostPerManaNumerator
     );
