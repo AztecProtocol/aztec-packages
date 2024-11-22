@@ -135,7 +135,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size);
+        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
@@ -143,7 +143,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
             for (size_t idx = start; idx < end; idx++) {
                 // The contribution is only non-trivial at a given row if the accumulator is active at that row
-                if (trace_usage_tracker.check_is_active(idx)) {
+                if (trace_usage_tracker.check_is_active(idx, /*use_prev_accumulator=*/true)) {
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =

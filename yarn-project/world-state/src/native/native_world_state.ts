@@ -12,7 +12,6 @@ import {
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeaf,
   type NullifierLeafPreimage,
@@ -177,16 +176,16 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       .map(nullifier => new NullifierLeaf(nullifier));
 
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-    const batchesOfPaddedPublicDataWrites: PublicDataTreeLeaf[][] = [];
+    const batchesOfPublicDataWrites: PublicDataTreeLeaf[][] = [];
     for (const txEffect of paddedTxEffects) {
-      const batch: PublicDataTreeLeaf[] = Array(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX).fill(
-        PublicDataTreeLeaf.empty(),
+      batchesOfPublicDataWrites.push(
+        txEffect.publicDataWrites.map(write => {
+          if (write.isEmpty()) {
+            throw new Error('Public data write must not be empty when syncing');
+          }
+          return new PublicDataTreeLeaf(write.leafSlot, write.value);
+        }),
       );
-      for (const [i, write] of txEffect.publicDataWrites.entries()) {
-        batch[i] = new PublicDataTreeLeaf(write.leafSlot, write.value);
-      }
-
-      batchesOfPaddedPublicDataWrites.push(batch);
     }
 
     const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
@@ -195,7 +194,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
       paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
       paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-      batchesOfPaddedPublicDataWrites: batchesOfPaddedPublicDataWrites.map(batch => batch.map(serializeLeaf)),
+      batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
     return sanitiseFullStatus(response);

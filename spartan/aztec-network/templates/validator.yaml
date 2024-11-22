@@ -18,20 +18,30 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
+      {{- end }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
-        - name: wait-for-boot-node
-          image: {{ .Values.images.curl.image }}
+        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        - name: wait-for-services
+          image: {{ .Values.images.aztec.image }}
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
+              source /shared/config/service-addresses
+              # First check ethereum node
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
+                $ETHEREUM_HOST | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
               echo "Ethereum node is ready!"
+
               {{- if .Values.telemetry.enabled }}
               until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."
@@ -39,30 +49,50 @@ spec:
               done
               echo "OpenTelemetry collector is ready!"
               {{- end }}
-              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
-                echo "Waiting for boot node..."
-                sleep 5
-              done
-              echo "Boot node is ready!"
+
+              if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
+                # Get the list of pod IPs for the validator service
+                echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+              else
+                until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+                  echo "Waiting for boot node..."
+                  sleep 5
+                done
+                echo "Boot node is ready!"
+                echo "${BOOT_NODE_HOST}" > /shared/pxe/pxe_url
+              fi
+          volumeMounts:
+            - name: pxe-url
+              mountPath: /shared/pxe
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
 
         - name: configure-validator-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
-            - "/bin/sh"
+            - "/bin/bash"
             - "-c"
-            - "cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && chmod +x /tmp/configure-validator-env.sh && /tmp/configure-validator-env.sh {{ include "aztec-network.bootNodeUrl" . }}"
+            - |
+              source /shared/config/service-addresses && \
+              cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && \
+              chmod +x /tmp/configure-validator-env.sh && \
+              /tmp/configure-validator-env.sh "$(cat /shared/pxe/pxe_url)"
           volumeMounts:
-            - name: shared-volume
-              mountPath: /shared
+            - name: contracts-env
+              mountPath: /shared/contracts
+            - name: pxe-url
+              mountPath: /shared/pxe
             - name: scripts
               mountPath: /scripts
             - name: validator-keys
               mountPath: /app/config
               readOnly: true
+            - name: config
+              mountPath: /shared/config
           env:
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -74,7 +104,13 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
+            - |
+              sleep 10 && \
+              source /shared/contracts/contracts.env && \
+              source /shared/p2p/p2p-addresses && \
+              source /shared/config/service-addresses && \
+              env && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
           startupProbe:
             httpGet:
               path: /status
@@ -92,14 +128,18 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
-            - name: shared-volume
-              mountPath: /shared
+            - name: contracts-env
+              mountPath: /shared/contracts
+            - name: p2p-addresses
+              mountPath: /shared/p2p
+            - name: config
+              mountPath: /shared/config
           env:
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: PORT
+            - name: AZTEC_PORT
               value: "{{ .Values.validator.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.validator.logLevel }}"
@@ -107,8 +147,6 @@ spec:
               value: "1"
             - name: DEBUG
               value: "{{ .Values.validator.debug }}"
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
             - name: VALIDATOR_DISABLED
@@ -123,22 +161,6 @@ spec:
               value: "{{ .Values.validator.sequencer.enforceTimeTable }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
-            - name: P2P_TCP_ANNOUNCE_ADDR
-              {{- if .Values.validator.externalTcpHost }}
-              value: "{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.p2pTcpPort }}"
-              {{- else }}
-              value: "$(POD_IP):{{ .Values.validator.service.p2pTcpPort }}"
-              {{- end }}
-            - name: P2P_UDP_ANNOUNCE_ADDR
-              {{- if .Values.validator.externalUdpHost }}
-              value: "{{ .Values.validator.externalUdpHost }}:{{ .Values.validator.service.p2pUdpPort }}"
-              {{- else }}
-              value: "$(POD_IP):{{ .Values.validator.service.p2pUdpPort }}"
-              {{- end }}
-            - name: P2P_TCP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"
-            - name: P2P_UDP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.validator.service.p2pUdpPort }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
@@ -165,32 +187,21 @@ spec:
       volumes:
         - name: scripts
           configMap:
-            name: {{ include "aztec-network.fullname" . }}-configure-validator-env
+            name: {{ include "aztec-network.fullname" . }}-scripts
         - name: validator-keys
           configMap:
             name: {{ include "aztec-network.fullname" . }}-validator-keys
-  volumeClaimTemplates:
-  - metadata:
-      name: shared-volume
-      labels:
-        {{- include "aztec-network.labels" . | nindent 8 }}
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: {{ .Values.validator.storage }}
+        - name: contracts-env
+          emptyDir: {}
+        - name: p2p-addresses
+          emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-configure-validator-env
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-data:
-  configure-validator-env.sh: |
-    {{ .Files.Get "files/config/config-validator-env.sh" | nindent 4 }}
----
-# Headless service for StatefulSet DNS entries
+# If this is not a public network, create a headless service for StatefulSet DNS entries
+{{ if not .Values.network.public }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -212,55 +223,4 @@ spec:
     - port: {{ .Values.validator.service.nodePort }}
       name: node
       protocol: TCP
----
-{{if .Values.network.public }}
-{{- range $i, $e := until (int .Values.validator.replicas) }}
-# Service template for TCP load balancers
-apiVersion: v1
-kind: Service
-metadata:
-  name: validator-{{ $i }}-lb-tcp
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-  labels:
-    {{- include "aztec-network.labels" $ | nindent 4 }}
-spec:
-  type: LoadBalancer
-  selector:
-    statefulset.kubernetes.io/pod-name: {{ include "aztec-network.fullname" $ }}-validator-{{ $i }}
-    {{- include "aztec-network.selectorLabels" $ | nindent 4 }}
-    app: validator
-  ports:
-    - port: {{ $.Values.validator.service.p2pTcpPort }}
-      name: p2p-tcp
-      protocol: TCP
-    - port: {{ $.Values.validator.service.nodePort }}
-      name: node
-      protocol: TCP
----
-# Service template for UDP load balancers
-apiVersion: v1
-kind: Service
-metadata:
-  name: validator-{{ $i }}-lb-udp
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-  labels:
-    {{- include "aztec-network.labels" $ | nindent 4 }}
-spec:
-  type: LoadBalancer
-  selector:
-    statefulset.kubernetes.io/pod-name: {{ include "aztec-network.fullname" $ }}-validator-{{ $i }}
-    {{- include "aztec-network.selectorLabels" $ | nindent 4 }}
-    app: validator
-  ports:
-    - port: {{ $.Values.validator.service.p2pUdpPort }}
-      name: p2p-udp
-      protocol: UDP
----
-{{- end }}
 {{ end }}

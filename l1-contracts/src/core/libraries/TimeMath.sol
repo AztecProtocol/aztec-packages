@@ -108,6 +108,10 @@ function addSlot(Slot _a, Slot _b) pure returns (Slot) {
   return Slot.wrap(Slot.unwrap(_a) + Slot.unwrap(_b));
 }
 
+function subSlot(Slot _a, Slot _b) pure returns (Slot) {
+  return Slot.wrap(Slot.unwrap(_a) - Slot.unwrap(_b));
+}
+
 function eqSlot(Slot _a, Slot _b) pure returns (bool) {
   return Slot.unwrap(_a) == Slot.unwrap(_b);
 }
@@ -195,5 +199,6 @@ using {
   gtSlot as >,
   lteSlot as <=,
   ltSlot as <,
-  addSlot as +
+  addSlot as +,
+  subSlot as -
 } for Slot global;

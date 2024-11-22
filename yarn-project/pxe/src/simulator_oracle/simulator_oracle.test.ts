@@ -7,6 +7,7 @@ import {
   type TxEffect,
   TxHash,
   TxScopedL2Log,
+  randomInBlock,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -37,7 +38,7 @@ import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { ContractDataOracle } from '../index.js';
-import { type SimulatorOracle } from './index.js';
+import { SimulatorOracle } from './index.js';
 
 const TXS_PER_BLOCK = 4;
 const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NOTE_HASHES_PER_TX;
@@ -129,8 +130,7 @@ describe('Simulator oracle', () => {
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
-    const simulatorOracleModule = await import('../simulator_oracle/index.js');
-    simulatorOracle = new simulatorOracleModule.SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
+    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account
@@ -290,7 +290,7 @@ describe('Simulator oracle', () => {
       expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
 
       // We should have called the node 17 times:
-      // 5 times with no results (sender offset) + 2 times with logs (slide the window) + 10 times with no results (window size)
+      // 5 times with no results (sender offset) + 2 times with logs (sliding the window) + 10 times with no results (window size)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(5 + 2 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
@@ -305,19 +305,29 @@ describe('Simulator oracle', () => {
         return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
       });
 
+      // Increase our indexes to 2
       await database.setTaggingSecretsIndexesAsRecipient(secrets.map(secret => new IndexedTaggingSecret(secret, 2)));
 
       const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
-      // Even if our index as recipient is higher than what the recipient sent, we should be able to find the logs
+      // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
+      // since the window starts at Math.max(0, 2 - window_size) = 0
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+
+      // First sender should have 2 logs, but keep index 2 since they were built using the same tag
+      // Next 4 senders hould also have index 2 = offset + 1
+      // Last 5 senders should have index 3 = offset + 2
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
+
+      expect(indexes).toHaveLength(NUM_SENDERS);
+      expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
 
       // We should have called the node 13 times:
       // 1 time without logs + 2 times with logs (sliding the window) + 10 times with no results (window size)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(3 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
-    it("should sync not tagged logs for which indexes are not updated if they're outside the window", async () => {
+    it("should not sync tagged logs for which indexes are not updated if they're outside the window", async () => {
       const senderOffset = 0;
       generateMockLogs(senderOffset);
 
@@ -334,12 +344,60 @@ describe('Simulator oracle', () => {
 
       const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
-      // Only half of the logs should be synced since we start from index 1 = offset + 1, the other half should be skipped
+      // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
+
+      // Indexes should remain where we set them (window_size + 1)
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
+
+      expect(indexes).toHaveLength(NUM_SENDERS);
+      expect(indexes).toEqual([11, 11, 11, 11, 11, 11, 11, 11, 11, 11]);
 
       // We should have called the node SENDER_OFFSET_WINDOW_SIZE + 1 (with logs) + SENDER_OFFSET_WINDOW_SIZE:
       // Once for index 1 (NUM_SENDERS/2 logs) + 2 times the sliding window (no logs each time)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1 + 2 * SENDER_OFFSET_WINDOW_SIZE);
+    });
+
+    it('should sync tagged logs from scratch after a DB wipe', async () => {
+      const senderOffset = 0;
+      generateMockLogs(senderOffset);
+
+      // Recompute the secrets (as recipient) to update indexes
+      const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      const secrets = senders.map(sender => {
+        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+      });
+
+      await database.setTaggingSecretsIndexesAsRecipient(
+        secrets.map(secret => new IndexedTaggingSecret(secret, SENDER_OFFSET_WINDOW_SIZE + 2)),
+      );
+
+      let syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+
+      // No logs should be synced since we start from index 2 = 12 - window_size
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
+      // We should have called the node 21 times (window size + current_index + window size)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 * SENDER_OFFSET_WINDOW_SIZE + 1);
+
+      aztecNode.getLogsByTags.mockClear();
+
+      // Wipe the database
+      await database.resetNoteSyncData();
+
+      syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+
+      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
+      // Next 4 senders hould also have index 1 = offset + 1
+      // Last 5 senders should have index 2 = offset + 2
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
+
+      expect(indexes).toHaveLength(NUM_SENDERS);
+      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+
+      // We should have called the node 12 times:
+      // 2 times with logs (sliding the window) + 10 times with no results (window size)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
@@ -423,13 +481,13 @@ describe('Simulator oracle', () => {
       });
 
       aztecNode.getTxEffect.mockImplementation(txHash => {
-        return Promise.resolve(txEffectsMap[txHash.toString()] as TxEffect);
+        return Promise.resolve(randomInBlock(txEffectsMap[txHash.toString()] as TxEffect));
       });
-      aztecNode.findLeavesIndexes.mockImplementation((_blockNumber, _treeId, leafValues) =>
+      aztecNode.findNullifiersIndexesWithBlock.mockImplementation((_blockNumber, requestedNullifiers) =>
         Promise.resolve(
-          Array(leafValues.length - nullifiers)
+          Array(requestedNullifiers.length - nullifiers)
             .fill(undefined)
-            .concat(Array(nullifiers).fill(1n)),
+            .concat(Array(nullifiers).fill({ data: 1n, l2BlockNumber: 1n, l2BlockHash: '0x' })),
         ),
       );
       return taggedLogs;

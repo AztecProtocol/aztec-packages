@@ -3,7 +3,6 @@ import {
   type AztecAddress,
   type ContractDataSource,
   Fr,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
@@ -35,7 +34,7 @@ export class TXEWorldStateDB extends WorldStateDB {
     await this.merkleDb.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       [new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contract, slot), newValue).toBuffer()],
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      0,
     );
     return newValue.toBigInt();
   }

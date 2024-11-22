@@ -20,6 +20,7 @@ import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
+import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
@@ -106,7 +107,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getTxEffect', async () => {
     const result = await context.client.getTxEffect(new TxHash(Buffer.alloc(32, 1)));
-    expect(result).toBeInstanceOf(TxEffect);
+    expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getSettledTxReceipt', async () => {
@@ -141,6 +142,18 @@ describe('ArchiverApiSchema', () => {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
+  });
+
+  it('findNullifiersIndexesWithBlock', async () => {
+    const result = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
+    expect(result).toEqual([
+      {
+        data: expect.any(BigInt),
+        l2BlockNumber: expect.any(Number),
+        l2BlockHash: expect.any(String),
+      },
+      undefined,
+    ]);
   });
 
   it('getLogs(Encrypted)', async () => {
@@ -217,7 +230,7 @@ describe('ArchiverApiSchema', () => {
 
   it('addContractArtifact', async () => {
     await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  });
+  }, 20_000);
 
   it('getContract', async () => {
     const address = AztecAddress.random();
@@ -230,6 +243,15 @@ describe('ArchiverApiSchema', () => {
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
       version: 1,
+    });
+  });
+
+  it('addContractClass', async () => {
+    const contractClass = getContractClassFromArtifact(artifact);
+    await context.client.addContractClass({
+      ...omit(contractClass, 'publicBytecodeCommitment'),
+      unconstrainedFunctions: [],
+      privateFunctions: [],
     });
   });
 });
@@ -261,9 +283,9 @@ class MockArchiver implements ArchiverApi {
   getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return Promise.resolve([L2Block.random(from)]);
   }
-  getTxEffect(_txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxEffect.empty());
+    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -289,6 +311,13 @@ class MockArchiver implements ArchiverApi {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
+  }
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    expect(blockNumber).toEqual(1);
+    expect(nullifiers).toHaveLength(2);
+    expect(nullifiers[0]).toBeInstanceOf(Fr);
+    expect(nullifiers[1]).toBeInstanceOf(Fr);
+    return Promise.resolve([randomInBlock(Fr.random().toBigInt()), undefined]);
   }
   getLogs<TLogType extends LogType>(
     _from: number,
@@ -361,5 +390,8 @@ class MockArchiver implements ArchiverApi {
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(1n);
+  }
+  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
+    return Promise.resolve();
   }
 }

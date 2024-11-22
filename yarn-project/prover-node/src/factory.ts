@@ -31,6 +31,7 @@ export async function createProverNode(
     log?: DebugLogger;
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
+    publisher?: L1Publisher;
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
@@ -45,7 +46,7 @@ export async function createProverNode(
   const prover = await createProverClient(config, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = new L1Publisher(config, telemetry);
+  const publisher = deps.publisher ?? new L1Publisher(config, telemetry);
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
