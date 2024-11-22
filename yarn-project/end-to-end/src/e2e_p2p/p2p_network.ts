@@ -63,7 +63,7 @@ export class P2PNetworkTest {
 
     this.snapshotManager = createSnapshotManager(`e2e_p2p_network/${testName}`, process.env.E2E_DATA_PATH, {
       ...initialValidatorConfig,
-      l1BlockTime: l1ContractsConfig.ethereumSlotDuration,
+      ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
       salt: 420,
       initialValidators,
       metricsPort: metricsPort,
