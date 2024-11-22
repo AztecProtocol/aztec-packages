@@ -27,6 +27,10 @@ import {
 
 const WEI_CONST = 1_000_000_000n;
 
+// setting a minimum bump percentage to 10% due to geth's implementation
+// https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
+const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10n;
+
 export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
@@ -236,7 +240,6 @@ export class L1TxUtils {
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
           this.logger?.debug(`L1 Transaction ${currentTxHash} pending. Time passed: ${timePassed}ms`);
-          lastSeen = Date.now();
           await sleep(gasConfig.checkIntervalMs!);
           continue;
         }
@@ -301,17 +304,22 @@ export class L1TxUtils {
 
     // Get initial priority fee from the network
     let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+    let maxFeePerGas = gasConfig.maxGwei! * WEI_CONST;
+
     if (attempt > 0) {
-      // Bump priority fee by configured percentage for each attempt
-      priorityFee =
-        (priorityFee *
-          (100n +
-            (gasConfig.priorityFeeBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeBumpPercentage!) *
-              BigInt(attempt))) /
-        100n;
+      // Ensure minimum 10% bump for replacement transactions
+      const bumpPercentage = BigInt(
+        Math.max(
+          Number(gasConfig.priorityFeeBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeBumpPercentage!),
+          Number(MIN_REPLACEMENT_BUMP_PERCENTAGE),
+        ),
+      );
+
+      // Bump both priority fee and max fee by at least 10%
+      priorityFee = (priorityFee * (100n + bumpPercentage * BigInt(attempt))) / 100n;
+      maxFeePerGas = (maxFeePerGas * (100n + bumpPercentage * BigInt(attempt))) / 100n;
     }
 
-    const maxFeePerGas = gasConfig.maxGwei! * WEI_CONST;
     const maxPriorityFeePerGas = priorityFee;
 
     this.logger?.debug(

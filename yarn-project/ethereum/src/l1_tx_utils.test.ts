@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import getPort from 'get-port';
@@ -39,7 +40,7 @@ describe('GasUtils', () => {
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let anvil: Anvil;
-  let initialBaseFee: bigint;
+  const initialBaseFee = WEI_CONST; // 1 gwei
   const logger = createDebugLogger('l1_gas_test');
 
   beforeAll(async () => {
@@ -85,8 +86,13 @@ describe('GasUtils', () => {
     });
   });
   afterAll(async () => {
+    // disabling interval mining as it seems to cause issues with stopping anvil
+    await publicClient.transport.request({
+      method: 'evm_setIntervalMining',
+      params: [0], // Disable interval mining
+    });
     await anvil.stop();
-  }, 5000);
+  }, 5_000);
 
   it('sends and monitors a simple transaction', async () => {
     const receipt = await gasUtils.sendAndMonitorTransaction({
@@ -99,27 +105,81 @@ describe('GasUtils', () => {
   }, 10_000);
 
   it('handles gas price spikes by retrying with higher gas price', async () => {
-    // Get initial base fee
-    const initialBlock = await publicClient.getBlock({ blockTag: 'latest' });
-    initialBaseFee = initialBlock.baseFeePerGas ?? 0n;
-
-    // Start a transaction
-    const sendPromise = gasUtils.sendAndMonitorTransaction({
-      to: '0x1234567890123456789012345678901234567890',
-      data: '0x',
-      value: 0n,
+    // Disable all forms of mining
+    await publicClient.transport.request({
+      method: 'evm_setAutomine',
+      params: [false],
+    });
+    await publicClient.transport.request({
+      method: 'evm_setIntervalMining',
+      params: [0],
     });
 
-    // Spike gas price to 3x the initial base fee
+    // Ensure initial base fee is low
     await publicClient.transport.request({
       method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [(initialBaseFee * 3n).toString()],
+      params: [initialBaseFee.toString()],
     });
 
-    // Transaction should still complete
-    const receipt = await sendPromise;
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    const estimatedGas = await publicClient.estimateGas(request);
+
+    const txHash = await walletClient.sendTransaction({
+      ...request,
+      gas: estimatedGas,
+      maxFeePerGas: WEI_CONST * 10n,
+      maxPriorityFeePerGas: WEI_CONST,
+    });
+
+    const rawTx = await publicClient.transport.request({
+      method: 'debug_getRawTransaction',
+      params: [txHash],
+    });
+
+    // Temporarily drop the transaction
+    await publicClient.transport.request({
+      method: 'anvil_dropTransaction',
+      params: [txHash],
+    });
+
+    // Mine a block with higher base fee
+    await publicClient.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [((WEI_CONST * 15n) / 10n).toString()],
+    });
+    await publicClient.transport.request({
+      method: 'evm_mine',
+      params: [],
+    });
+
+    // Re-add the original tx
+    await publicClient.transport.request({
+      method: 'eth_sendRawTransaction',
+      params: [rawTx],
+    });
+
+    // keeping auto-mining disabled to simulate a stuck transaction
+    // The monitor should detect the stall and create a replacement tx
+
+    // Monitor should detect stall and replace with higher gas price
+    const monitorFn = gasUtils.monitorTransaction(request, txHash, { gasLimit: estimatedGas });
+
+    await sleep(2000);
+    // re-enable mining
+    await publicClient.transport.request({
+      method: 'evm_setIntervalMining',
+      params: [1],
+    });
+    const receipt = await monitorFn;
     expect(receipt.status).toBe('success');
-  });
+    // Verify that a replacement transaction was created
+    expect(receipt.transactionHash).not.toBe(txHash);
+  }, 20_000);
 
   it('respects max gas price limits during spikes', async () => {
     const maxGwei = 500n;
@@ -144,7 +204,7 @@ describe('GasUtils', () => {
     });
 
     expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(maxGwei * WEI_CONST);
-  });
+  }, 60_000);
 
   it('adds appropriate buffer to gas estimation', async () => {
     // First deploy without any buffer
@@ -152,7 +212,7 @@ describe('GasUtils', () => {
       bufferPercentage: 0n,
       maxGwei: 500n,
       minGwei: 1n,
-      maxAttempts: 3,
+      maxAttempts: 5,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
     });
