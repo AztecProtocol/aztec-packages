@@ -15,7 +15,7 @@ cd $(dirname $0)
 ip=$(./build-system/scripts/request_spot charlie-ci3 128 x86_64)
 
 ssh ubuntu@$ip "
-  docker run --rm -t aztecprotocol/build:1.0 -v /var/run/docker.sock:/var/run/docker.sock bash -c '
+  docker run --rm -t -v /var/run/docker.sock:/var/run/docker.sock aztecprotocol/build:1.0 bash -c '
     cd /root
     git clone http://github.com/aztecprotocol/aztec-packages
     cd aztec-packages
