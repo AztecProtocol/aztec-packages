@@ -3,10 +3,10 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
-import { type NodeContext, createNode, createNodes} from '../fixtures/setup_p2p_test.js';
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -25,7 +25,7 @@ describe('e2e_p2p_rediscovery', () => {
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
-      metricsPort: shouldCollectMetrics()
+      metricsPort: shouldCollectMetrics(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
