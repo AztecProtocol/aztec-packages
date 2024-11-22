@@ -37,11 +37,11 @@ else
   exit 1
 fi
 
-# Download ignition transcripts.
-(cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
-
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+
+# Download ignition transcripts.
+(cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
 
 # Pick native toolchain file.
 ARCH=$(uname -m)

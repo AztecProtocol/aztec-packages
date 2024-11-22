@@ -8,7 +8,7 @@ cleanup() {
         wait $BG_PIDS 2>/dev/null
     fi
 }
-trap cleanup EXIT
+trap cleanup SIGINT
 
 if [ "${CI:-0}" -eq 1 ]; then
   npx -y playwright@1.49 install --with-deps

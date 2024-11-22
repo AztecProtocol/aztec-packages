@@ -10,4 +10,4 @@ export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
 cache-download.sh bb.js-$(compute-content-hash.sh).tar.gz
 
 # We still need to install modules, so they can be found as part of module resolution when portalled.
-yarn install
+yarn install --production
