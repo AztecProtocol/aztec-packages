@@ -18,7 +18,7 @@ CONTAINER_ID=$(docker run -d -p 3000:3000 -p 4317:4317 -p 4318:4318 --rm grafana
 trap "docker stop $CONTAINER_ID" EXIT SIGINT SIGTERM
 
 echo "Waiting for LGTM stack to be ready..."
-timeout=60
+timeout=90
 while [ $timeout -gt 0 ]; do
     if docker logs $CONTAINER_ID 2>&1 | grep -q "The OpenTelemetry collector and the Grafana LGTM stack are up and running"; then
         echo "LGTM stack is ready!"
