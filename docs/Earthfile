@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM ../build-images/+base-slim-node
+FROM ../build-images/+from-registry
 WORKDIR /usr/src/docs
 
 deps:
