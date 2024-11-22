@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 
 cleanup() {
     BG_PIDS=$(jobs -p)

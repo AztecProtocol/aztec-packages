@@ -14,4 +14,7 @@ case "$TYPE" in
   "compose")
     docker compose -p "${TEST//\//_}" -f ./scripts/docker-compose.yml up --exit-code-from=end-to-end --force-recreate
   ;;
+  "flake"|"skip")
+    echo "Skipping test: $TEST"
+  ;;
 esac

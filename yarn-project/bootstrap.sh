@@ -12,41 +12,25 @@ cd "$(dirname "$0")"
 
 CMD=${1:-}
 
-if [ "$CMD" = "clean" ]; then
-  git clean -fdx
-  exit 0
-fi
-
-# Generate l1-artifacts before creating lock file
-(cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
-
-if [ "$CMD" = "full" ]; then
-  yarn install --immutable
-  yarn build
-  exit 0
-elif [ "$CMD" = "fast-only" ]; then
-  # Unlike fast build below, we don't fall back to a normal build.
-  # This is used when we want to ensure that fast build works.
-  yarn install --immutable
-  yarn build:fast
-  exit 0
-elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
-  echo "Unknown command: $CMD"
-  exit 1
-fi
-
 function build {
+  # Generate l1-artifacts before creating lock file
+  (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+
   # Fast build does not delete everything first.
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
   yarn install --immutable
 
-  if ! yarn build:fast; then
-    echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
-    echo
-    yarn build
-  fi
+  case "$1" in
+    "fast") yarn build::fast;;
+    "full") yarn build;;
+    *)
+      if ! yarn build:fast; then
+        echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}\n"
+        yarn build
+      fi
+  esac
 
   echo
   echo -e "${GREEN}Yarn project successfully built!${RESET}"
@@ -65,7 +49,6 @@ function run_e2e_tests {
     "simple e2e_2_pxes"
     "simple e2e_authwit"
     "simple e2e_avm_simulator"
-    # "simple e2e_block_building"
     "simple e2e_cross_chain_messaging/l1_to_l2"
     "simple e2e_cross_chain_messaging/l2_to_l1"
     "simple e2e_cross_chain_messaging/token_bridge_failure_cases"
@@ -88,10 +71,13 @@ function run_e2e_tests {
     "simple e2e_ordering"
     "simple e2e_prover_coordination"
     "simple e2e_static_calls"
-    # "simple e2e_p2p/gossip_network"
-    # "simple e2e_p2p/rediscovery"
-    # "simple e2e_p2p/reqresp"
-    # "simple e2e_p2p/upgrade_governance_proposer"
+    "flake e2e_block_building"
+
+    "simple e2e_p2p/gossip_network"
+    "simple e2e_p2p/rediscovery"
+    "simple e2e_p2p/reqresp"
+    "flake e2e_p2p/upgrade_governance_proposer"
+
     # "compose guides/dapp_testing"
     # "compose guides/up_quick_start"
     # "compose guides/writing_an_account_contract"
@@ -131,13 +117,33 @@ function run_e2e_tests {
   exit $code
 }
 
-case "${CI:-0}" in
-  0) build
+case "$CMD" in
+  "clean")
+    git clean -fdx
   ;;
-  1) build
-     yarn test
-     run_e2e_tests
+  "full")
+    build full
   ;;
-  2) run_e2e_tests
+  "fast-only")
+    build fast
+  ;;
+  ""|"fast")
+    case "${CI:-0}" in
+      0)
+        build
+      ;;
+      1)
+        build
+        yarn test
+        run_e2e_tests
+      ;;
+      2)
+        run_e2e_tests
+      ;;
+    esac
+  ;;
+  *)
+    echo "Unknown command: $CMD"
+    exit 1
   ;;
 esac

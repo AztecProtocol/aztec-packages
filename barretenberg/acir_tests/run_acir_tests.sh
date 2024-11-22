@@ -33,7 +33,6 @@ if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
 fi
 
 TEST_NAMES=($(printf '%s\n' "${TEST_NAMES[@]}" | grep -vFxf <(printf '%s\n' "${SKIP_ARRAY[@]}")))
-
 JOBS=$(($(nproc) / HARDWARE_CONCURRENCY))
 
 parallel -j$JOBS ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
