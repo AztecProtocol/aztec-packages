@@ -52,25 +52,8 @@ build:
     RUN ./bootstrap.sh full
     RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
 
-build-docs:
-    FROM +deps
-    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
-    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
-    COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
-    COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
-
-    WORKDIR /usr/src/yarn-project
-    COPY . .
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
-
 build-dev:
     FROM +build
-    SAVE ARTIFACT /usr/src /usr/src
-
-build-docs-dev:
-    FROM +build-docs
     SAVE ARTIFACT /usr/src /usr/src
 
 cli-base:
