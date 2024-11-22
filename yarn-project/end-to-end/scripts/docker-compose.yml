@@ -3,8 +3,7 @@ services:
   fork:
     image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
     pull_policy: always
-    command: >
-      'anvil --host 0.0.0.0 --chain-id 31337 --port 8545 --silent'
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
     ports:
       - 8545:8545
 
