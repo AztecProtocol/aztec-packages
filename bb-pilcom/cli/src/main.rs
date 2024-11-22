@@ -18,8 +18,8 @@ struct Cli {
     output_directory: String,
 
     /// BBerg: Name of the output file for bberg
-    #[arg(long)]
-    name: Option<String>,
+    #[arg(long, default_value = "default_name")]
+    name: String,
 
     /// Delete the output directory if it already exists
     #[arg(short, long)]
@@ -31,8 +31,11 @@ fn main() -> Result<(), io::Error> {
     let args = Cli::parse();
 
     let file_name = args.file;
-    let name = args.name.unwrap();
-    let analyzed: Analyzed<Bn254Field> = analyze_file(Path::new(&file_name));
+    let name = args.name;
+
+    // Ensure `analyze_file` returns the expected type
+    let analyzed: Analyzed<Bn254Field> = analyze_file(Path::new(&file_name))
+        .expect("Failed to analyze the file");
 
     analyzed_to_cpp(&analyzed, &name, args.yes);
 
