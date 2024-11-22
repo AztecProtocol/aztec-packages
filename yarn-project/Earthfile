@@ -53,9 +53,34 @@ build:
     RUN ./bootstrap.sh full
     RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
 
+build-docs:
+    # Prefetch targets to not wait for +deps.
+    BUILD ../barretenberg/cpp/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+nargo
+    BUILD --pass-args ../noir-projects/+build
+    BUILD ../l1-contracts/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages
+    FROM +deps
+
+    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
+    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
+    COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
+    COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
+
+    WORKDIR /usr/src/yarn-project
+    COPY . .
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
 
 build-dev:
     FROM +build
+    SAVE ARTIFACT /usr/src /usr/src
+
+build-docs-dev:
+    FROM +build-docs
     SAVE ARTIFACT /usr/src /usr/src
 
 cli-base:
@@ -244,7 +269,7 @@ end-to-end:
     ENTRYPOINT ["yarn", "test"]
 
 scripts-prod:
-    FROM +deps
+    FROM +build-docs
     RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
