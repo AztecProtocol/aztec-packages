@@ -304,7 +304,7 @@ Unconstrained functions are similar to `view` functions in Solidity in that they
 
 A getter function for checking the private balance of the provided Aztec account. Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was reached.
 
-#include_code get_private_nfts /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code get_private_nfts /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 ## Compiling
 
