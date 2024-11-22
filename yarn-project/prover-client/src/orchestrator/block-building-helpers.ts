@@ -483,8 +483,6 @@ async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWr
     ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
 
-  console.log({ allPublicDataWrites });
-
   const { lowLeavesWitnessData, insertionWitnessData } = await db.sequentialInsert(
     MerkleTreeId.PUBLIC_DATA_TREE,
     allPublicDataWrites.map(write => {
@@ -494,8 +492,6 @@ async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWr
       return write.toBuffer();
     }),
   );
-
-  console.log({ lowLeavesWitnessData, insertionWitnessData });
 
   const lowPublicDataWritesPreimages = lowLeavesWitnessData.map(
     lowLeafWitness => lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage,
