@@ -9,4 +9,4 @@ const setupEnv = async () => {
   return pxe;
 };
 
-pxeTestSuite('pxe', setupEnv);
+pxeTestSuite('e2e_pxe', setupEnv);

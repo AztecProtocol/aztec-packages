@@ -75,6 +75,8 @@ tests:
     env:
       HARDWARE_CONCURRENCY: '32'
   e2e_public_testnet: {}
+  e2e_pxe:
+    use_compose: true
   e2e_sandbox_example:
     use_compose: true
   e2e_state_vars: {}
@@ -111,8 +113,6 @@ tests:
     use_compose: true
     test_path: 'guides/writing_an_account_contract.test.ts'
   integration_l1_publisher:
-    use_compose: true
-  pxe:
     use_compose: true
   # https://github.com/AztecProtocol/aztec-packages/issues/10030
   # uniswap_trade_on_l1_from_l2:
