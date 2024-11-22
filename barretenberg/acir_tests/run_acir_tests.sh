@@ -35,7 +35,10 @@ if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
   TEST_NAMES=$(cd ../../noir/noir-repo/test_programs/execution_success; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
 fi
 
-TEST_NAMES=($(printf '%s\n' "${TEST_NAMES[@]}" | grep -vFxf <(printf '%s\n' "${SKIP_ARRAY[@]}")))
-JOBS=$(($(nproc) / HARDWARE_CONCURRENCY))
+TEST_NAMES=($(printf '%s\n' "${TEST_NAMES[@]}" | grep -vFxf <(printf '%s\n' "${SKIP_ARRAY[@]}") || true))
+if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
+  exit 0
+fi
 
+JOBS=$(($(nproc) / HARDWARE_CONCURRENCY))
 parallel -j$JOBS ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"

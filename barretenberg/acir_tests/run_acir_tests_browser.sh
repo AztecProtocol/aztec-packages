@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -em
+set -eum
 
 cleanup() {
     BG_PIDS=$(jobs -p)

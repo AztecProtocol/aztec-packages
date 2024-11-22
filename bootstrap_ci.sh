@@ -27,6 +27,6 @@ ssh ubuntu@$ip "
     git clone http://github.com/aztecprotocol/aztec-packages
     cd aztec-packages
     git checkout cl/ci3
-    CI=1 ./bootstrap.sh full
+    CI=1 ./bootstrap.sh fast
   '
 "
