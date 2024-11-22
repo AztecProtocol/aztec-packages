@@ -26,11 +26,6 @@ DOCS_PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -E "https://.*aztec-docs-dev.net
 echo "Unique deploy URL: $DOCS_PREVIEW_URL"
 
 cd ../yarn-project/scripts
-
-echo "Current directory: $(pwd)"
-echo "Checking if docs-preview.js exists:"
-ls -la dest/bin/
-
 yarn build
 
 AZTEC_BOT_COMMENTER_GITHUB_TOKEN=$AZTEC_BOT_COMMENTER_GITHUB_TOKEN PR_NUMBER=$PR_NUMBER DOCS_PREVIEW_URL=$DOCS_PREVIEW_URL yarn docs-preview-comment
