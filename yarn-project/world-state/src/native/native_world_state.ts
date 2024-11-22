@@ -100,7 +100,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
     const log = createDebugLogger('aztec:world-state:database');
-    const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
+    const dataDir = await mkdtemp(join(tmpdir(), `aztec-world-state-${Date.now()}`));
     const dbMapSizeKb = 10 * 1024 * 1024;
     log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
 
