@@ -13,7 +13,7 @@ build:
   ARG ENV
   ARG COMMIT_TAG
   ENV COMMIT_TAG=$COMMIT_TAG
-  BUILD ../yarn-project/+build-docs-dev
+  BUILD ../yarn-project/+build-dev
   BUILD ../+release-meta
   FROM +deps
   COPY --dir ../yarn-project/+build-dev/usr/src /usr
@@ -37,7 +37,7 @@ serve:
 
 
 deploy-preview:
-  BUILD ../yarn-project/+scripts-prod
+  BUILD ../yarn-project/+scripts-preview
   ARG ENV
   ARG NETLIFY_AUTH_TOKEN
   ARG NETLIFY_SITE_ID

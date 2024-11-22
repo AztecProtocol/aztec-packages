@@ -261,8 +261,13 @@ end-to-end:
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
+scripts-preview:
+    FROM +build
+    RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
+
 scripts-prod:
-    FROM +build-docs-dev
+    FROM +deps
     RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
