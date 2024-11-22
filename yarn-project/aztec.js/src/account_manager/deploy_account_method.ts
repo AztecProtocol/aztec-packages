@@ -19,7 +19,7 @@ import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/pay
  */
 export class DeployAccountMethod extends DeployMethod {
   #authWitnessProvider: AuthWitnessProvider;
-  #feePaymentArtifact: FunctionArtifact | undefined;
+  #feePaymentArtifact: Promise<FunctionArtifact | undefined>;
 
   constructor(
     authWitnessProvider: AuthWitnessProvider,
@@ -43,28 +43,26 @@ export class DeployAccountMethod extends DeployMethod {
     this.#feePaymentArtifact =
       typeof feePaymentNameOrArtifact === 'string'
         ? getFunctionArtifact(artifact, feePaymentNameOrArtifact)
-        : feePaymentNameOrArtifact;
+        : Promise.resolve(feePaymentNameOrArtifact);
   }
 
   protected override async getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
     const exec = await super.getInitializeFunctionCalls(options);
 
-    if (options.fee && this.#feePaymentArtifact) {
+    const feePaymentArtifact = await this.#feePaymentArtifact;
+    if (options.fee && feePaymentArtifact) {
       const { address } = await this.getInstance();
-      const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
+      const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
       const feePayload = await EntrypointPayload.fromFeeOptions(address, options?.fee);
 
       exec.calls.push({
-        name: this.#feePaymentArtifact.name,
+        name: feePaymentArtifact.name,
         to: address,
-        args: encodeArguments(this.#feePaymentArtifact, [emptyAppPayload, feePayload, false]),
-        selector: await FunctionSelector.fromNameAndParameters(
-          this.#feePaymentArtifact.name,
-          this.#feePaymentArtifact.parameters,
-        ),
-        type: this.#feePaymentArtifact.functionType,
-        isStatic: this.#feePaymentArtifact.isStatic,
-        returnTypes: this.#feePaymentArtifact.returnTypes,
+        args: encodeArguments(feePaymentArtifact, [emptyAppPayload, feePayload, false]),
+        selector: await FunctionSelector.fromNameAndParameters(feePaymentArtifact.name, feePaymentArtifact.parameters),
+        type: feePaymentArtifact.functionType,
+        isStatic: feePaymentArtifact.isStatic,
+        returnTypes: feePaymentArtifact.returnTypes,
       });
 
       exec.authWitnesses ??= [];

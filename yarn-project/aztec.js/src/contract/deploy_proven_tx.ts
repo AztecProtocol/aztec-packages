@@ -27,6 +27,6 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
       return this.wallet.sendTx(this.getPlainDataTx());
     })();
 
-    return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instance);
+    return new DeploySentTx(this.wallet, promise, this.postDeployCtor, Promise.resolve(this.instance));
   }
 }

@@ -95,8 +95,8 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
 };
 
 function buildVKTree() {
-  const calculator = new MerkleTreeCalculator(VK_TREE_HEIGHT, Buffer.alloc(32), (a, b) =>
-    poseidon2Hash([a, b]).toBuffer(),
+  const calculator = new MerkleTreeCalculator(VK_TREE_HEIGHT, Buffer.alloc(32), async (a, b) =>
+    (await poseidon2Hash([a, b])).toBuffer(),
   );
   const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(Buffer.alloc(32));
 
@@ -112,18 +112,18 @@ function buildVKTree() {
 
 let vkTree: MerkleTree | undefined;
 
-export function getVKTree() {
+export async function getVKTree() {
   if (!vkTree) {
-    vkTree = buildVKTree();
+    vkTree = await buildVKTree();
   }
   return vkTree;
 }
 
-export function getVKTreeRoot() {
-  return Fr.fromBuffer(getVKTree().root);
+export async function getVKTreeRoot() {
+  return Fr.fromBuffer((await getVKTree()).root);
 }
 
-export function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | Fr) {
+export async function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | Fr) {
   let hash;
   if (vk instanceof VerificationKeyData) {
     hash = vk.keyAsFields.hash;
@@ -133,18 +133,16 @@ export function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | F
     hash = vk;
   }
 
-  const index = getVKTree().getIndex(hash.toBuffer());
+  const index = (await getVKTree()).getIndex(hash.toBuffer());
   if (index < 0) {
     throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
   }
   return index;
 }
 
-export function getVKSiblingPath(vkIndex: number) {
+export async function getVKSiblingPath(vkIndex: number) {
   return assertLength<Fr, typeof VK_TREE_HEIGHT>(
-    getVKTree()
-      .getSiblingPath(vkIndex)
-      .map(buf => new Fr(buf)),
+    (await getVKTree()).getSiblingPath(vkIndex).map(buf => new Fr(buf)),
     VK_TREE_HEIGHT,
   );
 }

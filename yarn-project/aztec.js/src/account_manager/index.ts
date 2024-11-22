@@ -28,26 +28,29 @@ export class AccountManager {
   /** Deployment salt for the account contract. */
   public readonly salt: Fr;
 
-  private instance: ContractInstanceWithAddress;
+  private instance: Promise<ContractInstanceWithAddress>;
 
   constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
-    this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
+    salt = salt !== undefined ? new Fr(salt) : Fr.random();
+    this.salt = salt;
 
-    const { publicKeys } = deriveKeys(secretKey);
+    this.instance = (async () => {
+      const { publicKeys } = await deriveKeys(secretKey);
 
-    this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
-      constructorArgs: this.accountContract.getDeploymentArgs(),
-      salt: this.salt,
-      publicKeys,
-    });
+      return await getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
+        constructorArgs: this.accountContract.getDeploymentArgs(),
+        salt,
+        publicKeys,
+      });
+    })();
   }
 
-  protected getPublicKeys() {
-    return this.instance.publicKeys;
+  protected async getPublicKeys() {
+    return (await this.instance).publicKeys;
   }
 
-  protected getPublicKeysHash() {
-    return this.getPublicKeys().hash();
+  protected async getPublicKeysHash() {
+    return (await this.getPublicKeys()).hash();
   }
 
   /**
@@ -66,7 +69,7 @@ export class AccountManager {
    * @returns The address, partial address, and encryption public key.
    */
   public async getCompleteAddress(): Promise<CompleteAddress> {
-    return await CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
+    return await CompleteAddress.fromSecretKeyAndInstance(this.secretKey, await this.instance);
   }
 
   /**
@@ -83,8 +86,8 @@ export class AccountManager {
    * Does not require the account to be deployed or registered.
    * @returns ContractInstance instance.
    */
-  public getInstance(): ContractInstanceWithAddress {
-    return this.instance;
+  public async getInstance(): Promise<ContractInstanceWithAddress> {
+    return await this.instance;
   }
 
   /**
@@ -107,7 +110,7 @@ export class AccountManager {
   public async register(): Promise<AccountWalletWithSecretKey> {
     await this.pxe.registerContract({
       artifact: this.accountContract.getContractArtifact(),
-      instance: this.getInstance(),
+      instance: await this.getInstance(),
     });
 
     await this.pxe.registerAccount(this.secretKey, (await this.getCompleteAddress()).partialAddress);
@@ -139,7 +142,7 @@ export class AccountManager {
     const args = this.accountContract.getDeploymentArgs() ?? [];
     return new DeployAccountMethod(
       this.accountContract.getAuthWitnessProvider(await this.getCompleteAddress()),
-      this.getPublicKeys(),
+      await this.getPublicKeys(),
       deployWallet,
       this.accountContract.getContractArtifact(),
       args,

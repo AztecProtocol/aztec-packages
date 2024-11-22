@@ -205,9 +205,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
     const instance = this.getInstance(options);
-    this.log.debug(
-      `Sent deployment tx of ${this.artifact.name} contract with deployment address ${instance.address.toString()}`,
-    );
+    this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
     return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, instance);
   }
 
