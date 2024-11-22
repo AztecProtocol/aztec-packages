@@ -26,6 +26,8 @@ export interface ContractDataSource {
    */
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
 
+  getBytecodeCommitment(id: Fr): Promise<Fr | undefined>;
+
   /**
    * Adds a contract class to the database.
    * TODO(#10007): Remove this method

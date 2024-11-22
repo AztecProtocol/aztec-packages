@@ -78,6 +78,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractClasses: Map<string, ContractClassPublicWithBlockNumber> = new Map();
 
+  private bytecodeCommitments: Map<string, Fr> = new Map();
+
   private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
 
   private unconstrainedFunctions: Map<string, UnconstrainedFunctionWithMembershipProof[]> = new Map();
@@ -116,6 +118,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.contractInstances.get(address.toString()));
   }
 
+  public getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(this.bytecodeCommitments.get(contractClassId.toString()));
+  }
+
   public addFunctions(
     contractClassId: Fr,
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
@@ -138,13 +144,21 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
-  public addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
-    for (const contractClass of data) {
+  public addContractClasses(
+    data: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    for (let i = 0; i < data.length; i++) {
+      const contractClass = data[i];
       if (!this.contractClasses.has(contractClass.id.toString())) {
         this.contractClasses.set(contractClass.id.toString(), {
           ...contractClass,
           l2BlockNumber: blockNumber,
         });
+      }
+      if (!this.bytecodeCommitments.has(contractClass.id.toString())) {
+        this.bytecodeCommitments.set(contractClass.id.toString(), bytecodeCommitments[i]);
       }
     }
     return Promise.resolve(true);
@@ -155,6 +169,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const restored = this.contractClasses.get(contractClass.id.toString());
       if (restored && restored.l2BlockNumber >= blockNumber) {
         this.contractClasses.delete(contractClass.id.toString());
+        this.bytecodeCommitments.delete(contractClass.id.toString());
       }
     }
     return Promise.resolve(true);

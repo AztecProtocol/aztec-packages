@@ -70,6 +70,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args(schemas.AztecAddress, schemas.FunctionSelector)
     .returns(PublicFunctionSchema.optional()),
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+  getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   getContractArtifact: z.function().args(schemas.AztecAddress).returns(ContractArtifactSchema.optional()),

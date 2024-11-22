@@ -33,6 +33,7 @@ import {
   type PublicFunction,
   UnconstrainedFunctionBroadcastedEvent,
   type UnconstrainedFunctionWithMembershipProof,
+  computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
@@ -703,6 +704,10 @@ export class Archiver implements ArchiveSource {
     return this.store.getContractClass(id);
   }
 
+  public getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    return this.store.getBytecodeCommitment(id);
+  }
+
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.store.getContractInstance(address);
   }
@@ -731,7 +736,11 @@ export class Archiver implements ArchiveSource {
 
   // TODO(#10007): Remove this method
   async addContractClass(contractClass: ContractClassPublic): Promise<void> {
-    await this.store.addContractClasses([contractClass], 0);
+    await this.store.addContractClasses(
+      [contractClass],
+      [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+      0,
+    );
     return;
   }
 
@@ -801,8 +810,12 @@ class ArchiverStoreHelper
   constructor(private readonly store: ArchiverDataStore) {}
 
   // TODO(#10007): Remove this method
-  addContractClasses(contractClasses: ContractClassPublic[], blockNum: number): Promise<boolean> {
-    return this.store.addContractClasses(contractClasses, blockNum);
+  addContractClasses(
+    contractClasses: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNum: number,
+  ): Promise<boolean> {
+    return this.store.addContractClasses(contractClasses, bytecodeCommitments, blockNum);
   }
 
   /**
@@ -817,7 +830,11 @@ class ArchiverStoreHelper
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
-        return await this.store.addContractClasses(contractClasses, blockNum);
+        return await this.store.addContractClasses(
+          contractClasses,
+          contractClasses.map(x => computePublicBytecodeCommitment(x.packedBytecode)),
+          blockNum,
+        );
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
@@ -1024,6 +1041,9 @@ class ArchiverStoreHelper
   }
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     return this.store.getContractClass(id);
+  }
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return this.store.getBytecodeCommitment(contractClassId);
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.store.getContractInstance(address);

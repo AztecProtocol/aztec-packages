@@ -229,9 +229,11 @@ export interface ArchiverDataStore {
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+  addContractClasses(data: ContractClassPublic[], bytecodeCommitments: Fr[], blockNumber: number): Promise<boolean>;
 
   deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
 
   /**
    * Returns a contract class given its id, or undefined if not exists.

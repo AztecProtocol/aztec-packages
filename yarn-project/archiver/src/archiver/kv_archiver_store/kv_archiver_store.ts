@@ -22,6 +22,7 @@ import {
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
@@ -76,17 +77,33 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return Promise.resolve(this.#contractInstanceStore.getContractInstance(address));
+    const timer = new Timer();
+    const contract = this.#contractInstanceStore.getContractInstance(address);
+    this.#log.info(`Retrieved contract in ${timer.ms()}ms`);
+
+    return Promise.resolve(contract);
   }
 
-  async addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c, blockNumber)))).every(Boolean);
+  async addContractClasses(
+    data: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    return (
+      await Promise.all(
+        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
+      )
+    ).every(Boolean);
   }
 
   async deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractClassStore.deleteContractClasses(c, blockNumber)))).every(
       Boolean,
     );
+  }
+
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(this.#contractClassStore.getBytecodeCommitment(contractClassId));
   }
 
   addFunctions(

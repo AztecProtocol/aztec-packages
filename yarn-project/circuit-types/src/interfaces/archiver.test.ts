@@ -8,6 +8,7 @@ import {
   Header,
   type PublicFunction,
   PublicKeys,
+  computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -358,6 +359,11 @@ class MockArchiver implements ArchiverApi {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
+  }
+  getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    expect(id).toBeInstanceOf(Fr);
+    const contractClass = getContractClassFromArtifact(this.artifact);
+    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
   }
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve({

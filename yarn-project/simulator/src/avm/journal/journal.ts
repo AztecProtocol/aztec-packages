@@ -12,6 +12,7 @@ import {
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import assert from 'assert';
@@ -469,24 +470,42 @@ export class AvmPersistableStateManager {
    */
   public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
     this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
+    let timer = new Timer();
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
+    let duration = timer.ms();
+    this.log.info(`Retrieved contract in ${duration}ms`);
 
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
 
+      timer = new Timer();
       const contractClass = await this.worldStateDB.getContractClass(instance.contractClassId);
+      duration = timer.ms();
+      this.log.info(`Retrieved contract class in ${duration}ms`);
+
+      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(instance.contractClassId);
+
       assert(
         contractClass,
         `Contract class not found in DB, but a contract instance was found with this class ID (${instance.contractClassId}). This should not happen!`,
       );
 
+      assert(
+        bytecodeCommitment,
+        `Bytecode commitment was not found in DB for contract class (${instance.contractClassId}). This should not happen!`,
+      );
+
+      timer = new Timer();
       const contractClassPreimage = {
         artifactHash: contractClass.artifactHash,
         privateFunctionsRoot: contractClass.privateFunctionsRoot,
-        publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+        publicBytecodeCommitment: bytecodeCommitment,
       };
+      duration = timer.ms();
+      this.log.info(`Computed bytecode commitment in ${duration}ms`);
 
+      timer = new Timer();
       this.trace.traceGetBytecode(
         contractAddress,
         exists,
@@ -494,6 +513,9 @@ export class AvmPersistableStateManager {
         instance,
         contractClassPreimage,
       );
+      duration = timer.ms();
+      this.log.info(`Retrieved bytecode in ${duration}ms`);
+
       return contractClass.packedBytecode;
     } else {
       // If the contract instance is not found, we assume it has not been deployed.
