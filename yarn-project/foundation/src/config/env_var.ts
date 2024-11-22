@@ -53,6 +53,7 @@ export type EnvVar =
   | 'L1_CHAIN_ID'
   | 'L1_PRIVATE_KEY'
   | 'L2_QUEUE_SIZE'
+  | 'LOG_ELAPSED_TIME'
   | 'LOG_JSON'
   | 'LOG_LEVEL'
   | 'MNEMONIC'

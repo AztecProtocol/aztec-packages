@@ -418,10 +418,7 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync(
-              { ...opts.config!, disableValidator: true },
-              new NoopTelemetryClient(),
-            );
+            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -467,7 +464,7 @@ describe('e2e_synching', () => {
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
             const { pxe } = await setupPXEService(aztecNode!);
@@ -578,7 +575,7 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
@@ -659,7 +656,7 @@ describe('e2e_synching', () => {
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
           const { pxe } = await setupPXEService(aztecNode!);

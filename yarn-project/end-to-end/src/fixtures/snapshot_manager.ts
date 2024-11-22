@@ -1,10 +1,8 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AnvilTestWatcher,
   type AztecAddress,
-  type AztecNode,
   BatchCall,
   CheatCodes,
   type CompleteAddress,
@@ -18,19 +16,17 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
+import { startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
-import { RollupAbi } from '@aztec/l1-artifacts';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
-import { type Anvil, createAnvil } from '@viem/anvil';
+import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
-import getPort from 'get-port';
 import { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -39,7 +35,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { type SetupOptions, getPrivateKeyFromIndex, startAnvil } from './utils.js';
+import { type SetupOptions, createAndSyncProverNode, getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
@@ -68,7 +64,6 @@ export function createSnapshotManager(
   config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
-    initialValidators: [],
   },
 ) {
   return dataPath
@@ -253,47 +248,6 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.watcher.stop();
 }
 
-async function createAndSyncProverNode(
-  proverNodePrivateKey: `0x${string}`,
-  aztecNodeConfig: AztecNodeConfig,
-  aztecNode: AztecNode,
-) {
-  // Disable stopping the aztec node as the prover coordination test will kill it otherwise
-  // This is only required when stopping the prover node for testing
-  const aztecNodeWithoutStop = {
-    addEpochProofQuote: aztecNode.addEpochProofQuote.bind(aztecNode),
-    getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
-    stop: () => Promise.resolve(),
-  };
-
-  // Creating temp store and archiver for simulated prover node
-  const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
-  const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
-
-  // Prover node config is for simulated proofs
-  const proverConfig: ProverNodeConfig = {
-    ...aztecNodeConfig,
-    proverCoordinationNodeUrl: undefined,
-    dataDirectory: undefined,
-    proverId: new Fr(42),
-    realProofs: false,
-    proverAgentConcurrency: 2,
-    publisherPrivateKey: proverNodePrivateKey,
-    proverNodeMaxPendingJobs: 10,
-    proverNodePollingIntervalMs: 200,
-    quoteProviderBasisPointFee: 100,
-    quoteProviderBondAmount: 1000n,
-    proverMinimumEscrowAmount: 1000n,
-    proverTargetEscrowAmount: 2000n,
-  };
-  const proverNode = await createProverNode(proverConfig, {
-    aztecNodeTxProvider: aztecNodeWithoutStop,
-    archiver: archiver as Archiver,
-  });
-  await proverNode.start();
-  return proverNode;
-}
-
 /**
  * Initializes a fresh set of subsystems.
  * If given a statePath, the state will be written to the path.
@@ -317,7 +271,7 @@ async function setupFromFresh(
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
-  const res = await startAnvil(opts.l1BlockTime);
+  const res = await startAnvil(opts.ethereumSlotDuration);
   const anvil = res.anvil;
   aztecNodeConfig.l1RpcUrl = res.rpcUrl;
 
@@ -393,7 +347,7 @@ async function setupFromFresh(
   const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort, /*serviceName*/ 'basenode');
 
   logger.verbose('Creating and synching an aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
@@ -414,19 +368,6 @@ async function setupFromFresh(
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
-  }
-
-  // If initial validators are provided, we need to remove them from the node.
-  if (deployL1ContractsArgs.initialValidators && deployL1ContractsArgs.initialValidators?.length > 0) {
-    const rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
-
-    logger.debug(`Removing ${deployL1ContractsArgs.initialValidators[0].toString()} as validator`);
-    const txHash = await rollup.write.removeValidator([deployL1ContractsArgs.initialValidators[0].toString()]);
-    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
   }
 
   return {
@@ -457,10 +398,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
-  const ethereumHostPort = await getPort();
-  aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-  const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
-  await anvil.start();
+  const { anvil, rpcUrl } = await startAnvil();
+  aztecNodeConfig.l1RpcUrl = rpcUrl;
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
   const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
@@ -491,7 +430,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   logger.verbose('Creating aztec node...');
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
 
   let proverNode: ProverNode | undefined = undefined;
   if (aztecNodeConfig.startProverNode) {
