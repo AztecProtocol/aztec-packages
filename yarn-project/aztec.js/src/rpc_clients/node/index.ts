@@ -4,6 +4,7 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { Axios, type AxiosError } from 'axios';
+import { inspect } from 'util';
 
 import { createPXEClient } from '../pxe_client.js';
 
@@ -26,7 +27,8 @@ async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndp
     if (error.response) {
       return error.response;
     }
-    throw error;
+    const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(error)}`;
+    throw new Error(errorMessage);
   });
 
   const isOK = resp.status >= 200 && resp.status < 300;
