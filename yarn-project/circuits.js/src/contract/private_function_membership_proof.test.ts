@@ -19,7 +19,7 @@ describe('private_function_membership_proof', () => {
 
   beforeAll(async () => {
     artifact = getBenchmarkContractArtifact();
-    contractClass = await await getContractClassFromArtifact(artifact);
+    contractClass = await getContractClassFromArtifact(artifact);
     privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.PRIVATE)!;
     vkHash = await computeVerificationKeyHash(privateFunction);
     selector = await FunctionSelector.fromNameAndParameters(privateFunction);

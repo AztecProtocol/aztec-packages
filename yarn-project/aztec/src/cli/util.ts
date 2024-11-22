@@ -44,7 +44,7 @@ export async function createAccountLogs(
   const registeredAccounts = await pxe.getRegisteredAccounts();
   const accountLogStrings = [`Initial Accounts:\n\n`];
   for (const account of accounts) {
-    const completeAddress = account.account.getCompleteAddress();
+    const completeAddress = await account.account.getCompleteAddress();
     if (registeredAccounts.find(a => a.equals(completeAddress))) {
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);

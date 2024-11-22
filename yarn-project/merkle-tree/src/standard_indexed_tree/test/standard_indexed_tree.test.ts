@@ -617,7 +617,7 @@ describe('StandardIndexedTreeSpecific', () => {
        *  nextIdx   1       0       0       0        0       0       0       0
        *  nextSlot  30      0       0       0        0       0       0       0.
        */
-      index1Hash = await await pedersen.hashInputs(createPublicDataTreeLeafHashInputs(30, 10, 0, 0));
+      index1Hash = await pedersen.hashInputs(createPublicDataTreeLeafHashInputs(30, 10, 0, 0));
       e10 = await pedersen.hash(index0Hash, index1Hash);
       e20 = await pedersen.hash(e10, level1ZeroHash);
       root = await pedersen.hash(e20, level2ZeroHash);

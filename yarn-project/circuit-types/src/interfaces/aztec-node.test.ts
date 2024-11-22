@@ -334,7 +334,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('addContractClass', async () => {
-    const contractClass = await await getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
 });
@@ -552,7 +552,7 @@ class MockAztecNode implements AztecNode {
   }
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = await await getContractClassFromArtifact(this.artifact);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

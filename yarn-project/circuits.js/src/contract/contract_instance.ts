@@ -113,7 +113,7 @@ export async function getContractInstanceFromDeployParams(
   const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
-  const contractClass = await await getContractClassFromArtifact(artifact);
+  const contractClass = await getContractClassFromArtifact(artifact);
   const contractClassId = await computeContractClassId(contractClass);
   const initializationHash =
     constructorArtifact && opts?.skipArgsDecoding
