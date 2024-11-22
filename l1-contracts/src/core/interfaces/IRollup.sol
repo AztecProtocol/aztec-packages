@@ -49,10 +49,8 @@ interface IRollup {
   ) external;
 
   function submitEpochRootProof(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputsAndAggregationObject,
+    DataStructures.SubmitProofArgs calldata _submitArgs,
+    bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
 
@@ -63,7 +61,7 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobHash,
+    bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 
@@ -107,10 +105,8 @@ interface IRollup {
   ) external view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputsAndAggregationObject
+    DataStructures.SubmitProofArgs calldata _submitArgs,
+    bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

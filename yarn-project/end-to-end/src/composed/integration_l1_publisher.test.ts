@@ -246,7 +246,7 @@ describe('L1Publisher integration', () => {
         body: `0x${block.body.toBuffer().toString('hex')}`,
         decodedHeader: {
           contentCommitment: {
-            blobHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
+            blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),

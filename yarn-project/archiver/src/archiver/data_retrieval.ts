@@ -295,7 +295,7 @@ export async function retrieveL2ProofsFromRollup(
 export type SubmitBlockProof = {
   archiveRoot: Fr;
   proverId: Fr;
-  blobPublicInputsAndAggregationObject: Buffer;
+  aggregationObject: Buffer;
   proof: Proof;
 };
 
@@ -318,14 +318,14 @@ export async function getProofFromSubmitProofTx(
 
   let proverId: Fr;
   let archiveRoot: Fr;
-  let blobPublicInputsAndAggregationObject: Buffer;
+  let aggregationObject: Buffer;
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
-    const [_epochSize, nestedArgs, _fees, aggregationObjectHex, proofHex] = args!;
-    blobPublicInputsAndAggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
-    proverId = Fr.fromString(nestedArgs[6]);
-    archiveRoot = Fr.fromString(nestedArgs[1]);
+    const [submitArgs, aggregationObjectHex, proofHex] = args!;
+    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
+    proverId = Fr.fromString(submitArgs.args[6]);
+    archiveRoot = Fr.fromString(submitArgs.args[1]);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);
@@ -337,7 +337,7 @@ export async function getProofFromSubmitProofTx(
 
   return {
     proverId,
-    blobPublicInputsAndAggregationObject,
+    aggregationObject,
     archiveRoot,
     proof,
   };

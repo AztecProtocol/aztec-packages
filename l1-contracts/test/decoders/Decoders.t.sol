@@ -76,7 +76,9 @@ contract DecodersTest is DecoderBase {
         DecoderBase.ContentCommitment memory contentCommitment = referenceHeader.contentCommitment;
 
         assertEq(header.contentCommitment.numTxs, contentCommitment.numTxs, "Invalid txTreeSize");
-        assertEq(header.contentCommitment.blobHash, contentCommitment.blobHash, "Invalid blobHash");
+        assertEq(
+          header.contentCommitment.blobsHash, contentCommitment.blobsHash, "Invalid blobHash"
+        );
         assertEq(header.contentCommitment.inHash, contentCommitment.inHash, "Invalid inHash");
         assertEq(header.contentCommitment.outHash, contentCommitment.outHash, "Invalid outHash");
       }

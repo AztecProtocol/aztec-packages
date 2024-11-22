@@ -75,7 +75,7 @@ contract DecoderBase is TestBase {
   }
 
   struct ContentCommitment {
-    bytes32 blobHash;
+    bytes32 blobsHash;
     bytes32 inHash;
     uint256 numTxs;
     bytes32 outHash;

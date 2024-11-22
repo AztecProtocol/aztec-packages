@@ -1255,12 +1255,17 @@ contract RollupTest is DecoderBase, TimeFns {
     fees[0] = bytes32(uint256(uint160(_feeRecipient)));
     fees[1] = bytes32(_feeAmount);
 
+    DataStructures.SubmitProofArgs memory submitArgs = DataStructures.SubmitProofArgs({
+      epochSize: _epochSize,
+      args: args,
+      fees: fees,
+      blobPublicInputs: _blobPublicInputs
+    });
+
     bytes memory aggregationObject = "";
     bytes memory proof = "";
 
-    _rollup.submitEpochRootProof(
-      _epochSize, args, fees, abi.encodePacked(_blobPublicInputs, aggregationObject), proof
-    );
+    _rollup.submitEpochRootProof(submitArgs, aggregationObject, proof);
   }
 
   function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)

@@ -24,7 +24,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
  *  |                                                                                  |              |   ContentCommitment {
  *  | 0x0024                                                                           | 0x20         |     numTxs
- *  | 0x0044                                                                           | 0x20         |     blobHash
+ *  | 0x0044                                                                           | 0x20         |     blobsHash
  *  | 0x0064                                                                           | 0x20         |     inHash
  *  | 0x0084                                                                           | 0x20         |     outHash
  *  |                                                                                  |              |   StateReference {
@@ -91,7 +91,7 @@ library HeaderLib {
 
   struct ContentCommitment {
     uint256 numTxs;
-    bytes32 blobHash;
+    bytes32 blobsHash;
     bytes32 inHash;
     bytes32 outHash;
   }
@@ -126,7 +126,7 @@ library HeaderLib {
 
     // Reading ContentCommitment
     header.contentCommitment.numTxs = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.blobHash = bytes32(_header[0x0044:0x0064]);
+    header.contentCommitment.blobsHash = bytes32(_header[0x0044:0x0064]);
     header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
     header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
 

@@ -780,25 +780,28 @@ export class L1Publisher {
     proof: Proof;
   }) {
     return [
-      BigInt(args.toBlock - args.fromBlock + 1),
-      [
-        args.publicInputs.previousArchive.root.toString(),
-        args.publicInputs.endArchive.root.toString(),
-        args.publicInputs.previousBlockHash.toString(),
-        args.publicInputs.endBlockHash.toString(),
-        args.publicInputs.endTimestamp.toString(),
-        args.publicInputs.outHash.toString(),
-        args.publicInputs.proverId.toString(),
-      ],
-      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
-        i % 2 === 0
-          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
-          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
-      ),
-      `0x${args.publicInputs.blobPublicInputs
-        .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
-        .map(b => b.toString())
-        .join(``)}${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
+      {
+        epochSize: BigInt(args.toBlock - args.fromBlock + 1),
+        args: [
+          args.publicInputs.previousArchive.root.toString(),
+          args.publicInputs.endArchive.root.toString(),
+          args.publicInputs.previousBlockHash.toString(),
+          args.publicInputs.endBlockHash.toString(),
+          args.publicInputs.endTimestamp.toString(),
+          args.publicInputs.outHash.toString(),
+          args.publicInputs.proverId.toString(),
+        ],
+        fees: makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
+          i % 2 === 0
+            ? args.publicInputs.fees[i / 2].recipient.toField().toString()
+            : args.publicInputs.fees[(i - 1) / 2].value.toString(),
+        ),
+        blobPublicInputs: `0x${args.publicInputs.blobPublicInputs
+          .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
+          .map(b => b.toString())
+          .join(``)}`,
+      },
+      `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 
