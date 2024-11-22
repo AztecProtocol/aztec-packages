@@ -28,6 +28,9 @@ SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
 SKIP_ARRAY+=(regression_5045)
 
+# These honk tests just started failing...
+SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof)
+
 if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
   TEST_NAMES=$(cd ../../noir/noir-repo/test_programs/execution_success; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
 fi

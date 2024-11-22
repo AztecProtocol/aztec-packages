@@ -18,10 +18,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-# g="\033[32m"  # Green
-# b="\033[34m"  # Blue
-# r="\033[0m"   # Reset
-
+# TODO: For the love of god can we stop bringing in entire node stacks for what can be done in a bash script?
 yarn
 
 parallel --line-buffer --tag {} ::: \
