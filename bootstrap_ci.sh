@@ -23,10 +23,10 @@ ip=$(./build-system/scripts/request_spot charlie-ci3 128 x86_64)
 
 ssh ubuntu@$ip "
   docker run $args --name aztec_build -t -v /var/run/docker.sock:/var/run/docker.sock aztecprotocol/build:1.0 bash -c '
+    set -e
     cd /root
-    git clone --depth 1 http://github.com/aztecprotocol/aztec-packages
+    git clone --depth 1 --branch cl/ci3 http://github.com/aztecprotocol/aztec-packages
     cd aztec-packages
-    git checkout cl/ci3
     CI=1 ./bootstrap.sh fast
   '
 "
