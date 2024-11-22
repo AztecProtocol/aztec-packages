@@ -324,6 +324,10 @@ impl Context {
         side_effects_enabled_var: ValueId,
         block: BasicBlockId,
     ) -> Option<&'a [ValueId]> {
+        if matches!(instruction, Instruction::MakeArray { .. }) {
+            return None;
+        }
+
         let results_for_instruction = self.cached_instruction_results.get(instruction)?;
 
         let predicate = self.use_constraint_info && instruction.requires_acir_gen_predicate(dfg);
