@@ -70,35 +70,8 @@ async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
   // If any alerts have been triggered
   // We post a comment on the PR and fail the test
   if (alertTriggered) {
-    await postCommentOnPR(commentMessage, logger);
-
     throw new Error('Test failed due to triggered alert');
   }
-}
-
-// Function to post a comment on the PR
-async function postCommentOnPR(message: string, logger: DebugLogger) {
-  const { AZTEC_BOT_GITHUB_TOKEN, PULL_REQUEST } = process.env;
-  if (!AZTEC_BOT_GITHUB_TOKEN || !PULL_REQUEST) {
-    logger.error('Missing required GitHub environment variables, cannot post comment');
-    return;
-  }
-  const token = AZTEC_BOT_GITHUB_TOKEN;
-  const prNumber = parseInt(PULL_REQUEST, 10);
-  if (isNaN(prNumber)) {
-    logger.error('Missing required GitHub environment variables.');
-    return;
-  }
-
-  const octokit = new Octokit({ auth: token });
-
-  await octokit.issues.createComment({
-    owner: 'AztecProtocol',
-    repo: 'aztec-packages',
-    /* eslint-disable-next-line camelcase */
-    issue_number: prNumber,
-    body: message,
-  });
 }
 
 // Main function to run tests

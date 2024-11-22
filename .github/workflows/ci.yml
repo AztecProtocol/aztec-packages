@@ -209,7 +209,6 @@ jobs:
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
