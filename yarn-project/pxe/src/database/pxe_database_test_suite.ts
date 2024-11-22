@@ -4,7 +4,7 @@ import {
   CompleteAddress,
   INITIAL_L2_BLOCK_NUM,
   PublicKeys,
-  SerializableContractInstance
+  SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { FunctionType } from '@aztec/foundation/abi';
