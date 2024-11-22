@@ -260,6 +260,7 @@ async function setupFromFresh(
   opts: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    initialValidators: [],
   },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
@@ -390,7 +391,6 @@ async function setupFromFresh(
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
 
-  // Load config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),

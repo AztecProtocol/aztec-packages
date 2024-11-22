@@ -156,7 +156,7 @@
 }
 
 [data-theme="light"] h1, [data-theme="light"] h2 {
-  color: #321E4C; 
+  color: #321E4C;
 }
 
 [data-theme="light"] h3, [data-theme="light"] h4, [data-theme="light"] h5, [data-theme="light"] h6 {
@@ -200,6 +200,8 @@ html[data-theme="dark"] .sidebar-divider {
   text-transform: uppercase;
   font-weight: 600;
   color: var(--ifm-color-gray-600);
+  padding: 0.2rem 0.2rem;
+  margin-top: 0.2rem;
 }
 
 html[data-theme="dark"] .sidebar-divider {
@@ -272,14 +274,6 @@ html[data-theme="dark"] .sidebar-divider {
   background: url('../../static/img/logos/github_dark_mode.svg') no-repeat;
 }
 
-.dropdown-subtitle {
-  display: block;
-  padding: 0.5rem 1rem;
-  font-weight: bold;
-  color: var(--ifm-color-primary);
-  font-size: 0.9rem;
-}
-
 .github-item {
   display: flex;
   align-items: center;
@@ -327,27 +321,12 @@ html[data-theme="dark"] .sidebar-divider {
   font-size: 0.9rem;
 }
 
-.twitter-item {
-  display: flex;
-  align-items: center;
-}
-
-.navbar .dropdown__link::after {
-  content: '\2197';
-  margin-left: 5px;
-}
-
 .navbar .dropdown__link.no-external-icon::after {
   content: none;
 }
 
 .navbar__item.dropdown .dropdown__link:hover {
   background-color: var(--ifm-color-emphasis-200);
-}
-
-.sidebar-title {
-  padding: 0.2rem 0.2rem;
-  margin-top: 0.2rem;
 }
 
 .card-container {
