@@ -22,7 +22,7 @@ function build {
   echo
   yarn install --immutable
 
-  case "$1" in
+  case "${1:-}" in
     "fast") yarn build::fast;;
     "full") yarn build;;
     *)
