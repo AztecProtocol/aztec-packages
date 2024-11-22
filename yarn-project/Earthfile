@@ -55,13 +55,6 @@ build:
 
 build-docs:
     # Prefetch targets to not wait for +deps.
-    BUILD ../barretenberg/cpp/+build
-    BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+nargo
-    BUILD --pass-args ../noir-projects/+build
-    BUILD ../l1-contracts/+build
-    BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+packages
     FROM +deps
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -269,7 +262,7 @@ end-to-end:
     ENTRYPOINT ["yarn", "test"]
 
 scripts-prod:
-    FROM +build-docs
+    FROM +build-docs-dev
     RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
