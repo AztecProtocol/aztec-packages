@@ -702,4 +702,15 @@ export class KVPxeDatabase implements PxeDatabase {
   #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<number[]> {
     return this.db.transaction(() => appTaggingSecrets.map(secret => storageMap.get(`${secret.toString()}`) ?? 0));
   }
+
+  async resetNoteSyncData(): Promise<void> {
+    await this.db.transaction(() => {
+      for (const recipient of this.#taggingSecretIndexesForRecipients.keys()) {
+        void this.#taggingSecretIndexesForRecipients.delete(recipient);
+      }
+      for (const sender of this.#taggingSecretIndexesForSenders.keys()) {
+        void this.#taggingSecretIndexesForSenders.delete(sender);
+      }
+    });
+  }
 }

@@ -250,10 +250,7 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
-      if (
-        // Computed address from the instance does not match address inside instance
-        !computeContractAddressFromInstance(instance).equals(instance.address)
-      ) {
+      if (!computeContractAddressFromInstance(instance).equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
@@ -976,5 +973,9 @@ export class PXEService implements PXE {
       .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
 
     return decodedEvents;
+  }
+
+  async resetNoteSyncData() {
+    return await this.db.resetNoteSyncData();
   }
 }

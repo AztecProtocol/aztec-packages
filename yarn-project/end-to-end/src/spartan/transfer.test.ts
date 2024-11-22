@@ -23,7 +23,7 @@ describe('token transfer test', () => {
     let PXE_URL;
     if (isK8sConfig(config)) {
       await startPortForward({
-        resource: 'svc/spartan-aztec-network-pxe',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
         hostPort: config.HOST_PXE_PORT,

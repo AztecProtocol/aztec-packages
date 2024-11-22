@@ -1,22 +1,24 @@
 //! `GeneratedAcir` is constructed as part of the `acir_gen` pass to accumulate all of the ACIR
 //! program as it is being converted from SSA form.
-use std::{collections::BTreeMap, u32};
+use std::collections::BTreeMap;
 
-use crate::{
-    brillig::{brillig_gen::brillig_directive, brillig_ir::artifact::GeneratedBrillig},
-    errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::{dfg::CallStack, instruction::ErrorType},
-};
 use acvm::acir::{
     circuit::{
         brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
         AssertionPayload, BrilligOpcodeLocation, ErrorSelector, OpcodeLocation,
     },
-    native_types::Witness,
-    BlackBoxFunc,
+    native_types::{Expression, Witness},
+    AcirField, BlackBoxFunc,
 };
-use acvm::{acir::native_types::Expression, acir::AcirField};
+
+use super::brillig_directive;
+use crate::{
+    brillig::brillig_ir::artifact::GeneratedBrillig,
+    errors::{InternalError, RuntimeError, SsaReport},
+    ssa::ir::dfg::CallStack,
+    ErrorType,
+};
 
 use iter_extended::vecmap;
 use noirc_errors::debug_info::ProcedureDebugId;
@@ -155,7 +157,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     /// This means you cannot multiply an infinite amount of `Expression`s together.
     /// Once the `Expression` goes over degree-2, then it needs to be reduced to a `Witness`
     /// which has degree-1 in order to be able to continue the multiplication chain.
-    pub(crate) fn create_witness_for_expression(&mut self, expression: &Expression<F>) -> Witness {
+    fn create_witness_for_expression(&mut self, expression: &Expression<F>) -> Witness {
         let fresh_witness = self.next_witness_index();
 
         // Create a constraint that sets them to be equal to each other
