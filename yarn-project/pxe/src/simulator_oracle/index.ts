@@ -360,11 +360,14 @@ export class SimulatorOracle implements DBOracle {
     // We use our current empty consecutive slots from the front, as well as the previous consecutive empty slots from the back to see if we ever hit a time where there
     // is a window in which we see the combination of them to be greater than the window's size. If true, we rewind current index to the start of said window and use it.
     // Assuming two windows of 5:
-    // [0, 1, 0, 0, 0], [0, 0, 0, 1, 1]
-    // We can see that when processing the second window, the previous amount of empty slots from the back of the window (3), added with the empty elements from the front of the window (3)
+    // [0, 1, 0, 1, 0], [0, 0, 0, 0, 0]
+    // We can see that when processing the second window, the previous amount of empty slots from the back of the window (1), added with the empty elements from the front of the window (5)
     // is greater than 5 (6) and therefore we have found a window to use.
-    // We simply need to take the number of elements (10) - the size of the window (5) - the number of consecutive empty elements from the back of the last window (3) = 2;
+    // We simply need to take the number of elements (10) - the size of the window (5) - the number of consecutive empty elements from the back of the last window (1) = 4;
     // This is the first index of our desired window.
+    // Note that if we ever see a situation like so:
+    // [0, 1, 0, 1, 0], [0, 0, 0, 0, 1]
+    // This also returns the correct index (4), but this is indicative of a problem / desync. i.e. we should never have a window that has a log that exists after the window.
 
     do {
       const currentTags = [...new Array(INDEX_OFFSET)].map((_, i) => {
