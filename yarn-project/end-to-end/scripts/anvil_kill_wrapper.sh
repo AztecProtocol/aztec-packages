@@ -36,7 +36,7 @@ fi
 # echo "Parent PID: $PARENT_PID"
 
 # Start anvil in the background.
-anvil $@ &
+RAYON_NUM_THREADS=1 anvil $@ &
 CHILD_PID=$!
 
 cleanup() {

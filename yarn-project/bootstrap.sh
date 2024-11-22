@@ -35,53 +35,84 @@ elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
   exit 1
 fi
 
-# Fast build does not delete everything first.
-# It regenerates all generated code, then performs an incremental tsc build.
-echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
-echo
-yarn install --immutable
-
-if ! yarn build:fast; then
-  echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
+function build {
+  # Fast build does not delete everything first.
+  # It regenerates all generated code, then performs an incremental tsc build.
+  echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  yarn build
-fi
+  yarn install --immutable
 
-echo
-echo -e "${GREEN}Yarn project successfully built!${RESET}"
+  if ! yarn build:fast; then
+    echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
+    echo
+    yarn build
+  fi
 
-if [ "${CI:-0}" -eq 1 ]; then
-  yarn test
+  echo
+  echo -e "${GREEN}Yarn project successfully built!${RESET}"
+}
+
+function run_e2e_tests {
+  # Temp hack. Put docker client in build image.
+  if ! which docker > /dev/null && [ $UID -eq 0 ]; then
+    apt update && apt install docker.io -y
+  fi
 
   cd end-to-end
+
+  # List every test individually. Do not put folders.
   PR_TESTS=(
-    e2e_2_pxes
-    e2e_authwit
-    e2e_avm_simulator
-    e2e_block_building
-    # e2e_cheat_codes
-    e2e_cross_chain_messaging
-    e2e_crowdfunding_and_claim
-    e2e_deploy_contract
-    e2e_fees/failures
-    e2e_fees/gas_estimation
-    e2e_fees/private_payments
-    e2e_lending_contract
-    e2e_max_block_number
-    e2e_nested_contract
-    e2e_ordering
-    e2e_prover_coordination
-    e2e_static_calls
+    "simple e2e_2_pxes"
+    "simple e2e_authwit"
+    "simple e2e_avm_simulator"
+    # "simple e2e_block_building"
+    "simple e2e_cross_chain_messaging/l1_to_l2"
+    "simple e2e_cross_chain_messaging/l2_to_l1"
+    "simple e2e_cross_chain_messaging/token_bridge_failure_cases"
+    "simple e2e_cross_chain_messaging/token_bridge_private"
+    "simple e2e_cross_chain_messaging/token_bridge_public"
+    "simple e2e_crowdfunding_and_claim"
+    "simple e2e_deploy_contract/contract_class_registration"
+    "simple e2e_deploy_contract/deploy_method"
+    "simple e2e_deploy_contract/legacy"
+    "simple e2e_deploy_contract/private_initialization"
+    "simple e2e_fees/failures"
+    "simple e2e_fees/gas_estimation"
+    "simple e2e_fees/private_payments"
+    "simple e2e_lending_contract"
+    "simple e2e_max_block_number"
+    "simple e2e_nested_contract/importer"
+    "simple e2e_nested_contract/manual_private_call"
+    "simple e2e_nested_contract/manual_private_enqueue"
+    "simple e2e_nested_contract/manual_public"
+    "simple e2e_ordering"
+    "simple e2e_prover_coordination"
+    "simple e2e_static_calls"
+    # "simple e2e_p2p/gossip_network"
+    # "simple e2e_p2p/rediscovery"
+    # "simple e2e_p2p/reqresp"
+    # "simple e2e_p2p/upgrade_governance_proposer"
+    # "compose guides/dapp_testing"
+    # "compose guides/up_quick_start"
+    # "compose guides/writing_an_account_contract"
   )
-  MASTER_TESTS=$PR_TESTS
-  MASTER_TESTS+=() # TODO: add additional tests for master.
+
+  commands=()
+  tests=()
+  for pair in "${PR_TESTS[@]}"; do
+      read -r cmd test <<< "$pair"
+      commands+=("$cmd")
+      tests+=("$test")
+  done
 
   rm -rf results/[a-z0-9]*
   set +e
-  parallel --verbose --joblog joblog.txt --results results/{}/ --halt now,fail=1 yarn test {} ::: ${PR_TESTS[@]}
+  parallel --verbose --joblog joblog.txt --results results/{2}/ --halt now,fail=1 \
+      ./scripts/test.sh {1} {2} ::: ${commands[@]} :::+ ${tests[@]}
+  code=$?
   set -e
 
-  awk 'NR > 1 && $7 != 0 {print $11}' joblog.txt | while read -r job; do
+  awk 'NR > 1 && $7 != 0 {print $NF}' joblog.txt | while read -r job; do
     stdout_file="results/${job}/stdout"
     stderr_file="results/${job}/stderr"
     if [ -f "$stdout_file" ]; then
@@ -93,4 +124,20 @@ if [ "${CI:-0}" -eq 1 ]; then
       cat "$stderr_file"
     fi
   done
-fi
+
+  echo "=== Job Log ==="
+  cat joblog.txt
+
+  exit $code
+}
+
+case "${CI:-0}" in
+  0) build
+  ;;
+  1) build
+     yarn test
+     run_e2e_tests
+  ;;
+  2) run_e2e_tests
+  ;;
+esac

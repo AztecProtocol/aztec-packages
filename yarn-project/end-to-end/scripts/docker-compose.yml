@@ -1,8 +1,7 @@
 version: '3'
 services:
   fork:
-    image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
-    pull_policy: always
+    image: aztecprotocol/build:1.0
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
@@ -10,12 +9,15 @@ services:
       else
         exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
       fi'
-    expose:
-      - '8545'
+    volumes:
+      - ../../../:/root/aztec-packages
 
   sandbox:
-    image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
-    command: 'start --sandbox'
+    image: aztecprotocol/build:1.0
+    volumes:
+      - ../../../:/root/aztec-packages
+    working_dir: /root/aztec-packages/yarn-project/aztec
+    command: 'node ./dest/bin start --sandbox'
     environment:
       DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
       DEBUG_COLORS: 1
@@ -29,11 +31,12 @@ services:
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       ENABLE_GAS: ${ENABLE_GAS:-}
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
-    expose:
-      - '8080'
 
   end-to-end:
-    image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
+    image: aztecprotocol/build:1.0
+    volumes:
+      - ../../../:/root/aztec-packages
+    working_dir: /root/aztec-packages/yarn-project/end-to-end
     environment:
       BENCHMARK: 'true'
       DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
@@ -44,10 +47,8 @@ services:
     entrypoint: >
       sh -c '
         while ! nc -z sandbox 8080; do sleep 1; done;
-        yarn test ${TEST:-./src/e2e_deploy_contract.test.ts}
+        ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts}
       '
-    volumes:
-      - ../log:/usr/src/yarn-project/end-to-end/log:rw
     depends_on:
       - sandbox
       - fork
