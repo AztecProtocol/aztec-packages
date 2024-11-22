@@ -27,6 +27,12 @@ echo "Unique deploy URL: $DOCS_PREVIEW_URL"
 
 cd ../yarn-project/scripts
 
+# Check if directory exists
+ls -la ../barretenberg/ts
+
+# Check if it has a package.json
+cat ../barretenberg/ts/package.json
+
 yarn install
 yarn build
 
