@@ -23,7 +23,6 @@ import {
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   computeAddressSecret,
-  computePoint,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
@@ -516,7 +515,7 @@ export class SimulatorOracle implements DBOracle {
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
-          incomingNotePayload ? computePoint(recipient) : undefined,
+          incomingNotePayload ? recipient.toAddressPoint() : undefined,
           outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
           payload!,
           txEffect.data.txHash,
@@ -577,7 +576,7 @@ export class SimulatorOracle implements DBOracle {
       })
       .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-    await this.db.removeNullifiedNotes(foundNullifiers, computePoint(recipient));
+    await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
     nullifiedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${

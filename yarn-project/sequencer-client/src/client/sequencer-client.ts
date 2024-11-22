@@ -34,15 +34,27 @@ export class SequencerClient {
    */
   public static async new(
     config: SequencerClientConfig,
-    validatorClient: ValidatorClient | undefined, // allowed to be undefined while we migrate
-    p2pClient: P2P,
-    worldStateSynchronizer: WorldStateSynchronizer,
-    contractDataSource: ContractDataSource,
-    l2BlockSource: L2BlockSource,
-    l1ToL2MessageSource: L1ToL2MessageSource,
-    telemetryClient: TelemetryClient,
+    deps: {
+      validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
+      p2pClient: P2P;
+      worldStateSynchronizer: WorldStateSynchronizer;
+      contractDataSource: ContractDataSource;
+      l2BlockSource: L2BlockSource;
+      l1ToL2MessageSource: L1ToL2MessageSource;
+      telemetry: TelemetryClient;
+      publisher?: L1Publisher;
+    },
   ) {
-    const publisher = new L1Publisher(config, telemetryClient);
+    const {
+      validatorClient,
+      p2pClient,
+      worldStateSynchronizer,
+      contractDataSource,
+      l2BlockSource,
+      l1ToL2MessageSource,
+      telemetry: telemetryClient,
+    } = deps;
+    const publisher = deps.publisher ?? new L1Publisher(config, telemetryClient);
     const globalsBuilder = new GlobalVariableBuilder(config);
 
     const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, telemetryClient);
