@@ -93,7 +93,7 @@ function run_e2e_tests {
 
   rm -rf results/[a-z0-9]*
   set +e
-  parallel --verbose --joblog joblog.txt --results results/{2}/ --halt now,fail=1 \
+  parallel --timeout 15m --verbose --joblog joblog.txt --results results/{2}/ --halt now,fail=1 \
       ./scripts/test.sh {1} {2} ::: ${commands[@]} :::+ ${tests[@]}
   code=$?
   set -e
