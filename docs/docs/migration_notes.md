@@ -8,6 +8,20 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec.nr] SharedImmutable renamings
+
+`SharedImmutable::read_private` and `SharedImmutable::read_public` were renamed to simply `read`, since only one of these versions is ever available depending on the current context.
+
+```diff
+// In private
+- let value = storage.my_var.read_private();
++ let value = storage.my_var.read();
+
+// In public
+- let value = storage.my_var.read_public();
++ let value = storage.my_var.read();
+```
+
 ### [aztec.js] Random addresses are now valid
 
 The `AztecAddress.random()` function now returns valid addresses, i.e. addresses that can receive encrypted messages and therefore have notes be sent to them. `AztecAddress.isValid()` was also added to check for validity of an address.

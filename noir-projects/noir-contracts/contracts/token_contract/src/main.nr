@@ -117,41 +117,42 @@ contract Token {
     #[public]
     #[view]
     fn public_get_name() -> FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
+    // docs:start:read_shared_immutable_private
     #[public]
     #[view]
     fn public_get_decimals() -> pub u8 {
-        // docs:start:read_decimals_public
-        storage.decimals.read_public()
-        // docs:end:read_decimals_public
+        storage.decimals.read()
     }
+    // docs:end:read_shared_immutable_private
+
+    // docs:start:read_shared_immutable_private
     #[private]
     #[view]
     fn private_get_decimals() -> pub u8 {
-        // docs:start:read_decimals_private
-        storage.decimals.read_private()
-        // docs:end:read_decimals_private
+        storage.decimals.read()
     }
+    // docs:end:read_shared_immutable_private
 
     // docs:start:admin
     #[public]
