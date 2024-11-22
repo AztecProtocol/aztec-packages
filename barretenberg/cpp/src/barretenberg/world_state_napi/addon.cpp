@@ -524,7 +524,7 @@ bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& 
             request.value.treeId, r1.value.leaves, r1.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<SequentialInsertionResult<PublicDataLeafValue>> resp_msg(
-            WorldStateMessageType::INSERT, header, result);
+            WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
         msgpack::pack(buffer, resp_msg);
 
         break;
@@ -536,7 +536,7 @@ bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& 
             request.value.treeId, r2.value.leaves, r2.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<SequentialInsertionResult<NullifierLeafValue>> resp_msg(
-            WorldStateMessageType::INSERT, header, result);
+            WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
         msgpack::pack(buffer, resp_msg);
         break;
     }
