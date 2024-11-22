@@ -42,6 +42,7 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
+  type GasFees,
   type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -256,6 +257,14 @@ export class AztecNodeService implements AztecNode {
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return (await this.blockSource.getBlocks(from, limit)) ?? [];
+  }
+
+  /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentBaseFees();
   }
 
   /**
