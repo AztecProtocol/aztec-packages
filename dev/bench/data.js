@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732280449155,
+  "lastUpdate": 1732288669143,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d7ee6e5cffba32ef141e717aeaf83f56a9af92b5",
-          "message": "feat: recursive verifier for decider and last folding proof (#9626)\n\nConstruct the _hiding_ circuit, which recursively verifies the last\r\nfolding proof and the decider proof in Client IVC and amend the e2e\r\nprover accordingly. The ClientIVC proof becomes a mega proof for the\r\nhiding circuit and a goblin proof which simplifies the work required to\r\ntransform this in a zero knowledge proof.",
-          "timestamp": "2024-11-05T17:46:52Z",
-          "tree_id": "74adc6396dd0a9021d0d14f5c6d565e7de0dd938",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d7ee6e5cffba32ef141e717aeaf83f56a9af92b5"
-        },
-        "date": 1730830462829,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29714.081709999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27804.966084 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5329.58219599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4987.222974 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 88247.460294,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 88247463000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15040.724782999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15040725000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3035963802,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3035963802 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145350192,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145350192 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 151546125,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 151546125 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c6fdf4bda5c9ef32ca355cda9a5a0c7ed3d1a100",
+          "message": "chore(avm): Remove initialization for non-derived polynomials (#10103)\n\nResolves #10096",
+          "timestamp": "2024-11-22T15:39:35+01:00",
+          "tree_id": "762d362e4b62b12a666505405c126038ef765036",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c6fdf4bda5c9ef32ca355cda9a5a0c7ed3d1a100"
+        },
+        "date": 1732288662052,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28119.940130000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26481.743194 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5020.442826999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4699.382423 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83835.424783,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83835424000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15114.793732999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15114794000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3093006529,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3093006529 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141433643,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141433643 ns\nthreads: 1"
           }
         ]
       }
