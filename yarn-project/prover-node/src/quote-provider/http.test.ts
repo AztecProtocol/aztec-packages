@@ -39,9 +39,9 @@ describe('HttpQuoteProvider', () => {
     port = (server.address() as AddressInfo).port;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     provider = new HttpQuoteProvider(`http://127.0.0.1:${port}`);
-    blocks = times(3, i => L2Block.random(i + 1, 4));
+    blocks = await Promise.all(times(3, i => L2Block.random(i + 1, 4)));
     response = { basisPointFee: 100, bondAmount: '100000000000000000000', validUntilSlot: '100' };
   });
 

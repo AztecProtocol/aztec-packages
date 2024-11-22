@@ -296,7 +296,7 @@ export class SimulatorOracle implements DBOracle {
   async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
+    const sharedSecret = await computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     return siloedSecret;
@@ -322,10 +322,12 @@ export class SimulatorOracle implements DBOracle {
     const contacts = [...this.db.getContactAddresses(), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
-    const appTaggingSecrets = contacts.map(contact => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
-      return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    });
+    const appTaggingSecrets = await Promise.all(
+      contacts.map(async contact => {
+        const sharedSecret = await computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
+        return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+      }),
+    );
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
@@ -397,7 +399,9 @@ export class SimulatorOracle implements DBOracle {
 
       while (currentTagggingSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-        const currentTags = currentTagggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient));
+        const currentTags = await Promise.all(
+          currentTagggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient)),
+        );
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
         const newTaggingSecrets: IndexedTaggingSecret[] = [];
         logsByTags.forEach((logsByTag, logIndex) => {
@@ -465,7 +469,7 @@ export class SimulatorOracle implements DBOracle {
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
-    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     const ovskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
     );
@@ -478,12 +482,16 @@ export class SimulatorOracle implements DBOracle {
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
-      const incomingNotePayload = L1NotePayload.decryptAsIncoming(
+      const incomingNotePayload = await L1NotePayload.decryptAsIncoming(
         scopedLog.logData,
         addressSecret,
         scopedLog.isFromPublic,
       );
-      const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.logData, ovskM, scopedLog.isFromPublic);
+      const outgoingNotePayload = await L1NotePayload.decryptAsOutgoing(
+        scopedLog.logData,
+        ovskM,
+        scopedLog.isFromPublic,
+      );
 
       if (incomingNotePayload || outgoingNotePayload) {
         if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
@@ -516,7 +524,7 @@ export class SimulatorOracle implements DBOracle {
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
-          incomingNotePayload ? computePoint(recipient) : undefined,
+          incomingNotePayload ? await computePoint(recipient) : undefined,
           outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
           payload!,
           txEffect.data.txHash,
@@ -577,7 +585,7 @@ export class SimulatorOracle implements DBOracle {
       })
       .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-    await this.db.removeNullifiedNotes(foundNullifiers, computePoint(recipient));
+    await this.db.removeNullifiedNotes(foundNullifiers, await computePoint(recipient));
     nullifiedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${

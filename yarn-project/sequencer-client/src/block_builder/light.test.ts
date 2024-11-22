@@ -80,7 +80,7 @@ describe('LightBlockBuilder', () => {
   beforeAll(async () => {
     logger = createDebugLogger('aztec:sequencer-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
-    vkTreeRoot = getVKTreeRoot();
+    vkTreeRoot = await getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     db = await NativeWorldStateService.tmp();
   });
@@ -103,7 +103,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 2 tx header', async () => {
-    const txs = times(2, makeTx);
+    const txs = await Promise.all(times(2, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -112,7 +112,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 3 tx header', async () => {
-    const txs = times(3, makeTx);
+    const txs = await Promise.all(times(3, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -124,7 +124,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 4 tx header', async () => {
-    const txs = times(4, makeTx);
+    const txs = await Promise.all(times(4, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -138,7 +138,7 @@ describe('LightBlockBuilder', () => {
 
   it('builds a 4 tx header with no l1 to l2 messages', async () => {
     const l1ToL2Messages: Fr[] = [];
-    const txs = times(4, makeTx);
+    const txs = await Promise.all(times(4, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -151,7 +151,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 5 tx header', async () => {
-    const txs = times(5, makeTx);
+    const txs = await Promise.all(times(5, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -165,7 +165,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a single tx header', async () => {
-    const txs = times(1, makeTx);
+    const txs = await Promise.all(times(1, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -236,7 +236,7 @@ describe('LightBlockBuilder', () => {
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
     const rootOutput = await getBlockRootOutput(mergeLeft, mergeRight, parityOutput, l1ToL2Snapshot);
-    const expectedHeader = buildHeaderFromCircuitOutputs(
+    const expectedHeader = await buildHeaderFromCircuitOutputs(
       [mergeLeft, mergeRight],
       parityOutput,
       rootOutput,
@@ -265,7 +265,7 @@ describe('LightBlockBuilder', () => {
     const rollupOutputs = [];
     for (const tx of txs) {
       const vkIndex = TUBE_VK_INDEX;
-      const vkPath = getVKSiblingPath(vkIndex);
+      const vkPath = await getVKSiblingPath(vkIndex);
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
       const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyProof, vkData);
       const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork);
@@ -278,7 +278,7 @@ describe('LightBlockBuilder', () => {
 
   const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
     const baseRollupVk = ProtocolCircuitVks['PrivateBaseRollupArtifact'].keyAsFields;
-    const baseRollupVkWitness = getVkMembershipWitness(baseRollupVk);
+    const baseRollupVkWitness = await getVkMembershipWitness(baseRollupVk);
     const leftInput = new PreviousRollupData(left, emptyProof, baseRollupVk, baseRollupVkWitness);
     const rightInput = new PreviousRollupData(right, emptyProof, baseRollupVk, baseRollupVkWitness);
     const inputs = new MergeRollupInputs([leftInput, rightInput]);
@@ -292,7 +292,7 @@ describe('LightBlockBuilder', () => {
 
     const rootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>[] = [];
     const baseParityVk = ProtocolCircuitVks['BaseParityArtifact'].keyAsFields;
-    const baseParityVkWitness = getVkMembershipWitness(baseParityVk);
+    const baseParityVkWitness = await getVkMembershipWitness(baseParityVk);
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
       const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkTreeRoot);
       const { inputs } = await simulator.getBaseParityProof(input);
@@ -316,7 +316,7 @@ describe('LightBlockBuilder', () => {
     },
   ) => {
     const mergeRollupVk = ProtocolCircuitVks['MergeRollupArtifact'].keyAsFields;
-    const mergeRollupVkWitness = getVkMembershipWitness(mergeRollupVk);
+    const mergeRollupVkWitness = await getVkMembershipWitness(mergeRollupVk);
 
     const rollupLeft = new PreviousRollupData(left, emptyProof, mergeRollupVk, mergeRollupVkWitness);
     const rollupRight = new PreviousRollupData(right, emptyProof, mergeRollupVk, mergeRollupVkWitness);
@@ -326,7 +326,7 @@ describe('LightBlockBuilder', () => {
     const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
 
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
-    const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
+    const rootParityVkWitness = await getVkMembershipWitness(rootParityVk);
 
     const rootParityInput = new RootParityInput(
       emptyProof,
@@ -351,8 +351,8 @@ describe('LightBlockBuilder', () => {
     return result.inputs;
   };
 
-  function getVkMembershipWitness(vk: VerificationKeyAsFields) {
-    const leafIndex = getVKIndex(vk);
-    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex));
+  async function getVkMembershipWitness(vk: VerificationKeyAsFields) {
+    const leafIndex = await getVKIndex(vk);
+    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex));
   }
 });

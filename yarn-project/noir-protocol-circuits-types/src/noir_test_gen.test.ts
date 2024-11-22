@@ -58,7 +58,7 @@ describe('Data generation for noir tests', () => {
     );
     const deployer = AztecAddress.ZERO;
     const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
-    const address = computeContractAddressFromInstance(instance);
+    const address = await computeContractAddressFromInstance(instance);
     const saltedInitializationHash = computeSaltedInitializationHash(instance);
     const partialAddress = computePartialAddress(instance);
 

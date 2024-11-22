@@ -12,9 +12,9 @@ const logger = createDebugLogger('aztec:orchestrator-errors');
 describe('prover/orchestrator/errors', () => {
   let context: TestContext;
 
-  const makeEmptyProcessedTestTx = () => {
+  const makeEmptyProcessedTestTx = async () => {
     const header = context.actualDb.getInitialHeader();
-    return makeEmptyProcessedTx(header, Fr.ZERO, Fr.ZERO, getVKTreeRoot(), protocolContractTreeRoot);
+    return makeEmptyProcessedTx(header, Fr.ZERO, Fr.ZERO, await getVKTreeRoot(), protocolContractTreeRoot);
   };
 
   beforeEach(async () => {
@@ -29,12 +29,12 @@ describe('prover/orchestrator/errors', () => {
 
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
-      const txs = [
+      const txs = await Promise.all([
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 2),
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 3),
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 4),
-      ];
+      ]);
 
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
@@ -43,7 +43,7 @@ describe('prover/orchestrator/errors', () => {
         await context.orchestrator.addNewTx(tx);
       }
 
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
         'Rollup not accepting further transactions',
       );
 
@@ -63,14 +63,14 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     });
 
     it('throws if adding a transaction before starting block', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     });
@@ -95,7 +95,7 @@ describe('prover/orchestrator/errors', () => {
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
       context.orchestrator.cancel();
 
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
         'Invalid proving state when adding a tx',
       );
     });

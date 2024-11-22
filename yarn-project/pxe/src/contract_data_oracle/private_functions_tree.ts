@@ -7,7 +7,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type MerkleTree } from '@aztec/circuits.js/merkle';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 
@@ -19,10 +19,10 @@ import { assertLength } from '@aztec/foundation/serialize';
  */
 export class PrivateFunctionsTree {
   private tree?: MerkleTree;
-  private contractClass: ContractClassWithId;
+  private contractClass: Promise<ContractClassWithId>;
 
   constructor(private readonly artifact: ContractArtifact) {
-    this.contractClass = await getContractClassFromArtifact(artifact);
+    this.contractClass = getContractClassFromArtifact(artifact);
   }
 
   /**
@@ -33,8 +33,15 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns The artifact object containing relevant information about the targeted function.
    */
-  public getFunctionArtifact(selector: FunctionSelector) {
-    const artifact = this.artifact.functions.find(f => selector.equals(f.name, f.parameters));
+  public async getFunctionArtifact(selector: FunctionSelector) {
+    const artifact = (
+      await Promise.all(
+        this.artifact.functions.map(async f => {
+          const fs = await FunctionSelector.fromNameAndParameters(f.name, f.parameters);
+          return fs.equals(selector) ? f : undefined;
+        }),
+      )
+    ).find(f => !!f);
     if (!artifact) {
       throw new Error(
         `Unknown function. Selector ${selector.toString()} not found in the artifact ${
@@ -53,8 +60,8 @@ export class PrivateFunctionsTree {
    * @param selector - The selector of a function to get bytecode for.
    * @returns The bytecode of the function as a string.
    */
-  public getBytecode(selector: FunctionSelector) {
-    return this.getFunctionArtifact(selector).bytecode;
+  public async getBytecode(selector: FunctionSelector) {
+    return (await this.getFunctionArtifact(selector)).bytecode;
   }
 
   /**
@@ -81,8 +88,8 @@ export class PrivateFunctionsTree {
   /**
    * Returns the contract class identifier for the given artifact.
    */
-  public getContractClassId() {
-    return this.getContractClass().id;
+  public async getContractClassId() {
+    return (await this.getContractClass()).id;
   }
 
   /**
@@ -97,13 +104,13 @@ export class PrivateFunctionsTree {
   public async getFunctionMembershipWitness(
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>> {
-    const fn = this.getContractClass().privateFunctions.find(f => f.selector.equals(selector));
+    const fn = (await this.getContractClass()).privateFunctions.find(f => f.selector.equals(selector));
     if (!fn) {
       throw new Error(`Private function with selector ${selector.toString()} not found in contract class.`);
     }
 
     const leaf = await computePrivateFunctionLeaf(fn);
-    const index =(await  this.getTree()).getIndex(leaf);
+    const index = (await this.getTree()).getIndex(leaf);
     const path = (await this.getTree()).getSiblingPath(index);
     return Promise.resolve(
       new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
@@ -116,7 +123,7 @@ export class PrivateFunctionsTree {
 
   private async getTree() {
     if (!this.tree) {
-      const fns = this.getContractClass().privateFunctions;
+      const fns = (await this.getContractClass()).privateFunctions;
       this.tree = await computePrivateFunctionsTree(fns);
     }
     return this.tree;

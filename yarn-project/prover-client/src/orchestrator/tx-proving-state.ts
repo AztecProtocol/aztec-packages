@@ -57,7 +57,7 @@ export class TxProvingState {
     return this.processedTx.avmProvingRequest!.inputs;
   }
 
-  public getPrivateBaseInputs() {
+  public async getPrivateBaseInputs() {
     if (this.requireAvmProof) {
       throw new Error('Should create public base rollup for a tx requiring avm proof.');
     }
@@ -65,7 +65,7 @@ export class TxProvingState {
       throw new Error('Tx not ready for proving base rollup.');
     }
 
-    const vkData = this.getTubeVkData();
+    const vkData = await this.getTubeVkData();
     const tubeData = new PrivateTubeData(this.processedTx.data.toKernelCircuitPublicInputs(), this.tube.proof, vkData);
 
     if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
@@ -74,7 +74,7 @@ export class TxProvingState {
     return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
   }
 
-  public getPublicBaseInputs() {
+  public async getPublicBaseInputs() {
     if (!this.processedTx.avmProvingRequest) {
       throw new Error('Should create private base rollup for a tx not requiring avm proof.');
     }
@@ -88,13 +88,13 @@ export class TxProvingState {
     const tubeData = new PublicTubeData(
       this.processedTx.data.toPublicKernelCircuitPublicInputs(),
       this.tube.proof,
-      this.getTubeVkData(),
+      await this.getTubeVkData(),
     );
 
     const avmProofData = new AvmProofData(
       this.processedTx.avmProvingRequest.inputs.output,
       this.avm.proof,
-      this.getAvmVkData(),
+      await this.getAvmVkData(),
     );
 
     if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
@@ -159,21 +159,21 @@ export class TxProvingState {
     }
   }
 
-  private getTubeVkData() {
+  private async getTubeVkData() {
     let vkIndex = TUBE_VK_INDEX;
     try {
-      vkIndex = getVKIndex(this.tube!.verificationKey);
+      vkIndex = await getVKIndex(this.tube!.verificationKey);
     } catch (_ignored) {
       // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
     }
-    const vkPath = getVKSiblingPath(vkIndex);
+    const vkPath = await getVKSiblingPath(vkIndex);
 
     return new VkWitnessData(this.tube!.verificationKey, vkIndex, vkPath);
   }
 
-  private getAvmVkData() {
+  private async getAvmVkData() {
     const vkIndex = AVM_VK_INDEX;
-    const vkPath = getVKSiblingPath(vkIndex);
+    const vkPath = await getVKSiblingPath(vkIndex);
     return new VkWitnessData(this.avm!.verificationKey, AVM_VK_INDEX, vkPath);
   }
 }

@@ -1,17 +1,17 @@
 import { type AllowedElement } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
-    type L1ContractsConfig,
-    type L1ReaderConfig,
-    l1ContractsConfigMappings,
-    l1ReaderConfigMappings,
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  l1ContractsConfigMappings,
+  l1ReaderConfigMappings,
 } from '@aztec/ethereum';
 import {
-    type ConfigMappingsType,
-    booleanConfigHelper,
-    getConfigFromMappings,
-    numberConfigHelper,
-    pickConfigMappings,
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -19,10 +19,10 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
-    type PublisherConfig,
-    type TxSenderConfig,
-    getPublisherConfigMappings,
-    getTxSenderConfigMappings,
+  type PublisherConfig,
+  type TxSenderConfig,
+  getPublisherConfigMappings,
+  getTxSenderConfigMappings,
 } from './publisher/config.js';
 import { type SequencerConfig } from './sequencer/config.js';
 
@@ -203,7 +203,7 @@ export function parseSequencerAllowList(value: string): AllowedElement[] {
   return entries;
 }
 
-function getDefaultAllowedSetupFunctions(): AllowedElement[] {
+async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[]> {
   return [
     // needed for authwit support
     {
@@ -217,23 +217,23 @@ function getDefaultAllowedSetupFunctions(): AllowedElement[] {
     },
     // needed for private transfers via FPC
     {
-      classId: await getContractClassFromArtifact(TokenContractArtifact).id,
+      classId: (await getContractClassFromArtifact(TokenContractArtifact)).id,
       // We can't restrict the selector because public functions get routed via dispatch.
       // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
     {
-      classId: await getContractClassFromArtifact(FPCContract.artifact).id,
+      classId: (await getContractClassFromArtifact(FPCContract.artifact)).id,
       // We can't restrict the selector because public functions get routed via dispatch.
       // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
     },
   ];
 }
 
-function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
+async function getDefaultAllowedTeardownFunctions(): Promise<AllowedElement[]> {
   return [
     {
-      classId: await getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
+      classId: (await getContractClassFromArtifact(FPCContract.artifact)).id,
+      selector: await FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
     },
   ];
 }

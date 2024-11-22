@@ -44,13 +44,15 @@ describe('prover/bb_prover/full-rollup', () => {
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
         const globals = makeGlobals(blockNum);
         const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-        const txs = times(nonEmptyTxs, (i: number) => {
-          const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
-          const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
-          tx.data.constants.historicalHeader = initialHeader;
-          tx.data.constants.vkTreeRoot = getVKTreeRoot();
-          return tx;
-        });
+        const txs = await Promise.all(
+          times(nonEmptyTxs, async (i: number) => {
+            const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
+            const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
+            tx.data.constants.historicalHeader = initialHeader;
+            tx.data.constants.vkTreeRoot = await getVKTreeRoot();
+            return tx;
+          }),
+        );
 
         log.info(`Starting new block #${blockNum}`);
         await context.orchestrator.startNewBlock(totalTxs, globals, l1ToL2Messages);
@@ -82,11 +84,13 @@ describe('prover/bb_prover/full-rollup', () => {
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots
   it.skip('proves all circuits', async () => {
     const numTransactions = 4;
-    const txs = times(numTransactions, (i: number) =>
-      mockTx(1000 * (i + 1), {
-        numberOfNonRevertiblePublicCallRequests: 2,
-        numberOfRevertiblePublicCallRequests: 1,
-      }),
+    const txs = await Promise.all(
+      times(numTransactions, (i: number) =>
+        mockTx(1000 * (i + 1), {
+          numberOfNonRevertiblePublicCallRequests: 2,
+          numberOfRevertiblePublicCallRequests: 1,
+        }),
+      ),
     );
     for (const tx of txs) {
       tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();

@@ -97,7 +97,7 @@ export async function buildBaseRollupHints(
 
   // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
-  const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+  const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
   const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
     ? PublicDataHint.empty()
     : await getPublicDataHint(db, leafSlot.toBigInt());
@@ -172,7 +172,7 @@ export async function buildBaseRollupHints(
       ),
     });
 
-    const blockHash = tx.constants.historicalHeader.hash();
+    const blockHash = await tx.constants.historicalHeader.hash();
     const archiveRootMembershipWitness = await getMembershipWitnessFor(
       blockHash,
       MerkleTreeId.ARCHIVE,
@@ -225,7 +225,7 @@ export async function buildBaseRollupHints(
       feeWriteSiblingPath,
     });
 
-    const blockHash = tx.constants.historicalHeader.hash();
+    const blockHash = await tx.constants.historicalHeader.hash();
     const archiveRootMembershipWitness = await getMembershipWitnessFor(
       blockHash,
       MerkleTreeId.ARCHIVE,
@@ -263,18 +263,18 @@ async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
 
-export function createMergeRollupInputs(
+export async function createMergeRollupInputs(
   left: [BaseOrMergeRollupPublicInputs, RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, VerificationKeyAsFields],
   right: [BaseOrMergeRollupPublicInputs, RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, VerificationKeyAsFields],
 ) {
   const mergeInputs = new MergeRollupInputs([
-    getPreviousRollupDataFromPublicInputs(left[0], left[1], left[2]),
-    getPreviousRollupDataFromPublicInputs(right[0], right[1], right[2]),
+    await getPreviousRollupDataFromPublicInputs(left[0], left[1], left[2]),
+    await getPreviousRollupDataFromPublicInputs(right[0], right[1], right[2]),
   ]);
   return mergeInputs;
 }
 
-export function createBlockMergeRollupInputs(
+export async function createBlockMergeRollupInputs(
   left: [
     BlockRootOrBlockMergePublicInputs,
     RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
@@ -287,13 +287,13 @@ export function createBlockMergeRollupInputs(
   ],
 ) {
   const mergeInputs = new BlockMergeRollupInputs([
-    getPreviousRollupBlockDataFromPublicInputs(left[0], left[1], left[2]),
-    getPreviousRollupBlockDataFromPublicInputs(right[0], right[1], right[2]),
+    await getPreviousRollupBlockDataFromPublicInputs(left[0], left[1], left[2]),
+    await getPreviousRollupBlockDataFromPublicInputs(right[0], right[1], right[2]),
   ]);
   return mergeInputs;
 }
 
-export function buildHeaderFromCircuitOutputs(
+export async function buildHeaderFromCircuitOutputs(
   previousMergeData: [BaseOrMergeRollupPublicInputs, BaseOrMergeRollupPublicInputs],
   parityPublicInputs: ParityPublicInputs,
   rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
@@ -316,7 +316,7 @@ export function buildHeaderFromCircuitOutputs(
     previousMergeData[0].constants.globalVariables,
     previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
   );
-  if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
+  if (!(await header.hash()).equals(rootRollupOutputs.endBlockHash)) {
     logger?.error(
       `Block header mismatch when building header from circuit outputs.` +
         `\n\nHeader: ${inspect(header)}` +
@@ -352,7 +352,7 @@ export async function buildHeaderFromTxEffects(
   l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
   const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-  const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
+  const parityShaRoot = await new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
 
@@ -403,7 +403,7 @@ export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: T
 }
 
 // Builds the inputs for the final root rollup circuit, without making any changes to trees
-export function getRootRollupInput(
+export async function getRootRollupInput(
   rollupOutputLeft: BlockRootOrBlockMergePublicInputs,
   rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   verificationKeyLeft: VerificationKeyAsFields,
@@ -413,8 +413,8 @@ export function getRootRollupInput(
   proverId: Fr,
 ) {
   const previousRollupData: RootRollupInputs['previousRollupData'] = [
-    getPreviousRollupBlockDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
-    getPreviousRollupBlockDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
+    await getPreviousRollupBlockDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
+    await getPreviousRollupBlockDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
   ];
 
   return RootRollupInputs.from({
@@ -423,33 +423,33 @@ export function getRootRollupInput(
   });
 }
 
-export function getPreviousRollupDataFromPublicInputs(
+export async function getPreviousRollupDataFromPublicInputs(
   rollupOutput: BaseOrMergeRollupPublicInputs,
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
-  const leafIndex = getVKIndex(vk);
+  const leafIndex = await getVKIndex(vk);
 
   return new PreviousRollupData(
     rollupOutput,
     rollupProof,
     vk,
-    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
   );
 }
 
-export function getPreviousRollupBlockDataFromPublicInputs(
+export async function getPreviousRollupBlockDataFromPublicInputs(
   rollupOutput: BlockRootOrBlockMergePublicInputs,
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
-  const leafIndex = getVKIndex(vk);
+  const leafIndex = await getVKIndex(vk);
 
   return new PreviousRollupBlockData(
     rollupOutput,
     rollupProof,
     vk,
-    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
   );
 }
 
@@ -458,7 +458,7 @@ export async function getConstantRollupData(
   db: MerkleTreeReadOperations,
 ): Promise<ConstantRollupData> {
   return ConstantRollupData.from({
-    vkTreeRoot: getVKTreeRoot(),
+    vkTreeRoot: await getVKTreeRoot(),
     protocolContractTreeRoot,
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,

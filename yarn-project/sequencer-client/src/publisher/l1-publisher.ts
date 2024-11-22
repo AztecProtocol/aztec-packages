@@ -469,11 +469,11 @@ export class L1Publisher {
 
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
+    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: block.header.hash().toBuffer(),
+      blockHash: (await block.header.hash()).toBuffer(),
       body: block.body.toBuffer(),
       attestations,
       txHashes: txHashes ?? [],

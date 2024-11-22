@@ -60,7 +60,7 @@ describe('ContractAddress', () => {
     const deployer = AztecAddress.fromField(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
 
-    const address = computeContractAddressFromInstance({
+    const address = await computeContractAddressFromInstance({
       publicKeys,
       salt,
       contractClassId,

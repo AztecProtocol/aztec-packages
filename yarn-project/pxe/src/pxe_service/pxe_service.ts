@@ -232,7 +232,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = computeContractClassId(await getContractClassFromArtifact(artifact));
+    const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -244,7 +244,7 @@ export class PXEService implements PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = computeContractClassId(contractClass);
+      const contractClassId = await computeContractClassId(contractClass);
       if (!contractClassId.equals(instance.contractClassId)) {
         throw new Error(
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
@@ -252,7 +252,7 @@ export class PXEService implements PXE {
       }
       if (
         // Computed address from the instance does not match address inside instance
-        !computeContractAddressFromInstance(instance).equals(instance.address)
+        !(await computeContractAddressFromInstance(instance)).equals(instance.address)
       ) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
@@ -295,9 +295,16 @@ export class PXEService implements PXE {
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
-          computePoint(completeAddress.address).equals(dao.addressPoint),
-        );
+        const completeAddresses = (
+          await Promise.all(
+            (
+              await this.db.getCompleteAddresses()
+            ).map(async completeAddress => {
+              const point = await computePoint(completeAddress.address);
+              return point.equals(dao.addressPoint) ? completeAddress : undefined;
+            }),
+          )
+        ).find(completeAddress => !!completeAddress);
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
         }
@@ -398,7 +405,7 @@ export class PXEService implements PXE {
           noteHash,
           siloedNullifier,
           index,
-          computePoint(owner.address),
+          await computePoint(owner.address),
         ),
         scope,
       );
@@ -443,7 +450,7 @@ export class PXEService implements PXE {
           noteHash,
           Fr.ZERO, // We are not able to derive
           index,
-          computePoint(note.owner),
+          await computePoint(note.owner),
         ),
       );
     }
@@ -470,7 +477,7 @@ export class PXEService implements PXE {
         break;
       }
 
-      const nonce = computeNoteHashNonce(firstNullifier, i);
+      const nonce = await computeNoteHashNonce(firstNullifier, i);
       const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
@@ -666,7 +673,7 @@ export class PXEService implements PXE {
     return {
       name: functionDao.name,
       args: encodeArguments(functionDao, args),
-      selector: FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
+      selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
       isStatic: functionDao.isStatic,
@@ -904,26 +911,28 @@ export class PXEService implements PXE {
             throw new Error('No registered account');
           }
 
-          const preaddress = registeredAccount.getPreaddress();
+          const preaddress = await registeredAccount.getPreaddress();
 
-          secretKey = computeAddressSecret(preaddress, secretKey);
+          secretKey = await computeAddressSecret(preaddress, secretKey);
         }
 
         return secretKey;
       }),
     );
 
-    const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
-      for (const sk of vsks) {
-        const decryptedEvent =
-          L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
-        if (decryptedEvent !== undefined) {
-          return [decryptedEvent];
+    const visibleEvents = await Promise.all(
+      encryptedLogs.flatMap(encryptedLog => {
+        for (const sk of vsks) {
+          const decryptedEvent =
+            L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
+          if (decryptedEvent !== undefined) {
+            return [decryptedEvent];
+          }
         }
-      }
 
-      return [];
-    });
+        return [];
+      }),
+    );
 
     const decodedEvents = visibleEvents
       .map(visibleEvent => {

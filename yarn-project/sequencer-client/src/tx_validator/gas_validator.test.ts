@@ -28,12 +28,12 @@ describe('GasTxValidator', () => {
   let expectedBalanceSlot: Fr;
   let feeLimit: bigint;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = AztecAddress.random();
     tx.data.constants.txContext.gasSettings = GasSettings.default();
     payer = tx.data.feePayer;
-    expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
+    expectedBalanceSlot = await poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
   });
 
@@ -84,7 +84,7 @@ describe('GasTxValidator', () => {
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
     patchRevertibleFn(tx, 0, {
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
       args: [payer.toField(), new Fr(1n)],
     });
     await expectValidateFail(tx);

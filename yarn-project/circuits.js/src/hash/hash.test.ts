@@ -18,10 +18,10 @@ import {
 describe('hash', () => {
   setupCustomSnapshotSerializers(expect);
 
-  it('computes note hash nonce', () => {
+  it('computes note hash nonce', async () => {
     const nullifierZero = new Fr(123n);
     const noteHashIndex = 456;
-    const res = computeNoteHashNonce(nullifierZero, noteHashIndex);
+    const res = await computeNoteHashNonce(nullifierZero, noteHashIndex);
     expect(res).toMatchSnapshot();
   });
 

@@ -300,8 +300,8 @@ export const randomContractInstanceWithAddress = async (
 
 export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
-  const contractClassId = await computeContractClassId(await await getContractClassFromArtifact(artifact));
-  return { artifact, instance: randomContractInstanceWithAddress({ contractClassId }) };
+  const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+  return { artifact, instance: await randomContractInstanceWithAddress({ contractClassId }) };
 };
 
 export const randomExtendedNote = ({

@@ -66,12 +66,12 @@ describe('L1Publisher', () => {
 
   const GAS_GUESS = 300_000n;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     l2Block = await L2Block.random(42);
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
-    blockHash = l2Block.header.hash().toBuffer();
+    blockHash = (await l2Block.header.hash()).toBuffer();
     body = l2Block.body.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash

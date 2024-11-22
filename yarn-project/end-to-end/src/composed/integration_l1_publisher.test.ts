@@ -194,7 +194,7 @@ describe('L1Publisher integration', () => {
       header: prevHeader,
       chainId: fr(chainId),
       version: fr(config.version),
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       protocolContractTreeRoot,
       seed,
     });

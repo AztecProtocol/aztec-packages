@@ -162,13 +162,13 @@ const proveAvmTestContract = async (
 ): Promise<BBSuccess> => {
   const worldStateDB = mock<WorldStateDB>();
   const startSideEffectCounter = 0;
-  const functionSelector = getAvmTestContractFunctionSelector(functionName);
+  const functionSelector = await getAvmTestContractFunctionSelector(functionName);
   calldata = [functionSelector.toField(), ...calldata];
   const globals = GlobalVariables.empty();
 
   // Top level contract call
   const bytecode = getAvmTestContractBytecode('public_dispatch');
-  const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
+  const fnSelector = await getAvmTestContractFunctionSelector('public_dispatch');
   const publicFn: PublicFunction = { bytecode, selector: fnSelector };
   const contractClass = await makeContractClassPublic(0, publicFn);
   const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
@@ -246,7 +246,7 @@ const proveAvmTestContract = async (
   const avmCircuitInputs = new AvmCircuitInputs(
     functionName,
     /*calldata=*/ context.environment.calldata,
-    /*publicInputs=*/ getPublicInputs(pxResult),
+    /*publicInputs=*/ await getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
     AvmCircuitPublicInputs.empty(),
   );

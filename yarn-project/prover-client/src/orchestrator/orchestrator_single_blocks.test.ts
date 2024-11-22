@@ -31,7 +31,7 @@ describe('prover/orchestrator/blocks', () => {
     });
 
     it('builds a block with 1 transaction', async () => {
-      const txs = [makeBloatedProcessedTxWithVKRoot(context.actualDb, 1)];
+      const txs = await Promise.all([makeBloatedProcessedTxWithVKRoot(context.actualDb, 1)]);
 
       // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1);
@@ -47,12 +47,12 @@ describe('prover/orchestrator/blocks', () => {
     });
 
     it('builds a block concurrently with transaction simulation', async () => {
-      const txs = [
+      const txs = await Promise.all([
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 2),
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 3),
         makeBloatedProcessedTxWithVKRoot(context.actualDb, 4),
-      ];
+      ]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 

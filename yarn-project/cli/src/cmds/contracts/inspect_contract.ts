@@ -1,9 +1,9 @@
 import { getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
-    type FunctionArtifact,
-    FunctionSelector,
-    decodeFunctionSignature,
-    decodeFunctionSignatureWithParameterNames,
+  type FunctionArtifact,
+  FunctionSelector,
+  decodeFunctionSignature,
+  decodeFunctionSignatureWithParameterNames,
 } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
@@ -26,12 +26,16 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   log(`\tpublic bytecode commitment: ${contractClass.publicBytecodeCommitment.toString()}`);
   log(`\tpublic bytecode length: ${contractClass.packedBytecode.length} bytes (${bytecodeLengthInFields} fields)`);
   log(`\nExternal functions:`);
-  contractFns.filter(f => !f.isInternal).forEach(f => logFunction(f, log));
+  for (const f of contractFns.filter(f => !f.isInternal)) {
+    await logFunction(f, log);
+  }
   log(`\nInternal functions:`);
-  contractFns.filter(f => f.isInternal).forEach(f => logFunction(f, log));
+  for (const f of contractFns.filter(f => f.isInternal)) {
+    await logFunction(f, log);
+  }
 }
 
-function logFunction(fn: FunctionArtifact, log: LogFn) {
+async function logFunction(fn: FunctionArtifact, log: LogFn) {
   const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
   const signature = decodeFunctionSignature(fn.name, fn.parameters);
   const selector = await FunctionSelector.fromSignature(signature);

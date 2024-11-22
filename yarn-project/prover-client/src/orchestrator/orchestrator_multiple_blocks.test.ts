@@ -26,9 +26,9 @@ describe('prover/orchestrator/multi-block', () => {
 
       for (let i = 0; i < numBlocks; i++) {
         logger.info(`Creating block ${i + 1000}`);
-        const tx = makeBloatedProcessedTx({
+        const tx = await makeBloatedProcessedTx({
           header,
-          vkTreeRoot: getVKTreeRoot(),
+          vkTreeRoot: await getVKTreeRoot(),
           protocolContractTreeRoot,
           seed: i + 1,
         });

@@ -326,8 +326,8 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner ? computePoint(filter.owner) : undefined;
+  async getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
+    const publicKey: PublicKey | undefined = filter.owner ? await computePoint(filter.owner) : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 

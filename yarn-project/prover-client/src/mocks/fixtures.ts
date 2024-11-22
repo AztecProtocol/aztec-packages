@@ -94,8 +94,8 @@ export async function getSimulationProvider(
   return new WASMSimulator();
 }
 
-export const makeBloatedProcessedTxWithVKRoot = (builderDb: MerkleTreeReadOperations, seed = 0x1) =>
-  makeBloatedProcessedTx({ db: builderDb, vkTreeRoot: getVKTreeRoot(), protocolContractTreeRoot, seed });
+export const makeBloatedProcessedTxWithVKRoot = async (builderDb: MerkleTreeReadOperations, seed = 0x1) =>
+  makeBloatedProcessedTx({ db: builderDb, vkTreeRoot: await getVKTreeRoot(), protocolContractTreeRoot, seed });
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
 export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, txs: ProcessedTx[]) => {

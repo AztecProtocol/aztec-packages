@@ -32,8 +32,8 @@ export async function createAccount(
     Fr.ZERO,
     publicKey,
   );
-  const salt = account.getInstance().salt;
-  const { address, publicKeys, partialAddress } = account.getCompleteAddress();
+  const salt = (await account.getInstance()).salt;
+  const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
   const out: Record<string, any> = {};
   if (json) {
@@ -44,8 +44,8 @@ export async function createAccount(
     }
     out.partialAddress = partialAddress;
     out.salt = salt;
-    out.initHash = account.getInstance().initializationHash;
-    out.deployer = account.getInstance().deployer;
+    out.initHash = (await account.getInstance()).initializationHash;
+    out.deployer = (await account.getInstance()).deployer;
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
@@ -55,8 +55,8 @@ export async function createAccount(
     }
     log(`Partial address: ${partialAddress.toString()}`);
     log(`Salt:            ${salt.toString()}`);
-    log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
-    log(`Deployer:        ${account.getInstance().deployer.toString()}`);
+    log(`Init hash:       ${(await account.getInstance()).initializationHash.toString()}`);
+    log(`Deployer:        ${(await account.getInstance()).deployer.toString()}`);
   }
 
   let tx;

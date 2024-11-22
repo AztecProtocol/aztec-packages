@@ -138,7 +138,7 @@ export class IncomingNoteDao implements NoteData {
     return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize;
   }
 
-  static random({
+  static async random({
     note = Note.random(),
     contractAddress = AztecAddress.random(),
     txHash = randomTxHash(),
@@ -150,7 +150,7 @@ export class IncomingNoteDao implements NoteData {
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
     index = Fr.random().toBigInt(),
-    addressPoint = Point.random(),
+    addressPoint,
   }: Partial<IncomingNoteDao> = {}) {
     return new IncomingNoteDao(
       note,
@@ -164,7 +164,7 @@ export class IncomingNoteDao implements NoteData {
       noteHash,
       siloedNullifier,
       index,
-      addressPoint,
+      addressPoint ?? (await Point.random()),
     );
   }
 }

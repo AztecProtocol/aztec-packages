@@ -31,7 +31,9 @@ describe('Prover agent <-> queue integration', () => {
   let prover: ServerCircuitProver;
 
   type MakeInputs = {
-    [K in keyof ServerCircuitProver]: () => Parameters<ServerCircuitProver[K]>[0];
+    [K in keyof ServerCircuitProver]: () =>
+      | Promise<Parameters<ServerCircuitProver[K]>[0]>
+      | Parameters<ServerCircuitProver[K]>[0];
   };
 
   const makeInputs: MakeInputs = {
@@ -72,7 +74,7 @@ describe('Prover agent <-> queue integration', () => {
 
   // TODO: This test hangs instead of failing when the Inputs are not registered on the RPC wrapper
   it.each(Object.entries(makeInputs))('can call %s over JSON-RPC', async (fnName, makeInputs) => {
-    const resp = await queue[fnName as keyof ServerCircuitProver](makeInputs() as any);
+    const resp = await queue[fnName as keyof ServerCircuitProver]((await makeInputs()) as any);
     expect(resp).toBeDefined();
   });
 });

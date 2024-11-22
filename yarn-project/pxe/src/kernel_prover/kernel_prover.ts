@@ -150,7 +150,7 @@ export class KernelProver {
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
-          getVKTreeRoot(),
+          await getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
         );
@@ -245,8 +245,8 @@ export class KernelProver {
   private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
-    const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = new VerificationKeyAsFields(vkAsFields, hashVK(vkAsFields));
+    const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
+    const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
@@ -263,7 +263,7 @@ export class KernelProver {
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
     const protocolContractSiblingPath = isProtocolContract(contractAddress)
-      ? getProtocolContractSiblingPath(contractAddress)
+      ? await getProtocolContractSiblingPath(contractAddress)
       : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
 
     return PrivateCallData.from({

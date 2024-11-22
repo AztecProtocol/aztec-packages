@@ -58,7 +58,7 @@ export async function bruteForceNoteInfo(
       break;
     }
 
-    const expectedNonce = computeNoteHashNonce(firstNullifier, noteHashIndex);
+    const expectedNonce = await computeNoteHashNonce(firstNullifier, noteHashIndex);
     ({ noteHash, siloedNoteHash, innerNullifier } = await simulator.computeNoteHashAndOptionallyANullifier(
       contractAddress,
       expectedNonce,
@@ -84,7 +84,7 @@ export async function bruteForceNoteInfo(
     noteHashIndex,
     nonce,
     noteHash: noteHash!,
-    siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
+    siloedNullifier: await siloNullifier(contractAddress, innerNullifier!),
     txHash,
   };
 }

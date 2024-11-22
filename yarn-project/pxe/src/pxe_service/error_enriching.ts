@@ -29,12 +29,19 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
       const contract = await db.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);
-        selectors.forEach(selector => {
-          const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
+        for (const selector of selectors) {
+          const functionArtifact = (
+            await Promise.all(
+              contract.functions.map(async f => {
+                const fs = await FunctionSelector.fromNameAndParameters(f.name, f.parameters);
+                return fs.equals(FunctionSelector.fromString(selector)) ? f : undefined;
+              }),
+            )
+          ).find(f => !!f);
           if (functionArtifact) {
             err.enrichWithFunctionName(
               parsedContractAddress,
-              FunctionSelector.fromNameAndParameters(functionArtifact),
+              await FunctionSelector.fromNameAndParameters(functionArtifact),
               functionArtifact.name,
             );
           } else {
@@ -42,7 +49,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
               `Could not function artifact in contract ${contract.name} for selector ${selector} when enriching error callstack`,
             );
           }
-        });
+        }
       } else {
         logger.warn(
           `Could not find contract in database for address: ${parsedContractAddress} when enriching error callstack`,

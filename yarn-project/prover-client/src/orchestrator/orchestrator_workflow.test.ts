@@ -109,8 +109,8 @@ describe('prover/orchestrator', () => {
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1);
         await orchestrator.startNewBlock(2, globalVariables, []);
-        await orchestrator.addNewTx(makeBloatedProcessedTxWithVKRoot(actualDb, 1));
-        await orchestrator.addNewTx(makeBloatedProcessedTxWithVKRoot(actualDb, 2));
+        await orchestrator.addNewTx(await makeBloatedProcessedTxWithVKRoot(actualDb, 1));
+        await orchestrator.addNewTx(await makeBloatedProcessedTxWithVKRoot(actualDb, 2));
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);

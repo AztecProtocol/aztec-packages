@@ -1,6 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { BatchCall, type PXE, type Wallet, createCompatibleClient } from '@aztec/aztec.js';
-import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
+import { BatchCall, L1FeeJuicePortalManager, type PXE, type Wallet, createCompatibleClient } from '@aztec/aztec.js';
 import { type AztecAddress, type EthAddress, Fq, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
@@ -148,8 +147,8 @@ async function deployToken(
     .deployed({ proven: true, provenTimeout: 600 });
 
   await new BatchCall(wallet, [
-    devCoin.methods.set_minter(bridge.address, true).request(),
-    devCoin.methods.set_admin(bridge.address).request(),
+    await devCoin.methods.set_minter(bridge.address, true).request(),
+    await devCoin.methods.set_admin(bridge.address).request(),
   ])
     .send()
     .wait({ proven: true, provenTimeout: 600 });

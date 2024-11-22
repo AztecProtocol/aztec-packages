@@ -5,11 +5,11 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
-  type DeployL1Contracts,
-  NULL_KEY,
-  createEthereumChain,
-  deployL1Contracts,
-  getL1ContractsConfigEnvVars,
+    type DeployL1Contracts,
+    NULL_KEY,
+    createEthereumChain,
+    deployL1Contracts,
+    getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -17,8 +17,8 @@ import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protoc
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
-  createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
+    createAndStartTelemetryClient,
+    getConfigEnvVars as getTelemetryClientConfig,
 } from '@aztec/telemetry-client/start';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
@@ -82,7 +82,7 @@ export async function deployContractsToL1(
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
     deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, {
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       protocolContractTreeRoot,
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,

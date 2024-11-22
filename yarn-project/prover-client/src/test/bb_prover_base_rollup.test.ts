@@ -38,7 +38,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const header = context.actualDb.getInitialHeader();
     const chainId = context.globalVariables.chainId;
     const version = context.globalVariables.version;
-    const vkTreeRoot = getVKTreeRoot();
+    const vkTreeRoot = await getVKTreeRoot();
 
     const tx = makeEmptyProcessedTx(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
 
@@ -54,7 +54,7 @@ describe('prover/bb_prover/base-rollup', () => {
     expect(tubeProof.inputs).toEqual(tx.data.toKernelCircuitPublicInputs());
 
     const vkIndex = PRIVATE_KERNEL_EMPTY_INDEX;
-    const vkPath = getVKSiblingPath(vkIndex);
+    const vkPath = await getVKSiblingPath(vkIndex);
     const vkData = new VkWitnessData(tubeProof.verificationKey, vkIndex, vkPath);
 
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);

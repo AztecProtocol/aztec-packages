@@ -554,7 +554,7 @@ export class AztecNodeService implements AztecNode {
       true,
     );
 
-    let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
+    let l2toL1SubtreeRoots = await Promise.all(l2toL1Subtrees.map(async t => Fr.fromBuffer(await t.getRoot(true))));
     if (l2toL1SubtreeRoots.length < 2) {
       l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.ZERO, 2);
     }

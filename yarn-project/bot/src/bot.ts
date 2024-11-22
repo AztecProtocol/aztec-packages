@@ -56,17 +56,25 @@ export class Bot {
 
     const calls: FunctionCall[] = [];
     if (isStandardTokenContract(token)) {
-      calls.push(...times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()));
       calls.push(
-        ...times(publicTransfersPerTx, () =>
-          token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-        ),
+        ...(await Promise.all(
+          times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()),
+        )),
+      );
+      calls.push(
+        ...(await Promise.all(
+          times(publicTransfersPerTx, () =>
+            token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
+          ),
+        )),
       );
     } else {
       calls.push(
-        ...times(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient, sender).request(),
-        ),
+        ...(await Promise.all(
+          times(privateTransfersPerTx, () =>
+            token.methods.transfer(TRANSFER_AMOUNT, sender, recipient, sender).request(),
+          ),
+        )),
       );
     }
 

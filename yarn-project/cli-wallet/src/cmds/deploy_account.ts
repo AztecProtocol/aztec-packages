@@ -13,8 +13,8 @@ export async function deployAccount(
   log: LogFn,
 ) {
   const out: Record<string, any> = {};
-  const { address, partialAddress, publicKeys } = account.getCompleteAddress();
-  const { initializationHash, deployer, salt } = account.getInstance();
+  const { address, partialAddress, publicKeys } = await account.getCompleteAddress();
+  const { initializationHash, deployer, salt } = await account.getInstance();
   const wallet = await account.getWallet();
   const secretKey = wallet.getSecretKey();
 
