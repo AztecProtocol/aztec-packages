@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732271053795,
+  "lastUpdate": 1732280449155,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "critesjosh@gmail.com",
-            "name": "josh crites",
-            "username": "critesjosh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1779c42c3dfed9a1d433cd0c6f8400a14612e404",
-          "message": "chore(docs): authwit note, not simulating simulations (#9438)\n\nAdds notes to the docs that indicate that authwits only work in single\r\nplayer mode, describes the problems with not simulating simulations, and\r\nupdates the bberg readme install instructions\r\n\r\ncloses https://github.com/AztecProtocol/dev-rel/issues/422\r\ncloses https://github.com/AztecProtocol/dev-rel/issues/433\r\ncloses https://github.com/AztecProtocol/aztec-packages/issues/9256\r\ncloses https://github.com/AztecProtocol/dev-rel/issues/423\r\ncloses https://github.com/AztecProtocol/aztec-packages/issues/6865",
-          "timestamp": "2024-11-05T14:53:03Z",
-          "tree_id": "00f67e9c21790c0d17ddec54ff723e4c65a5ea40",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1779c42c3dfed9a1d433cd0c6f8400a14612e404"
-        },
-        "date": 1730820024474,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28622.92541100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26978.376987999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5414.052170999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5119.403296 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83804.73116899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83804734000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15126.040959999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15126040000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2493345289,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2493345289 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128300439,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128300439 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 132029384,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132029384 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbac3d9db1a4cd133c4949c3c25a17a7e39d14a2",
+          "message": "fix: Zero index is not always 0  (#10135)\n\nThis pr changes the export method of circuit builders, adding the name\r\n\"zero\" to an appropriate index, which is not always 0.",
+          "timestamp": "2024-11-22T14:45:03+03:00",
+          "tree_id": "ffef1e4b364a354df2c221473f26c400854ea76f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bbac3d9db1a4cd133c4949c3c25a17a7e39d14a2"
+        },
+        "date": 1732280441868,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28123.061358000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26365.310018000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5023.482313000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4710.622699 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83940.157753,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83940158000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15077.373758,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15077375000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3087193005,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3087193005 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151546125,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151546125 ns\nthreads: 1"
           }
         ]
       }
