@@ -23,6 +23,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import assert from 'assert/strict';
+import { randomUUID } from 'crypto';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -100,7 +101,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
     const log = createDebugLogger('aztec:world-state:database');
-    const dataDir = await mkdtemp(join(tmpdir(), `aztec-world-state-${Date.now()}`));
+    const dataDir = await mkdtemp(join(tmpdir(), `aztec-world-state-${randomUUID()}`));
     const dbMapSizeKb = 10 * 1024 * 1024;
     log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
 
