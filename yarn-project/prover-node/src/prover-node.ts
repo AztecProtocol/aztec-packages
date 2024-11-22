@@ -142,7 +142,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       const signed = await this.quoteSigner.sign(quote);
 
       // Send it to the coordinator
-      await this.sendEpochProofQuote(signed);
+      this.log.info(
+        `Sending quote for epoch ${epochNumber} with blocks ${blocks[0].number} to ${blocks.at(-1)!.number}`,
+        quote.toViemArgs(),
+      );
+      await this.doSendEpochProofQuote(signed);
     } catch (err) {
       this.log.error(`Error handling epoch completed`, err);
     }
@@ -177,11 +181,13 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     this.log.info('Stopped ProverNode');
   }
 
-  /**
-   * Sends an epoch proof quote to the coordinator.
-   */
+  /** Sends an epoch proof quote to the coordinator. */
   public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     this.log.info(`Sending quote for epoch`, quote.toViemArgs().quote);
+    return this.doSendEpochProofQuote(quote);
+  }
+
+  private doSendEpochProofQuote(quote: EpochProofQuote) {
     return this.coordination.addEpochProofQuote(quote);
   }
 

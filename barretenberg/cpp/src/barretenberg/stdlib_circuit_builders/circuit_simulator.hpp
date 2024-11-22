@@ -47,9 +47,8 @@ class CircuitSimulatorBN254 {
     static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
-    static constexpr size_t num_gates = 0;  // WORKTODO: it was dumb to make this static.
-                                            // Should agree with what is in circuit builders
-    static constexpr uint32_t zero_idx = 0; // Ditto?
+    size_t num_gates = 0;
+    static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
 
     void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)

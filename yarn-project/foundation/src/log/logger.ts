@@ -12,13 +12,21 @@ export type LogLevel = (typeof LogLevels)[number];
 
 function getLogLevel() {
   const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-  const defaultNonTestLogLevel =
-    process.env.DEBUG === undefined || process.env.DEBUG === '' ? ('info' as const) : ('debug' as const);
-  const defaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : defaultNonTestLogLevel;
+  let defaultLogLevel: LogLevel = 'info';
+  if (process.env.DEBUG) {
+    // if we set DEBUG to a non-empty string, use debug as default
+    defaultLogLevel = 'debug';
+  } else if (process.env.NODE_ENV === 'test') {
+    // otherwise, be silent in tests as these are frequently ran en-masse
+    defaultLogLevel = 'silent';
+  }
   return LogLevels.includes(envLogLevel) ? envLogLevel : defaultLogLevel;
 }
 
 export let currentLevel = getLogLevel();
+
+const logElapsedTime = ['1', 'true'].includes(process.env.LOG_ELAPSED_TIME ?? '');
+const firstTimestamp: number = Date.now();
 
 function filterNegativePatterns(debugString: string): string {
   return debugString
@@ -141,7 +149,12 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?
 
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
   if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
-    debug('[%s] %s', level.toUpperCase(), msg);
+    if (logElapsedTime) {
+      const ts = ((Date.now() - firstTimestamp) / 1000).toFixed(3);
+      debug('%ss [%s] %s', ts, level.toUpperCase(), msg);
+    } else {
+      debug('[%s] %s', level.toUpperCase(), msg);
+    }
   }
 }
 

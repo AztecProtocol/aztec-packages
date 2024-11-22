@@ -226,4 +226,12 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param blockNumber - All nullifiers strictly after this block are removed.
    */
   unnullifyNotesAfter(blockNumber: number): Promise<void>;
+
+  /**
+   * Resets the indexes used to sync notes to 0 for every sender and recipient, causing the next sync process to
+   * start from scratch, taking longer than usual.
+   * This can help fix desynchronization issues, including finding logs that had previously been overlooked, and
+   * is also required to deal with chain reorgs.
+   */
+  resetNoteSyncData(): Promise<void>;
 }
