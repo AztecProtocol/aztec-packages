@@ -34,8 +34,7 @@ contract AMM {
     use crate::{lib::{get_amount_in, get_amount_out, get_amounts_to_add}, state::State};
     use dep::aztec::{
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public, view},
+            functions::{initializer, internal, private, public},
             storage::storage,
         },
         prelude::{AztecAddress, SharedImmutable},

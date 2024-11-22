@@ -5,10 +5,10 @@ global STATE_LENGTH: u32 = 3;
 /// We store the tokens of the pool in a struct such that to load it from SharedImmutable asserts only a single
 /// merkle proof.
 /// (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
-struct State {
-    token0: AztecAddress,
-    token1: AztecAddress,
-    liquidity_token: AztecAddress,
+pub struct State {
+    pub token0: AztecAddress,
+    pub token1: AztecAddress,
+    pub liquidity_token: AztecAddress,
 }
 
 // Note: I could not get #[derive(Serialize)] to work so I had to implement it manually.
