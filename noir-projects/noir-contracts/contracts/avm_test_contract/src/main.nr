@@ -30,6 +30,7 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
+    use dep::aztec::context::public_context::call;
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -516,6 +517,23 @@ contract AvmTest {
      * Nested calls
      ************************************************************************/
     #[public]
+    fn nested_call_to_nothing() {
+        let garbageAddress = AztecAddress::from_field(42);
+        AvmTest::at(garbageAddress).nested_call_to_nothing().call(&mut context)
+    }
+
+    #[public]
+    fn nested_call_to_nothing_recovers() {
+        let garbageAddress = AztecAddress::from_field(42);
+        let gas = [1, 1];
+        let success = call(gas, garbageAddress, &[]);
+        assert(
+            !success,
+            "Nested CALL instruction should return failure if target contract does not exist",
+        );
+    }
+
+    #[public]
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
@@ -644,5 +662,6 @@ contract AvmTest {
         //let _ = nested_call_to_add(1, 2);
         //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
         //let _ = nested_static_call_to_add(1, 2);
+        //let _ = nested_call_to_nothing_recovers();
     }
 }
