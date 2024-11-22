@@ -54,7 +54,7 @@ describe('world-state integration', () => {
     db = (await createWorldState(config)) as NativeWorldStateService;
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
     log.info(`Created synchronizer`);
-  });
+  }, 30_000);
 
   afterEach(async () => {
     await synchronizer.stop();

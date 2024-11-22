@@ -13,7 +13,7 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  type AztecAddress,
+  AztecAddress,
   type ContractClassIdPreimage,
   EthAddress,
   Gas,
@@ -55,7 +55,7 @@ import {
   TreeLeafReadRequest,
   type TreeSnapshots,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -193,7 +193,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
     forkedTrace.alreadyMergedIntoParent = true;
 
-    // TODO(dbanks12): accept & merge forked trace's hints!
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.enqueuedCalls.push(...forkedTrace.enqueuedCalls);
 
@@ -210,6 +209,31 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       this.unencryptedLogs.push(...forkedTrace.unencryptedLogs);
       this.unencryptedLogsHashes.push(...forkedTrace.unencryptedLogsHashes);
     }
+    this.mergeHints(forkedTrace);
+  }
+
+  private mergeHints(forkedTrace: this) {
+    this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
+
+    this.avmCircuitHints.storageValues.items.push(...forkedTrace.avmCircuitHints.storageValues.items);
+    this.avmCircuitHints.noteHashExists.items.push(...forkedTrace.avmCircuitHints.noteHashExists.items);
+    this.avmCircuitHints.nullifierExists.items.push(...forkedTrace.avmCircuitHints.nullifierExists.items);
+    this.avmCircuitHints.l1ToL2MessageExists.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageExists.items);
+
+    this.avmCircuitHints.externalCalls.items.push(...forkedTrace.avmCircuitHints.externalCalls.items);
+
+    this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
+    this.avmCircuitHints.contractBytecodeHints.items.push(...forkedTrace.avmCircuitHints.contractBytecodeHints.items);
+
+    this.avmCircuitHints.storageReadRequest.items.push(...forkedTrace.avmCircuitHints.storageReadRequest.items);
+    this.avmCircuitHints.storageUpdateRequest.items.push(...forkedTrace.avmCircuitHints.storageUpdateRequest.items);
+    this.avmCircuitHints.nullifierReadRequest.items.push(...forkedTrace.avmCircuitHints.nullifierReadRequest.items);
+    this.avmCircuitHints.nullifierWriteHints.items.push(...forkedTrace.avmCircuitHints.nullifierWriteHints.items);
+    this.avmCircuitHints.noteHashReadRequest.items.push(...forkedTrace.avmCircuitHints.noteHashReadRequest.items);
+    this.avmCircuitHints.noteHashWriteRequest.items.push(...forkedTrace.avmCircuitHints.noteHashWriteRequest.items);
+    this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(
+      ...forkedTrace.avmCircuitHints.l1ToL2MessageReadRequest.items,
+    );
   }
 
   public getCounter() {
@@ -336,8 +360,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     exists: boolean,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
@@ -346,10 +369,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     this.enforceLimitOnNullifierChecks();
 
-    // TODO(dbanks12): use siloed nullifier instead of scoped once public kernel stops siloing
-    // and once VM public inputs are meant to contain siloed nullifiers.
-    //const siloedNullifier = siloNullifier(contractAddress, nullifier);
-    const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(contractAddress);
+    // we scope with a dummy address because this read request isn't used
+    const readRequest = new ReadRequest(siloedNullifier, this.sideEffectCounter).scope(AztecAddress.zero());
     if (exists) {
       this.nullifierReadRequests.push(readRequest);
     } else {
@@ -367,8 +388,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNewNullifier(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
@@ -378,7 +398,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
 
     // New hinting

@@ -173,7 +173,7 @@ describe('NativeWorldState', () => {
 
     beforeEach(async () => {
       ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
-    });
+    }, 30_000);
 
     afterEach(async () => {
       await ws.close();
