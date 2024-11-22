@@ -221,12 +221,13 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
       })),
     };
   }
+
   async sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
     treeId: ID,
     rawLeaves: Buffer[],
   ): Promise<SequentialInsertionResult<TreeHeight>> {
     const leaves = rawLeaves.map((leaf: Buffer) => hydrateLeaf(treeId, leaf)).map(serializeLeaf);
-    const resp = await this.instance.call(WorldStateMessageType.INSERT, {
+    const resp = await this.instance.call(WorldStateMessageType.SEQUENTIAL_INSERT, {
       leaves,
       treeId,
       forkId: this.revision.forkId,

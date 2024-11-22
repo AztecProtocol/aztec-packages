@@ -229,6 +229,13 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 
+  /**
+   * Inserts multiple leaves into the tree, getting witnesses at every step.
+   * Note: This method doesn't support inserting empty leaves.
+   * @param treeId - The tree on which to insert.
+   * @param leaves - The leaves to insert.
+   * @returns The witnesses for the low leaf updates and the insertions.
+   */
   sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
     treeId: ID,
     leaves: Buffer[],

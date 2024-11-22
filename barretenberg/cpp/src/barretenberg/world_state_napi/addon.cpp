@@ -166,8 +166,9 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         WorldStateMessageType::BATCH_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return batch_insert(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::INSERT,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return insert(obj, buffer); });
+    _dispatcher.registerTarget(
+        WorldStateMessageType::SEQUENTIAL_INSERT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sequential_insert(obj, buffer); });
 
     _dispatcher.registerTarget(
         WorldStateMessageType::UPDATE_ARCHIVE,
@@ -510,7 +511,7 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
     return true;
 }
 
-bool WorldStateAddon::insert(msgpack::object& obj, msgpack::sbuffer& buffer)
+bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
 {
     TypedMessage<TreeIdOnlyRequest> request;
     obj.convert(request);

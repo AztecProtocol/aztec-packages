@@ -26,7 +26,7 @@ enum WorldStateMessageType {
 
     APPEND_LEAVES,
     BATCH_INSERT,
-    INSERT,
+    SEQUENTIAL_INSERT,
 
     UPDATE_ARCHIVE,
 
