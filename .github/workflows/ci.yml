@@ -46,6 +46,7 @@ jobs:
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
       avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
+      aztec-network: ${{ steps.filter.outputs.aztec-network }}
       build-images: ${{ steps.filter.outputs.build-images }}
       barretenberg: ${{ steps.filter.outputs.barretenberg }}
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
@@ -90,6 +91,8 @@ jobs:
               - 'build-images/**'
             noir:
               - 'noir/**'
+            aztec-network:
+              - 'aztec-network/**'
             avm-transpiler:
               - 'avm-transpiler/**'
             l1-contracts:
@@ -661,7 +664,7 @@ jobs:
 
   kind-smoke-test:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.aztec-network == 'true' || needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -692,8 +695,8 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
-    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
-    runs-on: ${{ needs.configure.outputs.username }}-x86
+    if: contains(github.event.pull_request.labels.*.name, 'network-all') || needs.configure.outputs.aztec-network == 'true' || needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
