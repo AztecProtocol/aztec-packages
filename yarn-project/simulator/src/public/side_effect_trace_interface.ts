@@ -26,7 +26,7 @@ export interface PublicSideEffectTraceInterface {
     leafPreimage?: PublicDataTreeLeafPreimage,
     leafIndex?: Fr,
     path?: Fr[],
-  ): void;
+  ): Promise<void>;
   tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr, // This is the storage slot not the computed leaf slot
@@ -36,7 +36,7 @@ export interface PublicSideEffectTraceInterface {
     lowLeafPath?: Fr[],
     newLeafPreimage?: PublicDataTreeLeafPreimage,
     insertionPath?: Fr[],
-  ): void;
+  ): Promise<void>;
   traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
   traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
   traceNullifierCheck(
@@ -54,7 +54,7 @@ export interface PublicSideEffectTraceInterface {
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],
     insertionPath?: Fr[],
-  ): void;
+  ): Promise<void>;
   traceL1ToL2MessageCheck(
     contractAddress: AztecAddress,
     msgHash: Fr,
@@ -89,7 +89,7 @@ export interface PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name */
     functionName: string,
-  ): void;
+  ): Promise<void>;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,

@@ -44,7 +44,7 @@ export class PackedValuesCache {
    * @param values - The values to pack.
    * @returns The hash of the packed values.
    */
-  public pack(values: Fr[]) {
+  public async pack(values: Fr[]) {
     if (values.length === 0) {
       return Fr.ZERO;
     }

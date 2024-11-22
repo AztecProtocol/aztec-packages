@@ -121,11 +121,11 @@ export function randomMemoryFields(length: number): Field[] {
   return [...Array(length)].map(_ => new Field(Fr.random()));
 }
 
-export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+export async function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
   const params = artifact.parameters;
-  return FunctionSelector.fromNameAndParameters(artifact.name, params);
+  return await FunctionSelector.fromNameAndParameters(artifact.name, params);
 }
 
 export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {

@@ -1,7 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type DebugLogger } from '@aztec/aztec.js';
-import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
+import { CompleteAddress, type DebugLogger, TxStatus } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
@@ -17,7 +16,7 @@ export const createPXEServiceAndSubmitTransactions = async (
   const pxeService = await createPXEService(node, rpcConfig, true);
 
   const secretKey = Fr.random();
-  const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
+  const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
   await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
 
   const txs = await submitTxsTo(logger, pxeService, numTxs);

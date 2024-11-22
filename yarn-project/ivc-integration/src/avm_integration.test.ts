@@ -171,7 +171,7 @@ const proveAvmTestContract = async (
   const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
   const publicFn: PublicFunction = { bytecode, selector: fnSelector };
   const contractClass = await makeContractClassPublic(0, publicFn);
-  const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+  const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
 
   const instanceGet = new SerializableContractInstance({
     version: 1,

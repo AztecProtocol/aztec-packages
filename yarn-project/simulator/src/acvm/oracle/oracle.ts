@@ -306,15 +306,15 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitEncryptedEventLog(
+  async emitEncryptedEventLog(
     [contractAddress]: ACVMField[],
     [randomness]: ACVMField[],
     encryptedEvent: ACVMField[],
     [counter]: ACVMField[],
-  ): void {
+  ): Promise<void> {
     // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
     const processedInput = Buffer.from(encryptedEvent.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedEventLog(
+    await this.typedOracle.emitEncryptedEventLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(randomness),
       processedInput,
@@ -401,8 +401,8 @@ export class Oracle {
     return toACVMField(newArgsHash);
   }
 
-  notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
+  async notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
 
   async getAppTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {

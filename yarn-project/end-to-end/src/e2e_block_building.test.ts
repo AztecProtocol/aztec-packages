@@ -286,7 +286,7 @@ describe('e2e_block_building', () => {
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
+      const keys = await deriveKeys(privateKey);
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
@@ -312,7 +312,7 @@ describe('e2e_block_building', () => {
     it('calls a method with nested encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
+      const keys = await deriveKeys(privateKey);
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();

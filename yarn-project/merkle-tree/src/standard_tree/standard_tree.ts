@@ -18,10 +18,10 @@ export class StandardTree<T extends Bufferable = Buffer> extends TreeBase<T> imp
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
-  public override appendLeaves(leaves: T[]): Promise<void> {
+  public override async appendLeaves(leaves: T[]): Promise<void> {
     this.hasher.reset();
     const timer = new Timer();
-    super.appendLeaves(leaves);
+    await super.appendLeaves(leaves);
     this.log.debug(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
       eventName: 'tree-insertion',
       duration: timer.ms(),

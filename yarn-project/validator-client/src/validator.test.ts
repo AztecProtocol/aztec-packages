@@ -65,13 +65,13 @@ describe('ValidationService', () => {
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
-    const proposal = makeBlockProposal();
+    const proposal = await makeBlockProposal();
 
     await expect(validatorClient.collectAttestations(proposal, 2)).rejects.toThrow(AttestationTimeoutError);
   });
 
   it('Should throw an error if the transactions are not available', async () => {
-    const proposal = makeBlockProposal();
+    const proposal = await makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
@@ -91,21 +91,21 @@ describe('ValidationService', () => {
     const archive = Fr.random();
     const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
 
-    const proposal = makeBlockProposal({ signer, archive, txHashes });
+    const proposal = await makeBlockProposal({ signer, archive, txHashes });
 
     // Mock the attestations to be returned
-    const expectedAttestations = [
+    const expectedAttestations = await Promise.all([
       makeBlockAttestation({ signer: attestor1, archive, txHashes }),
       makeBlockAttestation({ signer: attestor2, archive, txHashes }),
-    ];
-    p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
+    ]);
+    p2pClient.getAttestationsForSlot.mockImplementation(async (slot, proposalId) => {
       if (
         slot === proposal.payload.header.globalVariables.slotNumber.toBigInt() &&
         proposalId === proposal.archive.toString()
       ) {
-        return Promise.resolve(expectedAttestations);
+        return expectedAttestations;
       }
-      return Promise.resolve([]);
+      return [];
     });
 
     // Perform the query

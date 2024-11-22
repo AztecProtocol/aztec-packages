@@ -456,7 +456,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it('stores a contract instance', async () => {
         const address = AztecAddress.random();
-        const instance = SerializableContractInstance.random().withAddress(address);
+        const instance = (await SerializableContractInstance.random()).withAddress(address);
         await database.addContractInstance(instance);
         await expect(database.getContractInstance(address)).resolves.toEqual(instance);
       });

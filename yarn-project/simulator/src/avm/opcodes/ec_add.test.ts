@@ -80,7 +80,7 @@ describe('EC Instructions', () => {
     });
 
     it('Should add correctly', async () => {
-      const G2 = grumpkin.add(grumpkin.generator(), grumpkin.generator());
+      const G2 = await grumpkin.add(grumpkin.generator(), grumpkin.generator());
       const zero = new Uint1(0);
 
       const x1 = new Field(grumpkin.generator().x);

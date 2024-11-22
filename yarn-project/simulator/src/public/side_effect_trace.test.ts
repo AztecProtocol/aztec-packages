@@ -69,9 +69,9 @@ describe('Side Effect Trace', () => {
     return trc.toPublicFunctionCallResult(avmEnvironment, startGasLeft, bytecode, avmCallResults.finalize());
   };
 
-  it('Should trace storage reads', () => {
+  it('Should trace storage reads', async () => {
     const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
-    trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
+    await trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -88,11 +88,11 @@ describe('Side Effect Trace', () => {
     expect(pxResult.avmCircuitHints.storageValues.items).toEqual([{ key: startCounterFr, value: value }]);
   });
 
-  it('Should trace storage writes', () => {
+  it('Should trace storage writes', async () => {
     const lowLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
     const newLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
 
-    trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+    await trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -171,9 +171,9 @@ describe('Side Effect Trace', () => {
     expect(pxResult.avmCircuitHints.nullifierExists.items).toEqual([{ key: startCounterFr, value: new Fr(exists) }]);
   });
 
-  it('Should trace nullifiers', () => {
+  it('Should trace nullifiers', async () => {
     const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-    trace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
+    await trace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -230,8 +230,8 @@ describe('Side Effect Trace', () => {
     ]);
   });
 
-  it('Should trace get contract instance', () => {
-    const instance = SerializableContractInstance.random();
+  it('Should trace get contract instance', async () => {
+    const instance = await SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
     const exists = true;
     trace.traceGetContractInstance(address, exists, instance);
@@ -248,36 +248,37 @@ describe('Side Effect Trace', () => {
     ]);
   });
   describe('Maximum accesses', () => {
-    it('Should enforce maximum number of public storage reads', () => {
+    it('Should enforce maximum number of public storage reads', async () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; i++) {
         const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
-        trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
+        await trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       }
       const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
-      expect(() => trace.tracePublicStorageRead(address, new Fr(42), value, leafPreimage, Fr.ZERO, [])).toThrow(
-        SideEffectLimitReachedError,
-      );
+      await expect(() =>
+        trace.tracePublicStorageRead(address, new Fr(42), value, leafPreimage, Fr.ZERO, []),
+      ).rejects.toThrow(SideEffectLimitReachedError);
     });
 
-    it('Should enforce maximum number of public storage writes', () => {
+    it('Should enforce maximum number of public storage writes', async () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
         const newLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i + 1), new Fr(i + 1), Fr.ZERO, 0n);
-        trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+        await trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
       }
       const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
-      expect(() =>
-        trace.tracePublicStorageWrite(
-          AztecAddress.fromNumber(42),
-          new Fr(42),
-          value,
-          leafPreimage,
-          Fr.ZERO,
-          [],
-          leafPreimage,
-          [],
-        ),
-      ).toThrow(SideEffectLimitReachedError);
+      await expect(
+        async () =>
+          await trace.tracePublicStorageWrite(
+            AztecAddress.fromNumber(42),
+            new Fr(42),
+            value,
+            leafPreimage,
+            Fr.ZERO,
+            [],
+            leafPreimage,
+            [],
+          ),
+      ).rejects.toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of note hash checks', () => {
@@ -328,15 +329,16 @@ describe('Side Effect Trace', () => {
       ).toThrow(SideEffectLimitReachedError);
     });
 
-    it('Should enforce maximum number of new nullifiers', () => {
+    it('Should enforce maximum number of new nullifiers', async () => {
       for (let i = 0; i < MAX_NULLIFIERS_PER_TX; i++) {
         const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i + 1), Fr.ZERO, 0n);
-        trace.traceNewNullifier(AztecAddress.fromNumber(i), new Fr(i), lowLeafPreimage, Fr.ZERO, [], []);
+        await trace.traceNewNullifier(AztecAddress.fromNumber(i), new Fr(i), lowLeafPreimage, Fr.ZERO, [], []);
       }
       const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
-      expect(() =>
-        trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42), lowLeafPreimage, Fr.ZERO, [], []),
-      ).toThrow(SideEffectLimitReachedError);
+      await expect(
+        async () =>
+          await trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42), lowLeafPreimage, Fr.ZERO, [], []),
+      ).rejects.toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of L1 to L2 message checks', () => {
@@ -395,39 +397,39 @@ describe('Side Effect Trace', () => {
     });
   });
 
-  it('Should trace nested calls', () => {
+  it('Should trace nested calls', async () => {
     const existsDefault = true;
 
     const nestedTrace = new PublicSideEffectTrace(startCounter);
     let testCounter = startCounter;
     const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
     const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-    nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
+    await nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
     testCounter++;
-    nestedTrace.tracePublicStorageWrite(address, slot, value, leafPreimage, Fr.ZERO, [], leafPreimage, []);
+    await nestedTrace.tracePublicStorageWrite(address, slot, value, leafPreimage, Fr.ZERO, [], leafPreimage, []);
     testCounter++;
-    nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
+    await nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
     // counter does not increment for note hash checks
-    nestedTrace.traceNewNoteHash(address, utxo, Fr.ZERO, []);
+    await nestedTrace.traceNewNoteHash(address, utxo, Fr.ZERO, []);
     testCounter++;
-    nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
+    await nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
     testCounter++;
-    nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
+    await nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
     testCounter++;
-    nestedTrace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
+    await nestedTrace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
     testCounter++;
-    nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault, []);
+    await nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault, []);
     // counter does not increment for l1tol2 message checks
-    nestedTrace.traceNewL2ToL1Message(address, recipient, content);
+    await nestedTrace.traceNewL2ToL1Message(address, recipient, content);
     testCounter++;
-    nestedTrace.traceUnencryptedLog(address, log);
+    await nestedTrace.traceUnencryptedLog(address, log);
     testCounter++;
-    nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance);
+    await nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance);
     testCounter++;
-    nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
+    await nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
     testCounter++;
 
-    trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, bytecode, avmCallResults);
+    await trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, bytecode, avmCallResults);
     // parent trace adopts nested call's counter
     expect(trace.getCounter()).toBe(testCounter);
 

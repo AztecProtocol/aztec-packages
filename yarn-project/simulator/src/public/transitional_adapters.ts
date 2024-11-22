@@ -54,7 +54,7 @@ import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { type EnqueuedPublicCallExecutionResult, type PublicFunctionCallResult } from './execution.js';
 
-export function generateAvmCircuitPublicInputs(
+export async function generateAvmCircuitPublicInputs(
   trace: PublicEnqueuedCallSideEffectTrace,
   globalVariables: GlobalVariables,
   startStateReference: StateReference,
@@ -69,7 +69,7 @@ export function generateAvmCircuitPublicInputs(
   endGasUsed: Gas,
   transactionFee: Fr,
   revertCode: RevertCode,
-): AvmCircuitPublicInputs {
+): Promise<AvmCircuitPublicInputs> {
   const startTreeSnapshots = new TreeSnapshots(
     startStateReference.l1ToL2MessageTree,
     startStateReference.partial.noteHashTree,
@@ -139,9 +139,9 @@ export function generateAvmCircuitPublicInputs(
     const noteHash = scopedNoteHash.value;
     if (!noteHash.isZero()) {
       const noteHashIndexInTx = i + countAccumulatedItems(noteHashesFromPrivate);
-      const nonce = computeNoteHashNonce(txHash, noteHashIndexInTx);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
-      const siloedNoteHash = siloNoteHash(scopedNoteHash.contractAddress, uniqueNoteHash);
+      const nonce = await computeNoteHashNonce(txHash, noteHashIndexInTx);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, noteHash);
+      const siloedNoteHash = await siloNoteHash(scopedNoteHash.contractAddress, uniqueNoteHash);
       avmCircuitPublicInputs.accumulatedData.noteHashes[noteHashIndexInTx] = siloedNoteHash;
     }
   }
@@ -194,7 +194,7 @@ export function generateAvmCircuitPublicInputs(
   return avmCircuitPublicInputs;
 }
 
-export function generateAvmProvingRequest(
+export async function generateAvmProvingRequest(
   real: boolean,
   fnName: string,
   stateManager: AvmPersistableStateManager,
@@ -204,7 +204,7 @@ export function generateAvmProvingRequest(
   result: EnqueuedPublicCallExecutionResult,
   allocatedGas: Gas,
   transactionFee: Fr,
-): AvmProvingRequest {
+): Promise<AvmProvingRequest> {
   const avmExecutionEnv = new AvmExecutionEnvironment(
     executionRequest.callContext.contractAddress,
     executionRequest.callContext.msgSender,
@@ -228,7 +228,11 @@ export function generateAvmProvingRequest(
       avmCallResult,
       fnName,
     );
-    const publicInputs = getPublicCircuitPublicInputs(historicalHeader, globalVariables, deprecatedFunctionCallResult);
+    const publicInputs = await getPublicCircuitPublicInputs(
+      historicalHeader,
+      globalVariables,
+      deprecatedFunctionCallResult,
+    );
     avmProvingRequest = makeAvmProvingRequest(publicInputs, deprecatedFunctionCallResult);
   } else {
     avmProvingRequest = emptyAvmProvingRequest();
@@ -255,7 +259,7 @@ function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: Public
   };
 }
 
-function getPublicCircuitPublicInputs(
+async function getPublicCircuitPublicInputs(
   historicalHeader: Header,
   globalVariables: GlobalVariables,
   result: PublicFunctionCallResult,
@@ -266,7 +270,7 @@ function getPublicCircuitPublicInputs(
   return PublicCircuitPublicInputs.from({
     callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,
-    argsHash: computeVarArgsHash(result.executionRequest.args),
+    argsHash: await computeVarArgsHash(result.executionRequest.args),
     noteHashes: padArrayEnd(
       result.noteHashes,
       NoteHash.empty(),
@@ -287,7 +291,7 @@ function getPublicCircuitPublicInputs(
     ),
     startSideEffectCounter: result.startSideEffectCounter,
     endSideEffectCounter: result.endSideEffectCounter,
-    returnsHash: computeVarArgsHash(result.returnValues),
+    returnsHash: await computeVarArgsHash(result.returnValues),
     noteHashReadRequests: padArrayEnd(
       result.noteHashReadRequests,
       TreeLeafReadRequest.empty(),

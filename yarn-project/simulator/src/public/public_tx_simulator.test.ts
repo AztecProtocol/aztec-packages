@@ -1,26 +1,26 @@
 import {
-    type MerkleTreeWriteOperations,
-    SimulationError,
-    type TreeInfo,
-    TxExecutionPhase,
-    mockTx,
+  type MerkleTreeWriteOperations,
+  SimulationError,
+  type TreeInfo,
+  TxExecutionPhase,
+  mockTx,
 } from '@aztec/circuit-types';
 import {
-    AppendOnlyTreeSnapshot,
-    AztecAddress,
-    Fr,
-    Gas,
-    GasFees,
-    GasSettings,
-    GlobalVariables,
-    Header,
-    PUBLIC_DATA_TREE_HEIGHT,
-    PartialStateReference,
-    PublicDataTreeLeafPreimage,
-    PublicDataWrite,
-    RevertCode,
-    StateReference,
-    countAccumulatedItems,
+  AppendOnlyTreeSnapshot,
+  AztecAddress,
+  Fr,
+  Gas,
+  GasFees,
+  GasSettings,
+  GlobalVariables,
+  Header,
+  PUBLIC_DATA_TREE_HEIGHT,
+  PartialStateReference,
+  PublicDataTreeLeafPreimage,
+  PublicDataWrite,
+  RevertCode,
+  StateReference,
+  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
@@ -68,7 +68,7 @@ describe('public_tx_simulator', () => {
     ) => Promise<AvmFinalizedCallResult>
   >;
 
-  const mockTxWithPublicCalls = ({
+  const mockTxWithPublicCalls = async ({
     numberOfSetupCalls = 0,
     numberOfAppLogicCalls = 0,
     hasPublicTeardownCall = false,
@@ -164,7 +164,7 @@ describe('public_tx_simulator', () => {
       1, // Add a default low leaf for the public data hints to be proved against.
     );
     const snap = new AppendOnlyTreeSnapshot(
-      Fr.fromBuffer(publicDataTree.getRoot(true)),
+      Fr.fromBuffer(await publicDataTree.getRoot(true)),
       Number(publicDataTree.getNumLeaves(true)),
     );
     const header = Header.empty();
@@ -219,7 +219,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 2,
     });
 
@@ -254,7 +254,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in app logic phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfAppLogicCalls: 2,
     });
 
@@ -289,7 +289,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in teardown phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       hasPublicTeardownCall: true,
     });
 
@@ -322,7 +322,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with all phases', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 2,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -370,7 +370,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('deduplicates public data writes', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -417,13 +417,13 @@ describe('public_tx_simulator', () => {
     expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
       // squashed
       // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x101)),
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
 
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)),
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)),
       // squashed
       // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x201)),
       // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x102)),
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)),
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)),
     ]);
   });
 
@@ -451,7 +451,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in app logic only', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -529,7 +529,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in teardown only', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -610,7 +610,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in app logic and teardown', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,

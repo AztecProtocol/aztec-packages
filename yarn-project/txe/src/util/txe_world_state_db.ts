@@ -15,7 +15,7 @@ export class TXEWorldStateDB extends WorldStateDB {
   }
 
   override async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot).toBigInt();
 
     const lowLeafResult = await this.merkleDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
 

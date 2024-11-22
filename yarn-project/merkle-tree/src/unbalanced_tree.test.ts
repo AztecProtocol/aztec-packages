@@ -49,8 +49,8 @@ describe('Wonky tree', () => {
       leaves = res.leaves;
     });
 
-    it("Shouldn't accept more leaves", () => {
-      expect(() => tree.appendLeaves([Buffer.alloc(32)])).toThrow(
+    it("Shouldn't accept more leaves", async () => {
+     await expect(() => tree.appendLeaves([Buffer.alloc(32)])).rejects.toThrow(
         "Can't re-append to an unbalanced tree. Current has 2 leaves.",
       );
     });

@@ -165,7 +165,7 @@ describe('e2e_fees account_init', () => {
       const [alicesInitialGas] = await t.getGasBalanceFn(aliceAddress);
 
       // bob generates the private keys for his account on his own
-      const bobsPublicKeys = deriveKeys(bobsSecretKey).publicKeys;
+      const bobsPublicKeys = await deriveKeys(bobsSecretKey).publicKeys;
       const bobsSigningPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
       const bobsInstance = bobsAccountManager.getInstance();
 

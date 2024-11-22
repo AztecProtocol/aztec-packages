@@ -205,8 +205,8 @@ export class PublicProcessor {
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-    const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
+    const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
 
     this.log.debug(`Deducting ${txFee} balance in Fee Juice for ${feePayer}`);
 

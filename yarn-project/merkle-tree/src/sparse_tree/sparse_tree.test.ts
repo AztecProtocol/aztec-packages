@@ -58,7 +58,7 @@ describe('SparseTreeSpecific', () => {
     const tree = await createDb(db, pedersen, 'test', depth);
 
     const index = 2n ** BigInt(depth);
-    expect(() => tree.updateLeaf(Buffer.alloc(32), index)).toThrow();
+    await expect(() => tree.updateLeaf(Buffer.alloc(32), index)).rejects.toThrow();
   });
 
   it('updating non-empty leaf does not change tree size', async () => {

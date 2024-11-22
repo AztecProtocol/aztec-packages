@@ -55,7 +55,7 @@ export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountW
         }),
       )
     )
-      .filter(secretKey => !!secretKey)
+      .filter((secretKey): secretKey is Fr => !!secretKey)
       .map(secretKey => {
         const signingKey = deriveSigningKey(secretKey);
         // TODO(#5726): use actual salt here instead of hardcoding Fr.ZERO

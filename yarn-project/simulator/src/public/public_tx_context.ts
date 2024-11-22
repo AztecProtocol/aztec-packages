@@ -309,9 +309,9 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
+  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    return generateAvmCircuitPublicInputs(
+    return await generateAvmCircuitPublicInputs(
       this.trace,
       this.globalVariables,
       this.startStateReference,
@@ -332,15 +332,15 @@ export class PublicTxContext {
   /**
    * Generate the proving request for the AVM circuit.
    */
-  generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
+  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
     // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
     // proving request for the first time
-    this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
+    this.avmProvingRequest!.inputs.output = await this.generateAvmCircuitPublicInputs(endStateReference);
     return this.avmProvingRequest!;
   }
 
   // TODO(dbanks12): remove once AVM proves entire public tx
-  updateProvingRequest(
+  async updateProvingRequest(
     real: boolean,
     phase: TxExecutionPhase,
     fnName: string,
@@ -352,7 +352,7 @@ export class PublicTxContext {
     if (this.avmProvingRequest === undefined) {
       // Propagate the very first avmProvingRequest of the tx for now.
       // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = generateAvmProvingRequest(
+      this.avmProvingRequest = await generateAvmProvingRequest(
         real,
         fnName,
         stateManager,

@@ -36,7 +36,7 @@ export class ExecutionNoteCache {
 
   constructor(private readonly txHash: Fr) {}
 
-  public setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
+  public async setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
     if (this.minRevertibleSideEffectCounter && this.minRevertibleSideEffectCounter !== minRevertibleSideEffectCounter) {
       throw new Error(
         `Cannot override minRevertibleSideEffectCounter. Current value: ${minRevertibleSideEffectCounter}. Previous value: ${this.minRevertibleSideEffectCounter}`,
@@ -49,15 +49,17 @@ export class ExecutionNoteCache {
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
     // Their indexes in the tx are known at this point and won't change. So we can assign a nonce to each one of them.
     // The nonces will be used to create the "complete" nullifier.
-    const updatedNotes = this.notes.map(({ note, counter }, i) => {
-      const nonce = computeNoteHashNonce(this.txHash, i);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, note.noteHash);
-      return {
-        counter,
-        note: { ...note, nonce },
-        noteHashForConsumption: siloNoteHash(note.contractAddress, uniqueNoteHash),
-      };
-    });
+    const updatedNotes = await Promise.all(
+      this.notes.map(async ({ note, counter }, i) => {
+        const nonce = await computeNoteHashNonce(this.txHash, i);
+        const uniqueNoteHash = await computeUniqueNoteHash(nonce, note.noteHash);
+        return {
+          counter,
+          note: { ...note, nonce },
+          noteHashForConsumption: await siloNoteHash(note.contractAddress, uniqueNoteHash),
+        };
+      }),
+    );
     // Rebuild the data.
     this.notes = [];
     this.noteMap = new Map();
@@ -86,8 +88,8 @@ export class ExecutionNoteCache {
    * @param noteHash - A hash of the note. If this value equals 0, it means the note being nullified is from a previous
    * transaction (and thus not a new note).
    */
-  public nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
-    const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
+  public async nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     const nullifiers = this.getNullifiers(contractAddress);
     nullifiers.add(siloedNullifier.value);
     this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);

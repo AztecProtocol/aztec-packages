@@ -99,7 +99,7 @@ export class PublicTxSimulator {
 
     const endStateReference = await this.db.getStateReference();
 
-    const avmProvingRequest = context.generateProvingRequest(endStateReference);
+    const avmProvingRequest =await context.generateProvingRequest(endStateReference);
     const avmCircuitPublicInputs = avmProvingRequest.inputs.output!;
 
     const revertCode = context.getFinalRevertCode();
@@ -271,7 +271,7 @@ export class PublicTxSimulator {
     );
 
     // TODO(dbanks12): remove once AVM proves entire public tx
-    context.updateProvingRequest(
+    await context.updateProvingRequest(
       this.realAvmProvingRequests,
       phase,
       fnName,

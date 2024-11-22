@@ -36,7 +36,7 @@ export class Poseidon2 extends Instruction {
     const outputState = poseidon2Permutation(inputState);
     memory.setSlice(
       outputOffset,
-      outputState.map(word => new Field(word)),
+      (await outputState).map(word => new Field(word)),
     );
 
     memory.assert({ reads: Poseidon2.stateSize, writes: Poseidon2.stateSize, addressing });

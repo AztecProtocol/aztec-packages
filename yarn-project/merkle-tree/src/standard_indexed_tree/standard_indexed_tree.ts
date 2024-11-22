@@ -541,7 +541,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
           lowLeafPreimage.getNextIndex(),
         );
 
-        this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
+        await this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
 
         pendingInsertionSubtree[originalIndex] = this.leafPreimageFactory.empty();
       } else {
@@ -551,7 +551,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
           startInsertionIndex + BigInt(originalIndex),
         );
 
-        this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
+        await this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
 
         const currentPendingPreimageLeaf = this.leafPreimageFactory.fromLeaf(
           newLeaf,
@@ -626,7 +626,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
       }),
     );
 
-    super.appendLeaves(hashedLeaves);
+    await super.appendLeaves(hashedLeaves);
   }
 
   /**

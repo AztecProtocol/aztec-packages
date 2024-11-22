@@ -91,20 +91,24 @@ export class MultiScalarMul extends Instruction {
     const [firstBaseScalarPair, ...rest]: Array<[Point, Fq]> = grumpkinPoints.map((p, idx) => [p, scalarFqVector[idx]]);
     // Fold the points and scalars into a single point
     // We have to ensure get the first point, since the identity element (point at infinity) isn't quite working in ts
-    const outputPoint = rest.reduce((acc, curr) => {
-      if (curr[1] === Fq.ZERO) {
-        // If we multiply by 0, the result will the point at infinity - so we ignore it
-        return acc;
-      } else if (curr[0].inf) {
-        // If we multiply the point at infinity by a scalar, it's still the point at infinity
-        return acc;
-      } else if (acc.inf) {
-        // If we accumulator is the point at infinity, we can just return the current point
-        return curr[0];
-      } else {
-        return grumpkin.add(acc, grumpkin.mul(curr[0], curr[1]));
+    const outputPoint = await (async () => {
+      let acc = await grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]);
+      for (const curr of rest) {
+        if (curr[1] === Fq.ZERO) {
+          // If we multiply by 0, the result will the point at infinity - so we ignore it
+          continue;
+        } else if (curr[0].inf) {
+          // If we multiply the point at infinity by a scalar, it's still the point at infinity
+          continue;
+        } else if (acc.inf) {
+          // If we accumulator is the point at infinity, we can just return the current point
+          acc = curr[0];
+        } else {
+          acc = await grumpkin.add(acc, await grumpkin.mul(curr[0], curr[1]));
+        }
       }
-    }, grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]));
+      return acc;
+    })();
 
     memory.set(outputOffset, new Field(outputPoint.x));
     memory.set(outputOffset + 1, new Field(outputPoint.y));

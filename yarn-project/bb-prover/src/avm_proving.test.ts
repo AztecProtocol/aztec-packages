@@ -65,7 +65,7 @@ const proveAndVerifyAvmTestContract = async (
   assertionErrString?: string,
 ) => {
   const startSideEffectCounter = 0;
-  const functionSelector = getAvmTestContractFunctionSelector(functionName);
+  const functionSelector = await getAvmTestContractFunctionSelector(functionName);
   calldata = [functionSelector.toField(), ...calldata];
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
@@ -74,10 +74,10 @@ const proveAndVerifyAvmTestContract = async (
   //
   // Top level contract call
   const bytecode = getAvmTestContractBytecode('public_dispatch');
-  const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
+  const fnSelector = await getAvmTestContractFunctionSelector('public_dispatch');
   const publicFn: PublicFunction = { bytecode, selector: fnSelector };
   const contractClass = await makeContractClassPublic(0, publicFn);
-  const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+  const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
 
   // The values here should match those in `avm_simulator.test.ts`
   const instanceGet = new SerializableContractInstance({
@@ -155,7 +155,7 @@ const proveAndVerifyAvmTestContract = async (
   const avmCircuitInputs = new AvmCircuitInputs(
     functionName,
     /*calldata=*/ context.environment.calldata,
-    /*publicInputs=*/ getPublicInputs(pxResult),
+    /*publicInputs=*/ await getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
     /*output*/ AvmCircuitPublicInputs.empty(),
   );

@@ -95,7 +95,7 @@ describe('public_processor', () => {
 
   describe('process txs', () => {
     it('process private-only txs', async function () {
-      const tx = mockPrivateOnlyTx();
+      const tx = await mockPrivateOnlyTx();
 
       const [processed, failed] = await processor.process([tx], 1, handler);
 
@@ -108,7 +108,7 @@ describe('public_processor', () => {
     });
 
     it('runs a tx with enqueued public calls', async function () {
-      const tx = mockTxWithPublicCalls();
+      const tx = await mockTxWithPublicCalls();
 
       const [processed, failed] = await processor.process([tx], 1, handler);
 
@@ -121,7 +121,7 @@ describe('public_processor', () => {
     });
 
     it('runs a tx with reverted enqueued public calls', async function () {
-      const tx = mockTxWithPublicCalls();
+      const tx = await mockTxWithPublicCalls();
 
       mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
       mockedEnqueuedCallsResult.revertReason = new SimulationError(`Failed`, []);
@@ -138,7 +138,7 @@ describe('public_processor', () => {
     it('returns failed txs without aborting entire operation', async function () {
       publicTxProcessor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
-      const tx = mockTxWithPublicCalls();
+      const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toEqual([]);
@@ -151,7 +151,7 @@ describe('public_processor', () => {
     });
 
     it('does not attempt to overfill a block', async function () {
-      const txs = Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed }));
+      const txs = await Promise.all(Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed })));
 
       // We are passing 3 txs but only 2 can fit in the block
       const [processed, failed] = await processor.process(txs, 2, handler);
@@ -168,7 +168,7 @@ describe('public_processor', () => {
     });
 
     it('does not send a transaction to the prover if validation fails', async function () {
-      const tx = mockPrivateOnlyTx();
+      const tx = await mockPrivateOnlyTx();
 
       const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
       txValidator.validateTxs.mockRejectedValue([[], [tx]]);
@@ -190,13 +190,13 @@ describe('public_processor', () => {
     beforeEach(() => {
       worldStateDB.storageRead.mockResolvedValue(initialBalance);
 
-      worldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
-        Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+      worldStateDB.storageWrite.mockImplementation(async (address: AztecAddress, slot: Fr) =>
+        (await computePublicDataTreeLeafSlot(address, slot)).toBigInt(),
       );
     });
 
     it('injects balance update with no public calls', async function () {
-      const tx = mockPrivateOnlyTx({
+      const tx = await mockPrivateOnlyTx({
         feePayer,
       });
 
@@ -210,7 +210,7 @@ describe('public_processor', () => {
       expect(processed).toHaveLength(1);
       expect(processed[0].data.feePayer).toEqual(feePayer);
       expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
+        new PublicDataWrite(await computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
       );
       expect(failed).toEqual([]);
 
@@ -224,7 +224,7 @@ describe('public_processor', () => {
       const txFee = new Fr(567);
       mockedAvmOutput.transactionFee = txFee;
 
-      const tx = mockTxWithPublicCalls({
+      const tx = await mockTxWithPublicCalls({
         feePayer,
       });
 
@@ -235,7 +235,7 @@ describe('public_processor', () => {
       expect(processed[0].data.feePayer).toEqual(feePayer);
       expect(processed[0].txEffect.transactionFee).toEqual(txFee);
       expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
+        new PublicDataWrite(await computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
       );
       expect(failed).toEqual([]);
 
@@ -250,7 +250,7 @@ describe('public_processor', () => {
       const pendingBalance = new Fr(2000);
       const pendingWrites = [
         new PublicDataWrite(new Fr(888n), new Fr(999)),
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), pendingBalance),
+        new PublicDataWrite(await computeFeePayerBalanceLeafSlot(feePayer), pendingBalance),
         new PublicDataWrite(new Fr(666n), new Fr(777)),
       ];
       mockedAvmOutput.transactionFee = txFee;
@@ -258,7 +258,7 @@ describe('public_processor', () => {
       mockedAvmOutput.accumulatedData.publicDataWrites[1] = pendingWrites[1];
       mockedAvmOutput.accumulatedData.publicDataWrites[2] = pendingWrites[2];
 
-      const tx = mockTxWithPublicCalls({
+      const tx = await mockTxWithPublicCalls({
         feePayer,
       });
 
@@ -270,7 +270,7 @@ describe('public_processor', () => {
       expect(countAccumulatedItems(processed[0].txEffect.publicDataWrites)).toBe(3);
       expect(processed[0].txEffect.publicDataWrites.slice(0, 3)).toEqual([
         pendingWrites[0],
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), pendingBalance.sub(txFee)),
+        new PublicDataWrite(await computeFeePayerBalanceLeafSlot(feePayer), pendingBalance.sub(txFee)),
         pendingWrites[2],
       ]);
       expect(failed).toEqual([]);
@@ -285,7 +285,7 @@ describe('public_processor', () => {
       const txFee = initialBalance.add(new Fr(1));
       mockedAvmOutput.transactionFee = txFee;
 
-      const tx = mockTxWithPublicCalls({
+      const tx = await mockTxWithPublicCalls({
         feePayer,
       });
 

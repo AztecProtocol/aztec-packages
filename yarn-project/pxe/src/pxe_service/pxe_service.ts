@@ -377,7 +377,7 @@ export class PXEService implements PXE {
         throw new Error('Note does not exist.');
       }
 
-      const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
+      const siloedNullifier = await siloNullifier(note.contractAddress, innerNullifier!);
       const [nullifierIndex] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
         siloedNullifier,
       ]);
@@ -871,7 +871,7 @@ export class PXEService implements PXE {
   }
 
   public async isContractInitialized(address: AztecAddress): Promise<boolean> {
-    const initNullifier = siloNullifier(address, address.toField());
+    const initNullifier = await siloNullifier(address, address.toField());
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 

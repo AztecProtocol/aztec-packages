@@ -41,13 +41,13 @@ export class NullifierManager {
    * @param nullifier - the nullifier to check for
    * @returns exists: whether the nullifier exists in cache here or in parent's
    */
-  private checkExistsHereOrParent(contractAddress: AztecAddress, nullifier: Fr): boolean {
+  private async checkExistsHereOrParent(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     // First check this cache
-    let existsAsPending = this.cache.exists(contractAddress, nullifier);
+    let existsAsPending = await this.cache.exists(contractAddress, nullifier);
     // Then try parent's nullifier cache
     if (!existsAsPending && this.parent) {
       // Note: this will recurse to grandparent/etc until a cache-hit is encountered.
-      existsAsPending = this.parent.checkExistsHereOrParent(contractAddress, nullifier);
+      existsAsPending = await this.parent.checkExistsHereOrParent(contractAddress, nullifier);
     }
     return existsAsPending;
   }
@@ -70,13 +70,13 @@ export class NullifierManager {
     nullifier: Fr,
   ): Promise<[/*exists=*/ boolean, /*isPending=*/ boolean, /*leafIndex=*/ Fr]> {
     // Check this cache and parent's (recursively)
-    const existsAsPending = this.checkExistsHereOrParent(contractAddress, nullifier);
+    const existsAsPending = await this.checkExistsHereOrParent(contractAddress, nullifier);
     // Finally try the host's Aztec state (a trip to the database)
     // If the value is found in the database, it will be associated with a leaf index!
     let leafIndex: bigint | undefined = undefined;
     if (!existsAsPending) {
       // silo the nullifier before checking for its existence in the host
-      leafIndex = await this.hostNullifiers.getNullifierIndex(siloNullifier(contractAddress, nullifier));
+      leafIndex = await this.hostNullifiers.getNullifierIndex(await siloNullifier(contractAddress, nullifier));
     }
     const exists = existsAsPending || leafIndex !== undefined;
     leafIndex = leafIndex === undefined ? BigInt(0) : leafIndex;
@@ -96,7 +96,7 @@ export class NullifierManager {
         `Nullifier ${nullifier} at contract ${contractAddress} already exists in parent cache or host.`,
       );
     }
-    this.cache.append(contractAddress, nullifier);
+    await this.cache.append(contractAddress, nullifier);
   }
 
   /**
@@ -139,10 +139,10 @@ export class NullifierCache {
    * @param nullifier - the nullifier to check existence of
    * @returns whether the nullifier is found in the cache
    */
-  public exists(contractAddress: AztecAddress, nullifier: Fr): boolean {
+  public async exists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     const exists =
       this.cachePerContract.get(contractAddress.toBigInt())?.has(nullifier.toBigInt()) ||
-      this.siloedNullifiers.has(siloNullifier(contractAddress, nullifier).toBigInt());
+      this.siloedNullifiers.has((await siloNullifier(contractAddress, nullifier)).toBigInt());
     return !!exists;
   }
 
@@ -152,8 +152,8 @@ export class NullifierCache {
    * @param contractAddress - the address of the contract that the nullifier is associated with
    * @param nullifier - the nullifier to stage
    */
-  public append(contractAddress: AztecAddress, nullifier: Fr) {
-    if (this.exists(contractAddress, nullifier)) {
+  public async append(contractAddress: AztecAddress, nullifier: Fr) {
+    if (await this.exists(contractAddress, nullifier)) {
       throw new NullifierCollisionError(
         `Nullifier ${nullifier} at contract ${contractAddress} already exists in cache.`,
       );

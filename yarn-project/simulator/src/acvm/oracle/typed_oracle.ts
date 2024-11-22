@@ -195,12 +195,12 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedEventLog(
+  async emitEncryptedEventLog(
     _contractAddress: AztecAddress,
     _randomness: Fr,
     _encryptedEvent: Buffer,
     _counter: number,
-  ): void {
+  ): Promise<void> {
     throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
   }
 

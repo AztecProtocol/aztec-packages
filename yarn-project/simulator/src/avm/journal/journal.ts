@@ -137,7 +137,7 @@ export class AvmPersistableStateManager {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     if (this.doMerkleOperations) {
       const result = await this.merkleTrees.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
@@ -160,7 +160,7 @@ export class AvmPersistableStateManager {
         lowLeafPreimage.nextIndex,
       );
       // FIXME: Why do we need to hint both preimages for public data writes, but not for nullifier insertions?
-      this.trace.tracePublicStorageWrite(
+      await this.trace.tracePublicStorageWrite(
         contractAddress,
         slot,
         value,
@@ -171,7 +171,7 @@ export class AvmPersistableStateManager {
         insertionPath,
       );
     } else {
-      this.trace.tracePublicStorageWrite(contractAddress, slot, value);
+      await this.trace.tracePublicStorageWrite(contractAddress, slot, value);
     }
   }
 
@@ -188,7 +188,7 @@ export class AvmPersistableStateManager {
       `Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
 
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
 
     if (this.doMerkleOperations) {
       // Get leaf if present, low leaf if absent
@@ -217,9 +217,9 @@ export class AvmPersistableStateManager {
       );
       // On non-existence, AVM circuit will need to recognize that leafPreimage.slot != leafSlot,
       // prove that this is a low leaf that skips leafSlot, and then prove memebership of the leaf.
-      this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
+      await this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
     } else {
-      this.trace.tracePublicStorageRead(contractAddress, slot, value);
+      await this.trace.tracePublicStorageRead(contractAddress, slot, value);
     }
 
     return Promise.resolve(value);
@@ -279,7 +279,7 @@ export class AvmPersistableStateManager {
       const leafIndex = new Fr(info.size + 1n);
 
       const path = await this.merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex.toBigInt());
-      const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+      const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
 
       await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
       this.trace.traceNewNoteHash(contractAddress, noteHash, leafIndex, path.toFields());
@@ -297,7 +297,7 @@ export class AvmPersistableStateManager {
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     const [exists, isPending, _] = await this.nullifiers.checkExists(contractAddress, nullifier);
 
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     if (this.doMerkleOperations) {
       // Get leaf if present, low leaf if absent
@@ -353,7 +353,7 @@ export class AvmPersistableStateManager {
     // Cache pending nullifiers for later access
     await this.nullifiers.append(contractAddress, nullifier);
 
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     if (this.doMerkleOperations) {
       // Trace all nullifier creations, even duplicate insertions that fail
@@ -375,7 +375,7 @@ export class AvmPersistableStateManager {
       const lowLeafPath = lowLeafInfo.siblingPath.toFields();
       const insertionPath = insertionResult.newSubtreeSiblingPath.toFields();
 
-      this.trace.traceNewNullifier(
+      await this.trace.traceNewNullifier(
         contractAddress,
         nullifier,
         lowLeafPreimage,
@@ -384,7 +384,7 @@ export class AvmPersistableStateManager {
         insertionPath,
       );
     } else {
-      this.trace.traceNewNullifier(contractAddress, nullifier);
+      await this.trace.traceNewNullifier(contractAddress, nullifier);
     }
   }
 
@@ -484,7 +484,7 @@ export class AvmPersistableStateManager {
       const contractClassPreimage = {
         artifactHash: contractClass.artifactHash,
         privateFunctionsRoot: contractClass.privateFunctionsRoot,
-        publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+        publicBytecodeCommitment: await computePublicBytecodeCommitment(contractClass.packedBytecode),
       };
 
       this.trace.traceGetBytecode(
@@ -520,7 +520,7 @@ export class AvmPersistableStateManager {
 
     this.log.verbose(`[AVM] Tracing nested external contract call ${functionName}`);
 
-    this.trace.traceNestedCall(
+   await this.trace.traceNestedCall(
       forkedState.trace,
       nestedEnvironment,
       startGasLeft,

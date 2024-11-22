@@ -220,7 +220,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(
+  public async tracePublicStorageRead(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
@@ -240,7 +240,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       throw new SideEffectLimitReachedError('public data (contract storage) read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
 
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
 
     this.publicDataReads.push(new PublicDataRead(leafSlot, value, this.sideEffectCounter));
 
@@ -252,7 +252,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(
+  public async tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
@@ -276,7 +276,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       );
     }
 
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
 
     // New hinting
@@ -328,7 +328,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     // TODO(dbanks12): make unique and silo instead of scoping
-    //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+    //const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.avmCircuitHints.noteHashWriteRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
@@ -348,7 +348,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
     // TODO(dbanks12): use siloed nullifier instead of scoped once public kernel stops siloing
     // and once VM public inputs are meant to contain siloed nullifiers.
-    //const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    //const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(contractAddress);
     if (exists) {
       this.nullifierReadRequests.push(readRequest);
@@ -366,7 +366,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(
+  public async traceNewNullifier(
     contractAddress: AztecAddress,
     nullifier: Fr,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
@@ -378,7 +378,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
 
     // New hinting
@@ -505,7 +505,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
    * Trace a nested call.
    * Accept some results from a finished nested call's trace into this one.
    */
-  public traceNestedCall(
+  public async traceNestedCall(
     /** The trace of the nested call. */
     _nestedCallTrace: this,
     /** The execution environment of the nested call. */

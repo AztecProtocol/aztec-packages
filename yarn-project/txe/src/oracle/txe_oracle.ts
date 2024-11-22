@@ -191,7 +191,7 @@ export class TXE implements TypedOracle {
 
   async addContractArtifact(artifact: ContractArtifact) {
     const contractClass = await getContractClassFromArtifact(artifact);
-    await this.txeDatabase.addContractArtifact(computeContractClassId(contractClass), artifact);
+    await this.txeDatabase.addContractArtifact(await computeContractClassId(contractClass), artifact);
   }
 
   async getPrivateContextInputs(
@@ -224,7 +224,7 @@ export class TXE implements TypedOracle {
     const account = this.txeDatabase.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
+    const signature = (await schnorr.constructSignature(messageHash.toBuffer(), privateKey)).toBuffer();
     const authWitness = new AuthWitness(messageHash, [...signature]);
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
@@ -248,7 +248,7 @@ export class TXE implements TypedOracle {
   }
 
   async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
-    const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier));
+    const siloedNullifiers = await Promise.all(nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier)));
     await this.addSiloedNullifiers(siloedNullifiers);
   }
 
@@ -257,7 +257,7 @@ export class TXE implements TypedOracle {
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
-    const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
+    const siloedNoteHashes = await Promise.all(noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash)));
     await this.addSiloedNoteHashes(siloedNoteHashes);
   }
 
@@ -452,14 +452,14 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
-    this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
+  async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+    await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
     return Promise.resolve();
   }
 
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
-    const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
+    const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const db = await this.trees.getLatest();
     const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     return index !== undefined;
@@ -483,7 +483,7 @@ export class TXE implements TypedOracle {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = startStorageSlot.add(new Fr(i));
-      const leafSlot = computePublicDataTreeLeafSlot(contractAddress, storageSlot).toBigInt();
+      const leafSlot = (await computePublicDataTreeLeafSlot(contractAddress, storageSlot)).toBigInt();
 
       const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
 
@@ -504,11 +504,13 @@ export class TXE implements TypedOracle {
   async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
     const db = await this.trees.getLatest();
 
-    const publicDataWrites = values.map((value, i) => {
-      const storageSlot = startStorageSlot.add(new Fr(i));
-      this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
-    });
+    const publicDataWrites = await Promise.all(
+      values.map(async (value, i) => {
+        const storageSlot = startStorageSlot.add(new Fr(i));
+        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
+        return new PublicDataTreeLeaf(await computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
+      }),
+    );
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       publicDataWrites.map(write => write.toBuffer()),
@@ -646,9 +648,14 @@ export class TXE implements TypedOracle {
       return undefined;
     }
 
-    const f = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters(f.name, f.parameters).equals(selector),
-    );
+    const f = (
+      await Promise.all(
+        artifact.functions.map(async f => {
+          const fs = await FunctionSelector.fromNameAndParameters(f.name, f.parameters);
+          return fs.equals(selector) ? f : undefined;
+        }),
+      )
+    ).find(f => !!f);
     if (!f) {
       return undefined;
     }
@@ -676,7 +683,7 @@ export class TXE implements TypedOracle {
       /*realAvmProvingRequests=*/ false,
     );
 
-    const tx = this.createTxForPublicCall(executionRequest, isTeardown);
+    const tx = await this.createTxForPublicCall(executionRequest, isTeardown);
 
     const result = await simulator.simulate(tx);
     return Promise.resolve(result);
@@ -760,20 +767,20 @@ export class TXE implements TypedOracle {
     );
   }
 
-  notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
-    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
+  async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
+    await this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   debugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
   }
 
-  emitEncryptedEventLog(
+  async emitEncryptedEventLog(
     _contractAddress: AztecAddress,
     _randomness: Fr,
     _encryptedEvent: Buffer,
     counter: number,
-  ): void {
+  ): Promise<void> {
     this.sideEffectCounter = counter + 1;
     return;
   }
@@ -792,7 +799,7 @@ export class TXE implements TypedOracle {
   async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
+    const sharedSecret = await computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     return siloedSecret;
@@ -849,7 +856,7 @@ export class TXE implements TypedOracle {
   }
 
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
-    const nullifier = siloNullifier(targetAddress, innerNullifier!);
+    const nullifier = await siloNullifier(targetAddress, innerNullifier!);
     const db = await this.trees.getLatest();
     const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     return index !== undefined;
@@ -857,14 +864,14 @@ export class TXE implements TypedOracle {
 
   async avmOpcodeEmitNullifier(nullifier: Fr) {
     const db = await this.trees.getLatest();
-    const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(this.contractAddress, nullifier);
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
     return Promise.resolve();
   }
 
   async avmOpcodeEmitNoteHash(noteHash: Fr) {
     const db = await this.trees.getLatest();
-    const siloedNoteHash = siloNoteHash(this.contractAddress, noteHash);
+    const siloedNoteHash = await siloNoteHash(this.contractAddress, noteHash);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
     return Promise.resolve();
   }
@@ -872,7 +879,7 @@ export class TXE implements TypedOracle {
   async avmOpcodeStorageRead(slot: Fr) {
     const db = await this.trees.getLatest();
 
-    const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
     const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
@@ -890,8 +897,8 @@ export class TXE implements TypedOracle {
   /**
    * Craft a carrier transaction for a public call.
    */
-  private createTxForPublicCall(executionRequest: PublicExecutionRequest, teardown: boolean): Tx {
-    const callRequest = executionRequest.toCallRequest();
+  private async createTxForPublicCall(executionRequest: PublicExecutionRequest, teardown: boolean): Promise<Tx> {
+    const callRequest = await executionRequest.toCallRequest();
     // use max limits
     const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL);
 

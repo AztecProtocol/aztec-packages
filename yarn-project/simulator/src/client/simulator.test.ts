@@ -19,9 +19,9 @@ describe('Simulator', () => {
   let contractAddress: AztecAddress;
   let appNullifierSecretKey: Fr;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-    const allOwnerKeys = deriveKeys(ownerSk);
+    const allOwnerKeys = await deriveKeys(ownerSk);
 
     ownerMasterNullifierPublicKey = allOwnerKeys.publicKeys.masterNullifierPublicKey;
     const ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
@@ -29,9 +29,9 @@ describe('Simulator', () => {
     contractAddress = AztecAddress.random();
 
     const ownerPartialAddress = Fr.random();
-    const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
+    const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
 
-    appNullifierSecretKey = computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress);
+    appNullifierSecretKey = await computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress);
 
     oracle = mock<DBOracle>();
     node = mock<AztecNode>();
@@ -43,8 +43,8 @@ describe('Simulator', () => {
     simulator = new AcirSimulator(oracle, node);
   });
 
-  describe('computeNoteHashAndOptionallyANullifier', () => {
-    const artifact = getFunctionArtifact(
+  describe('computeNoteHashAndOptionallyANullifier', async () => {
+    const artifact = await getFunctionArtifact(
       TokenBlacklistContractArtifact,
       'compute_note_hash_and_optionally_a_nullifier',
     );
@@ -53,20 +53,20 @@ describe('Simulator', () => {
     const noteTypeId = TokenBlacklistContractArtifact.notes['TokenNote'].id;
 
     // Amount is a U128, with a lo and hi limbs
-    const createNote = (amount = 123n) =>
-      new Note([new Fr(amount), new Fr(0), ownerMasterNullifierPublicKey.hash(), Fr.random()]);
+    const createNote = async (amount = 123n) =>
+      new Note([new Fr(amount), new Fr(0), await ownerMasterNullifierPublicKey.hash(), Fr.random()]);
 
     it('throw if the contract does not implement "compute_note_hash_and_optionally_a_nullifier"', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(undefined);
 
-      const note = createNote();
+      const note = await createNote();
       await expect(
         simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
       ).rejects.toThrow(/Mandatory implementation of "compute_note_hash_and_optionally_a_nullifier" missing/);
     });
 
     it('throw if "compute_note_hash_and_optionally_a_nullifier" has the wrong number of parameters', async () => {
-      const note = createNote();
+      const note = await createNote();
 
       const modifiedArtifact: FunctionArtifact = {
         ...artifact,
@@ -84,7 +84,7 @@ describe('Simulator', () => {
     });
 
     it('throw if a note has more fields than "compute_note_hash_and_optionally_a_nullifier" can process', async () => {
-      const note = createNote();
+      const note = await createNote();
       const wrongPreimageLength = note.length - 1;
 
       const modifiedArtifact: FunctionArtifact = {

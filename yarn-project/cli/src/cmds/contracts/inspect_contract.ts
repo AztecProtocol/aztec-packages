@@ -1,9 +1,9 @@
 import { getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
-  type FunctionArtifact,
-  FunctionSelector,
-  decodeFunctionSignature,
-  decodeFunctionSignatureWithParameterNames,
+    type FunctionArtifact,
+    FunctionSelector,
+    decodeFunctionSignature,
+    decodeFunctionSignatureWithParameterNames,
 } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
@@ -34,7 +34,7 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
 function logFunction(fn: FunctionArtifact, log: LogFn) {
   const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
   const signature = decodeFunctionSignature(fn.name, fn.parameters);
-  const selector = FunctionSelector.fromSignature(signature);
+  const selector = await FunctionSelector.fromSignature(signature);
   const bytecodeSize = fn.bytecode.length;
   const bytecodeHash = sha256(fn.bytecode).toString('hex');
   log(

@@ -115,7 +115,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(
+  public async tracePublicStorageRead(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
@@ -143,7 +143,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(
+  public async tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
@@ -244,7 +244,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(
+  public async traceNewNullifier(
     _contractAddress: AztecAddress,
     nullifier: Fr,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
@@ -372,7 +372,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
    * Trace a nested call.
    * Accept some results from a finished nested call's trace into this one.
    */
-  public traceNestedCall(
+  public async traceNestedCall(
     /** The trace of the nested call. */
     nestedCallTrace: PublicSideEffectTrace,
     /** The execution environment of the nested call. */
@@ -410,7 +410,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       result.startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
     );
 
-    this.publicCallRequests.push(resultToPublicCallRequest(result));
+    this.publicCallRequests.push(await resultToPublicCallRequest(result));
 
     this.avmCircuitHints.externalCalls.items.push(
       new AvmExternalCallHint(

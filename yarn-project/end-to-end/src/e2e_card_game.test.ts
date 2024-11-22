@@ -1,15 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
-  type AccountWallet,
-  AztecAddress,
-  type DebugLogger,
-  GrumpkinScalar,
-  type PXE,
-  type Wallet,
-  computeAppNullifierSecretKey,
-  deriveKeys,
-  deriveMasterNullifierSecretKey,
+    type AccountWallet,
+    AztecAddress,
+    type DebugLogger,
+    GrumpkinScalar,
+    type PXE,
+    type Wallet,
+    computeAppNullifierSecretKey,
+    deriveKeys,
+    deriveMasterNullifierSecretKey,
 } from '@aztec/aztec.js';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
@@ -108,7 +108,7 @@ describe('e2e_card_game', () => {
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
     const secretKeysToRegister = INITIAL_TEST_SECRET_KEYS.filter(key => {
-      const publicKey = deriveKeys(key).publicKeys.masterIncomingViewingPublicKey;
+      const publicKey = await deriveKeys(key).publicKeys.masterIncomingViewingPublicKey;
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
           return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(publicKey);

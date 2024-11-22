@@ -38,7 +38,9 @@ describe('MultiScalarMul Opcode', () => {
     const grumpkin = new Grumpkin();
     // We need to ensure points are actually on curve, so we just use the generator
     // In future we could use a random point, for now we create an array of [G, 2G, 3G]
-    const points = Array.from({ length: 3 }, (_, i) => grumpkin.mul(grumpkin.generator(), new Fq(i + 1)));
+    const points = await Promise.all(
+      Array.from({ length: 3 }, (_, i) => grumpkin.mul(grumpkin.generator(), new Fq(i + 1))),
+    );
 
     // Pick some big scalars to test the edge cases
     const scalars = [new Fq(Fq.MODULUS - 1n), new Fq(Fq.MODULUS - 2n), new Fq(1n)];
@@ -66,9 +68,9 @@ describe('MultiScalarMul Opcode', () => {
     const result = context.machineState.memory.getSlice(outputOffset, 3).map(r => r.toFr());
 
     // We write it out explicitly here
-    let expectedResult = grumpkin.mul(points[0], scalars[0]);
-    expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[1], scalars[1]));
-    expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[2], scalars[2]));
+    let expectedResult = await grumpkin.mul(points[0], scalars[0]);
+    expectedResult = await grumpkin.add(expectedResult, await grumpkin.mul(points[1], scalars[1]));
+    expectedResult = await grumpkin.add(expectedResult, await grumpkin.mul(points[2], scalars[2]));
 
     expect(result).toEqual([expectedResult.x, expectedResult.y, new Fr(0n)]);
   });
@@ -78,7 +80,9 @@ describe('MultiScalarMul Opcode', () => {
     const grumpkin = new Grumpkin();
     // We need to ensure points are actually on curve, so we just use the generator
     // In future we could use a random point, for now we create an array of [G, 2G, 3G]
-    const points = Array.from({ length: 3 }, (_, i) => grumpkin.mul(grumpkin.generator(), new Fq(i + 1)));
+    const points = await Promise.all(
+      Array.from({ length: 3 }, (_, i) => grumpkin.mul(grumpkin.generator(), new Fq(i + 1))),
+    );
 
     // Pick some big scalars to test the edge cases
     const scalars = [new Fq(Fq.MODULUS - 1n), new Fq(Fq.MODULUS - 2n), new Fq(1n)];
@@ -121,9 +125,9 @@ describe('MultiScalarMul Opcode', () => {
     const result = context.machineState.memory.getSlice(outputOffset, 3).map(r => r.toFr());
 
     // We write it out explicitly here
-    let expectedResult = grumpkin.mul(points[0], scalars[0]);
-    expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[1], scalars[1]));
-    expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[2], scalars[2]));
+    let expectedResult = await grumpkin.mul(points[0], scalars[0]);
+    expectedResult = await grumpkin.add(expectedResult, await grumpkin.mul(points[1], scalars[1]));
+    expectedResult = await grumpkin.add(expectedResult, await grumpkin.mul(points[2], scalars[2]));
 
     expect(result).toEqual([expectedResult.x, expectedResult.y, new Fr(0n)]);
   });
