@@ -15,6 +15,9 @@ public:
     ~AcirInstructionLoader() = default; 
 
     AcirInstructionLoader(std::vector<uint8_t> const& acir_program_buf, std::string instruction_name);
+    AcirInstructionLoader(std::string filename);
+    
+    std::vector<acir_format::AcirFormat> get_constraint_systems() { return this->constraint_systems; }
 
 private:
     std::string instruction_name;

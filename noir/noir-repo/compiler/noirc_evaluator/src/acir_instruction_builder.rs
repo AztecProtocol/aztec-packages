@@ -100,15 +100,16 @@ fn ssa_to_acir_program(ssa: Ssa) -> AcirProgram<FieldElement> {
     let (acir_functions, brillig, _, _) = ssa
         .into_acir(&Brillig::default(), ExpressionWidth::default())
         .expect("Should compile manually written SSA into ACIR");
-
+    
     let mut functions: Vec<Circuit<FieldElement>> = Vec::new();
     for acir_func in acir_functions.iter() {
         // inputs and output as private
         let mut private_params: BTreeSet<Witness> = acir_func.input_witnesses.clone().into_iter().collect();
         let ret_values: BTreeSet<Witness> = acir_func.return_witnesses.clone().into_iter().collect();
 
+        let circuit: Circuit<FieldElement> ;
         private_params.extend(ret_values.iter().cloned());
-        let circuit: Circuit<FieldElement> = Circuit {
+        circuit = Circuit {
             current_witness_index: acir_func.current_witness_index().witness_index(),
             opcodes: acir_func.opcodes().to_vec(),
             private_parameters: private_params,
@@ -123,7 +124,7 @@ fn binary_function(op: BinaryOp) -> Ssa {
     // returns v0 op v1
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    let v0 = builder.add_parameter(Type::unsigned(64));
+    let v0 = builder.add_parameter(Type::unsigned(8));
 
     // bit size of v1 differs, because shl shr max second argument 8 bit;
     let v1;
@@ -132,7 +133,7 @@ fn binary_function(op: BinaryOp) -> Ssa {
     if op == BinaryOp::Shl || op == BinaryOp::Shr {
         v1 = builder.add_parameter(Type::unsigned(8));
     } else {
-        v1 = builder.add_parameter(Type::unsigned(64));
+        v1 = builder.add_parameter(Type::unsigned(8));
     }
 
     let v2 = builder.insert_binary(v0, op, v1);
