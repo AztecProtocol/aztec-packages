@@ -35,16 +35,9 @@ describe('e2e_fees failures', () => {
     await t.teardown();
   });
 
-  beforeEach(async () => {
-    gasSettings = GasSettings.from({
-      ...t.gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
-    });
-  });
-
   it('reverts transactions but still pays fees using PrivateFeePaymentMethod', async () => {
-    const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
-    const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
+    const outrageousPublicAmountAliceDoesNotHave = BigInt(1e8);
+    const privateMintedAlicePrivateBananas = BigInt(1e15);
 
     const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
@@ -133,8 +126,8 @@ describe('e2e_fees failures', () => {
   });
 
   it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
-    const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
-    const publicMintedAlicePublicBananas = t.ALICE_INITIAL_BANANAS;
+    const outrageousPublicAmountAliceDoesNotHave = BigInt(1e15);
+    const publicMintedAlicePublicBananas = BigInt(1e12);
 
     const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,

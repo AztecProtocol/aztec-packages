@@ -36,7 +36,6 @@ import {
   type CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
-  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -490,10 +489,6 @@ export class PXEService implements PXE {
       blockNumber = await this.node.getBlockNumber();
     }
     return await this.node.getBlock(blockNumber);
-  }
-
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.node.getCurrentBaseFees();
   }
 
   async #simulateKernels(

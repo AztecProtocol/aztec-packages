@@ -11,24 +11,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  * @notice Decoding and validating an L2 block header
  * Concerned with readability and velocity of development not giving a damn about gas costs.
  *
- *                                                  ,ggg, ,ggg,_,ggg,                                       ,ggg,         gg
- *     I8                  I8                ,dPYb,dP""Y8dP""Y88P""Y8b                                     dP""Y8a        88                             8I                          ,dPYb,              ,dPYb,
- *     I8                  I8                IP'`YbYb, `88'  `88'  `88                                     Yb, `88        88                             8I                          IP'`Yb              IP'`Yb
- *  88888888            88888888             I8  8I `"  88    88    88                                      `"  88        88                             8I       gg                 I8  8I              I8  8I
- *     I8                  I8                I8  8'     88    88    88                                          88        88                             8I       ""                 I8  8'              I8  8bgg,
- *     I8      ,ggggg,     I8      ,gggg,gg  I8 dP      88    88    88    ,gggg,gg   ,ggg,,ggg,     ,gggg,gg    88        88    ,g,      ,ggg,     ,gggg,8I       gg     ,g,         I8 dP     ,gggg,gg  I8 dP" "8   ,ggg,
- *     I8     dP"  "Y8ggg  I8     dP"  "Y8I  I8dP       88    88    88   dP"  "Y8I  ,8" "8P" "8,   dP"  "Y8I    88        88   ,8'8,    i8" "8i   dP"  "Y8I       88    ,8'8,        I8dP     dP"  "Y8I  I8d8bggP"  i8" "8i
- *    ,I8,   i8'    ,8I   ,I8,   i8'    ,8I  I8P        88    88    88  i8'    ,8I  I8   8I   8I  i8'    ,8I    88        88  ,8'  Yb   I8, ,8I  i8'    ,8I       88   ,8'  Yb       I8P     i8'    ,8I  I8P' "Yb,  I8, ,8I
- *   ,d88b, ,d8,   ,d8'  ,d88b, ,d8,   ,d8b,,d8b,_      88    88    Y8,,d8,   ,d8b,,dP   8I   Yb,,d8,   ,d8b,   Y8b,____,d88,,8'_   8)  `YbadP' ,d8,   ,d8b,    _,88,_,8'_   8)     ,d8b,_  ,d8,   ,d8b,,d8    `Yb, `YbadP'
- *  88P""Y88P"Y8888P"   88P""Y88P"Y8888P"`Y88P'"Y88     88    88    `Y8P"Y8888P"`Y88P'   8I   `Y8P"Y8888P"`Y8    "Y888888P"Y8P' "YY8P8P888P"Y888P"Y8888P"`Y8    8P""Y8P' "YY8P8P    PI8"8888P"Y8888P"`Y888P      Y8888P"Y888
- *                                                                                                                                                                                   I8 `8,
- *                                                                                                                                                                                   I8  `8,
- *  The `totalManaUsed` value is not yet part of the "real" header, but can be passed by extending
- *  the header struct with an additional 256-bit value.
- *  It will be better supported as part of #9716, right now there is a few hacks going on in here.
- *
- *
- *
  * -------------------
  * You can use https://gist.github.com/LHerskind/724a7e362c97e8ac2902c6b961d36830 to generate the below outline.
  * -------------------
@@ -70,7 +52,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | 0x0248                                                                           | 0x20         | total_fees
- *  | 0x0268                                                                           | 0x20         | total_mana_used
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -121,7 +102,6 @@ library HeaderLib {
     StateReference stateReference;
     GlobalVariables globalVariables;
     uint256 totalFees;
-    uint256 totalManaUsed;
   }
 
   uint256 private constant HEADER_LENGTH = 0x268; // Header byte length
@@ -132,9 +112,8 @@ library HeaderLib {
    * @return The decoded header
    */
   function decode(bytes calldata _header) internal pure returns (Header memory) {
-    bool hasTotalManaUsed = _header.length == HEADER_LENGTH + 0x20;
     require(
-      _header.length == HEADER_LENGTH || hasTotalManaUsed,
+      _header.length == HEADER_LENGTH,
       Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length)
     );
 
@@ -178,10 +157,6 @@ library HeaderLib {
 
     // Reading totalFees
     header.totalFees = uint256(bytes32(_header[0x0248:0x0268]));
-
-    if (hasTotalManaUsed) {
-      header.totalManaUsed = uint256(bytes32(_header[0x0268:0x0288]));
-    }
 
     return header;
   }

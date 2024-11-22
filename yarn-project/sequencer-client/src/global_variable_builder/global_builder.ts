@@ -46,10 +46,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     });
   }
 
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFee([true])));
-  }
-
   /**
    * Simple builder of global variables that use the minimum time possible.
    * @param blockNumber - The block number to build global variables for.
@@ -77,8 +73,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);
 
-    const gasFees = await this.getCurrentBaseFees();
-
+    const gasFees = GasFees.default();
     const globalVariables = new GlobalVariables(
       chainId,
       version,

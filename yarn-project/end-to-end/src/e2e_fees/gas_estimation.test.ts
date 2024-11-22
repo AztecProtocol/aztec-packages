@@ -5,7 +5,7 @@ import {
   type FeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { Gas, GasSettings } from '@aztec/circuits.js';
+import { Gas, GasFees, type GasSettings } from '@aztec/circuits.js';
 import { type Logger } from '@aztec/foundation/log';
 import { TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
 
@@ -20,6 +20,7 @@ describe('e2e_fees gas_estimation', () => {
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
+  let teardownFixedFee: bigint;
   let logger: Logger;
 
   const t = new FeesTest('gas_estimation');
@@ -31,17 +32,10 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyFundAliceWithFeeJuice();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
 
+    teardownFixedFee = gasSettings.teardownGasLimits.computeFee(GasFees.default()).toBigInt();
+
     // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
     aliceWallet.setScopes([aliceAddress, bobAddress]);
-  });
-
-  beforeEach(async () => {
-    // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aliceWallet.getCurrentBaseFees();
-    gasSettings = GasSettings.from({
-      ...gasSettings,
-      maxFeesPerGas: gasFees,
-    });
   });
 
   afterAll(async () => {
@@ -68,10 +62,10 @@ describe('e2e_fees gas_estimation', () => {
     estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
     actualFee: bigint,
   ) => {
-    const feeFromEstimatedGas = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
+    const feeFromEstimatedGas = estimatedGas.gasLimits.computeFee(GasFees.default()).toBigInt();
 
     // The actual fee should be under the estimate, since we add 10% by default to the estimated gas (see aztec.js/src/contract/get_gas_limits.ts).
-    const adjustedForFloatingPoint = new Gas(1, 1).computeFee(gasSettings.maxFeesPerGas).toBigInt();
+    const adjustedForFloatingPoint = new Gas(1, 1).computeFee(GasFees.default()).toBigInt();
     expect(feeFromEstimatedGas).toBeLessThanOrEqual((actualFee * 110n) / 100n + adjustedForFloatingPoint);
     expect(feeFromEstimatedGas).toBeGreaterThan(actualFee);
   };
@@ -96,7 +90,6 @@ describe('e2e_fees gas_estimation', () => {
   });
 
   it('estimates gas with public payment method', async () => {
-    const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet);
     const estimatedGas = await makeTransferRequest().estimateGas({ fee: { gasSettings, paymentMethod } });
     logGasEstimate(estimatedGas);

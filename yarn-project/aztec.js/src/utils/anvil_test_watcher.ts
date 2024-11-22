@@ -62,9 +62,9 @@ export class AnvilTestWatcher {
     try {
       const currentSlot = await this.rollup.read.getCurrentSlot();
       const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
-      const blockLog = await this.rollup.read.getBlock([pendingBlockNumber]);
+      const [, , lastSlotNumber] = await this.rollup.read.blocks([pendingBlockNumber]);
 
-      if (currentSlot === blockLog.slotNumber) {
+      if (currentSlot === lastSlotNumber) {
         // We should jump to the next slot
         const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
         try {

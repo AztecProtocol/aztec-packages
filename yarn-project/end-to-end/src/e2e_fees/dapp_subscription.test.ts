@@ -8,7 +8,6 @@ import {
   PublicFeePaymentMethod,
   SentTx,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
   type AppSubscriptionContract,
@@ -41,7 +40,6 @@ describe('e2e_fees dapp_subscription', () => {
   let initialFPCGasBalance: bigint;
   let initialBananasPublicBalances: Balances; // alice, bob, fpc
   let initialBananasPrivateBalances: Balances; // alice, bob, fpc
-  let gasSettings: GasSettings;
 
   const t = new FeesTest('dapp_subscription');
 
@@ -92,11 +90,6 @@ describe('e2e_fees dapp_subscription', () => {
   });
 
   beforeEach(async () => {
-    gasSettings = GasSettings.from({
-      ...t.gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
-    });
-
     [initialSubscriptionContractGasBalance, initialSequencerGasBalance, initialFPCGasBalance] =
       (await t.getGasBalanceFn(subscriptionContract, sequencerAddress, bananaFPC)) as Balances;
     initialBananasPublicBalances = (await t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC)) as Balances;
@@ -172,7 +165,6 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should call dapp subscription entrypoint', async () => {
     // Subscribe again, so this test does not depend on the previous ones being run.
-
     await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient));
 
     expect(await subscriptionContract.methods.is_initialized(aliceAddress).simulate()).toBe(true);
@@ -181,13 +173,9 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
-
     const txSimulationResult = await pxe.simulateTx(txExReq, true);
-
     const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
-
     const sentTx = new SentTx(pxe, pxe.sendTx(txProvingResult.toTx()));
-
     const { transactionFee } = await sentTx.wait();
 
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
@@ -219,15 +207,13 @@ describe('e2e_fees dapp_subscription', () => {
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
     const nonce = Fr.random();
-    // This authwit is made because the subscription recipient is Bob, so we are approving the contract to send funds
-    // to him, on our behalf, as part of the subscription process.
     const action = bananaCoin.methods.transfer_in_private(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
     await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
       .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
-      .send({ fee: { gasSettings, paymentMethod } })
+      .send({ fee: { gasSettings: t.gasSettings, paymentMethod } })
       .wait();
   }
 
