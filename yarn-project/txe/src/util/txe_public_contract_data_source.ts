@@ -7,6 +7,7 @@ import {
   FunctionSelector,
   PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { PrivateFunctionsTree } from '@aztec/pxe';
@@ -52,6 +53,11 @@ export class TXEPublicContractDataSource implements ContractDataSource {
       privateFunctions: [],
       unconstrainedFunctions: [],
     };
+  }
+
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
+    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
   }
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

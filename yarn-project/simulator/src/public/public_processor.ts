@@ -29,7 +29,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { INSTRUCTION_SET } from '../avm/serialization/bytecode_serialization.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -55,13 +54,7 @@ export class PublicProcessorFactory {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicTxSimulator = new PublicTxSimulator(
-      merkleTree,
-      worldStateDB,
-      this.telemetryClient,
-      globalVariables,
-      INSTRUCTION_SET(),
-    );
+    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
 
     return new PublicProcessor(
       merkleTree,

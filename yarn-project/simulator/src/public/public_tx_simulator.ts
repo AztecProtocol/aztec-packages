@@ -24,7 +24,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
-import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
+import { INSTRUCTION_SET, type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
@@ -52,13 +52,13 @@ export class PublicTxSimulator {
   metrics: ExecutorMetrics;
 
   private log: DebugLogger;
+  private instructionSet: InstructionSet = INSTRUCTION_SET();
 
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
     client: TelemetryClient,
     private globalVariables: GlobalVariables,
-    private instructionSet: InstructionSet,
     private realAvmProvingRequests: boolean = true,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);

@@ -19,6 +19,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PublicDataTreeLeafPreimage,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -38,11 +39,11 @@ import {
 export class ContractsDataSourcePublicDB implements PublicContractsDB {
   private instanceCache = new Map<string, ContractInstanceWithAddress>();
   private classCache = new Map<string, ContractClassPublic>();
+  private bytecodeCommitmentCache = new Map<string, Fr>();
 
   private log = createDebugLogger('aztec:sequencer:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
-
   /**
    * Add new contracts from a transaction
    * @param tx - The transaction to add contracts from.
@@ -52,7 +53,8 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     const logs = tx.contractClassLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e => {
       this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
-      this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
+      const key = e.contractClassId.toString();
+      this.classCache.set(key, e.toContractClassPublic());
     });
     // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
     const encLogs = tx.encryptedLogs.unrollLogs();
@@ -90,6 +92,31 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 
   public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
     return this.classCache.get(contractClassId.toString()) ?? (await this.dataSource.getContractClass(contractClassId));
+  }
+
+  public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    // Try and retrieve from cache
+    const key = contractClassId.toString();
+    const result = this.bytecodeCommitmentCache.get(key);
+    if (result !== undefined) {
+      return result;
+    }
+    // Now try from the store
+    const fromStore = await this.dataSource.getBytecodeCommitment(contractClassId);
+    if (fromStore !== undefined) {
+      this.bytecodeCommitmentCache.set(key, fromStore);
+      return fromStore;
+    }
+
+    // Not in either the store or the cache, build it here and cache
+    const contractClass = await this.getContractClass(contractClassId);
+    if (contractClass === undefined) {
+      return undefined;
+    }
+
+    const value = computePublicBytecodeCommitment(contractClass.packedBytecode);
+    this.bytecodeCommitmentCache.set(key, value);
+    return value;
   }
 
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
