@@ -12,6 +12,10 @@ cd "$(dirname "$0")"
 
 CMD=${1:-}
 
+apt install lsof -y
+echo "================ OPEN PORTS =============="
+lsof -i
+
 function build {
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)

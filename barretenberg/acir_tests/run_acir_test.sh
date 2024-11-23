@@ -38,15 +38,18 @@ fi
 
 set +e
 start=$SECONDS
-$FLOW_SCRIPT 2> /dev/null
+output=$($FLOW_SCRIPT 2>&1)
 result=$?
 end=$SECONDS
 duration=$((end - start))
 set -e
 
+[ "${VERBOSE:-0}" -eq 1 ] && echo -e "\n$output"
+
 if [ $result -eq 0 ]; then
   echo -e "\033[32mPASSED\033[0m (${duration}s)"
 else
   echo -e "\033[31mFAILED\033[0m"
+  echo "$output"
   exit 1
 fi

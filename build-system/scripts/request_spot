@@ -105,9 +105,6 @@ if [ -z "$IID" -o "$IID" == "None" ]; then
     --cli-input-json file://$temp_file \
     --query "Instances[*].[InstanceId]" \
     --output text)
-else
-  # Write down spot request ID so we can cancel once we finish
-  echo $SIR > sir-$NAME.txt
 fi
 
 aws ec2 create-tags --resources $IID --tags "Key=Name,Value=$NAME"
@@ -133,4 +130,4 @@ while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP $LIVE_CMD > /dev/null 2>
   fi
   sleep 1
 done
-echo $IP
+echo $IP:$SIR
