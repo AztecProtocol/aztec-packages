@@ -48,6 +48,8 @@ export interface ContractDataSource {
   /** Returns a contract artifact. */
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
 
+  /** Returns a function's name */
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
   /** Registers a a contract artifact. */
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
 }

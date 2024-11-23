@@ -32,7 +32,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -750,5 +750,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return Promise.resolve(this.contractArtifacts.get(address.toString()));
+  }
+
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const artifact = await this.getContractArtifact(address);
+
+    if (!artifact) {
+      return undefined;
+    }
+
+    const func = artifact.functions.find(f =>
+      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+    );
+    return Promise.resolve(func?.name);
   }
 }

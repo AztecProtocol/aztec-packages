@@ -752,6 +752,10 @@ export class Archiver implements ArchiveSource {
     return this.store.getContractArtifact(address);
   }
 
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getContractFunctionName(address, selector);
+  }
+
   async getL2Tips(): Promise<L2Tips> {
     const [latestBlockNumber, provenBlockNumber] = await Promise.all([
       this.getBlockNumber(),
@@ -1056,6 +1060,9 @@ class ArchiverStoreHelper
   }
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
+  }
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getContractFunctionName(address, selector);
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();

@@ -19,7 +19,7 @@ import {
   type Header,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -47,6 +47,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
   #contractArtifactStore: ContractArtifactsStore;
+  private functionNames = new Map<string, string>();
 
   #log = createDebugLogger('aztec:archiver:data-store');
 
@@ -64,8 +65,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#contractArtifactStore.getContractArtifact(address));
   }
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    return this.#contractArtifactStore.addContractArtifact(address, contract);
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(this.functionNames.get(selector.toString()));
+  }
+
+  async addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    await this.#contractArtifactStore.addContractArtifact(address, contract);
+    contract.functions.forEach(f => {
+      this.functionNames.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
+    });
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

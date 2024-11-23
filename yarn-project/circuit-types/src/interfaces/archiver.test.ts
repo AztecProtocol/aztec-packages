@@ -365,6 +365,15 @@ class MockArchiver implements ArchiverApi {
     const contractClass = getContractClassFromArtifact(this.artifact);
     return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
   }
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    expect(address).toBeInstanceOf(AztecAddress);
+    expect(selector).toBeInstanceOf(FunctionSelector);
+    return Promise.resolve(
+      this.artifact.functions.find(f =>
+        FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+      )?.name,
+    );
+  }
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve({
       address,

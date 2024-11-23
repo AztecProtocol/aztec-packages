@@ -14,7 +14,7 @@ import {
   ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
   Fr,
-  FunctionSelector,
+  type FunctionSelector,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
@@ -132,19 +132,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const artifact = await this.dataSource.getContractArtifact(address);
-    if (!artifact) {
-      return Promise.resolve(undefined);
-    }
-
-    const f = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters(f.name, f.parameters).equals(selector),
-    );
-    if (!f) {
-      return Promise.resolve(undefined);
-    }
-
-    return Promise.resolve(`${artifact.name}:${f.name}`);
+    return await this.dataSource.getContractFunctionName(address, selector);
   }
 }
 

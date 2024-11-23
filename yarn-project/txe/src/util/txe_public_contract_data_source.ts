@@ -74,6 +74,17 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return this.txeOracle.getContractDataOracle().getContractArtifact(instance.contractClassId);
   }
 
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const artifact = await this.getContractArtifact(address);
+    if (!artifact) {
+      return undefined;
+    }
+    const func = artifact.functions.find(f =>
+      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+    );
+    return Promise.resolve(func?.name);
+  }
+
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
     return this.txeOracle.addContractArtifact(contract);
   }

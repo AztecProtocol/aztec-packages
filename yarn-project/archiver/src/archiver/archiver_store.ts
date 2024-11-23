@@ -20,7 +20,7 @@ import {
   type Header,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -270,4 +270,5 @@ export interface ArchiverDataStore {
 
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
