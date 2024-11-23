@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -11,7 +12,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Fork to create the child process
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork failed");
@@ -20,27 +20,45 @@ int main(int argc, char *argv[]) {
 
     if (pid == 0) {
         // In child process
-        // Create a new process group for the child and its descendants
+
+        // Close standard file descriptors and reopen them to /dev/null
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > 2) {
+                close(devnull);
+            }
+        }
+
+        // Create new process group
         if (setpgid(0, 0) < 0) {
             perror("setpgid failed");
             exit(1);
         }
 
-        // Execute the target command
+        // Explicitly detach from controlling terminal
+        if (setsid() < 0) {
+            perror("setsid failed");
+            // Continue anyway as this might fail if already process group leader
+        }
+
+        // Set as non-interactive
         setenv("DEBIAN_FRONTEND", "noninteractive", 1);
+
         execvp(argv[1], &argv[1]);
         perror("execvp failed");
         exit(1);
     }
 
-    // Wait for the child process to exit
+    // Parent process
     int status;
     waitpid(pid, &status, 0);
 
-    // Cleanup: Kill all processes in the child's process group
+    // Clean up child process group
     if (pid > 0) {
-        // Kill all processes in the child's process group
-        kill(-pid, SIGKILL); // Negative PGID targets the group
+        kill(-pid, SIGKILL);
     }
 
     return WEXITSTATUS(status);
