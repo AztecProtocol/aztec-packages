@@ -26,6 +26,11 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
 
+        // Transfer terminal control to the child process group
+        if (tcsetpgrp(STDIN_FILENO, getpid()) < 0) {
+            perror("tcsetpgrp failed");
+        }
+
         // Execute the target command
         execvp(argv[1], &argv[1]);
         perror("execvp failed");
@@ -42,6 +47,10 @@ int main(int argc, char *argv[]) {
         kill(-pid, SIGKILL); // Negative PGID targets the group
     }
 
+    // Restore terminal control to the parent process group
+    if (tcsetpgrp(STDIN_FILENO, getpgrp()) < 0) {
+        perror("tcsetpgrp restore failed");
+    }
+
     return WEXITSTATUS(status);
 }
-
