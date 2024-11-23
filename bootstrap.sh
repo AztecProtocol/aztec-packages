@@ -160,7 +160,7 @@ for project in "${PROJECTS[@]}"; do
   echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $project && death_wrapper ./bootstrap.sh)
+  (cd $project && ./bootstrap.sh)
   echo
   echo
 done

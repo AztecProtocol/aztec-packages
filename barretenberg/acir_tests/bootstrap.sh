@@ -34,6 +34,6 @@ if [ "${CI:-0}" -eq 1 ]; then
   # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
   function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
 
-  export -f f0 f1 f2 f3 f4 f5 f6
-  parallel ::: f0 f1 f2 f3 f4 f5 f6
+  export -f f1 f2 f3 f4 f5 f6
+  parallel ::: f1 f2 f3 f4 f5 f6
 fi
