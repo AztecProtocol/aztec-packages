@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 
+# TODO: Move to build image.
 if [ "${CI:-0}" -eq 1 ]; then
   npx -y playwright@1.49 install --with-deps
 fi

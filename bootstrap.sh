@@ -21,7 +21,7 @@ BOLD="\033[1m"
 RESET="\033[0m"
 
 # setup env
-export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
+export PATH="$PATH:$PWD/build-system/scripts:$PWD/build-system/bin"
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
@@ -153,13 +153,14 @@ PROJECTS=(
   yarn-project
 )
 
-# Build projects locally
+# Build projects.
+# Death wrapper ensures no child process exist after exit.
 for project in "${PROJECTS[@]}"; do
   echo "**************************************"
   echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $project && ./bootstrap.sh)
+  (cd $project && death_wrapper ./bootstrap.sh)
   echo
   echo
 done
