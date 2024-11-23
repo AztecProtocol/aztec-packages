@@ -6,7 +6,6 @@ import {
   MAX_L2_GAS_PER_ENQUEUED_CALL,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 
 import { strict as assert } from 'assert';
 
@@ -30,7 +29,6 @@ import {
   type InstructionSet,
   decodeInstructionFromBytecode,
 } from './serialization/bytecode_serialization.js';
-import { Opcode } from './serialization/instruction_serialization.js';
 
 type OpcodeTally = {
   count: number;
@@ -48,12 +46,19 @@ export class AvmSimulator {
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
   private pcTallies: Map<number, PcTally> = new Map();
 
+  private tallyPrintFunction = () => {};
+  private tallyInstructionFunction = (_a: number, _b: string, _c: Gas) => {};
+
   constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
     this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
+    if (process.env.LOG_LEVEL === 'debug') {
+      this.tallyPrintFunction = this.printOpcodeTallies;
+      this.tallyInstructionFunction = this.tallyInstruction;
+    }
   }
 
   public static create(
@@ -88,9 +93,7 @@ export class AvmSimulator {
    * Fetch the bytecode and execute it in the current context.
    */
   public async execute(): Promise<AvmContractCallResult> {
-    const timer = new Timer();
     const bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
-    this.log.info(`Retrieved bytecode in ${timer.ms()}ms`);
     // This assumes that we will not be able to send messages to accounts without code
     // Pending classes and instances impl details
     if (!bytecode) {
@@ -116,12 +119,6 @@ export class AvmSimulator {
     assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
     this.bytecode = bytecode;
-    let totalExecutionTime = 0;
-    let totalDecodeTime = 0;
-
-    const executionTimes: number[] = [];
-    const decodeTimes: number[] = [];
-    const counts: number[] = [];
 
     const { machineState } = this.context;
     try {
@@ -129,25 +126,11 @@ export class AvmSimulator {
       // continuing until the machine state signifies a halt
       let instrCounter = 0;
       while (!machineState.getHalted()) {
-        let timer = new Timer();
         const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
         assert(
           !!instruction,
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
         );
-        let duration = timer.ms();
-        totalDecodeTime += duration;
-        if (decodeTimes[instruction.opcode] == undefined) {
-          decodeTimes[instruction.opcode] = duration;
-        } else {
-          decodeTimes[instruction.opcode] += duration;
-        }
-
-        if (counts[instruction.opcode] == undefined) {
-          counts[instruction.opcode] = 1;
-        } else {
-          counts[instruction.opcode]++;
-        }
 
         const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
         const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
@@ -161,19 +144,11 @@ export class AvmSimulator {
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
         machineState.nextPc = machineState.pc + bytesRead;
-        timer = new Timer();
+
         await instruction.execute(this.context);
         if (!instruction.handlesPC()) {
           // Increment PC if the instruction doesn't handle it itself
           machineState.pc += bytesRead;
-        }
-        duration = timer.ms();
-        totalExecutionTime += duration;
-
-        if (executionTimes[instruction.opcode] == undefined) {
-          executionTimes[instruction.opcode] = duration;
-        } else {
-          executionTimes[instruction.opcode] += duration;
         }
 
         // gas used by this instruction - used for profiling/tallying
@@ -181,7 +156,7 @@ export class AvmSimulator {
           l2Gas: instrStartGas.l2Gas - machineState.l2GasLeft,
           daGas: instrStartGas.daGas - machineState.daGasLeft,
         };
-        this.tallyInstruction(instrPc, instruction.constructor.name, gasUsed);
+        this.tallyInstructionFunction(instrPc, instruction.constructor.name, gasUsed);
 
         if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
@@ -195,27 +170,7 @@ export class AvmSimulator {
       const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
-      this.log.info(
-        `Total decode time ${totalDecodeTime}ms, total execution time ${totalExecutionTime}ms, num instructions ${instrCounter}`,
-      );
-
-      for (let i = 0; i < decodeTimes.length; i++) {
-        if (decodeTimes[i] == undefined) {
-          continue;
-        }
-        this.log.info(`Decode Opcode ${Opcode[i]}: ${decodeTimes[i]} / ${counts[i]} = ${decodeTimes[i] / counts[i]}`);
-      }
-
-      for (let i = 0; i < executionTimes.length; i++) {
-        if (executionTimes[i] == undefined) {
-          continue;
-        }
-        this.log.info(
-          `Execution Opcode ${Opcode[i]}: ${executionTimes[i]} / ${counts[i]} = ${executionTimes[i] / counts[i]}`,
-        );
-      }
-
-      this.printOpcodeTallies();
+      this.tallyPrintFunction();
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
@@ -230,7 +185,7 @@ export class AvmSimulator {
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
-      this.printOpcodeTallies();
+      this.tallyPrintFunction();
       // Return results for processing by calling context
       return results;
     }
