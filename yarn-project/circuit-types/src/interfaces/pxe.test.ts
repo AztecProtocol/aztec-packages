@@ -6,7 +6,6 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
-  GasFees,
   L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   Point,
@@ -217,11 +216,6 @@ describe('PXESchema', () => {
   it('getBlock', async () => {
     const result = await context.client.getBlock(1);
     expect(result).toBeInstanceOf(L2Block);
-  });
-
-  it('getCurrentBaseFees', async () => {
-    const result = await context.client.getCurrentBaseFees();
-    expect(result).toEqual(GasFees.default());
   });
 
   it('simulateUnconstrained', async () => {
@@ -448,9 +442,6 @@ class MockPXE implements PXE {
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
-  }
-  getCurrentBaseFees(): Promise<GasFees> {
-    return Promise.resolve(GasFees.default());
   }
   simulateUnconstrained(
     _functionName: string,

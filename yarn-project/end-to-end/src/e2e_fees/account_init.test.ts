@@ -13,7 +13,7 @@ import {
   type Wallet,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { type AztecAddress, type CompleteAddress, Fq, GasSettings } from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, Fq, type GasSettings } from '@aztec/circuits.js';
 import { type TokenContract as BananaCoin, type FPCContract, SchnorrAccountContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -76,10 +76,7 @@ describe('e2e_fees account_init', () => {
     bobsAddress = bobsCompleteAddress.address;
     bobsWallet = await bobsAccountManager.getWallet();
 
-    gasSettings = GasSettings.from({
-      ...t.gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
-    });
+    gasSettings = t.gasSettings;
 
     await bobsAccountManager.register();
     await initBalances();
@@ -108,7 +105,7 @@ describe('e2e_fees account_init', () => {
 
     it('pays privately through an FPC', async () => {
       // Alice mints bananas to Bob
-      const mintedBananas = t.INITIAL_GAS_BALANCE;
+      const mintedBananas = BigInt(1e12);
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       // Bob deploys his account through the private FPC
@@ -136,7 +133,7 @@ describe('e2e_fees account_init', () => {
     });
 
     it('pays publicly through an FPC', async () => {
-      const mintedBananas = t.INITIAL_GAS_BALANCE;
+      const mintedBananas = BigInt(1e12);
       await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send().wait();
 
       const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, bobsWallet);

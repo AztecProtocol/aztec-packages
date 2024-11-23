@@ -26,7 +26,6 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type Fr,
-  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -145,9 +144,6 @@ export abstract class BaseWallet implements Wallet {
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
-  }
-  getCurrentBaseFees(): Promise<GasFees> {
-    return this.pxe.getCurrentBaseFees();
   }
   simulateUnconstrained(
     functionName: string,
