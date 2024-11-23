@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include <algorithm>
 #include <cassert>
 
@@ -141,19 +142,17 @@ bool is_ok(AvmError error)
  * @param public_inputs Public inputs structure
  * @param trace The execution trace
  */
-void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace)
+void inject_end_gas_values([[maybe_unused]] AvmPublicInputs& public_inputs, std::vector<Row>& trace)
 {
     auto execution_end_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });
     ASSERT(execution_end_row != trace.end());
 
-    trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
-    trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
+    // trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
+    // trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
 
-    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
-        execution_end_row->main_l2_gas_remaining;
-    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
-        execution_end_row->main_da_gas_remaining;
+    // public_inputs.end_gas_used.l2_gas = static_cast<uint32_t>(execution_end_row->main_l2_gas_remaining);
+    // public_inputs.end_gas_used.da_gas = static_cast<uint32_t>(execution_end_row->main_da_gas_remaining);
 }
 
 } // namespace bb::avm_trace

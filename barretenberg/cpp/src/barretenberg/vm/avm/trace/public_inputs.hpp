@@ -11,8 +11,8 @@ struct EthAddress {
 };
 
 struct Gas {
-    FF l2_gas;
-    FF da_gas;
+    uint32_t l2_gas;
+    uint32_t da_gas;
 };
 
 inline void read(uint8_t const*& it, Gas& gas)
@@ -124,7 +124,7 @@ struct PublicCallRequest {
     /**
      * Function selector of the function being called.
      */
-    FF function_selector;
+    uint32_t function_selector;
     /**
      * Determines whether the call is modifying state.
      */

@@ -9,12 +9,13 @@
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
-#include "barretenberg/vm/avm/trace/kernel_trace.hpp"
+// #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
@@ -41,11 +42,10 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs new_public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {},
-                    AvmPublicInputs new_public_inputs = {});
+                    std::vector<FF> calldata = {});
 
     void set_public_call_request(PublicCallRequest const& public_call_request)
     {
@@ -146,8 +146,8 @@ class AvmTraceBuilder {
     AvmError op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, OpCode op_code = OpCode::MOV_16);
 
     // World State
-    AvmError op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset);
-    AvmError op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset);
+    AvmError op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t dest_offset);
+    AvmError op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset);
     AvmError op_note_hash_exists(uint8_t indirect,
                                  uint32_t note_hash_offset,
                                  uint32_t leaf_index_offset,
@@ -261,6 +261,16 @@ class AvmTraceBuilder {
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
+    // These are the tracked roots for intermediate steps
+    TreeSnapshots intermediate_tree_snapshots;
+    // These are some counters for the tree acceess hints that we probably dont need in the future
+    uint32_t note_hash_read_counter = 0;
+    uint32_t note_hash_write_counter = 0;
+    uint32_t nullifier_read_counter = 0;
+    uint32_t nullifier_write_counter = 0;
+    uint32_t l1_to_l2_msg_read_counter = 0;
+    uint32_t storage_read_counter = 0;
+    uint32_t storage_write_counter = 0;
 
     // These exist due to testing only.
     bool range_check_required = true;
@@ -269,7 +279,7 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
-    AvmKernelTraceBuilder kernel_trace_builder;
+    // AvmKernelTraceBuilder kernel_trace_builder;
     AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;
@@ -279,6 +289,7 @@ class AvmTraceBuilder {
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;
     AvmBytecodeTraceBuilder bytecode_trace_builder;
+    AvmMerkleTreeTraceBuilder merkle_tree_trace_builder;
 
     RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 

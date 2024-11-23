@@ -148,16 +148,12 @@ void show_trace_info(const auto& trace)
 } // namespace
 
 // Needed for dependency injection in tests.
-Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs public_inputs,
+Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](AvmPublicInputs public_inputs,
                                                                              ExecutionHints execution_hints,
                                                                              uint32_t side_effect_counter,
-                                                                             std::vector<FF> calldata,
-                                                                             AvmPublicInputs new_public_inputs) {
-    return AvmTraceBuilder(std::move(public_inputs),
-                           std::move(execution_hints),
-                           side_effect_counter,
-                           std::move(calldata),
-                           new_public_inputs);
+                                                                             std::vector<FF> calldata) {
+    return AvmTraceBuilder(
+        std::move(public_inputs), std::move(execution_hints), side_effect_counter, std::move(calldata));
 };
 
 /**
@@ -181,19 +177,13 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  * @throws runtime_error exception when the bytecode is invalid.
  * @return The verifier key and zk proof of the execution.
  */
-std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(
-    std::vector<FF> const& calldata,
-    std::vector<FF> const& public_inputs_vec,
-    [[maybe_unused]] AvmPublicInputs const& public_inputs,
-    ExecutionHints const& execution_hints)
+std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<FF> const& calldata,
+                                                                   AvmPublicInputs const& public_inputs,
+                                                                   ExecutionHints const& execution_hints)
 {
-    if (public_inputs_vec.size() != PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
-        throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
-    }
-
     std::vector<FF> returndata;
     std::vector<Row> trace =
-        AVM_TRACK_TIME_V("prove/gen_trace", gen_trace(calldata, public_inputs_vec, returndata, execution_hints));
+        AVM_TRACK_TIME_V("prove/gen_trace", gen_trace(calldata, public_inputs, returndata, execution_hints));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -223,7 +213,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(
 
     vinfo("------- PROVING EXECUTION -------");
     // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
-    HonkProof proof(public_inputs_vec);
+    std::vector<FF> empty_public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    // Temp: We zero out the public inputs when proving
+    HonkProof proof(empty_public_inputs_vec);
     proof.emplace_back(calldata.size());
     proof.insert(proof.end(), calldata.begin(), calldata.end());
     proof.emplace_back(returndata.size());
@@ -256,9 +248,10 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     std::copy(returndata_offset, raw_proof_offset, std::back_inserter(returndata));
     std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
-    VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
-    std::vector<std::vector<FF>> public_inputs_columns =
-        copy_public_inputs_columns(public_inputs, calldata, returndata);
+    // VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
+    // Temp: We zero out the "Kernel public inputs" when verifying
+    std::vector<std::vector<FF>> public_inputs_columns = { {}, {}, {}, {}, calldata, returndata };
+    // copy_public_inputs_columns(public_inputs, calldata, returndata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
 }
 
@@ -271,35 +264,39 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @return The trace as a vector of Row.
  */
 std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs_vec,
+                                      AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      ExecutionHints const& execution_hints,
-                                      AvmPublicInputs const& new_public_inputs)
+                                      ExecutionHints const& execution_hints)
 
 {
     vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
-    VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
+    // VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
     uint32_t start_side_effect_counter =
-        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
-                                   : 0;
-
-    AvmTraceBuilder trace_builder = Execution::trace_builder_constructor(
-        public_inputs, execution_hints, start_side_effect_counter, calldata, new_public_inputs);
+        0; // What to do here???
+           // !public_inputs_vec.empty() ?
+           // static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
+           //                            : 0;
+           //
+    AvmTraceBuilder trace_builder =
+        Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
     std::vector<PublicCallRequest> public_call_requests;
-    for (const auto& setup_requests : new_public_inputs.public_setup_call_requests) {
+    for (const auto& setup_requests : public_inputs.public_setup_call_requests) {
         if (setup_requests.contract_address != 0) {
             public_call_requests.push_back(setup_requests);
         }
     }
-    for (const auto& app_requests : new_public_inputs.public_app_logic_call_requests) {
+    for (const auto& app_requests : public_inputs.public_app_logic_call_requests) {
         if (app_requests.contract_address != 0) {
             public_call_requests.push_back(app_requests);
         }
     }
-    public_call_requests.push_back(new_public_inputs.public_teardown_call_request);
+    // We should not need to guard teardown, but while we are testing with handcrafted txs we do
+    if (public_inputs.public_teardown_call_request.contract_address != 0) {
+        public_call_requests.push_back(public_inputs.public_teardown_call_request);
+    }
 
     // We should use the public input address, but for now we just take the first element in the list
     // const std::vector<uint8_t>& bytecode = execution_hints.all_contract_bytecode.at(0).bytecode;
@@ -315,6 +312,7 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             std::ranges::find_if(execution_hints.all_contract_bytecode, [public_call_request](const auto& contract) {
                 return contract.contract_instance.address == public_call_request.contract_address;
             })->bytecode;
+        info("Found bytecode for contract address: ", public_call_request.contract_address);
 
         // Set this also on nested call
 
@@ -653,13 +651,11 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             case OpCode::SLOAD:
                 error = trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint16_t>(inst.operands.at(1)),
-                                               1,
                                                std::get<uint16_t>(inst.operands.at(2)));
                 break;
             case OpCode::SSTORE:
                 error = trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                1,
                                                 std::get<uint16_t>(inst.operands.at(2)));
                 break;
             case OpCode::NOTEHASHEXISTS:

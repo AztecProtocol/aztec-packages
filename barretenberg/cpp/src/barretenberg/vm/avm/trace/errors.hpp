@@ -14,6 +14,7 @@ enum class AvmError : uint32_t {
     ENV_VAR_UNKNOWN,
     CONTRACT_INST_MEM_UNKNOWN,
     RADIX_OUT_OF_BOUNDS,
+    DUPLICATE_NULLIFIER,
 };
 
 } // namespace bb::avm_trace
