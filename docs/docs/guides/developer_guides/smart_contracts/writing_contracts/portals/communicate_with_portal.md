@@ -156,7 +156,7 @@ Error handling for cross chain messages is handled by the application contract a
 
 Designating a caller grants the ability to specify who should be able to call a function that consumes a message. This is useful for ordering of batched messages.
 
-When performing multiple cross-chain calls in one action it is important to consider the order of the calls. Say for example, that you want to perform a uniswap trade on L1. You would withdraw funds from the rollup, swap them on L1, and then deposit the swapped funds back into the rollup. This is a straightforward process, but it requires that the calls are done in the correct order (e.g. if the swap is called before the funds are withdrawn, the swap will fail).
+When performing multiple cross-chain calls in one action it is important to consider the order of the calls. Say for example, that you want to perform an uniswap trade on L1. You would withdraw funds from the rollup, swap them on L1, and then deposit the swapped funds back into the rollup. This is a straightforward process, but it requires that the calls are done in the correct order (e.g. if the swap is called before the funds are withdrawn, the swap will fail).
 
 The message boxes (Inbox and Outbox) will only allow the recipient portal to consume the message, and we can use this to ensure that the calls are done in the correct order. Say that we include a designated "caller" in the messages, and that the portal contract checks that the caller matches the designated caller or designated as `address(0)` (if anyone can call). When the messages are to be consumed on L1, it can compute the message as seen below:
 
