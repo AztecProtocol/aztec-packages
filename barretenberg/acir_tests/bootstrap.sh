@@ -6,6 +6,8 @@ if [ "${CI:-0}" -eq 1 ]; then
   npx -y playwright@1.49 install --with-deps
 fi
 
+# TODO: Move this to build image?
+corepack enable
 (cd headless-test && yarn)
 (cd browser-test-app && yarn && yarn build)
 
