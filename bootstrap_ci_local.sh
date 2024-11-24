@@ -3,6 +3,7 @@ set -eu
 
 docker run --name aztec_build -ti --rm \
   -v $PWD:/aztec-packages-host:ro \
+  -v $HOME/.aws:/root/.aws \
   -v /var/run/docker.sock:/var/run/docker.sock \
   aztecprotocol/build:1.0 bash -c '
   git config --global --add safe.directory /aztec-packages-host/.git
