@@ -1,21 +1,22 @@
-# Aztec Protocol: Testnet Engineering Runbook
+# Public Testnet Engineering Runbook
 
 ## Overview
 
-This runbook outlines the engineering team's responsibilities for managing Aztec Protocol testnets. The engineering team coordinates the building, testing, and deployment of testnet(s) for each release while providing technical support for protocol and product queries from the community. This document describes the team's responsibilities during a release cycle and outlines actions for various testnet scenarios. The process spans from code-freeze to deployment completion, including both the QA phase (internal testing) and the public release phase.
+This runbook outlines the engineering team's responsibilities for managing Aztec Protocol public testnets. The engineering team coordinates the building, testing, and deployment of public testnet(s) for each release while providing technical support for protocol and product queries from the community. This document describes the team's responsibilities during a release cycle and outlines actions for various public testnet scenarios. The process spans from code-freeze to deployment completion.
 
-## Releases
+## QA and Releases
 
-The engineering team's testnet responsibilities begin after code-freeze. Here are the primary tasks:
+The engineering team's public testnet responsibilities begin after code-freeze. Code-freeze is initiated by cutting a release branch from a `master` release and follows the below sequence:
 
-1. Confirm with engineering and product teams that all required PRs are merged
-2. Create a release branch (eg: `<repository>-v<major>.<minor>.<patch>`, e.g., `aztec-packages-v0.62.0`)
-3. Cherry-pick bug-fixes into the release branch for bugs discovered during release testing.
-4. Initiate a final build by pushing an empty commit into the release branch to trigger the `release-please` CI workflow.
+1. Confirm with engineering and product teams that all required PRs are merged.
+2. Create a named release branch (eg: `release/sassy-salamander`) from the desired `master` release (eg:`v0.64.0`).
+3. Complete all QA testing against `release/sassy-salamander`.
+4. For tests that do not pass, create a hotfix into the `release/sassy-salamander` release branch.
+5. After testing is complete, initiate a `release-please` CI workflow from `release/sassy-salamander` to publish release artifacts.
 
 ### Release Notes and Artifact Builds
 
-Verify the `release-please` CI workflow completed successfully and that release notes have been published.
+Verify the `release-please` CI workflow completed successfully and that release notes have been published. If there were no hotfixes, then this simply moves the tags forward to `v0.64.0`, otherwise, it releases `v0.64.X` (and moves the tags).
 A successful CI run publishes the following Barretenberg artifacts with the release notes:
 
 - Barretenberg for Mac (x86 64-bit)
@@ -39,7 +40,8 @@ Lastly, any changes made to developer documentation are published to <https://do
 
 ## Deployment
 
-After cutting a release, deploy a testnet (typically with 48 validators) using the new Docker containers. Verbose logging on Aztec nodes should be enabled by default using the following `ENV VARS`:
+After cutting a release, deploy a public testnet using the new Docker containers. This typically occurs after a released has passed QA for support of 48 validators.
+Verbose logging on Aztec nodes should be enabled by default using the following `ENV VARS`:
 
 - `LOG_JSON=1`
 - `LOG_LEVEL=debug`
@@ -49,10 +51,10 @@ Deployments are initiated from CI by manually running the (_name pending_) workf
 
 ### Sanity Check
 
-After testnet deployment, perform these sanity checks (these items can also be script automated):
+After public testnet deployment, perform these sanity checks (these items can also be script automated):
 
 1. Monitor for crashes and network-level health:
-   - Review testnet dashboard at `https://grafana.aztec.network/` to confirm node uptime and block production
+   - Review the testnet dashboard at `https://grafana.aztec.network/` to confirm node uptime and block production
    - Verify overall TPS performance
    - Create Github issues for new crash scenarios
 
@@ -94,11 +96,11 @@ The following items are a shortlist of support items that may be required either
 | Network instability* | Create detailed issue report for Alpha team | Blocker | Alpha Team |
 | Challenge completion errors | Document issue and assess challenge viability | Major | Product Team |
 | Minor operational issues | Create tracking issue | Minor | Delta Team |
-| Hotfix deployment | Update testnet and verify fix | Major | Delta Team |
+| Hotfix deployment | Update public testnet and verify fix | Major | Delta Team |
 
 _*Defining Network Instability:_
 
-A testnet is considered unstable if experiencing any of the following:
+A public testnet is considered unstable if experiencing any of the following:
 
 1. Block production stalls
 2. Proof generation failures
