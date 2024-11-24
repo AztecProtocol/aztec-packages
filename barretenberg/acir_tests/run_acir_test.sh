@@ -25,8 +25,8 @@ if [ "$COMPILE" -eq 1 ]; then
   echo -n "compiling... "
   export RAYON_NUM_THREADS=4
   rm -rf target
-  ../../../target/release/nargo compile --silence-warnings > /dev/null 2>&1
-  ../../../target/release/nargo execute > /dev/null 2>&1
+  nargo=../../../target/release/nargo
+  compile_output=$($nargo compile --silence-warnings 2>&1 && $nargo execute 2>&1)
   mv ./target/$TEST_NAME.json ./target/program.json
   mv ./target/$TEST_NAME.gz ./target/witness.gz
 fi
@@ -44,7 +44,7 @@ end=$SECONDS
 duration=$((end - start))
 set -e
 
-[ "${VERBOSE:-0}" -eq 1 ] && echo -e "\n$output"
+[ "${VERBOSE:-0}" -eq 1 ] && echo -e "\n${compile_output:-}\n$output"
 
 if [ $result -eq 0 ]; then
   echo -e "\033[32mPASSED\033[0m (${duration}s)"
