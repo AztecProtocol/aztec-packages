@@ -12,6 +12,11 @@ fi
 (cd headless-test && yarn --immutable)
 
 if [ "${CI:-0}" -eq 1 ]; then
+  # Download ignition up front, otherwise processes will trip over each other.
+  # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
+  curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat \
+    -o $HOME/.bb-crs/bn254_g1.dat
+
   COMPILE=1 ./run_acir_tests.sh
 
   # Serialize these two tests as otherwise servers will conflict. Can we just avoid the servers (or tweak ports)?
