@@ -122,6 +122,7 @@ export async function buildBaseRollupHints(
     padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
+
   if (nullifierWitnessLeaves === undefined) {
     throw new Error(`Could not craft nullifier batch insertion proofs`);
   }

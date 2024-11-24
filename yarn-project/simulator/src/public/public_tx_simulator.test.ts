@@ -1,10 +1,4 @@
-import {
-  type MerkleTreeWriteOperations,
-  SimulationError,
-  type TreeInfo,
-  TxExecutionPhase,
-  mockTx,
-} from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations, SimulationError, TxExecutionPhase, mockTx } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
@@ -16,7 +10,6 @@ import {
   Header,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicDataTreeLeafPreimage,
   PublicDataWrite,
   RevertCode,
   StateReference,
@@ -28,6 +21,7 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -51,10 +45,9 @@ describe('public_tx_simulator', () => {
   // gasUsed for each enqueued call.
   const enqueuedCallGasUsed = new Gas(12, 34);
 
-  let db: MockProxy<MerkleTreeWriteOperations>;
+  let db: MerkleTreeWriteOperations;
   let worldStateDB: MockProxy<WorldStateDB>;
 
-  let root: Buffer;
   let publicDataTree: AppendOnlyTree<Fr>;
 
   let treeStore: AztecKVStore;
@@ -150,9 +143,10 @@ describe('public_tx_simulator', () => {
   };
 
   beforeEach(async () => {
-    db = mock<MerkleTreeWriteOperations>();
+    const tmp = openTmpStore();
+    const telemetryClient = new NoopTelemetryClient();
+    db = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
     worldStateDB = mock<WorldStateDB>();
-    root = Buffer.alloc(32, 5);
 
     treeStore = openTmpStore();
 
@@ -177,11 +171,7 @@ describe('public_tx_simulator', () => {
     // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
     header.state = StateReference.fromBuffer(stateReference.toBuffer());
 
-    db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-    db.getStateReference.mockResolvedValue(stateReference);
-    db.getSiblingPath.mockResolvedValue(publicDataTree.getSiblingPath(0n, false));
-    db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
-    db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
+    worldStateDB.getMerkleInterface.mockReturnValue(db);
 
     simulator = new PublicTxSimulator(
       db,

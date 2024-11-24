@@ -199,7 +199,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   public traceNewNoteHash(
     _contractAddress: AztecAddress,
     noteHash: Fr,
-    leafIndex: Fr,
+    leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyNoteHashPath(),
   ) {
     if (this.noteHashes.length >= MAX_NOTE_HASHES_PER_TX) {

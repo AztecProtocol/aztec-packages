@@ -216,7 +216,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
-      throw new Error(`Can only remove the tip`);
+      throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
     }
 
     const stopAt = from - blocksToUnwind;

@@ -82,6 +82,7 @@ export class TestContext {
       publicDb = await ws.getLatest();
       proverDb = await ws.getLatest();
     }
+    worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
 
     const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, telemetry, globalVariables);
     const processor = new PublicProcessor(

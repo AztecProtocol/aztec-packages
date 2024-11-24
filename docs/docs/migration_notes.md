@@ -6,6 +6,26 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [aztec.nr] SharedMutable renamings
+
+`SharedMutable` getters (`get_current_value_in_public`, etc.) were renamed by dropping the `_in<public|private|unconstrained>` suffix, since only one of these versions is ever available depending on the current context.
+
+```diff
+// In private
+- let value = storage.my_var.get_current_value_in_private();
++ let value = storage.my_var.get_current_value();
+
+// In public
+- let value = storage.my_var.get_current_value_in_public();
++ let value = storage.my_var.get_current_value();
+```
+
+### [aztec.js] Random addresses are now valid
+
+The `AztecAddress.random()` function now returns valid addresses, i.e. addresses that can receive encrypted messages and therefore have notes be sent to them. `AztecAddress.isValid()` was also added to check for validity of an address.
+
 ## 0.63.0
 ### [PXE] Note tagging and discovery
 

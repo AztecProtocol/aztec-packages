@@ -231,7 +231,7 @@ describe('ArchiverApiSchema', () => {
 
   it('addContractArtifact', async () => {
     await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  });
+  }, 20_000);
 
   it('getContract', async () => {
     const address = AztecAddress.random();

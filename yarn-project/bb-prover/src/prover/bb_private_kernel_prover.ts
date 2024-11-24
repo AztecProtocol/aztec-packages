@@ -338,7 +338,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
 
     if (vkResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
+      this.log.error(`Failed to generate verification key for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
       throw new Error(vkResult.reason);
     }
 

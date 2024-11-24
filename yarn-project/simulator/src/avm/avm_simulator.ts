@@ -18,8 +18,8 @@ import { AvmMachineState } from './avm_machine_state.js';
 import { isAvmBytecode } from './bytecode_utils.js';
 import {
   AvmExecutionError,
+  AvmRevertReason,
   InvalidProgramCounterError,
-  NoBytecodeForContractError,
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
@@ -94,10 +94,24 @@ export class AvmSimulator {
    */
   public async execute(): Promise<AvmContractCallResult> {
     const bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
-    // This assumes that we will not be able to send messages to accounts without code
-    // Pending classes and instances impl details
     if (!bytecode) {
-      throw new NoBytecodeForContractError(this.context.environment.address);
+      // revert, consuming all gas
+      const message = `No bytecode found at: ${this.context.environment.address}. Reverting...`;
+      const revertReason = new AvmRevertReason(
+        message,
+        /*failingFunction=*/ {
+          contractAddress: this.context.environment.address,
+          functionSelector: this.context.environment.functionSelector,
+        },
+        /*noirCallStack=*/ [],
+      );
+      this.log.warn(message);
+      return new AvmContractCallResult(
+        /*reverted=*/ true,
+        /*output=*/ [],
+        /*gasLeft=*/ { l2Gas: 0, daGas: 0 },
+        revertReason,
+      );
     }
 
     return await this.executeBytecode(bytecode);

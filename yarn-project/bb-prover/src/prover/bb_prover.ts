@@ -555,7 +555,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
+      logger.error(`Failed to generate proof for tube circuit: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
     return provingResult;

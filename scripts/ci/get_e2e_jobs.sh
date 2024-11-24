@@ -25,6 +25,7 @@ allow_list=(
   "e2e_cross_chain_messaging"
   "e2e_crowdfunding_and_claim"
   "e2e_deploy_contract"
+  "e2e_epochs"
   "e2e_fees"
   "e2e_fees_failures"
   "e2e_fees_gas_estimation"
@@ -67,7 +68,6 @@ done
 
 # Add the input labels and expanded matches to allow_list
 allow_list+=("${input_labels[@]}" "${expanded_allow_list[@]}")
-
 
 # Generate full list of targets, excluding specific entries, on one line
 test_list=$(echo "${full_list[@]}" | grep -v 'base' | grep -v 'bench' | grep -v "network" | grep -v 'devnet' | xargs echo)

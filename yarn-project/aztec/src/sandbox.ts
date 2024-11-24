@@ -171,7 +171,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  */
 export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry: telemetryClient });
   return node;
 }
 
