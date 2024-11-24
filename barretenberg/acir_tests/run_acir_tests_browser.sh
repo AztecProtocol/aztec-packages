@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
-set -eum
+# We're deliberately not doing: set -eu
 
 cleanup() {
-    set +e
-    if [ -n "$pid" ]; then
-        kill $pid 2>/dev/null
-        wait $pid 2>/dev/null
-    fi
-    exit $code
+    [ -n "$pid" ] && kill $pid 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -22,6 +17,5 @@ echo "Testing thread model: $THREAD_MODEL"
 (cd browser-test-app && yarn serve:dest:$THREAD_MODEL) > /dev/null 2>&1 &
 pid=$!
 sleep 1
+
 VERBOSE=1 BIN=./headless-test/bb.js.browser ./run_acir_tests.sh $@
-code=$?
-exit $code
