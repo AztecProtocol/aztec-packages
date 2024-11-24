@@ -29,6 +29,9 @@ if [ "$COMPILE" -eq 1 ]; then
   compile_output=$($nargo compile --silence-warnings 2>&1 && $nargo execute 2>&1)
   mv ./target/$TEST_NAME.json ./target/program.json
   mv ./target/$TEST_NAME.gz ./target/witness.gz
+  if [ "$COMPILE_ONLY" -eq 1 ]; then
+    exit 0
+  fi
 fi
 
 if [[ ! -f ./target/program.json || ! -f ./target/witness.gz ]]; then
