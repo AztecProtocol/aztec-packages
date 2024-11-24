@@ -163,10 +163,10 @@ build:
       rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
       chmod -R a+w /opt/rust
 
-  # Install yarn
-  RUN npm install --global yarn
+  # Install corepack and yarn.
+  RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
 
-  # Install solhint
+  # Install solhint.
   RUN npm install --global solhint
 
   # Install aws cli.

@@ -30,6 +30,14 @@ function encourage_dev_container {
 # Checks for required utilities, toolchains and their versions.
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
+  # TODO: Move to build-image. Remove the yarn we installed and install corepack.
+  if ! command -v corepack > /dev/null; then
+      npm uninstall --global yarn
+      npm install --global corepack
+      corepack enable
+      corepack install --global yarn@4.5.2
+  fi
+
   # Check for various required utilities.
   for util in jq parallel awk git curl; do
     if ! command -v $util > /dev/null; then
