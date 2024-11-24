@@ -14,6 +14,7 @@ fi
 if [ "${CI:-0}" -eq 1 ]; then
   # Download ignition up front, otherwise processes will trip over each other.
   # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
+  mkdir -p $HOME/.bb-crs
   curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat \
     -o $HOME/.bb-crs/bn254_g1.dat
 
