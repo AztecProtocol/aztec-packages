@@ -68,7 +68,7 @@ After testnet deployment, perform these sanity checks (these items can also be s
 
 ### Network Connection Info
 
-After a successful sanity check, share the following network connection information in the `#team-alpha` slack channel. The Product / DevRel team then shares these connection details with the sequencer & prover discord channel.
+After a successful sanity check, share the following network connection information in the `#team-alpha` slack channel:
 
 1. AZTEC_IMAGE (`aztecprotocol/aztec:latest`)
 2. ETHEREUM_HOST (Kubernetes: `kubectl get services -n <namespace> | (head -1; grep ethereum)`)
@@ -78,6 +78,8 @@ After a successful sanity check, share the following network connection informat
    - boot-node-lb-udp: `<EXTERNAL-IP>:40400`
 
 This latest node connection information must also be updated in any existing node connection guides and where referenced at <https://docs.aztec.network>.
+
+The Product/DevRel team then shares these connection details with the sequencer & prover discord channel. Starting at epoch 5, Product/DevRel will coordinate with node operators who have already connected to the network using the information above. Product/DevRel verify that node operators are seeing correct logs, then pass on validator addresses of those ready to engineering so that engineering can add them to the validator set. We do this until we add all 48 validators.
 
 ## Support
 
