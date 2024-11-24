@@ -7,8 +7,8 @@ if [ "${CI:-0}" -eq 1 ]; then
 fi
 
 # TODO: Move this to build image?
-(cd headless-test && yarn)
-(cd browser-test-app && yarn && yarn build)
+(cd headless-test && yarn --immutable)
+(cd browser-test-app && yarn --immutable && yarn build)
 
 if [ "${CI:-0}" -eq 1 ]; then
   COMPILE=1 ./run_acir_tests.sh
