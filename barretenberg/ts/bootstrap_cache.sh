@@ -11,6 +11,3 @@ cache-download.sh bb.js-$(compute-content-hash.sh).tar.gz
 
 # We still need to install modules, so they can be found as part of module resolution when portalled.
 yarn install
-
-# Need to remove this file, otherwise downstream portals seem to get some checksum mismatch...
-rm .yarn/install-state.gz
