@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eu
 
+(cd browser-test-app && yarn --immutable && yarn build)
+
 # TODO: Move to build image.
 if [ "${CI:-0}" -eq 1 ]; then
   npx -y playwright@1.49 install --with-deps
@@ -8,7 +10,6 @@ fi
 
 # TODO: Move this to build image?
 (cd headless-test && yarn --immutable)
-(cd browser-test-app && yarn --immutable && yarn build)
 
 if [ "${CI:-0}" -eq 1 ]; then
   COMPILE=1 ./run_acir_tests.sh
