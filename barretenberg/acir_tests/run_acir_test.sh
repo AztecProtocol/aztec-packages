@@ -30,6 +30,7 @@ if [ "$COMPILE" -eq 1 ]; then
   mv ./target/$TEST_NAME.json ./target/program.json
   mv ./target/$TEST_NAME.gz ./target/witness.gz
   if [ "$COMPILE_ONLY" -eq 1 ]; then
+    echo "done."
     exit 0
   fi
 fi
