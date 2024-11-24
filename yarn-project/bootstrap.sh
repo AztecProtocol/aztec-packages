@@ -91,7 +91,7 @@ function run_e2e_tests {
       tests+=("$test")
   done
 
-  rm -rf results/[a-z0-9]*
+  rm -rf results
   set +e
   parallel --timeout 15m --verbose --joblog joblog.txt --results results/{2}/ --halt now,fail=1 \
       ./scripts/test.sh {1} {2} ::: ${commands[@]} :::+ ${tests[@]}

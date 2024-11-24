@@ -1,7 +1,6 @@
 {
   "name": "@aztec/types",
   "version": "0.1.0",
-  "packageManager": "yarn@3.4.1",
   "type": "module",
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
