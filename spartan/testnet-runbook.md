@@ -68,7 +68,7 @@ After testnet deployment, perform these sanity checks (these items can also be s
 
 ### Network Connection Info
 
-After a successful sanity check, share the following network connection information in the `#team-alpha` slack channel and with the wider Aztec community:
+After a successful sanity check, share the following network connection information in the `#team-alpha` slack channel. The Product / DevRel team then shares these connection details with the sequencer & prover discord channel.
 
 1. AZTEC_IMAGE (`aztecprotocol/aztec:latest`)
 2. ETHEREUM_HOST (Kubernetes: `kubectl get services -n <namespace> | (head -1; grep ethereum)`)
