@@ -40,6 +40,7 @@ export class ServerWorldStateSynchronizer
 
   private latestBlockNumberAtStart = 0;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
+  private latestBlockHashQuery: { blockNumber: number; hash: string | undefined } | undefined = undefined;
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
@@ -155,10 +156,19 @@ export class ServerWorldStateSynchronizer
   }
 
   /** Returns the L2 block hash for a given number. Used by the L2BlockStream for detecting reorgs. */
-  public getL2BlockHash(number: number): Promise<string | undefined> {
-    return number === 0
-      ? Promise.resolve(this.merkleTreeCommitted.getInitialHeader().hash().toString())
-      : this.merkleTreeCommitted.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number)).then(leaf => leaf?.toString());
+  public async getL2BlockHash(number: number): Promise<string | undefined> {
+    if (number === 0) {
+      return Promise.resolve(this.merkleTreeCommitted.getInitialHeader().hash().toString());
+    }
+    if (this.latestBlockHashQuery?.hash === undefined || number !== this.latestBlockHashQuery.blockNumber) {
+      this.latestBlockHashQuery = {
+        hash: await this.merkleTreeCommitted
+          .getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number))
+          .then(leaf => leaf?.toString()),
+        blockNumber: number,
+      };
+    }
+    return this.latestBlockHashQuery.hash;
   }
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
@@ -256,6 +266,7 @@ export class ServerWorldStateSynchronizer
   private async handleChainPruned(blockNumber: number) {
     this.log.info(`Chain pruned to block ${blockNumber}`);
     await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
+    this.latestBlockHashQuery = undefined;
   }
 
   /**

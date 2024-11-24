@@ -85,10 +85,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const timer = new Timer();
     const contract = this.#contractInstanceStore.getContractInstance(address);
-    this.#log.info(`Retrieved contract in ${timer.ms()}ms`);
-
     return Promise.resolve(contract);
   }
 

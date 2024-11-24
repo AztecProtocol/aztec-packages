@@ -73,13 +73,7 @@ export class PublicTxSimulator {
   async simulate(tx: Tx): Promise<PublicTxResult> {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
 
-    let timer = new Timer();
-
     const context = await PublicTxContext.create(this.db, this.worldStateDB, tx, this.globalVariables);
-
-    this.log.info(`Created context in ${timer.ms()}ms`);
-
-    timer = new Timer();
 
     // add new contracts to the contracts db so that their functions may be found and called
     // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
@@ -94,20 +88,14 @@ export class PublicTxSimulator {
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
-      this.log.info(`Simulated setup in ${timer.ms()}ms`);
-      timer = new Timer();
     }
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
-      this.log.info(`Simulated app logic in ${timer.ms()}ms`);
-      timer = new Timer();
     }
     if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
       const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
       processedPhases.push(teardownResult);
-      this.log.info(`Simulated teardown in ${timer.ms()}ms`);
-      timer = new Timer();
     }
     context.halt();
 

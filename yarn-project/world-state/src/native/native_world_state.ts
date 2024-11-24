@@ -32,6 +32,7 @@ import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkl
 import {
   WorldStateMessageType,
   type WorldStateStatusFull,
+  WorldStateStatusSummary,
   blockStateReference,
   sanitiseFullStatus,
   sanitiseSummary,
@@ -52,6 +53,8 @@ export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: Header | undefined;
+  // This is read heavily and only changes when data is persisted, so we cache it
+  private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
     protected readonly instance: NativeWorldState,
@@ -197,7 +200,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
-    return sanitiseFullStatus(response);
+    const sanitised = sanitiseFullStatus(response);
+    this.cachedStatusSummary = { ...sanitised.summary };
+    return sanitised;
   }
 
   public async close(): Promise<void> {
@@ -219,7 +224,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const response = await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
       toBlockNumber,
     });
-    return sanitiseSummary(response);
+    this.cachedStatusSummary = sanitiseSummary(response);
+    return this.getStatusSummary();
   }
 
   /**
@@ -231,7 +237,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const response = await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
       toBlockNumber,
     });
-    return sanitiseFullStatus(response);
+    const sanitised = sanitiseFullStatus(response);
+    this.cachedStatusSummary = { ...sanitised.summary };
+    return sanitised;
   }
 
   /**
@@ -243,12 +251,18 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const response = await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
       toBlockNumber,
     });
-    return sanitiseFullStatus(response);
+    const sanitised = sanitiseFullStatus(response);
+    this.cachedStatusSummary = { ...sanitised.summary };
+    return sanitised;
   }
 
   public async getStatusSummary() {
-    const response = await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
-    return sanitiseSummary(response);
+    if (this.cachedStatusSummary === undefined) {
+      const response = await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
+      this.cachedStatusSummary = sanitiseSummary(response);
+    }
+
+    return { ...this.cachedStatusSummary };
   }
 
   updateLeaf<ID extends IndexedTreeId>(

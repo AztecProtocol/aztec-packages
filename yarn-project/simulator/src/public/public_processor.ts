@@ -255,6 +255,8 @@ export class PublicProcessor {
     const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
       await this.publicTxSimulator.simulate(tx);
 
+    this.log.info(`DONE in ${timer.ms()}`);
+
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
       throw new Error('Avm proving result was not generated.');
@@ -276,7 +278,10 @@ export class PublicProcessor {
     );
 
     const phaseCount = processedPhases.length;
-    this.metrics.recordTx(phaseCount, timer.ms());
+    const durationMs = timer.ms();
+    this.metrics.recordTx(phaseCount, durationMs);
+    const durationSeconds = durationMs / 1000;
+    this.log.info(`SIMULATED TX in ${durationMs}ms, that's ${gasUsed.totalGas.l2Gas / durationSeconds} per second`);
 
     const data = avmProvingRequest.inputs.output;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
