@@ -53,8 +53,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     const logs = tx.contractClassLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e => {
       this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
-      const key = e.contractClassId.toString();
-      this.classCache.set(key, e.toContractClassPublic());
+      this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
     });
     // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
     const encLogs = tx.encryptedLogs.unrollLogs();

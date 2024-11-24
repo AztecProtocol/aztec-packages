@@ -834,6 +834,7 @@ class ArchiverStoreHelper
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
+        // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
         return await this.store.addContractClasses(
           contractClasses,
           contractClasses.map(x => computePublicBytecodeCommitment(x.packedBytecode)),

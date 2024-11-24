@@ -7,12 +7,10 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   SerializableContractInstance,
-  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import assert from 'assert';
@@ -469,6 +467,7 @@ export class AvmPersistableStateManager {
    * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
   public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
+    this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
 

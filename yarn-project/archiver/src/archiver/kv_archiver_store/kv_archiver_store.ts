@@ -22,7 +22,6 @@ import {
 import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
@@ -71,6 +70,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   async addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
     await this.#contractArtifactStore.addContractArtifact(address, contract);
+    // Building tup this map of selectors to function names save expensive re-hydration of contract artifacts later
     contract.functions.forEach(f => {
       this.functionNames.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
     });

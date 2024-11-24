@@ -258,8 +258,6 @@ export class PublicTxSimulator {
       /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
     );
 
-    const timer = new Timer();
-
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
       executionRequest,
@@ -272,9 +270,7 @@ export class PublicTxSimulator {
     const gasUsed = allocatedGas.sub(result.gasLeft);
     context.consumeGas(phase, gasUsed);
     this.log.verbose(
-      `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${
-        result.gasLeft.l2Gas
-      } L2 gas left. Timer ${timer.ms()}ms`,
+      `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
     // TODO(dbanks12): remove once AVM proves entire public tx

@@ -41,19 +41,12 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
   );
 }
 
-/**
- * Create a poseidon hash (field) from an array of input fields and a domain separator.
- * @param input - The input fields to hash.
- * @returns The poseidon hash.
- */
 export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
   const inputFields = serializeToFields(input);
   return Fr.fromBuffer(
     Buffer.from(
       BarretenbergSync.getSingleton()
-        .poseidon2HashAccumulate(
-          inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
-        )
+        .poseidon2HashAccumulate(inputFields.map(i => new FrBarretenberg(i.toBuffer())))
         .toBuffer(),
     ),
   );
