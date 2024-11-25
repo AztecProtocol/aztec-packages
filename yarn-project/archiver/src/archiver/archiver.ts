@@ -36,6 +36,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { count } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -269,6 +270,9 @@ export class Archiver implements ArchiveSource {
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+
+      const storeSizes = this.store.estimateSize();
+      this.instrumentation.recordDBMetrics(storeSizes);
     }
   }
 
@@ -283,12 +287,14 @@ export class Archiver implements ArchiveSource {
       (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));
 
     if (canPrune) {
-      this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.verbose(
-        `Unwinding ${blocksToUnwind} block${blocksToUnwind > 1n ? 's' : ''} from block ${localPendingBlockNumber}`,
+        `L2 prune will occur on next submission. ` +
+          `Unwinding ${count(blocksToUnwind, 'block')} from block ${localPendingBlockNumber} ` +
+          `to the last proven block ${provenBlockNumber}.`,
       );
       await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+      this.log.verbose(`Unwound ${count(blocksToUnwind, 'block')}. New L2 block is ${await this.getBlockNumber()}.`);
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -583,14 +589,11 @@ export class Archiver implements ArchiveSource {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    try {
-      const headers = await this.store.getBlockHeaders(number, 1);
-      return headers.length === 0 ? undefined : headers[0];
-    } catch (e) {
-      // If the latest is 0, then getBlockHeaders will throw an error
-      this.log.error(`getBlockHeader: error fetching block number: ${number}`);
+    if (number === 0) {
       return undefined;
     }
+    const headers = await this.store.getBlockHeaders(number, 1);
+    return headers.length === 0 ? undefined : headers[0];
   }
 
   public getTxEffect(txHash: TxHash) {
@@ -1025,6 +1028,9 @@ class ArchiverStoreHelper
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();
+  }
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return this.store.estimateSize();
   }
 }
 

@@ -10,7 +10,6 @@ import {
   PrivateLog,
   type PublicKey,
   computeOvskApp,
-  computePoint,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -103,7 +102,7 @@ export class EncryptedLogPayload {
     ovKeys: KeyValidationRequest,
     rand: (len: number) => Buffer = randomBytes,
   ): PrivateLog {
-    const addressPoint = computePoint(recipient);
+    const addressPoint = recipient.toAddressPoint();
 
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
     const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);

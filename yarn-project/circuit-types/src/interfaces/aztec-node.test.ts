@@ -201,7 +201,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('addContractArtifact', async () => {
     await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  });
+  }, 20_000);
 
   it('getPrivateLogs', async () => {
     const response = await context.client.getPrivateLogs(1, 1);

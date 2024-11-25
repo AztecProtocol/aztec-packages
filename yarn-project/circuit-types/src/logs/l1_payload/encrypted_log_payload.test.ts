@@ -6,7 +6,6 @@ import {
   type PrivateLog,
   computeAddressSecret,
   computeOvskApp,
-  computePoint,
   deriveKeys,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
@@ -76,7 +75,7 @@ describe('EncryptedLogPayload', () => {
 
     const recipient = AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn);
 
-    const addressPoint = computePoint(recipient);
+    const addressPoint = recipient.toAddressPoint();
 
     const outgoingBodyCiphertext = EncryptedLogPayload.encryptOutgoingBody(
       ephSk,

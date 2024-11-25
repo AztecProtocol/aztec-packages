@@ -261,4 +261,9 @@ export interface ArchiverDataStore {
 
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
+
+  /**
+   * Estimates the size of the store in bytes.
+   */
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
 }

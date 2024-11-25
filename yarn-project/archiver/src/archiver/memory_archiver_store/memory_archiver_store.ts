@@ -194,7 +194,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
-      throw new Error(`Can only remove the tip`);
+      throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
     }
 
     const stopAt = from - blocksToUnwind;
@@ -721,5 +721,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return Promise.resolve(this.contractArtifacts.get(address.toString()));
+  }
+
+  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return { mappingSize: 0, actualSize: 0, numItems: 0 };
   }
 }

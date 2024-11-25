@@ -4,6 +4,7 @@ import { EthAddress, type Fr } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
@@ -49,7 +50,7 @@ describe('world-state integration', () => {
     archiver = new MockPrefilledArchiver(blocks, messages);
 
     db = (await createWorldState(config)) as NativeWorldStateService;
-    synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
+    synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
     log.info(`Created synchronizer`);
   });
 
@@ -142,7 +143,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
 
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
 
       archiver.createBlocks(3);
       await synchronizer.start();
@@ -159,7 +160,12 @@ describe('world-state integration', () => {
     });
 
     it('syncs only proven blocks when instructed', async () => {
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, { ...config, worldStateProvenBlocksOnly: true });
+      synchronizer = new TestWorldStateSynchronizer(
+        db,
+        archiver,
+        { ...config, worldStateProvenBlocksOnly: true },
+        new NoopTelemetryClient(),
+      );
 
       archiver.createBlocks(5);
       archiver.setProvenBlockNumber(3);
@@ -193,7 +199,12 @@ describe('world-state integration', () => {
   describe('immediate sync', () => {
     beforeEach(() => {
       // Set up a synchronizer with a longer block check interval to avoid interference with immediate sync
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, { ...config, worldStateBlockCheckIntervalMS: 1000 });
+      synchronizer = new TestWorldStateSynchronizer(
+        db,
+        archiver,
+        { ...config, worldStateBlockCheckIntervalMS: 1000 },
+        new NoopTelemetryClient(),
+      );
     });
 
     it('syncs immediately to the latest block', async () => {

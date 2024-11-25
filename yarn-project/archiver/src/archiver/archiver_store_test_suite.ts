@@ -49,12 +49,18 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       [5, 2, () => blocks.slice(4, 6)],
     ];
 
+    const makeL1Published = (block: L2Block, l1BlockNumber: number): L1Published<L2Block> => ({
+      data: block,
+      l1: {
+        blockNumber: BigInt(l1BlockNumber),
+        blockHash: `0x${l1BlockNumber}`,
+        timestamp: BigInt(l1BlockNumber * 1000),
+      },
+    });
+
     beforeEach(() => {
       store = getStore();
-      blocks = times(10, i => ({
-        data: L2Block.random(i + 1),
-        l1: { blockNumber: BigInt(i + 10), blockHash: `0x${i}`, timestamp: BigInt(i * 1000) },
-      }));
+      blocks = times(10, i => makeL1Published(L2Block.random(i + 1), i + 10));
     });
 
     describe('addBlocks', () => {
@@ -79,6 +85,21 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         expect(await store.getSynchedL2BlockNumber()).toBe(blockNumber - 1);
         expect(await store.getBlocks(blockNumber, 1)).toEqual([]);
+      });
+
+      it('can unwind multiple empty blocks', async () => {
+        const emptyBlocks = times(10, i => makeL1Published(L2Block.random(i + 1, 0), i + 10));
+        await store.addBlocks(emptyBlocks);
+        expect(await store.getSynchedL2BlockNumber()).toBe(10);
+
+        await store.unwindBlocks(10, 3);
+        expect(await store.getSynchedL2BlockNumber()).toBe(7);
+        expect((await store.getBlocks(1, 10)).map(b => b.data.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      });
+
+      it('refuses to unwind blocks if the tip is not the last block', async () => {
+        await store.addBlocks(blocks);
+        await expect(store.unwindBlocks(5, 1)).rejects.toThrow(/can only unwind blocks from the tip/i);
       });
     });
 

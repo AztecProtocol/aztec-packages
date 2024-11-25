@@ -117,14 +117,8 @@ export class Point {
    * @returns The point as an array of 2 fields
    */
   static fromXAndSign(x: Fr, sign: boolean) {
-    // Calculate y^2 = x^3 - 17
-    const ySquared = x.square().mul(x).sub(new Fr(17));
-
-    // Calculate the square root of ySquared
-    const y = ySquared.sqrt();
-
-    // If y is null, the x-coordinate is not on the curve
-    if (y === null) {
+    const y = Point.YFromX(x);
+    if (y == null) {
       throw new NotOnCurveError(x);
     }
 
@@ -136,6 +130,18 @@ export class Point {
 
     // Create and return the new Point
     return new this(x, finalY, false);
+  }
+
+  /**
+   * @returns
+   */
+  static YFromX(x: Fr): Fr | null {
+    // Calculate y^2 = x^3 - 17 (i.e. the Grumpkin curve equation)
+    const ySquared = x.square().mul(x).sub(new Fr(17));
+
+    // y is then simply the square root. Note however that not all square roots exist in the field: if sqrt returns null
+    // then there is no point in the curve with this x coordinate.
+    return ySquared.sqrt();
   }
 
   /**
@@ -267,10 +273,10 @@ export class Point {
       return true;
     }
 
-    // p.y * p.y == p.x * p.x * p.x - 17
-    const A = new Fr(17);
+    // The Grumpkin equation is y^2 = x^3 - 17. We could use `YFromX` and then compare to `this.y`, but this would
+    // involve computing the square root of y, of which there are two possible valid values. This method is also faster.
     const lhs = this.y.square();
-    const rhs = this.x.square().mul(this.x).sub(A);
+    const rhs = this.x.mul(this.x).mul(this.x).sub(new Fr(17));
     return lhs.equals(rhs);
   }
 }
