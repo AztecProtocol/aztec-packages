@@ -8,41 +8,129 @@
 #include <vector>
 namespace bb {
 /**
- * @brief Struct for the polynomial \f$ L =  (1 - L_1(X_0, \ldots, X_{d-1}) - L_2(X_0, \ldots, X_{d-1}) - L_3(X_0,
- * \ldots, X_{d-1}) )\f$.
- * @details Need to efficiently evaluate this polynomial at any point of the form \f$ (u_0, \ldots, u_{k}, \vec{i} ) \f$
- * where \f$ \vec{i}\f$ belongs to a hypercube.
- * First, note \f$ L_1(X_0, \ldots, X_{d-1}) = X_0 \prod_{i=1}^{d-1} (1 - X_i)\f$, \f$ L_2 =  (1 - X_0)
- * X_1\prod_{i=2}^{n-1} (1 - X_i)\f$ and \f$  L_3(X_0, \ldots, X_{d-1}) = X_0 * X_1 * \prod_{i=2}^{d-1} (1 - X_i) \f$.
- * Therefore, \f$ L = (X_0*(1-X_1) + (1 - X_0)* X_1 + X_0 * X_1) * \prod_{i=2}^{d-1} (1- X_i)\f$ which simplifies
- * further to \f$ L = (1 + X_0 + X_1 - X_0*X_1) \prod_{i=2}^{d-1} (1- X_i) \f$.
- * We could compute the sumcheck univariate contributions from \f$L\f$: \f$ \sum_{i=0}^{2^n-1} L = 2^{n} - 3\f$, because
- * \f$ L =  0\f$ at \f$ i = 1, 2, 3\f$ and \f$1\f$ elsewhere.
- * After getting the first challenge \f$ u_0 \f$, \f$ L(u_0) =    L(u_0, X_1, \ldots, X_{d-1}) = 1 - (1 + u_0 + X_1 -
- * u_0\cdot X_1) L_0(X_2,X_3,\ldots, X_{d-1})\f$. It is more useful to have the values of \f$ L(u_0) \f$ on the
- * hypercube.
+ * @brief Polynomial for Sumcheck with disabled Rows
  *
- * \f$ L_1(u_0, X_1,\ldots, X_{d-1})  = u_0 * L_0 (X_1,\ldots, X_{d-1})\f$, it evaluates to \f$ u_0\f$ at \f$ 0 \f$ and
- * is \f$ 0 \f$ elsewehere.
+ * \f$ n = 2^d \f$ circuit size
+ * \f$ L_i \f$ multilinear Lagrange in \f$ d \f$ variables, \f$ i = 0,\ldots, n-1 \f$.
  *
- * \f$ L_2(u_0, X_1,\ldots, X_{d-1})  = (1-u_0) * L_1 (X_1,\ldots, X_{d-1})\f$, it evaluates to \f$ (1-u_0) \f$ at \f$ 1
- * \f$ and is \f$ 0 \f$ elsewhere.
+ * Assume we are given a "valid" execution trace at rows \f$ 0,\ldots, n-5 \f$, i.e.,
+ * \f[
+ * \sum_{\mathbb{H} \setminus \{n-1, n-2, n-3, n-4\}} H = 0.
+ * \f]
  *
- * \f$ L_3(u_0, X_1,\ldots, X_{d-1})  = u_0 * L_1 (X_1,\ldots, X_{d-1})\f$, it evaluates to \f$ u_0 \f$ at \f$ 1\f$ and
- * is \f$ 0 \f$ elsewhere.
- * Therefore, \f$ L(u_0)(i) = 1 \f$ for $i \neq 0 \f$, \f$ L(u_0)(0) = 1 - u_0 \f$.
+ * We want to pad the witness polynomials with random field elements in rows \f$ n-1, n-2, n-3 \f$.
+ * Since the commitment to the shift must coincide with the commitment to its unshifted counterpart,
+ * we have to reserve \f$ 4 \f$ rows at the end to be able to.
+ * To achieve this, we multiply the Honk relation \f$ H \f$ by the polynomial
+ * \f[
+ * 1 - L = 1 - L_{n-1} - L_{n-2} - L_{n-3} - L_{n-4}.
+ * \f]
+ * that vanishes at the last \f$ 4 \f$ rows and is equal to \f$ 1 \f$ everywhere else on the hypercube.
  *
- * We see that the sum of \f$ L(u_0) \f$ over the smaller hypercube is equal to \f$ 2^{d-2} - 2 - (u_0 + 1) \f$.
- * The partial eval \f$ L(u_0, u_1) \f$ is given by \f$ 1 - (1+u_0 + u_1 - u_0 \cdot u_1) L_0(X_2, X_3,\ldots,
- * X_{d-1})\f$, it is \f$ 1 \f$ outside of \f$ 0 \f$, and is equal to \f$ - u_0 - u_1 + u_0u_1 \f$.
- * In the subsequent rounds \f$L(u_0, \ldots, u_i)\f$ is \f$ 1\f$ outside of \f$ 0 \f$ ans is given as
- * \f$ 1 -  (1+u_0 + u_1 - u_0 \cdot u_1) (1-u_2)\cdots (1 - u_i) L_0(X_{i+1}, \ldots, X_{d-1})\f$.
+ * We consider the sumcheck protocol for the modified relation
+ * \f[
+ * \sum_{\mathbb{H}} (1 - L) H = \sum_{\mathbb{H}} H - \sum_{\mathbb{H}} L \cdot H.
+ * \f]
  *
- * When the prover computes the first sumcheck univariate \f$S_k(X) = \sum L \cdot H(X_0,\ldots, X_{d-1})\f$, it has to
- * compute \f$ \sum_{i_{k+1},\ldots, i_{d-1}} L(u_0,u_1,\ldots, u_{k-1}, X, i_{k+1},\ldots, i_{d-1}) H(\cdots)\f$
+ * Note that the target sum remains \f$ 0 \f$ because the contributions from the last rows are multiplied by \f$ 0 \f$.
  *
- * @tparam FF
+ * Recall:
+ * - \f$ n-1 = 2^d - 1 = (1,1, \ldots, 1) \f$
+ * - \f$ n-2 = (0,1,\ldots,1) \f$
+ * - \f$ n-3 = (1,0,\ldots,1) \f$
+ * - \f$ n-4 = (0,0,\ldots,1) \f$
+ *
+ * ### Round 0:
+ * \f[
+ * \begin{aligned}
+ * S' &=
+ * S_{H,0} - \Big(L_{n-1}(X, 1, \ldots, 1) + L_{n-2}(X, 1,\ldots,1)\Big) H(X,1,\ldots, 1) \\
+ * &\quad - \Big(L_{n-3}(X, 0,1,\ldots,1) + L_{n-4}(X,0,1,\ldots,1)\Big) H(X,0,1,\ldots,1)
+ * \end{aligned}
+ * \f]
+ *
+ * We do not modify the algorithm computing \f$ S_{H,0} \f$. Simply add a method that computes the contribution from the
+ * edges \f$ (0,1,\ldots,1) \f$ and \f$ (1,\ldots,1) \in \mathbb{H}^{d-1} \f$.
+ *
+ * First, compute the coefficients in the Lagrange basis of the factor coming from the Lagranges:
+ * \f[
+ * \begin{aligned}
+ * L_{n-1}(X,\vec{1}) + L_{n-2}(X,\vec{1}) &= X + (1 - X) = 1 \\
+ * L_{n-3}(X,0,1,\ldots,1) + L_{n-4}(X,0,1,\ldots,1) &= 1
+ * \end{aligned}
+ * \f]
+ *
+ * \f[
+ * S'_0 = S_{H,0} - H(X,1,\ldots,1) - H(X,0,1,\ldots,1)
+ * \f]
+ *
+ * ### Round 1:
+ * \f[
+ * \begin{aligned}
+ * L_{n-1}(u_0,X,\vec{1}) + L_{n-2}(u_0,X,\vec{1}) &=
+ * u_0 X + (1 - u_0) X = X \\
+ * L_{n-3}(u_0,X,\vec{1}) + L_{n-4}(u_0,X,\vec{1}) &=
+ * u_0 (1 - X) + (1 - u_0)(1 - X) = (1 - X)
+ * \end{aligned}
+ * \f]
+ *
+ * \f[
+ * S'_1 = S_{H,1} - H(X,1,\ldots,1)
+ * \f]
+ *
+ * ### Round 2:
+ * \f[
+ * S'_2 = S_{H,2} - X \cdot H(u_0,u_1,X,1,\ldots,1)
+ * \f]
+ *
+ * ### Rounds i > 1:
+ * We can compute the restricted sumcheck univariates \f$ S' \f$ in each round as follows:
+ * \f[
+ * \begin{aligned}
+ * S' = S_{H,i} -
+ * \Big(L_{n-1}(u_0, \ldots, u_{i-1}, X, 1, \ldots, 1) + L_{n-2}(u_0, \ldots, u_{i-1}, X, 1,\ldots,1) \\
+ * + L_{n-3}(u_0, \ldots, u_{i-1}, X, 1,\ldots,1) + L_{n-4}(u_0, \ldots, u_{i-1}, X, 1,\ldots,1)\Big) \\
+ * \times H(u_0, \ldots, u_{i-1}, X, 1,\ldots,1)
+ * \end{aligned}
+ * \f]
+ *
+ * Compute the factor coming from the Lagranges:
+ * \f[
+ * \begin{aligned}
+ * &\left(u_0 \cdots u_{i-1} + (1 - u_0) u_1 \cdots u_{i-1} + u_0 (1 - u_1) u_2 \cdots u_{i-1} + (1 - u_0)(1 - u_1) u_2
+ * \cdots u_{i-1}\right) X \\
+ * &= \left(u_0 u_1 + (1 - u_0) u_1 + u_0 (1 - u_1) + (1 - u_0)(1 - u_1)\right) u_2 \cdots u_{i-1} X \\
+ * &= 0 \cdot (1 - X) + 1 \cdot u_2 \cdots u_{i-1} \cdot X
+ * \end{aligned}
+ * \f]
+ *
+ * This way, we get:
+ * \f[
+ * S_{H,i}(X) = S_{H,i} - u_2 \cdots u_{i-1} \cdot X \cdot H(u_0, \ldots, u_{i-1}, X, 1, \ldots, 1).
+ * \f]
+ *
+ * ## The algorithm:
+ *
+ * Let \f$ D \f$ be the max partial degree of \f$ H \f$.
+ *
+ * 1. Compute \f$ S_{H,i} \f$ without any modifications as a polynomial of degree \f$ D \f$. Extend it to degree \f$ D +
+ * 1 \f$, because it is the max partial degree of \f$ L \cdot H \f$.
+ *
+ * 2. If \f$ i = 0 \f$, compute \f$ H(X,1,1,\ldots,1) + H(X,0,1,\ldots,1) \f$ as a univariate of degree \f$ D \f$, else
+ * compute \f$ H(u_0, \ldots, u_{i-1}, X, 1, \ldots, 1) \f$ as a univariate of degree \f$ D \f$. Extend to degree \f$ D
+ * + 1 \f$.
+ *
+ * 3. Compute the extension of \f$ L^{(i)} = L(u_0, \ldots, u_{i-1}, X, 1, \ldots, 1) \f$ to the degree \f$ D + 1 \f$
+ * polynomial.
+ *
+ * 4. Compute the coefficients of the product \f$ L^{(i)} \cdot H^{(i)} \f$.
+ *
+ * 5. Compute the coefficients of \f$ S_{H,i} - L^{(i)} \cdot H^{(i)} \f$ (degree \f$ D + 1 \f$ univariate).
+ *
+ * The verifier needs to evaluate \f$ 1 - L(u_0, \ldots, u_{d-1}) \f$, which is equal to \f$ 0 \f$ if \f$ d < 2 \f$, and
+ * is equal to \f$ 1-  u_2 \cdots u_{d-1} \f$ otherwise.
  */
+
 template <typename FF> struct RowDisablingPolynomial {
     // by default it is a constant multilinear polynomial = 1
     FF eval_at_0{ 1 };
