@@ -14,6 +14,7 @@ import {
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
+  SpongeBlob,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -44,12 +45,13 @@ export class BlockProvingState {
   public blockRootRollupStarted: boolean = false;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
+  public spongeBlobState: SpongeBlob | undefined = undefined;
+  public totalNumTxs: number | undefined;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
 
   constructor(
     public readonly index: number,
-    public readonly totalNumTxs: number,
     public readonly globalVariables: GlobalVariables,
     public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -69,7 +71,7 @@ export class BlockProvingState {
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
+    return BigInt(Math.ceil(Math.log2(this.totalNumTxs!)) - 1);
   }
 
   // Calculates the index and level of the parent rollup circuit
@@ -83,7 +85,7 @@ export class BlockProvingState {
       index >>= 1n;
       return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
     };
-    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
+    let [thisLevelSize, shiftUp] = this.totalNumTxs! & 1 ? [this.totalNumTxs! - 1, true] : [this.totalNumTxs!, false];
     const maxLevel = this.numMergeLevels + 1n;
     let placeholder = currentIndex;
     for (let i = 0; i < maxLevel - currentLevel; i++) {
@@ -98,8 +100,21 @@ export class BlockProvingState {
     return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
   }
 
+  public startNewBlock(numTxs: number, numBlobFields: number) {
+    if (this.spongeBlobState) {
+      throw new Error(`Must end previous block before starting a new one`);
+    }
+    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
+    // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
+    this.spongeBlobState = SpongeBlob.init(numBlobFields);
+    this.totalNumTxs = numTxs;
+  }
+
   // Adds a transaction to the proving state, returns it's index
   public addNewTx(tx: TxProvingState) {
+    if (!this.spongeBlobState) {
+      throw new Error(`Invalid block proving state, call startNewBlock before adding transactions.`);
+    }
     this.txs.push(tx);
     return this.txs.length - 1;
   }
@@ -197,11 +212,6 @@ export class BlockProvingState {
   // Returns true if we have sufficient root parity inputs to execute the root parity circuit
   public areRootParityInputsReady() {
     return this.rootParityInputs.findIndex(p => !p) === -1;
-  }
-
-  // Returns true if we are still able to accept transactions, false otherwise
-  public isAcceptingTransactions() {
-    return this.totalNumTxs > this.txs.length;
   }
 
   // Returns whether the proving state is still valid

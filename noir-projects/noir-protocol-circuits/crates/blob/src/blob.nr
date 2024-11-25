@@ -1,0 +1,671 @@
+// TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
+use crate::{
+    blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
+    unconstrained_config::{
+        compute_roots_of_unity, D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB,
+        LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
+    },
+};
+
+use bigint::BigNum;
+// Fixed hash method:
+use types::hash::poseidon2_hash_subarray;
+// Variable hash method:
+// use types::hash::poseidon2_cheaper_variable_hash;
+use types::{
+    abis::sponge_blob::SpongeBlob,
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    utils::arrays::array_splice,
+};
+
+global LIMB_MAX = 0x1000000000000000000000000000000; // 2^120
+global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
+global TWO_POW_64: Field = 0x10000000000000000;
+
+unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
+    let mut accumulator: F = BigNum::one();
+
+    let mut temporaries: [F] = &[];
+    for i in 0..x.len() {
+        temporaries = temporaries.push_back(accumulator);
+        if (x[i].__is_zero() == false) {
+            accumulator = accumulator.__mul(x[i]);
+        }
+    }
+
+    accumulator = accumulator.__invmod();
+    let mut T0: F = BigNum::new();
+    for i in 0..x.len() {
+        let idx = x.len() - 1 - i;
+        if (x[idx].__is_zero() == false) {
+            T0 = accumulator.__mul(temporaries[idx]);
+            accumulator = accumulator.__mul(x[idx]);
+            x[idx] = T0;
+        }
+    }
+    x
+}
+
+// Taken from https://github.com/iAmMichaelConnor/blob-lib/blob/main/noir-circuits/blob/src/main.nr
+unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
+    // Here we're taking advantage of truncating 64 bit limbs from the input field
+    // and then subtracting them from the input such that the field division is equivalent to integer division.
+    let low_120_lower_64 = (x as u64) as Field;
+    let x_shifted_64 = (x - low_120_lower_64) / TWO_POW_64;
+    let low_120_upper_56 = ((x_shifted_64 as u64) % TWO_POW_56) as Field;
+    let low_120 = low_120_lower_64 + TWO_POW_64 * low_120_upper_56;
+
+    let x_shifted_120 = (x_shifted_64 - low_120_upper_56) / (TWO_POW_56 as Field);
+
+    let mid_120_lower_64 = (x_shifted_120 as u64) as Field;
+    let x_shifted_184 = (x_shifted_120 - mid_120_lower_64) / TWO_POW_64;
+    let mid_120_upper_56 = ((x_shifted_184 as u64) % TWO_POW_56) as Field;
+    let mid_120 = mid_120_lower_64 + TWO_POW_64 * mid_120_upper_56;
+
+    let x_shifted_240 = (x_shifted_184 - mid_120_upper_56) / (TWO_POW_56 as Field);
+
+    let hi_120_lower_64 = (x_shifted_240 as u64) as Field;
+    // We don't need to go further, as we've reached 304 bits, and a Field is 254 bits.
+    let hi_120 = hi_120_lower_64;
+
+    [low_120, mid_120, hi_120]
+}
+
+// Only works for bignums with modulus larger than the BN Fr size (which is true
+// for the bls12-381 Fr field).
+fn field_to_bignum(x: Field) -> F {
+    let __x_limbs = unsafe { __field_to_bignum_limbs(x) };
+
+    let mut check = __x_limbs[3 - 1];
+    for i in 1..3 {
+        check *= LIMB_MAX;
+        check += __x_limbs[3 - i - 1];
+    }
+    assert(check == x);
+
+    BigNum { limbs: __x_limbs }
+}
+
+fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+    for i in 0..FIELDS_PER_BLOB {
+        blob[i] = field_to_bignum(blob_as_fields[i]);
+    }
+    blob
+}
+
+pub fn check_block_blob_sponge(
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    mut sponge_blob: SpongeBlob,
+) -> Field {
+    // Check that we haven't overfilled the blobs
+    assert(
+        sponge_blob.expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
+        "Attempted to overfill blobs",
+    );
+    // Check that the blob is full
+    assert(
+        sponge_blob.expected_fields == sponge_blob.fields,
+        "Incorrect number of tx effects added to blob",
+    );
+    let sponge_hash = sponge_blob.squeeze();
+    let hash = poseidon2_hash_subarray(blobs_as_fields, sponge_blob.fields);
+    assert(hash == sponge_hash, "Mismatched hashed tx effects");
+
+    sponge_hash
+}
+
+fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: BlobCommitment) -> Field {
+    let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
+    let challenge = std::hash::poseidon2::Poseidon2::hash(preimage, 3);
+    challenge
+}
+
+// ~500k constraints. 30 MINUTES TO COMPILE (due to all the brillig)!
+//
+// Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
+// we haven't implemented Fq; only Fr, and we don't actually need to operate on it;
+// we just need the bits of data. So we've simply encoded it as fitting inside a
+// [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
+// See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
+fn evaluate_blob(
+    blob_as_fields: [Field; FIELDS_PER_BLOB],
+    kzg_commitment: BlobCommitment,
+    hashed_blobs_fields: Field,
+) -> BlobPublicInputs {
+    let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
+    let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
+    let blob = convert_blob_fields(blob_as_fields);
+
+    let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
+    // TODO(Miranda): Since we are verifying a root proof, the below doesn't apply. We should be hashing ALL root public inputs, including the blob ones.
+    // In future, when we do hash PIs, the below will apply.
+    // TODO: this return data needs to be TIGHTLY PACKED into bytes.
+    // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification.
+    // On ethereum, the bytes will be sent along with the sha256-hash of the bytes. The bytes will be used in the point evaluation precompile. The sha256-hash will form a part of the public inputs of the zk-snark proof.
+    BlobPublicInputs { z: challenge_z, y, kzg_commitment }
+}
+
+// Evaluates each blob required for a block
+pub fn evaluate_blobs(
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    kzg_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
+    mut sponge_blob: SpongeBlob,
+) -> BlockBlobPublicInputs {
+    // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
+    // challenge_z = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
+    // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
+    // all fields in the blob, which it does.
+    let hashed_blobs_fields = check_block_blob_sponge(blobs_as_fields, sponge_blob);
+    let mut result = BlockBlobPublicInputs::empty();
+    for i in 0..BLOBS_PER_BLOCK {
+        let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
+        result.inner[i] =
+            evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blobs_fields);
+        if (result.inner[i].is_zero()) & (single_blob_fields[0] == 0) {
+            // We use empty PIs for empty blobs, to make it simpler to verify on L1.
+            // Since our fields come from the base rollup, we know they are tightly packed
+            // and should contain no 0 values among valid values => single_blob_fields[0] == 0.
+            result.inner[i] = BlobPublicInputs::empty();
+        }
+    }
+    result
+}
+
+/**
+ *                    ___d-1
+ *         z^d - 1    \            omega^i
+ * p(z) = --------- . /   y_i . ---------
+ *            d      /____       z - omega^i
+ *                    i=0
+ *
+ * p(z) = factor . sum( y_i . num / denom )
+ *
+ *
+ * where d = 4096
+ *
+ * Precompute:
+ * - The d roots of unity omega^i (plus maybe their negatives for z - omega^i computations).
+ * - (1 / d)
+ *
+ * @param z
+ * @param ys - the many y_i's of the blob.
+ *
+ * @return y = p(z)
+ */
+fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
+    // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
+    let ROOTS = unsafe { compute_roots_of_unity() };
+    // z ^ D:
+    let mut t1 = z.__mul(z);
+
+    BigNum::evaluate_quadratic_expression([[z]], [[false]], [[z]], [[false]], [t1], [true]);
+
+    let mut t2: F = BigNum::new();
+    for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
+        t2 = t1.__mul(t1);
+
+        // GRATUITOUS USAGE OF as_witness, LIKE THROWING DARTS AT A DARTBOARD AND HOPING THIS HELPS
+        std::as_witness(t2.limbs[0]);
+        std::as_witness(t2.limbs[1]);
+        std::as_witness(t2.limbs[2]);
+
+        BigNum::evaluate_quadratic_expression([[t1]], [[false]], [[t1]], [[false]], [t2], [true]);
+
+        t1 = t2;
+        std::as_witness(t1.limbs[0]);
+        std::as_witness(t1.limbs[1]);
+        std::as_witness(t1.limbs[2]);
+    }
+
+    let z_pow_d = t1;
+
+    // factor:
+    let one: F = BigNum::one();
+
+    t1 = z_pow_d.__sub(one);
+    std::as_witness(t1.limbs[0]);
+    std::as_witness(t1.limbs[1]);
+    std::as_witness(t1.limbs[2]);
+
+    let factor = t1.__mul(D_INV);
+
+    // (z_pow_d - one) * (D_INV) - factor = 0
+    // z_pow_d * D_INV - D_INV - factor = 0
+    BigNum::evaluate_quadratic_expression(
+        [[z_pow_d]],
+        [[false]],
+        [[D_INV]],
+        [[false]],
+        [factor, D_INV],
+        [true, true],
+    );
+
+    // This version doesn't work:
+    // BigNum::evaluate_quadratic_expression(
+    //     [[z_pow_d, one]],
+    //     [[false, true]],
+    //     [[D_INV]],
+    //     [[false]],
+    //     [factor],
+    //     [true]
+    // );
+    // sum:
+    let mut sum: F = BigNum::new();
+
+    // Making a call to this function causes a "stack too deep" error, so I've put the body of that function here, instead:
+    // let fracs = __compute_fracs(z, ys); // { y_i / (z - omega^i) }
+    // Note: it's more efficient (saving 30k constraints) to compute:
+    //    ___d-1
+    //    \     /    y_i    \
+    //    /    |  ---------  | . omega^i
+    //   /____  \  z - omega^i  /
+    //    i=0
+    //            ^^^^^^^^^
+    //              frac
+    //
+    // ... than to compute:
+    //
+    //    ___d-1
+    //    \          /    omega^i    \
+    //    /   y_i . |  ---------  |
+    //   /____       \  z - omega^i  /
+    //    i=0
+    //
+    // perhaps because all the omega^i terms are constant witnesses?
+    //*****************************************************************
+    // This section is only needed because `__compute_fracs` isn't working (stack too deep error).
+    let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB]; // y_i / (z - omega^i), for all i
+    let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
+    for i in 0..FIELDS_PER_BLOB {
+        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
+    }
+
+    // If you're seeing a `bug` warning for this line, I think it's fine.
+    // Ideally, we'd be using `__compute_fracs`, anyway, but we're getting a "stack too deep" error.
+    let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
+    for i in 0..FIELDS_PER_BLOB {
+        let num = ys[i];
+        let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
+        let frac = num.__mul(inv_denom); // y_i * (1 / (z - omega^i))
+        fracs[i] = frac; // y_i / (z - omega^i)
+        std::as_witness(fracs[i].limbs[0]);
+        std::as_witness(fracs[i].limbs[1]);
+        std::as_witness(fracs[i].limbs[2]);
+
+        //End of section that is only needed because `__compute_fracs` isn't working
+        //*****************************************************************
+        // frac <-- ys[i] / (z + neg_roots[i])
+        // frac * (z + neg_roots[i]) - ys[i] = 0
+        BigNum::evaluate_quadratic_expression(
+            [[fracs[i]]],
+            [[false]],
+            [[z, ROOTS[i].neg()]],
+            [[false, false]],
+            [ys[i]],
+            [true],
+        );
+    }
+
+    // OK so...we can add multiple product terms into a sum...but I am not sure how many!
+    // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
+    // each limb is 120 bits => 120 * 120 = 240 bits.
+    // however when computing a mul we add up to 5 product terms into a single field element => 243 bits (ish)
+    // when we do a modular reduction we validate that a field element >> 120 bits is less than 2^{126} which implies we have 246 bits to play with
+    // which implies...we can accomodate up to EIGHT additions of product terms before we risk overflowing
+    // (this is really messy! I never considered the case of giant linear sequences of products)
+    let mut sum: F = BigNum::new();
+
+    // Seeking:
+    //                    ___d-1
+    //                    \            omega^i
+    //              sum = /   y_i . ---------
+    //                   /____       z - omega^i
+    //                    i=0
+    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+    for i in 0..NUM_PARTIAL_SUMS {
+        let mut partial_sum: F = BigNum::new();
+        let mut lhs: [F; 8] = [BigNum::new(); 8];
+        let mut rhs = lhs;
+
+        // Seeking:
+        //                    ___i*8 + 7
+        //                    \            omega^k
+        //      partial_sum = /   y_k . ---------
+        //                   /____       z - omega^k
+        //                    k=i*8 + 0
+        for j in 0..8 {
+            let k = i * 8 + j;
+            lhs[j] = ROOTS[k]; // omega^k
+            rhs[j] = fracs[k]; // y_k / (z - omega^k)
+            std::as_witness(lhs[j].limbs[0]);
+            std::as_witness(lhs[j].limbs[1]);
+            std::as_witness(lhs[j].limbs[2]);
+            std::as_witness(rhs[j].limbs[0]);
+            std::as_witness(rhs[j].limbs[1]);
+            std::as_witness(rhs[j].limbs[2]);
+
+            // y_k * ( omega^k / (z - omega^k) )
+            let summand = ROOTS[k].__mul(fracs[k]);
+
+            // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+            partial_sum = partial_sum.__add(summand);
+            std::as_witness(partial_sum.limbs[0]);
+            std::as_witness(partial_sum.limbs[1]);
+            std::as_witness(partial_sum.limbs[2]);
+        }
+
+        // Seeking:
+        //                    ___i*8 - 1              ___i*8 + 7
+        //                    \            omega^i        \            /    y_k    \
+        //      sum_out   =   /   y_i . ---------  +  /     omega^k . |  ---------  |
+        //                   /____       z - omega^i     /____         \  z - omega^k  /
+        //                       0                    k = i*8
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //                          sum                         partial_sum
+        //
+        // ... that is:
+        //
+        //                    ___i*8 - 1              ___ 7
+        //                    \            omega^i        \
+        //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
+        //                   /____       z - omega^i     /____
+        //                       0                    j = 0
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
+        //                          sum                   partial_sum
+        //
+        let mut sum_out = sum.__add(partial_sum);
+
+        std::as_witness(sum_out.limbs[0]);
+        std::as_witness(sum_out.limbs[1]);
+        std::as_witness(sum_out.limbs[2]);
+
+        //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
+        // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
+        BigNum::evaluate_quadratic_expression(
+            [[lhs[0]], [lhs[1]], [lhs[2]], [lhs[3]], [lhs[4]], [lhs[5]], [lhs[6]], [lhs[7]]],
+            [[false], [false], [false], [false], [false], [false], [false], [false]],
+            [[rhs[0]], [rhs[1]], [rhs[2]], [rhs[3]], [rhs[4]], [rhs[5]], [rhs[6]], [rhs[7]]],
+            [[false], [false], [false], [false], [false], [false], [false], [false]],
+            [sum, sum_out],
+            [false, true],
+        );
+
+        sum = sum_out;
+        std::as_witness(sum.limbs[0]);
+        std::as_witness(sum.limbs[1]);
+        std::as_witness(sum.limbs[2]);
+    }
+
+    // y:
+    let y = factor.__mul(sum);
+
+    //    y <- factor * sum
+    // => factor * sum - y == 0
+    BigNum::evaluate_quadratic_expression([[factor]], [[false]], [[sum]], [[false]], [y], [true]);
+
+    y
+}
+
+mod tests {
+    // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
+    use crate::{
+        blob::{
+            barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
+            field_to_bignum,
+        },
+        blob_public_inputs::BlobCommitment,
+        unconstrained_config::{
+            D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
+            NOIR_FIELDS_PER_BLOB,
+        },
+    };
+    use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+    use types::{
+        abis::sponge_blob::SpongeBlob,
+        constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+        tests::{fixture_builder::FixtureBuilder, utils::pad_end},
+    };
+
+    // Helper to return (z^d - 1)/d (unsafe - test only)
+    fn z_d_helper(challenge_z: F) -> F {
+        let mut t1 = challenge_z.__mul(challenge_z);
+        let mut t2: F = BigNum::new();
+        for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
+            t2 = t1.__mul(t1);
+            t1 = t2;
+        }
+
+        let z_pow_d = t1;
+
+        let one: F = BigNum::one();
+
+        t1 = z_pow_d.__sub(one);
+        let factor = t1.__mul(D_INV);
+        factor
+    }
+
+    #[test]
+    unconstrained fn test_one_note() {
+        let mut tx_data = FixtureBuilder::new();
+        tx_data.add_new_note_hash(1);
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        for i in 0..blob_fields.len() {
+            blob[i] = blob_fields[i];
+        }
+        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+        sponge_blob.absorb(blob_fields, blob_fields.len());
+
+        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let challenge_z = field_to_bignum(output.z);
+        let y = output.y;
+        // Our blob is all 0s, apart from one commitment of value 1 at position 0
+        // It's in eval form => our barycentric formula to find p(z) becomes:
+        //
+        //         z^d - 1              omega^0      z^d - 1            1
+        // p(z) = --------- .   note . --------- =  --------- . 1 . ---------
+        //            d               z - omega^0       d             z - 1
+        //
+        //                               =>
+        // We check that:
+        //*                 z^d - 1
+        //* p(z).(z - 1) = ---------
+        //*                    d
+        //
+        let rhs = z_d_helper(challenge_z);
+        let z_minus_1 = unsafe { challenge_z.__sub(BigNum::one()) };
+        let lhs = y.__mul(z_minus_1);
+        assert_eq(lhs, rhs);
+    }
+
+    #[test]
+    unconstrained fn test_base() {
+        let mut tx_data = FixtureBuilder::new();
+        // Add some random bits of state
+        tx_data.append_note_hashes_with_logs(50);
+        tx_data.set_first_nullifier();
+        tx_data.append_nullifiers(50);
+        tx_data.append_l2_to_l1_msgs(5);
+        tx_data.append_unencrypted_log_hashes(5);
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        for i in 0..blob_fields.len() {
+            blob[i] = blob_fields[i];
+        }
+        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+        sponge_blob.absorb(blob_fields, blob_fields.len());
+
+        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let expected_z = std::hash::poseidon2::Poseidon2::hash(
+            [sponge_blob.squeeze(), kzg_commitment_in.inner[0], kzg_commitment_in.inner[1]],
+            3,
+        );
+        assert(expected_z == output.z);
+    }
+
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
+    #[test]
+    unconstrained fn test_400() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        for i in 0..400 {
+            blob[i] = 3;
+        }
+        let mut sponge_blob = SpongeBlob::new(400);
+        sponge_blob.absorb(blob, 400);
+
+        let kzg_commitment_in = BlobCommitment {
+            inner: [
+                0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
+                0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
+            ],
+        };
+
+        let padded_blob_fields = pad_end(blob, 0);
+        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+
+        // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
+        let expected_y: F = BigNum {
+            limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
+        };
+        assert(expected_y == output.y);
+    }
+
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate full blobs'
+    #[test]
+    unconstrained fn test_full_blobs() {
+        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        for j in 0..BLOBS_PER_BLOCK {
+            for i in 0..FIELDS_PER_BLOB {
+                blob[j * FIELDS_PER_BLOB + i] = i as Field + 2;
+            }
+        }
+
+        let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+        sponge_blob.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+
+        let kzg_commitment_in = BlobCommitment {
+            inner: [
+                0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
+                0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
+            ],
+        };
+
+        let output = evaluate_blobs(blob, [kzg_commitment_in; BLOBS_PER_BLOCK], sponge_blob);
+
+        // y is a BLS field with value 0x52fd4e272015a79f3889cc9ab1d84bee4326de7d8ced52612ecc9ec137bd38ee
+        let expected_y: F = BigNum {
+            limbs: [0x26de7d8ced52612ecc9ec137bd38ee, 0x4e272015a79f3889cc9ab1d84bee43, 0x52fd],
+        };
+        for j in 0..BLOBS_PER_BLOCK {
+            assert(expected_y == output.inner[j].y);
+        }
+    }
+
+    #[test(should_fail_with = "Found non-zero field after breakpoint")]
+    unconstrained fn test_no_extra_blob_fields() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        // Fill fields with 50 inputs...
+        for i in 0..50 {
+            blob[i] = 3;
+        }
+        // ...but the rollup's sponge is only expecting 45...
+        let mut sponge_blob = SpongeBlob::new(45);
+        sponge_blob.absorb(blob, 45);
+
+        // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
+        let padded_blob_fields = pad_end(blob, 0);
+        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+    }
+
+    #[test(should_fail_with = "Incorrect number of tx effects added to blob")]
+    unconstrained fn test_absorbed_too_few_blob_fields() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        // Fill fields with 50 inputs...
+        for i in 0..50 {
+            blob[i] = 3;
+        }
+        // ...but the rollup's sponge is expecting 100...
+        let mut sponge_blob = SpongeBlob::new(100);
+        sponge_blob.absorb(blob, 50);
+
+        // ...so the below should fail as it detects we have not added all the tx effects.
+        let padded_blob_fields = pad_end(blob, 0);
+        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+    }
+
+    #[test]
+    unconstrained fn test_empty_blob() {
+        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        let mut sponge_blob = SpongeBlob::new(0);
+        // The below should not throw
+        let _ = check_block_blob_sponge(blob, sponge_blob);
+    }
+
+    #[test]
+    unconstrained fn test_barycentric() {
+        let z: F = BigNum { limbs: [2, 0, 0] };
+
+        // many y's form a blob:
+        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+
+        ys[0] = BigNum { limbs: [0x1234, 0, 0] };
+        ys[1] = BigNum { limbs: [0xabcd, 0, 0] };
+        ys[2] = BigNum { limbs: [0x69, 0, 0] };
+
+        // evaluate the blob at z = 2 to yield y:
+        let y = barycentric_evaluate_blob_at_z(z, ys);
+
+        let mut expected_y: [Field; 3] = [0; 3];
+        if (FIELDS_PER_BLOB == 4096) {
+            // Computed with the eth consensus specs py lib
+            expected_y =
+                [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
+            // Also computed with cKzg, in the typescript tests:
+            // 0x049a902c5b4968d755b6f49c0231e15af80c62e352a428e8e9842eadc1c106bd
+        }
+        if (FIELDS_PER_BLOB == 8) {
+            // Computed with the eth consensus specs py lib (after hacking it to cope with blobs of size 8 instead of 4096):
+            expected_y =
+                [0xb04cdea4304000053abffffffb203a, 0x0000000002e30785c8afa4496f8e38, 0x000000];
+        }
+        assert(y.limbs == expected_y);
+    }
+
+    // Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
+    unconstrained fn compute_double_modulus() -> [Field; 3] {
+        let two_p = [0x7b4805fffcb7fdfffffffe00000002, 0x4ea6533afa906673b0101343b00aa7, 0x00e7db];
+        let NUM_LIMBS = 3; // must be >= 3
+        let two_pow_120 = 2.pow_32(120);
+        let mut double_modulus: [Field; 3] = [0; 3];
+
+        double_modulus[0] = two_p[0] + two_pow_120;
+        for i in 1..NUM_LIMBS - 1 {
+            double_modulus[i] = two_p[i] + two_pow_120 - 1;
+        }
+        double_modulus[NUM_LIMBS - 1] = two_p[NUM_LIMBS - 1] - 1;
+        double_modulus
+    }
+
+    #[test]
+    unconstrained fn test_compute_double_modulus() {
+        let double_modulus = BLS12_381_Fr_Params::get_params().double_modulus;
+        assert_eq(double_modulus, compute_double_modulus());
+    }
+
+    #[test]
+    unconstrained fn test_compute_d_inv() {
+        let d_inversed = D.__invmod();
+        assert_eq(d_inversed, D_INV);
+    }
+}
+
