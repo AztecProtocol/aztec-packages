@@ -1,21 +1,27 @@
+#include "barretenberg/bb/api.hpp"
+#include "barretenberg/bb/api_client_ivc.hpp"
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/common/benchmark.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/timer.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
+#include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
-#include <cstddef>
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
@@ -23,63 +29,8 @@
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
 #endif
-#include "config.hpp"
-#include "get_bn254_crs.hpp"
-#include "get_bytecode.hpp"
-#include "get_grumpkin_crs.hpp"
-#include "libdeflate.h"
-#include "log.hpp"
-#include <barretenberg/common/benchmark.hpp>
-#include <barretenberg/common/container.hpp>
-#include <barretenberg/common/log.hpp>
-#include <barretenberg/common/timer.hpp>
-#include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
-#include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
-#include <barretenberg/srs/global_crs.hpp>
-#include <cstdint>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <vector>
 
 using namespace bb;
-
-std::string getHomeDir()
-{
-    char* home = std::getenv("HOME");
-    return home != nullptr ? std::string(home) : "./";
-}
-
-std::string CRS_PATH = getHomeDir() + "/.bb-crs";
-
-const std::filesystem::path current_path = std::filesystem::current_path();
-const auto current_dir = current_path.filename().string();
-
-/**
- * @brief Initialize the global crs_factory for bn254 based on a known dyadic circuit size
- *
- * @param dyadic_circuit_size power-of-2 circuit size
- */
-void init_bn254_crs(size_t dyadic_circuit_size)
-{
-    // Must +1 for Plonk only!
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
-    auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
-}
-
-/**
- * @brief Initialize the global crs_factory for grumpkin based on a known dyadic circuit size
- * @details Grumpkin crs is required only for the ECCVM
- *
- * @param dyadic_circuit_size power-of-2 circuit size
- */
-void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
-{
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size + 1);
-    srs::init_grumpkin_crs_factory(grumpkin_g1_data);
-}
 
 // Initializes without loading G1
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
@@ -89,35 +40,6 @@ acir_proofs::AcirComposer verifier_init()
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     return acir_composer;
-}
-
-acir_format::WitnessVector get_witness(std::string const& witness_path)
-{
-    auto witness_data = get_bytecode(witness_path);
-    return acir_format::witness_buf_to_witness_data(witness_data);
-}
-
-acir_format::AcirFormat get_constraint_system(std::string const& bytecode_path, bool honk_recursion)
-{
-    auto bytecode = get_bytecode(bytecode_path);
-    return acir_format::circuit_buf_to_acir_format(bytecode, honk_recursion);
-}
-
-acir_format::WitnessVectorStack get_witness_stack(std::string const& witness_path)
-{
-    auto witness_data = get_bytecode(witness_path);
-    return acir_format::witness_buf_to_witness_stack(witness_data);
-}
-
-std::vector<acir_format::AcirFormat> get_constraint_systems(std::string const& bytecode_path, bool honk_recursion)
-{
-    auto bytecode = get_bytecode(bytecode_path);
-    return acir_format::program_buf_to_acir_format(bytecode, honk_recursion);
-}
-
-std::string to_json(std::vector<bb::fr>& data)
-{
-    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
 std::string vk_to_json(std::vector<bb::fr> const& data)
@@ -254,187 +176,6 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const bool recur
     return true;
 }
 
-// TODO(#7371): this could probably be more idiomatic
-template <typename T> T unpack_from_file(const std::string& filename)
-{
-    std::ifstream fin;
-    fin.open(filename, std::ios::ate | std::ios::binary);
-    if (!fin.is_open()) {
-        throw std::invalid_argument("file not found");
-    }
-    if (fin.tellg() == -1) {
-        throw std::invalid_argument("something went wrong");
-    }
-
-    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
-    fin.seekg(0, std::ios_base::beg);
-
-    T result;
-    char* encoded_data = new char[fsize];
-    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
-    msgpack::unpack(encoded_data, fsize).get().convert(result);
-    return result;
-}
-
-// TODO(#7371) find a home for this
-acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
-{
-    acir_format::WitnessVector wv;
-    size_t index = 0;
-    for (auto& e : witness_map) {
-        uint64_t value = std::stoull(e.first);
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < value) {
-            wv.push_back(fr(0));
-            index++;
-        }
-        wv.push_back(fr(uint256_t(e.second)));
-        index++;
-    }
-    return wv;
-}
-
-std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
-{
-    std::vector<uint8_t> content;
-    // initial size guess
-    content.resize(1024ULL * 128ULL);
-    for (;;) {
-        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
-            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
-        };
-        size_t actual_size = 0;
-        libdeflate_result decompress_result = libdeflate_gzip_decompress(
-            decompressor.get(), bytes, size, std::data(content), std::size(content), &actual_size);
-        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
-            continue;
-        }
-        if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            throw std::invalid_argument("bad gzip data in bb main");
-        }
-        content.resize(actual_size);
-        break;
-    }
-    return content;
-}
-
-void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
-                                         const std::string& witnessPath,
-                                         const std::string& outputDir)
-{
-    using Flavor = MegaFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
-    using Program = acir_format::AcirProgram;
-    using ECCVMVK = ECCVMFlavor::VerificationKey;
-    using TranslatorVK = TranslatorFlavor::VerificationKey;
-    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
-
-    using namespace acir_format;
-
-    init_bn254_crs(1 << 24);
-    init_grumpkin_crs(1 << 15);
-
-    auto gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
-    auto witness_data = unpack_from_file<std::vector<std::string>>(witnessPath);
-    std::vector<Program> folding_stack;
-    for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
-        // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
-        // the future
-        std::vector<uint8_t> constraint_buf =
-            decompressedBuffer(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
-        std::vector<uint8_t> witness_buf =
-            decompressedBuffer(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
-
-        AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
-        WitnessVector witness = witness_buf_to_witness_data(witness_buf);
-
-        folding_stack.push_back(Program{ constraints, witness });
-    }
-    // TODO(#7371) dedupe this with the rest of the similar code
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
-
-    // Accumulate the entire program stack into the IVC
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
-    // has been integrated into noir kernel programs
-    bool is_kernel = false;
-    for (Program& program : folding_stack) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit =
-            create_circuit<Builder>(program.constraints, true, 0, program.witness, false, ivc.goblin.op_queue);
-
-        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
-        if (!circuit.databus_propagation_data.is_kernel) {
-            circuit.databus_propagation_data.is_kernel = is_kernel;
-        }
-        is_kernel = !is_kernel;
-        ivc.accumulate(circuit);
-    }
-
-    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
-    // directory is passed by bb.js)
-    std::string vkPath = outputDir + "/mega_vk"; // the vk of the last circuit in the stack
-    std::string proofPath = outputDir + "/client_ivc_proof";
-    std::string translatorVkPath = outputDir + "/translator_vk";
-    std::string eccVkPath = outputDir + "/ecc_vk";
-
-    auto proof = ivc.prove();
-    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-
-    auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof));
-
-    vinfo("write proof and vk data to files..");
-    write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.honk_vk));
-    write_file(translatorVkPath, to_buffer(translator_vk));
-    write_file(eccVkPath, to_buffer(eccvm_vk));
-}
-
-template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesystem::path& path)
-{
-    return std::make_shared<T>(from_buffer<T>(read_file(path)));
-};
-
-/**
- * @brief Verifies a client ivc proof and writes the result to stdout
- *
- * Communication:
- * - proc_exit: A boolean value is returned indicating whether the proof is valid.
- *   an exit code of 0 will be returned for success and 1 for failure.
- *
- * @param proof_path Path to the file containing the serialized proof
- * @param vk_path Path to the serialized verification key of the final (MegaHonk) circuit in the stack
- * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
- * @return true (resp., false) if the proof is valid (resp., invalid).
- */
-bool verify_client_ivc(const std::filesystem::path& proof_path,
-                       const std::filesystem::path& mega_vk,
-                       const std::filesystem::path& eccvm_vk_path,
-                       const std::filesystem::path& translator_vk_path)
-{
-    init_bn254_crs(1);
-    init_grumpkin_crs(1 << 15);
-
-    const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(mega_vk);
-    final_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
-    const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
-    eccvm_vk->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
-    const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
-    translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    const bool verified = ClientIVC::verify(proof, final_vk, eccvm_vk, translator_vk);
-    vinfo("verified: ", verified);
-    return verified;
-}
-
 bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
 {
     using Flavor = MegaFlavor; // This is the only option
@@ -485,7 +226,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
                                  const std::string& witnessPath,
                                  const std::string& outputPath)
 {
-    using Flavor = MegaFlavor; // This is the only option
+    using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
@@ -1056,70 +797,6 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
 #endif
 
 /**
- * @brief Create a Honk a prover from program bytecode and an optional witness
- *
- * @tparam Flavor
- * @param bytecodePath
- * @param witnessPath
- * @return UltraProver_<Flavor>
- */
-template <typename Flavor>
-UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
-                                          const std::string& witnessPath,
-                                          const bool recursive)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-
-    bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>) {
-        honk_recursion = true;
-    }
-    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    acir_format::WitnessVector witness = {};
-    if (!witnessPath.empty()) {
-        witness = get_witness(witnessPath);
-    }
-
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
-    auto prover = Prover{ builder };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    return std::move(prover);
-}
-
-/**
- * @brief Creates a proof for an ACIR circuit
- *
- * Communication:
- * - stdout: The proof is written to stdout as a byte array
- * - Filesystem: The proof is written to the path specified by outputPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param witnessPath Path to the file containing the serialized witness
- * @param outputPath Path to write the proof to
- */
-template <IsUltraFlavor Flavor>
-void prove_honk(const std::string& bytecodePath,
-                const std::string& witnessPath,
-                const std::string& outputPath,
-                const bool recursive)
-{
-    // using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-
-    // Construct Honk proof
-    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath, recursive);
-    auto proof = prover.construct_proof();
-    if (outputPath == "-") {
-        writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
-        vinfo("proof written to stdout");
-    } else {
-        write_file(outputPath, to_buffer</*include_size=*/true>(proof));
-        vinfo("proof written to: ", outputPath);
-    }
-}
-
-/**
  * @brief Verifies a proof for an ACIR circuit
  *
  * Note: The fact that the proof was computed originally by parsing an ACIR circuit is not of importance
@@ -1431,20 +1108,53 @@ int main(int argc, char* argv[])
 
         std::string command = args[0];
         vinfo("bb command is: ", command);
+        std::string proof_system = get_option(args, "-s", "");
         std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         bool honk_recursion = flag_present(args, "-h");
-        bool recursive = flag_present(args, "--recursive"); // Not every flavor handles it.
+        bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
+
+        const auto execute_command = [&](const std::string& command, API& api) {
+            if (command == "prove") {
+                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+                // TODO(#7371): remove this (msgpack version...)
+                api.prove("--do-not-decode-msgpack", "--msgpack", bytecode_path, witness_path, output_dir);
+                return 0;
+            }
+
+            if (command == "verify") {
+                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+                const std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
+                const std::filesystem::path mega_vk_path = output_dir / "mega_vk";
+                const std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
+                const std::filesystem::path translator_vk_path = output_dir / "translator_vk";
+
+                return api.verify(client_ivc_proof_path, mega_vk_path, eccvm_vk_path, translator_vk_path) ? 0 : 1;
+            }
+
+            if (command == "prove_and_verify") {
+                return api.prove_and_verify("--do-not-decode-msgpack", bytecode_path, witness_path) ? 0 : 1;
+            }
+
+            vinfo("Invalid command");
+            return 1;
+        };
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
             writeStringToStdout(BB_VERSION);
             return 0;
         }
+
+        if (proof_system == "client_ivc") {
+            ClientIVCAPI api;
+            execute_command(command, api);
+        }
+
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
@@ -1460,21 +1170,10 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
-        // TODO(#7371): remove this
-        if (command == "client_ivc_prove_output_all_msgpack") {
-            std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
-            return 0;
-        }
-        if (command == "verify_client_ivc") {
-            std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
-            std::filesystem::path mega_vk_path = output_dir / "mega_vk";
-            std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
-            std::filesystem::path translator_vk_path = output_dir / "translator_vk";
+        // if (command == "prove_and_verify_client_ivc") {
+        //     return proveAndVerifyClientIVC(bytecode_path, recursive, witness_path) ? 0 : 1;
+        // }
 
-            return verify_client_ivc(client_ivc_proof_path, mega_vk_path, eccvm_vk_path, translator_vk_path) ? 0 : 1;
-        }
         if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
         }

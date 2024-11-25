@@ -197,6 +197,7 @@ struct AcirProgramStack {
     void pop_back() { witness_stack.pop_back(); }
 };
 
+// WORKTODO: what a shitty function
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
                        // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
