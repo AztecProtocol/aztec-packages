@@ -52,7 +52,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         InnerBuilder builder;
 
         // Create 2^log_n many add gates based on input log num gates
-        const size_t num_gates = (1 << log_num_gates);
+        const size_t num_gates = (1 << log_num_gates) - 100;
         for (size_t i = 0; i < num_gates; ++i) {
             fr a = fr::random_element();
             uint32_t a_idx = builder.add_variable(a);

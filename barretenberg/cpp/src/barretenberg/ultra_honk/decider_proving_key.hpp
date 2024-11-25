@@ -179,7 +179,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
                 const size_t max_tables_size =
-                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 4);
+                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1 - MASKING_OFFSET);
                 size_t table_offset = dyadic_circuit_size - max_tables_size - MASKING_OFFSET;
                 {
                     PROFILE_THIS_NAME("allocating table polynomials");
@@ -219,12 +219,11 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     // at top of trace
                     const size_t table_offset =
                         dyadic_circuit_size -
-                        std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
+                        std::min(dyadic_circuit_size - 1 - MASKING_OFFSET, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
                     info("lookup offset ", lookup_offset);
                     info("table offset  ", table_offset);
                     const size_t masking_offset =
                         (std::min(lookup_offset, table_offset) > MASKING_OFFSET) ? MASKING_OFFSET : 0;
-                    info("not here with Ultra");
                     const size_t lookup_inverses_start = std::min(lookup_offset, table_offset) - masking_offset;
                     const size_t lookup_inverses_end =
                         std::min(dyadic_circuit_size,

@@ -244,8 +244,8 @@ template <typename Flavor> class SumcheckProverRound {
 
             result += batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
         }
-        info("contribution ", edge_idx, " at 0 ", result.value_at(0));
-        info("contribution ", edge_idx, " at 1 ", result.value_at(1));
+        // info("contribution ", edge_idx, " at 0 ", result.value_at(0));
+        // info("contribution ", edge_idx, " at 1 ", result.value_at(1));
 
         return result;
     }

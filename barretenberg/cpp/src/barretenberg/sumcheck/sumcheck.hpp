@@ -124,6 +124,7 @@ template <typename Flavor> class SumcheckProver {
 
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
+
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
@@ -191,6 +192,8 @@ template <typename Flavor> class SumcheckProver {
                                  const std::vector<FF>& gate_challenges,
                                  ZKSumcheckData<Flavor> zk_sumcheck_data = ZKSumcheckData<Flavor>())
     {
+
+        info("Batched relation partial length", BATCHED_RELATION_PARTIAL_LENGTH);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
         std::vector<FF> multivariate_challenge;
@@ -546,6 +549,7 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (Flavor::HasZK) {
             round.target_total_sum += libra_total_sum * libra_challenge;
         };
+
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
