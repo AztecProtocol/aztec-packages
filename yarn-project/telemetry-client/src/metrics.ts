@@ -29,6 +29,12 @@ export const MEMPOOL_DB_NUM_ITEMS = 'aztec.mempool.db.num_items';
 export const MEMPOOL_DB_MAP_SIZE = 'aztec.mempool.db.map_size';
 export const MEMPOOL_DB_USED_SIZE = 'aztec.mempool.db.used_size';
 
+export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
+export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
+
+export const MEMPOOL_PROVER_QUOTE_COUNT = 'aztec.mempool.prover_quote_count';
+export const MEMPOOL_PROVER_QUOTE_SIZE = 'aztec.mempool.prover_quote_size';
+
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
