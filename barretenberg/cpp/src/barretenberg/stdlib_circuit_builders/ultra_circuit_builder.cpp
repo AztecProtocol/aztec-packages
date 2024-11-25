@@ -41,9 +41,11 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
      */
     if (!circuit_finalized) {
         process_non_native_field_multiplications();
+#ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
+#endif
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
@@ -2059,7 +2061,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
  *
  * @param record Stores details of this read operation. Mutated by this fn!
  */
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::create_ROM_gate(RomRecord& record)
+template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::ROM create_ROM_gate(RomRecord& record)
 {
     // Record wire value can't yet be computed
     record.record_witness = this->add_variable(0);
@@ -2326,6 +2328,7 @@ void UltraCircuitBuilder_<Arithmetization>::set_ROM_element(const size_t rom_id,
     ASSERT(rom_arrays.size() > rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
     const uint32_t index_witness = (index_value == 0) ? this->zero_idx : put_constant_variable((uint64_t)index_value);
+
     ASSERT(rom_array.state.size() > index_value);
     ASSERT(rom_array.state[index_value][0] == UNINITIALIZED_MEMORY_RECORD);
     /**

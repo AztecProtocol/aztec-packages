@@ -2,7 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
-#include <concepts>
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage, google-runtime-int)
 #define PARENS ()
@@ -690,6 +690,8 @@ constexpr void RunWithBuilders(const uint8_t* Data, const size_t Size, FastRando
 {
     if (Composers & 1) {
         RunWithBuilder<Fuzzer, bb::StandardCircuitBuilder>(Data, Size, VarianceRNG);
+    }else if(Composers & 2){
+        RunWithBuilder<Fuzzer, bb::UltraCircuitBuilder>(Data, Size, VarianceRNG);
     }
 }
 

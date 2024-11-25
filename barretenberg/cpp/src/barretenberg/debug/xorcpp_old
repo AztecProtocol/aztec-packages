@@ -1,0 +1,96 @@
+#include <fstream>
+#include <iostream>
+#include <string>
+
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/uint/uint.hpp"
+
+using namespace bb;
+
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
+
+using Builder = StandardCircuitBuilder;
+using bool_t = bb::stdlib::bool_t<Builder>;
+using field_t = bb::stdlib::field_t<Builder>;
+using witness_t = bb::stdlib::witness_t<Builder>;
+using public_witness_t = bb::stdlib::public_witness_t<Builder>;
+using bigfield_t = bb::stdlib::bigfield<Builder, bb::Bn254FqParams>;
+
+int main()
+{
+    StandardCircuitBuilder builder;
+
+    uint256_t val0("0x2257f100e9aab64e1644870694eec30a91470f7d3c958cc01e64913858e4130c");
+    bigfield_t w0 = bigfield_t::create_from_u512_as_witness(&builder, val0);
+    info(w0.get_value());
+    w0 = w0.conditional_negate(bool_t(&builder, true));
+    info(w0.get_value());
+
+    uint256_t val1("0x1e9ceaad20190143ffc5b3c415f6444fc0360fe9478ebe1d68be37c7f45ccb2e");
+    bigfield_t w1 = bigfield_t::from_witness(&builder, bb::fq(val1));
+    info(w1.get_value());
+    w1 = w0.conditional_negate(bool_t(&builder, true));
+    info(w1.get_value());
+
+    //bigfield_t w2 = w0 / w0;
+    bigfield_t w2 = bigfield_t::create_from_u512_as_witness(&builder, 1);
+    info(w2.get_value());
+
+    //w1 = w1.conditional_negate(bool_t(&builder, true));
+    //info(w1.get_value());
+    w2 = w0.conditional_negate(bool_t(&builder, false));
+    info(w2.get_value());
+    w0 = w2.conditional_negate(bool_t(&builder, true));
+    info(w0.get_value());
+
+    w2 = w2.conditional_negate(bool_t(&builder, false));
+    info(w2.get_value());
+    w2 = w2.conditional_negate(bool_t(&builder, false));
+    info(w2.get_value());
+
+    w0 = w0.conditional_negate(bool_t(&builder, true));
+    info(w0.get_value());
+
+    bigfield_t w3 = -(w0 * w2) / w1;
+    info(w3.get_value());
+
+    uint256_t val2("0x122037b1aaf91c7f213816a4829a3a9bfe1458dba1d0a95e002d94378a251c7b");
+    bigfield_t w4 = bigfield_t::from_witness(&builder, bb::fq(val2));
+    info(w4.get_value());
+
+    //w2 = w2.conditional_negate(bool_t(&builder, false));
+    //info(w2.get_value());
+    w1 = w0.conditional_negate(bool_t(&builder, false));
+    info(w1.get_value());
+    //w3 = w2.conditional_negate(bool_t(&builder, false));
+    //info(w3.get_value());
+    //w4 = w2.conditional_select(w1, bool_t(&builder, true));
+    //info(w4.get_value());
+    w4 = w1.conditional_negate(bool_t(&builder, true));
+    info(w4.get_value());
+
+    //bigfield_t to_add = w1 - w4;
+    //w1.assert_equal(w4 + to_add);
+    //info("Assert", w1.get_value(), w4.get_value());
+
+    w4 = w4.conditional_negate(bool_t(&builder, true));
+    info(w4.get_value());
+    
+    bigfield_t w5 = w4 - w2;
+    info(w5.get_value());
+    bigfield_t w6 = w5 / w3;
+    info(w6.get_value());
+
+    //w5 = w3.conditional_negate(bool_t(&builder, false));
+    //info(w5.get_value());
+    info(builder.get_num_gates());
+    info(CircuitChecker::check(builder));
+
+}

@@ -48,11 +48,13 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     }
 
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
+    #ifndef ULTRA_FUZZ
     result = result && check_tag_data(tag_data);
     if (!result) {
         info("Failed tag check.");
         return false;
     }
+    #endif
 
     return result;
 };
@@ -93,6 +95,7 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
+        #ifndef ULTRA_FUZZ
         result = result && check_relation<Auxiliary>(values, params);
         if (!result) {
             return report_fail("Failed Auxiliary relation at row idx = ", idx);
@@ -101,6 +104,18 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
         }
+        #else
+        if(values.q_aux == 1){
+            bool f0 = values.q_3 == 1 && (values.q_4 == 1 || values.q_m == 1);
+            bool f1 = values.q_2 == 1 && (values.q_3 == 1 || values.q_4 == 1 || values.q_m == 1);
+            if(f0 && f1){
+                result = result && chekc_relation<Auxiliary>(values, params);
+                if (!result) {
+                    return report_fail("Failed Auxiliary relation at row idx = ", idx);
+                }
+            }
+        }
+        #endif
         result = result && check_lookup(values, lookup_hash_table);
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
@@ -123,6 +138,18 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             return report_fail("Failed at row idx = ", idx);
         }
     }
+
+    #ifdef ULTRA_FUZZ
+    info("I AM HERE");
+    result = result & relaxed_check_delta_range_relation(builder):
+    if (!result) {
+        return report_fail("Failed relaxed DeltaRangeConstraint relation");
+    }
+    result = result & relaxed_check_aux_relation(builder);
+    if (!result) {
+        return report_fail("Failed relaxed Aux(RAM/ROM) relation");
+    }
+    #endif
 
     return result;
 };
@@ -295,6 +322,80 @@ void UltraCircuitChecker::populate_values(
         values.q_poseidon2_external = block.q_poseidon2_external()[idx];
     }
 }
+
+#ifdef ULTRA_FUZZ
+bool UltraCircuitChecker::relaxed_check_delta_range_relation(UltraCircuitBuilder& builder){
+    for(uint32_t i = 0; i < builder.real_variable_tags.size(); i++){
+        uint32_t tag = builder.real_variable_tags[i];
+        if(tag != 0 && builder.range_tags.contains(tag)){
+            uint64_t range = builder.range_tags[tag];
+            if(builder.get_variable(i) > range){
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool UltraCircuitChecker::relaxed_check_aux_relation(UltraCircuitBuilder &builder){
+    // TODO(alex): sorted gates? should?
+    for(size_t i = 0; i < builder.rom_arrays.size(); i++){
+        std::vector<RomTranscript> rom_array = builder.rom_arrays[i];
+        
+        // check set and read ROM records
+        for(RomRecord& rr: rom_array.records){
+            uint32_t value_witness_1 = rr.value_column1_witness;
+            uint32_t value_witness_2 = rr.value_column2_witness;
+            //uint32_t index = rr.index;
+            uint32_t index = static_cast<uint32_t>(builder.get_variable(RomRecored.index_witness));
+
+            if(builder.get_variable(value_witness_1) != rom_array.state[index][0]){
+                return false;
+            }
+            if(builder.get_variable(value_witness_2) != rom_array.state[index][1]){
+                return false;
+            }
+        }
+    }
+
+    for(size_t i = 0; i < builder.ram_arrays.size(); i++){
+        std::vector<RAmTranscript> rom_array = builder.ram_arrays[i];
+
+        std::vector<FF> tmp_state;
+        tmp_state.reserve(rom_array.state.size());
+        
+        uint32_t prev_access_count = 0;
+        // check write and read RAM records
+        for(RamRecord& rr: rom_array.records){
+            //uint32_t index = rr.index;
+            uint32_t index = static_cast<uint32_t>(builder.get_variable(RomRecored.index_witness));
+            uint32_t value_witness = rr.value_column1_witness;
+            uint32_t timestamp_witness = rr.timestamp_witness;
+            RamRecord::AccessType access_type = rr.access_type;
+            ASSERT(rr.access_count > prev_access_count);
+            prev_access_count = rr.access_count;
+
+            switch (access_type){
+                case RamRecord::AcessType::READ:
+                    if(builder.get_variable(value_witness) != state[index]){
+                        return false;
+                    }
+                    break;
+                case RamRecord::AccessType::WRITE:
+                    state[index] = value_witness;
+                    break;
+                default:
+                    return false;
+            }
+
+        }
+        if(state != rr.state){
+            return false;
+        }
+    }
+    return true;
+}
+#endif
 
 // Template method instantiations for each check method
 template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(

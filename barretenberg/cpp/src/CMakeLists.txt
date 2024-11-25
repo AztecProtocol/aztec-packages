@@ -92,6 +92,7 @@ add_subdirectory(barretenberg/wasi)
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
 endif()
+add_subdirectory(barretenberg/debug)
 
 add_subdirectory(barretenberg/benchmark)
 
