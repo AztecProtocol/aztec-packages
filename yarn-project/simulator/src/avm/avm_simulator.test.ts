@@ -84,11 +84,11 @@ describe('AVM simulator: injected bytecode', () => {
   beforeAll(() => {
     calldata = [new Fr(1), new Fr(2)];
     bytecode = encodeToBytecode([
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+      new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+      new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
       new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 1, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+      new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySizeOffset=*/ 0),
     ]);
   });
@@ -1130,9 +1130,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ],
       ])(`Overrun of %s`, async (_sideEffectType: string, createInstr: () => Instruction) => {
         const bytecode = encodeToBytecode([
-          new Set(/*indirect*/ 0, TypeTag.FIELD, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect*/ 0, TypeTag.FIELD, /*value*/ 100, /*dstOffset*/ 100).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 1, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.FIELD, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, /*dstOffset*/ 100, TypeTag.FIELD, /*value*/ 100).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           createInstr(),
           // change value at memory offset 0 so each instr operates on a different value (important for nullifier emission)
           new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(
