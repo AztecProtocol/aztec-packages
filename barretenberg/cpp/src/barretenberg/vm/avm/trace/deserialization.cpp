@@ -82,7 +82,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
           OperandType::INDIRECT8,
           OperandType::UINT16,
           OperandType::UINT8, // var idx
-
       } },
 
     // Execution Environment - Calldata
