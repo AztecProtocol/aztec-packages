@@ -39,5 +39,3 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           ./bootstrap_ci.sh | tee build.log
-
-  build-status:
