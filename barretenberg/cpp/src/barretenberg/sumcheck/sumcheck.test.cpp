@@ -181,11 +181,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         for (auto& poly : zero_polynomials) {
             poly = bb::Polynomial<FF>(multivariate_n);
         }
-
         auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
-        for (size_t idx = 0; idx < multivariate_n; idx++) {
-            info("coeff z_perm before randomization ", idx, "  ", full_polynomials.z_perm[idx]);
-        }
+
         // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
         // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
         // satisfied.
@@ -217,9 +214,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
                 full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
             }
-
-            //     // q_o[1] = FF::random_element();
-            //     // q_arith[2] = FF::random_element();
         }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);
         full_polynomials.w_r = bb::Polynomial<FF>(w_r);
@@ -231,6 +225,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         full_polynomials.q_o = bb::Polynomial<FF>(q_o);
         full_polynomials.q_c = bb::Polynomial<FF>(q_c);
         full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
+
         // Set aribitrary random relation parameters
         RelationParameters<FF> relation_parameters{
             .beta = FF::random_element(),

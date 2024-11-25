@@ -284,16 +284,15 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Extend Univariates then sum them multiplying by the current \f$ pow_{\beta} \f$-contributions.
-     * @details Since the sub-relations comprising full Honk relation are of different degrees, the computation of
-     * the evaluations of round univariate \f$ \tilde{S}_{i}(X_{i}) \f$ at points \f$ X_{i} = 0,\ldots, D \f$
-     * requires to extend evaluations of individual relations to the domain \f$ 0,\ldots, D\f$. Moreover, linearly
-     * independent sub-relations, i.e. whose validity is being checked at every point of the hypercube, are
-     * multiplied by the constant \f$ c_i = pow_\beta(u_0,\ldots, u_{i-1}) \f$ and the current
-     * \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) + X_i\cdot \beta_i ) \vert_{X_i = k} \f$ for \f$ k = 0,\ldots, D\f$.
+     * @details Since the sub-relations comprising full Honk relation are of different degrees, the computation of the
+     * evaluations of round univariate \f$ \tilde{S}_{i}(X_{i}) \f$ at points \f$ X_{i} = 0,\ldots, D \f$ requires to
+     * extend evaluations of individual relations to the domain \f$ 0,\ldots, D\f$. Moreover, linearly independent
+     * sub-relations, i.e. whose validity is being checked at every point of the hypercube, are multiplied by the
+     * constant \f$ c_i = pow_\beta(u_0,\ldots, u_{i-1}) \f$ and the current \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) +
+     * X_i\cdot \beta_i ) \vert_{X_i = k} \f$ for \f$ k = 0,\ldots, D\f$.
      * @tparam extended_size Size after extension
      * @param tuple A tuple of tuples of Univariates
-     * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\}
-     * \f$.
+     * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\} \f$.
      * @param gate_sparators Round \f$pow_{\beta}\f$-factor  \f$ ( (1−X_i) + X_i\cdot \beta_i )\f$.
      */
     template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
@@ -312,8 +311,8 @@ template <typename Flavor> class SumcheckProverRound {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const bool is_subrelation_linearly_independent =
                 bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence
-            // we multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
+            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
+            // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
             // verifier, we additionally need a univariate contribution from the pow polynomial which is the
             // extended_random_polynomial which is the
             if (!is_subrelation_linearly_independent) {
@@ -356,28 +355,26 @@ template <typename Flavor> class SumcheckProverRound {
 
   private:
     /**
-     * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the
-     *contribution of each sub-relation to \f$ T^i(X_i) \f$.
+     * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the contribution
+     * of each sub-relation to \f$ T^i(X_i) \f$.
      *
      * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ deined in \ref
      *SumcheckProverContributionsofPow "this section". It is done  as follows:
-     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube
-     *\f$\{0,1\}\times
-     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend
-     *edges".
+     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube \f$\{0,1\}\times
+     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend edges".
      *   - Inner loop: iterate through the sub-relations, feeding each relation the "the group of edges", i.e. the
-     * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$.
-     *Each relation Flavor is endowed with \p accumulate method that computes its contribution to \f$ T^i(X_{i}) \f$
-     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors,
-     *produces required evaluations of \f$ \tilde S^i \f$.
-     * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by
-     *\ref accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
-     * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell
-     *\right) \f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1
-     *- i} \f$.
-     * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$
-     *takes an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at
-     *index \f$ 2^{i+1}
+     * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$. Each
+     *                 relation Flavor is endowed with \p accumulate method that computes its contribution to \f$
+     * T^i(X_{i}) \f$
+     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors, produces
+     *required evaluations of \f$ \tilde S^i \f$.
+     * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by \ref
+     *accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
+     * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right)
+     *\f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1 - i} \f$.
+     * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$ takes
+     *an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at index \f$
+     *2^{i+1}
      *(\ell_{i+1} 2^{i+1} +\ldots + \ell_{d-1} 2^{d-1})\f$.
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
@@ -458,9 +455,9 @@ template <typename Flavor> class SumcheckVerifierRound {
     };
     /**
      * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i
-     * = 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
-     * \tilde{S}^i(1) \f$
+     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
+     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
+     * \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
@@ -478,9 +475,9 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     /**
      * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i
-     * = 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
-     * \tilde{S}^i(1) \f$
+     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
+     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
+     * \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */

@@ -124,7 +124,6 @@ template <typename Flavor> class SumcheckProver {
 
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
-
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
@@ -193,9 +192,8 @@ template <typename Flavor> class SumcheckProver {
                                  ZKSumcheckData<Flavor> zk_sumcheck_data = ZKSumcheckData<Flavor>())
     {
 
-        info("Batched relation partial length", BATCHED_RELATION_PARTIAL_LENGTH);
-
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
+
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
@@ -549,7 +547,6 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (Flavor::HasZK) {
             round.target_total_sum += libra_total_sum * libra_challenge;
         };
-
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
@@ -576,7 +573,6 @@ template <typename Flavor> class SumcheckVerifier {
                 if (round_idx < multivariate_d) {
                     bool checked = round.check_sum(round_univariate);
                     verified = verified && checked;
-                    info("verified round ", round_idx, " ", verified);
                     multivariate_challenge.emplace_back(round_challenge);
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     gate_separators.partially_evaluate(round_challenge);
@@ -603,7 +599,10 @@ template <typename Flavor> class SumcheckVerifier {
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
-        FF correcting_factor = round.compute_correcting_factor(multivariate_challenge, multivariate_d);
+        FF correcting_factor{ 1 };
+        if constexpr (Flavor::HasZK) {
+            correcting_factor = round.compute_correcting_factor(multivariate_challenge, multivariate_d);
+        }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value

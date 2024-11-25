@@ -8,14 +8,13 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-using Flavor = UltraFlavorWithZK;
+using Flavor = UltraFlavor;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
@@ -29,7 +28,7 @@ class SumcheckTestsRealCircuit : public ::testing::Test {
  */
 TEST_F(SumcheckTestsRealCircuit, Ultra)
 {
-    using Flavor = UltraFlavorWithZK;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -163,12 +162,10 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
     decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
                                                              decider_pk->final_active_wire_idx + 1);
-    info("real circuit test size perm: ", decider_pk->final_active_wire_idx + 1);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = decider_pk->proving_key.circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
-    info("log circuit size ", log_circuit_size);
 
     RelationSeparator prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
@@ -183,15 +180,10 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     decider_pk->gate_challenges = prover_gate_challenges;
-    ZKSumcheckData<Flavor> zk_sumcheck_data(log_circuit_size, prover_transcript);
-    FF r = FF::random_element();
-    decider_pk->proving_key.polynomials.z_perm.at(circuit_size - 1) = r;
-    decider_pk->proving_key.polynomials.lookup_inverses.at(circuit_size - 1) = r.sqr();
     auto prover_output = sumcheck_prover.prove(decider_pk->proving_key.polynomials,
                                                decider_pk->relation_parameters,
                                                decider_pk->alphas,
-                                               decider_pk->gate_challenges,
-                                               zk_sumcheck_data);
+                                               decider_pk->gate_challenges);
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
