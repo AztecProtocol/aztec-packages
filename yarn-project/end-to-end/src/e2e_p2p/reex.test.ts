@@ -7,10 +7,10 @@ import { BlockProposal, SignatureDomainSeperator, getHashedSignaturePayload } fr
 import { beforeAll, describe, it, jest } from '@jest/globals';
 import fs from 'fs';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
