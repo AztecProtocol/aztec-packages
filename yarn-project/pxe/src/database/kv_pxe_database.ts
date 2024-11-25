@@ -668,25 +668,19 @@ export class KVPxeDatabase implements PxeDatabase {
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void> {
-    await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
-  }
-
-  async #incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<void> {
-    const indexes = await this.#getTaggingSecretsIndexes(appTaggingSecrets, storageMap);
-    await this.db.transaction(() => {
-      indexes.forEach((taggingSecretIndex, listIndex) => {
-        const nextIndex = taggingSecretIndex + 1;
-        void storageMap.set(appTaggingSecrets[listIndex].toString(), nextIndex);
-      });
-    });
+  async setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
+    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders);
   }
 
   async setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
-    await this.db.transaction(() => {
-      indexedSecrets.forEach(indexedSecret => {
-        void this.#taggingSecretIndexesForRecipients.set(indexedSecret.secret.toString(), indexedSecret.index);
-      });
+    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients);
+  }
+
+  #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecMap<string, number>) {
+    return this.db.transaction(() => {
+      indexedSecrets.forEach(
+        indexedSecret => void storageMap.set(indexedSecret.secret.toString(), indexedSecret.index),
+      );
     });
   }
 
