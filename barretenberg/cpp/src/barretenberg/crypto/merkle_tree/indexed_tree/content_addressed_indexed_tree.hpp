@@ -67,12 +67,12 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     ContentAddressedIndexedTree& operator=(ContentAddressedIndexedTree&& other) = delete;
 
     /**
-     * @brief Adds or updates a single values in the tree (updates not currently supported)
+     * @brief Adds or updates a single value in the tree
      */
     void add_or_update_value(const LeafValueType& value, const AddCompletionCallbackWithWitness& completion);
 
     /**
-     * @brief Adds or updates the given set of values in the tree (updates not currently supported)
+     * @brief Adds or updates the given set of values in the tree using subtree insertion.
      * @param values The values to be added or updated
      * @param completion The callback to be triggered once the values have been added
      */
@@ -80,7 +80,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                               const AddCompletionCallbackWithWitness& completion);
 
     /**
-     * @brief Adds or updates the given set of values in the tree
+     * @brief Adds or updates the given set of values in the tree using subtree insertion.
      * @param values The values to be added or updated
      * @param subtree_depth The height of the subtree to be inserted.
      * @param completion The callback to be triggered once the values have been added
@@ -90,19 +90,19 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                               const AddCompletionCallbackWithWitness& completion);
 
     /**
-     * @brief Adds or updates a single values in the tree (updates not currently supported)
+     * @brief Adds or updates a single values in the tree
      */
     void add_or_update_value(const LeafValueType& value, const AddCompletionCallback& completion);
 
     /**
-     * @brief Adds or updates the given set of values in the tree
+     * @brief Adds or updates the given set of values in the tree using subtree insertion.
      * @param values The values to be added or updated
      * @param completion The callback to be triggered once the values have been added
      */
     void add_or_update_values(const std::vector<LeafValueType>& values, const AddCompletionCallback& completion);
 
     /**
-     * @brief Adds or updates the given set of values in the tree (updates not currently supported)
+     * @brief Adds or updates the given set of values in the tree using subtree insertion.
      * @param values The values to be added or updated
      * @param subtree_depth The height of the subtree to be inserted.
      * @param completion The callback to be triggered once the values have been added
@@ -112,7 +112,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                               const AddCompletionCallback& completion);
 
     /**
-     * @brief Adds or updates the given set of values in the tree one by one
+     * @brief Adds or updates the given set of values in the tree one by one, fetching witnesses at every step.
      * @param values The values to be added or updated
      * @param completion The callback to be triggered once the values have been added
      */
@@ -236,7 +236,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      * @brief Adds or updates the given set of values in the tree, capturing sequential insertion witnesses
      * @param values The values to be added or updated
      * @param completion The callback to be triggered once the values have been added
-     * @param capture_witness Whether or not we should capture the low-leaf witnesses
+     * @param capture_witness Whether or not we should capture the witnesses
      */
     void add_or_update_values_sequentially_internal(const std::vector<LeafValueType>& values,
                                                     const AddSequentiallyCompletionCallbackWithWitness& completion,
