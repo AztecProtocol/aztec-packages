@@ -270,15 +270,16 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 
+    Builder root_rollup;
     // Fully recursively verify this proof to check it.
-    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
+    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, POLY_LENGTH, this->vk());
     auto stdlib_verifier_transcript =
-        std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&builder, ipa_proof));
+        std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, output_claim, stdlib_verifier_transcript);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
     EXPECT_TRUE(result);
     info("Full IPA Recursive Verifier num finalized gates for length ",
          1 << CONST_ECCVM_LOG_N,
          " = ",
-         builder.get_num_finalized_gates());
+         root_rollup.get_num_finalized_gates());
 }
