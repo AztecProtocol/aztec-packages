@@ -5,7 +5,6 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -46,6 +45,13 @@ void ECCVMProver::execute_preamble_round()
 void ECCVMProver::execute_wire_commitments_round()
 {
     auto wire_polys = key->polynomials.get_wires();
+    auto accu = key->polynomials.transcript_accumulator_empty;
+    info("accu empty size ", accu.size());
+    for (size_t idx = 1; idx < accu.size(); idx++) {
+        if (accu.at(idx) != 0) {
+            info("idx = ", idx, " ", accu.at(idx));
+        }
+    }
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
@@ -85,6 +91,10 @@ void ECCVMProver::execute_grand_product_computation_round()
 {
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
+    FF random_el_1 = FF::random_element();
+    size_t z_size = key->polynomials.z_perm.size();
+    info(" gr prod size ", z_size);
+    key->polynomials.z_perm.at(z_size - 1) = random_el_1;
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }

@@ -70,7 +70,7 @@ template <typename FF> struct RowDisablingPolynomial {
             evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
         }
 
-        return evaluation_at_multivariate_challenge;
+        return FF(1) - evaluation_at_multivariate_challenge;
     }
 };
 
