@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 NO_TERMINATE=${NO_TERMINATE:-0}
 
 function on_exit {
@@ -18,7 +19,7 @@ trap on_exit EXIT
 
 cd $(dirname $0)
 
-ip_sir=$(./build-system/scripts/request_spot ci3-$USER 128 x86_64)
+ip_sir=$(./build-system/scripts/request_spot ci3-$USER 64 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
@@ -39,7 +40,7 @@ function check_git() {
 }
 check_git || (echo "Local branch $current_branch does not match remote branch origin/$current_branch. Not starting build instance." && exit 1)
 
-ssh -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
+ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
   docker run $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t -v /var/run/docker.sock:/var/run/docker.sock aztecprotocol/build:1.0 bash -c '
     set -e
     # When restarting the container, just hang around.
