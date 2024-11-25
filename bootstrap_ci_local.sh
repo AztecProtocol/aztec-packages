@@ -12,6 +12,8 @@
 # The docker volume makes the image partly stateful.
 set -eu
 
+current_commit=$(git rev-parse HEAD)
+
 docker run --name aztec_build -ti --rm \
   --privileged \
   -v boostrap_ci_local_docker:/var/lib/docker \
@@ -20,9 +22,11 @@ docker run --name aztec_build -ti --rm \
   aztecprotocol/ci:2.0 bash -c '
   /usr/local/share/docker-init.sh &> /dev/null
   git config --global --add safe.directory /aztec-packages-host/.git
-  cd /root
+  mkdir -p /root/aztec-packages && cd /root/aztec-packages
   # Ensure we get a clean clone of the repo.
-  git clone --depth 1 --branch cl/ci3 file:///aztec-packages-host aztec-packages
-  cd aztec-packages
+  git init
+  git remote add origin http://github.com/aztecprotocol/aztec-packages
+  git fetch --depth 1 origin $current_commit
+  git checkout FETCH_HEAD &>/dev/null
   CI=1 ./bootstrap.sh fast || exec /bin/bash
 '
