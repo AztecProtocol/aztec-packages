@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732537284860,
+  "lastUpdate": 1732542532235,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ae7cfe72b5c528fb533040c6da62c9b21f542f8b",
-          "message": "feat: Constrain App function VKs (#9756)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/9592\r\n - Now contract artifacts must have VKs in their private functions\r\n- aztec-nargo inserts the verification keys after public function\r\ntranspilation\r\n - We no longer derive any VK in the TX proving flow\r\n - App VKs are now constrained in the private kernels\r\n - Bootstrap generates VKs for all apps (with s3 caching)\r\n- PXE is currently accepting any VK present in the artifact as valid: we\r\nshould explore the correct interface for this in the future and wether\r\nPXE can use those VKs without rederiving them from ACIR",
-          "timestamp": "2024-11-07T15:50:24+01:00",
-          "tree_id": "e9edc777ef9b34bdddfdb350b69df91183410e99",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ae7cfe72b5c528fb533040c6da62c9b21f542f8b"
-        },
-        "date": 1730992603297,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29125.051237000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27334.133822000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5407.657706000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5114.600949 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85774.64096400002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85774642000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15354.471928,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15354472000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3031771018,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3031771018 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144134174,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144134174 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2990,6 +2930,66 @@ window.BENCHMARK_DATA = {
             "value": 132815854,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132815854 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c6ab0c9c7a270104fb3e9f6160be50a90ce5e77d",
+          "message": "feat: Improved data storage metrics (#10020)\n\nThis PR increases the level of telemetry around all of the node's data\r\nstores. For every LMDB instance it reports the size of the specified\r\nmapping, the actual DB size and the number of items. Additionally, for\r\nthe world state we report the number of leaves for every tree along with\r\nthe pending and proven chain heights.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2024-11-25T13:25:16Z",
+          "tree_id": "7a592c669bad829556b9ef45ad143aea6b42f156",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c6ab0c9c7a270104fb3e9f6160be50a90ce5e77d"
+        },
+        "date": 1732542524763,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27789.318643000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25821.050672 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4634.288642999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4347.551165999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 88953.114798,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 88953115000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16574.012262000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16574012000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3067835983,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3067835983 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134914012,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134914012 ns\nthreads: 1"
           }
         ]
       }
