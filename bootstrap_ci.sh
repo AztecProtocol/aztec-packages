@@ -25,29 +25,33 @@ sir="${parts[1]}"
 
 [ "$NO_TERMINATE" -eq 0 ] && args="--rm" || args=""
 
-# Get current branch
-current_branch=$(git rev-parse --abbrev-ref HEAD)
-function check_git() {
-  # Fetch remote branch
-  git fetch origin "$current_branch"
+current_commit=$(git rev-parse HEAD)
 
-  # Compare local and remote commits
-  local_commit=$(git rev-parse "$current_branch")
-  remote_commit=$(git rev-parse "origin/$current_branch")
+# Verify that the commit exists on the remote
+if ! git cat-file -t "$current_commit" >/dev/null 2>&1; then
+  echo "Commit $current_commit does not exist."
+  exit 1
+fi
 
-  test "$local_commit" = "$remote_commit"
-}
-check_git || (echo "Local branch $current_branch does not match remote branch origin/$current_branch. Not starting build instance." && exit 1)
-
+# - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
+# - Pass our AWS cred through both ssh and docker
+# - Mount our docker socket into docker itself for efficient nesting
+# - Run in our build container
+# Then:
+#   - Clone our repo at a certain commit
+#   - Run bootstrap.sh fast
 ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
   docker run $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t -v /var/run/docker.sock:/var/run/docker.sock aztecprotocol/build:1.0 bash -c '
     set -e
     # When restarting the container, just hang around.
     while [ -f started ]; do sleep 999; done
     touch started
-    cd /root
-    git clone --depth 1 --branch $current_branch http://github.com/aztecprotocol/aztec-packages
-    cd aztec-packages
+    mkdir -p /root/aztec-packages
+    cd /root/aztec-packages
+    git init
+    git remote add origin http://github.com/aztecprotocol/aztec-packages
+    git fetch --depth 1 origin $current_commit
+    git checkout FETCH_HEAD
     CI=1 ./bootstrap.sh fast
   '
 "
