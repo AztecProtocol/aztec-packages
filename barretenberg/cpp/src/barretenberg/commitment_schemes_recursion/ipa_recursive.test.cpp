@@ -231,3 +231,19 @@ TEST_F(IPARecursiveTests, ConstantVerifier)
 {
     test_fixed_ipa_recursive_verifier();
 }
+
+TEST_F(IPARecursiveTests, FullRecursiveVerifier)
+{
+    const size_t POLY_LENGTH = 1024;
+    Builder builder;
+    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
+
+    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
+    RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    info("Full IPA Recursive Verifier num finalized gates for length ",
+         POLY_LENGTH,
+         " = ",
+         builder.get_num_finalized_gates());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
