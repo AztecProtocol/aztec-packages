@@ -18,6 +18,7 @@ jobs:
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request
+          mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
       - name: Run
