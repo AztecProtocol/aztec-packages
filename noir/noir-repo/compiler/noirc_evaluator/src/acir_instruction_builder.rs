@@ -1,6 +1,4 @@
 use std::collections::BTreeSet;
-use flate2::read::GzDecoder;
-use std::io::Read;
 use acvm::{
     acir::{
         circuit::{
@@ -22,13 +20,6 @@ use crate::ssa::{
 use crate::brillig::Brillig;
 use serde::{Deserialize, Serialize};
 
-fn ungzip(compressed_data: Vec<u8>) -> Vec<u8> {
-    let mut decompressed_data: Vec<u8> = Vec::new();
-    let mut decoder = GzDecoder::new(&compressed_data[..]);   
-    decoder.read_to_end(&mut decompressed_data).unwrap();
-    return decompressed_data;
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct InstructionArtifacts {
     // name of used instruction
@@ -40,7 +31,7 @@ pub struct InstructionArtifacts {
     // serde_json serialized ssa
     pub serialized_ssa: String,
 
-    // bytes of acir program. Ungzipped!!
+    // bytes of acir program. Gzipped!!
     pub serialized_acir: Vec<u8>,
 }
 
@@ -57,7 +48,7 @@ impl InstructionArtifacts {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
-            serialized_acir: ungzip(serialized_program)
+            serialized_acir: serialized_program
         }
     }
 
@@ -73,7 +64,7 @@ impl InstructionArtifacts {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
-            serialized_acir: ungzip(serialized_program)
+            serialized_acir: serialized_program
         }
 
     }
