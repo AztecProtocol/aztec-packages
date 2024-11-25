@@ -4,11 +4,10 @@ pragma solidity >=0.8.27;
 
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
-
+import {ProposeArgs} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 interface ITestRollup {
@@ -35,28 +34,22 @@ interface IRollup {
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
+    ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body
+    bytes calldata _body,
+    bytes calldata _blobInput
   ) external;
 
   function proposeAndClaim(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
+    ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
+    bytes calldata _blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
+    DataStructures.SubmitProofArgs calldata _submitArgs,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -68,7 +61,7 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _txsEffecstHash,
+    bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 
@@ -112,10 +105,7 @@ interface IRollup {
   ) external view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
+    DataStructures.SubmitProofArgs calldata _submitArgs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
-  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

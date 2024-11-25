@@ -83,7 +83,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         info("ECCVM Recursive Verifier");
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.verify_proof(proof);
+        auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
+
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit

@@ -50,10 +50,12 @@ export const BLOCK_PARENT = 'aztec.block.parent';
 export const BLOCK_CANDIDATE_TXS_COUNT = 'aztec.block.candidate_txs_count';
 /** How many actual txs were included in this block */
 export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
-/** The block size (power of 2) */
+/** The block size */
 export const BLOCK_SIZE = 'aztec.block.size';
 /** How many blocks are included in this epoch */
 export const EPOCH_SIZE = 'aztec.epoch.size';
+/** The proposer of a block */
+export const BLOCK_PROPOSER = 'aztec.block.proposer';
 /** The epoch number */
 export const EPOCH_NUMBER = 'aztec.epoch.number';
 /** The tx hash */

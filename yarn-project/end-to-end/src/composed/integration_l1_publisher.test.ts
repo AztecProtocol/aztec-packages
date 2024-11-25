@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  BlockBlobPublicInputs,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
@@ -20,6 +21,8 @@ import {
 import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { range } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -146,7 +149,12 @@ describe('L1Publisher integration', () => {
       worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(
+      builderDb,
+      blockSource,
+      worldStateConfig,
+      new NoopTelemetryClient(),
+    );
     await worldStateSynchronizer.start();
     fork = await worldStateSynchronizer.fork();
     builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
@@ -214,6 +222,7 @@ describe('L1Publisher integration', () => {
     fileName: string,
     block: L2Block,
     l1ToL2Content: Fr[],
+    blobs: Blob[],
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
   ): void => {
@@ -240,13 +249,12 @@ describe('L1Publisher integration', () => {
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         blockHash: `0x${block.hash().toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
+            blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),
-            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -291,6 +299,7 @@ describe('L1Publisher integration', () => {
         },
         header: `0x${block.header.toBuffer().toString('hex')}`,
         publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         numTxs: block.body.txEffects.length,
       },
     };
@@ -300,10 +309,8 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
-    for (const tx of txs) {
-      await builder.addNewTx(tx);
-    }
+    await builder.startNewBlock(globalVariables, l1ToL2Messages);
+    await builder.addTxs(txs);
     return builder.setBlockCompleted();
   };
 
@@ -365,7 +372,19 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
+        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        expect(block.header.contentCommitment.blobsHash).toEqual(
+          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+        );
+
+        writeJson(
+          `mixed_block_${block.number}`,
+          block,
+          l1ToL2Content,
+          blobs,
+          recipientAddress,
+          deployerAccount.address,
+        );
 
         await publisher.proposeL2Block(block);
 
@@ -384,16 +403,24 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        const blobPublicInputsHash = await rollup.read.blobPublicInputsHashes([BigInt(i + 1)]);
+        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
+        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
           args: [
-            `0x${block.header.toBuffer().toString('hex')}`,
-            `0x${block.archive.root.toBuffer().toString('hex')}`,
-            `0x${block.header.hash().toBuffer().toString('hex')}`,
+            {
+              header: `0x${block.header.toBuffer().toString('hex')}`,
+              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              txHashes: [],
+            },
             [],
-            [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
@@ -462,7 +489,12 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
         blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-        writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        expect(block.header.contentCommitment.blobsHash).toEqual(
+          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+        );
+
+        writeJson(`empty_block_${block.number}`, block, [], blobs, AztecAddress.ZERO, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
 
@@ -481,16 +513,24 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        const blobPublicInputsHash = await rollup.read.blobPublicInputsHashes([BigInt(i + 1)]);
+        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
+        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
           args: [
-            `0x${block.header.toBuffer().toString('hex')}`,
-            `0x${block.archive.root.toBuffer().toString('hex')}`,
-            `0x${block.header.hash().toBuffer().toString('hex')}`,
+            {
+              header: `0x${block.header.toBuffer().toString('hex')}`,
+              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              txHashes: [],
+            },
             [],
-            [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);

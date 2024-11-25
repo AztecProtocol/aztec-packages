@@ -6,7 +6,6 @@ import {
   PRIVATE_LOG_SIZE_IN_BYTES,
   computeAddressSecret,
   computeOvskApp,
-  computePoint,
   deriveKeys,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
@@ -83,7 +82,7 @@ describe('EncryptedLogPayload', () => {
       ephSk.hi,
       ephSk.lo,
       recipient,
-      computePoint(recipient).toCompressedBuffer(),
+      recipient.toAddressPoint().toCompressedBuffer(),
     );
     const outgoingBodyCiphertext = encrypt(
       outgoingBodyPlaintext,

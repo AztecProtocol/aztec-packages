@@ -84,4 +84,14 @@ export class TxScopedL2Log {
   static random() {
     return new TxScopedL2Log(TxHash.random(), 1, 1, false, Fr.random().toBuffer());
   }
+
+  equals(other: TxScopedL2Log) {
+    return (
+      this.txHash.equals(other.txHash) &&
+      this.dataStartIndexForTx === other.dataStartIndexForTx &&
+      this.blockNumber === other.blockNumber &&
+      this.isFromPublic === other.isFromPublic &&
+      this.logData.equals(other.logData)
+    );
+  }
 }

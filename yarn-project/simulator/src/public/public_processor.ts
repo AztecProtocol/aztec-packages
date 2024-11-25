@@ -4,7 +4,6 @@ import {
   type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
-  type ProcessedTxHandler,
   Tx,
   TxExecutionPhase,
   type TxValidator,
@@ -20,9 +19,7 @@ import {
   type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -31,7 +28,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -54,18 +50,17 @@ export class PublicProcessorFactory {
     maybeHistoricalHeader: Header | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
-    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
+    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
 
-    return PublicProcessor.create(
+    return new PublicProcessor(
       merkleTree,
-      publicExecutor,
       globalVariables,
       historicalHeader,
       worldStateDB,
+      publicTxSimulator,
       this.telemetryClient,
     );
   }
@@ -89,19 +84,6 @@ export class PublicProcessor {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
 
-  static create(
-    db: MerkleTreeWriteOperations,
-    publicExecutor: PublicExecutor,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-  ) {
-    const publicTxSimulator = PublicTxSimulator.create(db, publicExecutor, globalVariables, worldStateDB);
-
-    return new PublicProcessor(db, globalVariables, historicalHeader, worldStateDB, publicTxSimulator, telemetryClient);
-  }
-
   get tracer(): Tracer {
     return this.metrics.tracer;
   }
@@ -115,7 +97,6 @@ export class PublicProcessor {
   public async process(
     txs: Tx[],
     maxTransactions = txs.length,
-    processedTxHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
@@ -154,10 +135,6 @@ export class PublicProcessor {
             throw new Error(`Transaction ${invalid[0].hash} invalid after processing public functions`);
           }
         }
-        // if we were given a handler then send the transaction to it for block building or proving
-        if (processedTxHandler) {
-          await processedTxHandler.addNewTx(processedTx);
-        }
         // Update the state so that the next tx in the loop has the correct .startState
         // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
         // a) had only 1 tx with public calls per block, so this loop had len 1
@@ -184,15 +161,10 @@ export class PublicProcessor {
           }
         }
 
-        const allPublicDataWrites = padArrayEnd(
-          processedTx.txEffect.publicDataWrites,
-          PublicDataWrite.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
         await this.db.batchInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          allPublicDataWrites.map(x => x.toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
+          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
+          0,
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);

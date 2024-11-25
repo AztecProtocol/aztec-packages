@@ -217,7 +217,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -232,8 +231,10 @@ describe('sequencer', () => {
     },
     // It would be nice to add the other states, but we would need to inject delays within the `work` loop
   ])('does not build a block if it does not have enough time left in the slot', async ({ delayedState }) => {
-    // trick the sequencer into thinking that we are just too far into the slot
-    sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000) - (sequencer.getTimeTable()[delayedState] + 1));
+    // trick the sequencer into thinking that we are just too far into slot 1
+    sequencer.setL1GenesisTime(
+      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable()[delayedState] + 1),
+    );
 
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
@@ -288,7 +289,6 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -322,7 +322,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -351,7 +350,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -382,7 +380,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -422,7 +419,6 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -463,10 +459,10 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
+    expect(blockBuilder.addTxs).toHaveBeenCalledWith([]);
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [], undefined);
   });
@@ -506,7 +502,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      3,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -841,7 +836,7 @@ class TestSubject extends Sequencer {
   }
 
   public override doRealWork() {
-    this.setState(SequencerState.IDLE, true /** force */);
+    this.setState(SequencerState.IDLE, 0, true /** force */);
     return super.doRealWork();
   }
 }

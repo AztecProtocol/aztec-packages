@@ -2,7 +2,6 @@ import { Fr, FunctionSelector, Gas, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circ
 
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
-import { gasLeftToGas } from '../avm_gas.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -95,7 +94,7 @@ abstract class ExternalCall extends Instruction {
     memory.set(successOffset, new Uint1(success ? 1 : 0));
 
     // Refund unused gas
-    context.machineState.refundGas(gasLeftToGas(nestedContext.machineState));
+    context.machineState.refundGas(nestedCallResults.gasLeft);
 
     // Merge nested call's state and trace based on whether it succeeded.
     if (success) {
@@ -107,7 +106,6 @@ abstract class ExternalCall extends Instruction {
       /*nestedState=*/ nestedContext.persistableState,
       /*nestedEnvironment=*/ nestedContext.environment,
       /*startGasLeft=*/ Gas.from(allocatedGas),
-      /*endGasLeft=*/ Gas.from(nestedContext.machineState.gasLeft),
       /*bytecode=*/ simulator.getBytecode()!,
       /*avmCallResults=*/ nestedCallResults,
     );

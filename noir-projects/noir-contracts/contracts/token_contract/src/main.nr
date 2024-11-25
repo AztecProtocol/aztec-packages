@@ -117,41 +117,42 @@ contract Token {
     #[public]
     #[view]
     fn public_get_name() -> FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
+    // docs:start:read_shared_immutable_public
     #[public]
     #[view]
     fn public_get_decimals() -> pub u8 {
-        // docs:start:read_decimals_public
-        storage.decimals.read_public()
-        // docs:end:read_decimals_public
+        storage.decimals.read()
     }
+    // docs:end:read_shared_immutable_public
+
+    // docs:start:read_shared_immutable_private
     #[private]
     #[view]
     fn private_get_decimals() -> pub u8 {
-        // docs:start:read_decimals_private
-        storage.decimals.read_private()
-        // docs:end:read_decimals_private
+        storage.decimals.read()
     }
+    // docs:end:read_shared_immutable_private
 
     // docs:start:admin
     #[public]
@@ -444,6 +445,7 @@ contract Token {
     }
     // docs:end:transfer_to_private
 
+    // docs:start:prepare_private_balance_increase
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
     /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`).
     /// Returns a hiding point slot.
@@ -452,6 +454,7 @@ contract Token {
         let from = context.msg_sender();
         _prepare_private_balance_increase(from, to, &mut context, storage)
     }
+    // docs:end:prepare_private_balance_increase
 
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
@@ -504,6 +507,7 @@ contract Token {
         hiding_point_slot
     }
 
+    // docs:start:finalize_transfer_to_private
     /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
@@ -512,7 +516,9 @@ contract Token {
         let from = context.msg_sender();
         _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_transfer_to_private
 
+    // docs:start:finalize_transfer_to_private_unsafe
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
@@ -522,6 +528,7 @@ contract Token {
     ) {
         _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_transfer_to_private_unsafe
 
     #[contract_library_method]
     fn _finalize_transfer_to_private(
@@ -569,6 +576,7 @@ contract Token {
     }
     // docs:end:mint_to_private
 
+    // docs:start:finalize_mint_to_private
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
     /// `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
@@ -582,7 +590,9 @@ contract Token {
 
         _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_mint_to_private
 
+    // docs:start:finalize_mint_to_private_unsafe
     #[public]
     #[internal]
     fn _finalize_mint_to_private_unsafe(
@@ -594,6 +604,7 @@ contract Token {
         assert(storage.minters.at(from).read(), "caller is not minter");
         _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_mint_to_private_unsafe
 
     #[contract_library_method]
     fn _finalize_mint_to_private(

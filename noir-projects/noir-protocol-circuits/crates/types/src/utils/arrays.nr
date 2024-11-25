@@ -1,9 +1,7 @@
 pub mod assert_array_appended;
 pub mod assert_array_prepended;
 pub mod assert_combined_array;
-pub mod assert_combined_sorted_transformed_value_array;
 pub mod assert_combined_transformed_array;
-pub mod assert_deduped_array;
 pub mod assert_exposed_sorted_transformed_value_array;
 pub mod assert_sorted_array;
 pub mod assert_sorted_transformed_value_array;
@@ -20,14 +18,9 @@ pub use assert_array_appended::{
 };
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
-pub use assert_combined_sorted_transformed_value_array::{
-    assert_combined_sorted_transformed_value_array_asc,
-    get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
-};
 pub use assert_combined_transformed_array::{
     assert_combined_transformed_array, combine_and_transform_arrays,
 };
-pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
@@ -138,6 +131,19 @@ where
             result[i] = elem;
             i += 1;
         }
+    }
+    result
+}
+
+// Helper fn to create a subarray from a given array
+pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+where
+    T: Empty,
+{
+    assert(M + offset <= N, "Subarray length larger than array length");
+    let mut result: [T; M] = [T::empty(); M];
+    for i in 0..M {
+        result[i] = array[offset + i];
     }
     result
 }

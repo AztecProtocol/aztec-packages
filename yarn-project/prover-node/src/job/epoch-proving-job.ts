@@ -12,14 +12,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import {
-  KernelCircuitPublicInputs,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
-} from '@aztec/circuits.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { KernelCircuitPublicInputs, NULLIFIER_SUBTREE_HEIGHT, PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -107,13 +100,13 @@ export class EpochProvingJob {
           uuid: this.uuid,
           ...globalVariables,
         });
-
         // Start block proving
-        await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
+        await this.prover.startNewBlock(globalVariables, l1ToL2Messages);
 
         // Process public fns
         const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
-        await this.processTxs(publicProcessor, txs, txCount);
+        const processed = await this.processTxs(publicProcessor, txs, txCount);
+        await this.prover.addTxs(processed);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,
           blockHash: block.hash().toString(),
@@ -177,12 +170,7 @@ export class EpochProvingJob {
     txs: Tx[],
     totalNumberOfTxs: number,
   ): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(
-      txs,
-      totalNumberOfTxs,
-      this.prover,
-      new EmptyTxValidator(),
-    );
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, totalNumberOfTxs, new EmptyTxValidator());
 
     if (failedTxs.length) {
       throw new Error(
@@ -201,15 +189,14 @@ export class EpochProvingJob {
       emptyKernelOutput.end.nullifiers.map(n => n.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
-    const allPublicDataWrites = padArrayEnd(
-      emptyKernelOutput.end.publicDataWrites.map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value)),
-      PublicDataTreeLeaf.empty(),
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
+    const allPublicDataWrites = emptyKernelOutput.end.publicDataWrites
+      .filter(write => !write.isEmpty())
+      .map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value));
+
     await this.db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       allPublicDataWrites.map(x => x.toBuffer()),
-      PUBLIC_DATA_SUBTREE_HEIGHT,
+      0,
     );
   }
 }

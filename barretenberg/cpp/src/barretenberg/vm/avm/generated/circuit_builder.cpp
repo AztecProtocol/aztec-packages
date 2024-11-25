@@ -51,49 +51,47 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                    }));
 
     // catch-all with fully formed polynomials
-    AVM_TRACK_TIME(
-        "circuit_builder/init_polys_unshifted", ({
-            auto unshifted = polys.get_unshifted();
+    AVM_TRACK_TIME("circuit_builder/init_polys_unshifted", ({
+                       auto unshifted = polys.get_unshifted();
 
-            // An array which stores for each column of the trace the smallest size of the
-            // truncated column containing all non-zero elements.
-            // It is used to allocate the polynomials without memory overhead for the tail of zeros.
-            std::array<size_t, Row::SIZE> col_nonzero_size{};
+                       // An array which stores for each column of the trace the smallest size of the
+                       // truncated column containing all non-zero elements.
+                       // It is used to allocate the polynomials without memory overhead for the tail of zeros.
+                       std::array<size_t, Row::SIZE> col_nonzero_size{};
 
-            // Computation of size of columns.
-            // Non-parallel version takes 0.5 second for a trace size of 200k rows.
-            // A parallel version might be considered in the future.
-            for (size_t i = 0; i < num_rows; i++) {
-                const auto row = rows[i].as_vector();
-                for (size_t col = 0; col < Row::SIZE; col++) {
-                    if (!row[col].is_zero()) {
-                        col_nonzero_size[col] = i + 1;
-                    }
-                }
-            }
+                       // Computation of size of columns.
+                       // Non-parallel version takes 0.5 second for a trace size of 200k rows.
+                       // A parallel version might be considered in the future.
+                       for (size_t i = 0; i < num_rows; i++) {
+                           const auto row = rows[i].as_vector();
+                           for (size_t col = 0; col < Row::SIZE; col++) {
+                               if (!row[col].is_zero()) {
+                                   col_nonzero_size[col] = i + 1;
+                               }
+                           }
+                       }
 
-            // Set of the labels for derived/inverse polynomials.
-            const auto derived_labels = polys.get_derived_labels();
-            std::set<std::string> derived_labels_set(derived_labels.begin(), derived_labels.end());
+                       // Set of the labels for derived/inverse polynomials.
+                       const auto derived_labels = polys.get_derived_labels();
+                       std::set<std::string> derived_labels_set(derived_labels.begin(), derived_labels.end());
 
-            bb::parallel_for(num_unshifted, [&](size_t i) {
-                auto& poly = unshifted[i];
-                const auto col_idx = polys_to_cols_unshifted_idx[i];
-                size_t col_size = 0;
+                       bb::parallel_for(num_unshifted, [&](size_t i) {
+                           auto& poly = unshifted[i];
+                           const auto col_idx = polys_to_cols_unshifted_idx[i];
+                           const bool is_derived = derived_labels_set.contains(labels[i]);
 
-                // We fully allocate the inverse polynomials. We leave this potential memory optimization for later.
-                if (derived_labels_set.contains(labels[i])) {
-                    col_size = num_rows;
-                } else {
-                    col_size = col_nonzero_size[col_idx];
-                }
-
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ /*memory size*/ col_size, /*largest possible index*/ circuit_subgroup_size };
-                }
-            });
-        }));
+                           if (poly.is_empty()) {
+                               // Not set above. Non-derived unshifted polynomials are initialized below. The
+                               // non-derived ones do need to be initialized with zeros and are fully allocated (size ==
+                               // num_rows).
+                               poly = is_derived
+                                          ? Polynomial::create_non_parallel_zero_init(num_rows, circuit_subgroup_size)
+                                          : Polynomial{ col_nonzero_size[col_idx],
+                                                        circuit_subgroup_size,
+                                                        Polynomial::DontZeroMemory::FLAG };
+                           }
+                       });
+                   }));
 
     AVM_TRACK_TIME(
         "circuit_builder/set_polys_unshifted", ({
