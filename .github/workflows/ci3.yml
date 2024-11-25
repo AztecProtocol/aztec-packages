@@ -3,19 +3,22 @@ name: CI3
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
 
 jobs:
   build:
-    runs-on: runner-01
-    container:
-      image: aztecprotocol/build:1.0
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          # Ensure it is not an artificial merge commit
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run bootstrap script
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          git config --global --add safe.directory /__w/aztec-packages/aztec-packages
-          CI=1 ./bootstrap.sh full
+          ./bootstrap_ci.sh
