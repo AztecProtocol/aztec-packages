@@ -6,7 +6,50 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [aztec.nr] SharedMutable renamings
+
+`SharedMutable` getters (`get_current_value_in_public`, etc.) were renamed by dropping the `_in<public|private|unconstrained>` suffix, since only one of these versions is ever available depending on the current context.
+
+```diff
+// In private
+- let value = storage.my_var.get_current_value_in_private();
++ let value = storage.my_var.get_current_value();
+
+// In public
+- let value = storage.my_var.get_current_value_in_public();
++ let value = storage.my_var.get_current_value();
+```
+
+### [aztec.js] Random addresses are now valid
+
+The `AztecAddress.random()` function now returns valid addresses, i.e. addresses that can receive encrypted messages and therefore have notes be sent to them. `AztecAddress.isValid()` was also added to check for validity of an address.
+
 ## 0.63.0
+### [PXE] Note tagging and discovery
+
+PXE's trial decryption of notes has been replaced in favor of a tagging and discovery approach. It is much more efficient and should scale a lot better as the network size increases, since
+notes can now be discovered on-demand. For the time being, this means that accounts residing *on different PXE instances* should add senders to their contact list, so notes can be discovered
+(accounts created on the same PXE instance will be added as senders for each other by default)
+
+```diff
++pxe.registerContact(senderAddress)
+```
+
+The note discovery process is triggered automatically whenever a contract invokes the `get_notes` oracle, meaning no contract changes are expected. Just in case, every contract has now a utility method
+`sync_notes` that can trigger the process manually if necessary. This can be useful since now the `DebugInfo` object that can be obtained when sending a tx with the `debug` flag set to true
+no longer contains the notes that were generated in the transaction:
+
+```diff
+const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
+-const { visibleIncomingNotes } = receipt.debugInfo!;
+-expect(visibleIncomingNotes.length).toEqual(1);
++await inclusionsProofsContract.methods.sync_notes().simulate();
++const incomingNotes = await wallet.getIncomingNotes({ txHash: receipt.txHash });
++expect(incomingNotes.length).toEqual(1);
+```
+
 ### [Token contract] Partial notes related refactor
 We've decided to replace the old "shield" flow with one leveraging partial notes.
 This led to a removal of `shield` and `redeem_shield` functions and an introduction of `transfer_to_private`.

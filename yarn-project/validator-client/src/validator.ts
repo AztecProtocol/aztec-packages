@@ -1,25 +1,50 @@
-import { type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
-import { type Header } from '@aztec/circuits.js';
+import {
+  type BlockAttestation,
+  type BlockProposal,
+  type L2Block,
+  type ProcessedTx,
+  type Tx,
+  type TxHash,
+} from '@aztec/circuit-types';
+import { type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
-import { attachedFixedDataToLogger, createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
+  BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
+  ReExStateMismatchError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
+import { ValidatorMetrics } from './metrics.js';
+
+/**
+ * Callback function for building a block
+ *
+ * We reuse the sequencer's block building functionality for re-execution
+ */
+type BlockBuilderCallback = (
+  txs: Tx[],
+  globalVariables: GlobalVariables,
+  historicalHeader?: Header,
+  interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
+) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
 
 export interface Validator {
   start(): Promise<void>;
   registerBlockProposalHandler(): void;
+  registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsiblities
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
@@ -29,30 +54,33 @@ export interface Validator {
   collectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
 }
 
-/** Validator Client
+/**
+ * Validator Client
  */
 export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
+  private metrics: ValidatorMetrics;
+
+  // Callback registered to: sequencer.buildBlock
+  private blockBuilder?: BlockBuilderCallback = undefined;
 
   constructor(
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
-    private attestationPollingIntervalMs: number,
-    private attestationWaitTimeoutMs: number,
-    telemetry: TelemetryClient,
-    private log = attachedFixedDataToLogger(createDebugLogger('aztec:validator'), {
-      validatorAddress: keyStore.getAddress().toString(),
-    }),
+    private config: ValidatorClientConfig,
+    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    private log = createDebugLogger('aztec:validator'),
   ) {
     // Instantiate tracer
     super(telemetry, 'Validator');
+    this.metrics = new ValidatorMetrics(telemetry);
 
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient) {
+  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient = new NoopTelemetryClient()) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -60,13 +88,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(
-      localKeyStore,
-      p2pClient,
-      config.attestationPollingIntervalMs,
-      config.attestationWaitTimeoutMs,
-      telemetry,
-    );
+    const validator = new ValidatorClient(localKeyStore, p2pClient, config, telemetry);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -86,17 +108,34 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.p2pClient.registerBlockProposalHandler(handler);
   }
 
+  /**
+   * Register a callback function for building a block
+   *
+   * We reuse the sequencer's block building functionality for re-execution
+   */
+  public registerBlockBuilder(blockBuilder: BlockBuilderCallback) {
+    this.blockBuilder = blockBuilder;
+  }
+
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
     this.log.verbose(`request to attest`, {
       archive: proposal.payload.archive.toString(),
-      txHashes: proposal.payload.txHashes,
+      txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
     });
     try {
       await this.ensureTransactionsAreAvailable(proposal);
+
+      if (this.config.validatorReexecute) {
+        this.log.verbose(`Re-executing transactions in the proposal before attesting`);
+        await this.reExecuteTransactions(proposal);
+      }
     } catch (error: any) {
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
+      } else {
+        // Catch all error handler
+        this.log.error(`Failed to attest to proposal: ${error.message}`);
       }
       return undefined;
     }
@@ -106,6 +145,42 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
+  }
+
+  /**
+   * Re-execute the transactions in the proposal and check that the state updates match the header state
+   * @param proposal - The proposal to re-execute
+   */
+  async reExecuteTransactions(proposal: BlockProposal) {
+    const { header, txHashes } = proposal.payload;
+
+    const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
+      tx => tx !== undefined,
+    ) as Tx[];
+
+    // If we cannot request all of the transactions, then we should fail
+    if (txs.length !== txHashes.length) {
+      this.log.error(`Failed to get transactions from the network: ${txHashes.join(', ')}`);
+      throw new TransactionsNotAvailableError(txHashes);
+    }
+
+    // Assertion: This check will fail if re-execution is not enabled
+    if (this.blockBuilder === undefined) {
+      throw new BlockBuilderNotProvidedError();
+    }
+
+    // Use the sequencer's block building logic to re-execute the transactions
+    const stopTimer = this.metrics.reExecutionTimer();
+    const { block } = await this.blockBuilder(txs, header.globalVariables);
+    stopTimer();
+
+    this.log.verbose(`Re-ex: Re-execution complete`);
+
+    // This function will throw an error if state updates do not match
+    if (!block.archive.root.equals(proposal.archive)) {
+      this.metrics.recordFailedReexecution(proposal);
+      throw new ReExStateMismatchError();
+    }
   }
 
   /**
@@ -166,15 +241,15 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
 
       const elapsedTime = Date.now() - startTime;
-      if (elapsedTime > this.attestationWaitTimeoutMs) {
+      if (elapsedTime > this.config.attestationWaitTimeoutMs) {
         this.log.error(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot, ${slot}`);
         throw new AttestationTimeoutError(numberOfRequiredAttestations, slot);
       }
 
       this.log.verbose(
-        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPollingIntervalMs}ms for more...`,
+        `Collected ${attestations.length} attestations so far, waiting ${this.config.attestationPollingIntervalMs}ms for more...`,
       );
-      await sleep(this.attestationPollingIntervalMs);
+      await sleep(this.config.attestationPollingIntervalMs);
     }
   }
 }

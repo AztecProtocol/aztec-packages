@@ -166,3 +166,6 @@ export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_MESSAGE = 'aztec.world_state.
 export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_NOTE_HASH = 'aztec.world_state.db_num_items.leaf_indices.note_hash';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
+
+export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
+export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';

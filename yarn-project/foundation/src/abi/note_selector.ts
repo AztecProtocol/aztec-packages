@@ -27,7 +27,7 @@ export class NoteSelector extends Selector {
   }
 
   static fromString(buf: string) {
-    const withoutPrefix = buf.replace(/^0x/i, '');
+    const withoutPrefix = buf.replace(/^0x/i, '').slice(-8);
     const buffer = Buffer.from(withoutPrefix, 'hex');
     return NoteSelector.fromBuffer(buffer);
   }

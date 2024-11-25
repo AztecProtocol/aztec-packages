@@ -24,12 +24,7 @@ StandardCircuit::StandardCircuit(
     , selectors(circuit_info.selectors[0])
     , wires_idxs(circuit_info.wires[0])
 {
-    variable_names[1] = "one";
-    variable_names_inverse.insert({ "one", 1 });
-    symbolic_vars[1] = STerm::Var("one" + this->tag, this->solver, this->type);
-    symbolic_vars[1] == 1;
-    optimized[1] = false;
-
+    this->symbolic_vars[this->variable_names_inverse["one"]] == bb::fr::one();
     // Perform all relaxations for gates or
     // add gate in its normal state to solver
     size_t i = 0;
@@ -264,7 +259,7 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
                     (j % single_iteration_size != relative_acc_idx) || (j == relative_acc_idx) ||
                     (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - single_iteration_size][2]);
                 and_flag &=
-                    (j % single_iteration_size != relative_acc_index) || (j == relative_acc_index) ||
+                    (j % single_iteration_size != relative_acc_idx) || (j == relative_acc_idx) ||
                     (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - single_iteration_size][2]);
 
                 if (!xor_flag && !and_flag) {

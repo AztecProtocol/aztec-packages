@@ -10,7 +10,6 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
-  BaseRollupHints,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
@@ -32,25 +31,25 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
   PreviousRollupBlockData,
   PreviousRollupData,
+  PrivateBaseRollupHints,
+  PrivateBaseStateDiffHints,
+  PublicBaseRollupHints,
+  PublicBaseStateDiffHints,
   PublicDataHint,
   PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-  PublicDataWrite,
+  PublicDataTreeLeafPreimage,
   type RecursiveProof,
   RootRollupInputs,
-  StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { assertPermutation, makeTuple } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
@@ -58,7 +57,7 @@ import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/seri
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -98,11 +97,10 @@ export async function buildBaseRollupHints(
 
   // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
-  const hintsBuilder = new HintsBuilder(db);
   const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
   const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
     ? PublicDataHint.empty()
-    : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
+    : await getPublicDataHint(db, leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -124,6 +122,7 @@ export async function buildBaseRollupHints(
     padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
+
   if (nullifierWitnessLeaves === undefined) {
     throw new Error(`Could not craft nullifier batch insertion proofs`);
   }
@@ -140,45 +139,129 @@ export async function buildBaseRollupHints(
     i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
 
-  const publicDataSiblingPath = txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath;
+  if (tx.avmProvingRequest) {
+    // Build public base rollup hints
+    const stateDiffHints = PublicBaseStateDiffHints.from({
+      nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
+        i < nullifierWitnessLeaves.length
+          ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
+          : NullifierLeafPreimage.empty(),
+      ),
+      nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
+        i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
+          ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
+          : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
+      ),
+      sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
+      sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
+      noteHashSubtreeSiblingPath,
+      nullifierSubtreeSiblingPath,
+      lowPublicDataWritesPreimages: padArrayEnd(
+        txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
+        PublicDataTreeLeafPreimage.empty(),
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      ),
+      lowPublicDataWritesMembershipWitnesses: padArrayEnd(
+        txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
+        MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      ),
+      publicDataTreeSiblingPaths: padArrayEnd(
+        txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths,
+        makeTuple(PUBLIC_DATA_TREE_HEIGHT, () => Fr.ZERO),
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      ),
+    });
 
-  const stateDiffHints = StateDiffHints.from({
-    nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-      i < nullifierWitnessLeaves.length
-        ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
-        : NullifierLeafPreimage.empty(),
-    ),
-    nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-      i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
-        ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
-        : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
-    ),
-    sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
-    sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
-    noteHashSubtreeSiblingPath,
-    nullifierSubtreeSiblingPath,
-    publicDataSiblingPath,
-  });
+    const blockHash = tx.constants.historicalHeader.hash();
+    const archiveRootMembershipWitness = await getMembershipWitnessFor(
+      blockHash,
+      MerkleTreeId.ARCHIVE,
+      ARCHIVE_HEIGHT,
+      db,
+    );
 
-  const blockHash = tx.constants.historicalHeader.hash();
-  const archiveRootMembershipWitness = await getMembershipWitnessFor(
-    blockHash,
-    MerkleTreeId.ARCHIVE,
-    ARCHIVE_HEIGHT,
-    db,
-  );
+    return PublicBaseRollupHints.from({
+      start,
+      stateDiffHints,
+      feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
+      archiveRootMembershipWitness,
+      constants,
+    });
+  } else {
+    if (
+      txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses.length > 1 ||
+      txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages.length > 1 ||
+      txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths.length > 1
+    ) {
+      throw new Error(`More than one public data write in a private only tx`);
+    }
 
-  return BaseRollupHints.from({
-    start,
-    stateDiffHints,
-    feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
-    sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
-    sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
-    lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
-    lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-    archiveRootMembershipWitness,
-    constants,
-  });
+    const feeWriteLowLeafPreimage =
+      txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
+    const feeWriteLowLeafMembershipWitness =
+      txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses[0] ||
+      MembershipWitness.empty<typeof PUBLIC_DATA_TREE_HEIGHT>(PUBLIC_DATA_TREE_HEIGHT);
+    const feeWriteSiblingPath =
+      txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths[0] ||
+      makeTuple(PUBLIC_DATA_TREE_HEIGHT, () => Fr.ZERO);
+
+    const stateDiffHints = PrivateBaseStateDiffHints.from({
+      nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
+        i < nullifierWitnessLeaves.length
+          ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
+          : NullifierLeafPreimage.empty(),
+      ),
+      nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
+        i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
+          ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
+          : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
+      ),
+      sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
+      sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
+      noteHashSubtreeSiblingPath,
+      nullifierSubtreeSiblingPath,
+      feeWriteLowLeafPreimage,
+      feeWriteLowLeafMembershipWitness,
+      feeWriteSiblingPath,
+    });
+
+    const blockHash = tx.constants.historicalHeader.hash();
+    const archiveRootMembershipWitness = await getMembershipWitnessFor(
+      blockHash,
+      MerkleTreeId.ARCHIVE,
+      ARCHIVE_HEIGHT,
+      db,
+    );
+
+    return PrivateBaseRollupHints.from({
+      start,
+      stateDiffHints,
+      feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
+      archiveRootMembershipWitness,
+      constants,
+    });
+  }
+}
+
+async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint) {
+  const { index } = (await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot)) ?? {};
+  if (index === undefined) {
+    throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
+  }
+
+  const siblingPath = await db.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(MerkleTreeId.PUBLIC_DATA_TREE, index);
+  const membershipWitness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, siblingPath.toTuple());
+
+  const leafPreimage = (await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, index)) as PublicDataTreeLeafPreimage;
+  if (!leafPreimage) {
+    throw new Error(`Cannot find the leaf preimage for public data tree at index ${index}.`);
+  }
+
+  const exists = leafPreimage.slot.toBigInt() === leafSlot;
+  const value = exists ? leafPreimage.value : Fr.ZERO;
+
+  return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
 
 export function createMergeRollupInputs(
@@ -397,67 +480,50 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
 }
 
 async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
-  const allPublicDataUpdateRequests = padArrayEnd(
-    tx.txEffect.publicDataWrites,
-    PublicDataWrite.empty(),
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
-
-  const allPublicDataWrites = allPublicDataUpdateRequests.map(
+  const allPublicDataWrites = tx.txEffect.publicDataWrites.map(
     ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
-  const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
-    MerkleTreeId.PUBLIC_DATA_TREE,
-    allPublicDataWrites.map(x => x.toBuffer()),
-    // TODO(#3675) remove oldValue from update requests
-    PUBLIC_DATA_SUBTREE_HEIGHT,
-  );
 
-  if (lowLeavesWitnessData === undefined) {
-    throw new Error(`Could not craft public data batch insertion proofs`);
-  }
+  const lowPublicDataWritesPreimages = [];
+  const lowPublicDataWritesMembershipWitnesses = [];
+  const publicDataWritesSiblingPaths = [];
 
-  const sortedPublicDataWrites = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
-    return PublicDataTreeLeaf.fromBuffer(sortedNewLeaves[i]);
-  });
+  for (const write of allPublicDataWrites) {
+    if (write.isEmpty()) {
+      throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
+    }
 
-  const sortedPublicDataWritesIndexes = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
-    return sortedNewLeavesIndexes[i];
-  });
-
-  const subtreeSiblingPathAsFields = newSubtreeSiblingPath.toFields();
-  const newPublicDataSubtreeSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, i => {
-    return subtreeSiblingPathAsFields[i];
-  });
-
-  const lowPublicDataWritesMembershipWitnesses: Tuple<
-    MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-    typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-  > = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
-    const witness = lowLeavesWitnessData[i];
-    return MembershipWitness.fromBufferArray(
-      witness.index,
-      assertLength(witness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+    // TODO(Alvaro) write a specialized function for this? Internally add_or_update_value uses batch insertion anyway
+    const { lowLeavesWitnessData, newSubtreeSiblingPath } = await db.batchInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      [write.toBuffer()],
+      // TODO(#3675) remove oldValue from update requests
+      0,
     );
-  });
 
-  const lowPublicDataWritesPreimages: Tuple<
-    PublicDataTreeLeafPreimage,
-    typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-  > = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
-    return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
-  });
+    if (lowLeavesWitnessData === undefined) {
+      throw new Error(`Could not craft public data batch insertion proofs`);
+    }
 
-  // validate that the sortedPublicDataWrites and sortedPublicDataWritesIndexes are in the correct order
-  // otherwise it will just fail in the circuit
-  assertPermutation(allPublicDataWrites, sortedPublicDataWrites, sortedPublicDataWritesIndexes, (a, b) => a.equals(b));
+    const [lowLeafWitness] = lowLeavesWitnessData;
+    lowPublicDataWritesPreimages.push(lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage);
+    lowPublicDataWritesMembershipWitnesses.push(
+      MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
+        lowLeafWitness.index,
+        assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+      ),
+    );
+
+    const insertionSiblingPath = newSubtreeSiblingPath.toFields();
+    assertLength(insertionSiblingPath, PUBLIC_DATA_TREE_HEIGHT);
+
+    publicDataWritesSiblingPaths.push(insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>);
+  }
 
   return {
     lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses,
-    newPublicDataSubtreeSiblingPath,
-    sortedPublicDataWrites,
-    sortedPublicDataWritesIndexes,
+    publicDataWritesSiblingPaths,
   };
 }
 

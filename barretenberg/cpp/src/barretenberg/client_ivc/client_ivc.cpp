@@ -25,7 +25,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     size_t key_idx = 0;
     for (auto& [proof, vkey, type] : verification_queue) {
         // Construct stdlib proof directly from the internal native queue data
-        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+        auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
         auto stdlib_vkey =
@@ -176,9 +176,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
         trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
-        proving_key = std::make_shared<DeciderProvingKey>(
-            circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
+        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
     }
+
+    proving_key->proving_key.commitment_key = bn254_commitment_key;
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
@@ -261,7 +262,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     auto stdlib_decider_vk =
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
 
-    auto stdlib_proof = bb::convert_proof_to_witness(&builder, fold_proof);
+    auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
 
     // Perform recursive folding verification of the last folding proof
     FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
@@ -278,7 +279,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     MergeProof merge_proof = goblin.prove_merge(builder);
     merge_verification_queue.emplace_back(merge_proof);
 
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
+    auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
     MegaProver prover(decider_pk);
 
@@ -338,6 +339,7 @@ bool ClientIVC::verify(const Proof& proof)
 HonkProof ClientIVC::decider_prove() const
 {
     vinfo("prove decider...");
+    fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
     vinfo("finished decider proving.");
@@ -352,11 +354,19 @@ HonkProof ClientIVC::decider_prove() const
 bool ClientIVC::prove_and_verify()
 {
     auto start = std::chrono::steady_clock::now();
-    auto proof = prove();
+    const auto proof = prove();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
-    return verify(proof);
+
+    start = end;
+    const bool verified = verify(proof);
+    end = std::chrono::steady_clock::now();
+
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
+
+    return verified;
 }
 
 /**

@@ -58,6 +58,41 @@ describe('External Calls', () => {
       expect(inst.serialize()).toEqual(buf);
     });
 
+    it('Call to non-existent bytecode returns failure', async () => {
+      const gasOffset = 0;
+      const l2Gas = 2e6;
+      const daGas = 3e6;
+      const addrOffset = 2;
+      const addr = new Fr(123456n);
+      const argsOffset = 3;
+      const args = [new Field(1), new Field(2), new Field(3)];
+      const argsSize = args.length;
+      const argsSizeOffset = 20;
+      const successOffset = 6;
+
+      const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
+
+      context.machineState.memory.set(0, new Field(l2Gas));
+      context.machineState.memory.set(1, new Field(daGas));
+      context.machineState.memory.set(2, new Field(addr));
+      context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
+      context.machineState.memory.setSlice(3, args);
+
+      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset);
+      await instruction.execute(context);
+
+      const successValue = context.machineState.memory.get(successOffset);
+      expect(successValue).toEqual(new Uint1(0n)); // failure, contract non-existent!
+
+      const retValue = context.machineState.nestedReturndata;
+      expect(retValue).toEqual([]);
+
+      // should charge for the CALL instruction itself, and all allocated gas should be consumed
+      expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas - l2Gas);
+      expect(context.machineState.daGasLeft).toEqual(initialDaGas - daGas);
+      expect(context.machineState.collectedRevertInfo?.recursiveRevertReason?.message).toMatch(/No bytecode found/);
+    });
+
     it('Should execute a call correctly', async () => {
       const gasOffset = 0;
       const l2Gas = 2e6;

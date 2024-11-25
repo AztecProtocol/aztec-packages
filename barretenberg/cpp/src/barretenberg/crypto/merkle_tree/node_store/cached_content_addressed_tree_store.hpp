@@ -12,6 +12,7 @@
 #include "msgpack/assert.hpp"
 #include <cstdint>
 #include <exception>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -422,11 +423,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
     //  Accessing indices_ under a lock
     std::unique_lock lock(mtx_);
     indices_.insert({ uint256_t(leaf), index });
-    // const auto [it, success] = indices_.insert({ uint256_t(leaf), index });
-    //  if (!success) {
-    //      std::cout << "Attempting to set leaf " << leaf << " at index " << index << " failed, leaf already found at
-    //      index " << it->second << std::endl;
-    //  }
 }
 
 template <typename LeafValueType>
@@ -622,20 +618,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
 
         // if the meta datas are different, we have uncommitted data
         bool metaToCommit = committedMeta != uncommittedMeta;
-        if (!metaToCommit) {
+        if (!metaToCommit && !asBlock) {
             return;
         }
+
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
-        if (!dataPresent) {
-            // no uncommitted data present, if we were asked to commit as a block then we can't
-            if (asBlock) {
-                throw std::runtime_error("Can't commit as block if no data present");
-            }
-        } else {
-            // data is present, hydrate persisted indices
-            // hydrate_indices_from_persisted_store(*tx);
-        }
     }
     {
         WriteTransactionPtr tx = create_write_transaction();
@@ -643,19 +631,27 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             if (dataPresent) {
                 // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
-                persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
-                if (asBlock) {
-                    ++uncommittedMeta.unfinalisedBlockHeight;
-                    if (uncommittedMeta.oldestHistoricBlock == 0) {
-                        uncommittedMeta.oldestHistoricBlock = 1;
-                    }
-                    // std::cout << "New root " << uncommittedMeta.root << std::endl;
-                    BlockPayload block{ .size = uncommittedMeta.size,
-                                        .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
-                                        .root = uncommittedMeta.root };
-                    dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
-                }
             }
+            // If we are commiting a block, we need to persist the root, since the new block "references" this root
+            // However, if the root is the empty root we can't persist it, since it's not a real node
+            // We are abusing the trees in some tests, trying to add empty blocks to initial empty trees
+            // That is not expected behavior since the unwind operation will fail trying to decrease refcount
+            // for the empty root, which doesn't exist.
+            if (dataPresent || (asBlock && uncommittedMeta.size > 0)) {
+                persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
+            }
+            if (asBlock) {
+                ++uncommittedMeta.unfinalisedBlockHeight;
+                if (uncommittedMeta.oldestHistoricBlock == 0) {
+                    uncommittedMeta.oldestHistoricBlock = 1;
+                }
+                // std::cout << "New root " << uncommittedMeta.root << std::endl;
+                BlockPayload block{ .size = uncommittedMeta.size,
+                                    .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
+                                    .root = uncommittedMeta.root };
+                dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
+            }
+
             uncommittedMeta.committedSize = uncommittedMeta.size;
             persist_meta(uncommittedMeta, *tx);
             tx->commit();
@@ -760,7 +756,6 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         read_persisted_meta(meta_, *tx);
     }
     nodes_ = std::unordered_map<fr, NodePayload>();
-    nodes_.clear();
     indices_ = std::map<uint256_t, index_t>();
     leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
     nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth_ + 1, std::unordered_map<index_t, fr>());
@@ -843,7 +838,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
     BlockPayload blockData;
     BlockPayload previousBlockData;
     if (blockNumber < 1) {
-        throw std::runtime_error(format("Unable to remove historical block: ", blockNumber, ". Tree name: ", name_));
+        throw std::runtime_error(format("Unable to unwind block: ", blockNumber, ". Tree name: ", name_));
     }
     if (initialised_from_block_.has_value()) {
         throw std::runtime_error("Removing a block on a fork is forbidden");
