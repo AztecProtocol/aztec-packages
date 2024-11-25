@@ -513,21 +513,17 @@ export class Sequencer {
       const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(
-          validTxs,
-          blockSize,
-          blockBuilder,
-          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
-        ),
+        processor.process(validTxs, blockSize, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
+      await blockBuilder.addTxs(processedTxs);
 
       await interrupt?.(processedTxs);
 
@@ -612,19 +608,14 @@ export class Sequencer {
       await this.publisher.validateBlockForSubmission(block.header);
 
       const workDuration = workTimer.ms();
-      this.log.info(
-        `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
-          'hex',
-        )})`,
-        {
-          eventName: 'l2-block-built',
-          creator: this.publisher.getSenderAddress().toString(),
-          duration: workDuration,
-          publicProcessDuration: publicProcessorDuration,
-          rollupCircuitsDuration: blockBuildingTimer.ms(),
-          ...block.getStats(),
-        } satisfies L2BlockBuiltStats,
-      );
+      this.log.info(`Assembled block ${block.number} (with hash: ${block.header.hash().toString()})`, {
+        eventName: 'l2-block-built',
+        creator: this.publisher.getSenderAddress().toString(),
+        duration: workDuration,
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: blockBuildingTimer.ms(),
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats);
 
       if (this.isFlushing) {
         this.log.info(`Flushing completed`);
@@ -633,11 +624,13 @@ export class Sequencer {
       const txHashes = validTxs.map(tx => tx.getTxHash());
 
       this.isFlushing = false;
-      this.log.info('Collecting attestations');
+      this.log.verbose('Collecting attestations');
+      const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
       const attestations = await this.collectAttestations(block, txHashes);
-      this.log.info('Attestations collected');
+      this.log.verbose('Attestations collected');
+      stopCollectingAttestationsTimer();
+      this.log.verbose('Collecting proof quotes');
 
-      this.log.info('Collecting proof quotes');
       const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
       this.log.info(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
 

@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.63.1...barretenberg-v0.64.0) (2024-11-25)
+
+
+### Features
+
+* **avm:** Error handling for address resolution ([#9994](https://github.com/AztecProtocol/aztec-packages/issues/9994)) ([ceaeda5](https://github.com/AztecProtocol/aztec-packages/commit/ceaeda50d2fd391edda3ee8186b86558b7f092e2)), closes [#9131](https://github.com/AztecProtocol/aztec-packages/issues/9131)
+* Improve trace utilization tracking ([#10008](https://github.com/AztecProtocol/aztec-packages/issues/10008)) ([4c560ab](https://github.com/AztecProtocol/aztec-packages/commit/4c560abebcf390ec3ba8ebdc18b287b29f148450))
+* Improved data storage metrics ([#10020](https://github.com/AztecProtocol/aztec-packages/issues/10020)) ([c6ab0c9](https://github.com/AztecProtocol/aztec-packages/commit/c6ab0c9c7a270104fb3e9f6160be50a90ce5e77d))
+* Insert public data tree leaves one by one ([#9989](https://github.com/AztecProtocol/aztec-packages/issues/9989)) ([a2c0701](https://github.com/AztecProtocol/aztec-packages/commit/a2c070161d8466c6da61f68b4d97107927f45129))
+* IPA accumulators setup for Rollup ([#10040](https://github.com/AztecProtocol/aztec-packages/issues/10040)) ([4129e27](https://github.com/AztecProtocol/aztec-packages/commit/4129e27e5ed202786ea79da801d5e308d14a5f7d))
+* Single commitment key allocation in CIVC ([#9974](https://github.com/AztecProtocol/aztec-packages/issues/9974)) ([a0551ee](https://github.com/AztecProtocol/aztec-packages/commit/a0551ee9fca242a02774fd07bf8156a3a74dae3a))
+
+
+### Bug Fixes
+
+* Strip wasm debug ([#9987](https://github.com/AztecProtocol/aztec-packages/issues/9987)) ([62a6b66](https://github.com/AztecProtocol/aztec-packages/commit/62a6b662f1ef20a603177c55c199de4a79b65b5c))
+* Zero index is not always 0  ([#10135](https://github.com/AztecProtocol/aztec-packages/issues/10135)) ([bbac3d9](https://github.com/AztecProtocol/aztec-packages/commit/bbac3d9db1a4cd133c4949c3c25a17a7e39d14a2))
+
+
+### Miscellaneous
+
+* **avm:** Remove initialization for non-derived polynomials ([#10103](https://github.com/AztecProtocol/aztec-packages/issues/10103)) ([c6fdf4b](https://github.com/AztecProtocol/aztec-packages/commit/c6fdf4bda5c9ef32ca355cda9a5a0c7ed3d1a100)), closes [#10096](https://github.com/AztecProtocol/aztec-packages/issues/10096)
+* Delete stray todos ([#10112](https://github.com/AztecProtocol/aztec-packages/issues/10112)) ([cc4139a](https://github.com/AztecProtocol/aztec-packages/commit/cc4139a83347b9a726b03bd167bf7e70e6dadda7))
+* Optimise polynomial initialisation ([#10073](https://github.com/AztecProtocol/aztec-packages/issues/10073)) ([e608742](https://github.com/AztecProtocol/aztec-packages/commit/e60874245439a47082db9fd0ca82d3798bee092d))
+* Remove handling of duplicates from the note hash tree ([#10016](https://github.com/AztecProtocol/aztec-packages/issues/10016)) ([ece1d45](https://github.com/AztecProtocol/aztec-packages/commit/ece1d455548bccd80a3c9660cc32149bcb129562))
+
 ## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.63.0...barretenberg-v0.63.1) (2024-11-19)
 
 
