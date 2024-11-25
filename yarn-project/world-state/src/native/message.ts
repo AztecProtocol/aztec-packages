@@ -137,8 +137,6 @@ export interface TreeDBStats {
   nodesDBStats: DBStats;
   /** Stats for the 'leaf pre-images' DB */
   leafPreimagesDBStats: DBStats;
-  /** Stats for the 'leaf keys' DB */
-  leafKeysDBStats: DBStats;
   /** Stats for the 'leaf indices' DB */
   leafIndicesDBStats: DBStats;
 }
@@ -272,7 +270,6 @@ export function sanitiseMeta(meta: TreeMeta) {
 export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blocksDBStats = sanitiseDBStats(stats.blocksDBStats);
   stats.leafIndicesDBStats = sanitiseDBStats(stats.leafIndicesDBStats);
-  stats.leafKeysDBStats = sanitiseDBStats(stats.leafKeysDBStats);
   stats.leafPreimagesDBStats = sanitiseDBStats(stats.leafPreimagesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
