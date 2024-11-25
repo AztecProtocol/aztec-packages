@@ -423,11 +423,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
     //  Accessing indices_ under a lock
     std::unique_lock lock(mtx_);
     indices_.insert({ uint256_t(leaf), index });
-    // const auto [it, success] = indices_.insert({ uint256_t(leaf), index });
-    //  if (!success) {
-    //      std::cout << "Attempting to set leaf " << leaf << " at index " << index << " failed, leaf already found at
-    //      index " << it->second << std::endl;
-    //  }
 }
 
 template <typename LeafValueType>
@@ -629,10 +624,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
 
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
-        if (dataPresent) {
-            // data is present, hydrate persisted indices
-            // hydrate_indices_from_persisted_store(*tx);
-        }
     }
     {
         WriteTransactionPtr tx = create_write_transaction();
