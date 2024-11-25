@@ -31,4 +31,4 @@ docker run --rm --network=host \
   -e OUTBOX_CONTRACT_ADDRESS=0x1016b5aaa3270a65c315c664ecb238b6db270b64 \
   -e P2P_UDP_LISTEN_ADDR=0.0.0.0:40400 \
   -e P2P_TCP_LISTEN_ADDR=0.0.0.0:40400 \
-  aztecprotocol/aztec:698cd3d62680629a3f1bfc0f82604534cedbccf3-x86_64 start --node --archiver --sequencer --pxe
+  aztecprotocol/aztec:rough-rhino start --node --archiver --sequencer --pxe
