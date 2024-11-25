@@ -100,13 +100,13 @@ export class EpochProvingJob {
           uuid: this.uuid,
           ...globalVariables,
         });
-
         // Start block proving
-        await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
+        await this.prover.startNewBlock(globalVariables, l1ToL2Messages);
 
         // Process public fns
         const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
-        await this.processTxs(publicProcessor, txs, txCount);
+        const processed = await this.processTxs(publicProcessor, txs, txCount);
+        await this.prover.addTxs(processed);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,
           blockHash: block.hash().toString(),
@@ -170,12 +170,7 @@ export class EpochProvingJob {
     txs: Tx[],
     totalNumberOfTxs: number,
   ): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(
-      txs,
-      totalNumberOfTxs,
-      this.prover,
-      new EmptyTxValidator(),
-    );
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, totalNumberOfTxs, new EmptyTxValidator());
 
     if (failedTxs.length) {
       throw new Error(
