@@ -48,7 +48,7 @@ import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfi
 import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
-import { createBlobSinkService } from '@aztec/blob-sink';
+import { createBlobSinkService, BlobSinkService  } from '@aztec/blob-sink';
 
 import { type Anvil } from '@viem/anvil';
 import * as path from 'path';
@@ -71,7 +71,6 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import { BlobSinkService } from '@aztec/blob-sink';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };

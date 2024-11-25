@@ -135,6 +135,13 @@ export class Blob {
   }
 
   /**
+   * Pad the blob data to it's full size before posting
+   */
+  get fullData(): BlobBuffer {
+    return Buffer.concat([this.data], BYTES_PER_BLOB);
+  }
+
+  /**
    * Get the size of the blob in bytes
    */
   getSize(){
