@@ -33,10 +33,8 @@ sir="${parts[1]}"
 
 [ "$NO_TERMINATE" -eq 0 ] && args="--rm" || args=""
 
-<<<<<<< HEAD
 # - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
 # - Pass our AWS cred through both ssh and docker
-# - Mount our docker socket into docker itself for efficient nesting
 # - Run in our build container
 # Then:
 #   - Clone our repo at a certain commit
