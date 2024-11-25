@@ -191,18 +191,19 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       );
     }
 
-    const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
-      blockNumber: l2Block.number,
-      blockHeaderHash: l2Block.header.hash(),
-      paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
-      paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
-      paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-      batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
-      blockStateRef: blockStateReference(l2Block.header.state),
-    });
-    const sanitised = sanitiseFullStatus(response);
-    this.cachedStatusSummary = { ...sanitised.summary };
-    return sanitised;
+    return await this.instance.call(
+      WorldStateMessageType.SYNC_BLOCK,
+      {
+        blockNumber: l2Block.number,
+        blockHeaderHash: l2Block.header.hash(),
+        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+        paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+        paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+        batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
+        blockStateRef: blockStateReference(l2Block.header.state),
+      },
+      this.sanitiseAndCacheSummary,
+    );
   }
 
   public async close(): Promise<void> {
@@ -215,16 +216,30 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return Header.empty({ state });
   }
 
+  private sanitiseAndCacheSummary(response: WorldStateStatusFull) {
+    const sanitised = sanitiseFullStatus(response);
+    this.cachedStatusSummary = { ...sanitised.summary };
+    return sanitised;
+  }
+
   /**
    * Advances the finalised block number to be the number provided
    * @param toBlockNumber The block number that is now the tip of the finalised chain
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    const response = await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
-      toBlockNumber,
-    });
-    this.cachedStatusSummary = sanitiseSummary(response);
+    const cacheStatusSummary = (response: WorldStateStatusSummary) => {
+      const sanitised = sanitiseSummary(response);
+      this.cachedStatusSummary = { ...sanitised };
+      return sanitised;
+    };
+    await this.instance.call(
+      WorldStateMessageType.FINALISE_BLOCKS,
+      {
+        toBlockNumber,
+      },
+      cacheStatusSummary,
+    );
     return this.getStatusSummary();
   }
 
@@ -234,12 +249,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    const response = await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
-      toBlockNumber,
-    });
-    const sanitised = sanitiseFullStatus(response);
-    this.cachedStatusSummary = { ...sanitised.summary };
-    return sanitised;
+    return await this.instance.call(
+      WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
+      {
+        toBlockNumber,
+      },
+      this.sanitiseAndCacheSummary,
+    );
   }
 
   /**
@@ -248,21 +264,25 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    const response = await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
-      toBlockNumber,
-    });
-    const sanitised = sanitiseFullStatus(response);
-    this.cachedStatusSummary = { ...sanitised.summary };
-    return sanitised;
+    return await this.instance.call(
+      WorldStateMessageType.UNWIND_BLOCKS,
+      {
+        toBlockNumber,
+      },
+      this.sanitiseAndCacheSummary,
+    );
   }
 
   public async getStatusSummary() {
-    if (this.cachedStatusSummary === undefined) {
-      const response = await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
-      this.cachedStatusSummary = sanitiseSummary(response);
+    if (this.cachedStatusSummary !== undefined) {
+      return { ...this.cachedStatusSummary };
     }
-
-    return { ...this.cachedStatusSummary };
+    const cacheStatusSummary = (response: WorldStateStatusSummary) => {
+      const sanitised = sanitiseSummary(response);
+      this.cachedStatusSummary = { ...sanitised };
+      return sanitised;
+    };
+    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0, cacheStatusSummary);
   }
 
   updateLeaf<ID extends IndexedTreeId>(

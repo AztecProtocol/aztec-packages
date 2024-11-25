@@ -113,11 +113,14 @@ export class NativeWorldState implements NativeWorldStateInstance {
   public call<T extends WorldStateMessageType>(
     messageType: T,
     body: WorldStateRequest[T],
+    // allows for the pre-processing of responses on the job queue before being passed back
+    responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
   ): Promise<WorldStateResponse[T]> {
-    return this.queue.put(() => {
+    return this.queue.put(async () => {
       assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
       assert.equal(this.open, true, 'Native instance is closed');
-      return this._sendMessage(messageType, body);
+      const response = await this._sendMessage(messageType, body);
+      return responseHandler ? responseHandler(response) : response;
     });
   }
 
