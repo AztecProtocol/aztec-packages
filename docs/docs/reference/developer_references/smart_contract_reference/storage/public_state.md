@@ -85,8 +85,6 @@ Is done exactly like the `PublicMutable` struct, but with the `PublicImmutable` 
 
 #include_code storage-public-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-#include_code storage-public-immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
 ### `initialize`
 
 This function sets the immutable value. It can only be called once.
