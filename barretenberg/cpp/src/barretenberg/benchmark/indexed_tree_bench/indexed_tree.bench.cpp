@@ -271,12 +271,6 @@ BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
 
-BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(2, MAX_BATCH_SIZE)
-    ->Iterations(1000);
-
 BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
@@ -286,6 +280,12 @@ BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
 BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
+    ->Range(2, MAX_BATCH_SIZE)
+    ->Iterations(1000);
+
+BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
     ->Range(512, 8192)
     ->Iterations(10);
 
@@ -294,18 +294,18 @@ BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
+
+BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
 
 BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
-
-BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(512, 8192)
-    ->Iterations(10);
 
 BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
@@ -318,18 +318,18 @@ BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, BATCH>)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, BATCH>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
 
 BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
-
-BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, BATCH>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(512, 8192)
-    ->Iterations(10);
 
 BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
@@ -338,12 +338,6 @@ BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Iterations(10);
 
 BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, BATCH>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(2, MAX_BATCH_SIZE)
-    ->Iterations(1000);
-
-BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
@@ -354,6 +348,12 @@ BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, BATCH>)
     ->RangeMultiplier(2)
     ->Range(512, 8192)
     ->Iterations(100);
+
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, MAX_BATCH_SIZE)
+    ->Iterations(1000);
 
 BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
