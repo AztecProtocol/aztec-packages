@@ -39,6 +39,10 @@ function build {
 function run_e2e_tests {
   cd end-to-end
 
+  # Pre-pull the required image for visibility.
+  # TODO: We want to avoid this time burden. Slim the image? Preload it in from host?
+  docker pull aztecprotocol/build:1.0
+
   # List every test individually. Do not put folders.
   PR_TESTS=(
     "simple e2e_2_pxes"
