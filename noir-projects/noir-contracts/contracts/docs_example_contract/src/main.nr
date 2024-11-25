@@ -103,7 +103,7 @@ contract DocsExample {
     #[private]
     fn match_shared_immutable(account: AztecAddress, points: u8) {
         let expected = Leader { account, points };
-        let read = storage.shared_immutable.read_private();
+        let read = storage.shared_immutable.read();
 
         assert(read.account == expected.account, "Invalid account");
         assert(read.points == expected.points, "Invalid points");
@@ -138,23 +138,23 @@ contract DocsExample {
     #[public]
     #[view]
     fn get_shared_immutable_constrained_public() -> Leader {
-        storage.shared_immutable.read_public()
+        storage.shared_immutable.read()
     }
 
     #[public]
     fn get_shared_immutable_constrained_public_multiple() -> [Leader; 5] {
-        let a = storage.shared_immutable.read_public();
+        let a = storage.shared_immutable.read();
         [a, a, a, a, a]
     }
 
     #[private]
     #[view]
     fn get_shared_immutable_constrained_private() -> Leader {
-        storage.shared_immutable.read_private()
+        storage.shared_immutable.read()
     }
 
     unconstrained fn get_shared_immutable() -> Leader {
-        storage.shared_immutable.read_public()
+        storage.shared_immutable.read()
     }
 
     #[public]
@@ -165,8 +165,8 @@ contract DocsExample {
         // docs:end:initialize_public_immutable
     }
 
+    // docs:start:read_public_immutable
     unconstrained fn get_public_immutable() -> Leader {
-        // docs:start:read_public_immutable
         storage.public_immutable.read()
         // docs:end:read_public_immutable
     }

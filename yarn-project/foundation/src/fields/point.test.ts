@@ -4,6 +4,24 @@ import { Fr } from './fields.js';
 import { Point } from './point.js';
 
 describe('Point', () => {
+  describe('random', () => {
+    it('always returns a valid point', () => {
+      for (let i = 0; i < 100; ++i) {
+        const point = Point.random();
+        expect(point.isOnGrumpkin()).toEqual(true);
+      }
+    });
+
+    it('returns a different points on each call', () => {
+      const set = new Set();
+      for (let i = 0; i < 100; ++i) {
+        set.add(Point.random());
+      }
+
+      expect(set.size).toEqual(100);
+    });
+  });
+
   it('converts to and from x and sign of y coordinate', () => {
     const p = new Point(
       new Fr(0x30426e64aee30e998c13c8ceecda3a77807dbead52bc2f3bf0eae851b4b710c1n),
@@ -15,10 +33,6 @@ describe('Point', () => {
     const p2 = Point.fromXAndSign(x, sign);
 
     expect(p.equals(p2)).toBeTruthy();
-  });
-
-  it('creates a valid random point', () => {
-    expect(Point.random().isOnGrumpkin()).toBeTruthy();
   });
 
   it('converts to and from buffer', () => {
