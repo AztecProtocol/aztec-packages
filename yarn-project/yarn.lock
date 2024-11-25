@@ -329,7 +329,7 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/blob-sink@workspace:blob-sink":
+"@aztec/blob-sink@workspace:^, @aztec/blob-sink@workspace:blob-sink":
   version: 0.0.0-use.local
   resolution: "@aztec/blob-sink@workspace:blob-sink"
   dependencies:
@@ -552,6 +552,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"

@@ -28,7 +28,7 @@ export interface PublisherConfig {
   /**
    * The URL of the blob sink.
    */
-  blobSinkUrl: string | undefined;
+  blobSinkUrl?: string;
 }
 
 export const getTxSenderConfigMappings: (

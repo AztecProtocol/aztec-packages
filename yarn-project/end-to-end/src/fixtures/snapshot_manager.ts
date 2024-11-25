@@ -23,6 +23,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import { createBlobSinkService, BlobSinkService } from '@aztec/blob-sink';
 
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -49,6 +50,7 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
+  blobSink: BlobSinkService;
 };
 
 type SnapshotEntry = {
@@ -247,6 +249,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.acvmConfig?.cleanup();
   await context.anvil.stop();
   await context.watcher.stop();
+  await context.blobSink.stop();
 }
 
 /**
@@ -265,10 +268,22 @@ async function setupFromFresh(
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
+
+  // Setup blob sink service
+  const blobSink = await createBlobSinkService({
+    port: 5052,
+    dataStoreConfig: {
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+    },
+  });
+  await blobSink.start();
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -382,6 +397,7 @@ async function setupFromFresh(
     proverNode,
     watcher,
     cheatCodes,
+    blobSink,
   };
 }
 
@@ -397,6 +413,17 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
+
+
+  // TODO(md): will this revive state???
+  const blobSink = await createBlobSinkService({
+    port: 5052,
+    dataStoreConfig: {
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+    },
+  });
+  await blobSink.start();
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const { anvil, rpcUrl } = await startAnvil();
@@ -463,6 +490,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     },
     watcher,
     cheatCodes,
+    blobSink
   };
 }
 

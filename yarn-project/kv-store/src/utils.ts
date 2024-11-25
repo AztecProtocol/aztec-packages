@@ -18,8 +18,17 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
       ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
       : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
+
+  const store = AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false);
+
+  // If no rollup address is provided, we return the store as is
+  if (!config.l1Contracts?.rollupAddress) {
+    return store;
+  }
+
+  // If a rollup address is provided, we initialize the store for aztec nodes
   return initStoreForRollup(
-    AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false),
+    store,
     config.l1Contracts.rollupAddress,
     log,
   );

@@ -48,6 +48,7 @@ import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfi
 import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import { createBlobSinkService } from '@aztec/blob-sink';
 
 import { type Anvil } from '@viem/anvil';
 import * as path from 'path';
@@ -70,6 +71,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { BlobSinkService } from '@aztec/blob-sink';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };
@@ -229,6 +231,7 @@ async function setupWithRemoteEnvironment(
     logger,
     cheatCodes,
     watcher: undefined,
+    blobSink: undefined,
     teardown,
   };
 }
@@ -283,6 +286,8 @@ export type EndToEndContext = {
   cheatCodes: CheatCodes;
   /** The anvil test watcher (undefined if connected to remove environment) */
   watcher: AnvilTestWatcher | undefined;
+  /** The blob sink (undefined if connected to remove environment) */
+  blobSink: BlobSinkService | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -359,6 +364,9 @@ export async function setup(
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
+
+  // Blob sink service - blobs get posted here and served from here
+  const blobSink = await createBlobSinkService();
 
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
@@ -459,6 +467,7 @@ export async function setup(
 
     await anvil?.stop();
     await watcher.stop();
+    await blobSink?.stop();
   };
 
   return {
@@ -473,6 +482,7 @@ export async function setup(
     cheatCodes,
     sequencer,
     watcher,
+    blobSink,
     teardown,
   };
 }
