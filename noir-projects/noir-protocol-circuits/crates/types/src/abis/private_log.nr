@@ -10,8 +10,8 @@ pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
 
 pub struct PrivateLogData {
     pub log: PrivateLog,
+    // The counter of the note hash this log is for. 0 if it does not link to a note hash.
     pub note_hash_counter: u32,
-    pub randomness: Field,
     pub counter: u32,
 }
 
@@ -25,14 +25,13 @@ impl Eq for PrivateLogData {
     fn eq(self, other: PrivateLogData) -> bool {
         (self.log == other.log)
             & (self.note_hash_counter == other.note_hash_counter)
-            & (self.randomness == other.randomness)
             & (self.counter == other.counter)
     }
 }
 
 impl Empty for PrivateLogData {
     fn empty() -> Self {
-        PrivateLogData { log: PrivateLog::empty(), note_hash_counter: 0, randomness: 0, counter: 0 }
+        PrivateLogData { log: PrivateLog::empty(), note_hash_counter: 0, counter: 0 }
     }
 }
 
@@ -40,7 +39,7 @@ impl Serialize<PRIVATE_LOG_DATA_LENGTH> for PrivateLogData {
     fn serialize(self) -> [Field; PRIVATE_LOG_DATA_LENGTH] {
         array_concat(
             self.log.serialize(),
-            [self.note_hash_counter as Field, self.randomness, self.counter as Field],
+            [self.note_hash_counter as Field, self.counter as Field],
         )
     }
 }
@@ -51,7 +50,6 @@ impl Deserialize<PRIVATE_LOG_DATA_LENGTH> for PrivateLogData {
         Self {
             log: reader.read_struct(PrivateLog::deserialize),
             note_hash_counter: reader.read_u32(),
-            randomness: reader.read(),
             counter: reader.read_u32(),
         }
     }

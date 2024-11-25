@@ -1,10 +1,9 @@
 pub mod get_transient_or_propagated_note_hash_indexes_for_logs;
 pub mod squash_transient_data;
-pub mod silo_private_logs;
 
 use crate::components::reset_output_composer::reset_output_hints::{
     get_transient_or_propagated_note_hash_indexes_for_logs::get_transient_or_propagated_note_hash_indexes_for_logs,
-    silo_private_logs::silo_private_logs, squash_transient_data::squash_transient_data,
+    squash_transient_data::squash_transient_data,
 };
 use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::{
@@ -16,7 +15,7 @@ use dep::types::{
     utils::arrays::{get_order_hints_asc, OrderHint},
 };
 
-pub struct ResetOutputHints<let PRIVATE_LOG_SILOING_AMOUNT: u32> {
+pub struct ResetOutputHints {
     // note_hashes
     pub kept_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
     pub sorted_note_hash_indexes: [u32; MAX_NOTE_HASHES_PER_TX],
@@ -26,14 +25,13 @@ pub struct ResetOutputHints<let PRIVATE_LOG_SILOING_AMOUNT: u32> {
     // private_logs
     pub kept_private_logs: [Scoped<PrivateLogData>; MAX_PRIVATE_LOGS_PER_TX],
     pub transient_or_propagated_note_hash_indexes_for_logs: [u32; MAX_PRIVATE_LOGS_PER_TX],
-    pub processed_private_logs: [Scoped<PrivateLogData>; MAX_PRIVATE_LOGS_PER_TX],
-    pub siloed_private_log_indexes: [u32; PRIVATE_LOG_SILOING_AMOUNT],
+    pub sorted_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }
 
-pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32>(
+pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
     previous_kernel: PrivateKernelCircuitPublicInputs,
     transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
-) -> ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT> {
+) -> ResetOutputHints {
     let (kept_note_hashes, kept_nullifiers, kept_private_logs) = squash_transient_data(
         previous_kernel.end.note_hashes,
         previous_kernel.end.nullifiers,
@@ -56,8 +54,8 @@ pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HI
         kept_note_hashes,
         transient_data_index_hints,
     );
-
-    let (processed_private_logs, siloed_private_log_indexes) = silo_private_logs(kept_private_logs);
+    let sorted_private_log_indexes =
+        get_order_hints_asc(kept_private_logs).map(|h: OrderHint| h.sorted_index);
 
     ResetOutputHints {
         kept_note_hashes,
@@ -66,7 +64,6 @@ pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HI
         sorted_nullifier_indexes,
         kept_private_logs,
         transient_or_propagated_note_hash_indexes_for_logs,
-        processed_private_logs,
-        siloed_private_log_indexes,
+        sorted_private_log_indexes,
     }
 }

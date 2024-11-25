@@ -127,8 +127,7 @@ pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
-pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18;
-pub global MAX_PRIVATE_LOG_SIZE_IN_BYTES: u32 = PRIVATE_LOG_SIZE_IN_FIELDS * 31; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
+pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
@@ -271,13 +270,10 @@ pub global READ_REQUEST_LENGTH: u32 = 2;
 pub global TREE_LEAF_READ_REQUEST_LENGTH: u32 = 2;
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS
     + 1 /* note_hash_counter */
-    + 1 /* randomness */
     + 1 /* counter */;
+pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1;
 pub global LOG_HASH_LENGTH: u32 = 3;
 pub global SCOPED_LOG_HASH_LENGTH: u32 = LOG_HASH_LENGTH + 1;
-pub global ENCRYPTED_LOG_HASH_LENGTH: u32 = 4;
-pub global SCOPED_ENCRYPTED_LOG_HASH_LENGTH: u32 = ENCRYPTED_LOG_HASH_LENGTH + 1;
-pub global NOTE_LOG_HASH_LENGTH: u32 = 4;
 pub global NOTE_HASH_LENGTH: u32 = 2;
 pub global SCOPED_NOTE_HASH_LENGTH: u32 = NOTE_HASH_LENGTH + 1;
 pub global NULLIFIER_LENGTH: u32 = 3;
@@ -375,7 +371,7 @@ pub global COMBINED_CONSTANT_DATA_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH + GLOBAL
 pub global PRIVATE_ACCUMULATED_DATA_LENGTH: u32 = (SCOPED_NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_TX)
     + (SCOPED_NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_TX)
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_TX)
+    + (SCOPED_PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_TX)
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX)
     + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_TX);
@@ -465,6 +461,8 @@ pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
 pub global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: u32 =
     64 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; // 1 write is 64 bytes
+pub global PRIVATE_LOGS_NUM_BYTES_PER_BASE_ROLLUP: u32 =
+    32 * PRIVATE_LOG_SIZE_IN_FIELDS * MAX_PRIVATE_LOGS_PER_TX;
 pub global CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 32;
 pub global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 pub global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED: Field = 52;

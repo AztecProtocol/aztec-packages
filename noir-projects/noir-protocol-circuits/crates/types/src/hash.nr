@@ -5,6 +5,8 @@ use crate::{
         log_hash::{LogHash, ScopedLogHash},
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
+        side_effect::scoped::Scoped,
     },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -87,11 +89,17 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     }
 }
 
-pub fn mask_private_log_address(contract_address: AztecAddress, randomness: Field) -> Field {
-    if randomness == 0 {
-        contract_address.to_field()
+pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
+    poseidon2_hash([contract_address.to_field(), field])
+}
+
+pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
+    if private_log.contract_address.is_zero() {
+        private_log.inner.log
     } else {
-        poseidon2_hash_with_separator([contract_address.to_field(), randomness], 0)
+        let mut fields = private_log.inner.log.fields;
+        fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
+        PrivateLog { fields }
     }
 }
 

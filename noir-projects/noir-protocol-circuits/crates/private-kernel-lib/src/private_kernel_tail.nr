@@ -238,10 +238,10 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.append_private_logs_for_note(1, 33);
+        builder.previous_kernel.append_siloed_private_logs_for_note(1, 33);
         builder.previous_kernel.add_contract_class_log_hash(999, 12);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.append_private_logs_for_note(2, 44);
+        builder.previous_kernel.append_siloed_private_logs_for_note(2, 44);
 
         let public_inputs = builder.execute();
 

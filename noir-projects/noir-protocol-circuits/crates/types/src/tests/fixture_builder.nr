@@ -49,7 +49,8 @@ use crate::{
         PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
     hash::{
-        compute_l2_to_l1_hash, compute_siloed_nullifier, mask_private_log_address, silo_note_hash,
+        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
+        silo_note_hash,
     },
     header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
@@ -745,33 +746,12 @@ impl FixtureBuilder {
         &mut self,
         fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
         note_hash_counter: u32,
-        randomness: Field,
     ) {
         let log = Log { fields };
-        let logData = PrivateLogData {
-            log,
-            note_hash_counter,
-            randomness,
-            counter: self.next_counter(),
-        }
-            .scope(self.contract_address);
+        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
+            self.contract_address,
+        );
         self.private_logs.push(logData);
-    }
-
-    pub fn add_private_log_for_note(
-        &mut self,
-        value: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
-        note_hash_counter: u32,
-    ) {
-        self.add_private_log(value, note_hash_counter, 0 /* randomness */);
-    }
-
-    pub fn add_private_log_for_non_note(
-        &mut self,
-        fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
-        randomness: Field,
-    ) {
-        self.add_private_log(fields, 0 /* note_hash_counter */, randomness);
     }
 
     pub fn append_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
@@ -779,20 +759,7 @@ impl FixtureBuilder {
         for i in 0..self.private_logs.max_len() {
             if i < num_logs {
                 let fields = self.mock_private_log_fields(index_offset + i);
-                self.add_private_log_for_note(fields, note_hash_counter);
-            }
-        }
-    }
-
-    pub fn append_private_logs_for_non_note(&mut self, num_logs: u32) {
-        let index_offset = self.private_logs.len();
-        for i in 0..self.private_logs.max_len() {
-            if i < num_logs {
-                let randomness = self.mock_private_log_randomness(index_offset + i);
-                let masked_address = mask_private_log_address(self.contract_address, randomness);
-                let mut fields = self.mock_private_log_fields(index_offset + i);
-                fields[fields.len() - 1] = masked_address;
-                self.add_private_log_for_non_note(fields, randomness);
+                self.add_private_log(fields, note_hash_counter);
             }
         }
     }
@@ -802,7 +769,30 @@ impl FixtureBuilder {
         for i in 0..self.private_logs.max_len() {
             if i < num_logs {
                 let fields = self.mock_private_log_fields(index_offset + i);
-                self.add_private_log(fields, 0 /* note_hash_counter */, 0 /* randomness */);
+                self.add_private_log(fields, 0 /* note_hash_counter */);
+            }
+        }
+    }
+
+    pub fn add_siloed_private_log(
+        &mut self,
+        fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        note_hash_counter: u32,
+    ) {
+        let log = Log { fields };
+        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
+            AztecAddress::zero(),
+        );
+        self.private_logs.push(logData);
+    }
+
+    pub fn append_siloed_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
+        let index_offset = self.private_logs.len();
+        for i in 0..self.private_logs.max_len() {
+            if i < num_logs {
+                let mut fields = self.mock_private_log_fields(index_offset + i);
+                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+                self.add_siloed_private_log(fields, note_hash_counter);
             }
         }
     }

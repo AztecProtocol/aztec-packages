@@ -3,7 +3,6 @@ use crate::{
     encrypted_logs::payload::compute_private_log_payload,
     keys::getters::get_ovsk_app,
     note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    utils::bytes::bytes_to_fields,
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -44,9 +43,7 @@ where
         plaintext,
     );
 
-    let log = bytes_to_fields(payload);
-
-    (log, note_hash_counter)
+    (payload, note_hash_counter)
 }
 
 unconstrained fn compute_payload_unconstrained<Note, let N: u32>(

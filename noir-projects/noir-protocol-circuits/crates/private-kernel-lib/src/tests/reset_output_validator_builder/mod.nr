@@ -22,7 +22,6 @@ global NULLIFIER_PENDING_AMOUNT = 5;
 global NULLIFIER_SETTLED_AMOUNT = 2;
 global NULLIFIER_KEYS = 2;
 global TRANSIENT_DATA_AMOUNT = 5;
-global PRIVATE_LOG_SILOING_AMOUNT = 3;
 
 pub struct ResetOutputValidatorBuilder {
     output: FixtureBuilder,
@@ -33,6 +32,7 @@ pub struct ResetOutputValidatorBuilder {
     transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
+    private_log_siloing_amount: u32,
 }
 
 impl ResetOutputValidatorBuilder {
@@ -62,6 +62,7 @@ impl ResetOutputValidatorBuilder {
                 transient_data_index_hints,
                 note_hash_siloing_amount: 0,
                 nullifier_siloing_amount: 0,
+                private_log_siloing_amount: 0,
             }
         }
 
@@ -87,14 +88,14 @@ impl ResetOutputValidatorBuilder {
         }
     }
 
-    pub fn get_hints(self) -> ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT> {
+    pub fn get_hints(self) -> ResetOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         unsafe {
             generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
         }
     }
 
-    pub fn validate_with_hints(self, hints: ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT>) {
+    pub fn validate_with_hints(self, hints: ResetOutputHints) {
         let output = self.output.to_private_kernel_circuit_public_inputs();
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         let validation_request_processor = self.get_validation_request_processor();
@@ -105,6 +106,7 @@ impl ResetOutputValidatorBuilder {
             self.transient_data_index_hints,
             self.note_hash_siloing_amount,
             self.nullifier_siloing_amount,
+            self.private_log_siloing_amount,
             hints,
         )
             .validate();

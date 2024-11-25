@@ -159,19 +159,15 @@ impl PreviousKernelValidator {
         );
 
         // private_logs
-        let private_logs = self.previous_kernel.public_inputs.end.private_logs;
-        // Unlike note hashes and nullifiers that are always siloed from index 0, reset circuit checks the siloing of non-note logs at given indexes specified by the hints.
-        for i in 0..private_logs.len() {
-            let log = private_logs[i];
-            // If a log is not linked to a note hash, it must include the masked address in its last field.
-            // During the reset, the circuit clears the contract address for non-note logs that are properly masked.
-            if log.inner.note_hash_counter == 0 {
-                assert_eq(
-                    log.contract_address,
-                    AztecAddress::zero(),
-                    "not all private logs are checked in a reset",
-                );
-            }
+        let num_private_logs = array_length(self.previous_kernel.public_inputs.end.private_logs);
+        if num_private_logs != 0 {
+            let private_log =
+                self.previous_kernel.public_inputs.end.private_logs[num_private_logs - 1];
+            assert_eq(
+                private_log.contract_address,
+                AztecAddress::zero(),
+                "private logs have not been siloed in a reset",
+            );
         }
     }
 

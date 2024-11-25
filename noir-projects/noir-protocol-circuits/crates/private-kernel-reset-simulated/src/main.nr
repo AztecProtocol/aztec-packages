@@ -26,11 +26,15 @@ unconstrained fn main(
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     hints: PrivateKernelResetHints<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS, TRANSIENT_DATA_AMOUNT>,
 ) -> pub PrivateKernelCircuitPublicInputs {
-    let private_inputs: PrivateKernelResetCircuitPrivateInputs<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS, TRANSIENT_DATA_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT> = PrivateKernelResetCircuitPrivateInputs::new(
+    let private_inputs = PrivateKernelResetCircuitPrivateInputs::new(
         previous_kernel,
         previous_kernel_public_inputs,
         hints,
     );
-    private_inputs.execute(NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT)
+    private_inputs.execute(
+        NOTE_HASH_SILOING_AMOUNT,
+        NULLIFIER_SILOING_AMOUNT,
+        PRIVATE_LOG_SILOING_AMOUNT,
+    )
 }
 

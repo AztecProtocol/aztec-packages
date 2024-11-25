@@ -1,33 +1,43 @@
-pub(crate) mod assert_siloed_private_logs;
-
-use crate::components::{
-    reset_output_composer::ResetOutputHints,
-    reset_output_validator::assert_siloed_private_logs::assert_siloed_private_logs,
-};
+use crate::components::reset_output_composer::ResetOutputHints;
 use dep::reset_kernel_lib::{
     PrivateValidationRequestProcessor, TransientDataIndexHint, verify_squashed_transient_data,
 };
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
+        side_effect::scoped::Scoped,
     },
-    hash::{silo_note_hash, silo_nullifier},
+    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    hash::{compute_siloed_private_log_field, silo_note_hash, silo_nullifier},
     traits::is_empty,
     utils::arrays::assert_sorted_transformed_value_array_capped_size,
 };
 
-pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32> {
+fn is_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) -> bool {
+    let siloed_field =
+        compute_siloed_private_log_field(prev.contract_address, prev.inner.log.fields[0]);
+    let mut is_valid = (out.fields[0] == siloed_field) | prev.contract_address.is_zero();
+    for i in 1..PRIVATE_LOG_SIZE_IN_FIELDS {
+        is_valid &= out.fields[i] == prev.inner.log.fields[i];
+    }
+    is_valid
+}
+
+pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
     output: PrivateKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
     transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
-    hints: ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT>,
+    private_log_siloing_amount: u32,
+    hints: ResetOutputHints,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS, PRIVATE_LOG_SILOING_AMOUNT> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
     pub fn new(
         output: PrivateKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
@@ -35,7 +45,8 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
-        hints: ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT>,
+        private_log_siloing_amount: u32,
+        hints: ResetOutputHints,
     ) -> Self {
         ResetOutputValidator {
             output,
@@ -44,6 +55,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             transient_data_index_hints,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
+            private_log_siloing_amount,
             hints,
         }
     }
@@ -98,6 +110,11 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 self.previous_kernel.end.nullifiers,
                 "mismatch kept nullifiers",
             );
+            assert_eq(
+                self.hints.kept_private_logs,
+                self.previous_kernel.end.private_logs,
+                "mismatch kept private logs",
+            );
         } else {
             verify_squashed_transient_data(
                 self.previous_kernel.end.note_hashes,
@@ -137,14 +154,14 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         }
 
         // private_logs
-        if PRIVATE_LOG_SILOING_AMOUNT == 0 {
+        if self.private_log_siloing_amount == 0 {
             assert_eq(
                 self.output.end.private_logs,
-                self.previous_kernel.end.private_logs,
-                "output encrypted logs mismatch",
+                self.hints.kept_private_logs,
+                "output private logs mismatch",
             );
         } else {
-            self.validate_siloed_private_logs();
+            self.validate_sorted_siloed_private_logs();
         }
     }
 
@@ -206,11 +223,18 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         );
     }
 
-    fn validate_siloed_private_logs(self) {
-        assert_siloed_private_logs(
+    fn validate_sorted_siloed_private_logs(self) {
+        assert_sorted_transformed_value_array_capped_size(
             self.hints.kept_private_logs,
             self.output.end.private_logs,
-            self.hints.siloed_private_log_indexes,
+            |prev: Scoped<PrivateLogData>, out: Scoped<PrivateLogData>| {
+                is_valid_siloed_private_log(out.inner.log, prev)
+                    & (out.inner.note_hash_counter == prev.inner.note_hash_counter)
+                    & (out.inner.counter == prev.inner.counter)
+                    & out.contract_address.is_zero()
+            },
+            self.hints.sorted_private_log_indexes,
+            self.private_log_siloing_amount,
         );
     }
 }

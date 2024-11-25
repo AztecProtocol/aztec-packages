@@ -7,29 +7,31 @@ use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataInde
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
+        nullifier::ScopedNullifier, private_log::PrivateLogData, side_effect::scoped::Scoped,
     },
     address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
-    hash::{silo_note_hash, silo_nullifier},
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
+    hash::{compute_siloed_private_log_field, silo_note_hash, silo_nullifier},
     utils::arrays::sort_by_counter_asc,
 };
 
-pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32> {
+pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
     pub previous_kernel: PrivateKernelCircuitPublicInputs,
     pub validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
     pub note_hash_siloing_amount: u32,
     pub nullifier_siloing_amount: u32,
-    pub hints: ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT>,
+    pub private_log_siloing_amount: u32,
+    pub hints: ResetOutputHints,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, PRIVATE_LOG_SILOING_AMOUNT> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     pub unconstrained fn new<let TRANSIENT_DATA_AMOUNT: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
+        private_log_siloing_amount: u32,
     ) -> Self {
         let hints = generate_reset_output_hints(previous_kernel, transient_data_index_hints);
         ResetOutputComposer {
@@ -37,6 +39,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             validation_request_processor,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
+            private_log_siloing_amount,
             hints,
         }
     }
@@ -58,7 +61,11 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             self.get_sorted_siloed_nullifiers()
         };
 
-        output.end.private_logs = self.hints.processed_private_logs;
+        output.end.private_logs = if self.private_log_siloing_amount == 0 {
+            self.hints.kept_private_logs
+        } else {
+            self.get_sorted_siloed_private_logs()
+        };
 
         output
     }
@@ -85,4 +92,25 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         }
         nullifiers
     }
+
+    unconstrained fn get_sorted_siloed_private_logs(
+        self,
+    ) -> [Scoped<PrivateLogData>; MAX_PRIVATE_LOGS_PER_TX] {
+        let mut private_logs = sort_by_counter_asc(self.hints.kept_private_logs);
+        for i in 0..private_logs.len() {
+            private_logs[i].inner = silo_private_log(private_logs[i]);
+            // The following modifies self.hints.kept_private_logs :(
+            // private_logs[i].inner.log = silo_private_log(private_logs[i]);
+            private_logs[i].contract_address = AztecAddress::zero();
+        }
+        private_logs
+    }
+}
+
+fn silo_private_log(scoped: Scoped<PrivateLogData>) -> PrivateLogData {
+    let mut serialized = scoped.inner.serialize();
+    if !scoped.contract_address.is_zero() {
+        serialized[0] = compute_siloed_private_log_field(scoped.contract_address, serialized[0]);
+    }
+    PrivateLogData::deserialize(serialized)
 }

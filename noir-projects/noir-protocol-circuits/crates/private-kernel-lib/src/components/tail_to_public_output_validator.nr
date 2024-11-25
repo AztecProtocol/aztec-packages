@@ -14,7 +14,7 @@ use dep::types::{
         log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-        private_log::PrivateLogData,
+        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
         side_effect::{Counted, scoped::Scoped},
     },
@@ -88,6 +88,15 @@ impl TailToPublicOutputValidator {
             |prev: ScopedNullifier, out: Field| out == prev.nullifier.value,
             split_counter,
         );
+
+        // private_logs
+        assert_split_transformed_value_arrays(
+            prev_data.private_logs,
+            output_non_revertible.private_logs,
+            output_revertible.private_logs,
+            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
+            split_counter,
+        );
     }
 
     fn validate_propagated_sorted_values(self) {
@@ -105,16 +114,6 @@ impl TailToPublicOutputValidator {
             output_non_revertible.l2_to_l1_msgs,
             output_revertible.l2_to_l1_msgs,
             hints.sorted_l2_to_l1_msg_hints,
-        );
-
-        // private_logs
-        assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.private_logs,
-            prev_data.private_logs.map(|l: Scoped<PrivateLogData>| l.inner.log),
-            split_counter,
-            output_non_revertible.private_logs,
-            output_revertible.private_logs,
-            hints.sorted_private_log_hints,
         );
 
         // contract_class_logs_hashes

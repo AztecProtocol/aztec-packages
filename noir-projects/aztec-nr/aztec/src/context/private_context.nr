@@ -41,19 +41,10 @@ use dep::protocol_types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
     },
-    hash::mask_private_log_address,
     header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
-    utils::arrays::array_concat,
 };
-
-unconstrained fn mask_private_log_address_unconstrained(
-    contract_address: AztecAddress,
-    randomness: Field,
-) -> Field {
-    mask_private_log_address(contract_address, randomness)
-}
 
 // When finished, one can call .finish() to convert back to the abi
 pub struct PrivateContext {
@@ -312,24 +303,9 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    // NB: A randomness value of 0 signals that the kernels should not mask the contract address
-    // used in siloing later on e.g. 'handshaking' contract w/ known address.
-    pub fn emit_raw_event_log_with_masked_address(
-        &mut self,
-        log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS - 1],
-        randomness: Field,
-    ) {
+    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS]) {
         let counter = self.next_counter();
-        let contract_address = self.this_address();
-
-        // Computing the masked address doesn't have to be constrained here.
-        // The kernel circuit will compute it and check that the value is correct.
-        let masked_address =
-            unsafe { mask_private_log_address_unconstrained(contract_address, randomness) };
-
-        let log_fields = array_concat(log, [masked_address]);
-        let private_log =
-            PrivateLogData { log: Log::new(log_fields), note_hash_counter: 0, randomness, counter };
+        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter: 0, counter };
         self.private_logs.push(private_log);
     }
 
@@ -339,8 +315,7 @@ impl PrivateContext {
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let private_log =
-            PrivateLogData { log: Log::new(log), note_hash_counter, randomness: 0, counter };
+        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter, counter };
         self.private_logs.push(private_log);
     }
 

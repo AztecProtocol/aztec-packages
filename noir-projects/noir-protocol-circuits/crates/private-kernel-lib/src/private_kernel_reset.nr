@@ -24,12 +24,12 @@ pub struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u3
     validation_requests_split_counter: u32,
 }
 
-pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32> {
+pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     previous_kernel: PrivateKernelData,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT>,
 }
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32, let PRIVATE_LOG_SILOING_AMOUNT: u32> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> {
     pub fn new(
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
@@ -46,13 +46,15 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
-    ) -> (PrivateKernelCircuitPublicInputs, ResetOutputHints<PRIVATE_LOG_SILOING_AMOUNT>) {
+        private_log_siloing_amount: u32,
+    ) -> (PrivateKernelCircuitPublicInputs, ResetOutputHints) {
         let composer = ResetOutputComposer::new(
             self.previous_kernel.public_inputs,
             validation_request_processor,
             self.hints.transient_data_index_hints,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
+            private_log_siloing_amount,
         );
         (composer.finish(), composer.hints)
     }
@@ -61,6 +63,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         self,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
+        private_log_siloing_amount: u32,
     ) -> PrivateKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
         let validation_request_processor = PrivateValidationRequestProcessor {
@@ -93,6 +96,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 validation_request_processor,
                 note_hash_siloing_amount,
                 nullifier_siloing_amount,
+                private_log_siloing_amount,
             )
         };
 
@@ -109,6 +113,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 self.hints.transient_data_index_hints,
                 note_hash_siloing_amount,
                 nullifier_siloing_amount,
+                private_log_siloing_amount,
                 output_hints,
             )
                 .validate();
@@ -137,9 +142,10 @@ mod tests {
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
+            private_log::PrivateLogData, side_effect::scoped::Scoped,
         },
         address::AztecAddress,
-        hash::{silo_note_hash, silo_nullifier},
+        hash::{silo_note_hash, silo_nullifier, silo_private_log},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
         traits::is_empty_array,
@@ -162,12 +168,13 @@ mod tests {
 
     struct PrivateKernelResetInputsBuilder {
         previous_kernel: FixtureBuilder,
-        transient_data_index_hints: [TransientDataIndexHint; 6],
+        transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT>,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT>,
         validation_requests_split_counter: u32,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
+        private_log_siloing_amount: u32,
     }
 
     impl PrivateKernelResetInputsBuilder {
@@ -186,12 +193,14 @@ mod tests {
                     validation_requests_split_counter: 0,
                     note_hash_siloing_amount: 0,
                     nullifier_siloing_amount: 0,
+                    private_log_siloing_amount: 0,
                 }
             }
 
         pub fn with_siloing(&mut self) -> Self {
             self.note_hash_siloing_amount = NOTE_HASH_SILOING_AMOUNT;
             self.nullifier_siloing_amount = NULLIFIER_SILOING_AMOUNT;
+            self.private_log_siloing_amount = PRIVATE_LOG_SILOING_AMOUNT;
             *self
         }
 
@@ -256,6 +265,18 @@ mod tests {
             output
         }
 
+        pub fn compute_output_private_logs<let N: u32>(
+            _self: Self,
+            private_logs: [Scoped<PrivateLogData>; N],
+        ) -> [Scoped<PrivateLogData>; N] {
+            let mut output = private_logs;
+            for i in 0..N {
+                output[i].inner.log = silo_private_log(output[i]);
+                output[i].contract_address = AztecAddress::zero();
+            }
+            output
+        }
+
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
             let note_hash_read_request_hints =
                 unsafe { self.note_hash_read_request_hints_builder.to_hints() };
@@ -265,17 +286,21 @@ mod tests {
                 note_hash_read_request_hints,
                 nullifier_read_request_hints,
                 key_validation_hints: [
-                    KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); 2
+                    KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); NULLIFIER_KEYS
                 ],
                 transient_data_index_hints: self.transient_data_index_hints,
                 validation_requests_split_counter: self.validation_requests_split_counter,
             };
 
-            let kernel: PrivateKernelResetCircuitPrivateInputs<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS, TRANSIENT_DATA_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT> = PrivateKernelResetCircuitPrivateInputs {
+            let kernel = PrivateKernelResetCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
                 hints,
             };
-            kernel.execute(self.note_hash_siloing_amount, self.nullifier_siloing_amount)
+            kernel.execute(
+                self.note_hash_siloing_amount,
+                self.nullifier_siloing_amount,
+                self.private_log_siloing_amount,
+            )
         }
 
         pub fn failed(&mut self) {
@@ -443,7 +468,7 @@ mod tests {
         builder.nullify_pending_note_hash(1, 0);
         let note_hashes = builder.previous_kernel.note_hashes.storage();
         let nullifiers = builder.previous_kernel.nullifiers.storage();
-        let note_logs = builder.previous_kernel.private_logs.storage();
+        let private_logs = builder.previous_kernel.private_logs.storage();
         let public_inputs = builder.execute();
 
         // The 0th hash is chopped.
@@ -452,8 +477,8 @@ mod tests {
         // The nullifier at index 1 is chopped.
         assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]);
 
-        // The 0th note log is chopped.
-        assert_array_eq(public_inputs.end.private_logs, [note_logs[1]]);
+        // The 0th log is chopped.
+        assert_array_eq(public_inputs.end.private_logs, [private_logs[1]]);
     }
 
     #[test]
@@ -553,9 +578,9 @@ mod tests {
         let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
 
         builder.previous_kernel.append_note_hashes_with_logs(1);
-        builder.previous_kernel.append_private_logs_for_non_note(1); // Log at index 1 is a non-note log.
+        builder.previous_kernel.append_private_logs(1); // Log at index 1 is a non-note log.
         builder.previous_kernel.append_note_hashes_with_logs(2);
-        builder.previous_kernel.append_private_logs_for_non_note(1); // Log at index 4 is a non-note log.
+        builder.previous_kernel.append_private_logs(1); // Log at index 4 is a non-note log.
         builder.previous_kernel.append_note_hashes(1);
         builder.previous_kernel.append_nullifiers(3);
         // The nullifier at index 2 is nullifying a note hash that doesn't exist yet.
@@ -568,6 +593,7 @@ mod tests {
         swap_items(&mut builder.previous_kernel.note_hashes, 1, 0);
         swap_items(&mut builder.previous_kernel.note_hashes, 3, 2);
         swap_items(&mut builder.previous_kernel.nullifiers, 2, 3);
+        swap_items(&mut builder.previous_kernel.private_logs, 1, 2);
         // The nullifier at index 1 is nullifying the note hash at index 2 (original index 2).
         builder.nullify_pending_note_hash(1, 3);
 
@@ -584,13 +610,12 @@ mod tests {
         assert_array_eq(public_inputs.end.nullifiers, output_nullifiers);
 
         // The note log at index 3 is chopped.
-        // The non-note log at index 1 and 4 have been checked and their contract address is cleared.
-        let output_logs = [
+        let output_logs = builder.compute_output_private_logs([
             private_logs[0],
-            private_logs[1].inner.scope(AztecAddress::empty()),
+            private_logs[1],
             private_logs[2],
-            private_logs[4].inner.scope(AztecAddress::empty()),
-        ];
+            private_logs[4],
+        ]);
         assert_array_eq(public_inputs.end.private_logs, output_logs);
     }
 

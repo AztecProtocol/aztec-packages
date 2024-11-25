@@ -114,8 +114,7 @@ contract ContractInstanceDeployer {
         let payload = event.serialize();
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
-        let padded_log = array_concat(payload, [0; 2]);
-        let randomness = 0;
-        context.emit_raw_event_log_with_masked_address(padded_log, randomness);
+        let padded_log = array_concat(payload, [0; 3]);
+        context.emit_private_log(padded_log);
     }
 }

@@ -75,11 +75,11 @@ pub struct PrivateCircuitPublicInputs {
     pub public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_CALL],
     pub public_teardown_call_request: PublicCallRequest,
     pub l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub private_logs: [PrivateLogData; MAX_PRIVATE_LOGS_PER_CALL],
+    pub contract_class_logs_hashes: [LogHash; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
 
     pub start_side_effect_counter: u32,
     pub end_side_effect_counter: u32,
-    pub private_logs: [PrivateLogData; MAX_PRIVATE_LOGS_PER_CALL],
-    pub contract_class_logs_hashes: [LogHash; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub historical_header: Header,
@@ -109,10 +109,10 @@ impl Eq for PrivateCircuitPublicInputs {
             & (self.private_call_requests == other.private_call_requests)
             & (self.public_call_requests == other.public_call_requests)
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.start_side_effect_counter == other.start_side_effect_counter)
-            & (self.end_side_effect_counter == other.end_side_effect_counter)
             & (self.private_logs == other.private_logs)
             & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
+            & (self.start_side_effect_counter == other.start_side_effect_counter)
+            & (self.end_side_effect_counter == other.end_side_effect_counter)
             & self.historical_header.eq(other.historical_header)
             & self.tx_context.eq(other.tx_context)
     }
@@ -155,14 +155,14 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         for i in 0..self.l2_to_l1_msgs.len() {
             fields.extend_from_array(self.l2_to_l1_msgs[i].serialize());
         }
-        fields.push(self.start_side_effect_counter as Field);
-        fields.push(self.end_side_effect_counter as Field);
         for i in 0..self.private_logs.len() {
             fields.extend_from_array(self.private_logs[i].serialize());
         }
         for i in 0..self.contract_class_logs_hashes.len() {
             fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
         }
+        fields.push(self.start_side_effect_counter as Field);
+        fields.push(self.end_side_effect_counter as Field);
         fields.extend_from_array(self.historical_header.serialize());
         fields.extend_from_array(self.tx_context.serialize());
 
@@ -216,8 +216,6 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
                 L2ToL1Message::deserialize,
                 [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
             ),
-            start_side_effect_counter: reader.read() as u32,
-            end_side_effect_counter: reader.read() as u32,
             private_logs: reader.read_struct_array(
                 PrivateLogData::deserialize,
                 [PrivateLogData::empty(); MAX_PRIVATE_LOGS_PER_CALL],
@@ -226,6 +224,8 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
                 LogHash::deserialize,
                 [LogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
             ),
+            start_side_effect_counter: reader.read() as u32,
+            end_side_effect_counter: reader.read() as u32,
             historical_header: reader.read_struct(Header::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
         };
@@ -257,10 +257,10 @@ impl Empty for PrivateCircuitPublicInputs {
             public_call_requests: [Counted::empty(); MAX_ENQUEUED_CALLS_PER_CALL],
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
-            start_side_effect_counter: 0 as u32,
-            end_side_effect_counter: 0 as u32,
             private_logs: [PrivateLogData::empty(); MAX_PRIVATE_LOGS_PER_CALL],
             contract_class_logs_hashes: [LogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+            start_side_effect_counter: 0 as u32,
+            end_side_effect_counter: 0 as u32,
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
         }

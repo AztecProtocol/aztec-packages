@@ -1,10 +1,11 @@
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, MAX_PRIVATE_LOG_SIZE_IN_BYTES},
+    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_FIELDS},
     hash::poseidon2_hash_with_separator,
     point::Point,
     public_keys::{AddressPoint, OvpkM},
     scalar::Scalar,
+    utils::arrays::array_concat,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -15,38 +16,36 @@ use crate::{
     encrypted_logs::header::EncryptedLogHeader,
     keys::point_to_symmetric_key::point_to_symmetric_key,
     oracle::{
-        notes::{get_app_tag_bytes_as_sender, increment_app_tagging_secret_index_as_sender},
+        notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random,
     },
-    utils::point::point_to_bytes,
+    utils::{bytes::bytes_to_fields, point::point_to_bytes},
 };
+
+// 1 field is reserved for tag.
+global ENCRYPTED_PAYLOAD_SIZE_IN_BYTES: u32 = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
 
 comptime global HEADER_SIZE: u32 = 48;
 
 comptime global OUTGOING_BODY_SIZE: u32 = 112;
 
 // Bytes padded to the overhead, so that the size of the incoming body ciphertext will be a multiple of 16.
-comptime global OVERHEAD_PADDING: u32 = 14;
+comptime global OVERHEAD_PADDING: u32 = 15;
 
-pub comptime global PRIVATE_LOG_OVERHEAD_IN_BYTES: u32 = 32 /* incoming_tag */
-    + 32 /* eph_pk */
+pub comptime global OVERHEAD_SIZE: u32 = 32 /* eph_pk */
     + HEADER_SIZE /* incoming_header */
     + HEADER_SIZE /* outgoing_header */
     + OUTGOING_BODY_SIZE /* outgoing_body */
     + OVERHEAD_PADDING /* padding */;
 
-global PLAINTEXT_SIZE_LENGTH = 2;
+global PLAINTEXT_LENGTH_SIZE = 2;
 
-// 1 byte for storage slot, 1 byte for note type id, allowing 6 bytes for custom note fields.
-global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = MAX_PRIVATE_LOG_SIZE_IN_BYTES
-    - PRIVATE_LOG_OVERHEAD_IN_BYTES
-    - PLAINTEXT_SIZE_LENGTH
-    - 1 /* aes padding */;
+// This is enough for 8 fields of data.
+// 1 field for storage slot, 1 field for note/event type id, allowing 6 fields for custom values.
+global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 =
+    ENCRYPTED_PAYLOAD_SIZE_IN_BYTES - OVERHEAD_SIZE - PLAINTEXT_LENGTH_SIZE - 1 /* aes padding */;
 
-global MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 =
-    MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES - 32; // Reserve 1 field for address tag.
-
-// Note: Update PRIVATE_LOG_SIZE_IN_BYTES in `constants.nr` if any of the above fields change.
+// Note: Might have to update PRIVATE_LOG_SIZE_IN_FIELDS in `constants.nr` if the above changes.
 // This value ideally should be set by the protocol, allowing users (or `aztec-nr`) to fit data within the defined size limits.
 // Currently, we adjust this value as the structure changes, then update `constants.nr` to match.
 // Once the structure is finalized with defined overhead and max note field sizes, this value will be fixed and should remain unaffected by further payload composition changes.
@@ -58,45 +57,29 @@ pub fn compute_private_log_payload<let P: u32>(
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
-) -> [u8; MAX_PRIVATE_LOG_SIZE_IN_BYTES] {
+) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
     assert(
         P < MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES,
         f"plaintext for log must not exceed {MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES}",
     );
-    let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_SIZE_LENGTH] =
-        extend_private_log_plaintext(plaintext);
-    compute_encrypted_log(
-        contract_address,
-        ovsk_app,
-        ovpk,
-        recipient,
-        sender,
-        extended_plaintext,
-    )
-}
 
-pub fn compute_event_log_payload<let P: u32>(
-    contract_address: AztecAddress,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    recipient: AztecAddress,
-    sender: AztecAddress,
-    plaintext: [u8; P],
-) -> [u8; MAX_PRIVATE_LOG_SIZE_IN_BYTES - 32] {
-    assert(
-        P < MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES,
-        f"plaintext for event log must not exceed {MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES}",
-    );
-    let extended_plaintext: [u8; MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_SIZE_LENGTH] =
+    let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
-    compute_encrypted_log(
+    let encrypted: [u8; ENCRYPTED_PAYLOAD_SIZE_IN_BYTES] = compute_encrypted_log(
         contract_address,
         ovsk_app,
         ovpk,
         recipient,
-        sender,
         extended_plaintext,
-    )
+    );
+
+    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
+    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
+    // automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
+
+    array_concat([tag], bytes_to_fields(encrypted))
 }
 
 pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
@@ -107,16 +90,33 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
-    let extended_plaintext: [u8; P + PLAINTEXT_SIZE_LENGTH] =
+    let extended_plaintext: [u8; P + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
-    compute_encrypted_log(
+    let encrypted: [u8; M - 32] = compute_encrypted_log(
         contract_address,
         ovsk_app,
         ovpk,
         recipient,
-        sender,
         extended_plaintext,
-    )
+    );
+
+    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
+    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
+    // automatically.
+    let tag_bytes: [u8; 32] = unsafe { get_app_tag_as_sender(sender, recipient).to_be_bytes() };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
+
+    // Temporary hack so that the partial public log remains the same format.
+    // It should return field array and make the tag the first field as compute_private_log_payload does.
+    let mut log_bytes = [0; M];
+    for i in 0..32 {
+        log_bytes[i] = tag_bytes[i];
+    }
+    for i in 0..encrypted.len() {
+        log_bytes[i + 32] = encrypted[i];
+    }
+
+    log_bytes
 }
 
 fn compute_encrypted_log<let P: u32, let M: u32>(
@@ -124,7 +124,6 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
-    sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
     let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
@@ -142,17 +141,6 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let mut encrypted_bytes = [0; M];
     let mut offset = 0;
 
-    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
-    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
-    // automatically.
-    let tag_bytes = unsafe { get_app_tag_bytes_as_sender(sender, recipient) };
-    increment_app_tagging_secret_index_as_sender(sender, recipient);
-
-    for i in 0..32 {
-        encrypted_bytes[offset + i] = tag_bytes[i];
-    }
-    offset += 32;
-
     // eph_pk
     let eph_pk_bytes = point_to_bytes(eph_pk);
     for i in 0..32 {
@@ -164,7 +152,7 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     // outgoing_header
     for i in 0..HEADER_SIZE {
         encrypted_bytes[offset + i] = incoming_header_ciphertext[i];
-        encrypted_bytes[offset + 48 + i] = outgoing_header_ciphertext[i];
+        encrypted_bytes[offset + HEADER_SIZE + i] = outgoing_header_ciphertext[i];
     }
     offset += HEADER_SIZE * 2;
 
@@ -195,7 +183,7 @@ fn extend_private_log_plaintext<let P: u32, let N: u32>(plaintext: [u8; P]) -> [
     padded[0] = (P >> 8) as u8;
     padded[1] = P as u8;
     for i in 0..P {
-        padded[i + PLAINTEXT_SIZE_LENGTH] = plaintext[i];
+        padded[i + PLAINTEXT_LENGTH_SIZE] = plaintext[i];
     }
     padded
 }
@@ -356,7 +344,7 @@ mod test {
 
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
-        let log = compute_private_log_payload(
+        let payload = compute_private_log_payload(
             contract_address,
             ovsk_app,
             ovpk_m,
@@ -367,39 +355,28 @@ mod test {
 
         // The following value was generated by `encrypted_log_payload.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
-        let encrypted_log_from_typescript = [
-            14, 156, 255, 195, 221, 215, 70, 175, 251, 2, 65, 13, 143, 10, 130, 62, 137, 147, 151,
-            133, 188, 200, 232, 142, 228, 243, 202, 224, 94, 115, 124, 54, 141, 70, 12, 14, 67, 77,
-            132, 110, 193, 234, 40, 110, 64, 144, 235, 86, 55, 111, 242, 123, 221, 193, 170, 202,
-            225, 216, 86, 84, 159, 112, 31, 167, 5, 119, 121, 10, 234, 188, 194, 216, 30, 200, 208,
-            201, 158, 127, 93, 43, 242, 241, 69, 32, 37, 220, 119, 122, 23, 132, 4, 248, 81, 217,
-            61, 232, 24, 146, 63, 133, 24, 120, 113, 217, 155, 223, 149, 214, 149, 239, 240, 169,
-            224, 155, 161, 81, 83, 252, 155, 77, 34, 75, 110, 30, 113, 223, 189, 202, 171, 6, 192,
-            157, 91, 60, 116, 155, 254, 190, 28, 4, 7, 236, 205, 4, 245, 27, 187, 89, 20, 38, 128,
-            200, 160, 145, 185, 127, 198, 203, 207, 97, 93, 239, 89, 58, 176, 158, 91, 63, 127, 88,
-            246, 252, 35, 92, 144, 231, 199, 126, 216, 218, 219, 59, 5, 238, 69, 69, 167, 188, 97,
-            44, 145, 57, 71, 95, 238, 96, 112, 190, 71, 239, 204, 67, 165, 203, 188, 135, 54, 50,
-            241, 66, 143, 172, 149, 45, 249, 193, 129, 219, 95, 158, 133, 11, 33, 254, 17, 254, 222,
-            243, 123, 136, 202, 238, 149, 17, 27, 206, 119, 110, 72, 141, 242, 25, 115, 45, 10, 119,
-            209, 146, 1, 112, 71, 24, 111, 65, 68, 94, 205, 92, 96, 52, 135, 247, 251, 60, 143, 49,
-            1, 10, 34, 175, 105, 206, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 166, 0, 166, 31,
-            125, 89, 238, 175, 82, 235, 81, 188, 5, 146, 255, 152, 29, 155, 163, 234, 142, 110, 168,
-            186, 157, 192, 206, 200, 199, 11, 129, 232, 69, 86, 167, 124, 230, 195, 202, 71, 165,
-            39, 249, 159, 254, 123, 37, 36, 187, 136, 90, 35, 2, 11, 114, 149, 116, 138, 209, 156,
-            16, 131, 97, 138, 217, 98, 152, 183, 110, 224, 126, 177, 165, 109, 25, 204, 121, 135,
-            16, 233, 245, 222, 150, 80, 27, 213, 155, 55, 129, 201, 192, 42, 108, 149, 197, 145, 47,
-            137, 54, 177, 80, 13, 54, 42, 251, 240, 146, 44, 133, 177, 173, 161, 141, 184, 185, 81,
-            98, 166, 233, 208, 103, 101, 92, 223, 102, 158, 179, 135, 248, 224, 73, 42, 149, 253,
-            205, 179, 148, 41, 213, 52, 11, 75, 235, 194, 80, 186, 155, 246, 44, 47, 73, 245, 73,
-            243, 123, 238, 215, 90, 102, 138, 165, 25, 103, 224, 229, 117, 71, 229, 166, 85, 21,
-            123, 207, 56, 30, 34, 243, 14, 37, 136, 21, 72, 236, 150, 6, 161, 81, 181, 251, 251, 45,
-            20, 238, 75, 52, 191, 76, 29, 189, 113, 199, 190, 21, 173, 76, 99, 71, 75, 182, 248,
-            153, 112, 174, 179, 217, 72, 156, 142, 219, 223, 248, 10, 26, 58, 92, 40, 55, 14, 83,
-            74, 188, 135, 10, 133, 234, 67, 24, 50, 110, 161, 146, 34, 251, 16, 223, 53, 140, 118,
-            94, 218, 218, 73, 125, 180, 40, 74, 227, 5, 7, 162, 224, 62, 152, 61, 35, 207, 160, 189,
-            131, 21, 119, 232,
+        let private_log_payload_from_typescript = [
+            0x0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c36,
+            0x008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701f,
+            0x00a70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d9,
+            0x003de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71,
+            0x00dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97f,
+            0x00c6cbcf615def593ab09e5b3f7f58f6fc235c90e7c77ed8dadb3b05ee4545a7,
+            0x00bc612c9139475fee6070be47efcc43a5cbbc873632f1428fac952df9c181db,
+            0x005f9e850b21fe11fedef37b88caee95111bce776e488df219732d0a77d19201,
+            0x007047186f41445ecd5c603487f7fb3c8f31010a22af69ce0000000000000000,
+            0x0000000000000000a600a61f7d59eeaf52eb51bc0592ff981d9ba3ea8e6ea8ba,
+            0x009dc0cec8c70b81e84556a77ce6c3ca47a527f99ffe7b2524bb885a23020b72,
+            0x0095748ad19c1083618ad96298b76ee07eb1a56d19cc798710e9f5de96501bd5,
+            0x009b3781c9c02a6c95c5912f8936b1500d362afbf0922c85b1ada18db8b95162,
+            0x00a6e9d067655cdf669eb387f8e0492a95fdcdb39429d5340b4bebc250ba9bf6,
+            0x002c2f49f549f37beed75a668aa51967e0e57547e5a655157bcf381e22f30e25,
+            0x00881548ec9606a151b5fbfb2d14ee4b34bf4c1dbd71c7be15ad4c63474bb6f8,
+            0x009970aeb3d9489c8edbdff80a1a3a5c28370e534abc870a85ea4318326ea192,
+            0x0022fb10df358c765edada497db4284ae30507a2e03e983d23cfa0bd831577e8,
         ];
-        assert_eq(encrypted_log_from_typescript, log);
+
+        assert_eq(payload, private_log_payload_from_typescript);
     }
 
     #[test]

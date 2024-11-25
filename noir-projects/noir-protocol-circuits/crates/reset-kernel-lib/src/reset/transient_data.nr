@@ -129,11 +129,11 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
 
         let expected_log = expected_logs[expected_index];
         if is_propagated {
-            assert_eq(expected_log, log, "Propagated note log does not match");
+            assert_eq(expected_log, log, "Propagated private log does not match");
             logs_propagated += 1;
         } else {
-            // Log being squshed must be linked to a note hash that's been squashed.
-            // The note hash's index should exist in transient_data_index_hints.
+            // Log being squashed must be linked to a note hash that's been squashed.
+            // The linked note hash's index should exist in transient_data_index_hints.
             let hint = transient_data_index_hints[hint_index];
             let transient_note_hash = note_hashes[hint.note_hash_index];
             assert_eq(
@@ -258,27 +258,13 @@ mod tests {
 
             let logs = pad_end(
                 [
-                    PrivateLogData {
-                        log: mock_log(77),
-                        counter: 700,
-                        randomness: 0,
-                        note_hash_counter: 100,
-                    }
+                    PrivateLogData { log: mock_log(77), counter: 700, note_hash_counter: 100 }
                         .scope(contract_address),
-                    PrivateLogData {
-                        log: mock_log(88),
-                        counter: 800,
-                        randomness: 1,
-                        note_hash_counter: 200,
-                    }
+                    PrivateLogData { log: mock_log(88), counter: 800, note_hash_counter: 200 }
                         .scope(contract_address),
-                    PrivateLogData {
-                        log: mock_log(99),
-                        counter: 900,
-                        randomness: 2,
-                        note_hash_counter: 0,
-                    }
-                        .scope(contract_address),
+                    PrivateLogData { log: mock_log(99), counter: 900, note_hash_counter: 0 }.scope(
+                        contract_address,
+                    ),
                 ],
                 Scoped::empty(),
             );
@@ -330,34 +316,18 @@ mod tests {
 
             // tests removing two logs for one note hash
             let logs = [
-                PrivateLogData {
-                    log: mock_log(77),
-                    counter: 700,
-                    randomness: 0,
-                    note_hash_counter: 100,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(88),
-                    counter: 800,
-                    randomness: 0,
-                    note_hash_counter: 300,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(99),
-                    counter: 900,
-                    randomness: 0,
-                    note_hash_counter: 200,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(111),
-                    counter: 1000,
-                    randomness: 0,
-                    note_hash_counter: 300,
-                }
-                    .scope(contract_address),
+                PrivateLogData { log: mock_log(77), counter: 700, note_hash_counter: 100 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(88), counter: 800, note_hash_counter: 300 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(99), counter: 900, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(111), counter: 1000, note_hash_counter: 300 }.scope(
+                    contract_address,
+                ),
             ];
 
             let expected_note_hashes = [ScopedNoteHash::empty(); 3];
@@ -400,41 +370,21 @@ mod tests {
             ];
 
             let logs = [
-                PrivateLogData {
-                    log: mock_log(77),
-                    counter: 701,
-                    randomness: 0,
-                    note_hash_counter: 200,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(88),
-                    counter: 800,
-                    randomness: 0,
-                    note_hash_counter: 0,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(77),
-                    counter: 702,
-                    randomness: 0,
-                    note_hash_counter: 200,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(99),
-                    counter: 900,
-                    randomness: 0,
-                    note_hash_counter: 600,
-                }
-                    .scope(contract_address),
-                PrivateLogData {
-                    log: mock_log(77),
-                    counter: 703,
-                    randomness: 0,
-                    note_hash_counter: 200,
-                }
-                    .scope(contract_address),
+                PrivateLogData { log: mock_log(77), counter: 701, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(88), counter: 800, note_hash_counter: 0 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(77), counter: 702, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(99), counter: 900, note_hash_counter: 600 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(77), counter: 703, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
             ];
 
             let expected_note_hashes =
@@ -757,7 +707,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with = "Propagated note log does not match")]
+    #[test(should_fail_with = "Propagated private log does not match")]
     fn fails_wrong_expected_log_value() {
         let mut builder = TestDataBuilder::new();
 
@@ -766,7 +716,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with = "Propagated note log does not match")]
+    #[test(should_fail_with = "Propagated private log does not match")]
     fn fails_wrong_expected_log_counter() {
         let mut builder = TestDataBuilder::new();
 
