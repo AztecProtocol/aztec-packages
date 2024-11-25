@@ -575,7 +575,9 @@ fn simplify_black_box_func(
         BlackBoxFunc::MultiScalarMul => {
             blackbox::simplify_msm(dfg, solver, arguments, block, call_stack)
         }
-        BlackBoxFunc::EmbeddedCurveAdd => blackbox::simplify_ec_add(dfg, solver, arguments),
+        BlackBoxFunc::EmbeddedCurveAdd => {
+            blackbox::simplify_ec_add(dfg, solver, arguments, block, call_stack)
+        }
 
         BlackBoxFunc::BigIntAdd
         | BlackBoxFunc::BigIntSub
