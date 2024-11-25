@@ -6,6 +6,11 @@ on:
       - master
   pull_request:
 
+concurrency:
+  # force parallelism in master
+  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
