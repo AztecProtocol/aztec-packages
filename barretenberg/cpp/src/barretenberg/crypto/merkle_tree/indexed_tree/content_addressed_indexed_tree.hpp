@@ -794,6 +794,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
     workers_->enqueue([=, this]() { generate_insertions(values_to_be_sorted, insertion_generation_completed); });
 }
 
+// Performs a number of leaf updates in the tree, fetching witnesses for the updates in the order they've been applied,
+// with the caveat that all nodes fetched need to be in the cache. Otherwise, they'll be assumed to be empty,
+// potentially erasing part of the tree. This function won't fetch nodes from DB.
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
     size_t total_leaves, std::shared_ptr<std::vector<LeafUpdate>> updates, const UpdatesCompletionCallback& completion)
@@ -905,6 +908,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
     }
 }
 
+// Performs a number of leaf updates in the tree, with the caveat that all nodes fetched need to be in the cache
+// Otherwise, they'll be assumed to be empty, potentially erasing part of the tree. This function won't fetch nodes from
+// DB.
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates_without_witness(
     const index_t& highest_index,
@@ -1527,9 +1533,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
             }
             // The highest index touched will be the last leaf index, since we append a zero for updates
             response.inner.highest_index = new_total_size - 1;
-            // TODO(Alvaro) Document why we're caching the tree frontier here
+            requestContext.root = store_->get_current_root(*tx, true);
+            // Fetch the frontier (non empty nodes to the right) of the tree. This will ensure that perform_updates or
+            // perform_updates_without_witness has all the cached nodes it needs to perform the insertions. See comment
+            // above those functions.
             if (meta.size > 0) {
-                requestContext.root = store_->get_current_root(*tx, true);
                 find_leaf_hash(meta.size - 1, requestContext, *tx, true);
             }
 
@@ -1546,7 +1554,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                 index_t low_leaf_index = 0;
                 bool is_already_present = false;
 
-                requestContext.root = store_->get_current_root(*tx, true);
                 std::tie(is_already_present, low_leaf_index) =
                     store_->find_low_value(new_payload.get_key(), requestContext, *tx);
 
