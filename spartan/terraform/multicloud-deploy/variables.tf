@@ -19,5 +19,17 @@ variable "testnet_name" {
 variable "values-file" {
   description = "Name of the values file to use for deployment"
   type        = string
-  default     = "multicloud-demo.yaml"
+  default     = "16-validators.yaml"
+}
+
+variable "image" {
+  description = "Aztec node image"
+  type        = string
+  default     = "aztecprotocol/aztec:master"
+}
+
+variable "telemetry" {
+  description = "Toogle telemetry on/off"
+  type        = bool
+  default     = false
 }

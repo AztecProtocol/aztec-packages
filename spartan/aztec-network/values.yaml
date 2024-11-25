@@ -94,6 +94,7 @@ validator:
     enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
@@ -205,6 +206,8 @@ proverAgent:
     nodePort: 8083
   enabled: true
   replicas: 1
+  gke:
+    spotEnabled: false
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
