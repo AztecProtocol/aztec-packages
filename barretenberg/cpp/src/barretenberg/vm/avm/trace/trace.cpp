@@ -1506,7 +1506,7 @@ RowWithError AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect,
                          .error = res_error };
 }
 
-AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
+AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint32_t dst_offset, uint8_t env_var)
 {
     if (env_var >= static_cast<int>(EnvironmentVariable::MAX_ENV_VAR)) {
         // Error, bad enum operand
@@ -2011,10 +2011,10 @@ AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
  *        Otherwise, program counter is incremented.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param jmp_dest The destination to jump to
  * @param cond_offset Offset of the condition
+ * @param jmp_dest The destination to jump to
  */
-AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset)
+AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t cond_offset, uint32_t jmp_dest)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -2170,12 +2170,11 @@ AvmError AvmTraceBuilder::op_internal_return()
  *        Therefore, no range check is required as part of this opcode relation.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param val The constant to be written upcasted to u128
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
 AvmError AvmTraceBuilder::op_set(
-    uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, OpCode op_code, bool skip_gas)
+    uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, OpCode op_code, bool skip_gas)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -2187,7 +2186,7 @@ AvmError AvmTraceBuilder::op_set(
     error = res_error;
 
     auto write_c = constrained_write_to_memory(
-        call_ptr, clk, resolved_dst_offset, val_ff, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
+        call_ptr, clk, resolved_dst_offset, val, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
 
     if (is_ok(error) && !write_c.tag_match) {
         error = AvmError::TAG_ERROR;
@@ -2920,7 +2919,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 }
 
 AvmError AvmTraceBuilder::op_get_contract_instance(
-    uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset)
+    uint8_t indirect, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset, uint8_t member_enum)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -3475,9 +3474,9 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
 AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
                                        uint32_t message_offset,
-                                       uint32_t message_size,
                                        uint32_t fields_offset,
-                                       uint32_t fields_size_offset)
+                                       uint32_t fields_size_offset,
+                                       uint32_t message_size)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
