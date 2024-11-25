@@ -30,6 +30,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
     "@aztec/bot": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",

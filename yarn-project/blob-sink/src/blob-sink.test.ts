@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import request from 'supertest';
 
-import { BlobSinkService } from './index.js';
+import { BlobSinkService } from './server.js';
 
 describe('BlobSinkService', () => {
   let service: BlobSinkService;

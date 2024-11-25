@@ -15,6 +15,7 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { BlobSinkService, createBlobSinkService } from '@aztec/blob-sink';
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -51,6 +52,7 @@ export type SubsystemsContext = {
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
   dateProvider: TestDateProvider;
+  blobSink: BlobSinkService;
 };
 
 type SnapshotEntry = {
@@ -250,6 +252,7 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.acvmConfig?.cleanup();
     await context.anvil.stop();
     await context.watcher.stop();
+    await context.blobSink.stop();
   } catch (err) {
     getLogger().error('Error during teardown', err);
   }
@@ -275,6 +278,17 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
+
+  // Setup blob sink service
+  const blobSink = await createBlobSinkService({
+    port: 5052,
+    dataStoreConfig: {
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+    },
+  });
+  await blobSink.start();
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -390,6 +404,7 @@ async function setupFromFresh(
     watcher,
     cheatCodes,
     dateProvider,
+    blobSink,
   };
 }
 
@@ -405,6 +420,16 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
+
+  // TODO(md): will this revive state???
+  const blobSink = await createBlobSinkService({
+    port: 5052,
+    dataStoreConfig: {
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+    },
+  });
+  await blobSink.start();
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const { anvil, rpcUrl } = await startAnvil();
@@ -473,6 +498,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     watcher,
     cheatCodes,
     dateProvider,
+    blobSink,
   };
 }
 

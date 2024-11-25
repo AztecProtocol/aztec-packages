@@ -28,7 +28,7 @@ export type PublisherConfig = L1TxUtilsConfig & {
   /**
    * The URL of the blob sink.
    */
-  blobSinkUrl: string | undefined;
+  blobSinkUrl?: string;
 };
 
 export const getTxSenderConfigMappings: (

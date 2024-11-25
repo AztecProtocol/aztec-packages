@@ -28,6 +28,8 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { createBlobSinkService } from '@aztec/blob-sink';
+import { BlobSinkService } from '@aztec/blob-sink';
 import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
@@ -227,6 +229,7 @@ async function setupWithRemoteEnvironment(
     cheatCodes,
     watcher: undefined,
     dateProvider: undefined,
+    blobSink: undefined,
     teardown,
   };
 }
@@ -283,6 +286,8 @@ export type EndToEndContext = {
   watcher: AnvilTestWatcher | undefined;
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
   dateProvider: TestDateProvider | undefined;
+  /** The blob sink (undefined if connected to remote environment) */
+  blobSink: BlobSinkService | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -359,6 +364,9 @@ export async function setup(
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
+
+  // Blob sink service - blobs get posted here and served from here
+  const blobSink = await createBlobSinkService();
 
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
@@ -457,6 +465,7 @@ export async function setup(
 
     await anvil?.stop();
     await watcher.stop();
+    await blobSink?.stop();
   };
 
   return {
@@ -472,6 +481,7 @@ export async function setup(
     sequencer,
     watcher,
     dateProvider,
+    blobSink,
     teardown,
   };
 }
