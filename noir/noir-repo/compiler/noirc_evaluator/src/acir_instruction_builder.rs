@@ -1,9 +1,18 @@
 use std::collections::BTreeSet;
+<<<<<<< HEAD
+=======
+use flate2::read::GzDecoder;
+use std::io::Read;
+>>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 use acvm::{
     acir::{
         circuit::{
             Circuit, ExpressionWidth,
+<<<<<<< HEAD
             Program as AcirProgram
+=======
+            Program as AcirProgram, PublicInputs,
+>>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
         },
         native_types::Witness,
     },
@@ -20,6 +29,16 @@ use crate::ssa::{
 use crate::brillig::Brillig;
 use serde::{Deserialize, Serialize};
 
+<<<<<<< HEAD
+=======
+fn ungzip(compressed_data: Vec<u8>) -> Vec<u8> {
+    let mut decompressed_data: Vec<u8> = Vec::new();
+    let mut decoder = GzDecoder::new(&compressed_data[..]);   
+    decoder.read_to_end(&mut decompressed_data).unwrap();
+    return decompressed_data;
+}
+
+>>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 #[derive(Serialize, Deserialize)]
 pub struct InstructionArtifacts {
     // name of used instruction
@@ -31,7 +50,11 @@ pub struct InstructionArtifacts {
     // serde_json serialized ssa
     pub serialized_ssa: String,
 
+<<<<<<< HEAD
     // bytes of acir program. Gzipped!!
+=======
+    // bytes of acir program. Ungzipped!!
+>>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
     pub serialized_acir: Vec<u8>,
 }
 
@@ -48,7 +71,11 @@ impl InstructionArtifacts {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
+<<<<<<< HEAD
             serialized_acir: serialized_program
+=======
+            serialized_acir: ungzip(serialized_program)
+>>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
         }
     }
 
@@ -64,7 +91,11 @@ impl InstructionArtifacts {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
+<<<<<<< HEAD
             serialized_acir: serialized_program
+=======
+            serialized_acir: ungzip(serialized_program)
+>>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
         }
 
     }
