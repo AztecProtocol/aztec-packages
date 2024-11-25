@@ -1162,7 +1162,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                                                         meta.name,
                                                         " leaf type ",
                                                         IndexedLeafValueType::name(),
-                                                        " is not updateable"));
+                                                        " is not updateable and ",
+                                                        value_pair.first.get_key(),
+                                                        " is already present"));
                     }
                     response.inner.highest_index = std::max(response.inner.highest_index, low_leaf_index);
 
@@ -1544,8 +1546,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
             for (size_t i = 0; i < values.size(); ++i) {
                 const LeafValueType& new_payload = values[i];
                 if (new_payload.is_empty()) {
-                    throw std::runtime_error(
-                        format("Unable to insert values into tree ", meta.name, " tried to insert empty leaf  ", i));
+                    continue;
                 }
                 index_t index_of_new_leaf = i + meta.size;
                 fr value = new_payload.get_key();
@@ -1625,7 +1626,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                                                     meta.name,
                                                     " leaf type ",
                                                     IndexedLeafValueType::name(),
-                                                    " is not updateable"));
+                                                    " is not updateable and ",
+                                                    new_payload.get_key(),
+                                                    " is already present"));
                 }
 
                 response.inner.updates_to_perform->push_back(insertion_update);
