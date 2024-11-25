@@ -1,19 +1,12 @@
 #include "acir_loader.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-<<<<<<< HEAD
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/terms/term.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
 #include <fstream>
 #include <string>
 #include <vector>
-=======
-#include <vector>
-#include <string>
-#include <fstream>
-
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 
 std::vector<uint8_t> readFile(std::string filename)
 {
@@ -28,18 +21,11 @@ std::vector<uint8_t> readFile(std::string filename)
 
     std::vector<uint8_t> vec;
 
-<<<<<<< HEAD
     vec.insert(vec.begin(), std::istream_iterator<uint8_t>(file), std::istream_iterator<uint8_t>());
-=======
-    vec.insert(vec.begin(),
-               std::istream_iterator<uint8_t>(file),
-               std::istream_iterator<uint8_t>());
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
     file.close();
     return vec;
 }
 
-<<<<<<< HEAD
 AcirToSmtLoader::AcirToSmtLoader(std::string filename)
 {
     this->acir_program_buf = readFile(filename);
@@ -66,18 +52,4 @@ smt_circuit::UltraCircuit AcirToSmtLoader::get_circuit(smt_solver::Solver* solve
 {
     smt_circuit::CircuitSchema circuit_info = smt_circuit_schema::unpack_from_buffer(this->circuit_buf);
     return smt_circuit::UltraCircuit(circuit_info, solver, smt_terms::TermType::BVTerm);
-=======
-
-AcirInstructionLoader::AcirInstructionLoader(std::vector<uint8_t> const& acir_bytes, std::string instruction_name) 
-{
-    this->acir_program_buf = acir_bytes;
-    this->instruction_name = instruction_name;
-    this->constraint_systems = acir_format::program_buf_to_acir_format(acir_bytes, false);
-}
-
-AcirInstructionLoader::AcirInstructionLoader(std::string filename) {
-    this->acir_program_buf = readFile(filename);
-    this->instruction_name = filename;
-    this->constraint_systems = acir_format::program_buf_to_acir_format(this->acir_program_buf, false);
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 }

@@ -7,8 +7,5 @@ edition = "2021"
 noirc_evaluator = {path = "../"}
 serde = "1.0.214"
 serde_json = "1.0.120"
-<<<<<<< HEAD
 flate2 = "1.0.35"
-=======
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 [workspace]

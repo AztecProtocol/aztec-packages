@@ -1,18 +1,9 @@
 use std::collections::BTreeSet;
-<<<<<<< HEAD
-=======
-use flate2::read::GzDecoder;
-use std::io::Read;
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 use acvm::{
     acir::{
         circuit::{
             Circuit, ExpressionWidth,
-<<<<<<< HEAD
             Program as AcirProgram
-=======
-            Program as AcirProgram, PublicInputs,
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
         },
         native_types::Witness,
     },
@@ -29,16 +20,6 @@ use crate::ssa::{
 use crate::brillig::Brillig;
 use serde::{Deserialize, Serialize};
 
-<<<<<<< HEAD
-=======
-fn ungzip(compressed_data: Vec<u8>) -> Vec<u8> {
-    let mut decompressed_data: Vec<u8> = Vec::new();
-    let mut decoder = GzDecoder::new(&compressed_data[..]);   
-    decoder.read_to_end(&mut decompressed_data).unwrap();
-    return decompressed_data;
-}
-
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
 #[derive(Serialize, Deserialize)]
 pub struct InstructionArtifacts {
     // name of used instruction
@@ -50,11 +31,7 @@ pub struct InstructionArtifacts {
     // serde_json serialized ssa
     pub serialized_ssa: String,
 
-<<<<<<< HEAD
     // bytes of acir program. Gzipped!!
-=======
-    // bytes of acir program. Ungzipped!!
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
     pub serialized_acir: Vec<u8>,
 }
 
@@ -66,16 +43,12 @@ impl InstructionArtifacts {
 
         let program = ssa_to_acir_program(ssa);
         let serialized_program = AcirProgram::serialize_program(&program);
-        
+
         Self {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
-<<<<<<< HEAD
             serialized_acir: serialized_program
-=======
-            serialized_acir: ungzip(serialized_program)
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
         }
     }
 
@@ -86,16 +59,12 @@ impl InstructionArtifacts {
 
         let program = ssa_to_acir_program(ssa);
         let serialized_program = AcirProgram::serialize_program(&program);
-        
+
         Self {
             instruction_name: instruction_name,
             formatted_ssa: formatted_ssa,
             serialized_ssa: serialized_ssa.to_string(),
-<<<<<<< HEAD
             serialized_acir: serialized_program
-=======
-            serialized_acir: ungzip(serialized_program)
->>>>>>> 56559cf7fce08564b1b28ebe20726ba486af2379
         }
 
     }
@@ -122,7 +91,7 @@ fn ssa_to_acir_program(ssa: Ssa) -> AcirProgram<FieldElement> {
     let (acir_functions, brillig, _, _) = ssa
         .into_acir(&Brillig::default(), ExpressionWidth::default())
         .expect("Should compile manually written SSA into ACIR");
-    
+
     let mut functions: Vec<Circuit<FieldElement>> = Vec::new();
     for acir_func in acir_functions.iter() {
         // inputs and output as private
@@ -171,7 +140,7 @@ fn constrain_function() -> Ssa {
     // constrains v0 == v1, returns v1
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    
+
     let v0 = builder.add_parameter(Type::field());
     let v1 = builder.add_parameter(Type::field());
     builder.insert_constrain(v0, v1, None);
@@ -184,7 +153,7 @@ fn not_function() -> Ssa {
     // returns not v0
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    
+
     let v0 = builder.add_parameter(Type::unsigned(64));
     let v1 = builder.insert_not(v0);
     builder.terminate_with_return(vec![v1]);
@@ -196,7 +165,7 @@ fn range_check_function() -> Ssa {
     // check v0: u64 limited by 64 bits ?..
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    
+
     let v0 = builder.add_parameter(Type::field());
     builder.insert_range_check(v0, 64, Some("Range Check failed".to_string()));
     builder.terminate_with_return(vec![v0]);
@@ -208,7 +177,7 @@ fn truncate_function() -> Ssa {
     // truncate v0: field 10, 20?..
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    
+
     let v0 = builder.add_parameter(Type::field());
     let v1 = builder.insert_truncate(v0, 10, 20);
     builder.terminate_with_return(vec![v1]);
@@ -225,27 +194,27 @@ pub fn all_instructions() -> Vec<InstructionArtifacts> {
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Div, "Binary::Div".into()));
 
     // with field panic
-    // panic on Mod Should compile manually written SSA into ACIR: InvalidRangeConstraint 
+    // panic on Mod Should compile manually written SSA into ACIR: InvalidRangeConstraint
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Mod, "Binary::Mod".into()));
-    
+
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Eq, "Binary::Eq".into()));
-    
+
     // with field panic
     // thread 'main' panicked at /home/defkit/work/noir/compiler/noirc_evaluator/src/ssa/acir_gen/acir_ir/acir_variable.rs:1225:9:
     // assertion failed: max_bits + 1 < F::max_num_bits()
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Lt, "Binary::Lt".into()));
-    
+
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::And, "Binary::And".into()));
-    
+
     // with field
     // attempt to shift left with overflow
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Or, "Binary::Or".into()));
 
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Xor, "Binary::Xor".into()));
-    
+
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Shl, "Binary::Shl".into()));
     artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Shr, "Binary::Shr".into()));
-    
+
     // with field
     // attempt to shift left with overflow
     artifacts.push(InstructionArtifacts::new_not());
@@ -255,4 +224,4 @@ pub fn all_instructions() -> Vec<InstructionArtifacts> {
     artifacts.push(InstructionArtifacts::new_truncate());
 
     return artifacts;
-} 
+}
