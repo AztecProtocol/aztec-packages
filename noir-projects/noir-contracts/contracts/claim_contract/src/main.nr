@@ -51,8 +51,8 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(storage.reward_token.read())
-            .mint_to_public(recipient, proof_note.value)
-            .enqueue(&mut context);
+        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
+            &mut context,
+        );
     }
 }

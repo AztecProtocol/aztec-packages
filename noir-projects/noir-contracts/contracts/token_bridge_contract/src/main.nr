@@ -85,9 +85,9 @@ contract TokenBridge {
         context.message_portal(storage.portal_address.read(), content);
 
         // Burn tokens
-        Token::at(storage.token.read())
-            .burn_public(context.msg_sender(), amount, nonce)
-            .call(&mut context);
+        Token::at(storage.token.read()).burn_public(context.msg_sender(), amount, nonce).call(
+            &mut context,
+        );
     }
     // docs:end:exit_to_l1_public
 
@@ -159,10 +159,7 @@ contract TokenBridge {
     #[public]
     #[internal]
     fn _assert_token_is_same(token: AztecAddress) {
-        assert(
-            storage.token.read().eq(token),
-            "Token address is not the same as seen in storage",
-        );
+        assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same
 }

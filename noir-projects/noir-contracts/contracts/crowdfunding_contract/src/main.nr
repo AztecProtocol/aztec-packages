@@ -105,9 +105,9 @@ contract Crowdfunding {
         assert(context.msg_sender() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
-        Token::at(storage.donation_token.read())
-            .transfer(operator_address, amount as Field)
-            .call(&mut context);
+        Token::at(storage.donation_token.read()).transfer(operator_address, amount as Field).call(
+            &mut context,
+        );
         // 3) Emit an unencrypted event so that anyone can audit how much the operator has withdrawn
         Crowdfunding::at(context.this_address())
             ._publish_donation_receipts(amount, operator_address)

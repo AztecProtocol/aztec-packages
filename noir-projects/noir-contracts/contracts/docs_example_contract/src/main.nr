@@ -165,7 +165,7 @@ contract DocsExample {
         // docs:end:initialize_public_immutable
     }
 
-        // docs:start:read_public_immutable
+    // docs:start:read_public_immutable
     unconstrained fn get_public_immutable() -> Leader {
         storage.public_immutable.read()
         // docs:end:read_public_immutable
