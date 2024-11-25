@@ -67,6 +67,17 @@ export class TagCheckError extends AvmExecutionError {
   }
 }
 
+/**
+ * Error is thrown when a relative memory address resolved to an offset which
+ * is out of range, i.e, greater than maxUint32.
+ */
+export class AddressOutOfRangeError extends AvmExecutionError {
+  constructor(baseAddr: number, relOffset: number) {
+    super(`Address out of range. Base address ${baseAddr}, relative offset ${relOffset}`);
+    this.name = 'AddressOutOfRangeError';
+  }
+}
+
 /** Error thrown when out of gas. */
 export class OutOfGasError extends AvmExecutionError {
   constructor(dimensions: string[]) {

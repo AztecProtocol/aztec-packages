@@ -16,17 +16,17 @@ export class DebugLog extends Instruction {
     OperandType.UINT8, // Opcode
     OperandType.UINT8, // Indirect
     OperandType.UINT16, // message memory address
-    OperandType.UINT16, // message size
     OperandType.UINT16, // fields memory address
     OperandType.UINT16, // fields size address
+    OperandType.UINT16, // message size
   ];
 
   constructor(
     private indirect: number,
     private messageOffset: number,
-    private messageSize: number,
     private fieldsOffset: number,
     private fieldsSizeOffset: number,
+    private messageSize: number,
   ) {
     super();
   }

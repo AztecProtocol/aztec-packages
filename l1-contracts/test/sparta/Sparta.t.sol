@@ -17,7 +17,6 @@ import {Leonidas} from "../harnesses/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
@@ -45,7 +44,6 @@ contract SpartaTest is DecoderBase {
   Outbox internal outbox;
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
-  TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   SignatureLib.Signature internal emptySignature;
@@ -90,7 +88,6 @@ contract SpartaTest is DecoderBase {
     outbox = Outbox(address(rollup.OUTBOX()));
 
     merkleTestUtil = new MerkleTestUtil();
-    txsHelper = new TxsDecoderHelper();
 
     _;
   }
@@ -166,7 +163,6 @@ contract SpartaTest is DecoderBase {
     bool _invalidaProposer
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    bytes memory header = full.block.header;
 
     StructToAvoidDeepStacks memory ree;
 
@@ -183,7 +179,7 @@ contract SpartaTest is DecoderBase {
     bytes32[] memory txHashes = new bytes32[](0);
 
     ProposeArgs memory args = ProposeArgs({
-      header: header,
+      header: full.block.header,
       archive: full.block.archive,
       blockHash: bytes32(0),
       txHashes: txHashes
@@ -215,6 +211,7 @@ contract SpartaTest is DecoderBase {
         // @todo Handle Leonidas__InsufficientAttestations case
       }
 
+      skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidaProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
@@ -225,16 +222,15 @@ contract SpartaTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
-
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.body);
+      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
-      rollup.propose(args, signatures, full.block.body);
+      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
