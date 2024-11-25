@@ -18,7 +18,7 @@ trap on_exit EXIT
 
 cd $(dirname $0)
 
-ip_sir=$(./build-system/scripts/request_spot charlie-ci3 128 x86_64)
+ip_sir=$(./build-system/scripts/request_spot ci3-$USER 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"

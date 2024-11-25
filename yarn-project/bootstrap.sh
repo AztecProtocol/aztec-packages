@@ -37,11 +37,6 @@ function build {
 }
 
 function run_e2e_tests {
-  # Temp hack. Put docker client in build image.
-  if ! which docker > /dev/null && [ $UID -eq 0 ]; then
-    apt update && apt install docker.io -y
-  fi
-
   cd end-to-end
 
   # List every test individually. Do not put folders.
