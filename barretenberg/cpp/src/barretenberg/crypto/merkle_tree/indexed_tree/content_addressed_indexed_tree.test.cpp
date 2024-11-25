@@ -375,7 +375,7 @@ template <typename LeafValueType, typename TypeOfTree>
 void add_values_sequentially(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool expectedSuccess = true)
 {
     Signal signal;
-    auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>& response) -> void {
+    auto completion = [&](const TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>>& response) -> void {
         EXPECT_EQ(response.success, expectedSuccess);
         signal.signal_level();
     };
@@ -1099,13 +1099,32 @@ void test_sequential_insert_vs_batch(uint32_t batchSize, std::string directory, 
     }
 }
 
-TEST_F(PersistedContentAddressedIndexedTreeTest, test_sequential_insert)
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_sequential_insert_vs_batch)
 {
     uint32_t batchSize = 2;
     while (batchSize <= 2) {
         test_sequential_insert_vs_batch(batchSize, _directory, _mapSize, _maxReaders);
         batchSize <<= 1;
     }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, sequential_insert_allows_multiple_inserts_to_the_same_key)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    std::vector<PublicDataLeafValue> values{ PublicDataLeafValue(42, 27), PublicDataLeafValue(42, 28) };
+    add_values_sequentially(tree, values);
+
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2).value, values[1]);
 }
 
 template <typename LeafValueType> fr hash_leaf(const IndexedLeaf<LeafValueType>& leaf)
