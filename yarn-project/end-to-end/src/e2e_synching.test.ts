@@ -381,6 +381,9 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+
+        // TODO(md): update
+        blobSinkUrl: 'http://localhost:5052',
       },
       new NoopTelemetryClient(),
     );

@@ -49,6 +49,7 @@ import { type PXEService, type PXEServiceConfig, createPXEService, getPXEService
 import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import { createBlobSinkService, BlobSinkService  } from '@aztec/blob-sink';
 
 import { type Anvil } from '@viem/anvil';
 import * as path from 'path';
