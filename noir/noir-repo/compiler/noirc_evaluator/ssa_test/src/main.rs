@@ -27,7 +27,8 @@ fn main() {
     for artifacts in all_artifacts.iter() {
         println!("{}", artifacts.formatted_ssa);
         let filename = format!("artifacts/{}{}", artifacts.instruction_name, ".acir");
-        match save_to_file(&artifacts.serialized_acir, &filename) {
+        let acir = &artifacts.serialized_acir;
+        match save_to_file(&ungzip(acir.clone()), &filename) {
             Ok(_) => (),
             Err(error) => println!("Error saving data: {}", error),
         }

@@ -3,7 +3,7 @@ use acvm::{
     acir::{
         circuit::{
             Circuit, ExpressionWidth,
-            Program as AcirProgram, PublicInputs,
+            Program as AcirProgram
         },
         native_types::Witness,
     },
