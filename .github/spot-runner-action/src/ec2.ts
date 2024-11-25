@@ -200,8 +200,8 @@ export class Ec2Instance {
             Ebs: {
               VolumeSize: 64,
               VolumeType: 'gp3',
-              Throughput: 1000,
-              Iops: 5000
+              Throughput: 125,
+              Iops: 3000
             },
           },
         ],

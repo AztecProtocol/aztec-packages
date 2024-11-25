@@ -28,7 +28,6 @@ CONTRACTS=(
   "l1-contracts:GovernanceProposer"
   "l1-contracts:Governance"
   "l1-contracts:NewGovernanceProposerPayload"
-  "l1-contracts:TxsDecoder"
 )
 
 

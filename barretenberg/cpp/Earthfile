@@ -126,7 +126,7 @@ preset-wasm:
     SAVE ARTIFACT build/bin
   ELSE
     DO +CACHE_BUILD_BIN --prefix=preset-wasm \
-      --command="cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm && /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm"
+      --command="cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm && /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm && gzip -c ./build/bin/barretenberg.wasm > ./build/bin/barretenberg.wasm.gz"
     SAVE ARTIFACT build/bin
     SAVE IMAGE --cache-hint
   END
@@ -140,7 +140,7 @@ preset-sol:
 preset-wasm-threads:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
-    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm"
+    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm && /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm && gzip -c ./build/bin/barretenberg.wasm > ./build/bin/barretenberg.wasm.gz"
   SAVE ARTIFACT build/bin
 
 preset-gcc:

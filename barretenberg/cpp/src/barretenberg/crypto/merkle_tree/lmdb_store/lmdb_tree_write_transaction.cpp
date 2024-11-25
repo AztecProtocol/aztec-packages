@@ -42,6 +42,11 @@ void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<
     lmdb_queries::put_value(key, data, db, *this);
 }
 
+void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db)
+{
+    lmdb_queries::put_value(key, data, db, *this);
+}
+
 void LMDBTreeWriteTransaction::delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db)
 {
     lmdb_queries::delete_value(key, db, *this);

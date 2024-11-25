@@ -17,12 +17,21 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
-      {{- if .Values.proverAgent.nodeSelector }}
-      nodeSelector:
-        {{- toYaml .Values.proverAgent.nodeSelector | nindent 8 }}
+      {{- if .Values.proverAgent.gke.spotEnabled }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+      tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
       {{- end }}
-
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}

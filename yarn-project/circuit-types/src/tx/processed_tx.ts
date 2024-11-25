@@ -166,6 +166,12 @@ export function makeProcessedTxFromPrivateOnlyTx(
   };
 }
 
+export function toNumBlobFields(txs: ProcessedTx[]): number {
+  return txs.reduce((acc, tx) => {
+    return acc + tx.txEffect.toBlobFields().length;
+  }, 0);
+}
+
 export function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,

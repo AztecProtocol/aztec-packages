@@ -34,7 +34,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
 
   private getL2Tip(tag: L2BlockTag): L2BlockId {
     const blockNumber = this.l2TipsStore.get(tag);
-    if (blockNumber === undefined) {
+    if (blockNumber === undefined || blockNumber === 0) {
       return { number: 0, hash: undefined };
     }
     const blockHash = this.l2BlockHashesStore.get(blockNumber);

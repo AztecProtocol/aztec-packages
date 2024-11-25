@@ -106,8 +106,10 @@ std::string to_name(AvmError error)
         return "NO ERROR";
     case AvmError::TAG_ERROR:
         return "TAG ERROR";
-    case AvmError::ADDR_RES_ERROR:
-        return "ADDRESS RESOLUTION ERROR";
+    case AvmError::ADDR_RES_TAG_ERROR:
+        return "ADDRESS RESOLUTION TAG ERROR";
+    case AvmError::REL_ADDR_OUT_OF_RANGE:
+        return "RELATIVE ADDRESS IS OUT OF RANGE";
     case AvmError::DIV_ZERO:
         return "DIVISION BY ZERO";
     case AvmError::PARSING_ERROR:
@@ -116,10 +118,17 @@ std::string to_name(AvmError error)
         return "ENVIRONMENT VARIABLE UNKNOWN";
     case AvmError::CONTRACT_INST_MEM_UNKNOWN:
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
+    case AvmError::RADIX_OUT_OF_BOUNDS:
+        return "RADIX OUT OF BOUNDS";
     default:
         throw std::runtime_error("Invalid error type");
         break;
     }
+}
+
+bool is_ok(AvmError error)
+{
+    return error == AvmError::NO_ERROR;
 }
 
 /**
