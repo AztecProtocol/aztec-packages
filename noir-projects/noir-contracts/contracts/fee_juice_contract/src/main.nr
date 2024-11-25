@@ -7,7 +7,7 @@ contract FeeJuice {
     use dep::aztec::{
         macros::{functions::{internal, private, public, view}, storage::storage},
         protocol_types::{address::{AztecAddress, EthAddress}, constants::FEE_JUICE_INITIAL_MINT},
-        state_vars::{Map, PublicMutable, SharedImmutable},
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
     use crate::lib::get_bridge_gas_msg_hash;
@@ -17,7 +17,7 @@ contract FeeJuice {
         // This map is accessed directly by protocol circuits to check balances for fee payment.
         // Do not change this storage layout unless you also update the base rollup circuits.
         balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
-        portal_address: SharedImmutable<EthAddress, Context>,
+        portal_address: PublicImmutable<EthAddress, Context>,
     }
 
     // Not flagged as initializer to reduce cost of checking init nullifier in all functions.

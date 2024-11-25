@@ -14,7 +14,7 @@ contract Crowdfunding {
             functions::{initializer, internal, private, public},
             storage::storage,
         },
-        prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        prelude::{AztecAddress, PrivateSet, PublicImmutable},
         protocol_types::traits::Serialize,
         unencrypted_logs::unencrypted_event_emission::encode_event,
         utils::comparison::Comparator,
@@ -38,11 +38,11 @@ contract Crowdfunding {
     #[storage]
     struct Storage<Context> {
         // Token used for donations (e.g. DAI)
-        donation_token: SharedImmutable<AztecAddress, Context>,
+        donation_token: PublicImmutable<AztecAddress, Context>,
         // Crowdfunding campaign operator
-        operator: SharedImmutable<AztecAddress, Context>,
+        operator: PublicImmutable<AztecAddress, Context>,
         // End of the crowdfunding campaign after which no more donations are accepted
-        deadline: SharedImmutable<u64, Context>,
+        deadline: PublicImmutable<u64, Context>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
         donation_receipts: PrivateSet<ValueNote, Context>,
     }
