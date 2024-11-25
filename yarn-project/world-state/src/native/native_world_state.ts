@@ -202,7 +202,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
         blockStateRef: blockStateReference(l2Block.header.state),
       },
-      this.sanitiseAndCacheSummary,
+      this.sanitiseAndCacheSummary.bind(this),
     );
   }
 
@@ -254,7 +254,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       {
         toBlockNumber,
       },
-      this.sanitiseAndCacheSummary,
+      this.sanitiseAndCacheSummary.bind(this),
     );
   }
 
@@ -269,7 +269,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       {
         toBlockNumber,
       },
-      this.sanitiseAndCacheSummary,
+      this.sanitiseAndCacheSummary.bind(this),
     );
   }
 
