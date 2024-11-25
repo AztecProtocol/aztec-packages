@@ -25,7 +25,7 @@ describe('e2e_epochs', () => {
   let handle: NodeJS.Timeout;
 
   const EPOCH_DURATION = 4;
-  const L1_BLOCK_TIME = 25;
+  const L1_BLOCK_TIME = 5;
   const L2_SLOT_DURATION_IN_L1_BLOCKS = 2;
 
   beforeAll(async () => {
@@ -98,7 +98,6 @@ describe('e2e_epochs', () => {
 
   afterAll(async () => {
     clearInterval(handle);
-    // TODO(#10177): The below times out
     await context.teardown();
   });
 
@@ -112,7 +111,7 @@ describe('e2e_epochs', () => {
 
   /** Waits until the given L2 block number is mined. */
   const waitUntilL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 200, 0.1);
+    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${l2BlockNumber}`, 60, 0.1);
   };
 
   it('does not allow submitting proof after epoch end', async () => {
@@ -130,8 +129,6 @@ describe('e2e_epochs', () => {
     sequencerDelayer.pauseNextTxUntilTimestamp(epoch2Start + BigInt(L1_BLOCK_TIME));
 
     // Next sequencer to publish a block should trigger a rollback to block 1
-    // The below is a bit of a hack - to avoid the waitUntilL1Timestamp timing out, I wait until the reorg back to block 1 is complete
-    await waitUntilL2BlockNumber(1);
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME));
     expect(await rollup.getBlockNumber()).toEqual(1n);
     expect(await rollup.getSlotNumber()).toEqual(8n);
@@ -145,5 +142,5 @@ describe('e2e_epochs', () => {
     const lastL2BlockTxReceipt = await l1Client.getTransactionReceipt({ hash: lastL2BlockTxHash! });
     expect(lastL2BlockTxReceipt.status).toEqual('success');
     expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThan(lastProverTxReceipt!.blockNumber);
-  }, 400_000);
+  });
 });

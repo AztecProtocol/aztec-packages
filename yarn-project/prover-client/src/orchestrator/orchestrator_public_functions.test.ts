@@ -39,13 +39,15 @@ describe('prover/orchestrator/public-functions', () => {
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
-        const [processed, _] = await context.processPublicFunctions([tx], 1);
+        const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
         context.orchestrator.startNewEpoch(1, 1);
-        await context.orchestrator.startNewBlock(context.globalVariables, []);
+        await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
-        await context.orchestrator.addTxs(processed);
+        for (const processedTx of processed) {
+          await context.orchestrator.addNewTx(processedTx);
+        }
 
         const block = await context.orchestrator.setBlockCompleted();
         await context.orchestrator.finaliseEpoch();

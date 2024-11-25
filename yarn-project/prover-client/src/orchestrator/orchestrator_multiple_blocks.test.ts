@@ -36,11 +36,12 @@ describe('prover/orchestrator/multi-block', () => {
         const blockNum = i + 1000;
         const globals = makeGlobals(blockNum);
 
-        await context.orchestrator.startNewBlock(globals, []);
+        // This will need to be a 2 tx block
+        await context.orchestrator.startNewBlock(2, globals, []);
 
-        await context.orchestrator.addTxs([tx]);
+        await context.orchestrator.addNewTx(tx);
 
-        // Completing the block will set off padding tx logic, as we only have 1 tx
+        //  we need to complete the block as we have not added a full set of txs
         const block = await context.orchestrator.setBlockCompleted();
         header = block!.header;
       }
