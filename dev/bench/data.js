@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732542532235,
+  "lastUpdate": 1732548538342,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d77e473219d1628b2045100a55c4073f9fa32c25",
-          "message": "feat: Origin Tags part 3 (Memory) (#9758)\n\nThis PR:\r\n1. Adds Origin Tags for tracking dangerous interactions to all stdlib\r\nmemory primitives\r\n2. Expands  the tests from TwinRomTable\r\n3. Fixes a bug with the use of nonnormalized value.",
-          "timestamp": "2024-11-07T17:01:08Z",
-          "tree_id": "8e12e5f17236c375fdbaf23660cd5ee3fe7fb500",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d77e473219d1628b2045100a55c4073f9fa32c25"
-        },
-        "date": 1731000699105,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29103.202828999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27223.105461 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5404.776381000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5021.919111000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84476.774951,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84476778000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15177.788907000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15177789000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3079377835,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3079377835 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144600039,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144600039 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2990,6 +2930,62 @@ window.BENCHMARK_DATA = {
             "value": 134914012,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134914012 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "b15979f304ef37a048e750f3316bc8dff7757b25",
+          "message": "chore(master): Release 0.64.0",
+          "timestamp": "2024-11-25T14:32:21Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10043/commits/b15979f304ef37a048e750f3316bc8dff7757b25"
+        },
+        "date": 1732548531065,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27648.94204500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25616.484701 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4580.991006000019,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4297.45949 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 88754.84029,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 88754841000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16520.440036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16520440000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3033066330,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3033066330 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132748213,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132748213 ns\nthreads: 1"
           }
         ]
       }
