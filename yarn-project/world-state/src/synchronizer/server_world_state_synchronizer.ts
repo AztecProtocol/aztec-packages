@@ -23,10 +23,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { type WorldStateStatusSummary } from '../native/message.js';
+import { type WorldStateStatusFull } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateConfig } from './config.js';
+import { WorldStateInstrumentation } from './instrumentation.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource via a block stream.
@@ -43,13 +45,16 @@ export class ServerWorldStateSynchronizer
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
+  private instrumentation: WorldStateInstrumentation;
 
   constructor(
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private readonly config: WorldStateConfig,
+    telemetry: TelemetryClient,
     private readonly log = createDebugLogger('aztec:world_state'),
   ) {
+    this.instrumentation = new WorldStateInstrumentation(telemetry);
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
   }
 
@@ -205,18 +210,24 @@ export class ServerWorldStateSynchronizer
     this.log.verbose(`Handling new L2 blocks from ${l2Blocks[0].number} to ${l2Blocks[l2Blocks.length - 1].number}`);
     const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
     const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
+    let updateStatus: WorldStateStatusFull | undefined = undefined;
 
     for (let i = 0; i < l2Blocks.length; i++) {
       const [duration, result] = await elapsed(() => this.handleL2Block(l2Blocks[i], l1ToL2Messages[i]));
       this.log.verbose(`Handled new L2 block`, {
         eventName: 'l2-block-handled',
         duration,
-        unfinalisedBlockNumber: result.unfinalisedBlockNumber,
-        finalisedBlockNumber: result.finalisedBlockNumber,
-        oldestHistoricBlock: result.oldestHistoricalBlock,
+        unfinalisedBlockNumber: result.summary.unfinalisedBlockNumber,
+        finalisedBlockNumber: result.summary.finalisedBlockNumber,
+        oldestHistoricBlock: result.summary.oldestHistoricalBlock,
         ...l2Blocks[i].getStats(),
       } satisfies L2BlockHandledStats);
+      updateStatus = result;
     }
+    if (!updateStatus) {
+      return;
+    }
+    this.instrumentation.updateWorldStateMetrics(updateStatus);
   }
 
   /**
@@ -225,7 +236,7 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusSummary> {
+  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     // First we check that the L1 to L2 messages hash to the block inHash.
     // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
     // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that
@@ -240,7 +251,7 @@ export class ServerWorldStateSynchronizer
       this.syncPromise.resolve();
     }
 
-    return result.summary;
+    return result;
   }
 
   private async handleChainFinalized(blockNumber: number) {
@@ -255,7 +266,8 @@ export class ServerWorldStateSynchronizer
 
   private async handleChainPruned(blockNumber: number) {
     this.log.info(`Chain pruned to block ${blockNumber}`);
-    await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
+    const status = await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
+    this.instrumentation.updateWorldStateMetrics(status);
   }
 
   /**

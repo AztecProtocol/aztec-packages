@@ -208,6 +208,7 @@ jobs:
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
@@ -712,6 +713,10 @@ jobs:
             runner_type: 16core-tester-x86-high-memory
             timeout: 90
           - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          - test: gating-passive.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60

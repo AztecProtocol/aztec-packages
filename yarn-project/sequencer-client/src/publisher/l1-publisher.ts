@@ -17,7 +17,7 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
+import { type EthereumChain, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -58,7 +58,6 @@ import {
   publicActions,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
@@ -145,19 +144,19 @@ export class L1Publisher {
 
   protected log = createDebugLogger('aztec:sequencer:publisher');
 
-  private rollupContract: GetContractReturnType<
+  protected rollupContract: GetContractReturnType<
     typeof RollupAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   >;
-  private governanceProposerContract?: GetContractReturnType<
+  protected governanceProposerContract?: GetContractReturnType<
     typeof GovernanceProposerAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   > = undefined;
 
-  private publicClient: PublicClient<HttpTransport, chains.Chain>;
-  private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
-  private account: PrivateKeyAccount;
-  private ethereumSlotDuration: bigint;
+  protected publicClient: PublicClient<HttpTransport, Chain>;
+  protected walletClient: WalletClient<HttpTransport, Chain, PrivateKeyAccount>;
+  protected account: PrivateKeyAccount;
+  protected ethereumSlotDuration: bigint;
 
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
@@ -175,11 +174,7 @@ export class L1Publisher {
     this.account = privateKeyToAccount(publisherPrivateKey);
     this.log.debug(`Publishing from address ${this.account.address}`);
 
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
-    });
+    this.walletClient = this.createWalletClient(this.account, chain);
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
@@ -200,6 +195,17 @@ export class L1Publisher {
         client: this.walletClient,
       });
     }
+  }
+
+  protected createWalletClient(
+    account: PrivateKeyAccount,
+    chain: EthereumChain,
+  ): WalletClient<HttpTransport, Chain, PrivateKeyAccount> {
+    return createWalletClient({
+      account,
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
+    });
   }
 
   public getPayLoad() {
@@ -226,7 +232,7 @@ export class L1Publisher {
 
   public getRollupContract(): GetContractReturnType<
     typeof RollupAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   > {
     return this.rollupContract;
   }

@@ -553,6 +553,7 @@ __metadata:
     "@swc/jest": ^0.2.36
     "@types/fs-extra": ^11.0.2
     "@types/jest": ^29.5.0
+    "@types/js-yaml": ^4.0.9
     "@types/koa": ^2.13.9
     "@types/koa-static": ^4.0.2
     "@types/levelup": ^5.1.2
@@ -570,6 +571,7 @@ __metadata:
     jest: ^29.5.0
     jest-extended: ^4.0.2
     jest-mock-extended: ^3.0.5
+    js-yaml: ^4.1.0
     koa: ^2.14.2
     koa-static: ^5.0.0
     levelup: ^5.1.1
@@ -623,7 +625,9 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.14.6
+    "@viem/anvil": ^0.0.10
     dotenv: ^16.0.3
+    get-port: ^7.1.0
     jest: ^29.5.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -3502,7 +3506,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.38.0
+    "@noir-lang/types": 0.39.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -3511,13 +3515,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.38.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=9fc813&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.39.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=2fe976&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.54.0
-    "@noir-lang/noirc_abi": 0.38.0
-    "@noir-lang/types": 0.38.0
-  checksum: 99cdc1f1e352d45a8968261dc7f1d68d58b5bca8177e25c610667eb60954436356c56852e6a23fbf69ddb8db9b92494736438c0852f4702d33e8d0e981e60552
+    "@noir-lang/acvm_js": 0.55.0
+    "@noir-lang/noirc_abi": 0.39.0
+    "@noir-lang/types": 0.39.0
+  checksum: bbed7618af5ffb055e7020686035fcf2d25ba0510f48654338192d2bb18cf7ca74403ea6f6ea713ff1d204436f9c2066eb5adf645f585b353d3c6f9d6ee38403
   languageName: node
   linkType: hard
 
@@ -3525,7 +3529,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.38.0
+    "@noir-lang/types": 0.39.0
   languageName: node
   linkType: soft
 
@@ -4685,6 +4689,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/js-yaml@npm:^4.0.9":
+  version: 4.0.9
+  resolution: "@types/js-yaml@npm:4.0.9"
+  checksum: e5e5e49b5789a29fdb1f7d204f82de11cb9e8f6cb24ab064c616da5d6e1b3ccfbf95aa5d1498a9fbd3b9e745564e69b4a20b6c530b5a8bbb2d4eb830cda9bc69
+  languageName: node
+  linkType: hard
+
 "@types/json-schema@npm:*, @types/json-schema@npm:^7.0.12, @types/json-schema@npm:^7.0.8, @types/json-schema@npm:^7.0.9":
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
@@ -5451,6 +5462,18 @@ __metadata:
   version: 1.2.0
   resolution: "@ungap/structured-clone@npm:1.2.0"
   checksum: 4f656b7b4672f2ce6e272f2427d8b0824ed11546a601d8d5412b9d7704e83db38a8d9f402ecdf2b9063fc164af842ad0ec4a55819f621ed7e7ea4d1efcc74524
+  languageName: node
+  linkType: hard
+
+"@viem/anvil@npm:^0.0.10":
+  version: 0.0.10
+  resolution: "@viem/anvil@npm:0.0.10"
+  dependencies:
+    execa: ^7.1.1
+    get-port: ^6.1.2
+    http-proxy: ^1.18.1
+    ws: ^8.13.0
+  checksum: fb475055f36c753cea26fa0c02a0278301dddcdc8003418576395cfc31e97ba5a236fbc66ff093bd8d39ea05286487adb86b7499308e446b6cfe90dc08089b38
   languageName: node
   linkType: hard
 
