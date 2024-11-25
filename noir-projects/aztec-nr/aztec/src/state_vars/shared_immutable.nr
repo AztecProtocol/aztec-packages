@@ -45,7 +45,7 @@ where
         self.context.storage_write(self.storage_slot, value);
     }
 
-    pub fn read_public(self) -> T {
+    pub fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }
 }
@@ -54,7 +54,7 @@ impl<T, let T_SERIALIZED_LEN: u32> SharedImmutable<T, UnconstrainedContext>
 where
     T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
 {
-    pub unconstrained fn read_public(self) -> T {
+    pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }
 }
@@ -63,7 +63,7 @@ impl<T, let T_SERIALIZED_LEN: u32> SharedImmutable<T, &mut PrivateContext>
 where
     T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
 {
-    pub fn read_private(self) -> T {
+    pub fn read(self) -> T {
         let header = self.context.get_header();
         let mut fields = [0; T_SERIALIZED_LEN];
 

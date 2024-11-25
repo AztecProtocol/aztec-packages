@@ -8,6 +8,7 @@ import {
 } from '@aztec/circuit-types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { Blob } from '@aztec/foundation/blob';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -451,12 +452,13 @@ function makeMessageSentEventWithIndexInL2BlockSubtree(
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const body = toHex(l2Block.body.toBuffer());
+  const blobInput = Blob.getEthBlobEvaluationInputs(Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex(l2Block.header.hash().toBuffer());
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [{ header, archive, blockHash, txHashes: [] }, [], body],
+    args: [{ header, archive, blockHash, txHashes: [] }, [], body, blobInput],
   });
   return { input } as Transaction<bigint, number>;
 }

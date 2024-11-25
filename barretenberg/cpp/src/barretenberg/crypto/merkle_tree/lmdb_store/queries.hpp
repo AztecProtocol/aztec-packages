@@ -14,8 +14,8 @@ class LMDBTreeWriteTransaction;
 
 namespace lmdb_queries {
 
-template <typename TKey, typename TxType>
-bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBDatabase& db, const TxType& tx)
+template <typename TKey, typename TValue, typename TxType>
+bool get_value_or_previous(TKey& key, TValue& data, const LMDBDatabase& db, const TxType& tx)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
@@ -36,7 +36,7 @@ bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBData
             std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
             if (keyBuffer == temp) {
                 // we have the exact key
-                copy_to_vector(dbVal, data);
+                deserialise_key(dbVal.mv_data, data);
                 success = true;
             } else {
                 // We have a key of the same size but larger value OR a larger size
@@ -48,7 +48,7 @@ bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBData
                     if (dbKey.mv_size != keySize) {
                         // There is no previous key, do nothing
                     } else {
-                        copy_to_vector(dbVal, data);
+                        deserialise_key(dbVal.mv_data, data);
                         deserialise_key(dbKey.mv_data, key);
                         success = true;
                     }
@@ -66,7 +66,7 @@ bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBData
                 if (dbKey.mv_size != keySize) {
                     // The key is not the same size, same as not found, do nothing
                 } else {
-                    copy_to_vector(dbVal, data);
+                    deserialise_key(dbVal.mv_data, data);
                     deserialise_key(dbKey.mv_data, key);
                     success = true;
                 }
@@ -86,11 +86,11 @@ bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBData
     return success;
 }
 
-template <typename TKey, typename TxType>
+template <typename TKey, typename TValue, typename TxType>
 bool get_value_or_previous(TKey& key,
-                           std::vector<uint8_t>& data,
+                           TValue& data,
                            const LMDBDatabase& db,
-                           const std::function<bool(const std::vector<uint8_t>&)>& is_valid,
+                           const std::function<bool(const MDB_val&)>& is_valid,
                            const TxType& tx)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
@@ -114,8 +114,8 @@ bool get_value_or_previous(TKey& key,
                 std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
                 if (keyBuffer == temp || lower) {
                     // We have the exact key, we need to determine if it is valid
-                    copy_to_vector(dbVal, data);
-                    if (is_valid(data)) {
+                    if (is_valid(dbVal)) {
+                        deserialise_key(dbVal.mv_data, data);
                         deserialise_key(dbKey.mv_data, key);
                         success = true;
                         // It's valid
@@ -151,8 +151,8 @@ bool get_value_or_previous(TKey& key,
                         // The key is not the same size, same as not found, exit
                         break;
                     }
-                    copy_to_vector(dbVal, data);
-                    if (is_valid(data)) {
+                    if (is_valid(dbVal)) {
+                        deserialise_key(dbVal.mv_data, data);
                         deserialise_key(dbKey.mv_data, key);
                         success = true;
                         // It's valid
@@ -406,11 +406,15 @@ void put_value(std::vector<uint8_t>& key,
                const LMDBDatabase& db,
                LMDBTreeWriteTransaction& tx);
 
+void put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
+
 void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
 
 bool get_value(std::vector<uint8_t>& key,
                std::vector<uint8_t>& data,
                const LMDBDatabase& db,
                const LMDBTransaction& tx);
+
+bool get_value(std::vector<uint8_t>& key, index_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
 } // namespace lmdb_queries
 } // namespace bb::crypto::merkle_tree

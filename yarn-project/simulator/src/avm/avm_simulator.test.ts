@@ -84,11 +84,11 @@ describe('AVM simulator: injected bytecode', () => {
   beforeAll(() => {
     calldata = [new Fr(1), new Fr(2)];
     bytecode = encodeToBytecode([
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+      new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+      new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
       new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 1, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+      new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySizeOffset=*/ 0),
     ]);
   });
@@ -190,6 +190,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
   });
+
+  it('execution of a non-existent contract immediately reverts', async () => {
+    const context = initContext();
+    const results = await new AvmSimulator(context).execute();
+
+    expect(results.reverted).toBe(true);
+    expect(results.output).toEqual([]);
+    expect(results.gasLeft).toEqual({ l2Gas: 0, daGas: 0 });
+  });
+
   it('addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -893,6 +903,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         environment: AvmExecutionEnvironment,
         nestedTrace: PublicSideEffectTraceInterface,
         isStaticCall: boolean = false,
+        exists: boolean = true,
       ) => {
         expect(trace.traceNestedCall).toHaveBeenCalledTimes(1);
         expect(trace.traceNestedCall).toHaveBeenCalledWith(
@@ -902,16 +913,33 @@ describe('AVM simulator: transpiled Noir contracts', () => {
             contractCallDepth: new Fr(1), // top call is depth 0, nested is depth 1
             globals: environment.globals, // just confirming that nested env looks roughly right
             isStaticCall: isStaticCall,
-            // TODO(7121): can't check calldata like this since it is modified on environment construction
-            // with AvmContextInputs. These should eventually go away.
-            //calldata: expect.arrayContaining(environment.calldata), // top-level call forwards args
+            // top-level calls forward args in these tests,
+            // but nested calls in these tests use public_dispatch, so selector is inserted as first arg
+            calldata: expect.arrayContaining([/*selector=*/ expect.anything(), ...environment.calldata]),
           }),
           /*startGasLeft=*/ expect.anything(),
-          /*bytecode=*/ expect.anything(),
+          /*bytecode=*/ exists ? expect.anything() : undefined,
           /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
           /*functionName=*/ expect.anything(),
         );
       };
+
+      it(`Nested call to non-existent contract`, async () => {
+        const calldata = [value0, value1];
+        const context = createContext(calldata);
+        const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
+        // We don't mock getBytecode for the nested contract, so it will not exist
+        // which should cause the nested call to immediately revert
+
+        const nestedTrace = mock<PublicSideEffectTraceInterface>();
+        mockTraceFork(trace, nestedTrace);
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+        expect(results.reverted).toBe(true);
+        expect(results.output).toEqual([]);
+
+        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ false, /*exists=*/ false);
+      });
 
       it(`Nested call`, async () => {
         const calldata = [value0, value1];
@@ -1102,9 +1130,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ],
       ])(`Overrun of %s`, async (_sideEffectType: string, createInstr: () => Instruction) => {
         const bytecode = encodeToBytecode([
-          new Set(/*indirect*/ 0, TypeTag.FIELD, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect*/ 0, TypeTag.FIELD, /*value*/ 100, /*dstOffset*/ 100).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 1, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.FIELD, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, /*dstOffset*/ 100, TypeTag.FIELD, /*value*/ 100).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           createInstr(),
           // change value at memory offset 0 so each instr operates on a different value (important for nullifier emission)
           new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(

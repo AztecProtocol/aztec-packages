@@ -70,13 +70,13 @@ contract Crowdfunding {
         // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
         // is performing the check.
         // docs:start:call-check-deadline
-        let deadline = storage.deadline.read_private();
+        let deadline = storage.deadline.read();
         privately_check_timestamp(Comparator.LT, deadline, &mut context);
         // docs:end:call-check-deadline
         // docs:start:do-transfer
         // 2) Transfer the donation tokens from donor to this contract
         let donor = context.msg_sender();
-        Token::at(storage.donation_token.read_private())
+        Token::at(storage.donation_token.read())
             .transfer_in_private(donor, context.this_address(), amount as Field, 0)
             .call(&mut context);
         // docs:end:do-transfer
@@ -101,13 +101,13 @@ contract Crowdfunding {
     #[private]
     fn withdraw(amount: u64) {
         // 1) Check that msg_sender() is the operator
-        let operator_address = storage.operator.read_private();
+        let operator_address = storage.operator.read();
         assert(context.msg_sender() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
-        Token::at(storage.donation_token.read_private())
-            .transfer(operator_address, amount as Field)
-            .call(&mut context);
+        Token::at(storage.donation_token.read()).transfer(operator_address, amount as Field).call(
+            &mut context,
+        );
         // 3) Emit an unencrypted event so that anyone can audit how much the operator has withdrawn
         Crowdfunding::at(context.this_address())
             ._publish_donation_receipts(amount, operator_address)

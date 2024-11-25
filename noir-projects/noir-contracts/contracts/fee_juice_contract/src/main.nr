@@ -43,14 +43,14 @@ contract FeeJuice {
     // is a hardcoded constant in the rollup circuits.
     #[public]
     fn set_portal(portal_address: EthAddress) {
-        assert(storage.portal_address.read_public().is_zero());
+        assert(storage.portal_address.read().is_zero());
         storage.portal_address.initialize(portal_address);
     }
 
     #[private]
     fn claim(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
-        let portal_address = storage.portal_address.read_private();
+        let portal_address = storage.portal_address.read();
         assert(!portal_address.is_zero());
 
         // Consume message and emit nullifier

@@ -242,7 +242,7 @@ TEST_F(AvmCastTests, indirectAddrTruncationU64ToU8)
 
 TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
 {
-    // TODO(#9131): Re-enable as part of #9131
+    // TODO(#9995): Re-enable as part of #9995
     GTEST_SKIP();
     // Indirect addresses. src:5  dst:6
     // Direct addresses.   src:10 dst:11

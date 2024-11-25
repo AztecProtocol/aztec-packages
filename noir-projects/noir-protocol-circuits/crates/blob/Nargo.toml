@@ -1,8 +1,9 @@
 [package]
 name = "blob"
-type = "bin"
+type = "lib"
 authors = [""]
 compiler_version = ">=0.30.0"
 
 [dependencies]
-bigint = {tag = "v0.3.4", git = "https://github.com/noir-lang/noir-bignum" }
+bigint = {tag = "v0.4.2", git = "https://github.com/noir-lang/noir-bignum" }
+types = { path = "../types" }

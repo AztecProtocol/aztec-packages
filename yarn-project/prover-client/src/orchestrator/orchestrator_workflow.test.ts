@@ -79,7 +79,7 @@ describe('prover/orchestrator', () => {
         });
 
         orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, [message]);
+        await orchestrator.startNewBlock(globalVariables, [message]);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -108,9 +108,12 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, []);
-        await orchestrator.addNewTx(makeBloatedProcessedTxWithVKRoot(actualDb, 1));
-        await orchestrator.addNewTx(makeBloatedProcessedTxWithVKRoot(actualDb, 2));
+        const txs = [
+          makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
+          makeBloatedProcessedTxWithVKRoot(actualDb, 2),
+        ];
+        await orchestrator.startNewBlock(globalVariables, []);
+        await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);

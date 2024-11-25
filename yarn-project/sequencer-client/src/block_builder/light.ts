@@ -8,8 +8,9 @@ import {
   type ProcessedTx,
   type TxEffect,
   makeEmptyProcessedTx,
+  toNumBlobFields,
 } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, SpongeBlob } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -22,36 +23,43 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
  */
 export class LightweightBlockBuilder implements BlockBuilder {
   private numTxs?: number;
+  private spongeBlobState?: SpongeBlob;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
 
-  private readonly txs: ProcessedTx[] = [];
+  private txs: ProcessedTx[] = [];
 
   private readonly logger = createDebugLogger('aztec:sequencer-client:block_builder_light');
 
   constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 
-  async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
-    this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
-    this.numTxs = numTxs;
+  async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
+    this.logger.verbose('Starting new block', { globalVariables: globalVariables.toJSON(), l1ToL2Messages });
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    this.txs = [];
+    this.numTxs = 0;
+    this.spongeBlobState = undefined;
 
     // Update L1 to L2 tree
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.l1ToL2Messages!);
   }
 
-  async addNewTx(tx: ProcessedTx): Promise<void> {
-    this.logger.verbose('Adding new tx to block', { txHash: tx.hash.toString() });
-    this.txs.push(tx);
-    await buildBaseRollupHints(tx, this.globalVariables!, this.db);
+  async addTxs(txs: ProcessedTx[]): Promise<void> {
+    this.numTxs = Math.max(2, txs.length);
+    this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
+    for (const tx of txs) {
+      this.logger.verbose('Adding new tx to block', { txHash: tx.hash.toString() });
+      this.txs.push(tx);
+      await buildBaseRollupHints(tx, this.globalVariables!, this.db, this.spongeBlobState!);
+    }
   }
 
   async setBlockCompleted(): Promise<L2Block> {
     const paddingTxCount = this.numTxs! - this.txs.length;
     this.logger.verbose(`Setting block as completed and adding ${paddingTxCount} padding txs`);
     for (let i = 0; i < paddingTxCount; i++) {
-      await this.addNewTx(
+      await this.addTxs([
         makeEmptyProcessedTx(
           this.db.getInitialHeader(),
           this.globalVariables!.chainId,
@@ -59,7 +67,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
           getVKTreeRoot(),
           protocolContractTreeRoot,
         ),
-      );
+      ]);
     }
 
     return this.buildBlock();

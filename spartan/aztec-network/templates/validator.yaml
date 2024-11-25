@@ -151,6 +151,8 @@ spec:
               value: "{{ .Values.validator.p2p.enabled }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
+            - name: VALIDATOR_REEXECUTE
+              value: "{{ .Values.validator.validator.reexecute }}"
             - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
               value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
