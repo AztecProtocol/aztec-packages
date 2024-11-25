@@ -24,7 +24,6 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
-import { INSTRUCTION_SET, type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
@@ -52,7 +51,6 @@ export class PublicTxSimulator {
   metrics: ExecutorMetrics;
 
   private log: DebugLogger;
-  private instructionSet: InstructionSet = INSTRUCTION_SET();
 
   constructor(
     private db: MerkleTreeReadOperations,
@@ -271,7 +269,6 @@ export class PublicTxSimulator {
       allocatedGas,
       context.getTransactionFee(phase),
       fnName,
-      this.instructionSet,
     );
 
     const gasUsed = allocatedGas.sub(result.gasLeft);
@@ -321,7 +318,6 @@ export class PublicTxSimulator {
     allocatedGas: Gas,
     transactionFee: Fr,
     fnName: string,
-    instructionSet: InstructionSet,
   ): Promise<AvmFinalizedCallResult> {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
@@ -342,7 +338,6 @@ export class PublicTxSimulator {
       executionRequest.callContext.isStaticCall,
       executionRequest.args,
       allocatedGas,
-      instructionSet,
     );
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();

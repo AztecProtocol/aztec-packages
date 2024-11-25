@@ -71,7 +71,6 @@ export class AvmSimulator {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
-    instructionSet: InstructionSet,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -86,6 +85,7 @@ export class AvmSimulator {
 
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
+    const instructionSet = INSTRUCTION_SET();
     return new AvmSimulator(avmContext, instructionSet);
   }
 
