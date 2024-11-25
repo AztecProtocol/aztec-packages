@@ -221,8 +221,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     const size_t table_offset =
                         dyadic_circuit_size -
                         std::min(dyadic_circuit_size - 1 - MASKING_OFFSET, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
-                    info("lookup offset ", lookup_offset);
-                    info("table offset  ", table_offset);
                     const size_t masking_offset =
                         (std::min(lookup_offset, table_offset) > MASKING_OFFSET) ? MASKING_OFFSET : 0;
                     const size_t lookup_inverses_start = std::min(lookup_offset, table_offset) - masking_offset;
@@ -231,8 +229,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                                  std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
                                           table_offset + MAX_LOOKUP_TABLES_SIZE)) -
                         masking_offset;
-                    info("lookup inverses end ", lookup_inverses_end);
-                    info("lookup inverses start ", lookup_inverses_start);
 
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
