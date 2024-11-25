@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732549278083,
+  "lastUpdate": 1732553704491,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0ebd52e5dd326fcbebe38869908dfcb4c2ba2c03",
-          "message": "chore: rename aggregation object to pairing point accumulator (#9817)\n\nRenames aggregation object/recursive proof to pairing point accumulator,\r\nso its not confusing with introduction of the IPA accumulator.",
-          "timestamp": "2024-11-07T23:39:38-05:00",
-          "tree_id": "53ef72e4d45e268458f2ada63576e77c7ff87c00",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ebd52e5dd326fcbebe38869908dfcb4c2ba2c03"
-        },
-        "date": 1731042416321,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29056.599215000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27452.107747 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5378.682103999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4964.83385 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84033.011787,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84033013000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15202.014919999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15202015000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3055229967,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3055229967 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144531751,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144531751 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2986,6 +2926,66 @@ window.BENCHMARK_DATA = {
             "value": 136838091,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 136838091 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4418ef2a5768e0f627160b86e8dc8735d4bf00e7",
+          "message": "feat: UltraRollupRecursiveFlavor (#10088)\n\nCreates new recursive flavor. The recursive verifier with this flavor\r\nwill extract the IPA claim from the public inputs and return it as part\r\nof its output. Modifies the ClientTubeBase test to use this new flavor.",
+          "timestamp": "2024-11-25T16:28:43Z",
+          "tree_id": "d9f87e8e3ee744dfe84c16dbdc8ee9d4e7034762",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4418ef2a5768e0f627160b86e8dc8735d4bf00e7"
+        },
+        "date": 1732553697413,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27295.253331999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25269.634658 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4592.153176000011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4286.763849999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86860.485455,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86860485000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16630.894746,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16630895000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3016161929,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3016161929 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133867340,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133867340 ns\nthreads: 1"
           }
         ]
       }
