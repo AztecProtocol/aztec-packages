@@ -13,6 +13,7 @@
 namespace acir_format {
 
 using namespace bb;
+using namespace bb::stdlib::recursion::honk;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
@@ -209,8 +210,7 @@ PairingPointAccumulatorIndices create_honk_recursion_constraints(
     RecursiveVerifier verifier(&builder, vkey);
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);
-    bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Flavor> output =
-        verifier.verify_proof(proof_fields, input_agg_obj);
+    UltraRecursiveVerifierOutput<Flavor> output = verifier.verify_proof(proof_fields, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 

@@ -132,9 +132,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Extract the IPA claim from the public inputs
     // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
-    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         const auto recover_fq_from_public_inputs = [](std::array<FF, 4>& limbs) {
-            for (size_t k = 0; k < 4; k++) {
+            for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
                 limbs[k].create_range_constraint(Curve::BaseField::NUM_LIMB_BITS, "limb_" + std::to_string(k));
             }
             return Curve::BaseField::unsafe_construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], false);

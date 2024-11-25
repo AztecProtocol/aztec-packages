@@ -126,7 +126,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          * @return VerificationKey
          */
         static VerificationKey from_witness_indices(CircuitBuilder& builder,
-                                                    const std::span<const uint32_t>& witness_indices)
+                                                    const std::span<const uint32_t> witness_indices)
         {
             std::vector<FF> vkey_fields;
             vkey_fields.reserve(witness_indices.size());
