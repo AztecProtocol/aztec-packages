@@ -118,14 +118,10 @@ This function sets the immutable value. It must only be called once during contr
 A `SharedImmutable`'s storage **must** only be set once via `initialize`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
 :::
 
-### `read_public`
+### `read`
 
-Returns the stored immutable value in a public execution context.
+Returns the stored immutable value. This function is available in public, private and unconstrained contexts.
 
-#include_code read_decimals_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code read_shared_immutable_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-### `read_private`
-
-Returns the stored immutable value in a private execution context.
-
-#include_code read_decimals_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code read_shared_immutable_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust

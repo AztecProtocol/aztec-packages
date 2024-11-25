@@ -104,7 +104,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read_public(), content_hash);
+        context.message_portal(storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_public
 
@@ -174,7 +174,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read_private(), content_hash);
+        context.message_portal(storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_private
 
@@ -208,7 +208,7 @@ contract Uniswap {
         // We need to make a call to update it.
         set_authorized(&mut context, message_hash, true);
 
-        let this_portal_address = storage.portal_address.read_public();
+        let this_portal_address = storage.portal_address.read();
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge)
             .exit_to_l1_public(this_portal_address, amount, this_portal_address, nonce)

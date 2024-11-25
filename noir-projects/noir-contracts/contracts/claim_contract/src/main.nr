@@ -29,7 +29,7 @@ contract Claim {
     #[private]
     fn claim(proof_note: ValueNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
-        let target_address = storage.target_contract.read_private();
+        let target_address = storage.target_contract.read();
         assert(
             target_address == proof_note.header.contract_address,
             "Note does not correspond to the target contract",
@@ -51,8 +51,8 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(storage.reward_token.read_private())
-            .mint_to_public(recipient, proof_note.value)
-            .enqueue(&mut context);
+        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
+            &mut context,
+        );
     }
 }
