@@ -1,5 +1,5 @@
 import { bufferAsFields } from '@aztec/foundation/abi';
-import { poseidon2Hash, poseidon2HashAccumulate, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashAccumulate, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';

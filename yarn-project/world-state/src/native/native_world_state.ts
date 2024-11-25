@@ -32,7 +32,7 @@ import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkl
 import {
   WorldStateMessageType,
   type WorldStateStatusFull,
-  WorldStateStatusSummary,
+  type WorldStateStatusSummary,
   blockStateReference,
   sanitiseFullStatus,
   sanitiseSummary,
