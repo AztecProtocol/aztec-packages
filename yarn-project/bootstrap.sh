@@ -44,6 +44,10 @@ function run_e2e_tests {
   docker pull aztecprotocol/build:1.0
 
   # List every test individually. Do not put folders.
+  # If a test flakes out, mark it as flake in your PR so it no longer runs, and post a message in slack about it.
+  # If you can, try to find whoever is responsible for the test, and have them acknowledge they'll resolve it later.
+  # DO NOT just re-run your PR and leave flakey tests running to impact on other engineers.
+  # If you've been tasked with resolving a flakey test, use e.g. 'while my_test_cmd; do sleep 0; done' to grind it.
   PR_TESTS=(
     "simple e2e_2_pxes"
     "simple e2e_authwit"
@@ -77,9 +81,9 @@ function run_e2e_tests {
     "simple e2e_p2p/reqresp"
     "flake e2e_p2p/upgrade_governance_proposer"
 
-    # "compose guides/dapp_testing"
-    # "compose guides/up_quick_start"
-    # "compose guides/writing_an_account_contract"
+    "compose guides/dapp_testing"
+    "compose guides/up_quick_start"
+    "compose guides/writing_an_account_contract"
   )
 
   commands=()
