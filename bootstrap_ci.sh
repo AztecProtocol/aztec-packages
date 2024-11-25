@@ -27,8 +27,8 @@ sir="${parts[1]}"
 
 current_commit=$(git rev-parse HEAD)
 
-# Verify that the commit exists on the remote
-if ! git cat-file -t "$current_commit" >/dev/null 2>&1; then
+# Verify that the commit exists on the remote. It will be the remote tip of itself if so.
+if [ $(git fetch origin --negotiate-only --negotiation-tip=$current_commit) != $current_commit ] ; then
   echo "Commit $current_commit does not exist."
   exit 1
 fi
