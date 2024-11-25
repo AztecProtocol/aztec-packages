@@ -33,6 +33,7 @@ sir="${parts[1]}"
 
 [ "$NO_TERMINATE" -eq 0 ] && args="--rm" || args=""
 
+<<<<<<< HEAD
 # - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
 # - Pass our AWS cred through both ssh and docker
 # - Mount our docker socket into docker itself for efficient nesting
@@ -41,17 +42,19 @@ sir="${parts[1]}"
 #   - Clone our repo at a certain commit
 #   - Run bootstrap.sh fast
 ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
-  docker run $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t aztecprotocol/ci:2.0 bash -c '
-    set -e
-    # When restarting the container, just hang around.
-    while [ -f started ]; do sleep 999; done
-    touch started
-    mkdir -p /root/aztec-packages
-    cd /root/aztec-packages
-    git init
-    git remote add origin http://github.com/aztecprotocol/aztec-packages
-    git fetch --depth 1 origin $current_commit
-    git checkout FETCH_HEAD >/dev/null
-    CI=1 ./bootstrap.sh fast
-  '
+  docker run --privileged $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t \
+    -v boostrap_ci_local_docker:/var/lib/docker \
+    aztecprotocol/ci:2.0 bash -c '
+      set -e
+      # When restarting the container, just hang around.
+      while [ -f started ]; do sleep 999; done
+      touch started
+      mkdir -p /root/aztec-packages
+      cd /root/aztec-packages
+      git init
+      git remote add origin http://github.com/aztecprotocol/aztec-packages
+      git fetch --depth 1 origin $current_commit
+      git checkout FETCH_HEAD >/dev/null
+      CI=1 ./bootstrap.sh fast
+    '
 "
