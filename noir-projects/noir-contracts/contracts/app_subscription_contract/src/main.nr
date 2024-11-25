@@ -59,7 +59,7 @@ contract AppSubscription {
         context.set_as_fee_payer();
 
         // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
-        let _gas_limit = storage.fee_juice_limit_per_tx.read_private();
+        let _gas_limit = storage.fee_juice_limit_per_tx.read();
 
         context.end_setup();
 
@@ -67,7 +67,7 @@ contract AppSubscription {
         // is performing the check.
         privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
 
-        payload.execute_calls(&mut context, storage.target_address.read_private());
+        payload.execute_calls(&mut context, storage.target_address.read());
     }
 
     #[public]
@@ -95,11 +95,11 @@ contract AppSubscription {
     ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        Token::at(storage.subscription_token_address.read_private())
+        Token::at(storage.subscription_token_address.read())
             .transfer_in_private(
                 context.msg_sender(),
-                storage.subscription_recipient_address.read_private(),
-                storage.subscription_price.read_private(),
+                storage.subscription_recipient_address.read(),
+                storage.subscription_price.read(),
                 nonce,
             )
             .call(&mut context);
