@@ -4,6 +4,7 @@ import {
   type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
+  type ProcessedTxHandler,
   Tx,
   TxExecutionPhase,
   type TxValidator,
@@ -97,6 +98,7 @@ export class PublicProcessor {
   public async process(
     txs: Tx[],
     maxTransactions = txs.length,
+    processedTxHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
@@ -134,6 +136,10 @@ export class PublicProcessor {
           if (invalid.length) {
             throw new Error(`Transaction ${invalid[0].hash} invalid after processing public functions`);
           }
+        }
+        // if we were given a handler then send the transaction to it for block building or proving
+        if (processedTxHandler) {
+          await processedTxHandler.addNewTx(processedTx);
         }
         // Update the state so that the next tx in the loop has the correct .startState
         // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:

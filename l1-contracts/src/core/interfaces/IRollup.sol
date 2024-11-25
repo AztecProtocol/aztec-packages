@@ -36,20 +36,20 @@ interface IRollup {
   function propose(
     ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body,
-    bytes calldata _blobInput
+    bytes calldata _body
   ) external;
 
   function proposeAndClaim(
     ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    bytes calldata _blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -61,7 +61,7 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    bytes32 _txsEffecstHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 
@@ -105,7 +105,10 @@ interface IRollup {
   ) external view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
+  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }
