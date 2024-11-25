@@ -51,7 +51,7 @@ ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AW
     git init
     git remote add origin http://github.com/aztecprotocol/aztec-packages
     git fetch --depth 1 origin $current_commit
-    git checkout FETCH_HEAD
+    git checkout FETCH_HEAD >/dev/null
     CI=1 ./bootstrap.sh fast
   '
 "
