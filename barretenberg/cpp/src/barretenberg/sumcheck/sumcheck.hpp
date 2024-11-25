@@ -601,7 +601,8 @@ template <typename Flavor> class SumcheckVerifier {
         }
         FF correcting_factor{ 1 };
         if constexpr (Flavor::HasZK) {
-            correcting_factor = round.compute_correcting_factor(multivariate_challenge, multivariate_d);
+            RowDisablingPolynomial<FF> row_disabler = RowDisablingPolynomial<FF>();
+            correcting_factor = row_disabler.evaluate_at_challenge(multivariate_challenge, multivariate_d);
         }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.

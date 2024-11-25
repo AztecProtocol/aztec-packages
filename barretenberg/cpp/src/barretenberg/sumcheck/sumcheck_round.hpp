@@ -230,10 +230,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
 
-        auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
-        auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-        result *= row_disabler_extended;
-
         if (round_idx == 0) {
             edge_idx += 2;
             extend_edges(extended_edges, polynomials, edge_idx);
@@ -244,8 +240,11 @@ template <typename Flavor> class SumcheckProverRound {
 
             result += batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
         }
-        // info("contribution ", edge_idx, " at 0 ", result.value_at(0));
-        // info("contribution ", edge_idx, " at 1 ", result.value_at(1));
+        if (round_idx > 1) {
+            auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
+            auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+            result *= row_disabler_extended;
+        }
 
         return result;
     }
@@ -563,18 +562,6 @@ template <typename Flavor> class SumcheckVerifierRound {
             }
         };
         return output;
-    }
-
-    FF compute_correcting_factor(std::vector<FF> multilinear_challenge, const size_t log_circuit_size)
-    {
-        FF one = FF{ 1 };
-        FF result =
-            multilinear_challenge[0] + multilinear_challenge[1] - multilinear_challenge[0] * multilinear_challenge[1];
-
-        for (size_t idx = 2; idx < log_circuit_size; idx++) {
-            result *= multilinear_challenge[idx];
-        }
-        return one - result;
     }
 };
 } // namespace bb

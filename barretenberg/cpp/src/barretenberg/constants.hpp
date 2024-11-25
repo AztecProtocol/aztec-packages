@@ -17,5 +17,5 @@ static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 70000;
 
 static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 
-static constexpr uint32_t MASKING_OFFSET = 3;
+static constexpr uint32_t MASKING_OFFSET = 4;
 } // namespace bb

@@ -45,7 +45,7 @@ namespace bb {
  */
 template <typename FF> struct RowDisablingPolynomial {
     // by default it is a constant multilinear polynomial = 1
-    FF eval_at_0{ 0 };
+    FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
     FF one = FF{ 1 };
     FF zero = FF{ 0 };
@@ -54,19 +54,23 @@ template <typename FF> struct RowDisablingPolynomial {
 
     void update_evaluations(FF round_challenge, size_t round_idx)
     {
-        if (round_idx == 0) {
-            eval_at_0 = round_challenge;
-            eval_at_1 = one;
-        };
         if (round_idx == 1) {
-            eval_at_1 = eval_at_0 + round_challenge - eval_at_0 * round_challenge;
-            eval_at_0 = zero;
-        };
-
-        if (round_idx > 1) {
-            eval_at_1 = eval_at_1 * round_challenge;
             eval_at_0 = zero;
         }
+        if (round_idx >= 2) {
+            eval_at_1 *= round_challenge;
+        }
+    }
+
+    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+    {
+        FF evaluation_at_multivariate_challenge{ 1 };
+
+        for (size_t idx = 2; idx < log_circuit_size; idx++) {
+            evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
+        }
+
+        return evaluation_at_multivariate_challenge;
     }
 };
 
