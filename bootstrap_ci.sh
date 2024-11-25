@@ -26,14 +26,17 @@ sir="${parts[1]}"
 [ "$NO_TERMINATE" -eq 0 ] && args="--rm" || args=""
 
 ssh ubuntu@$ip "
-  docker run $args --name aztec_build -t -v /var/run/docker.sock:/var/run/docker.sock aztecprotocol/build:1.0 bash -c '
-    set -e
-    # When restarting the container, just hang around.
-    while [ -f started ]; do sleep 999; done
-    touch started
-    cd /root
-    git clone --depth 1 --branch cl/ci3 http://github.com/aztecprotocol/aztec-packages
-    cd aztec-packages
-    CI=1 ./bootstrap.sh fast
-  '
+  docker run --privileged $args --name aztec_build -t \
+    -v boostrap_ci_local_docker:/var/lib/docker \
+    aztecprotocol/ci:2.0 bash -c '
+      set -e
+      # When restarting the container, just hang around.
+      while [ -f started ]; do sleep 999; done
+      touch started
+      /usr/local/share/docker-init.sh &> /dev/null
+      cd /root
+      git clone --depth 1 --branch cl/ci3 http://github.com/aztecprotocol/aztec-packages
+      cd aztec-packages
+      CI=1 ./bootstrap.sh fast
+    '
 "

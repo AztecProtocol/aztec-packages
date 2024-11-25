@@ -9,6 +9,8 @@ services:
       else
         exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
       fi'
+    environment:
+      RAYON_NUM_THREADS: 1
     volumes:
       - ../../../:/root/aztec-packages
 
