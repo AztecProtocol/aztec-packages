@@ -74,3 +74,6 @@ export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size'
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
+
+export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
+export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
