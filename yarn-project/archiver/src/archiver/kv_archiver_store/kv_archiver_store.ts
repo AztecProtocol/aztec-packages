@@ -50,7 +50,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   #log = createDebugLogger('aztec:archiver:data-store');
 
-  constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
+  constructor(private db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
@@ -365,5 +365,9 @@ export class KVArchiverDataStore implements ArchiverDataStore {
       blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
       messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
     });
+  }
+
+  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return this.db.estimateSize();
   }
 }

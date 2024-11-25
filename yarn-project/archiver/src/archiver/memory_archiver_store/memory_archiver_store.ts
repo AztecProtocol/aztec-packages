@@ -764,4 +764,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     );
     return Promise.resolve(func?.name);
   }
+
+  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return { mappingSize: 0, actualSize: 0, numItems: 0 };
+  }
 }

@@ -273,6 +273,9 @@ export class Archiver implements ArchiveSource {
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+
+      const storeSizes = this.store.estimateSize();
+      this.instrumentation.recordDBMetrics(storeSizes);
     }
   }
 
@@ -1067,6 +1070,9 @@ class ArchiverStoreHelper
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();
+  }
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return this.store.estimateSize();
   }
 }
 
