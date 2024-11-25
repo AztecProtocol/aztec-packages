@@ -1,7 +1,6 @@
 #!/bin/bash
 set -eu
 
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 NO_TERMINATE=${NO_TERMINATE:-0}
 
 function on_exit {

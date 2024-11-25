@@ -10,16 +10,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
         with:
           # Ensure it is not an artificial merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Run bootstrap script
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+      - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BUILD_SYSTEM_DEBUG: true
         run: |
           ./bootstrap_ci.sh
