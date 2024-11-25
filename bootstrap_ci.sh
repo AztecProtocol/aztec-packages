@@ -26,10 +26,12 @@ if [ $(git fetch origin --negotiate-only --negotiation-tip=$current_commit) != $
   exit 1
 fi
 
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Request Build Instance"
 ip_sir=$(./build-system/scripts/request_spot ci3-$USER 64 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 
 [ "$NO_TERMINATE" -eq 0 ] && args="--rm" || args=""
 
@@ -39,10 +41,13 @@ sir="${parts[1]}"
 # Then:
 #   - Clone our repo at a certain commit
 #   - Run bootstrap.sh fast
-ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
-  docker run --privileged $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t \
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Start CI Image"
+ssh -F build-system/remote/ssh_config -o SendEnv=GITHUB_ACTIONS -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
+  docker run --privileged $args -e GITHUB_ACTIONS -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
     aztecprotocol/ci:2.0 bash -c '
+      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::endgroup::"
+      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::group::Clone Repository"
       set -e
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
@@ -52,7 +57,8 @@ ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AW
       git init
       git remote add origin http://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
-      git checkout FETCH_HEAD &>/dev/null
+      git checkout FETCH_HEAD >/dev/null
+      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::endgroup::"
       CI=1 ./bootstrap.sh fast
     '
 "
