@@ -33,7 +33,9 @@ ip="${parts[0]}"
 sir="${parts[1]}"
 [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 
-[ "$NO_TERMINATE" -eq 0 ] && args="--rm" || args=""
+# pass env vars
+args="-e GITHUB_ACTIONS=\'${GITHUB_ACTIONS:-}\' -e AWS_ACCESS_KEY_ID=\'${AWS_ACCESS_KEY_ID:-}\' -e -e AWS_SECRET_ACCESS_KEY=\'${AWS_SECRET_ACCESS_KEY:-}\'"
+[ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
 # - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
 # - Pass our AWS cred through both ssh and docker
@@ -42,23 +44,12 @@ sir="${parts[1]}"
 #   - Clone our repo at a certain commit
 #   - Run bootstrap.sh fast
 [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Start CI Image"
-ssh -F build-system/remote/ssh_config -o SendEnv=GITHUB_ACTIONS -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
-  docker run --privileged $args -e GITHUB_ACTIONS -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t \
+export GITHUB_ACTIONS=true
+
+ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
+  docker run --privileged $args $env_vars --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
-    aztecprotocol/ci:2.0 bash -c '
-      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::endgroup::"
-      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::group::Clone Repository"
-      set -e
-      # When restarting the container, just hang around.
-      while [ -f started ]; do sleep 999; done
-      touch started
-      mkdir -p /root/aztec-packages
-      cd /root/aztec-packages
-      git init
-      git remote add origin http://github.com/aztecprotocol/aztec-packages
-      git fetch --depth 1 origin $current_commit
-      git checkout FETCH_HEAD >/dev/null
-      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::endgroup::"
-      CI=1 ./bootstrap.sh fast
+    ubuntu/noble bash -c '
+      echo \$GITHUB_ACTIONS
     '
 "
