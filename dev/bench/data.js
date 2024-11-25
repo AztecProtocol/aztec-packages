@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732308205019,
+  "lastUpdate": 1732537284860,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f1cdc2d981ef01fda9b14c6803e014e546b71b66",
-          "message": "feat: prove openings of masking polynomials in ECCVM and Translator (#9726)\n\nAs a part of ZK-fication of Honk, we have to mask the evaluations of\r\nround univariates that the prover sends to the verifier. The evaluations\r\nwere masked in Sumcheck in PR #7517. However, the logic for proving\r\nevaluations of Libra masking polynomials was missing. This PR fixes this\r\nissue and enables efficient batch opening of these polynomials.\r\n* Added necessary logic to Shplonk Prover, Shplemini Prover, and\r\nShplemini Verifer\r\n* Better handling of the ZKSumcheckData\r\n* Removed methods and reverted changes that became obsolete because of\r\nthe new ZK strategy\r\n* Enabled the opening of Libra masking univariates in ECCVM and\r\nTranslator",
-          "timestamp": "2024-11-07T13:49:28+01:00",
-          "tree_id": "6db3c13447821efa49b81958acc6d748664aa722",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f1cdc2d981ef01fda9b14c6803e014e546b71b66"
-        },
-        "date": 1730987662007,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28969.964099000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27196.955198 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5355.7751499999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5045.276693 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84466.67342,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84466675000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15143.665224999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15143665000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3028019317,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3028019317 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142482395,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142482395 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2990,6 +2930,66 @@ window.BENCHMARK_DATA = {
             "value": 142222198,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142222198 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ece1d455548bccd80a3c9660cc32149bcb129562",
+          "message": "chore: Remove handling of duplicates from the note hash tree (#10016)\n\nThis PR removes the abilitity to handle duplicates in the note hash\r\ntree. Since #9492, all trees now contain unique leaves only. Removing\r\nthe handling of duplicates reduces the complexity and storage\r\nrequirements of the trees.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2024-11-25T11:47:43Z",
+          "tree_id": "eb18c3379316afbf90dbf81511da6d4f5457ec95",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ece1d455548bccd80a3c9660cc32149bcb129562"
+        },
+        "date": 1732537277660,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27502.335485000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25662.363468 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4591.292156999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4280.504266 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87605.323446,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87605323000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16486.247683999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16486249000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3038854989,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3038854989 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132815854,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132815854 ns\nthreads: 1"
           }
         ]
       }
