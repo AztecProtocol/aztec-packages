@@ -138,13 +138,13 @@ contract Token {
         storage.symbol.read()
     }
 
-    // docs:start:read_shared_immutable_private
+    // docs:start:read_shared_immutable_public
     #[public]
     #[view]
     fn public_get_decimals() -> pub u8 {
         storage.decimals.read()
     }
-    // docs:end:read_shared_immutable_private
+    // docs:end:read_shared_immutable_public
 
     // docs:start:read_shared_immutable_private
     #[private]

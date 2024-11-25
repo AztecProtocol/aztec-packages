@@ -122,6 +122,6 @@ A `SharedImmutable`'s storage **must** only be set once via `initialize`. Attemp
 
 Returns the stored immutable value. This function is available in public, private and unconstrained contexts.
 
-#include_code read_shared_immutable_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code read_shared_immutable_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #include_code read_shared_immutable_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
