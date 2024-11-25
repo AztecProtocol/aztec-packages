@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.63.1...barretenberg.js-v0.64.0) (2024-11-25)
+
+
+### Features
+
+* Single commitment key allocation in CIVC ([#9974](https://github.com/AztecProtocol/aztec-packages/issues/9974)) ([a0551ee](https://github.com/AztecProtocol/aztec-packages/commit/a0551ee9fca242a02774fd07bf8156a3a74dae3a))
+
+
+### Bug Fixes
+
+* Strip wasm debug ([#9987](https://github.com/AztecProtocol/aztec-packages/issues/9987)) ([62a6b66](https://github.com/AztecProtocol/aztec-packages/commit/62a6b662f1ef20a603177c55c199de4a79b65b5c))
+
+
+### Documentation
+
+* Add docs to enable multi-threading in bb.js ([#10064](https://github.com/AztecProtocol/aztec-packages/issues/10064)) ([8b4ebd1](https://github.com/AztecProtocol/aztec-packages/commit/8b4ebd1ddf3e8b3bac341c612444f28ea819f6c3))
+
 ## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.63.0...barretenberg.js-v0.63.1) (2024-11-19)
 
 
