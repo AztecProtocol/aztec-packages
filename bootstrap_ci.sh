@@ -41,7 +41,7 @@ sir="${parts[1]}"
 #   - Clone our repo at a certain commit
 #   - Run bootstrap.sh fast
 ssh -F build-system/remote/ssh_config -o SendEnv=AWS_ACCESS_KEY_ID -o SendEnv=AWS_SECRET_ACCESS_KEY ubuntu@$ip "
-  docker run $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t -v /var/run/docker.sock:/var/run/docker.sock aztecprotocol/ci:2.0 bash -c '
+  docker run $args -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --name aztec_build -t aztecprotocol/ci:2.0 bash -c '
     set -e
     # When restarting the container, just hang around.
     while [ -f started ]; do sleep 999; done
