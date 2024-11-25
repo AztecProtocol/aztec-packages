@@ -1,7 +1,7 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash } from '@aztec/circuit-types';
+import { TxHash, mockTx } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -17,6 +17,7 @@ import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src
 import { type ValidatorClientConfig } from './config.js';
 import {
   AttestationTimeoutError,
+  BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
@@ -40,6 +41,7 @@ describe('ValidationService', () => {
       attestationPollingIntervalMs: 1000,
       attestationWaitTimeoutMs: 1000,
       disableValidator: false,
+      validatorReexecute: false,
     };
     validatorClient = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
   });
@@ -49,6 +51,13 @@ describe('ValidationService', () => {
     expect(() => ValidatorClient.new(config, p2pClient, new NoopTelemetryClient())).toThrow(
       InvalidValidatorPrivateKeyError,
     );
+  });
+
+  it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
+    config.validatorReexecute = true;
+    p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
+    const val = ValidatorClient.new(config, p2pClient);
+    await expect(val.reExecuteTransactions(makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
   it('Should create a valid block proposal', async () => {
@@ -81,6 +90,21 @@ describe('ValidationService', () => {
     await expect(validatorClient.ensureTransactionsAreAvailable(proposal)).rejects.toThrow(
       TransactionsNotAvailableError,
     );
+  });
+
+  it('Should not return an attestation if re-execution fails', async () => {
+    const proposal = makeBlockProposal();
+
+    // mock the p2pClient.getTxStatus to return undefined for all transactions
+    p2pClient.getTxStatus.mockImplementation(() => undefined);
+
+    const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
+    val.registerBlockBuilder(() => {
+      throw new Error('Failed to build block');
+    });
+
+    const attestation = await val.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
   });
 
   it('Should collect attestations for a proposal', async () => {

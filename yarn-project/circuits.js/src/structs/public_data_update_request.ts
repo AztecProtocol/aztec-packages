@@ -1,7 +1,11 @@
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+
+import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
+import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 
 // TO BE REMOVED.
 /**
@@ -73,6 +77,12 @@ export class PublicDataUpdateRequest {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readNumber());
+  }
+
+  static fromContractStorageUpdateRequest(contractAddress: AztecAddress, updateRequest: ContractStorageUpdateRequest) {
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, updateRequest.storageSlot);
+
+    return new PublicDataUpdateRequest(leafSlot, updateRequest.newValue, updateRequest.counter);
   }
 
   static empty() {
