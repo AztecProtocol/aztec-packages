@@ -12,10 +12,10 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
-import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
-  let aztecNode: AztecNode | undefined;
+  let aztecNode: AztecNode;
   let pxe: PXE;
   const wallets: Wallet[] = [];
   const accounts: CompleteAddress[] = [];
@@ -74,7 +74,10 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       await expectTokenBalance(wallets[i], token, wallets[i].getAddress(), expectedBalances[i], logger);
     }
 
-    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    // Expect 2 private logs in the block.
+    const l2BlockNum = await aztecNode.getBlockNumber();
+    const privateLogs = await aztecNode.getPrivateLogs(l2BlockNum, 1);
+    expect(privateLogs.length).toBe(2);
 
     logger.info(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
   };

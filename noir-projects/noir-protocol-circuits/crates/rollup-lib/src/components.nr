@@ -231,8 +231,8 @@ global TX_EFFECTS_HASH_INPUT_FIELDS = 1
     + 1
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
     + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
-    + 4
-    + 4;
+    + 2
+    + 2;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 pub fn compute_tx_effects_hash(

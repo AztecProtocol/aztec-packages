@@ -3,19 +3,19 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash } from '../log_hash.js';
+import { ScopedLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import { PrivateCallRequest } from '../private_call_request.js';
+import { ScopedPrivateLogData } from '../private_log_data.js';
 import { CountedPublicCallRequest } from '../public_call_request.js';
 
 /**
@@ -37,15 +37,9 @@ export class PrivateAccumulatedData {
      */
     public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
-     * Accumulated encrypted note logs hashes from all the previous kernel iterations.
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * Accumulated logs from all the previous kernel iterations.
      */
-    public noteEncryptedLogsHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    /**
-     * Accumulated encrypted logs hashes from all the previous kernel iterations.
-     * Note: Truncated to 31 bytes to fit in Fr.
-     */
-    public encryptedLogsHashes: Tuple<ScopedEncryptedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public privateLogs: Tuple<ScopedPrivateLogData, typeof MAX_PRIVATE_LOGS_PER_TX>,
     /**
      * Accumulated contract class logs from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -66,8 +60,7 @@ export class PrivateAccumulatedData {
       this.noteHashes,
       this.nullifiers,
       this.l2ToL1Msgs,
-      this.noteEncryptedLogsHashes,
-      this.encryptedLogsHashes,
+      this.privateLogs,
       this.contractClassLogsHashes,
       this.publicCallRequests,
       this.privateCallStack,
@@ -89,8 +82,7 @@ export class PrivateAccumulatedData {
       reader.readArray(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash),
+      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest),
@@ -111,8 +103,7 @@ export class PrivateAccumulatedData {
       makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
       makeTuple(MAX_NULLIFIERS_PER_TX, ScopedNullifier.empty),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash.empty),
-      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash.empty),
+      makeTuple(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData.empty),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest.empty),

@@ -9,7 +9,6 @@ import {
   GasSettings,
   GlobalVariables,
   type Header,
-  LogHash,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicCircuitPublicInputs,
@@ -143,14 +142,7 @@ export function makeBloatedProcessedTx({
 }
 
 // Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
-function clearLogs(data: {
-  noteEncryptedLogsHashes: LogHash[];
-  encryptedLogsHashes: ScopedLogHash[];
-  unencryptedLogsHashes?: ScopedLogHash[];
-  contractClassLogsHashes: ScopedLogHash[];
-}) {
-  data.noteEncryptedLogsHashes.forEach((_, i) => (data.noteEncryptedLogsHashes[i] = LogHash.empty()));
-  data.encryptedLogsHashes.forEach((_, i) => (data.encryptedLogsHashes[i] = ScopedLogHash.empty()));
+function clearLogs(data: { unencryptedLogsHashes?: ScopedLogHash[]; contractClassLogsHashes: ScopedLogHash[] }) {
   data.unencryptedLogsHashes?.forEach((_, i) => (data.unencryptedLogsHashes![i] = ScopedLogHash.empty()));
   data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

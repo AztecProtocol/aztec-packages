@@ -14,8 +14,10 @@ contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, point::Point, public_keys::IvpkM,
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+        point::Point,
         traits::Serialize,
+        utils::arrays::array_concat,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
@@ -312,14 +314,9 @@ contract Test {
                 .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false)
                 .call(&mut context);
 
-            let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
-
-            otherEvent.emit(encode_and_encrypt_event_unconstrained(
-                &mut context,
-                outgoing_viewer_ovpk_m,
-                owner,
-                outgoing_viewer,
-            ));
+            // Emit a log with non-encrypted content for testing purpose.
+            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            context.emit_private_log(leaky_log);
         }
     }
 

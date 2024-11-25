@@ -3,7 +3,7 @@ import {
   CompleteAddress,
   IndexedTaggingSecret,
   KeyValidationRequest,
-  MAX_PRIVATE_LOG_SIZE_IN_BYTES,
+  type PrivateLog,
   computeAddressSecret,
   computeOvskApp,
   computePoint,
@@ -14,7 +14,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
-import { EncryptedLogPayload, MAX_INCOMING_BODY_SIZE } from './encrypted_log_payload.js';
+import { EncryptedLogPayload } from './encrypted_log_payload.js';
 
 // placeholder value until tagging is implemented
 const PLACEHOLDER_TAG = new Fr(33);
@@ -26,7 +26,7 @@ describe('EncryptedLogPayload', () => {
     let ivskM: GrumpkinScalar;
 
     let original: EncryptedLogPayload;
-    let encrypted: Buffer;
+    let payload: PrivateLog;
 
     beforeAll(() => {
       const incomingBodyPlaintext = randomBytes(128);
@@ -43,19 +43,19 @@ describe('EncryptedLogPayload', () => {
 
       const ephSk = GrumpkinScalar.random();
 
-      encrypted = original.encrypt(ephSk, completeAddress.address, ovKeys);
+      payload = original.generatePayload(ephSk, completeAddress.address, ovKeys);
     });
 
     it('decrypt a log as incoming', () => {
       const addressSecret = computeAddressSecret(completeAddress.getPreaddress(), ivskM);
 
-      const recreated = EncryptedLogPayload.decryptAsIncoming(encrypted, addressSecret);
+      const recreated = EncryptedLogPayload.decryptAsIncoming(payload, addressSecret);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
 
     it('decrypt a log as outgoing', () => {
-      const recreated = EncryptedLogPayload.decryptAsOutgoing(encrypted, ovskM);
+      const recreated = EncryptedLogPayload.decryptAsOutgoing(payload, ovskM);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
@@ -128,26 +128,24 @@ describe('EncryptedLogPayload', () => {
       return Buffer.from(Array(len).fill(1));
     };
 
-    const encrypted = log.encrypt(ephSk, recipientCompleteAddress.address, ovKeys, MAX_INCOMING_BODY_SIZE, fixedRand);
-    expect(encrypted.length).toBe(MAX_PRIVATE_LOG_SIZE_IN_BYTES);
+    const payload = log.generatePayload(ephSk, recipientCompleteAddress.address, ovKeys, fixedRand);
 
-    const encryptedStr = encrypted.toString('hex');
-    expect(encryptedStr).toMatchInlineSnapshot(
-      `"0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c368d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d93de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97fc6cbcf615def593ab09e5b3f7f58f6fc235c90e7c77ed8dadb3b05ee4545a7bc612c9139475fee6070be47efcc43a5cbbc873632f1428fac952df9c181db5f9e850b21fe11fedef37b88caee95111bce776e488df219732d0a77d192017047186f41445ecd5c603487f7fb3c8f31010a22af69ce0000000000000000000000000000a600a61f7d59eeaf52eb51bc0592ff981d9ba3ea8e6ea8ba9dc0cec8c70b81e84556a77ce6c3ca47a527f99ffe7b2524bb885a23020b7295748ad19c1083618ad96298b76ee07eb1a56d19cc798710e9f5de96501bd59b3781c9c02a6c95c5912f8936b1500d362afbf0922c85b1ada18db8b95162a6e9d067655cdf669eb387f8e0492a95fdcdb39429d5340b4bebc250ba9bf62c2f49f549f37beed75a668aa51967e0e57547e5a655157bcf381e22f30e25881548ec9606a151b5fbfb2d14ee4b34bf4c1dbd71c7be15ad4c63474bb6f89970aeb3d9489c8edbdff80a1a3a5c28370e534abc870a85ea4318326ea19222fb10df358c765edada497db4284ae30507a2e03e983d23cfa0bd831577e8"`,
+    expect(payload.toBuffer().toString('hex')).toMatchInlineSnapshot(
+      `"0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c36008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701f00a70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d9003de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e7100dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97f00c6cbcf615def593ab09e5b3f7f58f6fc235c90e7c77ed8dadb3b05ee4545a700bc612c9139475fee6070be47efcc43a5cbbc873632f1428fac952df9c181db005f9e850b21fe11fedef37b88caee95111bce776e488df219732d0a77d19201007047186f41445ecd5c603487f7fb3c8f31010a22af69ce00000000000000000000000000000000a600a61f7d59eeaf52eb51bc0592ff981d9ba3ea8e6ea8ba009dc0cec8c70b81e84556a77ce6c3ca47a527f99ffe7b2524bb885a23020b720095748ad19c1083618ad96298b76ee07eb1a56d19cc798710e9f5de96501bd5009b3781c9c02a6c95c5912f8936b1500d362afbf0922c85b1ada18db8b9516200a6e9d067655cdf669eb387f8e0492a95fdcdb39429d5340b4bebc250ba9bf6002c2f49f549f37beed75a668aa51967e0e57547e5a655157bcf381e22f30e2500881548ec9606a151b5fbfb2d14ee4b34bf4c1dbd71c7be15ad4c63474bb6f8009970aeb3d9489c8edbdff80a1a3a5c28370e534abc870a85ea4318326ea1920022fb10df358c765edada497db4284ae30507a2e03e983d23cfa0bd831577e8"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    const byteArrayString = `[${encryptedStr.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+    const fieldArrayStr = `[${payload.fields.map(f => f.toString()).join(',')}]`;
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
-      'encrypted_log_from_typescript',
-      byteArrayString,
+      'private_log_payload_from_typescript',
+      fieldArrayStr,
     );
 
     const ivskM = new GrumpkinScalar(0x0d6e27b21c89a7632f7766e35cc280d43f75bea3898d7328400a5fefc804d462n);
 
     const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
-    const recreated = EncryptedLogPayload.decryptAsIncoming(encrypted, addressSecret);
+    const recreated = EncryptedLogPayload.decryptAsIncoming(payload, addressSecret);
     expect(recreated?.toBuffer()).toEqual(log.toBuffer());
   });
 

@@ -1,6 +1,5 @@
 import {
   AuthWitness,
-  type EncryptedL2NoteLog,
   MerkleTreeId,
   Note,
   type NoteStatus,
@@ -102,8 +101,6 @@ export class TXE implements TypedOracle {
 
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
-
-  private logsByTags = new Map<string, EncryptedL2NoteLog[]>();
 
   constructor(
     private logger: Logger,

@@ -38,23 +38,18 @@ describe('Logs', () => {
 
   describe('functionality around emitting an encrypted log', () => {
     it('emits multiple events as encrypted logs and decodes them one manually', async () => {
-      const randomness = makeTuple(2, Fr.random);
       const preimage = makeTuple(4, Fr.random);
 
-      const tx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), randomness, preimage)
-        .send()
-        .wait();
+      const tx = await testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait();
 
       const txEffect = await node.getTxEffect(tx.txHash);
 
-      const encryptedLogs = txEffect!.data.encryptedLogs.unrollLogs();
-      expect(encryptedLogs.length).toBe(3);
+      const privateLogs = txEffect!.data.privateLogs;
+      expect(privateLogs.length).toBe(3);
 
-      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(encryptedLogs[0], wallets[0].getEncryptionSecret())!;
+      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(privateLogs[0], wallets[0].getEncryptionSecret())!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent0.randomness).toStrictEqual(randomness[0]);
       expect(decryptedEvent0.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent0(Field,Field)'));
 
       // We decode our event into the event type
@@ -65,7 +60,7 @@ describe('Logs', () => {
       expect(event0?.value0).toStrictEqual(preimage[0].toBigInt());
       expect(event0?.value1).toStrictEqual(preimage[1].toBigInt());
 
-      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(encryptedLogs[2], wallets[0].getEncryptionSecret())!;
+      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(privateLogs[2], wallets[0].getEncryptionSecret())!;
 
       const event1Metadata = new EventMetadata<ExampleEvent1>(TestLogContract.events.ExampleEvent1);
 
@@ -77,7 +72,6 @@ describe('Logs', () => {
       expect(badEvent0).toBe(undefined);
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent1.randomness).toStrictEqual(randomness[1]);
       expect(decryptedEvent1.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent1((Field),u8)'));
 
       // We expect the fields to have been populated correctly
@@ -91,24 +85,20 @@ describe('Logs', () => {
     });
 
     it('emits multiple events as encrypted logs and decodes them', async () => {
-      const randomness = makeTuple(5, makeTuple.bind(undefined, 2, Fr.random)) as Tuple<Tuple<Fr, 2>, 5>;
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       let i = 0;
       const firstTx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), randomness[i], preimage[i])
+        .emit_encrypted_events(wallets[1].getAddress(), preimage[i])
         .send()
         .wait();
       await Promise.all(
         [...new Array(3)].map(() =>
-          testLogContract.methods
-            .emit_encrypted_events(wallets[1].getAddress(), randomness[++i], preimage[i])
-            .send()
-            .wait(),
+          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage[++i]).send().wait(),
         ),
       );
       const lastTx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), randomness[++i], preimage[i])
+        .emit_encrypted_events(wallets[1].getAddress(), preimage[i])
         .send()
         .wait();
 

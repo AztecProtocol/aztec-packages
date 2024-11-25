@@ -1,10 +1,8 @@
 import {
   type AuthWitness,
   type AztecNode,
-  CountedLog,
-  type CountedNoteLog,
+  CountedContractClassLog,
   CountedPublicExecutionRequest,
-  type EncryptedL2Log,
   Note,
   NoteAndSlot,
   type NoteStatus,
@@ -58,9 +56,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
-  private noteEncryptedLogs: CountedNoteLog[] = [];
-  private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
-  private contractClassLogs: CountedLog<UnencryptedL2Log>[] = [];
+  private contractClassLogs: CountedContractClassLog[] = [];
   private nestedExecutions: PrivateExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
@@ -132,20 +128,6 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   public getNoteHashNullifierCounterMap() {
     return this.noteHashNullifierCounterMap;
-  }
-
-  /**
-   * Return the note encrypted logs emitted during this execution.
-   */
-  public getNoteEncryptedLogs() {
-    return this.noteEncryptedLogs;
-  }
-
-  /**
-   * Return the encrypted logs emitted during this execution.
-   */
-  public getEncryptedLogs() {
-    return this.encryptedLogs;
   }
 
   /**
@@ -332,7 +314,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param log - The unencrypted log to be emitted.
    */
   public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {
-    this.contractClassLogs.push(new CountedLog(log, counter));
+    this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toHumanReadable();
     this.log.verbose(
       `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
@@ -345,7 +327,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.privateLogs.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
