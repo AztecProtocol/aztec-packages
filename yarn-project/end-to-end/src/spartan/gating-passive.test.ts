@@ -41,13 +41,13 @@ describe('a test that passively observes the network in the presence of network 
 
   it('survives network chaos', async () => {
     await startPortForward({
-      resource: 'svc/spartan-aztec-network-pxe',
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_PXE_PORT,
       hostPort: HOST_PXE_PORT,
     });
     await startPortForward({
-      resource: 'svc/spartan-aztec-network-ethereum',
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
       hostPort: HOST_ETHEREUM_PORT,
