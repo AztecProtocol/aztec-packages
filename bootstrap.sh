@@ -170,9 +170,7 @@ for project in "${PROJECTS[@]}"; do
   echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$project"
   (cd $project && ./bootstrap.sh)
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
   echo
   echo
 done

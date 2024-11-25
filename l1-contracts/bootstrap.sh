@@ -15,10 +15,10 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::l1-contracts build"
 # Clean
 rm -rf broadcast cache out serve
 
@@ -30,7 +30,10 @@ git submodule update --init --recursive ./lib
 
 # Compile contracts
 forge build
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 
 if [ "${CI:-0}" -eq 1 ]; then
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::l1-contracts build"
   forge test --no-match-contract UniswapPortalTest
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 fi

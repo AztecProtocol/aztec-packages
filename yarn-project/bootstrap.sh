@@ -13,6 +13,7 @@ cd "$(dirname "$0")"
 CMD=${1:-}
 
 function build {
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::yarn-project build"
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
 
@@ -34,9 +35,11 @@ function build {
 
   echo
   echo -e "${GREEN}Yarn project successfully built!${RESET}"
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 }
 
 function run_e2e_tests {
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::yarn-project test"
   cd end-to-end
 
   # Pre-pull the required image for visibility.
@@ -117,6 +120,7 @@ function run_e2e_tests {
   echo "=== Job Log ==="
   cat joblog.txt
 
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
   exit $code
 }
 

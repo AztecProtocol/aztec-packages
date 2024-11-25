@@ -5,7 +5,6 @@ CACHE:
   ARG command
   ARG build_artifacts
   ARG prefix
-  # TODO(#8929): reinstate bb.js caching
   DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="bb.js-$prefix" \
     --command="$command" \

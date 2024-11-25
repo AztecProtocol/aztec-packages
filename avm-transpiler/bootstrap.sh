@@ -21,4 +21,6 @@ if [[ "$OSTYPE" != "darwin"* ]] && [ -n "${USE_CACHE:-}" ]; then
   ./bootstrap_cache.sh && exit
 fi
 
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::avm-transpiler build"
 ./scripts/bootstrap_native.sh
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
