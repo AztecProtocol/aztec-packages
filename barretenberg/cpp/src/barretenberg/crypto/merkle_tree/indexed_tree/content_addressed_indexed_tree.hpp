@@ -52,7 +52,6 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     using AddSequentiallyCompletionCallbackWithWitness =
         std::function<void(const TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>>&)>;
     using AddCompletionCallback = std::function<void(const TypedResponse<AddDataResponse>&)>;
-    using AddSequentiallyCompletionCallback = std::function<void(const TypedResponse<AddDataResponse>&)>;
 
     using LeafCallback = std::function<void(const TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
     using FindLowLeafCallback = std::function<void(const TypedResponse<GetLowIndexedLeafResponse>&)>;
@@ -125,7 +124,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      * @param completion The callback to be triggered once the values have been added
      */
     void add_or_update_values_sequentially(const std::vector<LeafValueType>& values,
-                                           const AddSequentiallyCompletionCallback& completion);
+                                           const AddCompletionCallback& completion);
 
     void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion) const;
 
@@ -1400,7 +1399,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_sequentially(
-    const std::vector<LeafValueType>& values, const AddSequentiallyCompletionCallback& completion)
+    const std::vector<LeafValueType>& values, const AddCompletionCallback& completion)
 {
     auto final_completion =
         [=](const TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>>& add_data_response) {

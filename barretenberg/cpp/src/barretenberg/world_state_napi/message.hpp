@@ -189,7 +189,7 @@ struct SyncBlockRequest {
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
-    std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>> batchesOfPublicDataWrites;
+    std::vector<crypto::merkle_tree::PublicDataLeafValue> publicDataWrites;
 
     MSGPACK_FIELDS(blockNumber,
                    blockStateRef,
@@ -197,7 +197,7 @@ struct SyncBlockRequest {
                    paddedNoteHashes,
                    paddedL1ToL2Messages,
                    paddedNullifiers,
-                   batchesOfPublicDataWrites);
+                   publicDataWrites);
 };
 
 } // namespace bb::world_state

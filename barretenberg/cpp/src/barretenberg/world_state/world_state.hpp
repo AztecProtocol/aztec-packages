@@ -235,13 +235,12 @@ class WorldState {
     WorldStateStatusFull remove_historical_blocks(const index_t& toBlockNumber);
 
     void get_status_summary(WorldStateStatusSummary& status) const;
-    WorldStateStatusFull sync_block(
-        const StateReference& block_state_ref,
-        const bb::fr& block_header_hash,
-        const std::vector<bb::fr>& notes,
-        const std::vector<bb::fr>& l1_to_l2_messages,
-        const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-        const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
+    WorldStateStatusFull sync_block(const StateReference& block_state_ref,
+                                    const bb::fr& block_header_hash,
+                                    const std::vector<bb::fr>& notes,
+                                    const std::vector<bb::fr>& l1_to_l2_messages,
+                                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;

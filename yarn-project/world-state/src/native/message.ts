@@ -414,7 +414,7 @@ interface SyncBlockRequest {
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];
-  batchesOfPublicDataWrites: readonly SerializedLeafValue[][];
+  publicDataWrites: readonly SerializedLeafValue[][];
 }
 
 interface CreateForkRequest {

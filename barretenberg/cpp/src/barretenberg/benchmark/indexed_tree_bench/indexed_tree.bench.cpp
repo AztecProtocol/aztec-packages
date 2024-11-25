@@ -65,7 +65,7 @@ template <typename TreeType> void add_values_sequentially(TreeType& tree, const 
     bool success = true;
     std::string error_message;
     Signal signal(1);
-    typename TreeType::AddSequentiallyCompletionCallback completion = [&](const auto& result) -> void {
+    typename TreeType::AddCompletionCallback completion = [&](const auto& result) -> void {
         success = result.success;
         error_message = result.message;
         signal.signal_level(0);
