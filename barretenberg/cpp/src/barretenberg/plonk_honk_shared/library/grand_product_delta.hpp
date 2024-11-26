@@ -49,13 +49,8 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     // initial zero row or Goblin-stlye ECC op gates. Accordingly, the indices i in the above formulas are given by i =
     // [0, m-1] + offset, i.e. i = offset, 1 + offset, …, m - 1 + offset.
 
-    // WORKTODO: The correct construction of the public input delta here depends on the agreement between the
-    // "domain_size" value used here and the "num_gates" value used in the construction of the sigma/id polynomials in
-    // compute_honk_style_permutation_lagrange_polynomials_from_mapping(). The former happens in the Decider PK
-    // constructor and the latter happens in oink so there's no issue unless something changes between those two steps
-    // (i.e. this shouldn't apply in the IVC setting because we've fully completed a key before expanding it to
-    // accommodate accumulation of a larger circuit). Still, this came up in some of my more isolated tests. Would be
-    // nice to find a way to systematically ensure these agree.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158): Ensure correct construction of public input
+    // delta in the face of increases to virtual size caused by execution trace overflow
     Field numerator_acc = gamma + (beta * Field(domain_size + offset));
     Field denominator_acc = gamma - beta * Field(1 + offset);
 
