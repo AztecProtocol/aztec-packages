@@ -7,7 +7,7 @@ __metadata:
 
 "@aztec/bb.js@file:../../ts::locator=browser-test-app%40workspace%3A.":
   version: 0.63.1
-  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=cad89d&locator=browser-test-app%40workspace%3A."
+  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=139135&locator=browser-test-app%40workspace%3A."
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^10.0.1"
@@ -16,7 +16,7 @@ __metadata:
     tslib: "npm:^2.4.0"
   bin:
     bb.js: ./dest/node/main.js
-  checksum: 10c0/783c53595a8d19afaa4e80f1e9c84411addf820dd876ba2980d49e739d43091b314ebbd8562363a2255f47d55a27a0f77249942d10965deaf14b81be945420b3
+  checksum: 10c0/9b77b9952bab42e53d74be94b0267754dbf1d47bb0eb761335968d468be1d54d7b42720c566e9fc14bad2e0372bb279a5683fdb1444043ff15c6f3e03bd99431
   languageName: node
   linkType: hard
 
