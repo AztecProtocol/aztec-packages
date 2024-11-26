@@ -2,6 +2,10 @@
 
 set -eu
 
+# get host arch
+ARCH=$(uname -m)
+IMAGE="aztecprotocol/aztec:698cd3d62680629a3f1bfc0f82604534cedbccf3-${ARCH}"
+
 docker run --rm --network=host \
   -e P2P_UDP_ANNOUNCE_ADDR=$PUBLIC_IP:$P2P_PORT \
   -e P2P_TCP_ANNOUNCE_ADDR=$PUBLIC_IP:$P2P_PORT \
@@ -35,4 +39,4 @@ docker run --rm --network=host \
   -e OUTBOX_CONTRACT_ADDRESS=0x1016b5aaa3270a65c315c664ecb238b6db270b64 \
   -e P2P_UDP_LISTEN_ADDR=0.0.0.0:$P2P_PORT \
   -e P2P_TCP_LISTEN_ADDR=0.0.0.0:$P2P_PORT \
-  aztecprotocol/aztec:rough-rhino start --node --archiver --sequencer
+  $IMAGE start --node --archiver --sequencer
