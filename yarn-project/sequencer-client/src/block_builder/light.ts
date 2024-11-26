@@ -16,6 +16,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBaseRollupHints, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+
 import { inspect } from 'util';
 
 /**
