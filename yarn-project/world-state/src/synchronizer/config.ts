@@ -11,7 +11,7 @@ export interface WorldStateConfig {
   /** Size of the batch for each get-blocks request from the synchronizer to the archiver. */
   worldStateBlockRequestBatchSize?: number;
 
-  /** The maximum size of the combined world state db in KB, optional, will inherit from the general dataStoreMapSizeKB if not specified*/
+  /** The map size to be provided to LMDB for each world state tree DB, optional, will inherit from the general dataStoreMapSizeKB if not specified*/
   worldStateDbMapSizeKb?: number;
 
   /** Optional directory for the world state DB, if unspecified will default to the general data directory */

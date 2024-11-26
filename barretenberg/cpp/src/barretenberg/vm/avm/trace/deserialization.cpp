@@ -73,15 +73,15 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::SHR_8, three_operand_format8 },
     { OpCode::SHR_16, three_operand_format16 },
     // Compute - Type Conversions
-    { OpCode::CAST_8, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
-    { OpCode::CAST_16, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::CAST_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8, OperandType::TAG } },
+    { OpCode::CAST_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::TAG } },
 
     // Execution Environment - Globals
     { OpCode::GETENVVAR_16,
       {
           OperandType::INDIRECT8,
-          OperandType::UINT8, // var idx
           OperandType::UINT16,
+          OperandType::UINT8, // var idx
       } },
 
     // Execution Environment - Calldata
@@ -92,17 +92,17 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     // Machine State - Internal Control Flow
     { OpCode::JUMP_32, { OperandType::UINT32 } },
-    { OpCode::JUMPI_32, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT16 } },
+    { OpCode::JUMPI_32, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT32 } },
     { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
 
     // Machine State - Memory
-    { OpCode::SET_8, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
-    { OpCode::SET_16, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::SET_32, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT32, OperandType::UINT16 } },
-    { OpCode::SET_64, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT64, OperandType::UINT16 } },
-    { OpCode::SET_128, { OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT128, OperandType::UINT16 } },
-    { OpCode::SET_FF, { OperandType::INDIRECT8, OperandType::TAG, OperandType::FF, OperandType::UINT16 } },
+    { OpCode::SET_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::TAG, OperandType::UINT8 } },
+    { OpCode::SET_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT16 } },
+    { OpCode::SET_32, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT32 } },
+    { OpCode::SET_64, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT64 } },
+    { OpCode::SET_128, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::UINT128 } },
+    { OpCode::SET_FF, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG, OperandType::FF } },
     { OpCode::MOV_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
     { OpCode::MOV_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
@@ -138,7 +138,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT16,
         OperandType::UINT16 } },
     { OpCode::GETCONTRACTINSTANCE,
-      { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
     { OpCode::EMITUNENCRYPTEDLOG,
       {
           OperandType::INDIRECT8,
