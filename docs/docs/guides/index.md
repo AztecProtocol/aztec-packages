@@ -36,7 +36,7 @@ In this section you will find:
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/tutorials/codealong/js_tutorials/simple_dapp/index'>
+  <Card shadow='tl' link='/tutorials/codealong/js_tutorials/simple_dapp'>
     <CardHeader>
       <h3>Full stack app on Aztec</h3>
     </CardHeader>
