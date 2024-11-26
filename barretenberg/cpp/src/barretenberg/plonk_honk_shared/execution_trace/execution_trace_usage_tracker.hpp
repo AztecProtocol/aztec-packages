@@ -18,9 +18,8 @@ struct ExecutionTraceUsageTracker {
     using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
     using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
-    TraceStructure max_sizes; // max utilization of each block
-    // Fixed size of each block prescribed by strucuring and the highest size of an overflow block encountered
-    MegaTraceFixedBlockSizes fixed_sizes;
+    TraceStructure max_sizes;             // max utilization of each block
+    MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
     // Store active ranges based on the most current accumulator and those based on all but the most recently
     // accumulated circuit. The former is needed for the combiner calculation and the latter for the perturbator.
     std::vector<Range> active_ranges;
