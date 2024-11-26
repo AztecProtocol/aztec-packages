@@ -6,8 +6,8 @@ if [ "${CI:-0}" -eq 0 ]; then
   exit 0
 fi
 
-(cd browser-test-app && yarn --immutable && yarn build)
-(cd headless-test && yarn --immutable)
+(cd browser-test-app && yarn && yarn build)
+(cd headless-test && yarn)
 
 # Download ignition up front to ensure no race conditions at runtime.
 # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.

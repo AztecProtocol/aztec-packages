@@ -21,7 +21,7 @@ function build {
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  yarn install --immutable
+  yarn install
 
   case "${1:-}" in
     "fast") yarn build::fast;;

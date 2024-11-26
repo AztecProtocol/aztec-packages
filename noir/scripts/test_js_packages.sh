@@ -13,7 +13,7 @@ export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
 cargo build --release
 
-yarn --immutable
+yarn
 yarn build
 
 export NODE_OPTIONS=--max_old_space_size=8192

@@ -21,7 +21,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-yarn install --immutable
+yarn install
 
 [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::bb.js build"
 echo "Building with command 'yarn $BUILD_CMD'..."

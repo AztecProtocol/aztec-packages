@@ -22,7 +22,7 @@ PROJECTS=(
 )
 INCLUDE=$(printf " --include %s" "${PROJECTS[@]}")
 
-yarn --immutable --silent
+yarn --silent
 
 yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
 
