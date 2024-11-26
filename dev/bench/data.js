@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732580763203,
+  "lastUpdate": 1732643833280,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "90696cd0e126d7db3c4ef396ada4bddd3ac0de73",
-          "message": "feat: bb.js tests of ClientIVC (#9412)\n\nExtend the ivc-integration-tests suite to execute tests through the\r\nwasm and the browser. When run, these tests give both memory and time logs. We should\r\nmake these easier to read, but for now they're very useful.",
-          "timestamp": "2024-11-08T17:44:33Z",
-          "tree_id": "5783a8e3d0c33cf1924d0f1e33e34b7048c61f68",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/90696cd0e126d7db3c4ef396ada4bddd3ac0de73"
-        },
-        "date": 1731090058955,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29166.603784000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27448.519479 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5350.589461999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5013.155016 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84217.63666399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84217637000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15210.690980000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15210692000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3068862398,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3068862398 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144145031,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144145031 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2986,6 +2926,66 @@ window.BENCHMARK_DATA = {
             "value": 139752377,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139752377 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b",
+          "message": "feat(avm): new public inputs witgen (#10179)\n\nThis PR does a few things\r\n1) Disconnects the kernel trace constraints (but keeps the file for\r\nfuture reference when we re-constrain public inputs)\r\n2) Replaces the old public inputs with the new ones from\r\n`AvmCircuitPublicInputs`, however unconstrained\r\n3) All merkle checks are now performed in witgen\r\n\r\nIt's still a bit brittle and probably needs a refactor to clean it up\r\nbut will suffice for now as we are getting all the pieces together",
+          "timestamp": "2024-11-26T17:32:01Z",
+          "tree_id": "3b1ba55793a8e448ae76d46da5fc76e23bff9f50",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b"
+        },
+        "date": 1732643826259,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27992.62294100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26233.630974 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5071.872057999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4614.937978 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83867.52895200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83867529000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15158.972065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15158973000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3078155659,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3078155659 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140013160,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140013160 ns\nthreads: 1"
           }
         ]
       }
