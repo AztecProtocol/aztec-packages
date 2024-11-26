@@ -428,5 +428,5 @@ sysbox:
   EXPOSE 22
 
   ARG TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:1.0-$TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:1.0
+  SAVE IMAGE aztecprotocol/sysbox:1.1-$TARGETARCH
+  SAVE IMAGE aztecprotocol/sysbox:1.1
