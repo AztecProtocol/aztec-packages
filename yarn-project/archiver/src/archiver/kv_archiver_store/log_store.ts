@@ -44,10 +44,10 @@ export class LogStore {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
       block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
-    block.body.txEffects.forEach((txEffects, txIndex) => {
-      const txHash = txEffects.txHash;
+    block.body.txEffects.forEach((txEffect, txIndex) => {
+      const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
-      txEffects.privateLogs.forEach(log => {
+      txEffect.privateLogs.forEach(log => {
         const tag = log.fields[0];
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
         currentLogs.push(

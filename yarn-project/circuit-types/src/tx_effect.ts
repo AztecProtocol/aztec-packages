@@ -278,7 +278,7 @@ export class TxEffect {
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
-      privateLogs: ${this.privateLogs.map(l => l.toString()).join(', ')},
+      privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
       unencryptedLogsLength: ${this.unencryptedLogsLength},
       contractClassLogsLength: ${this.contractClassLogsLength},
       unencryptedLogs: ${JSON.stringify(this.unencryptedLogs.toJSON())}

@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_FIELDS},
-    hash::poseidon2_hash_with_separator,
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
     point::Point,
     public_keys::{AddressPoint, OvpkM},
     scalar::Scalar,
@@ -103,14 +103,21 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
     // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
     // automatically.
-    let tag_bytes: [u8; 32] = unsafe { get_app_tag_as_sender(sender, recipient).to_be_bytes() };
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
+    // Silo the tag with contract address.
+    // This is done by the kernel circuit to the private logs.
+    // But since the partial log will be finalized and emitted in public as unencrypted log, its tag is not siloed at the moment.
+    // To avoid querying logs using two types of tags, we silo the tag manually here.
+    // This should be done by the AVM when its processing the raw logs instead of their hashes.
+    let siloed_tag_bytes: [u8; 32] =
+        poseidon2_hash([contract_address.to_field(), tag]).to_be_bytes();
 
     // Temporary hack so that the partial public log remains the same format.
     // It should return field array and make the tag the first field as compute_private_log_payload does.
     let mut log_bytes = [0; M];
     for i in 0..32 {
-        log_bytes[i] = tag_bytes[i];
+        log_bytes[i] = siloed_tag_bytes[i];
     }
     for i in 0..encrypted.len() {
         log_bytes[i + 32] = encrypted[i];
