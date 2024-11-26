@@ -138,7 +138,8 @@ pub global GENESIS_ARCHIVE_ROOT: Field =
     0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-global FEE_JUICE_INITIAL_MINT: Field = 200000000000000;
+global FEE_JUICE_INITIAL_MINT: Field = 20000000000000000000;
+global FEE_FUNDING_FOR_TESTER_ACCOUNT: Field = 100000000000000000000; // 100e18
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 

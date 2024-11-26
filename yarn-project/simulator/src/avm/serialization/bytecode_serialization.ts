@@ -63,7 +63,7 @@ export interface Deserializable {
 export type InstructionSet = Map<Opcode, InstructionDeserializer>;
 // TODO(4359): This is a function so that Call and StaticCall can be lazily resolved.
 // This is a temporary solution until we solve the dependency cycle.
-const INSTRUCTION_SET = () =>
+export const INSTRUCTION_SET = () =>
   new Map<Opcode, InstructionDeserializer>([
     [Opcode.ADD_8, Add.as(Add.wireFormat8).deserialize],
     [Opcode.ADD_16, Add.as(Add.wireFormat16).deserialize],
