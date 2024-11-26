@@ -29,7 +29,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
 fi
 
 [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Request Build Instance"
-ip_sir=$(./build-system/scripts/request_spot ci3-$USER 64 x86_64)
+ip_sir=$(./build-system/scripts/request_spot ci3-$USER 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
