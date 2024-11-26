@@ -124,6 +124,10 @@ describe('L1Publisher', () => {
         header: `0x${header.toString('hex')}`,
         archive: `0x${archive.toString('hex')}`,
         blockHash: `0x${blockHash.toString('hex')}`,
+        oracleInput: {
+          feeAssetPriceModifier: 0n,
+          provingCostModifier: 0n,
+        },
         txHashes: [],
       },
       [],
