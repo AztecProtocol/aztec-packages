@@ -48,10 +48,7 @@ fn split_to_public_succeeds() {
 
     // private_logs
     let expected = combined_data.private_logs;
-    assert_array_eq(
-        non_revertible.private_logs,
-        [expected[0], expected[1]],
-    );
+    assert_array_eq(non_revertible.private_logs, [expected[0], expected[1]]);
     assert_array_eq(revertible.private_logs, [expected[2], expected[3]]);
 
     // contract_class_logs_hashes

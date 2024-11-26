@@ -1,13 +1,11 @@
 use crate::{
     abis::{
         accumulated_data::private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
-        log_hash::{ ScopedLogHash}, private_log::PrivateLog,
-        public_call_request::PublicCallRequest,
+        log_hash::ScopedLogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
     },
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::Empty,
