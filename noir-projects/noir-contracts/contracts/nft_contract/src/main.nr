@@ -71,21 +71,21 @@ contract NFT {
     }
     // docs:end:constructor
 
-    // docs:start:admin
+    // docs:start:set_admin
     #[public]
     fn set_admin(new_admin: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.admin.write(new_admin);
     }
-    // docs:end:admin
+    // docs:end:set_admin
 
-    // docs:start:minter
+    // docs:start:set_minter
     #[public]
     fn set_minter(minter: AztecAddress, approve: bool) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.minters.at(minter).write(approve);
     }
-    // docs:end:minter
+    // docs:end:set_minter
 
     // docs:start:mint
     #[public]
