@@ -144,6 +144,10 @@ async function getBlockFromRollupTx(
       header: Hex;
       archive: Hex;
       blockHash: Hex;
+      oracleInput: {
+        provingCostModifier: bigint;
+        feeAssetPriceModifier: bigint;
+      };
       txHashes: Hex[];
     },
     ViemSignature[],

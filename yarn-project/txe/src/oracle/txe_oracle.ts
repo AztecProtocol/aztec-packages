@@ -657,7 +657,7 @@ export class TXE implements TypedOracle {
     globalVariables.chainId = this.chainId;
     globalVariables.version = this.version;
     globalVariables.blockNumber = new Fr(this.blockNumber);
-    globalVariables.gasFees = GasFees.default();
+    globalVariables.gasFees = new GasFees(1, 1);
 
     const simulator = new PublicTxSimulator(
       db,
@@ -773,8 +773,9 @@ export class TXE implements TypedOracle {
   }
 
   async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
-    const directionalSecret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
-    await this.txeDatabase.incrementTaggingSecretsIndexesAsSender([directionalSecret]);
+    const appSecret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexesAsSender([appSecret]);
+    await this.txeDatabase.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appSecret, index + 1)]);
   }
 
   async getAppTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {

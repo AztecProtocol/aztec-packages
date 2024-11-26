@@ -1,5 +1,5 @@
 import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
   PrivateExecutionResult,
@@ -36,8 +36,11 @@ describe('execution_result', () => {
   });
 
   describe('serialization', () => {
-    const instance = PrivateExecutionResult.random();
-    expect(PrivateExecutionResult.schema.parse(JSON.parse(jsonStringify(instance)))).toEqual(instance);
+    it('serializes and deserializes correctly', () => {
+      const instance = PrivateExecutionResult.random();
+      jsonParseWithSchema;
+      expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
+    });
   });
 
   describe('collectNoteHashLeafIndexMap', () => {

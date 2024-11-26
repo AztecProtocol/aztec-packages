@@ -121,7 +121,6 @@ impl PublicBaseRollupInputs {
         //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         // }
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
-
         let reverted = self.avm_proof_data.public_inputs.reverted;
 
         let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
