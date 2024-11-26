@@ -173,21 +173,12 @@ class ClientIVCAPI : public API {
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
         // this directory is passed by bb.js)
-        const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
-        const std::filesystem::path mega_vk_path = output_dir / "mega_vk"; // the vk of the last circuit in the stack
-        const std::filesystem::path translator_vk_path = output_dir / "translator_vk";
-        const std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
-
-        auto mega_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.honk_vk);
-        auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-        auto translator_vk =
-            std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-
         vinfo("writing ClientIVC proof and vk...");
-        write_file(proof_path, to_buffer(proof));
-        write_file(mega_vk_path, to_buffer(mega_vk));
-        write_file(translator_vk_path, to_buffer(translator_vk));
-        write_file(eccvm_vk_path, to_buffer(eccvm_vk));
+        write_file(output_dir / "client_ivc_proof", to_buffer(proof));
+        write_file(output_dir / "mega_vk", to_buffer(ivc.honk_vk));
+        write_file(output_dir / "ecc_vk", to_buffer(ECCVMFlavor::VerificationKey(ivc.goblin.get_eccvm_proving_key())));
+        write_file(output_dir / "translator_vk",
+                   to_buffer(TranslatorFlavor::VerificationKey(ivc.goblin.get_translator_proving_key())));
     };
 
     /**
