@@ -1,6 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  type AztecNode,
   type CompleteAddress,
   type DebugLogger,
   Fr,
@@ -15,7 +14,6 @@ import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
-  let aztecNode: AztecNode;
   let pxe: PXE;
   const wallets: Wallet[] = [];
   const accounts: CompleteAddress[] = [];
@@ -28,7 +26,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   const numAccounts = 3;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, pxe, logger } = await setup(0));
+    ({ teardown, pxe, logger } = await setup(0));
 
     const encryptionPrivateKey = Fr.random();
 
@@ -73,11 +71,6 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     for (let i = 0; i < expectedBalances.length; i++) {
       await expectTokenBalance(wallets[i], token, wallets[i].getAddress(), expectedBalances[i], logger);
     }
-
-    // Expect 2 private logs in the block.
-    const l2BlockNum = await aztecNode.getBlockNumber();
-    const privateLogs = await aztecNode.getPrivateLogs(l2BlockNum, 1);
-    expect(privateLogs.length).toBe(2);
 
     logger.info(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
   };

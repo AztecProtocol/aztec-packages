@@ -97,11 +97,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     pub unconstrained fn sort_ordered_values(&mut self) {
-        // Note hashes and nullifiers are sorted in the reset circuit.
+        // Note hashes, nullifiers, and private logs are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage =
             sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
-        self.public_inputs.end.private_logs.storage =
-            sort_by_counter_asc(self.public_inputs.end.private_logs.storage);
         self.public_inputs.end.contract_class_logs_hashes.storage =
             sort_by_counter_asc(self.public_inputs.end.contract_class_logs_hashes.storage);
         self.public_inputs.end.public_call_requests.storage =

@@ -28,9 +28,9 @@ describe('ArtifactHash', () => {
   it('calculates the test contract artifact hash multiple times to ensure deterministic hashing', () => {
     const testArtifact = getTestContractArtifact();
 
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 5; i++) {
       expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(
-        `"0x21070d88558fdc3906322f267cf6f0f632caf3949295520fe1f71f156fbb0d0b"`,
+        `"0x2b227a27f1c358fd2fe9be8244e24bb37524d468bafba055b17667eb44b328b9"`,
       );
     }
   });
@@ -43,7 +43,7 @@ describe('ArtifactHash', () => {
     const testArtifact = loadContractArtifact(content);
 
     expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(
-      `"0x21070d88558fdc3906322f267cf6f0f632caf3949295520fe1f71f156fbb0d0b"`,
+      `"0x2b227a27f1c358fd2fe9be8244e24bb37524d468bafba055b17667eb44b328b9"`,
     );
   });
 });

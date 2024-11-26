@@ -914,7 +914,7 @@ export class PXEService implements PXE {
     const visibleEvents = privateLogs.flatMap(log => {
       for (const sk of vsks) {
         // TODO: Verify that the first field of the log is the tag siloed with contract address.
-        // Or use tags to query logs, like we do with L1NotePayload.
+        // Or use tags to query logs, like we do with notes.
         const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk) ?? L1EventPayload.decryptAsOutgoing(log, sk);
         if (decryptedEvent !== undefined) {
           return [decryptedEvent];

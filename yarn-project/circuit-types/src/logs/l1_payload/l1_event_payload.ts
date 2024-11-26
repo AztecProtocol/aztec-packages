@@ -36,7 +36,7 @@ export class L1EventPayload {
 
       const eventTypeId = EventSelector.fromField(fields[0]);
 
-      const event = new Event(fields.slice(2));
+      const event = new Event(fields.slice(1));
 
       payload = new L1EventPayload(event, contractAddress, eventTypeId);
     } catch (e) {
