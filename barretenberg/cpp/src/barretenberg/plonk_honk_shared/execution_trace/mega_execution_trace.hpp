@@ -30,10 +30,17 @@ template <typename T> struct MegaTraceBlockData {
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",     "pub_inputs",         "busread",
-                 "arithmetic", "delta_range",        "elliptic",
-                 "aux",        "poseidon2_external", "poseidon2_internal",
-                 "lookup" };
+        return { "ecc_op",
+                 "pub_inputs",
+                 "busread",
+                 "arithmetic",
+                 "delta_range",
+                 "elliptic",
+                 "aux",
+                 "poseidon2_external",
+                 "poseidon2_internal",
+                 "lookup",
+                 "overflow" };
     }
 
     auto get()
@@ -174,7 +181,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         this->overflow.fixed_size = settings.overflow_capacity;
     }
 
-    // WORKTODO: use or remove
     MegaExecutionTraceBlocks(const TraceSettings& settings)
         : MegaExecutionTraceBlocks()
     {
@@ -217,6 +223,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         for (auto block : this->get()) {
             total_size += block.get_fixed_size();
         }
+        info("total size: ");
 
         auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
         if ((1UL << log2_n) != (total_size)) {

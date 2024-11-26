@@ -496,7 +496,7 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
     size_t NUM_CIRCUITS = 2;
 
     // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    std::vector<size_t> log2_num_arith_gates = { 14, 18 };
+    std::vector<size_t> log2_num_arith_gates = { 14, 18, 16 };
     // Accumulate
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
@@ -507,7 +507,7 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
     // DEBUG: check consistency of the target sum computed internal to ivc
 
     // DEBUG: run native pg verifier then native decider prover/verifier
-    // fold_verify_then_decider_prove_and_verify(ivc);
+    fold_verify_then_decider_prove_and_verify(ivc);
 
-    // EXPECT_TRUE(ivc.prove_and_verify());
+    EXPECT_TRUE(ivc.prove_and_verify());
 };

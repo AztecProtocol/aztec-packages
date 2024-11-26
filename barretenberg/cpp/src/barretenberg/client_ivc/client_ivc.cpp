@@ -174,18 +174,17 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
         proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-        // trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
+        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
         proving_key = std::make_shared<DeciderProvingKey>(
             circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
     }
 
-    // // DEBUG
-    // ASSERT(CircuitChecker::check(circuit));
+    ASSERT(CircuitChecker::check(circuit));
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
-    // trace_usage_tracker.update(circuit);
+    trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
@@ -197,11 +196,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
         OinkProver<Flavor> oink_prover{ proving_key };
-        info("computing oink proof...");
+        vinfo("computing oink proof...");
         oink_prover.prove();
-        info("oink proof constructed");
+        vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
-        proving_key->target_sum = 0;
         // Initialize the gate challenges to zero for use in first round of folding
         proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
@@ -213,9 +211,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
-        info("in folding prover");
+        vinfo("in folding prover");
         FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
-        info("constructed folding prover");
         fold_output = folding_prover.prove();
         info("constructed folding proof");
 
@@ -285,7 +282,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
     // WORKTODO: This fails in the dynamic accum expansion case
-    // ASSERT(CircuitChecker::check(builder));
+    ASSERT(CircuitChecker::check(builder));
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
     MegaProver prover(decider_pk);
 

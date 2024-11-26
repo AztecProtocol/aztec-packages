@@ -77,8 +77,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     inline static FF process_subrelation_evaluations(const RelationEvaluations& evals,
                                                      const std::array<FF, NUM_SUBRELATIONS>& challenges,
-                                                     FF& linearly_dependent_contribution,
-                                                     size_t row = 0)
+                                                     FF& linearly_dependent_contribution)
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1115): Iniitalize with first subrelation value to
         // avoid Montgomery allocating 0 and doing a mul. This is about 60ns per row.
@@ -93,9 +92,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                     linearly_independent_contribution += contribution;
                 } else {
                     linearly_dependent_contribution += contribution;
-                    if (contribution != 0) {
-                        info("contribution: ", contribution, " at row: ", row);
-                    }
                 }
                 idx++;
             };
@@ -117,7 +113,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
                                             const RelationSeparator& alphas_,
-                                            const RelationParameters<FF>& relation_parameters)
+                                            const RelationParameters<FF>& relation_parameters,
+                                            bool use_prev_accumulator = false)
 
     {
 
@@ -128,7 +125,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // zero everywhere in the expanded portion of the domain. This is not the case for the combiner because that
         // calculation includes the incoming key which has ontrivial values on the larger domain.
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        info(polynomial_size);
         // const size_t polynomial_size = polynomials.q_c.virtual_size(); // DEBUG: dont think we need this
         std::vector<FF> aggregated_relation_evaluations(polynomial_size);
 
@@ -140,36 +136,33 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         }();
 
         // Determine the number of threads over which to distribute the work
-        // const size_t num_threads = compute_num_threads(polynomial_size);
+        const size_t num_threads = compute_num_threads(polynomial_size);
 
-        // std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
+        std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
-        // // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        // trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
-        FF linearly_dependent_contribution{ 0 };
+        // Distribute the execution trace rows across threads so that each handles an equal number of active rows
+        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
 
-        // parallel_for(num_threads, [&](size_t thread_idx) {
-        //     const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
-        //     const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
 
-        for (size_t idx = 0; idx < polynomial_size; idx++) {
-            // The contribution is only non-trivial at a given row if the accumulator is active at that row
-            // if (trace_usage_tracker.check_is_active(idx, /*use_prev_accumulator=*/true)) {
-            const AllValues row = polynomials.get_row(idx);
-            // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
-            const RelationEvaluations evals =
-                RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
+            for (size_t idx = start; idx < end; idx++) {
+                // The contribution is only non-trivial at a given row if the accumulator is active at that row
+                if (trace_usage_tracker.check_is_active(idx, use_prev_accumulator)) {
+                    const AllValues row = polynomials.get_row(idx);
+                    // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
+                    const RelationEvaluations evals =
+                        RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-            // Sum against challenges alpha
-            aggregated_relation_evaluations[idx] = process_subrelation_evaluations(
-                evals, alphas, linearly_dependent_contribution /*_accumulators[thread_idx]*/, idx);
-            // }
-        }
-        // });
+                    // Sum against challenges alpha
+                    aggregated_relation_evaluations[idx] = process_subrelation_evaluations(
+                        evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);
+                }
+            }
+        });
 
-        info("linearly dependent contribution: ", linearly_dependent_contribution);
-        aggregated_relation_evaluations[0] +=
-            linearly_dependent_contribution; // sum(linearly_dependent_contribution_accumulators);
+        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
     }
@@ -240,7 +233,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     {
         PROFILE_THIS();
         auto full_honk_evaluations = compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
+            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters, true);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
@@ -254,10 +247,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
             perturbator.emplace_back(FF(0));
         }
-        // info("Perturbator coeffs:");
-        // for (size_t idx = 0; idx < perturbator.size(); ++idx) {
-        //     info("idx = ", idx, ", val = ", perturbator[idx]);
-        // }
         return Polynomial<FF>{ perturbator };
     }
 
@@ -361,10 +350,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Determine the number of threads over which to distribute the work
         // WORKTODO: here we need the virtual size (as opposed to size()/circuit_size) since the computation includes
-        // the incoming key which has nontrivial values on the larger domain. const size_t common_polynomial_size =
-        // keys[0]->proving_key.circuit_size;
+        // the incoming key which could have nontrivial values on the larger domain in case of overflow.
         const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
-        const size_t num_threads = compute_num_threads(common_polynomial_size);
+        const size_t num_threads = 1; // compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
@@ -388,27 +376,28 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
-            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+            const size_t start = 0; // trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = common_polynomial_size;
+            // const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
 
             for (size_t idx = start; idx < end; idx++) {
-                // if (trace_usage_tracker.check_is_active(idx)) {
-                // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
-                // are still available for skipping relations, but all derived univariate will ignore those
-                // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
-                constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
-                extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
+                if (trace_usage_tracker.check_is_active(idx)) {
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
+                    // are still available for skipping relations, but all derived univariate will ignore those
+                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
+                    extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
 
-                const FF pow_challenge = gate_separators[idx];
+                    const FF pow_challenge = gate_separators[idx];
 
-                // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
-                // this function have already been folded. Moreover, linear-dependent relations that act over the
-                // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_univariates[thread_idx],
-                                                relation_parameters, // these parameters have already been folded
-                                                pow_challenge);
-                // }
+                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
+                    // this function have already been folded. Moreover, linear-dependent relations that act over the
+                    // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                    extended_univariates[thread_idx],
+                                                    relation_parameters, // these parameters have already been folded
+                                                    pow_challenge);
+                }
             }
         });
 

@@ -14,7 +14,7 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_k
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-    info("oinking from PG");
+
     OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
     oink_prover.prove();
 }
@@ -31,7 +31,6 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_
         run_oink_prover_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-        key->is_accumulator = true;
     }
 
     idx++;
@@ -63,7 +62,6 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
-        // info("Perturbator at ", idx, " ", perturbator
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
@@ -195,15 +193,8 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         }
     }
 
-    // RelationChecker<typename DeciderProvingKeys::Flavor>::check_all(keys_to_fold[0]->proving_key.polynomials,
-    //                                                                 keys_to_fold[0]->relation_parameters);
     run_oink_prover_on_each_incomplete_key();
     vinfo("oink prover on each incomplete key");
-
-    // RelationChecker<typename DeciderProvingKeys::Flavor>::check_all(keys_to_fold[0]->proving_key.polynomials,
-    //                                                                 keys_to_fold[0]->relation_parameters);
-    // RelationChecker<typename DeciderProvingKeys::Flavor>::check_all(keys_to_fold[1]->proving_key.polynomials,
-    //                                                                 keys_to_fold[1]->relation_parameters);
 
     std::tie(deltas, perturbator) = perturbator_round(accumulator);
     vinfo("perturbator round");

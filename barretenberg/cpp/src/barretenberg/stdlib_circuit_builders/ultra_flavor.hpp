@@ -411,7 +411,6 @@ class UltraFlavor {
          */
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
-            info("about to compute logderivative inverse");
             // Compute inverses for conventional lookups
             compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation<FF>>(
                 this->polynomials, relation_parameters, this->circuit_size);

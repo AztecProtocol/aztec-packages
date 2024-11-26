@@ -156,12 +156,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                                               const size_t circuit_size)
     {
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
-        info("HEREEEE");
-        info("in log derivative");
         for (size_t i = 0; i < circuit_size; ++i) {
             // We only compute the inverse if this row contains a lookup gate or data that has been looked up
             if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
-                info("rows at which we deal with log derivative: ", i);
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                 auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
                 auto value = compute_read_term<FF, 0>(row, relation_parameters) *
@@ -171,7 +168,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         }
         // Compute inverse polynomial I in place by inverting the product at each row
         FF::batch_invert(inverse_polynomial.coeffs());
-        info(inverse_polynomial.size());
     };
 
     /**

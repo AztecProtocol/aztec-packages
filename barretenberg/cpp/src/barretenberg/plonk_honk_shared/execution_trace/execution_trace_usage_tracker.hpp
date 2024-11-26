@@ -18,8 +18,9 @@ struct ExecutionTraceUsageTracker {
     using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
     using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
-    TraceStructure max_sizes;             // max utilization of each block
-    MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
+    TraceStructure max_sizes; // max utilization of each block
+    // Fixed size of each block prescribed by strucuring and the highest size of an overflow block encountered
+    MegaTraceFixedBlockSizes fixed_sizes;
     // Store active ranges based on the most current accumulator and those based on all but the most recently
     // accumulated circuit. The former is needed for the combiner calculation and the latter for the perturbator.
     std::vector<Range> active_ranges;
@@ -48,7 +49,7 @@ struct ExecutionTraceUsageTracker {
     }
 
     // Update the max block utilization and active trace ranges based on the data from a provided circuit
-    void update(const Builder& circuit)
+    void update(Builder& circuit)
     {
         // Update the max utilization of each gate block
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
@@ -72,8 +73,11 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start).
-        size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
+        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start) so we
+        // need to determine the dyadic size for this. We call the size function on the current circuit which will have
+        // the same fixed block sizes but might also have an overflow block potentially influencing the dyadic circuit
+        // size.
+        size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
         // max_databus_size } but this breaks for certain choices of num_threads.
@@ -111,6 +115,13 @@ struct ExecutionTraceUsageTracker {
                                            "lookup",
                                            "overflow" };
 
+    std::vector<std::string> active_ranges_labels = [this] {
+        std::vector<std::string> result = block_labels;
+        result.push_back("databus table data");
+        result.push_back("lookup table data");
+        return result;
+    }();
+
     void print()
     {
         info("Minimum required block sizes for structured trace: ");
@@ -123,7 +134,17 @@ struct ExecutionTraceUsageTracker {
     void print_active_ranges()
     {
         info("Active regions of accumulator: ");
-        for (auto [label, range] : zip_view(block_labels, active_ranges)) {
+        for (auto [label, range] : zip_view(active_ranges_labels, active_ranges)) {
+            std::cout << std::left << std::setw(20) << (label + ":") << "(" << range.first << ", " << range.second
+                      << ")" << std::endl;
+        }
+        info("");
+    }
+
+    void print_previous_active_ranges()
+    {
+        info("Active regions of previous accumulator: ");
+        for (auto [label, range] : zip_view(active_ranges_labels, previous_active_ranges)) {
             std::cout << std::left << std::setw(20) << (label + ":") << "(" << range.first << ", " << range.second
                       << ")" << std::endl;
         }

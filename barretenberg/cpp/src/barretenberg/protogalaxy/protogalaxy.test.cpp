@@ -90,11 +90,22 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         return { prover_accumulator, verifier_accumulator };
     }
 
+    static std::tuple<std::shared_ptr<DeciderProvingKey>, std::shared_ptr<DeciderVerificationKey>> fold_and_verify(
+        const std::vector<std::shared_ptr<DeciderProvingKey>>& proving_keys,
+        const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys,
+        ExecutionTraceUsageTracker trace_usage_tracker)
+    {
+        FoldingProver folding_prover(proving_keys, trace_usage_tracker);
+        FoldingVerifier folding_verifier(verification_keys);
+
+        auto [prover_accumulator, folding_proof] = folding_prover.prove();
+        auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
+        return { prover_accumulator, verifier_accumulator };
+    }
+
     static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator,
                                                     bool expected_result)
     {
-
-        info("in the test");
         size_t accumulator_size = accumulator->proving_key.circuit_size;
         PGInternal pg_internal;
         auto expected_honk_evals = pg_internal.compute_row_evaluations(
@@ -471,6 +482,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         uint32_t overflow_capacity = 0; // consider the case where the overflow is not known until runtime
         TraceSettings trace_settings{ SMALL_TEST_STRUCTURE, overflow_capacity };
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
 
         std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
         std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
@@ -483,17 +495,22 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates[i]);
 
             auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+            trace_usage_tracker.update(builder);
             auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->proving_key);
             auto decider_verification_key = std::make_shared<DeciderVerificationKey>(verification_key);
             decider_pks.push_back(decider_proving_key);
             decider_vks.push_back(decider_verification_key);
         }
 
+        // trace_usage_tracker.print_previous_active_ranges();
+        // trace_usage_tracker.print_active_ranges();
+
         // Ensure the dyadic size of the first key is strictly less than that of the second
         EXPECT_TRUE(decider_pks[0]->proving_key.circuit_size < decider_pks[1]->proving_key.circuit_size);
 
         // The size discrepency should be automatically handled by the PG prover via a virtual size increase
-        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(decider_pks, decider_vks);
+        auto [prover_accumulator, verifier_accumulator] =
+            fold_and_verify(decider_pks, decider_vks, trace_usage_tracker);
         check_accumulator_target_sum_manual(prover_accumulator, true);
         decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }

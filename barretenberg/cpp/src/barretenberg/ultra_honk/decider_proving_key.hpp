@@ -213,7 +213,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-                    info("lookup_read_tags size: ", max_tables_size, " table_offsets: ", table_offset);
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
@@ -231,10 +230,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                                           table_offset + MAX_LOOKUP_TABLES_SIZE));
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
-                    info("lookup_inverses start: ",
-                         lookup_inverses_start,
-                         " actual size",
-                         lookup_inverses_end - lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {
                         const size_t q_busread_end =
                             circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);
