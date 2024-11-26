@@ -5,6 +5,8 @@ importance: 1
 keywords: [authwit, authentication witness, accounts]
 ---
 
+import Image from "@theme/IdealImage";
+
 Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
 
 ## Background
@@ -13,15 +15,7 @@ When building DeFi or other smart contracts, it is often desired to interact wit
 
 In the EVM world, this is often accomplished by having the user `approve` the protocol to transfer funds from their account, and then calling a `deposit` function on it afterwards.
 
-```mermaid
-sequenceDiagram
-    actor Alice
-    Alice->>Token: approve(Defi, 1000);
-    Alice->>Defi: deposit(Token, 1000);
-    activate Defi
-    Defi->>Token: transferFrom(Alice, Defi, 1000);
-    deactivate Defi
-```
+<Image img={require("/img/authwit.png")} />
 
 This flow makes it rather simple for the application developer to implement the deposit function, but does not come without its downsides.
 
@@ -36,16 +30,7 @@ This can lead to a series of issues though, eg:
 
 To avoid this, many protocols implement the `permit` flow, which uses a meta-transaction to let the user sign the approval off-chain, and pass it as an input to the `deposit` function, that way the user only has to send one transaction to make the deposit.
 
-```mermaid
-sequenceDiagram
-    actor Alice
-    Alice->>Alice: sign permit(Defi, 1000);
-    Alice->>Defi: deposit(Token, 1000, signature);
-    activate Defi
-    Defi->>Token: permit(Alice, Defi, 1000, signature);
-    Defi->>Token: transferFrom(Alice, Defi, 1000);
-    deactivate Defi
-```
+<Image img={require("/img/authwit2.png")} />
 
 This is a great improvement to infinite approvals, but still has its own sets of issues. For example, if the user is using a smart-contract wallet (such as Argent or Gnosis Safe), they will not be able to sign the permit message since the usual signature validation does not work well with contracts. [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) was proposed to give contracts a way to emulate this, but it is not widely adopted.
 
@@ -104,32 +89,7 @@ This can be read as "defi is allowed to call token transfer function with the ar
 
 With this out of the way, let's look at how this would work in the graph below. The exact contents of the witness will differ between implementations as mentioned before, but for the sake of simplicity you can think of it as a signature, which the account contract can then use to validate if it really should allow the action.
 
-```mermaid
-sequenceDiagram
-    actor Alice
-    participant AC as Alice Account
-    participant Token
-    Alice->>AC: Defi.deposit(Token, 1000);
-    activate AC
-    AC->>Defi: deposit(Token, 1000);
-    activate Defi
-    Defi->>Token: transfer(Alice, Defi, 1000);
-    activate Token
-    Token->>AC: Check if Defi may call transfer(Alice, Defi, 1000);
-    AC-->>Alice: Please give me AuthWit for DeFi<br/> calling transfer(Alice, Defi, 1000);
-    activate Alice
-    Alice-->>Alice: Produces Authentication witness
-    Alice-->>AC: AuthWit for transfer(Alice, Defi, 1000);
-    AC->>Token: AuthWit validity
-    deactivate Alice
-    Token->>Token: throw if invalid AuthWit
-    Token->>Token: transfer(Alice, Defi, 1000);
-    Token->>Defi: success
-    deactivate Token
-    Defi->>Defi: deposit(Token, 1000);
-    deactivate Defi
-    deactivate AC
-```
+<Image img={require("/img/authwit3.png")} />
 
 :::info Static call for AuthWit checks
 The call to the account contract for checking authentication should be a static call, meaning that it cannot change state or make calls that change state. If this call is not static, it could be used to re-enter the flow and change the state of the contract.
@@ -143,36 +103,7 @@ The above flow could be re-entered at token transfer. It is mainly for show to i
 
 As noted earlier, we could use the ERC20 standard for public. But this seems like a waste when we have the ability to try righting some wrongs. Instead, we can expand our AuthWit scheme to also work in public. This is actually quite simple, instead of asking an oracle (which we can't do as easily because not private execution) we can just store the AuthWit in a shared registry, and look it up when we need it. While this needs the storage to be updated ahead of time (can be same tx), we can quite easily do so by batching the AuthWit updates with the interaction - a benefit of Account Contracts. A shared registry is used such that execution from the sequencers point of view will be more straight forward and predictable. Furthermore, since we have the authorization data directly in public state, if they are both set and unset (authorized and then used) in the same transaction, there will be no state effect after the transaction for the authorization which saves gas ⛽.
 
-```mermaid
-sequenceDiagram
-    actor Alice
-    participant AC as Alice Account
-    participant AR as Auth Registry
-    participant Token
-    participant Defi
-    rect rgb(191, 223, 255)
-    note right of Alice: Alice sends a batch
-    Alice->>AC: Authorize Defi to call transfer(Alice, Defi, 1000);
-    activate AC
-    Alice->>AC: Defi.deposit(Token, 1000);
-    end
-    AC->>AR: Authorize Defi to call transfer(Alice, Defi, 1000);
-    AR->>AR: add authorize to true
-    AC->>Defi: deposit(Token, 1000);
-    activate Defi
-    Defi->>Token: transfer(Alice, Defi, 1000);
-    activate Token
-    Token->>AR: Check if Defi may call transfer(Alice, Defi, 1000);
-    AR->>AR: set authorize to false
-    AR->>Token: AuthWit validity
-    Token->>Token: throw if invalid AuthWit
-    Token->>Token: transfer(Alice, Defi, 1000);
-    Token->>Defi: success
-    deactivate Token
-    Defi->>Defi: deposit(Token, 1000);
-    deactivate Defi
-    deactivate AC
-```
+<Image img={require("/img/authwit4.png")} />
 
 ### Replays
 

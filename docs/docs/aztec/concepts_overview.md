@@ -10,7 +10,7 @@ This page outlines Aztec's fundamental technical concepts. It is recommended to 
 
 ## High level view of Aztec
 
-<Image img={require("/img/how-does-aztec-work.webp")} />
+<Image img={require("/img/aztec-high-level.png")} />
 
 1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs)
 2. Private functions are executed in the PXE, which is client-side
