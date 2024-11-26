@@ -5,13 +5,14 @@
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+cd "$(dirname "$0")"
+ci3="$(git rev-parse --show-toplevel)/ci3"
 
 if [ "$(uname)" == "Darwin" ]; then
   shopt -s expand_aliases
   alias clang++-16="clang++"
 fi
-
-cd "$(dirname "$0")"
 
 CMD=${1:-}
 
@@ -19,9 +20,6 @@ YELLOW="\033[93m"
 RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
-
-# setup env
-export PATH="$PATH:$PWD/build-system/scripts:$PWD/build-system/bin"
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
@@ -148,9 +146,9 @@ HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Pull Submodules"
+$ci3/github/group "Pull Submodules"
 git submodule update --init --recursive
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+$ci3/github/endgroup
 
 check_toolchains
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
 cd $(dirname "$0")
 

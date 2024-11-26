@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
 cleanup() {
     BG_PIDS=$(jobs -p)

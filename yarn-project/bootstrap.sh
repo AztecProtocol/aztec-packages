@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
 YELLOW="\033[93m"
 BLUE="\033[34m"

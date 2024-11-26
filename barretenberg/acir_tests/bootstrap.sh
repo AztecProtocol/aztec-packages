@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
 # Update yarn so it can be committed.
 (cd browser-test-app && GITHUB_ACTIONS="" yarn)

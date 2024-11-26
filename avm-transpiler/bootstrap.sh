@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -eu
-
-cd $(dirname "$0")
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+cd "$(dirname "$0")"
+ci3="$(git rev-parse --show-toplevel)/ci3"
 
 CMD=${1:-}
 
@@ -21,6 +22,6 @@ if [[ "$OSTYPE" != "darwin"* ]] && [ -n "${USE_CACHE:-}" ]; then
   ./bootstrap_cache.sh && exit
 fi
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::avm-transpiler build"
+$ci3/github/group "avm-transpiler build"
 ./scripts/bootstrap_native.sh
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+$ci3/github/endgroup
