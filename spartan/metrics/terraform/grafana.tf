@@ -1,3 +1,5 @@
+# See https://registry.terraform.io/providers/grafana/grafana/latest/docs
+
 terraform {
   required_providers {
     grafana = {
@@ -121,103 +123,5 @@ resource "grafana_rule_group" "rule_group_minutely" {
     labels         = {}
     is_paused      = false
   }
-
-  rule {
-    name      = "Has Peers"
-    condition = "C"
-
-    data {
-      ref_id = "A"
-
-      relative_time_range {
-        from = 600
-        to   = 0
-      }
-
-      datasource_uid = "spartan-metrics-prometheus"
-      model = jsonencode({
-        disableTextWrap     = false,
-        editorMode          = "builder",
-        expr                = "discv5_connected_peer_count",
-        fullMetaSearch      = false,
-        includeNullMetadata = true,
-        instant             = true,
-        intervalMs          = 1000,
-        legendFormat        = "__auto",
-        maxDataPoints       = 43200,
-        range               = false,
-        refId               = "A",
-        useBackend          = false
-        }
-      )
-    }
-    data {
-      ref_id = "B"
-
-      relative_time_range {
-        from = 600
-        to   = 0
-      }
-
-      datasource_uid = "__expr__"
-      model = jsonencode({
-        conditions = [
-          {
-            evaluator = { params = [], type = "gt" },
-            operator  = { type = "and" },
-            query     = { params = ["B"] },
-            reducer   = { params = [], type = "last" },
-            type      = "query"
-          }
-        ],
-        datasource    = { type = "__expr__", uid = "__expr__" },
-        expression    = "A",
-        intervalMs    = 1000,
-        maxDataPoints = 43200,
-        reducer       = "last",
-        refId         = "B",
-        type          = "reduce"
-        }
-      )
-
-    }
-    data {
-      ref_id = "C"
-
-      relative_time_range {
-        from = 600
-        to   = 0
-      }
-
-      datasource_uid = "__expr__"
-
-      model = jsonencode({
-        conditions = [
-          {
-            evaluator = { params = [1], type = "lt" },
-            operator  = { type = "and" },
-            query     = { params = ["C"] },
-            reducer   = { params = [], type = "last" },
-            type      = "query"
-          }
-        ],
-        datasource    = { type = "__expr__", uid = "__expr__" },
-        expression    = "B",
-        intervalMs    = 1000,
-        maxDataPoints = 43200,
-        refId         = "C",
-        type          = "threshold"
-        }
-      )
-    }
-
-    no_data_state  = "NoData"
-    exec_err_state = "Error"
-    for            = "5m"
-    annotations    = {}
-    labels         = {}
-    is_paused      = false
-  }
-
 
 }
