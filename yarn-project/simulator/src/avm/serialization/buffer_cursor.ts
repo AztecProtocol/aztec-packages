@@ -27,7 +27,7 @@ export class BufferCursor {
     assert(n < this._buffer.length);
   }
 
-  public peakUint8(): number {
+  public peekUint8(): number {
     const ret = this._buffer.readUint8(this._position);
     return ret;
   }
