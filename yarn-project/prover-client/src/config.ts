@@ -12,14 +12,7 @@ import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } f
 /**
  * The prover configuration.
  */
-export type ProverClientConfig = ProverConfig &
-  ProverAgentConfig &
-  ProverBrokerConfig &
-  BBConfig &
-  ACVMConfig & {
-    /** The URL to the Aztec prover node to take proving jobs from */
-    proverJobSourceUrl?: string;
-  };
+export type ProverClientConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
 
 export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   acvmWorkingDirectory: {
@@ -46,10 +39,6 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
-  proverJobSourceUrl: {
-    env: 'PROVER_JOB_SOURCE_URL',
-    description: 'The URL to the Aztec prover node to take proving jobs from',
-  },
   ...bbConfigMappings,
   ...proverConfigMappings,
   ...proverAgentConfigMappings,

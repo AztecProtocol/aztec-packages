@@ -11,8 +11,6 @@ import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/c
 import { z } from 'zod';
 
 export const ProverBrokerConfig = z.object({
-  /** Whether to enable the prover broker */
-  proverBrokerEnabled: z.boolean(),
   /** If starting a prover broker locally, the max number of retries per proving job */
   proverBrokerJobMaxRetries: z.number(),
   /** If starting a prover broker locally, the time after which a job times out and gets assigned to a different agent */
@@ -26,11 +24,6 @@ export const ProverBrokerConfig = z.object({
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig>;
 
 export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = {
-  proverBrokerEnabled: {
-    env: 'PROVER_BROKER_ENABLED',
-    description: 'Whether to enable the prover broker',
-    ...numberConfigHelper(1),
-  },
   proverBrokerJobTimeoutMs: {
     env: 'PROVER_BROKER_JOB_TIMEOUT_MS',
     description: 'Jobs are retried if not kept alive for this long',

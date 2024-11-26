@@ -43,7 +43,7 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
         .filter(v => typeof v === 'number'),
   },
   proverBrokerUrl: {
-    env: 'PROVER_BROKER_URL',
+    env: 'PROVER_BROKER_HOST',
     description: 'The URL where this agent takes jobs from',
   },
   realProofs: {

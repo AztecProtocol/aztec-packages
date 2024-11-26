@@ -77,7 +77,6 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
-              PROVER_BROKER_URL=${PROVER_NODE_HOST} \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
           env:
             - name: AZTEC_PORT

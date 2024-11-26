@@ -1,4 +1,4 @@
-import { ProverNodeApiSchema, createAztecNodeClient } from '@aztec/circuit-types';
+import { ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
@@ -14,6 +14,7 @@ import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@a
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { extractRelevantOptions } from '../util.js';
+import { startProverBroker } from './start_prover_broker.js';
 
 export async function startProverNode(
   options: any,
@@ -34,14 +35,6 @@ export async function startProverNode(
   if (!options.archiver && !proverConfig.archiverUrl) {
     userLog('--archiver.archiverUrl is required to start a Prover Node without --archiver option');
     process.exit(1);
-  }
-
-  if (options.prover || options.proverAgentEnabled) {
-    userLog(`Running prover node with local prover agent.`);
-    proverConfig.proverAgentCount = 1;
-  } else {
-    userLog(`Running prover node without local prover agent. Connect one or more prover agents to this node.`);
-    proverConfig.proverAgentCount = 0;
   }
 
   if (!proverConfig.publisherPrivateKey || proverConfig.publisherPrivateKey === NULL_KEY) {
@@ -69,9 +62,23 @@ export async function startProverNode(
     extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
   );
 
-  const broker = proverConfig.proverBrokerUrl ? createProvingJobBrokerClient(proverConfig.proverBrokerUrl) : undefined;
-  const proverNode = await createProverNode(proverConfig, { telemetry, broker });
+  let broker: ProvingJobBroker;
+  if (proverConfig.proverBrokerUrl) {
+    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl);
+  } else if (options.proverBroker) {
+    broker = await startProverBroker(options, signalHandlers, services, userLog);
+  } else {
+    userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
+    process.exit(1);
+  }
 
+  if (proverConfig.proverAgentCount === 0) {
+    userLog(
+      `Running prover node without local prover agent. Connect one or more prover agents to this node or pass --proverAgent.proverAgentCount`,
+    );
+  }
+
+  const proverNode = await createProverNode(proverConfig, { telemetry, broker });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   if (!proverConfig.proverBrokerUrl) {
