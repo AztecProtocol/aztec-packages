@@ -129,9 +129,8 @@ pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
-pub global FIELDS_PER_BLOB: u32 = 4096;
-pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
+pub global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
@@ -139,7 +138,8 @@ pub global GENESIS_ARCHIVE_ROOT: Field =
     0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-global FEE_JUICE_INITIAL_MINT: Field = 200000000000000;
+global FEE_JUICE_INITIAL_MINT: Field = 20000000000000000000;
+global FEE_FUNDING_FOR_TESTER_ACCOUNT: Field = 100000000000000000000; // 100e18
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -260,9 +260,6 @@ pub global FUNCTION_DATA_LENGTH: u32 = 2;
 pub global FUNCTION_LEAF_PREIMAGE_LENGTH: u32 = 5;
 pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
-pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
-pub global SPONGE_BLOB_LENGTH: u32 = 11;
-pub global BLOB_PUBLIC_INPUTS: u32 = 6;
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 3;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
@@ -307,13 +304,6 @@ pub global HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + STATE_REFERENCE_LENGTH
     + GLOBAL_VARIABLES_LENGTH
     + TOTAL_FEES_LENGTH;
-// Global variables are all 32 bytes, apart from coinbase which is 20, hence -12. A state reference is just 4 snapshots.
-pub global HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES
-    + 32 * CONTENT_COMMITMENT_LENGTH
-    + 4 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES
-    + 32 * GLOBAL_VARIABLES_LENGTH
-    - 12
-    + 32 * TOTAL_FEES_LENGTH;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
@@ -453,12 +443,11 @@ pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
 
-// + 4 for rollup_type, num_txs, out_hash, accumulated_fees
+// + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees
 pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
-    + 2 * SPONGE_BLOB_LENGTH
-    + 4;
+    + 5;
 pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* previous_block_hash */
@@ -468,13 +457,10 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
-// + 8 for previous_block_hash, end_block_hash, end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
-pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
-    + 8
-    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
+    + 1 /* prover_id */;
+pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 =
+    2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
+
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
@@ -508,7 +494,7 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4291;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4166;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -709,20 +695,6 @@ pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 pub global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-
-// BLOB PREFIXES
-// Used when decoding blobs of tightly packed effects
-pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
-pub global REVERT_CODE_PREFIX: u8 = 1;
-pub global TX_FEE_PREFIX: u8 = 2;
-pub global NOTES_PREFIX: u8 = 3;
-pub global NULLIFIERS_PREFIX: u8 = 4;
-pub global L2_L1_MSGS_PREFIX: u8 = 5;
-pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
-pub global NOTE_ENCRYPTED_LOGS_PREFIX: u8 = 7;
-pub global ENCRYPTED_LOGS_PREFIX: u8 = 8;
-pub global UNENCRYPTED_LOGS_PREFIX: u8 = 9;
-pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 10;
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp

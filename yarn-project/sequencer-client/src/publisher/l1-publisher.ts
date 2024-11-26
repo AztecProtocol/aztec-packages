@@ -19,8 +19,6 @@ import {
 } from '@aztec/circuits.js';
 import { type EthereumChain, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { toHex } from '@aztec/foundation/bigint-buffer';
-import { Blob } from '@aztec/foundation/blob';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
@@ -34,7 +32,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import pick from 'lodash.pick';
 import { inspect } from 'util';
 import {
-  BaseError,
+  type BaseError,
   type Chain,
   type Client,
   type ContractFunctionExecutionError,
@@ -55,7 +53,6 @@ import {
   getAbiItem,
   getAddress,
   getContract,
-  getContractError,
   hexToBytes,
   http,
   publicActions,
@@ -64,7 +61,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemErrorMsg } from './utils.js';
+import { prettyLogViemError, prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -106,10 +103,8 @@ type L1ProcessArgs = {
   archive: Buffer;
   /** The L2 block's leaf in the archive tree. */
   blockHash: Buffer;
-  /** L2 block body. TODO(#9101): Remove block body once we can extract blobs. */
+  /** L2 block body. */
   body: Buffer;
-  /** L2 block blobs containing all tx effects. */
-  blobs: Blob[];
   /** L2 block tx hashes */
   txHashes: TxHash[];
   /** Attestations */
@@ -326,10 +321,7 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaimAtTime(args, { account: this.account });
     } catch (err) {
-      let errorName = tryGetCustomErrorName(err);
-      if (!errorName) {
-        errorName = tryGetCustomErrorNameContractFunction(err as ContractFunctionExecutionError);
-      }
+      const errorName = tryGetCustomErrorName(err);
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
@@ -362,7 +354,7 @@ export class L1Publisher {
       formattedSignatures,
       `0x${attestationData.digest.toString('hex')}`,
       ts,
-      `0x${header.contentCommitment.blobsHash.toString('hex')}`,
+      `0x${header.contentCommitment.txsEffectsHash.toString('hex')}`,
       flags,
     ] as const;
 
@@ -489,10 +481,10 @@ export class L1Publisher {
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
-      blobs: Blob.getBlobs(block.body.toBlobFields()),
       attestations,
       txHashes: txHashes ?? [],
     };
+
     // Publish body and propose block (if not already published)
     if (this.interrupted) {
       this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
@@ -521,21 +513,7 @@ export class L1Publisher {
       return false;
     }
 
-    const { hash: txHash, args, functionName, err } = tx;
-
-    if (err instanceof BaseError) {
-      const errorMsg = await this.tryGetErrorFromRevertedTx(txHash, {
-        args,
-        functionName,
-        abi: RollupAbi,
-        address: this.rollupContract.address,
-      });
-      this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
-        ...ctx,
-      });
-      this.metrics.recordFailedTx('process');
-      return false;
-    }
+    const { hash: txHash, args, functionName, gasLimit } = tx;
 
     const receipt = await this.getTransactionReceipt(txHash);
     if (!receipt) {
@@ -558,55 +536,44 @@ export class L1Publisher {
       return true;
     }
 
+    this.metrics.recordFailedTx('process');
+
+    const errorMsg = await this.tryGetErrorFromRevertedTx({
+      args,
+      functionName,
+      gasLimit,
+      abi: RollupAbi,
+      address: this.rollupContract.address,
+      blockNumber: receipt.blockNumber,
+    });
+    this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
+      ...ctx,
+      txHash: receipt.transactionHash,
+    });
     await this.sleepOrInterrupted();
     return false;
   }
 
-  private async tryGetErrorFromRevertedTx(
-    err: any,
-    args: {
-      args: any[];
-      functionName: string;
-      abi: any;
-      address: Hex;
-    },
-  ) {
-    // We keep the input err since the below is not able to catch blob errors
+  private async tryGetErrorFromRevertedTx(args: {
+    args: any[];
+    functionName: string;
+    gasLimit: bigint;
+    abi: any;
+    address: Hex;
+    blockNumber: bigint | undefined;
+  }) {
     try {
-      // NB: If this fn starts unexpectedly giving incorrect blob hash errors, it may be because the checkBlob
-      // bool is no longer at the slot below. To find the slot, run: forge inspect src/core/Rollup.sol:Rollup storage
-      const checkBlobSlot = 20n;
-      await this.publicClient.simulateContract({
-        ...args,
-        account: this.walletClient.account,
-        stateOverride: [
-          {
-            address: args.address,
-            stateDiff: [
-              {
-                slot: toHex(checkBlobSlot, true),
-                value: toHex(0n, true),
-              },
-            ],
-          },
-        ],
-      });
-      // If the above passes, then the original error was due to blobs, and we throw it here:
-      throw err;
-    } catch (simulationErr: any) {
-      const contractErr =
-        simulationErr.name === 'ContractFunctionExecutionError'
-          ? simulationErr
-          : getContractError(simulationErr as BaseError, {
-              ...args,
-              sender: this.account.address,
-              docsPath: '/docs/contract/simulateContract',
-            });
-      if (contractErr.name === 'ContractFunctionExecutionError') {
-        const execErr = contractErr as ContractFunctionExecutionError;
-        return tryGetCustomErrorNameContractFunction(execErr);
+      await this.publicClient.simulateContract({ ...args, account: this.walletClient.account });
+      return undefined;
+    } catch (err: any) {
+      if (err.name === 'ContractFunctionExecutionError') {
+        const execErr = err as ContractFunctionExecutionError;
+        return compactArray([
+          execErr.shortMessage,
+          ...(execErr.metaMessages ?? []).slice(0, 2).map(s => s.trim()),
+        ]).join(' ');
       }
-      this.log.error(`Error getting error from viem`, err);
+      this.log.error(`Error getting error from simulation`, err);
     }
   }
 
@@ -675,26 +642,28 @@ export class L1Publisher {
     }
 
     // Check the block hash and archive for the immediate block before the epoch
-    const [previousArchive, previousBlockHash] = await this.rollupContract.read.blocks([proven]);
-    if (publicInputs.previousArchive.root.toString() !== previousArchive) {
+    const blockLog = await this.rollupContract.read.getBlock([proven]);
+    if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${previousArchive}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
       );
     }
     // TODO: Remove zero check once we inject the proper zero blockhash
-    if (previousBlockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== previousBlockHash) {
+    if (blockLog.blockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== blockLog.blockHash) {
       throw new Error(
-        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${previousBlockHash}`,
+        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${blockLog.blockHash}`,
       );
     }
 
     // Check the block hash and archive for the last block in the epoch
-    const [endArchive, endBlockHash] = await this.rollupContract.read.blocks([BigInt(toBlock)]);
-    if (publicInputs.endArchive.root.toString() !== endArchive) {
-      throw new Error(`End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endArchive}`);
+    const endBlockLog = await this.rollupContract.read.getBlock([BigInt(toBlock)]);
+    if (publicInputs.endArchive.root.toString() !== endBlockLog.archive) {
+      throw new Error(
+        `End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endBlockLog.archive}`,
+      );
     }
-    if (publicInputs.endBlockHash.toString() !== endBlockHash) {
-      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockHash}`);
+    if (publicInputs.endBlockHash.toString() !== endBlockLog.blockHash) {
+      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockLog.blockHash}`);
     }
 
     // Compare the public inputs computed by the contract with the ones injected
@@ -748,17 +717,24 @@ export class L1Publisher {
     }
   }
 
-  private prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
     // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-    // NB: Viem does not allow state overrides or blobs in estimate gas calls, so any est gas call will fail
-    const proposeGas = 300000n;
+    const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
+      to: this.rollupContract.address,
+      data: encodeFunctionData({
+        abi: this.rollupContract.abi,
+        functionName: 'computeTxsEffectsHash',
+        args: [`0x${encodedData.body.toString('hex')}`],
+      }),
+    });
 
     // @note  We perform this guesstimate instead of the usual `gasEstimate` since
     //        viem will use the current state to simulate against, which means that
     //        we will fail estimation in the case where we are simulating for the
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
-    const gasGuesstimate = proposeGas + gasGuess;
+    const gasGuesstimate = computeTxsEffectsHashGas + gasGuess;
+
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -767,13 +743,16 @@ export class L1Publisher {
       {
         header: `0x${encodedData.header.toString('hex')}`,
         archive: `0x${encodedData.archive.toString('hex')}`,
+        oracleInput: {
+          // We are currently not modifying these. See #9963
+          feeAssetPriceModifier: 0n,
+          provingCostModifier: 0n,
+        },
         blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
       },
       attestations,
-      // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
       `0x${encodedData.body.toString('hex')}`,
-      Blob.getEthBlobEvaluationInputs(encodedData.blobs),
     ] as const;
 
     return { args, gasGuesstimate };
@@ -786,112 +765,78 @@ export class L1Publisher {
     proof: Proof;
   }) {
     return [
-      {
-        epochSize: BigInt(args.toBlock - args.fromBlock + 1),
-        args: [
-          args.publicInputs.previousArchive.root.toString(),
-          args.publicInputs.endArchive.root.toString(),
-          args.publicInputs.previousBlockHash.toString(),
-          args.publicInputs.endBlockHash.toString(),
-          args.publicInputs.endTimestamp.toString(),
-          args.publicInputs.outHash.toString(),
-          args.publicInputs.proverId.toString(),
-        ],
-        fees: makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
-          i % 2 === 0
-            ? args.publicInputs.fees[i / 2].recipient.toField().toString()
-            : args.publicInputs.fees[(i - 1) / 2].value.toString(),
-        ),
-        blobPublicInputs: `0x${args.publicInputs.blobPublicInputs
-          .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
-          .map(b => b.toString())
-          .join(``)}`,
-      },
+      BigInt(args.toBlock - args.fromBlock + 1),
+      [
+        args.publicInputs.previousArchive.root.toString(),
+        args.publicInputs.endArchive.root.toString(),
+        args.publicInputs.previousBlockHash.toString(),
+        args.publicInputs.endBlockHash.toString(),
+        args.publicInputs.endTimestamp.toString(),
+        args.publicInputs.outHash.toString(),
+        args.publicInputs.proverId.toString(),
+      ],
+      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
+        i % 2 === 0
+          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
+          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
+      ),
       `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ hash: string; args: any; functionName: string; err: any | undefined } | undefined> {
+  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
-    const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
     try {
-      const data = encodeFunctionData({
-        abi: this.rollupContract.abi,
-        functionName: 'propose',
-        args,
-      });
+      const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
 
-      const kzg = Blob.getViemKzgInstance();
-
-      // Viem does not allow sending a blob via contract.write()
       return {
-        hash: await this.walletClient.sendTransaction({
-          data,
+        hash: await this.rollupContract.write.propose(args, {
           account: this.account,
-          to: this.rollupContract.address,
-          blobs: encodedData.blobs.map(b => b.data),
-          kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
+          gas: gasGuesstimate,
         }),
         args,
         functionName: 'propose',
-        err: undefined,
+        gasLimit: gasGuesstimate,
       };
-    } catch (err: any) {
-      return {
-        hash: `0x00`,
-        args,
-        functionName: 'propose',
-        err,
-      };
+    } catch (err) {
+      prettyLogViemError(err, this.log);
+      this.log.error(`Rollup publish failed`, err);
+      return undefined;
     }
   }
 
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ hash: string; args: any; functionName: string; err: any | undefined } | undefined> {
+  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
-    const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS);
     try {
+      const { args, gasGuesstimate } = await this.prepareProposeTx(
+        encodedData,
+        L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+      );
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      const data = encodeFunctionData({
-        abi: this.rollupContract.abi,
-        functionName: 'proposeAndClaim',
-        args: [...args, quote.toViemArgs()],
-      });
-
-      const kzg = Blob.getViemKzgInstance();
-
-      // Viem does not allow sending a blob via contract.write()
       return {
-        hash: await this.walletClient.sendTransaction({
-          data,
+        hash: await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
           account: this.account,
-          to: this.rollupContract.address,
-          blobs: encodedData.blobs.map(b => b.data),
-          kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
+          gas: gasGuesstimate,
         }),
-        args: [...args, quote.toViemArgs()],
         functionName: 'proposeAndClaim',
-        err: undefined,
+        args,
+        gasLimit: gasGuesstimate,
       };
     } catch (err) {
-      return {
-        hash: `0x00`,
-        args,
-        functionName: 'proposeAndClaim',
-        err,
-      };
+      prettyLogViemError(err, this.log);
+      this.log.error(`Rollup publish failed`, err);
+      return undefined;
     }
   }
 
@@ -943,10 +888,6 @@ export class L1Publisher {
  */
 function getCalldataGasUsage(data: Uint8Array) {
   return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
-}
-
-function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {
-  return compactArray([err.shortMessage, ...(err.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(' ');
 }
 
 function tryGetCustomErrorName(err: any) {

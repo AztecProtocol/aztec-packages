@@ -21,8 +21,11 @@ import {
   RewardDistributorBytecode,
   RollupAbi,
   RollupBytecode,
+  RollupLinkReferences,
   TestERC20Abi,
   TestERC20Bytecode,
+  TxsDecoderAbi,
+  TxsDecoderBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -163,6 +166,15 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   rollup: {
     contractAbi: RollupAbi,
     contractBytecode: RollupBytecode,
+    libraries: {
+      linkReferences: RollupLinkReferences,
+      libraryCode: {
+        TxsDecoder: {
+          contractAbi: TxsDecoderAbi,
+          contractBytecode: TxsDecoderBytecode,
+        },
+      },
+    },
   },
   feeJuice: {
     contractAbi: TestERC20Abi,
@@ -379,7 +391,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000;
+  const FEE_JUICE_INITIAL_MINT = 20000000000000000000;
   const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain

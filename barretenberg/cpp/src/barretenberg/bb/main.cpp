@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 
 #include <cstddef>
 #ifndef DISABLE_AZTEC_VM
@@ -954,13 +955,12 @@ void avm_prove(const std::filesystem::path& calldata_path,
                const std::filesystem::path& output_path)
 {
     std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
-    std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(read_file(public_inputs_path));
+    auto const avm_new_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
     vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
     vinfo("calldata size: ", calldata.size());
-    vinfo("public_inputs size: ", public_inputs_vec.size());
     vinfo("hints.storage_value_hints size: ", avm_hints.storage_value_hints.size());
     vinfo("hints.note_hash_exists_hints size: ", avm_hints.note_hash_exists_hints.size());
     vinfo("hints.nullifier_exists_hints size: ", avm_hints.nullifier_exists_hints.size());
@@ -974,7 +974,7 @@ void avm_prove(const std::filesystem::path& calldata_path,
 
     // Prove execution and return vk
     auto const [verification_key, proof] =
-        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(calldata, public_inputs_vec, avm_hints));
+        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(calldata, avm_new_public_inputs, avm_hints));
 
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 

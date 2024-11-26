@@ -1,4 +1,5 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 
 namespace tests_avm {
@@ -15,7 +16,7 @@ class AvmIndirectMemTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 };
 

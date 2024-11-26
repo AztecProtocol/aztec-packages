@@ -10,11 +10,42 @@ import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
+struct FeeHeader {
+  uint256 excessMana;
+  uint256 feeAssetPriceNumerator;
+  uint256 manaUsed;
+  uint256 provingCostPerManaNumerator;
+}
+
+struct BlockLog {
+  FeeHeader feeHeader;
+  bytes32 archive;
+  bytes32 blockHash;
+  Slot slotNumber;
+}
+
+struct L1FeeData {
+  uint256 baseFee;
+  uint256 blobFee;
+}
+
+struct ManaBaseFeeComponents {
+  uint256 congestionCost;
+  uint256 congestionMultiplier;
+  uint256 dataCost;
+  uint256 gasCost;
+  uint256 provingCost;
+}
+
 interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
+  function manaBaseFeeComponents(bool _inFeeAsset)
+    external
+    view
+    returns (ManaBaseFeeComponents memory);
 }
 
 interface IRollup {
@@ -30,26 +61,27 @@ interface IRollup {
   );
 
   function prune() external;
+  function updateL1GasFeeOracle() external;
 
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body,
-    bytes calldata _blobInput
+    bytes calldata _body
   ) external;
 
   function proposeAndClaim(
     ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    bytes calldata _blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -61,7 +93,7 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    bytes32 _txsEffecstHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 
@@ -90,6 +122,10 @@ interface IRollup {
     external
     view
     returns (bytes32);
+  function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
+  function getFeeAssetPrice() external view returns (uint256);
+  function getManaBaseFee(bool _inFeeAsset) external view returns (uint256);
+  function getCurrentL1Fees() external view returns (L1FeeData memory);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
@@ -105,7 +141,10 @@ interface IRollup {
   ) external view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
+  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }
