@@ -1195,7 +1195,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_
     // 3. Write the new node value
     index_t index = leaf_index;
     uint32_t level = depth_;
-    fr new_hash = HashingPolicy::hash(leaf.get_hash_inputs());
+    fr new_hash = leaf.value.is_empty() ? 0 : HashingPolicy::hash(leaf.get_hash_inputs());
 
     // Wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about
     // to write into) this ensures that our leader is not still reading the leaves
@@ -1336,7 +1336,8 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
         }
 
         // one of our leaves
-        new_hash = HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
+        new_hash =
+            update.updated_leaf.value.is_empty() ? 0 : HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
 
         // std::cout << "Hashing leaf at level " << level << " index " << update.leaf_index << " batch start "
         //           << start_index << " hash " << leaf_hash << std::endl;
