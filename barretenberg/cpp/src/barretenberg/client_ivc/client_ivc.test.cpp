@@ -420,10 +420,10 @@ TEST_F(ClientIVCTests, DynamicOverflow)
 
     MockCircuitProducer circuit_producer;
 
-    size_t NUM_CIRCUITS = 2;
+    const size_t NUM_CIRCUITS = 2;
 
     // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    std::vector<size_t> log2_num_arith_gates = { 14, 16 };
+    const std::vector<size_t> log2_num_arith_gates = { 14, 16 };
     // Accumulate
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
@@ -449,10 +449,10 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
 
     MockCircuitProducer circuit_producer;
 
-    size_t NUM_CIRCUITS = 2;
+    const size_t NUM_CIRCUITS = 2;
 
     // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    std::vector<size_t> log2_num_arith_gates = { 14, 18 };
+    const std::vector<size_t> log2_num_arith_gates = { 14, 18 };
     // Accumulate
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);

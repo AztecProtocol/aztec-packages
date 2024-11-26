@@ -92,8 +92,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         return { prover_accumulator, verifier_accumulator };
     }
 
-    static void decide_and_verify(std::shared_ptr<DeciderProvingKey>& prover_accumulator,
-                                  std::shared_ptr<DeciderVerificationKey>& verifier_accumulator,
+    static void decide_and_verify(const std::shared_ptr<DeciderProvingKey>& prover_accumulator,
+                                  const std::shared_ptr<DeciderVerificationKey>& verifier_accumulator,
                                   bool expected_result)
     {
         DeciderProver decider_prover(prover_accumulator);
@@ -398,7 +398,6 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Expect failure in manual target sum check and decider
         EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
-
         decide_and_verify(prover_accumulator, verifier_accumulator, false);
     }
 
@@ -410,7 +409,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        EXPECT_TRUE(prover_accumulator);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
@@ -458,7 +457,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
 
         // define parameters for two circuits; the first fits within the structured trace, the second overflows
-        std::vector<size_t> log2_num_gates = { 14, 18 };
+        const std::vector<size_t> log2_num_gates = { 14, 18 };
         for (size_t i = 0; i < 2; ++i) {
             MegaCircuitBuilder builder;
 
@@ -472,14 +471,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             decider_vks.push_back(decider_verification_key);
         }
 
-        // trace_usage_tracker.print_previous_active_ranges();
-        // trace_usage_tracker.print_active_ranges();
-
         // Ensure the dyadic size of the first key is strictly less than that of the second
         EXPECT_TRUE(decider_pks[0]->proving_key.circuit_size < decider_pks[1]->proving_key.circuit_size);
 
         // The size discrepency should be automatically handled by the PG prover via a virtual size increase
-        auto [prover_accumulator, verifier_accumulator] =
+        const auto [prover_accumulator, verifier_accumulator] =
             fold_and_verify(decider_pks, decider_vks, trace_usage_tracker);
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
         decide_and_verify(prover_accumulator, verifier_accumulator, true);

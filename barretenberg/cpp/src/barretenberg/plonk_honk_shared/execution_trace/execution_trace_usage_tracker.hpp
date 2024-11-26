@@ -48,7 +48,7 @@ struct ExecutionTraceUsageTracker {
     }
 
     // Update the max block utilization and active trace ranges based on the data from a provided circuit
-    void update(Builder& circuit)
+    void update(const Builder& circuit)
     {
         // Update the max utilization of each gate block
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
@@ -76,7 +76,7 @@ struct ExecutionTraceUsageTracker {
         // need to determine the dyadic size for this. We call the size function on the current circuit which will have
         // the same fixed block sizes but might also have an overflow block potentially influencing the dyadic circuit
         // size.
-        size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
+        const size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
         // max_databus_size } but this breaks for certain choices of num_threads.

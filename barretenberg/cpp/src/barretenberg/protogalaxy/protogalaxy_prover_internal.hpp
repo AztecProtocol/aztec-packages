@@ -114,7 +114,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
                                             const RelationSeparator& alphas_,
                                             const RelationParameters<FF>& relation_parameters,
-                                            bool use_prev_accumulator_tracker = false)
+                                            const bool use_prev_accumulator_tracker = false)
 
     {
 

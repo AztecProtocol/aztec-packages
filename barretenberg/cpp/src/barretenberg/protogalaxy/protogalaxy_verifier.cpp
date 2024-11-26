@@ -108,7 +108,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     next_accumulator->is_accumulator = true;
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
-    size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
     next_accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
     next_accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
 
