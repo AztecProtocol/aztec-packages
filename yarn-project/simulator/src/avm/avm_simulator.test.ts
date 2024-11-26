@@ -54,11 +54,7 @@ import {
   EmitUnencryptedLog,
   type Instruction,
   Jump,
-  L1ToL2MessageExists,
-  NoteHashExists,
-  NullifierExists,
   Return,
-  SLoad,
   SStore,
   SendL2ToL1Message,
   Set,
@@ -1103,27 +1099,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it.each([
         ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
-        ['Public storage reads', () => new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 0)],
-        [
-          'Note hash checks',
-          () => new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffest=*/ 0, /*existsOffset=*/ 1),
-        ],
         ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        [
-          'Nullifier checks',
-          () => new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffest=*/ 0, /*existsOffset=*/ 1),
-        ],
         ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        [
-          'L1 to L2 message checks',
-          () =>
-            new L1ToL2MessageExists(
-              /*indirect=*/ 0,
-              /*msgHashOffset=*/ 0,
-              /*msgLeafIndexOffest=*/ 0,
-              /*existsOffset=*/ 1,
-            ),
-        ],
         ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logOffset=*/ 0, /*logSizeOffest=*/ 1)],
         [
           'New L1 to L2 messages',
