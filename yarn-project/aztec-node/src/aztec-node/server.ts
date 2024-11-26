@@ -6,6 +6,7 @@ import {
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockL2Logs,
@@ -16,6 +17,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  type NullifierWithBlockSource,
   type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
@@ -55,7 +57,7 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -70,8 +72,8 @@ import {
   createP2PClient,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
+import { GlobalVariableBuilder, type L1Publisher, SequencerClient } from '@aztec/sequencer-client';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
@@ -96,6 +98,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly nullifierSource: NullifierWithBlockSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly l1ChainId: number,
@@ -117,12 +120,16 @@ export class AztecNodeService implements AztecNode {
     this.log.info(message);
   }
 
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+  public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
   }
 
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+  public getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
     return this.p2pClient.getEpochProofQuotes(epoch);
+  }
+
+  public getL2Tips() {
+    return this.blockSource.getL2Tips();
   }
 
   /**
@@ -132,10 +139,14 @@ export class AztecNodeService implements AztecNode {
    */
   public static async createAndSync(
     config: AztecNodeConfig,
-    telemetry?: TelemetryClient,
-    log = createDebugLogger('aztec:node'),
+    deps: {
+      telemetry?: TelemetryClient;
+      logger?: DebugLogger;
+      publisher?: L1Publisher;
+    } = {},
   ): Promise<AztecNodeService> {
-    telemetry ??= new NoopTelemetryClient();
+    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    const log = deps.logger ?? createDebugLogger('aztec:node');
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -160,28 +171,26 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const simulationProvider = await createSimulationProvider(config, log);
-
     const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
     const sequencer = config.disableValidator
       ? undefined
-      : await SequencerClient.new(
-          config,
+      : await SequencerClient.new(config, {
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
-          archiver,
-          archiver,
-          archiver,
-          simulationProvider,
+          contractDataSource: archiver,
+          l2BlockSource: archiver,
+          l1ToL2MessageSource: archiver,
           telemetry,
-        );
+          ...deps,
+        });
 
     return new AztecNodeService(
       config,
       p2pClient,
+      archiver,
       archiver,
       archiver,
       archiver,
@@ -372,7 +381,7 @@ export class AztecNodeService implements AztecNode {
     return txReceipt;
   }
 
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.blockSource.getTxEffect(txHash);
   }
 
@@ -424,6 +433,16 @@ export class AztecNodeService implements AztecNode {
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
+  }
+
+  public async findNullifiersIndexesWithBlock(
+    blockNumber: L2BlockNumber,
+    nullifiers: Fr[],
+  ): Promise<(InBlock<bigint> | undefined)[]> {
+    if (blockNumber === 'latest') {
+      blockNumber = await this.getBlockNumber();
+    }
+    return this.nullifierSource.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   /**
@@ -708,7 +727,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
     return (
       (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
       this.worldStateSynchronizer.getCommitted().getInitialHeader()
@@ -733,11 +752,7 @@ export class AztecNodeService implements AztecNode {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      new WASMSimulator(),
-      this.telemetry,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
 
     const fork = await this.worldStateSynchronizer.fork();
 
@@ -819,7 +834,13 @@ export class AztecNodeService implements AztecNode {
     });
   }
 
+  // TODO(#10007): Remove this method
+  public addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    return this.contractDataSource.addContractClass(contractClass);
+  }
+
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    // TODO: Node should validate the artifact before accepting it
     return this.contractDataSource.addContractArtifact(address, artifact);
   }
 

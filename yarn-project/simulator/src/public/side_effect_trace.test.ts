@@ -51,7 +51,7 @@ describe('Side Effect Trace', () => {
     transactionFee,
   });
   const reverted = false;
-  const avmCallResults = new AvmContractCallResult(reverted, returnValues);
+  const avmCallResults = new AvmContractCallResult(reverted, returnValues, endGasLeft);
 
   let startCounter: number;
   let startCounterFr: Fr;
@@ -66,7 +66,7 @@ describe('Side Effect Trace', () => {
   });
 
   const toPxResult = (trc: PublicSideEffectTrace) => {
-    return trc.toPublicFunctionCallResult(avmEnvironment, startGasLeft, endGasLeft, bytecode, avmCallResults);
+    return trc.toPublicFunctionCallResult(avmEnvironment, startGasLeft, bytecode, avmCallResults.finalize());
   };
 
   it('Should trace storage reads', () => {
@@ -427,7 +427,7 @@ describe('Side Effect Trace', () => {
     nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
     testCounter++;
 
-    trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, endGasLeft, bytecode, avmCallResults);
+    trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, bytecode, avmCallResults);
     // parent trace adopts nested call's counter
     expect(trace.getCounter()).toBe(testCounter);
 

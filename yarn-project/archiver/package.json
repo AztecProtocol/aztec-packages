@@ -5,6 +5,7 @@
   "exports": {
     ".": "./dest/index.js",
     "./data-retrieval": "./dest/archiver/data_retrieval.js",
+    "./epoch": "./dest/archiver/epoch_helpers.js",
     "./test": "./dest/test/index.js"
   },
   "typedocOptions": {
@@ -71,6 +72,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
@@ -83,7 +85,6 @@
     "ws": "^8.13.0"
   },
   "devDependencies": {
-    "@aztec/noir-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/debug": "^4.1.7",
     "@types/jest": "^29.5.0",

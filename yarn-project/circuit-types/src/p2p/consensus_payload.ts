@@ -25,9 +25,12 @@ export class ConsensusPayload implements Signable {
   }
 
   getPayloadToSign(domainSeperator: SignatureDomainSeperator): Buffer {
-    const abi = parseAbiParameters('uint8, bytes32, bytes32[]');
+    const abi = parseAbiParameters('uint8, (bytes32, bytes32, bytes, bytes32[])');
     const txArray = this.txHashes.map(tx => tx.to0xString());
-    const encodedData = encodeAbiParameters(abi, [domainSeperator, this.archive.toString(), txArray] as const);
+    const encodedData = encodeAbiParameters(abi, [
+      domainSeperator,
+      [this.archive.toString(), this.header.hash().toString(), `0x${this.header.toString()}`, txArray],
+    ] as const);
 
     return Buffer.from(encodedData.slice(2), 'hex');
   }

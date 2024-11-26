@@ -208,6 +208,7 @@ jobs:
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
@@ -385,7 +386,7 @@ jobs:
         run: earthly-ci --no-output ./+test
 
   noir-build-acir-tests:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -399,7 +400,7 @@ jobs:
         run: earthly-ci --no-output ./noir/+build-acir-tests
 
   bb-acir-tests-bb:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -414,7 +415,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
 
   bb-acir-tests-bb-ultra-plonk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -429,7 +430,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-plonk
 
   bb-acir-tests-bb-ultra-honk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -444,7 +445,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
 
   bb-acir-tests-bb-mega-honk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -459,7 +460,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-mega-honk
 
   bb-acir-tests-sol:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -474,7 +475,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
 
   bb-acir-tests-sol-honk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -489,7 +490,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol-honk
 
   bb-acir-tests-bb-js:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -504,7 +505,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   noir-format:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true'
     steps:
@@ -524,7 +525,7 @@ jobs:
           earthly-ci --no-output ./+format
 
   noir-test:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
     steps:
@@ -537,6 +538,7 @@ jobs:
         run: earthly-ci --no-output ./noir+test
 
   noir-examples:
+    # We delay this job until after the `build` job has completed as it depends on bb being built.
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
@@ -550,6 +552,7 @@ jobs:
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
+    # We delay this job until after the `build` job has completed as it depends on bb.js being built.
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
@@ -666,7 +669,7 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: kind-network-test-${{ matrix.test }}
+          concurrency_key: kind-smoke-test
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
@@ -700,14 +703,20 @@ jobs:
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
-          - test: transfer.test.ts
-            values: 48-validators
-            runner_type: 32core-tester-x86
+          # TODO: Enable this once stable
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          #   timeout: 90
           - test: reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
             timeout: 90
           - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          - test: gating-passive.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
@@ -748,7 +757,7 @@ jobs:
           path: network-test.log
 
   l1-contracts-test:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.l1-contracts == 'true'
     steps:

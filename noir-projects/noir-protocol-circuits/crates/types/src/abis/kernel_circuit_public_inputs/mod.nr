@@ -2,9 +2,6 @@ pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_circuit_public_inputs;
 pub mod private_kernel_circuit_public_inputs_builder;
 pub mod private_to_public_kernel_circuit_public_inputs;
-pub mod public_kernel_circuit_public_inputs;
-pub mod public_kernel_circuit_public_inputs_builder;
-pub mod vm_circuit_public_inputs;
 
 pub use kernel_circuit_public_inputs::KernelCircuitPublicInputs;
 pub use private_kernel_circuit_public_inputs::{
@@ -12,6 +9,3 @@ pub use private_kernel_circuit_public_inputs::{
 };
 pub use private_kernel_circuit_public_inputs_builder::PrivateKernelCircuitPublicInputsBuilder;
 pub use private_to_public_kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs;
-pub use public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs;
-pub use public_kernel_circuit_public_inputs_builder::PublicKernelCircuitPublicInputsBuilder;
-pub use vm_circuit_public_inputs::VMCircuitPublicInputs;

@@ -144,8 +144,14 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateProvenBlocksOnly: false,
+      worldStateDbMapSizeKb: 10 * 1024 * 1024,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(
+      builderDb,
+      blockSource,
+      worldStateConfig,
+      new NoopTelemetryClient(),
+    );
     await worldStateSynchronizer.start();
     fork = await worldStateSynchronizer.fork();
     builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
@@ -387,10 +393,12 @@ describe('L1Publisher integration', () => {
           abi: RollupAbi,
           functionName: 'propose',
           args: [
-            `0x${block.header.toBuffer().toString('hex')}`,
-            `0x${block.archive.root.toBuffer().toString('hex')}`,
-            `0x${block.header.hash().toBuffer().toString('hex')}`,
-            [],
+            {
+              header: `0x${block.header.toBuffer().toString('hex')}`,
+              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              txHashes: [],
+            },
             [],
             `0x${block.body.toBuffer().toString('hex')}`,
           ],
@@ -484,10 +492,12 @@ describe('L1Publisher integration', () => {
           abi: RollupAbi,
           functionName: 'propose',
           args: [
-            `0x${block.header.toBuffer().toString('hex')}`,
-            `0x${block.archive.root.toBuffer().toString('hex')}`,
-            `0x${block.header.hash().toBuffer().toString('hex')}`,
-            [],
+            {
+              header: `0x${block.header.toBuffer().toString('hex')}`,
+              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              txHashes: [],
+            },
             [],
             `0x${block.body.toBuffer().toString('hex')}`,
           ],

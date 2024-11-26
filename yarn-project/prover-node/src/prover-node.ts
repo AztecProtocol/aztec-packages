@@ -18,7 +18,7 @@ import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
@@ -56,7 +56,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     private readonly contractDataSource: ContractDataSource,
     private readonly worldState: WorldStateSynchronizer,
     private readonly coordination: ProverCoordination & Maybe<Service>,
-    private readonly simulator: SimulationProvider,
     private readonly quoteProvider: QuoteProvider,
     private readonly quoteSigner: QuoteSigner,
     private readonly claimsMonitor: ClaimsMonitor,
@@ -143,7 +142,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       const signed = await this.quoteSigner.sign(quote);
 
       // Send it to the coordinator
-      await this.sendEpochProofQuote(signed);
+      this.log.info(
+        `Sending quote for epoch ${epochNumber} with blocks ${blocks[0].number} to ${blocks.at(-1)!.number}`,
+        quote.toViemArgs(),
+      );
+      await this.doSendEpochProofQuote(signed);
     } catch (err) {
       this.log.error(`Error handling epoch completed`, err);
     }
@@ -178,11 +181,13 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     this.log.info('Stopped ProverNode');
   }
 
-  /**
-   * Sends an epoch proof quote to the coordinator.
-   */
+  /** Sends an epoch proof quote to the coordinator. */
   public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     this.log.info(`Sending quote for epoch`, quote.toViemArgs().quote);
+    return this.doSendEpochProofQuote(quote);
+  }
+
+  private doSendEpochProofQuote(quote: EpochProofQuote) {
     return this.coordination.addEpochProofQuote(quote);
   }
 
@@ -243,11 +248,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     const proverDb = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      this.simulator,
-      this.telemetryClient,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
 
     const cleanUp = async () => {
       await publicDb.close();

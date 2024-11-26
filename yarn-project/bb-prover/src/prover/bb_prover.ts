@@ -1,6 +1,7 @@
 /* eslint-disable require-await */
 import {
   type ProofAndVerificationKey,
+  ProvingError,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProofAndVerificationKey,
@@ -477,7 +478,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
     // Ensure our vk cache is up to date
@@ -538,7 +539,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for ${input.functionName}: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
     return provingResult;
@@ -554,8 +555,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+      logger.error(`Failed to generate proof for tube circuit: ${provingResult.reason}`);
+      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
     return provingResult;
   }
@@ -724,7 +725,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       if (result.status === BB_RESULT.FAILURE) {
         const errorMessage = `Failed to verify proof from key!`;
-        throw new Error(errorMessage);
+        throw new ProvingError(errorMessage, result, result.retry);
       }
 
       logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
@@ -785,7 +786,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       if (result.status === BB_RESULT.FAILURE) {
         const errorMessage = `Failed to convert ${circuit} proof to fields, ${result.reason}`;
-        throw new Error(errorMessage);
+        throw new ProvingError(errorMessage, result, result.retry);
       }
 
       const proofString = await fs.readFile(path.join(bbWorkingDirectory, PROOF_FIELDS_FILENAME), {
@@ -825,7 +826,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         logger.debug,
       ).then(result => {
         if (result.status === BB_RESULT.FAILURE) {
-          throw new Error(`Failed to generate verification key for ${circuitType}, ${result.reason}`);
+          throw new ProvingError(
+            `Failed to generate verification key for ${circuitType}, ${result.reason}`,
+            result,
+            result.retry,
+          );
         }
         return extractVkData(result.vkPath!);
       });

@@ -494,25 +494,24 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             // Compute - Type Conversions
         case OpCode::CAST_8:
             error = trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint8_t>(inst.operands.at(1)),
                                           std::get<uint8_t>(inst.operands.at(2)),
-                                          std::get<uint8_t>(inst.operands.at(3)),
-                                          std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                          std::get<AvmMemoryTag>(inst.operands.at(3)),
                                           OpCode::CAST_8);
             break;
         case OpCode::CAST_16:
             error = trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint16_t>(inst.operands.at(1)),
                                           std::get<uint16_t>(inst.operands.at(2)),
-                                          std::get<uint16_t>(inst.operands.at(3)),
-                                          std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                          std::get<AvmMemoryTag>(inst.operands.at(3)),
                                           OpCode::CAST_16);
             break;
 
             // Execution Environment
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
         case OpCode::GETENVVAR_16:
             error = trace_builder.op_get_env_var(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)));
+                                                 std::get<uint16_t>(inst.operands.at(1)),
+                                                 std::get<uint8_t>(inst.operands.at(2)));
             break;
 
             // Execution Environment - Calldata
@@ -541,8 +540,8 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             break;
         case OpCode::JUMPI_32:
             error = trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
-                                           std::get<uint32_t>(inst.operands.at(1)),
-                                           std::get<uint16_t>(inst.operands.at(2)));
+                                           std::get<uint16_t>(inst.operands.at(1)),
+                                           std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::INTERNALCALL:
             error = trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
@@ -554,49 +553,49 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             // Machine State - Memory
         case OpCode::SET_8: {
             error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint8_t>(inst.operands.at(2)),
                                          std::get<uint8_t>(inst.operands.at(3)),
-                                         std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
                                          OpCode::SET_8);
             break;
         }
         case OpCode::SET_16: {
             error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint16_t>(inst.operands.at(2)),
                                          std::get<uint16_t>(inst.operands.at(3)),
-                                         std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
                                          OpCode::SET_16);
             break;
         }
         case OpCode::SET_32: {
             error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint32_t>(inst.operands.at(2)),
-                                         std::get<uint16_t>(inst.operands.at(3)),
-                                         std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                         std::get<uint32_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
                                          OpCode::SET_32);
             break;
         }
         case OpCode::SET_64: {
             error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint64_t>(inst.operands.at(2)),
-                                         std::get<uint16_t>(inst.operands.at(3)),
-                                         std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                         std::get<uint64_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
                                          OpCode::SET_64);
             break;
         }
         case OpCode::SET_128: {
             error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                         uint256_t::from_uint128(std::get<uint128_t>(inst.operands.at(2))),
-                                         std::get<uint16_t>(inst.operands.at(3)),
-                                         std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                         uint256_t::from_uint128(std::get<uint128_t>(inst.operands.at(3))),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
                                          OpCode::SET_128);
             break;
         }
         case OpCode::SET_FF: {
             error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<FF>(inst.operands.at(2)),
-                                         std::get<uint16_t>(inst.operands.at(3)),
-                                         std::get<AvmMemoryTag>(inst.operands.at(1)),
+                                         std::get<FF>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
                                          OpCode::SET_FF);
             break;
         }
@@ -655,10 +654,10 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             break;
         case OpCode::GETCONTRACTINSTANCE:
             error = trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
-                                                           std::get<uint8_t>(inst.operands.at(1)),
+                                                           std::get<uint16_t>(inst.operands.at(1)),
                                                            std::get<uint16_t>(inst.operands.at(2)),
                                                            std::get<uint16_t>(inst.operands.at(3)),
-                                                           std::get<uint16_t>(inst.operands.at(4)));
+                                                           std::get<uint8_t>(inst.operands.at(4)));
             break;
 
             // Accrued Substate

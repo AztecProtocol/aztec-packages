@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -16,8 +17,7 @@ using field_ct = stdlib::field_t<Builder>;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
-    ClientIVC ivc;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     for (const auto& constraint : constraints) {
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
@@ -58,7 +58,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
     using VerificationKey = ClientIVC::VerificationKey;
     using FF = bb::fr;
 
-    MegaArith<FF>::TraceBlocks blocks;
+    MegaExecutionTraceBlocks blocks;
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t structured_dyadic_size = blocks.get_structured_dyadic_size();

@@ -48,7 +48,7 @@ template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const std::vector<std::vector<bb::fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
 {
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
 
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_vec_nt.size());

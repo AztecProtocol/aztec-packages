@@ -476,6 +476,12 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         reconstructed.assert_is_in_field();
         reconstructed.assert_equal(scalar);
     }
+
+    // Set tags of wnaf_entries to the original scalar tag
+    const auto original_tag = scalar.get_origin_tag();
+    for (auto& entry : wnaf_entries) {
+        entry.set_origin_tag(original_tag);
+    }
     return wnaf_entries;
 }
 
@@ -580,6 +586,11 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
         Fr accumulator = reconstructed_positive - reconstructed_negative;
         accumulator.assert_equal(scalar);
+    }
+    // Propagate tags to naf
+    const auto original_tag = scalar.get_origin_tag();
+    for (auto& naf_entry : naf_entries) {
+        naf_entry.set_origin_tag(original_tag);
     }
     return naf_entries;
 }
