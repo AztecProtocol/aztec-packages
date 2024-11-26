@@ -221,7 +221,7 @@ describe('PXESchema', () => {
 
   it('getCurrentBaseFees', async () => {
     const result = await context.client.getCurrentBaseFees();
-    expect(result).toEqual(GasFees.default());
+    expect(result).toEqual(GasFees.empty());
   });
 
   it('simulateUnconstrained', async () => {
@@ -450,7 +450,7 @@ class MockPXE implements PXE {
     return Promise.resolve(L2Block.random(number));
   }
   getCurrentBaseFees(): Promise<GasFees> {
-    return Promise.resolve(GasFees.default());
+    return Promise.resolve(GasFees.empty());
   }
   simulateUnconstrained(
     _functionName: string,
