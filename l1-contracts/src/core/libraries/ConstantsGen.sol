@@ -116,7 +116,6 @@ library Constants {
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 12000000;
   uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
-  uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant DA_GAS_PER_BYTE = 16;
   uint256 internal constant FIXED_DA_GAS = 512;
