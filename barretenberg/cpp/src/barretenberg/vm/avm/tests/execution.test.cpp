@@ -123,30 +123,29 @@ class AvmExecutionTests : public ::testing::Test {
 // Parsing, trace generation and proving is verified.
 TEST_F(AvmExecutionTests, basicAddReturn)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "00"                      // val
-                               "07"                      // dst_offset 0
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "00"                       // val
-                               "09"                       // dst_offset 0
-                               + to_hex(OpCode::ADD_16) + // opcode ADD
-                               "00"                       // Indirect flag
-                               "0007"                     // addr a 7
-                               "0009"                     // addr b 9
-                               "0001"                     // addr c 1
-                               + to_hex(OpCode::SET_8) +  // opcode SET (for return size)
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +           // opcode SET
+                               "07"                              // dst_offset 0
+                               "00"                              // Indirect flag
+                               + to_hex(AvmMemoryTag::U8) + "00" // val
+                               + to_hex(OpCode::SET_8) +         // opcode SET
+                               "00"                              // Indirect flag
+                               "09"                              // dst_offset 0
+                               + to_hex(AvmMemoryTag::U8) +      //
+                               "00"                              // val
+                               + to_hex(OpCode::ADD_16) +        // opcode ADD
+                               "00"                              // Indirect flag
+                               "0007"                            // addr a 7
+                               "0009"                            // addr b 9
+                               "0001"                            // addr c 1
+                               + to_hex(OpCode::SET_8) +         // opcode SET (for return size)
+                               "00"                              // Indirect flag
+                               "FF"                              // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) +     //
+                               "00"                              // val: 0
+                               + to_hex(OpCode::RETURN) +        // opcode RETURN
+                               "00"                              // Indirect flag
+                               "0000"                            // ret offset 0
+                               "00FF";                           // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -167,9 +166,9 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                 AllOf(Field(&Instruction::op_code, OpCode::SET_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(255),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U32),
-                                        VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(255)))));
+                                        VariantWith<uint8_t>(0)))));
 
     // RETURN
     EXPECT_THAT(
@@ -185,30 +184,30 @@ TEST_F(AvmExecutionTests, basicAddReturn)
 // Positive test for SET and SUB opcodes
 TEST_F(AvmExecutionTests, setAndSubOpcodes)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_16) + // opcode SET
-                               "00"                     // Indirect flag
-                               + to_hex(AvmMemoryTag::U16) +
-                               "B813"                     // val 47123
-                               "00AA"                     // dst_offset 170
-                               + to_hex(OpCode::SET_16) + // opcode SET
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U16) +
-                               "9103"                    // val 37123
-                               "0033"                    // dst_offset 51
-                               + to_hex(OpCode::SUB_8) + // opcode SUB
-                               "00"                      // Indirect flag
-                               "AA"                      // addr a
-                               "33"                      // addr b
-                               "01"                      // addr c 1
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+    std::string bytecode_hex = to_hex(OpCode::SET_16) +      // opcode SET
+                               "00"                          // Indirect flag
+                               "00AA"                        // dst_offset 170
+                               + to_hex(AvmMemoryTag::U16) + //
+                               "B813"                        // val 47123
+                               + to_hex(OpCode::SET_16) +    // opcode SET
+                               "00"                          // Indirect flag
+                               "0033"                        // dst_offset 51
+                               + to_hex(AvmMemoryTag::U16) + //
+                               "9103"                        // val 37123
+                               + to_hex(OpCode::SUB_8) +     // opcode SUB
+                               "00"                          // Indirect flag
+                               "AA"                          // addr a
+                               "33"                          // addr b
+                               "01"                          // addr c 1
+                               + to_hex(OpCode::SET_8) +     // opcode SET (for return size)
+                               "00"                          // Indirect flag
+                               "FF"                          // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + //
+                               "00"                          // val: 0
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "0000"                        // ret offset 0
+                               "00FF";                       // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -220,18 +219,18 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
                 AllOf(Field(&Instruction::op_code, OpCode::SET_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint16_t>(170),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
-                                        VariantWith<uint16_t>(47123),
-                                        VariantWith<uint16_t>(170)))));
+                                        VariantWith<uint16_t>(47123)))));
 
     // SET
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::SET_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint16_t>(51),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
-                                        VariantWith<uint16_t>(37123),
-                                        VariantWith<uint16_t>(51)))));
+                                        VariantWith<uint16_t>(37123)))));
 
     // SUB
     EXPECT_THAT(instructions.at(2),
@@ -259,16 +258,14 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
 TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 {
     const int NUM_MUL_ITERATIONS = 12;
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U64) +
-                               "05"                      // val
-                               "00"                      // dst_offset 0
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U64) +
-                               "01"  // val
-                               "01"; // dst_offset 1
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +             // opcode SET
+                               "00"                                // Indirect flag
+                               "00"                                // dst_offset 0
+                               + to_hex(AvmMemoryTag::U64) + "05"  // val
+                               + to_hex(OpCode::SET_8) +           // opcode SET
+                               "00"                                // Indirect flag
+                               "01"                                // dst_offset 1
+                               + to_hex(AvmMemoryTag::U64) + "01"; // val
 
     std::string const mul_hex = to_hex(OpCode::MUL_8) + // opcode MUL
                                 "00"                    // Indirect flag
@@ -276,11 +273,11 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
                                 "01"                    // addr b
                                 "01";                   // addr c 1
 
-    std::string const set_return_size_hex = to_hex(OpCode::SET_8) + // opcode SET
-                                            "00" +                  // Indirect flag
-                                            to_hex(AvmMemoryTag::U32) +
-                                            "00"  // val
-                                            "FF"; // dst_offset
+    std::string const set_return_size_hex = to_hex(OpCode::SET_8) +       // opcode SET
+                                            "00"                          // Indirect flag
+                                            "FF"                          // dst_offset
+                                            + to_hex(AvmMemoryTag::U32) + //
+                                            "00";                         // val
 
     std::string const ret_hex = to_hex(OpCode::RETURN) + // opcode RETURN
                                 "00"                     // Indirect flag
@@ -321,9 +318,9 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
                 AllOf(Field(&Instruction::op_code, OpCode::SET_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(255),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U32),
-                                        VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(255)))));
+                                        VariantWith<uint8_t>(0)))));
 
     // RETURN
     EXPECT_THAT(
@@ -365,33 +362,31 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 // PC Index          0           9        14      22     27     33        42
 TEST_F(AvmExecutionTests, simpleInternalCall)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_32) +         // opcode SET
-                               "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0D3D2518"                       // val 222111000 = 0xD3D2518
-                               "0004"                           // dst_offset 4
-                               + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
-                               "00000021"                       // jmp_dest 33
-                               + to_hex(OpCode::ADD_16) +       // opcode ADD
-                               "00"                             // Indirect flag
-                               "0004"                           // addr a 4
-                               "0007"                           // addr b 7
-                               "0009"                           // addr c9
-                               + to_hex(OpCode::SET_8) +        // opcode SET (for return size)
-                               "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF"                     // ret size offset 255
-                               + to_hex(OpCode::SET_32) + // opcode SET
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "075BCD15"                       // val 123456789 = 0x75BCD15
-                               "0007"                           // dst_offset 7
-                               + to_hex(OpCode::INTERNALRETURN) // opcode INTERNALRETURN
+    std::string bytecode_hex = to_hex(OpCode::SET_32) +                 // opcode SET
+                               "00"                                     // Indirect flag
+                               "0004"                                   // dst_offset 4
+                               + to_hex(AvmMemoryTag::U32) +            //
+                               "0D3D2518"                               // val 222111000 = 0xD3D2518
+                               + to_hex(OpCode::INTERNALCALL) +         // opcode INTERNALCALL
+                               "00000021"                               // jmp_dest 33
+                               + to_hex(OpCode::ADD_16) +               // opcode ADD
+                               "00"                                     // Indirect flag
+                               "0004"                                   // addr a 4
+                               "0007"                                   // addr b 7
+                               "0009"                                   // addr c9
+                               + to_hex(OpCode::SET_8) +                // opcode SET (for return size)
+                               "00"                                     // Indirect flag
+                               "FF"                                     // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00"       // val: 0
+                               + to_hex(OpCode::RETURN) +               // opcode RETURN
+                               "00"                                     // Indirect flag
+                               "0000"                                   // ret offset 0
+                               "00FF"                                   // ret size offset 255
+                               + to_hex(OpCode::SET_32) +               // opcode SET
+                               "00"                                     // Indirect flag
+                               "0007"                                   // dst_offset 7
+                               + to_hex(AvmMemoryTag::U32) + "075BCD15" // val 123456789 = 0x75BCD15
+                               + to_hex(OpCode::INTERNALRETURN)         // opcode INTERNALRETURN
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
@@ -449,7 +444,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
         // val and dst_offset is assumed to be 2 bytes
         return to_hex(OpCode::SET_32) // opcode SET
                + "00"                 // Indirect flag
-               + to_hex(AvmMemoryTag::U8) + "000000" + val + "00" + dst_offset;
+               + "00" + dst_offset + to_hex(AvmMemoryTag::U8) + "000000" + val;
     };
 
     const std::string tag_address_arguments = "00"  // Indirect Flag
@@ -457,11 +452,10 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
                                               "03"  // addr b 3
                                               "02"; // addr c 2
 
-    std::string const set_return_size_hex = to_hex(OpCode::SET_8) + // opcode SET
-                                            "00" +                  // Indirect flag
-                                            to_hex(AvmMemoryTag::U32) +
-                                            "00"  // val
-                                            "FF"; // dst_offset 255
+    std::string const set_return_size_hex = to_hex(OpCode::SET_8) +             // opcode SET
+                                            "00"                                // Indirect flag
+                                            "FF"                                // dst_offset 255
+                                            + to_hex(AvmMemoryTag::U32) + "00"; // val
 
     const std::string return_instruction_hex = to_hex(OpCode::RETURN) // opcode RETURN
                                                + "00"                 // Indirect flag
@@ -520,14 +514,14 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
                                "00"                             // Indirect flag
+                               "00"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "00"                             // val
-                               "00"                             // dst_offset
                                + to_hex(OpCode::SET_8) +        // opcode SET
                                "00"                             // Indirect flag
+                               "01"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "02"                             // val
-                               "01"                             // dst_offset
                                + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
                                "00"                             // Indirect flag
                                "0000"                           // cd_offset
@@ -547,13 +541,13 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "01"                             // addr c 1 (156 / 13 = 12)
                                + to_hex(OpCode::SET_8) +        // opcode SET (for return size)
                                "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF"                     // ret size offset 255
+                               "FF"                             // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // val: 0
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "0000"                           // ret offset 0
+                               "00FF"                           // ret size offset 255
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
@@ -615,14 +609,14 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
                                "00"                             // Indirect flag
+                               "00"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "00"                             // val
-                               "00"                             // dst_offset
                                + to_hex(OpCode::SET_8) +        // opcode SET
                                "00"                             // Indirect flag
+                               "01"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "01"                             // val
-                               "01"                             // dst_offset
                                + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
                                "00"                             // Indirect flag
                                "0000"                           // cd_offset
@@ -630,13 +624,13 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                "000A"                           // dst_offset 10
                                + to_hex(OpCode::SET_8) +        // opcode SET
                                "00"                             // Indirect flag
+                               "65"                             // dst_offset 101
                                + to_hex(AvmMemoryTag::U16) +    //
                                "14"                             // val 20
-                               "65"                             // dst_offset 101
                                + to_hex(OpCode::JUMPI_32) +     // opcode JUMPI
                                "00"                             // Indirect flag
-                               "00000027"                       // jmp_dest (MUL located at 39)
                                "000A"                           // cond_offset 10
+                               "00000027"                       // jmp_dest (MUL located at 39)
                                + to_hex(OpCode::ADD_16) +       // opcode ADD
                                "00"                             // Indirect flag
                                "0065"                           // addr 101
@@ -649,13 +643,13 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                "66"                             // output of MUL addr 102
                                + to_hex(OpCode::SET_8) +        // opcode SET (for return size)
                                "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF"                     // ret size offset 255
+                               "FF"                             // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // val: 0
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "0000"                           // ret offset 0
+                               "00FF"                           // ret size offset 255
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
@@ -670,7 +664,7 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
         instructions.at(4),
         AllOf(Field(&Instruction::op_code, OpCode::JUMPI_32),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(39), VariantWith<uint16_t>(10)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(10), VariantWith<uint32_t>(39)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -698,24 +692,22 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
 // Positive test with MOV.
 TEST_F(AvmExecutionTests, movOpcode)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "13"                      // val 19
-                               "AB"                      // dst_offset 171
-                               + to_hex(OpCode::MOV_8) + // opcode MOV
-                               "00"                      // Indirect flag
-                               "AB"                      // src_offset 171
-                               "21"                      // dst_offset 33
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +            // opcode SET
+                               "00"                               // Indirect flag
+                               "AB"                               // dst_offset 171
+                               + to_hex(AvmMemoryTag::U8) + "13"  // val 19
+                               + to_hex(OpCode::MOV_8) +          // opcode MOV
+                               "00"                               // Indirect flag
+                               "AB"                               // src_offset 171
+                               "21"                               // dst_offset 33
+                               + to_hex(OpCode::SET_8) +          // opcode SET (for return size)
+                               "00"                               // Indirect flag
+                               "FF"                               // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00" // val: 0
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0000"                             // ret offset 0
+                               "00FF";                            // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -727,9 +719,9 @@ TEST_F(AvmExecutionTests, movOpcode)
                 AllOf(Field(&Instruction::op_code, OpCode::SET_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(171),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
-                                        VariantWith<uint8_t>(19),
-                                        VariantWith<uint8_t>(171)))));
+                                        VariantWith<uint8_t>(19)))));
 
     // MOV
     EXPECT_THAT(
@@ -751,34 +743,30 @@ TEST_F(AvmExecutionTests, movOpcode)
 // Positive test with indirect MOV.
 TEST_F(AvmExecutionTests, indMovOpcode)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0A"                      // val 10
-                               "01"                      // dst_offset 1
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0B"                      // val 11
-                               "02"                      // dst_offset 2
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "FF"                      // val 255
-                               "0A"                      // dst_offset 10
-                               + to_hex(OpCode::MOV_8) + // opcode MOV
-                               "01"                      // Indirect flag
-                               "01"                      // src_offset 1 --> direct offset 10
-                               "02"                      // dst_offset 2 --> direct offset 11
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +            // opcode SET
+                               "00"                               // Indirect flag
+                               "01"                               // dst_offset 1
+                               + to_hex(AvmMemoryTag::U32) + "0A" // val 10
+                               + to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                               // Indirect flag
+                               "02"                               // dst_offset 2
+                               + to_hex(AvmMemoryTag::U32) + "0B" // val 11
+                               + to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                               // Indirect flag
+                               "0A"                               // dst_offset 10
+                               + to_hex(AvmMemoryTag::U8) + "FF"  // val 255
+                               + to_hex(OpCode::MOV_8) +          // opcode MOV
+                               "01"                               // Indirect flag
+                               "01"                               // src_offset 1 --> direct offset 10
+                               "02"                               // dst_offset 2 --> direct offset 11
+                               + to_hex(OpCode::SET_8) +          // opcode SET (for return size)
+                               "00"                               // Indirect flag
+                               "FF"                               // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00" // val: 0
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0000"                             // ret offset 0
+                               "00FF";                            // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -804,39 +792,37 @@ TEST_F(AvmExecutionTests, indMovOpcode)
 // Positive test for SET and CAST opcodes
 TEST_F(AvmExecutionTests, setAndCastOpcodes)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_16) + // opcode SET
-                               "00"                     // Indirect flag
-                               + to_hex(AvmMemoryTag::U16) +
-                               "B813"                     // val 47123
-                               "0011"                     // dst_offset 17
-                               + to_hex(OpCode::CAST_8) + // opcode CAST
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "11"                      // addr a
-                               "12"                      // addr casted a
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+    std::string bytecode_hex = to_hex(OpCode::SET_16) +             // opcode SET
+                               "00"                                 // Indirect flag
+                               "0011"                               // dst_offset 17
+                               + to_hex(AvmMemoryTag::U16) + "B813" // val 47123
+                               + to_hex(OpCode::CAST_8) +           // opcode CAST
+                               "00"                                 // Indirect flag
+                               "11"                                 // addr a
+                               "12"                                 // addr casted a
+                               + to_hex(AvmMemoryTag::U8)           //
+                               + to_hex(OpCode::SET_8) +            // opcode SET (for return size)
+                               "00"                                 // Indirect flag
+                               "FF"                                 // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00"   // val: 0
+                               + to_hex(OpCode::RETURN) +           // opcode RETURN
+                               "00"                                 // Indirect flag
+                               "0000"                               // ret offset 0
+                               "00FF";                              // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
 
     ASSERT_THAT(instructions, SizeIs(4));
 
-    // SUB
+    // CAST
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::CAST_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
                                         VariantWith<uint8_t>(17),
-                                        VariantWith<uint8_t>(18)))));
+                                        VariantWith<uint8_t>(18),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U8)))));
 
     auto trace = gen_trace_from_bytecode(bytecode);
 
@@ -850,52 +836,48 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
 // Positive test with TO_RADIX_BE.
 TEST_F(AvmExecutionTests, toRadixBeOpcodeBytes)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                             // val
-                               "01"                             // dst_offset
-                               + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
-                               "00"                             // Indirect flag
-                               "0000"                           // cd_offset
-                               "0001"                           // copy_size
-                               "0001"                           // dst_offset
-                               + to_hex(OpCode::SET_8) +        // opcode SET for indirect src
-                               "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the src from calldata is copied)
-                               "11"                      // dst_offset 17
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect dst
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "05"                      // value 5 (i.e. where the dst will be written to)
-                               "15"                      // dst_offset 21
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect dst
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
-                               "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
-                               "03"                          // Indirect flag
-                               "0011"                        // src_offset 17 (indirect)
-                               "0015"                        // dst_offset 21 (indirect)
-                               "0080"                        // radix_offset 80 (direct)
-                               "0100"                        // limbs: 256
-                               "00"                          // output_bits: false
-                               + to_hex(OpCode::SET_16) +    // opcode SET (for return size)
-                               "00"                          // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0100"                   // val: 256
-                               "0200" +                 // dst_offset=512
-                               to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                     // Indirect flag
-                               "0005"                   // ret offset 5
-                               "0200";                  // ret size offset 512
+    std::string bytecode_hex =
+        to_hex(OpCode::SET_8) +            // opcode SET
+        "00"                               // Indirect flag
+        "00"                               // dst_offset
+        + to_hex(AvmMemoryTag::U32) + "00" // val
+        + to_hex(OpCode::SET_8) +          // opcode SET
+        "00"                               // Indirect flag
+        "01"                               // dst_offset
+        + to_hex(AvmMemoryTag::U32) + "01" // val
+        + to_hex(OpCode::CALLDATACOPY) +   // opcode CALLDATACOPY
+        "00"                               // Indirect flag
+        "0000"                             // cd_offset
+        "0001"                             // copy_size
+        "0001"                             // dst_offset
+        + to_hex(OpCode::SET_8) +          // opcode SET for indirect src
+        "00"                               // Indirect flag
+        "11"                               // dst_offset 17
+        + to_hex(AvmMemoryTag::U32) + "01" // value 1 (i.e. where the src from calldata is copied)
+        + to_hex(OpCode::SET_8) +          // opcode SET for indirect dst
+        "00"                               // Indirect flag
+        "15"                               // dst_offset 21
+        + to_hex(AvmMemoryTag::U32) + "05" // value 5 (i.e. where the dst will be written to)
+        + to_hex(OpCode::SET_8) +          // opcode SET for indirect dst
+        "00"                               // Indirect flag
+        "80"                               // radix_offset 80
+        + to_hex(AvmMemoryTag::U32) + "02" // value 2 (i.e. radix 2 - perform bitwise decomposition)
+        + to_hex(OpCode::TORADIXBE) +      // opcode TO_RADIX_BE
+        "03"                               // Indirect flag
+        "0011"                             // src_offset 17 (indirect)
+        "0015"                             // dst_offset 21 (indirect)
+        "0080"                             // radix_offset 80 (direct)
+        "0100"                             // limbs: 256
+        "00"                               // output_bits: false
+        + to_hex(OpCode::SET_16) +         // opcode SET (for return size)
+        "00"                               // Indirect flag
+        "0200"                             // dst_offset=512
+        + to_hex(AvmMemoryTag::U32) +      //
+        "0100"                             // val: 256
+        + to_hex(OpCode::RETURN) +         // opcode RETURN
+        "00"                               // Indirect flag
+        "0005"                             // ret offset 5
+        "0200";                            // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -924,16 +906,16 @@ TEST_F(AvmExecutionTests, toRadixBeOpcodeBytes)
 // Positive test with TO_RADIX_BE.
 TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                             // val
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                             // Indirect flag
+                               "00"                             // dst_offset
+                               + to_hex(AvmMemoryTag::U32)      //
+                               + "00"                           // val
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
                                "01"                             // dst_offset
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "01"                             // val
                                + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
                                "00"                             // Indirect flag
                                "0000"                           // cd_offset
@@ -941,19 +923,19 @@ TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
                                "0001"                           // dst_offset
                                + to_hex(OpCode::SET_8) +        // opcode SET for indirect src
                                "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the src from calldata is copied)
-                               "11"                      // dst_offset 17
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect dst
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "05"                      // value 5 (i.e. where the dst will be written to)
-                               "15"                      // dst_offset 21
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect dst
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
+                               "11"                             // dst_offset 17
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "01"                             // value 1 (i.e. where the src from calldata is copied)
+                               + to_hex(OpCode::SET_8) +        // opcode SET for indirect dst
+                               "00"                             // Indirect flag
+                               "15"                             // dst_offset 21
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "05"                             // value 5 (i.e. where the dst will be written to)
+                               + to_hex(OpCode::SET_8) +        // opcode SET for indirect dst
+                               "00"                             // Indirect flag
+                               "80"                             // radix_offset 80
+                               + to_hex(AvmMemoryTag::U32) +    //
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
-                               "80"                          // radix_offset 80
                                + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
@@ -963,13 +945,13 @@ TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
                                "01"                          // output_bits: true
                                + to_hex(OpCode::SET_16) +    // opcode SET (for return size)
                                "00"                          // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0100"                   // val: 256
-                               "0200" +                 // dst_offset=512
-                               to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                     // Indirect flag
-                               "0005"                   // ret offset 5
-                               "0200";                  // ret size offset 512
+                               "0200"                        // dst_offset=512
+                               + to_hex(AvmMemoryTag::U32) + //
+                               "0100"                        // val: 256
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "0005"                        // ret offset 5
+                               "0200";                       // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1003,36 +985,33 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     // Test vectors taken from noir black_box_solver
     // State = Uint32Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
     for (uint8_t i = 1; i <= 8; i++) {
-        bytecode_preamble += to_hex(OpCode::SET_8) +                            // opcode SET
-                             "00"                                               // Indirect flag
-                             + to_hex(AvmMemoryTag::U32) + to_hex<uint8_t>(i) + // val i
-                             to_hex<uint8_t>(i);                                // val i
+        bytecode_preamble += to_hex(OpCode::SET_8) +                           // opcode SET
+                             "00"                                              // Indirect flag
+                             + to_hex<uint8_t>(i)                              // offset i
+                             + to_hex(AvmMemoryTag::U32) + to_hex<uint8_t>(i); // val i
     }
     // Set operations for sha256 input
     // Test vectors taken from noir black_box_solver
     // Input = Uint32Array.from([1, 2, 3, 4, 5, 6, 7, 8]),
     for (uint8_t i = 1; i <= 16; i++) {
-        bytecode_preamble += to_hex(OpCode::SET_8) +                            // opcode SET
-                             "00"                                               // Indirect flag
-                             + to_hex(AvmMemoryTag::U32) + to_hex<uint8_t>(i) + // val i
-                             to_hex<uint8_t>(i + 8);                            // val i
+        bytecode_preamble += to_hex(OpCode::SET_8) +                           // opcode SET
+                             "00"                                              // Indirect flag
+                             + to_hex<uint8_t>(i + 8)                          // offset i + 8
+                             + to_hex(AvmMemoryTag::U32) + to_hex<uint8_t>(i); // val i
     }
-    std::string bytecode_hex = bytecode_preamble          // Initial SET operations to store state and input
-                               + to_hex(OpCode::SET_16) + // opcode SET for indirect dst (output)
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0100"                    // value 256 (i.e. where the dst will be written to)
-                               "0024"                    // dst_offset 36
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect state
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the state will be read from)
-                               "22"                      // dst_offset 34
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect input
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "09"                                  // value 9 (i.e. where the input will be read from)
-                               "23"                                  // dst_offset 35
+    std::string bytecode_hex = bytecode_preamble                    // Initial SET operations to store state and input
+                               + to_hex(OpCode::SET_16) +           // opcode SET for indirect dst (output)
+                               "00"                                 // Indirect flag
+                               "0024"                               // dst_offset 36
+                               + to_hex(AvmMemoryTag::U32) + "0100" // value 256 (i.e. where the dst will be written to)
+                               + to_hex(OpCode::SET_8) +            // opcode SET for indirect state
+                               "00"                                 // Indirect flag
+                               "22"                                 // dst_offset 34
+                               + to_hex(AvmMemoryTag::U32) + "01"   // value 1 (i.e. where the state will be read from)
+                               + to_hex(OpCode::SET_8) +            // opcode SET for indirect input
+                               "00"                                 // Indirect flag
+                               "23"                                 // dst_offset 35
+                               + to_hex(AvmMemoryTag::U32) + "09"   // value 9 (i.e. where the input will be read from)
                                + to_hex(OpCode::SHA256COMPRESSION) + // opcode SHA256COMPRESSION
                                "00"                                  // Indirect flag
                                "0100"                                // output offset
@@ -1040,13 +1019,12 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                "0009"                                // input offset
                                + to_hex(OpCode::SET_16) +            // opcode SET (for return size)
                                "00"                                  // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0008"                     // val: 8
-                               "0200"                     // dst_offset=512
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0100"                     // ret offset 256
-                               "0200";                    // ret size offset 512
+                               "0200"                                // dst_offset=512
+                               + to_hex(AvmMemoryTag::U32) + "0008"  // val: 8
+                               + to_hex(OpCode::RETURN) +            // opcode RETURN
+                               "00"                                  // Indirect flag
+                               "0100"                                // ret offset 256
+                               "0200";                               // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1076,44 +1054,39 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")) };
 
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "04"                             // val
-                               "01"                             // dst_offset
-                               + to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY
-                               "00"                             // Indirect Flag
-                               "0000"                           // cd_offset
-                               "0001"                           // copy_size
-                               "0001"                           // dst_offset 1
-                               + to_hex(OpCode::SET_8) +        // opcode SET for indirect src (input)
-                               "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the src will be read from)
-                               "24"                      // dst_offset 36
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect dst (output)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "09"                              // value 9 (i.e. where the ouput will be written to)
-                               "23"                              // dst_offset 35
-                               + to_hex(OpCode::POSEIDON2PERM) + // opcode POSEIDON2
-                               "03"                              // Indirect flag (first 2 operands indirect)
-                               "0024"                            // input offset (indirect 36)
-                               "0023"                            // output offset (indirect 35)
-                               + to_hex(OpCode::SET_16) +        // opcode SET (for return size)
-                               "00"                              // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0004"                     // val: 4
-                               "0200"                     // dst_offset=512
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0009"                     // ret offset 256
-                               "0200";                    // ret size offset 512
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +              // opcode SET
+                               "00"                                 // Indirect flag
+                               "00"                                 // dst_offset
+                               + to_hex(AvmMemoryTag::U32) + "00"   // val
+                               + to_hex(OpCode::SET_8) +            // opcode SET
+                               "00"                                 // Indirect flag
+                               "01"                                 // dst_offset
+                               + to_hex(AvmMemoryTag::U32) + "04"   // val
+                               + to_hex(OpCode::CALLDATACOPY) +     // opcode CALL DATA COPY
+                               "00"                                 // Indirect Flag
+                               "0000"                               // cd_offset
+                               "0001"                               // copy_size
+                               "0001"                               // dst_offset 1
+                               + to_hex(OpCode::SET_8) +            // opcode SET for indirect src (input)
+                               "00"                                 // Indirect flag
+                               "24"                                 // dst_offset 36
+                               + to_hex(AvmMemoryTag::U32) + "01"   // value 1 (i.e. where the src will be read from)
+                               + to_hex(OpCode::SET_8) +            // opcode SET for indirect dst (output)
+                               "00"                                 // Indirect flag
+                               "23"                                 // dst_offset 35
+                               + to_hex(AvmMemoryTag::U32) + "09"   // value 9 (i.e. where the ouput will be written to)
+                               + to_hex(OpCode::POSEIDON2PERM) +    // opcode POSEIDON2
+                               "03"                                 // Indirect flag (first 2 operands indirect)
+                               "0024"                               // input offset (indirect 36)
+                               "0023"                               // output offset (indirect 35)
+                               + to_hex(OpCode::SET_16) +           // opcode SET (for return size)
+                               "00"                                 // Indirect flag
+                               "0200"                               // dst_offset=512
+                               + to_hex(AvmMemoryTag::U32) + "0004" // val: 4
+                               + to_hex(OpCode::RETURN) +           // opcode RETURN
+                               "00"                                 // Indirect flag
+                               "0009"                               // ret offset 256
+                               "0200";                              // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1160,37 +1133,35 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     std::string bytecode_preamble;
     // Set operations for keccak state
     for (uint8_t i = 0; i < KECCAKF1600_INPUT_SIZE; i++) {
-        bytecode_preamble += to_hex(OpCode::SET_64) +                                   // opcode SET
-                             "00"                                                       // Indirect flag
-                             + to_hex(AvmMemoryTag::U64) + to_hex<uint64_t>(state[i]) + // val i
-                             to_hex<uint16_t>(i + 1);                                   // dst offset
+        bytecode_preamble += to_hex(OpCode::SET_64) +                                  // opcode SET
+                             "00"                                                      // Indirect flag
+                             + to_hex<uint16_t>(i + 1)                                 // dst offset
+                             + to_hex(AvmMemoryTag::U64) + to_hex<uint64_t>(state[i]); // val i
     }
 
     // We use calldatacopy twice because we need to set up 4 inputs
-    std::string bytecode_hex = bytecode_preamble +     // Initial SET operations to store state and input
-                               to_hex(OpCode::SET_8) + // opcode SET for indirect src (input)
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                       // value 1 (i.e. where the src will be read from)
-                               "24"                       // input_offset 36
-                               + to_hex(OpCode::SET_16) + // opcode SET for indirect dst (output)
-                               "00"                       // Indirect flag
+    std::string bytecode_hex = bytecode_preamble +                // Initial SET operations to store state and input
+                               to_hex(OpCode::SET_8) +            // opcode SET for indirect src (input)
+                               "00"                               // Indirect flag
+                               "24"                               // input_offset 36
+                               + to_hex(AvmMemoryTag::U32) + "01" // value 1 (i.e. where the src will be read from)
+                               + to_hex(OpCode::SET_16) +         // opcode SET for indirect dst (output)
+                               "00"                               // Indirect flag
+                               "0023"                             // dst_offset 35
                                + to_hex(AvmMemoryTag::U32) +
                                "0100"                          // value 256 (i.e. where the ouput will be written to)
-                               "0023"                          // dst_offset 35
                                + to_hex(OpCode::KECCAKF1600) + // opcode KECCAKF1600
                                "03"                            // Indirect flag (first 2 operands indirect)
                                "0023"                          // output offset (indirect 35)
                                "0024"                          // input offset (indirect 36)
                                + to_hex(OpCode::SET_16) +      // opcode SET (for return size)
                                "00"                            // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0019"                     // val: 25
-                               "0200"                     // dst_offset=512
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0100"                     // ret offset 256
-                               "0200";                    // ret size offset 512
+                               "0200"                          // dst_offset=512
+                               + to_hex(AvmMemoryTag::U32) + "0019" // val: 25
+                               + to_hex(OpCode::RETURN) +           // opcode RETURN
+                               "00"                                 // Indirect flag
+                               "0100"                               // ret offset 256
+                               "0200";                              // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1218,14 +1189,14 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
     auto expected_output = std::vector<FF>{ res.x, res.y, res.is_point_at_infinity() };
     std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
                                "00"                             // Indirect flag
+                               "00"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "00"                             // val
-                               "00"                             // dst_offset
                                + to_hex(OpCode::SET_8) +        // opcode SET
                                "00"                             // Indirect flag
+                               "01"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "06"                             // val
-                               "01"                             // dst_offset
                                + to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
                                "00"                             // Indirect flag
                                "0000"                           // cd_offset
@@ -1233,19 +1204,19 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "0000"                           // dst_offset
                                + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
                                "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U1) +     //
                                "02"                             // a_is_inf
                                "02"                             // a_is_inf
+                               + to_hex(AvmMemoryTag::U1)       //
                                + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
                                "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U1) +     //
                                "05"                             // b_is_inf
                                "05"                             // b_is_inf
+                               + to_hex(AvmMemoryTag::U1)       //
                                + to_hex(OpCode::SET_8) +        // opcode SET for direct src_length
                                "00"                             // Indirect flag
+                               "06"                             // dst_offset
                                + to_hex(AvmMemoryTag::U32) +    //
                                "07"                             // value
-                               "06"                             // dst_offset
                                + to_hex(OpCode::ECADD) +        // opcode ECADD
                                "0040"                           // Indirect flag (sixth operand indirect)
                                "0000"                           // lhs_x_offset (direct)
@@ -1257,9 +1228,9 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "0006"                           // output_offset (indirect) and resolves to 7
                                + to_hex(OpCode::SET_16) +       // opcode SET (for return size)
                                "00"                             // Indirect flag
+                               "0200"                           // dst_offset=512
                                + to_hex(AvmMemoryTag::U32) +    //
                                "0003"                           // val: 3
-                               "0200"                           // dst_offset=512
                                + to_hex(OpCode::RETURN) +       // opcode RETURN
                                "00"                             // Indirect flag
                                "0007"                           // ret offset 7
@@ -1299,66 +1270,66 @@ TEST_F(AvmExecutionTests, msmOpCode)
     std::vector<FF> calldata = { FF(a.x),  FF(a.y),     a_is_inf,    FF(b.x),     FF(b.y),
                                  b_is_inf, scalar_a_lo, scalar_a_hi, scalar_b_lo, scalar_b_hi };
 
-    std::string bytecode_hex = to_hex(OpCode::SET_8) +        // opcode SET
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "00"                           // val
-                               "00"                           // dst_offset
-                               + to_hex(OpCode::SET_8) +      // opcode SET
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "0A"                           // val
-                               "01" +                         //
-                               to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset 0
-                               "0001"                         // copy_size (10 elements)
-                               "0000"                         // dst_offset 0
-                               + to_hex(OpCode::CAST_8) +     // opcode CAST inf to U8
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U1) +   //
-                               "02"                           // a_is_inf
-                               "02"                           //
-                               + to_hex(OpCode::CAST_8) +     // opcode CAST inf to U8
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U1) +   //
-                               "05"                           // b_is_inf
-                               "05"                           //
-                               + to_hex(OpCode::SET_8) +      // opcode SET for length
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "06"                           // Length of point elements (6)
-                               "0b"                           // dst offset (11)
-                               + to_hex(OpCode::SET_8) +      // SET Indirects
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "00"                           // points offset
-                               "0d"                           // dst offset +
-                               + to_hex(OpCode::SET_8) +      // SET Indirects
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "06"                           // scalars offset
-                               "0e" +                         // dst offset
-                               to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "0c"                           // output offset
-                               "0f" +                         // dst offset
-                               to_hex(OpCode::MSM) +          // opcode MSM
-                               "07"                           // Indirect flag (first 3 indirect)
-                               "000d"                         // points offset
-                               "000e"                         // scalars offset
-                               "000f"                         // output offset
-                               "000b"                         // length offset
-                               + to_hex(OpCode::SET_16) +     // opcode SET (for return size)
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  //
-                               "0003"                         // val: 3
-                               "0200"                         // dst_offset=512
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "000c"                         // ret offset 12 (this overwrites)
-                               "0200";                        // ret size offset 512
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                             // Indirect flag
+                               "00"                             // dst_offset
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // val
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
+                               "01"                             //
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "0A"                             // val
+                               + to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
+                               "00"                             // Indirect flag
+                               "0000"                           // cd_offset 0
+                               "0001"                           // copy_size (10 elements)
+                               "0000"                           // dst_offset 0
+                               + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
+                               "00"                             // Indirect flag
+                               "02"                             // a_is_inf
+                               "02"                             //
+                               + to_hex(AvmMemoryTag::U1) +     //
+                               to_hex(OpCode::CAST_8) +         // opcode CAST inf to U8
+                               "00"                             // Indirect flag
+                               "05"                             // b_is_inf
+                               "05"                             //
+                               + to_hex(AvmMemoryTag::U1) +     //
+                               to_hex(OpCode::SET_8) +          // opcode SET for length
+                               "00"                             // Indirect flag
+                               "0b"                             // dst offset (11)
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "06"                             // Length of point elements (6)
+                               + to_hex(OpCode::SET_8) +        // SET Indirects
+                               "00"                             // Indirect flag
+                               "0d"                             // dst offset +
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // points offset
+                               + to_hex(OpCode::SET_8) +        // SET Indirects
+                               "00"                             // Indirect flag
+                               "0e"                             // dst offset
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "06"                             // scalars offset
+                               + to_hex(OpCode::SET_8) +        // SET Indirects
+                               "00"                             // Indirect flag
+                               "0f"                             // dst offset
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "0c"                             // output offset
+                               + to_hex(OpCode::MSM) +          // opcode MSM
+                               "07"                             // Indirect flag (first 3 indirect)
+                               "000d"                           // points offset
+                               "000e"                           // scalars offset
+                               "000f"                           // output offset
+                               "000b"                           // length offset
+                               + to_hex(OpCode::SET_16) +       // opcode SET (for return size)
+                               "00"                             // Indirect flag
+                               "0200"                           // dst_offset=512
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "0003"                           // val: 3
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "000c"                           // ret offset 12 (this overwrites)
+                               "0200";                          // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1377,59 +1348,59 @@ TEST_F(AvmExecutionTests, msmOpCode)
 TEST_F(AvmExecutionTests, getEnvOpcode)
 {
     std::string bytecode_hex =
-        to_hex(OpCode::GETENVVAR_16) +                                          // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ADDRESS)) +          // envvar ADDRESS
-        "0001"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) +           // envvar SENDER
-        "0002"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)) + // envvar FUNCTIONSELECTOR
-        "0003"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)) +   // envvar TRANSACTIONFEE
-        "0004"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::CHAINID)) +          // envvar CHAINID
-        "0005"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::VERSION)) +          // envvar VERSION
-        "0006"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)) +      // envvar BLOCKNUMBER
-        "0007"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)) +        // envvar TIMESTAMP
-        "0008"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)) +      // envvar FEEPERL2GAS
-        "0009"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)) +      // envvar FEEPERDAGAS
-        "000A"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)) +     // envvar ISSTATICCALL
-        "000B"                                                                  // dst_offset
-        + to_hex(OpCode::SET_16) +                                              // opcode SET (for return size)
-        "00"                                                                    // Indirect flag
-        + to_hex(AvmMemoryTag::U32) +                                           // tag U32
-        "000B"                                                                  // val: 12
-        "0200"                                                                  // dst_offset=512
-        + to_hex(OpCode::RETURN) +                                              // opcode RETURN
-        "00"                                                                    // Indirect flag
-        "0001"                                                                  // ret offset 1
-        "0200";                                                                 // ret size offset 512
+        to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0001"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ADDRESS))          // envvar ADDRESS
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0002"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER))           // envvar SENDER
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0003"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)) // envvar FUNCTIONSELECTOR
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0004"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE))   // envvar TRANSACTIONFEE
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0005"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::CHAINID))          // envvar CHAINID
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0006"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::VERSION))          // envvar VERSION
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0007"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER))      // envvar BLOCKNUMBER
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0008"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP))        // envvar TIMESTAMP
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "0009"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS))      // envvar FEEPERL2GAS
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "000A"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS))      // envvar FEEPERDAGAS
+        + to_hex(OpCode::GETENVVAR_16) +                                      // opcode GETENVVAR_16
+        "00"                                                                  // Indirect flag
+        "000B"                                                                // dst_offset
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL))     // envvar ISSTATICCALL
+        + to_hex(OpCode::SET_16) +                                            // opcode SET (for return size)
+        "00"                                                                  // Indirect flag
+        "0200"                                                                // dst_offset=512
+        + to_hex(AvmMemoryTag::U32) +                                         // tag U32
+        "000B"                                                                // val: 12
+        + to_hex(OpCode::RETURN) +                                            // opcode RETURN
+        "00"                                                                  // Indirect flag
+        "0001"                                                                // ret offset 1
+        "0200";                                                               // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1441,16 +1412,16 @@ TEST_F(AvmExecutionTests, getEnvOpcode)
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ADDRESS)),
-                                        VariantWith<uint16_t>(1)))));
+                                        VariantWith<uint16_t>(1),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ADDRESS))))));
 
     // SENDER
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::SENDER)),
-                                        VariantWith<uint16_t>(2)))));
+                                        VariantWith<uint16_t>(2),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::SENDER))))));
 
     // FUNCTIONSELECTOR
     EXPECT_THAT(
@@ -1458,72 +1429,77 @@ TEST_F(AvmExecutionTests, getEnvOpcode)
         AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(0),
-                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)),
-                                VariantWith<uint16_t>(3)))));
+                                VariantWith<uint16_t>(3),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR))))));
 
     // TRANSACTIONFEE
-    EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)),
-                                        VariantWith<uint16_t>(4)))));
+    EXPECT_THAT(
+        instructions.at(3),
+        AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0),
+                                VariantWith<uint16_t>(4),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE))))));
 
     // CHAINID
     EXPECT_THAT(instructions.at(4),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::CHAINID)),
-                                        VariantWith<uint16_t>(5)))));
+                                        VariantWith<uint16_t>(5),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::CHAINID))))));
 
     // VERSION
     EXPECT_THAT(instructions.at(5),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::VERSION)),
-                                        VariantWith<uint16_t>(6)))));
+                                        VariantWith<uint16_t>(6),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::VERSION))))));
 
     // BLOCKNUMBER
-    EXPECT_THAT(instructions.at(6),
-                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)),
-                                        VariantWith<uint16_t>(7)))));
+    EXPECT_THAT(
+        instructions.at(6),
+        AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0),
+                                VariantWith<uint16_t>(7),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER))))));
 
     // TIMESTAMP
     EXPECT_THAT(instructions.at(7),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)),
-                                        VariantWith<uint16_t>(8)))));
+                                        VariantWith<uint16_t>(8),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP))))));
 
     // FEEPERL2GAS
-    EXPECT_THAT(instructions.at(8),
-                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)),
-                                        VariantWith<uint16_t>(9)))));
+    EXPECT_THAT(
+        instructions.at(8),
+        AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0),
+                                VariantWith<uint16_t>(9),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS))))));
 
     // FEEPERDAGAS
-    EXPECT_THAT(instructions.at(9),
-                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)),
-                                        VariantWith<uint16_t>(10)))));
+    EXPECT_THAT(
+        instructions.at(9),
+        AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0),
+                                VariantWith<uint16_t>(10),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS))))));
 
     // ISSTATICCALL
-    EXPECT_THAT(instructions.at(10),
-                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)),
-                                        VariantWith<uint16_t>(11)))));
+    EXPECT_THAT(
+        instructions.at(10),
+        AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0),
+                                VariantWith<uint16_t>(11),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL))))));
 
     // Public inputs for the circuit
     std::vector<FF> calldata;
@@ -1660,24 +1636,22 @@ TEST_F(AvmExecutionTests, getEnvOpcode)
 // Positive test for L2GASLEFT opcode
 TEST_F(AvmExecutionTests, l2GasLeft)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_16) + // opcode SET
-                               "00"                     // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0101"                           // val 257
-                               "0011"                           // dst_offset 17
-                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
-                               "01"                             // Indirect flag
+    std::string bytecode_hex = to_hex(OpCode::SET_16) +             // opcode SET
+                               "00"                                 // Indirect flag
+                               "0011"                               // dst_offset 17
+                               + to_hex(AvmMemoryTag::U32) + "0101" // val 257
+                               + to_hex(OpCode::GETENVVAR_16) +     // opcode L2GASLEFT
+                               "01"                                 // Indirect flag
+                               "0011"                               // dst_offset (indirect addr: 17)
                                + to_hex(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)) +
-                               "0011"                    // dst_offset (indirect addr: 17)
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+                               to_hex(OpCode::SET_8) +            // opcode SET (for return size)
+                               "00"                               // Indirect flag
+                               "FF"                               // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00" // val: 0
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0000"                             // ret offset 0
+                               "00FF";                            // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1689,8 +1663,8 @@ TEST_F(AvmExecutionTests, l2GasLeft)
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(1),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)),
-                                        VariantWith<uint16_t>(17)))));
+                                        VariantWith<uint16_t>(17),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT))))));
 
     auto trace = gen_trace_from_bytecode(bytecode);
 
@@ -1716,17 +1690,16 @@ TEST_F(AvmExecutionTests, daGasLeft)
                                "09"                             // addr b 9
                                + to_hex(OpCode::GETENVVAR_16) + // opcode DAGASLEFT
                                "00"                             // Indirect flag
+                               "0027"                           // dst_offset (indirect addr: 17)
                                + to_hex(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)) +
-                               "0027"                    // dst_offset (indirect addr: 17)
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+                               to_hex(OpCode::SET_8) +            // opcode SET (for return size)
+                               "00"                               // Indirect flag
+                               "FF"                               // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00" // val: 0
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0000"                             // ret offset 0
+                               "00FF";                            // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1738,8 +1711,8 @@ TEST_F(AvmExecutionTests, daGasLeft)
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)),
-                                        VariantWith<uint16_t>(39)))));
+                                        VariantWith<uint16_t>(39),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT))))));
 
     auto trace = gen_trace_from_bytecode(bytecode);
 
@@ -1760,7 +1733,7 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithTooMuchGasAllocated)
 {
     std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
                                "00"                           // Indirect flag
-                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
+                               + "0007" + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)); // addr 7
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
@@ -1781,7 +1754,7 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 {
     std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
                                "00"                           // Indirect flag
-                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
+                               + "0007" + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)); // addr 7
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
@@ -1800,19 +1773,19 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // Set values into the first register to emit
     std::string bytecode_hex = to_hex(OpCode::SET_8) +                // opcode Set
                                "00"                                   // Indirect flag
+                               "02"                                   // dst_offset 2
                                + to_hex(AvmMemoryTag::U32) +          // tag U32
                                "00"                                   // value 0
-                               "02"                                   // dst_offset 2
                                + to_hex(OpCode::SET_8) +              // opcode Set
                                "00"                                   // Indirect flag
+                               "01"                                   // dst_offset 1
                                + to_hex(AvmMemoryTag::U32) +          // tag U32
                                "01"                                   // value 1
-                               "01"                                   // dst_offset 1
                                + to_hex(OpCode::CAST_8) +             // opcode CAST (to field)
                                "00"                                   // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) +           // tag FF
                                "01"                                   // dst 1
                                "01"                                   // dst 1
+                               + to_hex(AvmMemoryTag::FF)             // tag FF
                                + to_hex(OpCode::EMITNOTEHASH) +       // opcode EMITNOTEHASH
                                "00"                                   // Indirect flag
                                "0001"                                 // src offset 1
@@ -1937,29 +1910,28 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
 TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
 {
     // Sload from a value that has not previously been written to will require a hint to process
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "09"                       // value 9
-                               "01"                       // dst_offset 1
-                               + to_hex(OpCode::CAST_8) + // opcode CAST (Cast set to field)
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) +
-                               "01"                      // dst 1
-                               "01"                      // dst 1
-                               + to_hex(OpCode::SLOAD) + // opcode SLOAD
-                               "00"                      // Indirect flag
-                               "0001"                    // slot offset 1
-                               "0002"                    // write storage value to offset 2
-                               + to_hex(OpCode::SET_8) + // opcode SET (for return size)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +            // opcode SET
+                               "00"                               // Indirect flag
+                               "01"                               // dst_offset 1
+                               + to_hex(AvmMemoryTag::U32) + "09" // value 9
+                               + to_hex(OpCode::CAST_8) +         // opcode CAST (Cast set to field)
+                               "00"                               // Indirect flag
+                               "01"                               // dst 1
+                               "01"                               // dst 1
+                               + to_hex(AvmMemoryTag::FF)         //
+                               + to_hex(OpCode::SLOAD) +          // opcode SLOAD
+                               "00"                               // Indirect flag
+                               "0001"                             // slot offset 1
+                               "0002"                             // write storage value to offset 2
+                               + to_hex(OpCode::SET_8) +          // opcode SET (for return size)
+                               "00"                               // Indirect flag
+                               "FF"                               // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) +      //
+                               "00"                               // val: 0
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0000"                             // ret offset 0
+                               "00FF";                            // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -1998,34 +1970,34 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
 {
     // SSTORE, write 2 elements of calldata to dstOffset 1 and 2.
     std::vector<FF> calldata = { 42, 123, 9, 10 };
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "04" // val
-                               "01" +
-                               to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset
-                               "0001"                         // copy_size
-                               "0001"                         // dst_offset, (i.e. where we store the addr)
-                               + to_hex(OpCode::SSTORE) +     // opcode SSTORE
-                               "00"                           // Indirect flag
-                               "0001"                         // src offset
-                               "0003"                         // slot offset
-                               + to_hex(OpCode::SET_16) +     // opcode SET (for return size)
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +  // tag U32
-                               "0000"                         // val: 0
-                               "0200"                         // dst_offset=512
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "0000"                         // ret offset 0
-                               "0200";                        // ret size offset 512
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                             // Indirect flag
+                               "00"                             // dst_offset
+                               + to_hex(AvmMemoryTag::U32)      //
+                               + "00"                           // val
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
+                               "01"                             //
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "04"                             // val
+                               + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
+                               "00"                             // Indirect flag
+                               "0000"                           // cd_offset
+                               "0001"                           // copy_size
+                               "0001"                           // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SSTORE) +       // opcode SSTORE
+                               "00"                             // Indirect flag
+                               "0001"                           // src offset
+                               "0003"                           // slot offset
+                               + to_hex(OpCode::SET_16) +       // opcode SET (for return size)
+                               "00"                             // Indirect flag
+                               "0200"                           // dst_offset=512
+                               + to_hex(AvmMemoryTag::U32) +    // tag U32
+                               "0000"                           // val: 0
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "0000"                           // ret offset 0
+                               "0200";                          // ret size offset 512
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -2060,34 +2032,33 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
 TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
 {
     // Sload from a value that has not previously been written to will require a hint to process
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "09" // value 9
-                               "01" // dst_offset 1
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +       // opcode SET
+                               "00"                          // Indirect flag
+                               "01"                          // dst_offset 1
+                               + to_hex(AvmMemoryTag::U32) + //
+                               "09"                          // value 9
                                // Cast set to field
-                               + to_hex(OpCode::CAST_8) + // opcode CAST
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) +
-                               "01"                       // dst 1
-                               "01"                       // dst 1
-                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
-                               "00"                       // Indirect flag
-                               "0001"                     // slot offset 1
-                               "0002"                     // write storage value to offset 2
-                               + to_hex(OpCode::SSTORE) + // opcode SSTORE
-                               "00"                       // Indirect flag
-                               "0002"                     // src offset 2 (since the sload writes to 2)
-                               "0001"                     // slot offset is 1
-                               + to_hex(OpCode::SET_8) +  // opcode SET (for return size)
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                       // val: 0
-                               "FF"                       // dst_offset=255
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0000"                     // ret offset 0
-                               "00FF";                    // ret size offset 255
+                               + to_hex(OpCode::CAST_8) +         // opcode CAST
+                               "00"                               // Indirect flag
+                               "01"                               // dst 1
+                               "01"                               // dst 1
+                               + to_hex(AvmMemoryTag::FF)         //
+                               + to_hex(OpCode::SLOAD) +          // opcode SLOAD
+                               "00"                               // Indirect flag
+                               "0001"                             // slot offset 1
+                               "0002"                             // write storage value to offset 2
+                               + to_hex(OpCode::SSTORE) +         // opcode SSTORE
+                               "00"                               // Indirect flag
+                               "0002"                             // src offset 2 (since the sload writes to 2)
+                               "0001"                             // slot offset is 1
+                               + to_hex(OpCode::SET_8) +          // opcode SET (for return size)
+                               "00"                               // Indirect flag
+                               "FF"                               // dst_offset=255
+                               + to_hex(AvmMemoryTag::U32) + "00" // val: 0
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0000"                             // ret offset 0
+                               "00FF";                            // ret size offset 255
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
@@ -2142,14 +2113,14 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     // hash exists from a value that has not previously been written to will require a hint to process
     std::string bytecode_hex = to_hex(OpCode::SET_8) +             // opcode SET
                                "00"                                // Indirect flag
+                               "01"                                // dst_offset 1
                                + to_hex(AvmMemoryTag::U32) +       //
                                "01"                                // value 1
-                               "01"                                // dst_offset 1
                                + to_hex(OpCode::CAST_8) +          // opcode CAST to field
                                "00"                                // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) +        //
                                "01"                                // dst 1
                                "01"                                // dst 1
+                               + to_hex(AvmMemoryTag::FF)          //
                                + to_hex(OpCode::NOTEHASHEXISTS) +  // opcode NOTEHASHEXISTS
                                "00"                                // Indirect flag
                                "0001"                              // slot offset 1
@@ -2167,9 +2138,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
                                "0003"                              // value write offset 2 (exists value)
                                + to_hex(OpCode::SET_16) +          // opcode SET (for return size)
                                "00"                                // Indirect flag
+                               "0200"                              // dst_offset=512
                                + to_hex(AvmMemoryTag::U32) +       // tag U32
                                "0000"                              // val: 0
-                               "0200"                              // dst_offset=512
                                + to_hex(OpCode::RETURN) +          // opcode RETURN
                                "00"                                // Indirect flag
                                "0000"                              // ret offset 0
@@ -2250,58 +2221,58 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     std::string bytecode_preamble;
 
     // Set up Gas offsets
-    bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for gas offset indirect
-                         "00"                    // Indirect flag
-                         + to_hex(AvmMemoryTag::U32) +
-                         "00"  // val 0 (address where gas tuple is located)
-                         "11"; // dst_offset 17
+    bytecode_preamble += to_hex(OpCode::SET_8) +       // opcode SET for gas offset indirect
+                         "00"                          // Indirect flag
+                         "11"                          // dst_offset 17
+                         + to_hex(AvmMemoryTag::U32) + //
+                         "00";                         // val 0 (address where gas tuple is located)
     // Set up contract address offset
-    bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for args offset indirect
-                         "00"                    // Indirect flag
-                         + to_hex(AvmMemoryTag::U32) +
-                         "02"  // val 2 (where contract address is located)
-                         "12"; // dst_offset 18
+    bytecode_preamble += to_hex(OpCode::SET_8) +       // opcode SET for args offset indirect
+                         "00"                          // Indirect flag
+                         "12"                          // dst_offset 18
+                         + to_hex(AvmMemoryTag::U32) + //
+                         "02";                         // val 2 (where contract address is located)
     // Set up args offset
-    bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for ret offset indirect
-                         "00"                    // Indirect flag
-                         + to_hex(AvmMemoryTag::U32) +
-                         "03"  // val 3 (the start of the args array)
-                         "13"; // dst_offset 19
+    bytecode_preamble += to_hex(OpCode::SET_8) +       // opcode SET for ret offset indirect
+                         "00"                          // Indirect flag
+                         "13"                          // dst_offset 19
+                         + to_hex(AvmMemoryTag::U32) + //
+                         "03";                         // val 3 (the start of the args array)
     // Set up args size offset
-    bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for args size indirect
-                         "00"                    // Indirect flag
-                         + to_hex(AvmMemoryTag::U32) +
-                         "04"                          // val 4 - resolved address
-                         "14";                         // dst_offset 20
+    bytecode_preamble += to_hex(OpCode::SET_8) +       // opcode SET for args size indirect
+                         "00"                          // Indirect flag
+                         "14"                          // dst_offset 20
+                         + to_hex(AvmMemoryTag::U32) + //
+                         "04";                         // val 4 - resolved address
     bytecode_preamble += to_hex(OpCode::SET_8) +       // opcode SET
                          "00"                          // Indirect flag
+                         "04"                          // dst_offset 4
                          + to_hex(AvmMemoryTag::U32) + //
-                         "00"                          // val 0 (args size)
-                         "04";                         // dst_offset 4
+                         "00";                         // val 0 (args size)
     // Set up the ret offset
-    bytecode_preamble += to_hex(OpCode::SET_16) + // opcode SET for ret offset indirect
-                         "00"                     // Indirect flag
-                         + to_hex(AvmMemoryTag::U32) +
-                         "0100"  // val 256 (the start of where to write the return data)
-                         "0015"; // dst_offset 21
+    bytecode_preamble += to_hex(OpCode::SET_16) +    // opcode SET for ret offset indirect
+                         "00"                        // Indirect flag
+                         "0015"                      // dst_offset 21
+                         + to_hex(AvmMemoryTag::U32) //
+                         + "0100";                   // val 256 (the start of where to write the return data)
     // Set up the success offset
     bytecode_preamble += to_hex(OpCode::SET_16) + // opcode SET for success offset indirect
                          "00"                     // Indirect flag
+                         "0016"                   // dst_offset 22
                          + to_hex(AvmMemoryTag::U32) +
-                         "0102"  // val 258 (write the success flag at ret_offset + ret_size)
-                         "0016"; // dst_offset 22
+                         "0102"; // val 258 (write the success flag at ret_offset + ret_size)
 
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "07" // val
-                               "01" +
-                               to_hex(OpCode::CALLDATACOPY) +     // opcode CALLDATACOPY
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +            // opcode SET
+                               "00"                               // Indirect flag
+                               "00"                               // dst_offset
+                               + to_hex(AvmMemoryTag::U32) +      //
+                               "00"                               // val
+                               + to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                               // Indirect flag
+                               "01"                               //
+                               + to_hex(AvmMemoryTag::U32) +      //
+                               "07"                               // val
+                               + to_hex(OpCode::CALLDATACOPY) +   // opcode CALLDATACOPY
                                "00"                               // Indirect flag
                                "0000"                             // cd_offset
                                "0001"                             // copy_size
@@ -2321,9 +2292,9 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                "0100"                             // dst offset
                                + to_hex(OpCode::SET_16) +         // opcode SET (for return size)
                                "00"                               // Indirect flag
+                               "0200"                             // dst_offset=512
                                + to_hex(AvmMemoryTag::U32) +      // tag U32
                                "0003"                             // val: 3 (extra read is for the success flag)
-                               "0200"                             // dst_offset=512
                                + to_hex(OpCode::RETURN) +         // opcode RETURN
                                "00"                               // Indirect flag
                                "0100"                             // ret offset 8
@@ -2376,33 +2347,33 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
     };
     auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, instance } });
 
-    std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
-                               "00"                                                // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) + to_hex(address_byte) + // val
-                               "01"                                                // dst_offset 1
-                               + to_hex(OpCode::GETCONTRACTINSTANCE) +             // opcode GETCONTRACTINSTANCE
-                               "00"                                                // Indirect flag
-                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::DEPLOYER)) + // member enum
-                               "0001"                                                             // address offset
-                               "0010"                                                             // dst offset
-                               "0011"                                                             // exists offset
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +                           // opcode SET
+                               "00"                                              // Indirect flag
+                               "01"                                              // dst_offset 1
+                               + to_hex(AvmMemoryTag::FF) + to_hex(address_byte) // val
+                               + to_hex(OpCode::GETCONTRACTINSTANCE) +           // opcode GETCONTRACTINSTANCE
+                               "00"                                              // Indirect flag
+                               "0001"                                            // address offset
+                               "0010"                                            // dst offset
+                               "0011"                                            // exists offset
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::DEPLOYER)) // member enum
                                + to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode GETCONTRACTINSTANCE
                                "00"                                    // Indirect flag
-                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::CLASS_ID)) + // member enum
-                               "0001"                                                             // address offset
-                               "0012"                                                             // dst offset
-                               "0013"                                                             // exists offset
+                               "0001"                                  // address offset
+                               "0012"                                  // dst offset
+                               "0013"                                  // exists offset
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::CLASS_ID)) // member enum
                                + to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode GETCONTRACTINSTANCE
                                "00"                                    // Indirect flag
-                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::INIT_HASH)) + // member enum
-                               "0001"                                                              // address offset
-                               "0014"                                                              // dst offset
-                               "0015"                                                              // exists offset
+                               "0001"                                  // address offset
+                               "0014"                                  // dst offset
+                               "0015"                                  // exists offset
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::INIT_HASH)) // member enum
                                + to_hex(OpCode::SET_16) +    // opcode SET (for return size)
                                "00"                          // Indirect flag
+                               "0200"                        // dst_offset=512
                                + to_hex(AvmMemoryTag::U32) + // tag U32
                                "0006"                        // val: 6 (dst & exists for all 3)
-                               "0200"                        // dst_offset=512
                                + to_hex(OpCode::RETURN) +    // opcode RETURN
                                "00"                          // Indirect flag
                                "0010"                        // ret offset 1
@@ -2432,16 +2403,16 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodeBadEnum)
 {
     const uint8_t address_byte = 0x42;
 
-    std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
-                               "00"                                                // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) + to_hex(address_byte) + // val
-                               "01"                                                // dst_offset 0
-                               + to_hex(OpCode::GETCONTRACTINSTANCE) +             // opcode GETCONTRACTINSTANCE
-                               "00"                                                // Indirect flag
-                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::MAX_MEMBER)) + // member enum
-                               "0001"                                                               // address offset
-                               "0010"                                                               // dst offset
-                               "0011";                                                              // exists offset
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +                           // opcode SET
+                               "00"                                              // Indirect flag
+                               "01"                                              // dst_offset 0
+                               + to_hex(AvmMemoryTag::U8) + to_hex(address_byte) // val
+                               + to_hex(OpCode::GETCONTRACTINSTANCE) +           // opcode GETCONTRACTINSTANCE
+                               "00"                                              // Indirect flag
+                               "0001"                                            // address offset
+                               "0010"                                            // dst offset
+                               "0011"                                            // exists offset
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::MAX_MEMBER)); // member enum
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
