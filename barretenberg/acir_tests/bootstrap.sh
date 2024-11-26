@@ -6,7 +6,6 @@ ci3="$(git rev-parse --show-toplevel)/ci3"
 
 $ci3/github/group "Updating yarn"
 # Update yarn.lock so it can be committed.
-# Make sure to tolerate bb.js content hash churning.
 (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && GITHUB_ACTIONS="" yarn)
 (cd headless-test && yarn add --dev @aztec/bb.js@../../ts && GITHUB_ACTIONS="" yarn)
 # The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps

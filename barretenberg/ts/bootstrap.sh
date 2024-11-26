@@ -22,7 +22,8 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-yarn install
+GITHUB_ACTIONS="" yarn install
+find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 
 $ci3/github/group "bb.js build"
 echo "Building with command 'yarn $BUILD_CMD'..."
