@@ -148,7 +148,7 @@ class MockCircuits {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/902)
         static constexpr size_t OFFSET_HACK = 10;
 
-        // // to prevent underflow of the loop upper limit; target size >= 16 should suffice
+        // to prevent underflow of the loop upper limit; target size >= 16 should suffice
         ASSERT(target_dyadic_size > OFFSET_HACK + num_preamble_gates);
         size_t num_gates_to_add = target_dyadic_size - OFFSET_HACK - 1 - num_preamble_gates;
 

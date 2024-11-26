@@ -154,6 +154,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto doubled_circuit_size = 2 * circuit_size;
     proving_key_copy->proving_key.polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
     // WARNING: updating circuit_size here would break public input delta perm argument!
+    // TODO()
     // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
 
     Prover prover(proving_key);

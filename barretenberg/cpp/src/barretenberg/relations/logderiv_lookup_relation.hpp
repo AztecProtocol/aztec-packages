@@ -156,6 +156,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                                               const size_t circuit_size)
     {
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
+
         for (size_t i = 0; i < circuit_size; ++i) {
             // We only compute the inverse if this row contains a lookup gate or data that has been looked up
             if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {

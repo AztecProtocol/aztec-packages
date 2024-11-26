@@ -120,12 +120,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
-        // DEBUG: at this point the size() of the polynomials may be less than the virtual_size() but we don't need to
-        // use virtual size because this calculation uses the accumulator computed on the previous round whose polys are
-        // zero everywhere in the expanded portion of the domain. This is not the case for the combiner because that
-        // calculation includes the incoming key which has ontrivial values on the larger domain.
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        // const size_t polynomial_size = polynomials.q_c.virtual_size(); // DEBUG: dont think we need this
         std::vector<FF> aggregated_relation_evaluations(polynomial_size);
 
         const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
@@ -349,7 +344,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
         // Determine the number of threads over which to distribute the work
-        // WORKTODO: here we need the virtual size (as opposed to size()/circuit_size) since the computation includes
+        // The polynomial size is given by the virtual size since the computation includes
         // the incoming key which could have nontrivial values on the larger domain in case of overflow.
         const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
         const size_t num_threads = 1; // compute_num_threads(common_polynomial_size);
@@ -376,9 +371,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = 0; // trace_usage_tracker.thread_ranges[thread_idx].first;
-            const size_t end = common_polynomial_size;
-            // const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
 
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {

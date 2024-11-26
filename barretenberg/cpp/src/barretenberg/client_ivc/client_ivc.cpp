@@ -162,7 +162,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         complete_kernel_circuit_logic(circuit);
     }
 
-    // // Construct merge proof for the present circuit and add to merge verification queue
+    // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
 
@@ -179,8 +179,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         proving_key = std::make_shared<DeciderProvingKey>(
             circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
     }
-
-    ASSERT(CircuitChecker::check(circuit));
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
