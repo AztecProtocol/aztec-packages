@@ -9,6 +9,7 @@ import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   MAX_NULLIFIERS_PER_TX,
   SerializableContractInstance,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import {
   makeContractClassPublic,
@@ -310,7 +311,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       beforeEach(async () => {
         contractClass = makeContractClassPublic();
-        await store.addContractClasses([contractClass], blockNum);
+        await store.addContractClasses(
+          [contractClass],
+          [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          blockNum,
+        );
       });
 
       it('returns previously stored contract class', async () => {
@@ -323,7 +328,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns contract class if later "deployment" class was deleted', async () => {
-        await store.addContractClasses([contractClass], blockNum + 1);
+        await store.addContractClasses(
+          [contractClass],
+          [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          blockNum + 1,
+        );
         await store.deleteContractClasses([contractClass], blockNum + 1);
         await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
       });

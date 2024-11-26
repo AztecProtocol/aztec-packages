@@ -6,7 +6,6 @@ import {
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   SerializableContractInstance,
-  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
@@ -491,17 +490,23 @@ export class AvmPersistableStateManager {
 
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
-
       const contractClass = await this.worldStateDB.getContractClass(instance.contractClassId);
+      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(instance.contractClassId);
+
       assert(
         contractClass,
         `Contract class not found in DB, but a contract instance was found with this class ID (${instance.contractClassId}). This should not happen!`,
       );
 
+      assert(
+        bytecodeCommitment,
+        `Bytecode commitment was not found in DB for contract class (${instance.contractClassId}). This should not happen!`,
+      );
+
       const contractClassPreimage = {
         artifactHash: contractClass.artifactHash,
         privateFunctionsRoot: contractClass.privateFunctionsRoot,
-        publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+        publicBytecodeCommitment: bytecodeCommitment,
       };
 
       this.trace.traceGetBytecode(
@@ -511,6 +516,7 @@ export class AvmPersistableStateManager {
         instance,
         contractClassPreimage,
       );
+
       return contractClass.packedBytecode;
     } else {
       // If the contract instance is not found, we assume it has not been deployed.

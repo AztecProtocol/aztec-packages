@@ -19,7 +19,7 @@ import {
   type Header,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -46,6 +46,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
   #contractArtifactStore: ContractArtifactsStore;
+  private functionNames = new Map<string, string>();
 
   #log = createDebugLogger('aztec:archiver:data-store');
 
@@ -63,8 +64,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#contractArtifactStore.getContractArtifact(address));
   }
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    return this.#contractArtifactStore.addContractArtifact(address, contract);
+  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
+  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
+  //        the node api cleanup process.
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(this.functionNames.get(selector.toString()));
+  }
+
+  async addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    await this.#contractArtifactStore.addContractArtifact(address, contract);
+    // Building tup this map of selectors to function names save expensive re-hydration of contract artifacts later
+    contract.functions.forEach(f => {
+      this.functionNames.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
+    });
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -76,17 +88,30 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return Promise.resolve(this.#contractInstanceStore.getContractInstance(address));
+    const contract = this.#contractInstanceStore.getContractInstance(address);
+    return Promise.resolve(contract);
   }
 
-  async addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c, blockNumber)))).every(Boolean);
+  async addContractClasses(
+    data: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    return (
+      await Promise.all(
+        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
+      )
+    ).every(Boolean);
   }
 
   async deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractClassStore.deleteContractClasses(c, blockNumber)))).every(
       Boolean,
     );
+  }
+
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(this.#contractClassStore.getBytecodeCommitment(contractClassId));
   }
 
   addFunctions(
