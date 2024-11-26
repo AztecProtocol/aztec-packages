@@ -211,9 +211,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
     }
 
-    this.avmCircuitHints.storageValues.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
-    );
     this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
@@ -263,13 +260,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     _contractAddress: AztecAddress,
     noteHash: Fr,
     leafIndex: Fr,
-    exists: boolean,
+    _exists: boolean,
     path: Fr[] = emptyNoteHashPath(),
   ) {
-    // note hash is already siloed here
-    this.avmCircuitHints.noteHashExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
-    );
     // New Hinting
     this.avmCircuitHints.noteHashReadRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
@@ -295,14 +288,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public traceNullifierCheck(
     _siloedNullifier: Fr,
-    exists: boolean,
+    _exists: boolean,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    this.avmCircuitHints.nullifierExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
-    );
     // New Hints
     this.avmCircuitHints.nullifierReadRequest.items.push(
       new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
