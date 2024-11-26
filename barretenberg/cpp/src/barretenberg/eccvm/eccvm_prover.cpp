@@ -45,7 +45,6 @@ void ECCVMProver::execute_preamble_round()
 void ECCVMProver::execute_wire_commitments_round()
 {
     auto wire_polys = key->polynomials.get_wires();
-
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
