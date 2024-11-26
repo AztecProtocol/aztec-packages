@@ -314,8 +314,8 @@ AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
 {
     // Only allocate up to the maximum L2 gas for execution
     // TODO: constrain this!
-    auto const allocated_l2_gas =
-        std::min(new_public_inputs.gas_settings.gas_limits.l2_gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+    auto const allocated_l2_gas = std::min(new_public_inputs.gas_settings.gas_limits.l2_gas,
+                                           static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(static_cast<uint32_t>(allocated_l2_gas - new_public_inputs.start_gas_used.l2_gas),
                                       static_cast<uint32_t>(new_public_inputs.gas_settings.gas_limits.da_gas -
