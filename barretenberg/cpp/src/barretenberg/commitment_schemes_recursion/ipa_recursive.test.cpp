@@ -272,7 +272,8 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 
     Builder root_rollup;
     // Fully recursively verify this proof to check it.
-    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, POLY_LENGTH, this->vk());
+    auto stdlib_pcs_vkey =
+        std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, 1 << CONST_ECCVM_LOG_N, this->vk());
     auto stdlib_verifier_transcript =
         std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
     OpeningClaim<Curve> ipa_claim;
