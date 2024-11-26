@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -eu
 
 docker run --rm --network=host \

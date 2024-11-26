@@ -1,10 +1,14 @@
+#!/bin/bash
+
+set -eu
+
 docker run --rm --network=host \
-  -e P2P_UDP_ANNOUNCE_ADDR=your.ip.address:40400 \
-  -e P2P_TCP_ANNOUNCE_ADDR=your.ip.address:40400 \
+  -e P2P_UDP_ANNOUNCE_ADDR=$PUBLIC_IP:$P2P_PORT \
+  -e P2P_TCP_ANNOUNCE_ADDR=$PUBLIC_IP:$P2P_PORT \
   -e COINBASE=0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
   -e DEBUG="aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-aztec:libp2p_service,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*" \
   -e LOG_LEVEL=debug \
-  -e AZTEC_PORT=8080 \
+  -e AZTEC_PORT=$NODE_PORT \
   -e P2P_ENABLED=true \
   -e VALIDATOR_DISABLED=true \
   -e L1_CHAIN_ID=1337 \
@@ -26,6 +30,6 @@ docker run --rm --network=host \
   -e FEE_JUICE_PORTAL_CONTRACT_ADDRESS=0x0165878a594ca255338adfa4d48449f69242eb8f \
   -e INBOX_CONTRACT_ADDRESS=0xed179b78d5781f93eb169730d8ad1be7313123f4 \
   -e OUTBOX_CONTRACT_ADDRESS=0x1016b5aaa3270a65c315c664ecb238b6db270b64 \
-  -e P2P_UDP_LISTEN_ADDR=0.0.0.0:40400 \
-  -e P2P_TCP_LISTEN_ADDR=0.0.0.0:40400 \
-  aztecprotocol/aztec:rough-rhino start --node --archiver --sequencer --pxe
+  -e P2P_UDP_LISTEN_ADDR=0.0.0.0:$P2P_PORT \
+  -e P2P_TCP_LISTEN_ADDR=0.0.0.0:$P2P_PORT \
+  aztecprotocol/aztec:rough-rhino start --node --archiver --sequencer
