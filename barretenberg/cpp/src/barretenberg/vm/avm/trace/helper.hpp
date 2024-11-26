@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/constants.hpp"
 
@@ -236,6 +237,6 @@ std::string to_name(AvmError error);
 bool is_ok(AvmError error);
 
 // Mutate the inputs
-void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace);
+void inject_end_gas_values(AvmPublicInputs& public_inputs, std::vector<Row>& trace);
 
 } // namespace bb::avm_trace

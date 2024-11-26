@@ -403,6 +403,7 @@ export class AvmEphemeralForest {
 
       // Is it enough to just insert the sibling path without inserting the leaf? - now probably since we will update this low nullifier index in append
       this.treeMap.get(treeId)!.insertSiblingPath(index, siblingPath);
+      this.treeMap.get(treeId)!.updateLeaf(this.hashPreimage(preimage as T), index);
 
       const lowPublicDataPreimage = preimage as T;
 
