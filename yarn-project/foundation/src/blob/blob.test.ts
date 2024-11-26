@@ -138,7 +138,7 @@ describe('blob', () => {
     });
   });
 
-  it("Should serialise and deserialise a blob", () => {
+  it('Should serialise and deserialise a blob', () => {
     const blob = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobBuffer = blob.toBuffer();
     const deserialisedBlob = Blob.fromBuffer(blobBuffer);

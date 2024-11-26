@@ -1,4 +1,4 @@
-import { DataStoreConfig } from "@aztec/kv-store/config";
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 
 export interface BlobSinkConfig {
   port?: number;

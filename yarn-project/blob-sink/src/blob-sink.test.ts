@@ -3,13 +3,13 @@ import { Fr } from '@aztec/foundation/fields';
 
 import request from 'supertest';
 
-import { BlobSinkService } from './server.js';
+import { BlobSinkServer } from './server.js';
 
 describe('BlobSinkService', () => {
-  let service: BlobSinkService;
+  let service: BlobSinkServer;
 
   beforeEach(async () => {
-    service = new BlobSinkService({
+    service = new BlobSinkServer({
       port: 0, // Using port 0 lets the OS assign a random available port
     });
     await service.start();

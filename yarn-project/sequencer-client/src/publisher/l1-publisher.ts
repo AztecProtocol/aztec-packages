@@ -598,7 +598,18 @@ export class L1Publisher {
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
 
       // Send the blobs to the blob sink
-      this.sendBlobsToBlobSink(receipt.blockHash, blobs);
+      this.sendBlobsToBlobSink(receipt.blockHash, blobs).then(
+        (success: boolean) => {
+          if (success) {
+            this.log.info('Successfully sent blobs to blob sink');
+          } else {
+            this.log.error('Failed to send blobs to blob sink');
+          }
+        },
+        _err => {
+          this.log.error('Failed to send blobs to blob sink');
+        },
+      );
 
       return true;
     }
@@ -1076,6 +1087,7 @@ export class L1Publisher {
     // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
     // When in reality they will not, but for testing purposes this is fine
     if (!this.blobSinkUrl) {
+      this.log.verbose('No blob sink url configured');
       return false;
     }
 
@@ -1094,7 +1106,6 @@ export class L1Publisher {
       });
 
       if (res.ok) {
-        this.log.verbose(`Successfully sent blobs to blob sink ${res.status}`);
         return true;
       }
 
