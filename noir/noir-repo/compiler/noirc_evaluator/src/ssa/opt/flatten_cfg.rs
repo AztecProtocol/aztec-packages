@@ -343,10 +343,10 @@ impl<'f> Context<'f> {
                     None,
                     im::Vector::new(),
                 );
-                self.push_instruction(*instruction, &mut previous_allocate_result);
+                self.push_instruction(*instruction);
                 self.insert_current_side_effects_enabled();
             } else {
-                self.push_instruction(*instruction, &mut previous_allocate_result);
+                self.push_instruction(*instruction);
             }
         }
     }
@@ -634,7 +634,6 @@ impl<'f> Context<'f> {
         &mut self,
         instruction: Instruction,
         call_stack: CallStack,
-        previous_allocate_result: Option<ValueId>,
     ) -> Instruction {
         if let Some(condition) = self.get_last_condition() {
             match instruction {
