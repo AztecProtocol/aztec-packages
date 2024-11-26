@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+cd "$(dirname "$0")"
+PATH="$(git rev-parse --show-toplevel):$PATH"
 
 NO_TERMINATE=${NO_TERMINATE:-0}
 
