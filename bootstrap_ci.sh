@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 cd "$(dirname "$0")"
-PATH="$(git rev-parse --show-toplevel):$PATH"
+ci3="$(git rev-parse --show-toplevel)/ci3"
 
 NO_TERMINATE=${NO_TERMINATE:-0}
 
@@ -28,18 +28,18 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Request Build Instance"
-ip_sir=$(./build-system/scripts/request_spot ci3-$USER 128 x86_64)
+$ci3/github/group "Request Build Instance"
+ip_sir=$($ci3/request_spot ci3-$USER 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+$ci3/github/endgroup
 
 # pass env vars to inform if we are inside github actions, and our AWS creds
 args="-e GITHUB_ACTIONS='${GITHUB_ACTIONS:-}' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Start CI Image"
+$ci3/github/group "Start CI Image"
 
 # - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
 # - Run in our build container, cloning commit and running bootstrap.sh
