@@ -141,6 +141,8 @@ build:
           # Python (clang bindings for wasm bindgen.)
           python3 \
           python3-clang \
+          # Unminimize ubuntu installation, recently removed from base images
+          unminimize \
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
