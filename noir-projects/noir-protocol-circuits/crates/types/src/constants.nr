@@ -138,7 +138,8 @@ pub global GENESIS_ARCHIVE_ROOT: Field =
     0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-global FEE_JUICE_INITIAL_MINT: Field = 200000000000000;
+global FEE_JUICE_INITIAL_MINT: Field = 20000000000000000000;
+global FEE_FUNDING_FOR_TESTER_ACCOUNT: Field = 100000000000000000000; // 100e18
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -174,7 +175,6 @@ pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
 pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
 pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
-pub global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -493,7 +493,7 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4291;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4166;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;

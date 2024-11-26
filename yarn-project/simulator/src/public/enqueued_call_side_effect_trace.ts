@@ -58,6 +58,7 @@ import {
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
@@ -495,9 +496,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
     this.log.debug(
-      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${JSON.stringify(
-        contractInstance,
-      )}`,
+      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
     );
   }
 

@@ -2,6 +2,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -38,16 +39,6 @@ export class Header {
         totalFees: schemas.Fr,
       })
       .transform(Header.from);
-  }
-
-  toJSON() {
-    return {
-      lastArchive: this.lastArchive,
-      contentCommitment: this.contentCommitment,
-      state: this.state,
-      globalVariables: this.globalVariables,
-      totalFees: this.totalFees,
-    };
   }
 
   static getFields(fields: FieldsOf<Header>) {
@@ -139,13 +130,12 @@ export class Header {
    * Serializes this instance into a string.
    * @returns Encoded string.
    */
-  public toString(): string {
-    return this.toBuffer().toString('hex');
+  public toString() {
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string): Header {
-    const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
-    return Header.fromBuffer(buffer);
+    return Header.fromBuffer(hexToBuffer(str));
   }
 
   hash(): Fr {

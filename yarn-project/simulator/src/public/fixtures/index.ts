@@ -48,7 +48,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   calldata = [functionSelector.toField(), ...calldata];
 
   const globalVariables = GlobalVariables.empty();
-  globalVariables.gasFees = GasFees.default();
+  globalVariables.gasFees = GasFees.empty();
   globalVariables.timestamp = TIMESTAMP;
 
   const worldStateDB = mock<WorldStateDB>();
@@ -95,6 +95,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     worldStateDB,
     new NoopTelemetryClient(),
     globalVariables,
+    /*realAvmProving=*/ true,
     /*doMerkleOperations=*/ true,
   );
 

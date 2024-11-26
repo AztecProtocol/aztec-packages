@@ -272,6 +272,11 @@ export interface ArchiverDataStore {
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
+  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
+  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
+  //        the node api cleanup process.
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
   /**
    * Estimates the size of the store in bytes.
    */

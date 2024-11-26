@@ -14,6 +14,8 @@ import { createWorldState } from '../synchronizer/factory.js';
 import { ServerWorldStateSynchronizer } from '../synchronizer/server_world_state_synchronizer.js';
 import { mockBlocks } from './utils.js';
 
+jest.setTimeout(60_000);
+
 describe('world-state integration', () => {
   let rollupAddress: EthAddress;
   let archiver: MockPrefilledArchiver;
@@ -34,7 +36,7 @@ describe('world-state integration', () => {
     log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
     ({ blocks, messages } = await mockBlocks(1, MAX_BLOCK_COUNT, 1, db));
     log.info(`Generated ${blocks.length} mock blocks`);
-  }, 30_000);
+  });
 
   beforeEach(async () => {
     config = {

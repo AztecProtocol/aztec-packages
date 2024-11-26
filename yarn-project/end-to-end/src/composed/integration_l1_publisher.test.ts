@@ -348,6 +348,7 @@ describe('L1Publisher integration', () => {
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -356,7 +357,7 @@ describe('L1Publisher integration', () => {
           new Fr(await rollup.read.getTimestampForSlot([slot])),
           coinbase,
           feeRecipient,
-          GasFees.empty(),
+          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFee([true]))),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
@@ -398,6 +399,10 @@ describe('L1Publisher integration', () => {
               header: `0x${block.header.toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              oracleInput: {
+                provingCostModifier: 0n,
+                feeAssetPriceModifier: 0n,
+              },
               txHashes: [],
             },
             [],
@@ -463,7 +468,7 @@ describe('L1Publisher integration', () => {
           new Fr(await rollup.read.getTimestampForSlot([slot])),
           coinbase,
           feeRecipient,
-          GasFees.empty(),
+          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFee([true]))),
         );
         const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
         prevHeader = block.header;
@@ -497,6 +502,10 @@ describe('L1Publisher integration', () => {
               header: `0x${block.header.toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              oracleInput: {
+                provingCostModifier: 0n,
+                feeAssetPriceModifier: 0n,
+              },
               txHashes: [],
             },
             [],
@@ -535,7 +544,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.getTimestampForSlot([slot])),
         coinbase,
         feeRecipient,
-        GasFees.empty(),
+        new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFee([true]))),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;

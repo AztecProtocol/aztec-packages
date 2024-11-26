@@ -533,12 +533,7 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
     }
 
-    // public inputs are used directly as a vector of fields in C++,
-    // so we serialize them as such here instead of just using toBuffer
-    await fs.writeFile(
-      publicInputsPath,
-      input.publicInputs.toFields().map(fr => fr.toBuffer()),
-    );
+    await fs.writeFile(publicInputsPath, input.output.toBuffer());
     if (!filePresent(publicInputsPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
     }

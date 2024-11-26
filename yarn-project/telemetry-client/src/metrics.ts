@@ -29,6 +29,12 @@ export const MEMPOOL_DB_NUM_ITEMS = 'aztec.mempool.db.num_items';
 export const MEMPOOL_DB_MAP_SIZE = 'aztec.mempool.db.map_size';
 export const MEMPOOL_DB_USED_SIZE = 'aztec.mempool.db.used_size';
 
+export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
+export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
+
+export const MEMPOOL_PROVER_QUOTE_COUNT = 'aztec.mempool.prover_quote_count';
+export const MEMPOOL_PROVER_QUOTE_SIZE = 'aztec.mempool.prover_quote_size';
+
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
@@ -47,6 +53,7 @@ export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
 export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
 export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
 export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
+export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
