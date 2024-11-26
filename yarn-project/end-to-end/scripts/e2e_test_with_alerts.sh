@@ -48,4 +48,4 @@ docker run \
 
 
 echo "Running alert checker..."
-docker run --network host --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG quality_of_service/alert_checker.test.ts
+docker run -e ALERTS_FILE="alerts.yaml" --network host --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG quality_of_service/alert_checker.test.ts
