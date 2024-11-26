@@ -68,8 +68,6 @@ echo "# When running cmake directly, remember to use: --build --preset $PRESET"
 echo "#################################"
 
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
-export PATH=$PWD/../../build-system/s3-cache-scripts:$PATH
-
 function build_native {
   # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
