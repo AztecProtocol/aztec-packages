@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { BatchCall, type PXE, type Wallet, createCompatibleClient } from '@aztec/aztec.js';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
-import { type AztecAddress, type EthAddress, Fq, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
   type L1Clients,
@@ -252,7 +252,7 @@ async function fundFPC(
     debugLog,
   );
 
-  const amount = 10n ** 21n;
+  const amount = FEE_FUNDING_FOR_TESTER_ACCOUNT;
   const { claimAmount, claimSecret, messageLeafIndex } = await feeJuicePortal.bridgeTokensPublic(
     fpcAddress,
     amount,

@@ -8,7 +8,7 @@ import {
   PublicFeePaymentMethod,
   SentTx,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings } from '@aztec/circuits.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
   type AppSubscriptionContract,
@@ -75,7 +75,7 @@ describe('e2e_fees dapp_subscription', () => {
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, sequencerAddress, subscriptionContract.address, bananaFPC.address],
-      [0n, 0n, t.INITIAL_GAS_BALANCE, t.INITIAL_GAS_BALANCE],
+      [0n, 0n, FEE_FUNDING_FOR_TESTER_ACCOUNT, FEE_FUNDING_FOR_TESTER_ACCOUNT],
     );
 
     await expectMapping(

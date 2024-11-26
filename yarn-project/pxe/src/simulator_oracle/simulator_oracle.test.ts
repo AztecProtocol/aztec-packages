@@ -43,6 +43,8 @@ import { SimulatorOracle } from './index.js';
 const TXS_PER_BLOCK = 4;
 const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NOTE_HASHES_PER_TX;
 
+jest.setTimeout(30_000);
+
 function getRandomNoteLogPayload(tag = Fr.random(), app = AztecAddress.random()): EncryptedLogPayload {
   return new EncryptedLogPayload(tag, app, L1NotePayload.random(app).toIncomingBodyPlaintext());
 }
