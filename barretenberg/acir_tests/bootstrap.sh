@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-
+cd "$(dirname "$0")"
 ci3="$(git rev-parse --show-toplevel)/ci3"
 
 $ci3/github/group "Updating yarn"
@@ -9,7 +9,7 @@ $ci3/github/group "Updating yarn"
 (cd browser-test-app && GITHUB_ACTIONS="" yarn)
 (cd headless-test && GITHUB_ACTIONS="" yarn)
 # The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps
-find {headless-test,browser-test-app}/{.yarn,node_modules} -exec touch -t 197001010000 {} + 2>/dev/null || true
+find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup
 
 # We only run tests in CI.
