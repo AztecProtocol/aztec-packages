@@ -2,17 +2,23 @@
 set -eu
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
+ci3="$(git rev-parse --show-toplevel)/ci3"
+
+$ci3/github/group "Updating yarn"
 # Update yarn so it can be committed.
 (cd browser-test-app && GITHUB_ACTIONS="" yarn)
 (cd headless-test && GITHUB_ACTIONS="" yarn)
+$ci3/github/endgroup
 
 # We only run tests in CI.
 if [ "${CI:-0}" -eq 0 ]; then
   exit 0
 fi
 
+$ci3/github/group "Building browser-test-app"
 # Keep build as part of CI only.
 (cd browser-test-app && yarn build)
+$ci3/github/endgroup
 
 # Download ignition up front to ensure no race conditions at runtime.
 # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
