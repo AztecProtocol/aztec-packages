@@ -27,11 +27,7 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
   }
 
   // If a rollup address is provided, we initialize the store for aztec nodes
-  return initStoreForRollup(
-    store,
-    config.l1Contracts.rollupAddress,
-    log,
-  );
+  return initStoreForRollup(store, config.l1Contracts.rollupAddress, log);
 }
 
 /**

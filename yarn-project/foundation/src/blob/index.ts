@@ -36,7 +36,6 @@ export const VERSIONED_HASH_VERSION_KZG = 0x01;
  * A class to create, manage, and prove EVM blobs.
  */
 export class Blob {
-
   constructor(
     /** The blob to be broadcast on L1 in bytes form. */
     public readonly data: BlobBuffer,
@@ -52,10 +51,7 @@ export class Blob {
     public readonly proof: Buffer,
   ) {}
 
-  static fromFields(
-    fields: Fr[],
-    multiBlobFieldsHash?: Fr,
-  ): Blob {
+  static fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Blob {
     if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
       throw new Error(
         `Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
@@ -76,16 +72,8 @@ export class Blob {
     const proof = Buffer.from(res[0]);
     const evaluationY = Buffer.from(res[1]);
 
-    return new Blob(
-      dataWithoutZeros,
-      fieldsHash,
-      challengeZ,
-      evaluationY,
-      commitment,
-      proof,
-    );
+    return new Blob(dataWithoutZeros, fieldsHash, challengeZ, evaluationY, commitment, proof);
   }
-
 
   // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
   commitmentToFields(): [Fr, Fr] {
@@ -144,7 +132,7 @@ export class Blob {
   /**
    * Get the size of the blob in bytes
    */
-  getSize(){
+  getSize() {
     return this.data.length;
   }
 
@@ -206,7 +194,7 @@ export class Blob {
   }
 }
 
-  // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
+// 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
 function commitmentToFields(commitment: Buffer): [Fr, Fr] {
   return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, 48))];
 }

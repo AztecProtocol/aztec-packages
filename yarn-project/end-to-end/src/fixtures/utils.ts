@@ -30,6 +30,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { type BlobSinkServer, createBlobSinkService } from '@aztec/blob-sink';
 import { type EthAddress, Fr, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
@@ -48,7 +49,6 @@ import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfi
 import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
-import { createBlobSinkService, BlobSinkService  } from '@aztec/blob-sink';
 
 import { type Anvil } from '@viem/anvil';
 import * as path from 'path';
@@ -286,7 +286,7 @@ export type EndToEndContext = {
   /** The anvil test watcher (undefined if connected to remove environment) */
   watcher: AnvilTestWatcher | undefined;
   /** The blob sink (undefined if connected to remove environment) */
-  blobSink: BlobSinkService | undefined;
+  blobSink: BlobSinkServer | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };

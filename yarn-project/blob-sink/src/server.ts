@@ -27,7 +27,7 @@ const blockIdSchema = z.coerce
  * ... later ...
  * await service.stop();
  */
-export class BlobSinkService {
+export class BlobSinkServer {
   private app: Express;
   private server: Server | null = null;
   private blobStore: BlobStore;
@@ -99,7 +99,6 @@ export class BlobSinkService {
     // eslint-disable-next-line camelcase
     const { block_id, blobs } = req.body;
 
-
     try {
       // eslint-disable-next-line camelcase
       const parsedBlockId = blockIdSchema.parse(block_id);
@@ -141,11 +140,11 @@ export class BlobSinkService {
   }
 
   public stop(): Promise<void> {
-    this.log.info("Stopping blob sink");
+    this.log.info('Stopping blob sink');
     return new Promise((resolve, reject) => {
       if (!this.server) {
         resolve();
-        this.log.info("Blob sink already stopped");
+        this.log.info('Blob sink already stopped');
         return;
       }
 
@@ -155,7 +154,7 @@ export class BlobSinkService {
           return;
         }
         this.server = null;
-        this.log.info("Blob sink stopped");
+        this.log.info('Blob sink stopped');
         resolve();
       });
     });
