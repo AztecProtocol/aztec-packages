@@ -1148,7 +1148,7 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
     // verifier.
     std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
-    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         init_grumpkin_crs(1 << 16);
         vk->contains_ipa_claim = false;
         ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
