@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /** World State synchronizer configuration values. */
 export interface WorldStateConfig {
@@ -16,6 +16,9 @@ export interface WorldStateConfig {
 
   /** Optional directory for the world state DB, if unspecified will default to the general data directory */
   worldStateDataDirectory?: string;
+
+  /** The number of historic blocks to maintain */
+  worldStateBlockHistory: number;
 }
 
 export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
@@ -44,6 +47,11 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
     env: 'WS_DATA_DIRECTORY',
     description: 'Optional directory for the world state database',
   },
+  worldStateBlockHistory: {
+    env: 'WS_NUM_HISTORIC_BLOCKS',
+    description: 'The number of historic blocks to maintain. Values less than 1 mean all history is maintained',
+    ...numberConfigHelper(64),
+  }
 };
 
 /**
