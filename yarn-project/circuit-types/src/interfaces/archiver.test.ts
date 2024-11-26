@@ -209,6 +209,21 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
+  it('getContractFunctionName', async () => {
+    const selector = FunctionSelector.fromNameAndParameters(
+      artifact.functions[0].name,
+      artifact.functions[0].parameters,
+    );
+    const result = await context.client.getContractFunctionName(AztecAddress.random(), selector);
+    expect(result).toEqual(artifact.functions[0].name);
+  });
+
+  it('getBytecodeCommitment', async () => {
+    const contractClass = getContractClassFromArtifact(artifact);
+    const result = await context.client.getBytecodeCommitment(Fr.random());
+    expect(result).toEqual(computePublicBytecodeCommitment(contractClass.packedBytecode));
+  });
+
   it('getContractClassIds', async () => {
     const result = await context.client.getContractClassIds();
     expect(result).toEqual([expect.any(Fr)]);
