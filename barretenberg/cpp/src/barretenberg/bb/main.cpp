@@ -1140,7 +1140,13 @@ int main(int argc, char* argv[])
                 return api.prove_and_verify("--do-not-decode-msgpack", bytecode_path, witness_path) ? 0 : 1;
             }
 
-            vinfo("Invalid command");
+            if (command == "client_ivc_prove_output_all") {
+                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+                client_ivc_prove_output_all(bytecode_path, witness_path, output_dir);
+                return 0;
+            }
+
+            throw_or_abort("Invalid command passed to execute_command in bb");
             return 1;
         };
 
@@ -1153,32 +1159,19 @@ int main(int argc, char* argv[])
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
             execute_command(command, api);
-        }
-
-        if (command == "prove_and_verify") {
+        } else if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
-        }
-        if (command == "prove_and_verify_ultra_honk") {
+        } else if (command == "prove_and_verify_ultra_honk") {
             return proveAndVerifyHonk<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        }
-        if (command == "prove_and_verify_mega_honk") {
+        } else if (command == "prove_and_verify_mega_honk") {
             return proveAndVerifyHonk<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        }
-        if (command == "prove_and_verify_ultra_honk_program") {
+        } else if (command == "prove_and_verify_ultra_honk_program") {
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        }
-        if (command == "prove_and_verify_mega_honk_program") {
+        } else if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        }
-        // if (command == "prove_and_verify_client_ivc") {
-        //     return proveAndVerifyClientIVC(bytecode_path, recursive, witness_path) ? 0 : 1;
-        // }
-
-        if (command == "fold_and_verify_program") {
+        } else if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
-        }
-
-        if (command == "prove") {
+        } else if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_output_all") {
