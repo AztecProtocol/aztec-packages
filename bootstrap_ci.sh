@@ -51,6 +51,7 @@ ssh -F build-system/remote/ssh_config ubuntu@$ip "
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
       touch started
+      /usr/local/share/docker-init.sh &> /dev/null
       mkdir -p /root/aztec-packages
       cd /root/aztec-packages
       git init &>/dev/null
