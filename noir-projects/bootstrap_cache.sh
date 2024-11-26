@@ -17,4 +17,4 @@ mock-protocol-circuits $MOCK_CIRCUITS_HASH
 noir-contracts $CONTRACTS_HASH
 " | xargs --max-procs 0 --max-args 2 bash -c "$SCRIPTS_PATH/cache-download.sh noir-projects-\$0-\$1.tar.gz \$0"
 
-yarn
+GITHUB_ACTIONS="" yarn

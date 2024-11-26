@@ -2,8 +2,8 @@
 set -eu
 
 # Update yarn so it can be committed.
-(cd browser-test-app && yarn)
-(cd headless-test && yarn)
+(cd browser-test-app && GITHUB_ACTIONS="" yarn)
+(cd headless-test && GITHUB_ACTIONS="" yarn)
 
 # We only run tests in CI.
 if [ "${CI:-0}" -eq 0 ]; then

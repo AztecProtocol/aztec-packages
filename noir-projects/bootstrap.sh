@@ -19,7 +19,7 @@ fi
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
 # TODO: For the love of god can we stop bringing in entire node stacks for what can be done in a bash script?
-yarn
+GITHUB_ACTIONS="" yarn
 
 [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::noir-projects build"
 parallel --line-buffer --tag {} ::: \
