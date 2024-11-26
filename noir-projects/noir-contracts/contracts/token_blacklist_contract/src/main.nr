@@ -66,12 +66,12 @@ contract TokenBlacklist {
     #[public]
     #[view]
     fn get_roles(user: AztecAddress) -> UserFlags {
-        storage.roles.at(user).get_current_value_in_public()
+        storage.roles.at(user).get_current_value()
     }
 
     #[public]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
         assert(caller_roles.is_admin, "caller is not admin");
 
         storage.roles.at(user).schedule_value_change(roles);
@@ -79,10 +79,10 @@ contract TokenBlacklist {
 
     #[public]
     fn mint_public(to: AztecAddress, amount: Field) {
-        let to_roles = storage.roles.at(to).get_current_value_in_public();
+        let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let amount = U128::from_integer(amount);
@@ -95,7 +95,7 @@ contract TokenBlacklist {
 
     #[public]
     fn mint_private(amount: Field, secret_hash: Field) {
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let pending_shields = storage.pending_shields;
@@ -108,7 +108,7 @@ contract TokenBlacklist {
 
     #[public]
     fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value_in_public();
+        let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         if (!from.eq(context.msg_sender())) {
@@ -130,9 +130,9 @@ contract TokenBlacklist {
 
     #[public]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value_in_public();
+        let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.roles.at(to).get_current_value_in_public();
+        let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         if (!from.eq(context.msg_sender())) {
@@ -151,7 +151,7 @@ contract TokenBlacklist {
 
     #[public]
     fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value_in_public();
+        let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         if (!from.eq(context.msg_sender())) {
@@ -170,7 +170,7 @@ contract TokenBlacklist {
 
     #[private]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
-        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let secret_hash = compute_secret_hash(secret);
@@ -202,9 +202,9 @@ contract TokenBlacklist {
 
     #[private]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         if (!from.eq(context.msg_sender())) {
@@ -228,9 +228,9 @@ contract TokenBlacklist {
     // docs:start:transfer_private
     #[private]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         if (!from.eq(context.msg_sender())) {
@@ -258,7 +258,7 @@ contract TokenBlacklist {
 
     #[private]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         if (!from.eq(context.msg_sender())) {

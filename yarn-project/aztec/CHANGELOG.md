@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.1...aztec-package-v0.64.0) (2024-11-25)
+
+
+### Features
+
+* Unify anvil versions ([#10143](https://github.com/AztecProtocol/aztec-packages/issues/10143)) ([adae143](https://github.com/AztecProtocol/aztec-packages/commit/adae14363c29591e01477ce131578189b82430e8))
+
+
+### Miscellaneous
+
+* Fast epoch building test ([#10045](https://github.com/AztecProtocol/aztec-packages/issues/10045)) ([fb791a2](https://github.com/AztecProtocol/aztec-packages/commit/fb791a2ffc3f477c4526d7e14baf06dbe200144d)), closes [#9809](https://github.com/AztecProtocol/aztec-packages/issues/9809)
+
 ## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.0...aztec-package-v0.63.1) (2024-11-19)
 
 
