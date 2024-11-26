@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eu
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::" || true
