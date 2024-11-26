@@ -295,7 +295,7 @@ This function takes:
 2. A recipient
 3. An amount of tokens to mint
 
-This function starts as private to set up the creation of a [partial note](../../aztec/concepts/storage/partial_notes.md). The private function calls a public function that checks that the minter is authorized to mint new tokens an increments the public total supply. The recipient of the tokens remains private, but the minter and the amount of tokens minted are public.
+This function starts as private to set up the creation of a [partial note](../../../aztec/concepts/storage/partial_notes.md). The private function calls a public function that checks that the minter is authorized to mint new tokens an increments the public total supply. The recipient of the tokens remains private, but the minter and the amount of tokens minted are public.
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
