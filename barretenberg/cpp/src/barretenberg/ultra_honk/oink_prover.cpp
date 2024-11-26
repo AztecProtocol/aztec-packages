@@ -98,6 +98,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         PROFILE_THIS_NAME("COMMIT::wires");
+        const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+
         if (proving_key->get_is_structured()) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_block_ranges);
@@ -106,6 +108,14 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
             witness_commitments.w_o = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_block_ranges);
         } else {
+            if constexpr (Flavor::HasZK) {
+                for (size_t idx = 1; idx < 4; idx++) {
+                    proving_key->proving_key.polynomials.w_l.at(circuit_size - idx) = FF::random_element();
+                    info("idx n -", idx, "  ", proving_key->proving_key.polynomials.w_l.at(circuit_size - idx));
+                    proving_key->proving_key.polynomials.w_r.at(circuit_size - idx) = FF::random_element();
+                    proving_key->proving_key.polynomials.w_o.at(circuit_size - idx) = FF::random_element();
+                }
+            }
             witness_commitments.w_l =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_l);
             witness_commitments.w_r =
@@ -122,18 +132,25 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
-
+        const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+        info("could get here?");
         // Commit to Goblin ECC op wires
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
                                                              proving_key->proving_key.polynomials.get_ecc_op_wires(),
                                                              commitment_labels.get_ecc_op_wires())) {
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
+                if constexpr (Flavor::HasZK) {
+                    for (size_t idx = 1; idx < 4; idx++) {
+                        polynomial.at(circuit_size - idx) = FF::random_element();
+                    }
+                }
                 commitment = proving_key->proving_key.commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
 
+        info("but not here");
         // Commit to DataBus related polynomials
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_entities(),
@@ -141,6 +158,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
                       commitment_labels.get_databus_entities())) {
             {
                 PROFILE_THIS_NAME("COMMIT::databus");
+                if constexpr (Flavor::HasZK) {
+                    for (size_t idx = 1; idx < 4; idx++) {
+                        polynomial.at(circuit_size - idx) = FF::random_element();
+                    }
+                }
                 commitment = proving_key->proving_key.commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
@@ -161,11 +183,19 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     proving_key->relation_parameters.eta = eta;
     proving_key->relation_parameters.eta_two = eta_two;
     proving_key->relation_parameters.eta_three = eta_three;
+    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
 
     proving_key->proving_key.add_ram_rom_memory_records_to_wire_4(eta, eta_two, eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     {
+        if constexpr (Flavor::HasZK) {
+
+            for (size_t idx = 1; idx < 4; idx++) {
+                proving_key->proving_key.polynomials.lookup_read_counts.at(circuit_size - idx) = FF::random_element();
+                proving_key->proving_key.polynomials.lookup_read_tags.at(circuit_size - idx) = FF::random_element();
+            }
+        }
         PROFILE_THIS_NAME("COMMIT::lookup_counts_tags");
         witness_commitments.lookup_read_counts =
             proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_counts);
@@ -174,10 +204,16 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     }
     {
         PROFILE_THIS_NAME("COMMIT::wires");
+
         if (proving_key->get_is_structured()) {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_block_ranges);
         } else {
+            if constexpr (Flavor::HasZK) {
+                for (size_t idx = 1; idx < 4; idx++) {
+                    proving_key->proving_key.polynomials.w_4.at(circuit_size - idx) = FF::random_element();
+                }
+            }
             witness_commitments.w_4 =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_4);
         }
@@ -200,12 +236,18 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     proving_key->relation_parameters.beta = beta;
     proving_key->relation_parameters.gamma = gamma;
+    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
 
     // Compute the inverses used in log-derivative lookup relations
     proving_key->proving_key.compute_logderivative_inverses(proving_key->relation_parameters);
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
+        if constexpr (Flavor::HasZK) {
+            for (size_t idx = 1; idx < 4; idx++) {
+                proving_key->proving_key.polynomials.lookup_inverses.at(circuit_size - idx) = FF::random_element();
+            }
+        }
         witness_commitments.lookup_inverses =
             proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_inverses);
     }
@@ -220,6 +262,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                       commitment_labels.get_databus_inverses())) {
             {
                 PROFILE_THIS_NAME("COMMIT::databus_inverses");
+                if constexpr (Flavor::HasZK) {
+                    for (size_t idx = 1; idx < 4; idx++) {
+                        polynomial.at(circuit_size - idx) = FF::random_element();
+                    }
+                }
                 commitment = proving_key->proving_key.commitment_key->commit_sparse(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
@@ -233,6 +280,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
+    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
     proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
@@ -245,6 +294,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
                     proving_key->proving_key.polynomials.z_perm, proving_key->proving_key.active_block_ranges);
         } else {
+            if constexpr (Flavor::HasZK) {
+                for (size_t idx = 1; idx < 4; idx++) {
+                    proving_key->proving_key.polynomials.z_perm.at(circuit_size - idx) = FF::random_element();
+                }
+            }
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
         }

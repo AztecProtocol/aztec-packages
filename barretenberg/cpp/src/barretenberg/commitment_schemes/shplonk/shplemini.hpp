@@ -374,7 +374,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         RefSpan<Fr> concatenated_evaluations = {})
     {
         Fr current_batching_challenge = Fr(1);
-
         if (has_zk) {
             // ρ⁰ is used to batch the hiding polynomial
             current_batching_challenge *= multivariate_batching_challenge;

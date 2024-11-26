@@ -5,8 +5,8 @@
 
 namespace bb::stdlib::recursion::honk {
 class ClientIVCRecursiveVerifier {
-    using Builder = UltraCircuitBuilder;                   // The circuit will be an Ultra circuit
-    using RecursiveFlavor = MegaRecursiveFlavor_<Builder>; // The verifier algorithms are Mega
+    using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
+    using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The verifier algorithms are Mega
     using RecursiveDeciderVerificationKeys = RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;

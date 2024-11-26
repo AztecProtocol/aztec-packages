@@ -279,9 +279,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     MergeProof merge_proof = goblin.prove_merge(builder);
     merge_verification_queue.emplace_back(merge_proof);
 
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
+    auto decider_pk =
+        std::make_shared<DeciderProvingKey_<MegaZKFlavor>>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
-    MegaProver prover(decider_pk);
+    MegaZKProver prover(decider_pk);
 
     HonkProof proof = prover.construct_proof();
 
@@ -308,7 +309,7 @@ bool ClientIVC::verify(const Proof& proof,
 {
 
     // Verify the hiding circuit proof
-    MegaVerifier verifer{ mega_vk };
+    MegaZKVerifier verifer{ mega_vk };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)

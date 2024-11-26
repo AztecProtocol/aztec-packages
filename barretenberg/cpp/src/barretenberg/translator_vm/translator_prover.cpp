@@ -50,7 +50,7 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     // into one. These polynomials are not commited to.
     bb::compute_concatenated_polynomials<Flavor>(key->polynomials);
 
-    // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
+    // We also construct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
     // the range from 0 to maximum range defined by the range constraint.
     bb::compute_translator_range_constraint_ordered_polynomials<Flavor>(key->polynomials, mini_circuit_dyadic_size);
 
@@ -87,10 +87,21 @@ void TranslatorProver::execute_preamble_round()
  */
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
+    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
+    size_t idx = 0;
     // Commit to all wire polynomials and ordered range constraint polynomials
+    for (auto poly : key->polynomials.get_wires_and_ordered_range_constraints()) {
+        for (size_t i = 1; i < 4; i++) {
+            poly.at(circuit_size - i) = FF::random_element();
+        }
+        idx++;
+    }
+
+    info("number random commitments ", idx);
     auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
     auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
+
         transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
     }
 }
@@ -101,6 +112,9 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
  */
 void TranslatorProver::execute_grand_product_computation_round()
 {
+
+    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
+
     // Compute and store parameters required by relations in Sumcheck
     FF gamma = transcript->template get_challenge<FF>("gamma");
     const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
@@ -141,6 +155,16 @@ void TranslatorProver::execute_grand_product_computation_round()
     }
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
+    info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 8));
+
+    info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 7));
+    info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 6));
+
+    for (size_t i = 1; i < 4; i++) {
+        info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - i - 1));
+        key->polynomials.z_perm.at(circuit_size - i) = FF::random_element();
+        info("oink oink ", key->polynomials.z_perm.at(circuit_size - i));
+    }
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }

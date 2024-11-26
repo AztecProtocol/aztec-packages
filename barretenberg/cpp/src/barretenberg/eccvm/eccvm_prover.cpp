@@ -44,6 +44,13 @@ void ECCVMProver::execute_preamble_round()
  */
 void ECCVMProver::execute_wire_commitments_round()
 {
+    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
+
+    for (auto poly : key->polynomials.get_wires()) {
+        for (size_t i = 1; i < 4; i++) {
+            poly.at(circuit_size - i) = FF::random_element();
+        }
+    }
     auto wire_polys = key->polynomials.get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
@@ -57,6 +64,7 @@ void ECCVMProver::execute_wire_commitments_round()
  */
 void ECCVMProver::execute_log_derivative_commitments_round()
 {
+    const size_t circuit_size = key->circuit_size;
     // Compute and add beta to relation parameters
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
@@ -71,7 +79,10 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
-        key->polynomials, relation_parameters, key->circuit_size);
+        key->polynomials, relation_parameters, circuit_size);
+    for (size_t idx = 1; idx < 4; idx++) {
+        key->polynomials.lookup_inverses.at(circuit_size - idx) = FF::random_element();
+    }
     transcript->send_to_verifier(commitment_labels.lookup_inverses,
                                  key->commitment_key->commit(key->polynomials.lookup_inverses));
 }
@@ -82,8 +93,13 @@ void ECCVMProver::execute_log_derivative_commitments_round()
  */
 void ECCVMProver::execute_grand_product_computation_round()
 {
+    const size_t circuit_size = key->circuit_size;
+
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
+    for (size_t idx = 1; idx < 4; idx++) {
+        key->polynomials.z_perm.at(circuit_size - idx) = FF::random_element();
+    }
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }

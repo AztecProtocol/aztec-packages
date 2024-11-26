@@ -49,7 +49,7 @@ void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint2
 };
 
 /**
- * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
+ * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
  */
 bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 {
@@ -118,7 +118,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
     // Execute Shplemini
-
+    for (size_t idx = 0; idx < claimed_evaluations.size(); idx++) {
+        info(idx, " eval ", claimed_evaluations.get_all()[idx]);
+    }
+    info("verifier received num evals = ", claimed_evaluations.size());
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
@@ -172,6 +175,7 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
 
     bool is_value_reconstructed =
         reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
+    info("is val reconstructed? ", is_value_reconstructed);
     return is_value_reconstructed;
 }
 
