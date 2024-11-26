@@ -3,7 +3,6 @@ import { type AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } fro
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';
-import { Opcode } from './serialization/instruction_serialization.js';
 
 /**
  * Avm-specific errors should derive from this
@@ -45,8 +44,8 @@ export class InvalidProgramCounterError extends AvmExecutionError {
  * of an invalid opcode.
  */
 export class InvalidOpcodeError extends AvmExecutionError {
-  constructor(opcode: Opcode) {
-    super(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
+  constructor(str: string) {
+    super(str);
     this.name = 'InvalidOpcodeError';
   }
 }

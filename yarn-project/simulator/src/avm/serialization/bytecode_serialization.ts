@@ -1,4 +1,4 @@
-import { AvmParsingError, InvalidOpcodeError, InvalidProgramCounterError } from '../errors.js';
+import { AvmExecutionError, AvmParsingError, InvalidOpcodeError, InvalidProgramCounterError } from '../errors.js';
 import {
   Add,
   And,
@@ -49,7 +49,7 @@ import {
 } from '../opcodes/index.js';
 import { MultiScalarMul } from '../opcodes/multi_scalar_mul.js';
 import { BufferCursor } from './buffer_cursor.js';
-import { Opcode } from './instruction_serialization.js';
+import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
 
 export type InstructionDeserializer = (buf: BufferCursor | Buffer) => Instruction;
 
@@ -186,18 +186,24 @@ export function decodeInstructionFromBytecode(
   try {
     const cursor = new BufferCursor(bytecode, pc);
     const startingPosition = cursor.position();
-    const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
+    const opcode: number = cursor.bufferAtPosition().readUint8(); // peek.
+
+    if (opcode > MAX_OPCODE_VALUE) {
+      throw new InvalidOpcodeError(
+        `Opcode ${opcode} (0x${opcode.toString(16)}) value is not in the range of valid opcodes.`,
+      );
+    }
 
     const instructionDeserializerOrUndef = instructionSet.get(opcode);
     if (instructionDeserializerOrUndef === undefined) {
-      throw new InvalidOpcodeError(opcode);
+      throw new InvalidOpcodeError(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) is not implemented`);
     }
 
     const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
     const instruction = instructionDeserializer(cursor);
     return [instruction, cursor.position() - startingPosition];
   } catch (error) {
-    if (error instanceof InvalidOpcodeError) {
+    if (error instanceof InvalidOpcodeError || error instanceof AvmExecutionError) {
       throw error;
     } else {
       throw new AvmParsingError(`${error}`);

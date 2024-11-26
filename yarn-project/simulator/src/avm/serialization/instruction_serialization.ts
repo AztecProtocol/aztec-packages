@@ -84,7 +84,10 @@ export enum Opcode {
   MSM,
   // Conversion
   TORADIXBE,
+  // Adapt MAX_OPCODE_VALUE below if TORADIXBE is not the last opcode anymore
 }
+
+export const MAX_OPCODE_VALUE: number = Opcode.TORADIXBE;
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
 // See vm/avm_trace/deserialization.cpp)
