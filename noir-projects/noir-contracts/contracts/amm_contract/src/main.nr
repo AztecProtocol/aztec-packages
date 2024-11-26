@@ -38,16 +38,13 @@ contract AMM {
     use crate::{config::Config, lib::{get_amount_in, get_amount_out, get_amounts_to_add}};
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
-        prelude::{AztecAddress, SharedImmutable},
+        prelude::{AztecAddress, PublicImmutable},
     };
     use dep::token::Token;
 
     #[storage]
     struct Storage<Context> {
-        // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
-        // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
-        // have to bother with sharing the note between pixies of users.
-        config: SharedImmutable<Config, Context>,
+        config: PublicImmutable<Config, Context>,
     }
 
     /// Amount of liquidity which gets locked when liquidity is provided for the first time. Its purpose is to prevent
@@ -80,7 +77,7 @@ contract AMM {
         assert(amount1_min.lt(amount1_max) | (amount1_min == amount1_max), "INCORRECT_TOKEN1_LIMITS");
         assert(0.lt(amount0_max) & 0.lt(amount1_max), "INSUFFICIENT_INPUT_AMOUNTS");
 
-        let config = storage.config.read_private();
+        let config = storage.config.read();
 
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
@@ -232,7 +229,7 @@ contract AMM {
     /// TODO(#8271): Type the args as U128
     #[private]
     fn remove_liquidity(liquidity: Field, amount0_min: Field, amount1_min: Field, nonce: Field) {
-        let config = storage.config.read_private();
+        let config = storage.config.read();
 
         let liquidity_token = Token::at(config.liquidity_token);
         let token0 = Token::at(config.token0);
@@ -323,7 +320,7 @@ contract AMM {
         amount_out_min: Field,
         nonce: Field,
     ) {
-        let config = storage.config.read_private();
+        let config = storage.config.read();
 
         // We check the tokens are valid
         assert(token_in != token_out);
@@ -401,7 +398,7 @@ contract AMM {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_out = U128::from_integer(amount_out);
 
-        let config = storage.config.read_private();
+        let config = storage.config.read();
 
         // We check the tokens are valid
         assert(token_in != token_out);
