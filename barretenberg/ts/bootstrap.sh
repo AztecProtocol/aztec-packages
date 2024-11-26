@@ -22,7 +22,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-GITHUB_ACTIONS="" yarn install
+yarn install
 
 $ci3/github/group "bb.js build"
 echo "Building with command 'yarn $BUILD_CMD'..."
