@@ -139,6 +139,13 @@ pub fn accumulate_fees(
     left.accumulated_fees + right.accumulated_fees
 }
 
+pub fn accumulate_mana_used(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs,
+) -> Field {
+    left.accumulated_mana_used + right.accumulated_mana_used
+}
+
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,

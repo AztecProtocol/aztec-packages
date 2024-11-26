@@ -140,6 +140,7 @@ impl PrivateBaseRollupInputs {
             txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: transaction_fee,
+            accumulated_mana_used: self.tube_data.public_inputs.gas_used.l2_gas as Field,
         }
     }
 

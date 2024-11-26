@@ -212,6 +212,7 @@ impl PublicBaseRollupInputs {
             txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: self.avm_proof_data.public_inputs.transaction_fee,
+            accumulated_mana_used: self.avm_proof_data.public_inputs.end_gas_used.l2_gas as Field,
         }
     }
 
