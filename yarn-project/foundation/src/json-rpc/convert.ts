@@ -25,6 +25,8 @@ export function jsonStringify(obj: object, prettify?: boolean): string {
         return value.toString();
       } else if (typeof value === 'object' && value && value.type === 'Buffer' && Array.isArray(value.data)) {
         return Buffer.from(value.data).toString('base64');
+      } else if (typeof value === 'object' && value && Buffer.isBuffer(value)) {
+        return value.toString('base64');
       } else if (typeof value === 'object' && value instanceof Map) {
         return Array.from(value.entries());
       } else if (typeof value === 'object' && value instanceof Set) {
