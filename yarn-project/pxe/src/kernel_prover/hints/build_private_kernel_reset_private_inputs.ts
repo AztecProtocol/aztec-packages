@@ -424,7 +424,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNoteHashes`.');
     }
 
-    const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.isEmpty()).length;
+    const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNoteHashes - this.numTransientData);
     this.requestedDimensions.NOTE_HASH_SILOING_AMOUNT = numToSilo;
 
@@ -436,7 +436,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNullifiers`.');
     }
 
-    const numNullifiers = this.previousKernel.end.nullifiers.filter(n => !n.isEmpty()).length;
+    const numNullifiers = this.previousKernel.end.nullifiers.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNullifiers - this.numTransientData);
     // Include the first nullifier if there's something to silo.
     // The reset circuit checks that capped_size must be greater than or equal to all non-empty nullifiers.
@@ -453,7 +453,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const privateLogs = this.previousKernel.end.privateLogs;
-    const numLogs = privateLogs.filter(l => !l.isEmpty()).length;
+    const numLogs = privateLogs.filter(l => !l.contractAddress.isZero()).length;
 
     const noteHashes = this.previousKernel.end.noteHashes;
     const squashedNoteHashCounters = this.transientDataIndexHints

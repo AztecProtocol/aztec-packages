@@ -7,6 +7,7 @@ describe('ContractClassRegisteredEvent', () => {
   it('parses an event as emitted by the ContractClassRegisterer', () => {
     const log = getSampleContractClassRegisteredEventPayload();
     expect(ContractClassRegisteredEvent.isContractClassRegisteredEvent(log)).toBe(true);
+
     const event = ContractClassRegisteredEvent.fromLog(log);
     expect(event.contractClassId.toString()).toEqual(
       '0x1c9a43d08a1af21c35e4201262a49497a488b0686209370a70f2434af643b4f7',

@@ -2,7 +2,6 @@ import {
   type ContractClassPublic,
   PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
@@ -29,11 +28,6 @@ export class ContractClassRegisteredEvent {
   }
 
   static fromLog(log: Buffer) {
-    if (!this.isContractClassRegisteredEvent(log)) {
-      throw new Error(
-        `Log data for ContractClassRegisteredEvent is not prefixed with magic value 0x${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}`,
-      );
-    }
     const reader = new BufferReader(log.subarray(32));
     const contractClassId = reader.readObject(Fr);
     const version = reader.readObject(Fr).toNumber();

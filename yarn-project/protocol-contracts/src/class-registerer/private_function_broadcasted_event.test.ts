@@ -5,9 +5,11 @@ import { PrivateFunctionBroadcastedEvent } from './private_function_broadcasted_
 
 describe('PrivateFunctionBroadcastedEvent', () => {
   beforeAll(() => setupCustomSnapshotSerializers(expect));
+
   it('parses an event as emitted by the ContractClassRegisterer', () => {
     const log = getSamplePrivateFunctionBroadcastedEventPayload();
     expect(PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log)).toBe(true);
+
     const event = PrivateFunctionBroadcastedEvent.fromLog(log);
     expect(event).toMatchSnapshot();
   });

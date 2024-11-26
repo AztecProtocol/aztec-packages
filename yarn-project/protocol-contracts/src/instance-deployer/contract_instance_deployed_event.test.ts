@@ -10,9 +10,9 @@ describe('ContractInstanceDeployedEvent', () => {
     expect(ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log)).toBe(true);
 
     const event = ContractInstanceDeployedEvent.fromLog(log);
-    expect(event.address.toString()).toEqual('0x011870b273ea9661b2893efeb641df4136b3f67b24fc79aed1d5bd779d35e3cd');
+    expect(event.address.toString()).toEqual('0x0c5c6978e380c4e3940ab74770639260bcc75c93c3d0ae48ee4a241d555b094e');
     expect(event.contractClassId.toString()).toEqual(
-      '0x23ced3716a04d81b58822bc3e1843626aa2884888b1a2d2250e79fb7d41a365e',
+      '0x2b78af6d543573f77372e53e66932714d68877b4bcbb18671e68a846795297e1',
     );
   });
 });

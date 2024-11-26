@@ -12,9 +12,11 @@ import {
 
 describe('UnconstrainedFunctionBroadcastedEvent', () => {
   beforeAll(() => setupCustomSnapshotSerializers(expect));
+
   it('parses an event as emitted by the ContractClassRegisterer', () => {
     const log = getSampleUnconstrainedFunctionBroadcastedEventPayload();
     expect(UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log)).toBe(true);
+
     const event = UnconstrainedFunctionBroadcastedEvent.fromLog(log);
     expect(event).toMatchSnapshot();
   });
