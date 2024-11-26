@@ -2,9 +2,9 @@
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/protogalaxy/folding_test_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -30,45 +30,6 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
-
-    // WORKTODO: duplicate of similar logic in pg test suite; put in some more central location for use by all modules
-    static void check_accumulator_target_sum_consistency(const std::shared_ptr<DeciderProvingKey>& accumulator)
-
-    {
-        info("in check accumulator target sum consistency, size: ", accumulator->proving_key.circuit_size);
-        ProtogalaxyProverInternal<DeciderProvingKeys> pg_internal;
-        auto expected_honk_evals = pg_internal.compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
-        // Construct pow(\vec{betas*}) as in the paper
-        GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
-                                                         accumulator->gate_challenges.size());
-
-        // Compute the corresponding target sum and create a dummy accumulator
-        FF expected_target_sum{ 0 };
-        for (size_t idx = 0; idx < accumulator->proving_key.circuit_size; idx++) {
-            expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
-        }
-        info("expected target sum: ", expected_target_sum);
-        info("acc target sum: ", accumulator->target_sum);
-        EXPECT_TRUE(accumulator->target_sum == expected_target_sum);
-    }
-
-    // WORKTODO: similar to above, this doesnt really belong here
-    static void fold_verify_then_decider_prove_and_verify(const ClientIVC& ivc)
-    {
-        const auto& queue_entry = ivc.verification_queue.back();
-        const auto& fold_proof = queue_entry.proof;
-        auto key_to_fold = std::make_shared<ClientIVC::DeciderVerificationKey>(queue_entry.honk_verification_key);
-        const auto& prover_accumulator = ivc.fold_output.accumulator;
-
-        ClientIVC::FoldingVerifier folding_verifier({ ivc.verifier_accumulator, key_to_fold });
-        auto verifier_accumulator = folding_verifier.verify_folding_proof(fold_proof);
-
-        DeciderProver decider_prover(prover_accumulator);
-        DeciderVerifier decider_verifier(verifier_accumulator);
-        HonkProof decider_proof = decider_prover.construct_proof();
-        EXPECT_TRUE(decider_verifier.verify_proof(decider_proof));
-    }
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
@@ -469,12 +430,7 @@ TEST_F(ClientIVCTests, DynamicOverflow)
         ivc.accumulate(circuit);
     }
 
-    // DEBUG: check consistency of the target sum computed internal to ivc
-    check_accumulator_target_sum_consistency(ivc.fold_output.accumulator);
-
-    // DEBUG: run native pg verifier then native decider prover/verifier
-    fold_verify_then_decider_prove_and_verify(ivc);
-
+    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
     EXPECT_TRUE(ivc.prove_and_verify());
 };
 
@@ -496,18 +452,13 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
     size_t NUM_CIRCUITS = 2;
 
     // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    std::vector<size_t> log2_num_arith_gates = { 14, 18, 16 };
+    std::vector<size_t> log2_num_arith_gates = { 14, 18 };
     // Accumulate
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
         ivc.accumulate(circuit);
     }
 
-    check_accumulator_target_sum_consistency(ivc.fold_output.accumulator);
-    // DEBUG: check consistency of the target sum computed internal to ivc
-
-    // DEBUG: run native pg verifier then native decider prover/verifier
-    fold_verify_then_decider_prove_and_verify(ivc);
-
+    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
     EXPECT_TRUE(ivc.prove_and_verify());
 };

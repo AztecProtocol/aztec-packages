@@ -223,7 +223,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         for (auto block : this->get()) {
             total_size += block.get_fixed_size();
         }
-        info("total size: ");
 
         auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
         if ((1UL << log2_n) != (total_size)) {

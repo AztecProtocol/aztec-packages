@@ -1,5 +1,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
+#include "barretenberg/protogalaxy/folding_test_utils.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -80,20 +81,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
     static std::tuple<std::shared_ptr<DeciderProvingKey>, std::shared_ptr<DeciderVerificationKey>> fold_and_verify(
         const std::vector<std::shared_ptr<DeciderProvingKey>>& proving_keys,
-        const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys)
-    {
-        FoldingProver folding_prover(proving_keys);
-        FoldingVerifier folding_verifier(verification_keys);
-
-        auto [prover_accumulator, folding_proof] = folding_prover.prove();
-        auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
-        return { prover_accumulator, verifier_accumulator };
-    }
-
-    static std::tuple<std::shared_ptr<DeciderProvingKey>, std::shared_ptr<DeciderVerificationKey>> fold_and_verify(
-        const std::vector<std::shared_ptr<DeciderProvingKey>>& proving_keys,
         const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys,
-        ExecutionTraceUsageTracker trace_usage_tracker)
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
         FoldingProver folding_prover(proving_keys, trace_usage_tracker);
         FoldingVerifier folding_verifier(verification_keys);
@@ -101,25 +90,6 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
         return { prover_accumulator, verifier_accumulator };
-    }
-
-    static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator,
-                                                    bool expected_result)
-    {
-        size_t accumulator_size = accumulator->proving_key.circuit_size;
-        PGInternal pg_internal;
-        auto expected_honk_evals = pg_internal.compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
-        // Construct pow(\vec{betas*}) as in the paper
-        GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
-                                                         accumulator->gate_challenges.size());
-
-        // Compute the corresponding target sum and create a dummy accumulator
-        FF expected_target_sum{ 0 };
-        for (size_t idx = 0; idx < accumulator_size; idx++) {
-            expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
-        }
-        EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
     }
 
     static void decide_and_verify(std::shared_ptr<DeciderProvingKey>& prover_accumulator,
@@ -344,7 +314,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
             // Perform prover and verifier folding
             auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys), get<1>(keys));
-            check_accumulator_target_sum_manual(prover_accumulator, true);
+            EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
             // Run decider
             decide_and_verify(prover_accumulator, verifier_accumulator, true);
@@ -427,9 +397,9 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys), get<1>(keys));
 
         // Expect failure in manual target sum check and decider
-        bool expected_result = false;
-        check_accumulator_target_sum_manual(prover_accumulator, expected_result);
-        decide_and_verify(prover_accumulator, verifier_accumulator, expected_result);
+        EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
+
+        decide_and_verify(prover_accumulator, verifier_accumulator, false);
     }
 
     /**
@@ -440,12 +410,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(prover_accumulator);
 
         TupleOfKeys insts_2 = construct_keys(1); // just one key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
     }
@@ -460,13 +430,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         TupleOfKeys keys_1 = construct_keys(2, trace_settings);
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys keys_2 = construct_keys(1, trace_settings); // just one key pair
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
         info(prover_accumulator_2->proving_key.circuit_size);
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
     }
@@ -511,7 +481,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         // The size discrepency should be automatically handled by the PG prover via a virtual size increase
         auto [prover_accumulator, verifier_accumulator] =
             fold_and_verify(decider_pks, decider_vks, trace_usage_tracker);
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
         decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }
 
@@ -545,7 +515,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Fold the first two pairs
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Construct the decider key pair for the third circuit
         TupleOfKeys keys_2;
@@ -554,7 +524,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         // Fold 3rd pair of keys into their respective accumulators
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
         info(prover_accumulator_2->proving_key.circuit_size);
 
         // Decide on final accumulator
@@ -569,7 +539,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with a commitment
         verifier_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
@@ -577,7 +547,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
     }
@@ -591,11 +561,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with an accumulator polynomial
         prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
-        check_accumulator_target_sum_manual(prover_accumulator, false);
+        EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
@@ -615,8 +585,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
-        check_accumulator_target_sum_manual(prover_accumulator, true);
-
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
         decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }
 };

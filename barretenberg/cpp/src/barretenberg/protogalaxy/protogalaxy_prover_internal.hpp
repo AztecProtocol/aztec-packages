@@ -114,7 +114,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
                                             const RelationSeparator& alphas_,
                                             const RelationParameters<FF>& relation_parameters,
-                                            bool use_prev_accumulator = false)
+                                            bool use_prev_accumulator_tracker = false)
 
     {
 
@@ -136,7 +136,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
+        trace_usage_tracker.construct_thread_ranges(
+            num_threads, polynomial_size, /*use_prev_accumulator_tracker=*/true);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
@@ -144,7 +145,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
             for (size_t idx = start; idx < end; idx++) {
                 // The contribution is only non-trivial at a given row if the accumulator is active at that row
-                if (trace_usage_tracker.check_is_active(idx, use_prev_accumulator)) {
+                if (trace_usage_tracker.check_is_active(idx, use_prev_accumulator_tracker)) {
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =
@@ -227,8 +228,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                        const std::vector<FF>& deltas)
     {
         PROFILE_THIS();
-        auto full_honk_evaluations = compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters, true);
+        auto full_honk_evaluations = compute_row_evaluations(accumulator->proving_key.polynomials,
+                                                             accumulator->alphas,
+                                                             accumulator->relation_parameters,
+                                                             /*use_prev_accumulator_tracker=*/true);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
@@ -347,7 +350,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // The polynomial size is given by the virtual size since the computation includes
         // the incoming key which could have nontrivial values on the larger domain in case of overflow.
         const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
-        const size_t num_threads = 1; // compute_num_threads(common_polynomial_size);
+        const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
@@ -600,9 +603,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const size_t desired_num_threads = domain_size / min_iterations_per_thread;
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
-
-        // // DEBUG:
-        // num_threads = 1;
 
         return num_threads;
     }
