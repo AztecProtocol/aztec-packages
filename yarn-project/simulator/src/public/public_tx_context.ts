@@ -420,8 +420,8 @@ class PhaseStateManager {
  * Apply L2 gas maximum.
  */
 function applyMaxToAvailableGas(availableGas: Gas) {
-    return new Gas(
-      /*daGas=*/ availableGas.daGas,
-      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
-    );
+  return new Gas(
+    /*daGas=*/ availableGas.daGas,
+    /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+  );
 }
