@@ -8,6 +8,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec.nr] Removed SharedImmutable
+
+The `SharedImmutable` state variable has been removed, since it was essentially the exact same as `PublicImmutable`, which now contains functions for reading from private:
+
+```diff
+-   foo: SharedImmutable<T, Context>.
++   foo: PublicImmutable<T, Context>.
+```
+
 ### [aztec.nr] SharedImmutable renamings
 
 `SharedImmutable::read_private` and `SharedImmutable::read_public` were renamed to simply `read`, since only one of these versions is ever available depending on the current context.
