@@ -1,5 +1,6 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
 
@@ -27,7 +28,7 @@ export class BlockMergeRollupInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -49,16 +50,16 @@ export class BlockMergeRollupInputs {
    * @returns A new BlockMergeRollupInputs instance.
    */
   static fromString(str: string) {
-    return BlockMergeRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockMergeRollupInputs.fromBuffer(hexToBuffer(str));
   }
 
   /** Returns a hex representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(BlockMergeRollupInputs);
+    return bufferSchemaFor(BlockMergeRollupInputs);
   }
 }
