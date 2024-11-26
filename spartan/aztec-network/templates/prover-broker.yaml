@@ -68,6 +68,14 @@ spec:
               value: "1"
             - name: DEBUG
               value: "{{ .Values.proverBroker.debug }}"
+            - name: PROVER_BROKER_POLL_INTERVAL_MS
+              value: "{{ .Values.proverBroker.pollIntervalMs }}"
+            - name: PROVER_BROKER_JOB_TIMEOUT_MS
+              value: "{{ .Values.proverBroker.jobTimeoutMs }}"
+            - name: PROVER_BROKER_JOB_MAX_RETRIES
+              value: "{{ .Values.proverBroker.jobMaxRetries }}"
+            - name: PROVER_BROKER_DATA_DIRECTORY
+              value: "{{ .Values.proverBroker.dataDirectory }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
@@ -78,4 +86,19 @@ spec:
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
-{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-broker
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-broker
+  ports:
+    - port: {{ .Values.proverBroker.service.nodePort }}
+      name: node
+{{ end }}

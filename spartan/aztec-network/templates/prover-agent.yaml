@@ -91,9 +91,11 @@ spec:
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.proverAgent.realProofs }}"
             - name: PROVER_AGENT_COUNT
-              value: {{ .Values.proverAgent.concurrency | quote }}
-            - name: HARDWARE_CONCURRENCY
-              value: {{ .Values.proverAgent.bb.hardwareConcurrency | quote }}
+              value: "1"
+            - name: PROVER_AGENT_POLL_INTERVAL_MS
+              value: "{{ .Values.proverAgent.pollIntervalMs }}"
+            - name: PROVER_AGENT_PROOF_TYPES
+              value: {{ join "," .Values.proverAgent.proofTypes | quote }}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT

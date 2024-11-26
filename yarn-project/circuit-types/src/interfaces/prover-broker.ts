@@ -34,7 +34,7 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
   proverBrokerJobTimeoutMs: {
     env: 'PROVER_BROKER_JOB_TIMEOUT_MS',
     description: 'Jobs are retried if not kept alive for this long',
-    ...numberConfigHelper(60_000),
+    ...numberConfigHelper(30_000),
   },
   proverBrokerPollIntervalMs: {
     env: 'PROVER_BROKER_POLL_INTERVAL_MS',
