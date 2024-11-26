@@ -11,5 +11,7 @@ $ci3/cache/download bb.js-$($ci3/cache/content_hash).tar.gz
 
 # We still need to install modules, so they can be found as part of module resolution when portalled.
 GITHUB_ACTIONS="" yarn install
+# The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps
+find node_modules -exec touch -t 197001010000 {} +
 
 $ci3/github/endgroup
