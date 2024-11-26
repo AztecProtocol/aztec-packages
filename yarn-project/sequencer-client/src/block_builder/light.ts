@@ -16,6 +16,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBaseRollupHints, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { inspect } from 'util';
 
 /**
  * Builds a block and its header from a set of processed tx without running any circuits.
@@ -32,7 +33,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 
   async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
-    this.logger.verbose('Starting new block', { numTxs, globalVariables: globalVariables.toJSON(), l1ToL2Messages });
+    this.logger.verbose('Starting new block', { numTxs, globalVariables: inspect(globalVariables), l1ToL2Messages });
     this.numTxs = numTxs;
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
