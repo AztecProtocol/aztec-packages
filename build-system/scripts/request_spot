@@ -59,7 +59,7 @@ launch_spec=$(cat <<EOF
     {
       "DeviceName": "/dev/sda1",
       "Ebs": {
-        "VolumeSize": 32
+        "VolumeSize": 64
       }
     }
   ]
