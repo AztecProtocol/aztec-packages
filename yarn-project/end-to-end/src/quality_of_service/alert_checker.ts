@@ -1,9 +1,7 @@
 import { type DebugLogger } from '@aztec/aztec.js';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { dirname, join } from 'path';
 
 export interface AlertConfig {
   alert: string;
@@ -18,6 +16,7 @@ export interface AlertCheckerConfig {
   grafanaCredentials: string;
 }
 
+// This config is good if you're running the otel-lgtm stack locally
 const DEFAULT_CONFIG: AlertCheckerConfig = {
   grafanaEndpoint: 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query',
   grafanaCredentials: 'admin:admin',
@@ -32,10 +31,12 @@ export class AlertChecker {
     this.logger = logger;
   }
 
+  /**
+   * Load the alerts config from a file path.
+   * @param filePath - The absolute path to the alerts file.
+   */
   private loadAlertsConfig(filePath: string): AlertConfig[] {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const fileContents = fs.readFileSync(join(__dirname, filePath), 'utf8');
+    const fileContents = fs.readFileSync(filePath, 'utf8');
     const data = yaml.load(fileContents) as { alerts: AlertConfig[] };
     return data.alerts;
   }
@@ -79,6 +80,10 @@ export class AlertChecker {
     }
   }
 
+  /**
+   * Run the alert check based on the alerts defined in an array.
+   * @param alerts - The alerts to check.
+   */
   public async runAlertCheck(alerts: AlertConfig[]): Promise<void> {
     try {
       await this.checkAlerts(alerts);
@@ -89,6 +94,10 @@ export class AlertChecker {
     }
   }
 
+  /**
+   * Run the alert check based on the alerts defined in a yaml file.
+   * @param filePath - The absolute path to the alerts file.
+   */
   public async runAlertCheckFromFilePath(filePath: string): Promise<void> {
     const alerts = this.loadAlertsConfig(filePath);
     await this.checkAlerts(alerts);
