@@ -43,7 +43,7 @@ $ci3/github/group "Start CI Image"
 
 # - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
 # - Run in our build container, cloning commit and running bootstrap.sh
-ssh -F build-system/remote/ssh_config ubuntu@$ip "
+ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   docker run --privileged $args --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
     aztecprotocol/ci:2.0 bash -c '
