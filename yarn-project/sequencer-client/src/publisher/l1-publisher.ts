@@ -598,7 +598,7 @@ export class L1Publisher {
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
 
       // Send the blobs to the blob sink
-      await this.sendBlobsToBlobSink(receipt.blockHash, blobs);
+      this.sendBlobsToBlobSink(receipt.blockHash, blobs);
 
       return true;
     }
@@ -1073,8 +1073,7 @@ export class L1Publisher {
    *   to calculate and will need to be mocked in e2e tests
    */
   protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    console.log('block hash', blockHash);
-    // TODO: for now we are assuming the indexes of the blobs will be 0, 1, 2
+    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
     // When in reality they will not, but for testing purposes this is fine
     if (!this.blobSinkUrl) {
       return false;
@@ -1082,25 +1081,25 @@ export class L1Publisher {
 
     this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
     try {
-      // const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     // eslint-disable-next-line camelcase
-      //     block_id: blockHash,
-      //     blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
-      //   }),
-      // });
+      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          // eslint-disable-next-line camelcase
+          block_id: blockHash,
+          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
+        }),
+      });
 
-      // if (res.ok) {
-      //   this.log.verbose(`Successfully sent blobs to blob sink ${res.status}`);
-      return true;
-      // }
+      if (res.ok) {
+        this.log.verbose(`Successfully sent blobs to blob sink ${res.status}`);
+        return true;
+      }
 
-      // this.log.error('Failed to send blobs to blob sink', res.status);
-      // return false;
+      this.log.error('Failed to send blobs to blob sink', res.status);
+      return false;
     } catch (err) {
       this.log.error(`Error sending blobs to blob sink`, err);
       return false;
