@@ -83,17 +83,6 @@ export class GasFees {
     return serializeToFields(this.feePerDaGas, this.feePerL2Gas);
   }
 
-  static fromJSON(obj: any) {
-    return new GasFees(Fr.fromString(obj.feePerDaGas), Fr.fromString(obj.feePerL2Gas));
-  }
-
-  toJSON() {
-    return {
-      feePerDaGas: this.feePerDaGas.toString(),
-      feePerL2Gas: this.feePerL2Gas.toString(),
-    };
-  }
-
   [inspect.custom]() {
     return `GasFees { feePerDaGas=${this.feePerDaGas} feePerL2Gas=${this.feePerL2Gas} }`;
   }

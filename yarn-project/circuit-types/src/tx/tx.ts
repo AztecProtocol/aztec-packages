@@ -7,8 +7,8 @@ import {
 } from '@aztec/circuits.js';
 import { type Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
-import { hexSchema } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -154,65 +154,30 @@ export class Tx extends Gossipable {
   }
 
   static get schema() {
-    // TODO(palla/schemas): Use the nested objects schemas as opposed to the toBuffers
     return z
       .object({
-        data: hexSchema, // PrivateKernelTailCircuitPublicInputs.schema,
-        clientIvcProof: hexSchema, // ClientIvcProof.schema,
-        noteEncryptedLogs: hexSchema, // EncryptedNoteTxL2Logs.schema,
-        encryptedLogs: hexSchema, // EncryptedTxL2Logs.schema,
-        unencryptedLogs: hexSchema, // UnencryptedTxL2Logs.schema,
-        contractClassLogs: hexSchema, // ContractClassTxL2Logs.schema,
-        enqueuedPublicFunctionCalls: z.array(hexSchema), // z.array(PublicExecutionRequest.schema),
-        publicTeardownFunctionCall: hexSchema, // PublicExecutionRequest.schema,
+        data: PrivateKernelTailCircuitPublicInputs.schema,
+        clientIvcProof: ClientIvcProof.schema,
+        noteEncryptedLogs: EncryptedNoteTxL2Logs.schema,
+        encryptedLogs: EncryptedTxL2Logs.schema,
+        unencryptedLogs: UnencryptedTxL2Logs.schema,
+        contractClassLogs: ContractClassTxL2Logs.schema,
+        enqueuedPublicFunctionCalls: z.array(PublicExecutionRequest.schema),
+        publicTeardownFunctionCall: PublicExecutionRequest.schema,
       })
-      .transform(Tx.fromJSON);
+      .transform(Tx.from);
   }
 
-  /**
-   * Convert a Tx class object to a plain JSON object.
-   * @returns A plain object with Tx properties.
-   */
-  public toJSON() {
-    return {
-      data: this.data.toBuffer().toString('hex'),
-      noteEncryptedLogs: this.noteEncryptedLogs.toBuffer().toString('hex'),
-      encryptedLogs: this.encryptedLogs.toBuffer().toString('hex'),
-      unencryptedLogs: this.unencryptedLogs.toBuffer().toString('hex'),
-      contractClassLogs: this.contractClassLogs.toBuffer().toString('hex'),
-      clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
-      enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
-      publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
-    };
-  }
-
-  /**
-   * Convert a plain JSON object to a Tx class object.
-   * @param obj - A plain Tx JSON object.
-   * @returns A Tx class object.
-   */
-  public static fromJSON(obj: any) {
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.data, 'hex'));
-    const noteEncryptedLogs = EncryptedNoteTxL2Logs.fromBuffer(Buffer.from(obj.noteEncryptedLogs, 'hex'));
-    const encryptedLogs = EncryptedTxL2Logs.fromBuffer(Buffer.from(obj.encryptedLogs, 'hex'));
-    const unencryptedLogs = UnencryptedTxL2Logs.fromBuffer(Buffer.from(obj.unencryptedLogs, 'hex'));
-    const contractClassLogs = ContractClassTxL2Logs.fromBuffer(Buffer.from(obj.contractClassLogs, 'hex'));
-    const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
-    const enqueuedPublicFunctionCalls = obj.enqueuedPublicFunctionCalls
-      ? obj.enqueuedPublicFunctionCalls.map((x: string) => PublicExecutionRequest.fromBuffer(Buffer.from(x, 'hex')))
-      : [];
-    const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(
-      Buffer.from(obj.publicTeardownFunctionCall, 'hex'),
-    );
+  static from(fields: FieldsOf<Tx>) {
     return new Tx(
-      publicInputs,
-      clientIvcProof,
-      noteEncryptedLogs,
-      encryptedLogs,
-      unencryptedLogs,
-      contractClassLogs,
-      enqueuedPublicFunctionCalls,
-      publicTeardownFunctionCall,
+      fields.data,
+      fields.clientIvcProof,
+      fields.noteEncryptedLogs,
+      fields.encryptedLogs,
+      fields.unencryptedLogs,
+      fields.contractClassLogs,
+      fields.enqueuedPublicFunctionCalls,
+      fields.publicTeardownFunctionCall,
     );
   }
 

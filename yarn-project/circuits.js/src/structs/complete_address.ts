@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { computePartialAddress } from '../contract/contract_address.js';
 import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
@@ -141,6 +142,6 @@ export class CompleteAddress {
    * @returns A hexadecimal string representation of the CompleteAddress.
    */
   toString(): string {
-    return `0x${this.toBuffer().toString('hex')}`;
+    return bufferToHex(this.toBuffer());
   }
 }

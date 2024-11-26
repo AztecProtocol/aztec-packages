@@ -279,7 +279,8 @@ export class PublicProcessor {
     );
 
     const phaseCount = processedPhases.length;
-    this.metrics.recordTx(phaseCount, timer.ms());
+    const durationMs = timer.ms();
+    this.metrics.recordTx(phaseCount, durationMs);
 
     const data = avmProvingRequest.inputs.output;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(

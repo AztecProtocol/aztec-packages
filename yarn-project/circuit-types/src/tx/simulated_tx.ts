@@ -55,19 +55,6 @@ export class PrivateSimulationResult {
     );
     return tx;
   }
-
-  public toJSON() {
-    return {
-      privateExecutionResult: this.privateExecutionResult.toJSON(),
-      publicInputs: this.publicInputs.toBuffer().toString('hex'),
-    };
-  }
-
-  public static fromJSON(obj: any) {
-    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    return new PrivateSimulationResult(privateExecutionResult, publicInputs);
-  }
 }
 
 export class TxSimulationResult extends PrivateSimulationResult {
@@ -126,21 +113,12 @@ export class TxSimulationResult extends PrivateSimulationResult {
     );
   }
 
-  public override toJSON() {
-    return {
-      privateExecutionResult: this.privateExecutionResult.toJSON(),
-      publicInputs: this.publicInputs.toBuffer().toString('hex'),
-      publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
-      profileResult: this.profileResult,
-    };
-  }
-
-  public static override fromJSON(obj: any) {
-    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
-    const profileResult = obj.profileResult;
-    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput, profileResult);
+  static random() {
+    return new TxSimulationResult(
+      PrivateExecutionResult.random(),
+      PrivateKernelTailCircuitPublicInputs.empty(),
+      PublicSimulationOutput.random(),
+    );
   }
 }
 
@@ -186,19 +164,12 @@ export class TxProvingResult {
     return new TxProvingResult(fields.privateExecutionResult, fields.publicInputs, fields.clientIvcProof);
   }
 
-  public toJSON() {
-    return {
-      privateExecutionResult: this.privateExecutionResult,
-      publicInputs: this.publicInputs,
-      clientIvcProof: this.clientIvcProof,
-    };
-  }
-
-  public static fromJSON(obj: any) {
-    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
-    return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof);
+  static random() {
+    return new TxProvingResult(
+      PrivateExecutionResult.random(),
+      PrivateKernelTailCircuitPublicInputs.empty(),
+      ClientIvcProof.empty(),
+    );
   }
 }
 

@@ -1,4 +1,5 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { ARCHIVE_HEIGHT } from '../../constants.gen.js';
@@ -56,7 +57,7 @@ export class PrivateBaseRollupHints {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateBaseRollupHints {
@@ -71,7 +72,7 @@ export class PrivateBaseRollupHints {
   }
 
   static fromString(str: string) {
-    return PrivateBaseRollupHints.fromBuffer(Buffer.from(str, 'hex'));
+    return PrivateBaseRollupHints.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {
@@ -130,7 +131,7 @@ export class PublicBaseRollupHints {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PublicBaseRollupHints {
@@ -145,7 +146,7 @@ export class PublicBaseRollupHints {
   }
 
   static fromString(str: string) {
-    return PublicBaseRollupHints.fromBuffer(Buffer.from(str, 'hex'));
+    return PublicBaseRollupHints.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {

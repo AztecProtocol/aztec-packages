@@ -1,4 +1,4 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import * as fs from 'fs/promises';
@@ -67,12 +67,11 @@ export class ClientIvcProof {
   }
 
   static get schema() {
-    // TODO(palla/schemas): Consider using a b64 schema instead
-    return hexSchemaFor(ClientIvcProof);
+    return bufferSchemaFor(ClientIvcProof);
   }
 
   toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
+    return this.toBuffer();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): ClientIvcProof {
