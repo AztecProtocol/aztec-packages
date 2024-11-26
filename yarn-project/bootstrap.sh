@@ -136,6 +136,7 @@ function run_e2e_tests {
 
   commands=()
   tests=()
+  env_vars=()
   for entry in "${TESTS[@]}"; do
     cmd=$(echo "$entry" | awk '{print $1}')
     test=$(echo "$entry" | awk '{print $2}')
