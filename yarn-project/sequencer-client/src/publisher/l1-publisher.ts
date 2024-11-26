@@ -642,26 +642,28 @@ export class L1Publisher {
     }
 
     // Check the block hash and archive for the immediate block before the epoch
-    const [previousArchive, previousBlockHash] = await this.rollupContract.read.blocks([proven]);
-    if (publicInputs.previousArchive.root.toString() !== previousArchive) {
+    const blockLog = await this.rollupContract.read.getBlock([proven]);
+    if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${previousArchive}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
       );
     }
     // TODO: Remove zero check once we inject the proper zero blockhash
-    if (previousBlockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== previousBlockHash) {
+    if (blockLog.blockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== blockLog.blockHash) {
       throw new Error(
-        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${previousBlockHash}`,
+        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${blockLog.blockHash}`,
       );
     }
 
     // Check the block hash and archive for the last block in the epoch
-    const [endArchive, endBlockHash] = await this.rollupContract.read.blocks([BigInt(toBlock)]);
-    if (publicInputs.endArchive.root.toString() !== endArchive) {
-      throw new Error(`End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endArchive}`);
+    const endBlockLog = await this.rollupContract.read.getBlock([BigInt(toBlock)]);
+    if (publicInputs.endArchive.root.toString() !== endBlockLog.archive) {
+      throw new Error(
+        `End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endBlockLog.archive}`,
+      );
     }
-    if (publicInputs.endBlockHash.toString() !== endBlockHash) {
-      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockHash}`);
+    if (publicInputs.endBlockHash.toString() !== endBlockLog.blockHash) {
+      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockLog.blockHash}`);
     }
 
     // Compare the public inputs computed by the contract with the ones injected
@@ -736,11 +738,16 @@ export class L1Publisher {
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
-    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
+    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
         header: `0x${encodedData.header.toString('hex')}`,
         archive: `0x${encodedData.archive.toString('hex')}`,
+        oracleInput: {
+          // We are currently not modifying these. See #9963
+          feeAssetPriceModifier: 0n,
+          provingCostModifier: 0n,
+        },
         blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
       },

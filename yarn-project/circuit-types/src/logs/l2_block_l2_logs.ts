@@ -1,4 +1,5 @@
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import isEqual from 'lodash.isequal';
 import { z } from 'zod';
@@ -47,7 +48,7 @@ abstract class L2BlockL2Logs {
    * @returns A string representation of the serialized logs.
    */
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -81,16 +82,6 @@ export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs {
   }
 
   /**
-   * Convert a plain JSON object to a L2BlockL2Logs class object.
-   * @param obj - A plain L2BlockL2Logs JSON object.
-   * @returns A L2BlockL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const txLogs = obj.txLogs.map((log: any) => UnencryptedTxL2Logs.fromJSON(log));
-    return new UnencryptedL2BlockL2Logs(txLogs);
-  }
-
-  /**
    * Deserializes logs from a buffer.
    * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
@@ -111,8 +102,7 @@ export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs {
    * @returns A new `L2BlockL2Logs` object.
    */
   public static fromString(data: string): UnencryptedL2BlockL2Logs {
-    const buffer = Buffer.from(data, 'hex');
-    return UnencryptedL2BlockL2Logs.fromBuffer(buffer);
+    return UnencryptedL2BlockL2Logs.fromBuffer(hexToBuffer(data));
   }
 
   /**
@@ -163,16 +153,6 @@ export class ContractClass2BlockL2Logs extends L2BlockL2Logs {
   }
 
   /**
-   * Convert a plain JSON object to a L2BlockL2Logs class object.
-   * @param obj - A plain L2BlockL2Logs JSON object.
-   * @returns A L2BlockL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const txLogs = obj.txLogs.map((log: any) => ContractClassTxL2Logs.fromJSON(log));
-    return new ContractClass2BlockL2Logs(txLogs);
-  }
-
-  /**
    * Deserializes logs from a buffer.
    * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
@@ -193,8 +173,7 @@ export class ContractClass2BlockL2Logs extends L2BlockL2Logs {
    * @returns A new `L2BlockL2Logs` object.
    */
   public static fromString(data: string): ContractClass2BlockL2Logs {
-    const buffer = Buffer.from(data, 'hex');
-    return ContractClass2BlockL2Logs.fromBuffer(buffer);
+    return ContractClass2BlockL2Logs.fromBuffer(hexToBuffer(data));
   }
 
   /**

@@ -447,7 +447,11 @@ function makeRollupTx(l2Block: L2Block) {
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [{ header, archive, blockHash, txHashes: [] }, [], body],
+    args: [
+      { header, archive, blockHash, oracleInput: { provingCostModifier: 0n, feeAssetPriceModifier: 0n }, txHashes: [] },
+      [],
+      body,
+    ],
   });
   return { input } as Transaction<bigint, number>;
 }

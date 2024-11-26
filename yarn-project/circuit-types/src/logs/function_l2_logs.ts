@@ -56,14 +56,6 @@ export class UnencryptedFunctionL2Logs {
     return sha256Trunc(preimage);
   }
 
-  /**
-   * Convert a FunctionL2Logs class object to a plain JSON object.
-   * @returns A plain object with FunctionL2Logs properties.
-   */
-  public toJSON() {
-    return { logs: this.logs };
-  }
-
   static get schema() {
     return z
       .object({ logs: z.array(UnencryptedL2Log.schema) })
@@ -107,16 +99,6 @@ export class UnencryptedFunctionL2Logs {
     for (let i = 0; i < numLogs; i++) {
       logs.push(UnencryptedL2Log.random());
     }
-    return new UnencryptedFunctionL2Logs(logs);
-  }
-
-  /**
-   * Convert a plain JSON object to a FunctionL2Logs class object.
-   * @param obj - A plain FunctionL2Logs JSON object.
-   * @returns A FunctionL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const logs = obj.logs.map(UnencryptedL2Log.fromJSON);
     return new UnencryptedFunctionL2Logs(logs);
   }
 }

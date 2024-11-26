@@ -18,7 +18,7 @@ import {
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -222,9 +222,11 @@ export interface ArchiverDataStore {
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+  addContractClasses(data: ContractClassPublic[], bytecodeCommitments: Fr[], blockNumber: number): Promise<boolean>;
 
   deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
 
   /**
    * Returns a contract class given its id, or undefined if not exists.
@@ -261,6 +263,11 @@ export interface ArchiverDataStore {
 
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
+
+  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
+  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
+  //        the node api cleanup process.
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**
    * Estimates the size of the store in bytes.

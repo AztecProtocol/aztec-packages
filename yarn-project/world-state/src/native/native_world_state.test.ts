@@ -122,7 +122,7 @@ describe('NativeWorldState', () => {
     });
 
     it('Fails to sync further blocks if trees are out of sync', async () => {
-      // open ws against the same data dir but a different rollup
+      // open ws against the same data dir but a different rollup and with a small max db size
       const rollupAddress = EthAddress.random();
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
       const initialFork = await ws.fork();

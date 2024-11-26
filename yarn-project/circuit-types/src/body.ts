@@ -1,3 +1,4 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
@@ -16,16 +17,12 @@ export class Body {
     });
   }
 
-  static get schema() {
+  static get schema(): ZodFor<Body> {
     return z
       .object({
         txEffects: z.array(TxEffect.schema),
       })
       .transform(({ txEffects }) => new Body(txEffects));
-  }
-
-  toJSON() {
-    return { txEffects: this.txEffects };
   }
 
   /**

@@ -67,16 +67,6 @@ export abstract class TxL2Logs {
   }
 
   /**
-   * Convert a TxL2Logs class object to a plain JSON object.
-   * @returns A plain object with TxL2Logs properties.
-   */
-  public toJSON() {
-    return {
-      functionLogs: this.functionLogs.map(log => log.toJSON()),
-    };
-  }
-
-  /**
    * Unrolls logs from this tx.
    * @returns Unrolled logs.
    */
@@ -197,16 +187,6 @@ export class UnencryptedTxL2Logs extends TxL2Logs {
   }
 
   /**
-   * Convert a plain JSON object to a TxL2Logs class object.
-   * @param obj - A plain TxL2Logs JSON object.
-   * @returns A TxL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
-    return new UnencryptedTxL2Logs(functionLogs);
-  }
-
-  /**
    * Computes unencrypted logs hash as is done in the kernel and decoder contract.
    * @param logs - Logs to be hashed.
    * @returns The hash of the logs.
@@ -286,16 +266,6 @@ export class ContractClassTxL2Logs extends TxL2Logs {
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
     }
-    return new ContractClassTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Convert a plain JSON object to a TxL2Logs class object.
-   * @param obj - A plain TxL2Logs JSON object.
-   * @returns A TxL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
     return new ContractClassTxL2Logs(functionLogs);
   }
 

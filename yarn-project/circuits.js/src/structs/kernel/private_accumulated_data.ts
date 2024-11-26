@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -68,7 +69,7 @@ export class PrivateAccumulatedData {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -95,7 +96,7 @@ export class PrivateAccumulatedData {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return PrivateAccumulatedData.fromBuffer(Buffer.from(str, 'hex'));
+    return PrivateAccumulatedData.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {

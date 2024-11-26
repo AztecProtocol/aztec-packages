@@ -58,7 +58,7 @@ export async function inspectTx(
   const artifactMap = opts?.artifactMap ?? (await getKnownArtifacts(pxe));
 
   if (opts.includeBlockInfo) {
-    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString('hex')})`);
+    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);
   }
   if (receipt.transactionFee) {
     log(` Fee: ${receipt.transactionFee.toString()}`);

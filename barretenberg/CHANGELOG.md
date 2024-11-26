@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.64.0...barretenberg-v0.65.0) (2024-11-26)
+
+
+### Features
+
+* **avm:** New public inputs witgen ([#10179](https://github.com/AztecProtocol/aztec-packages/issues/10179)) ([ac8f13e](https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b))
+* Origin tags implemented in biggroup ([#10002](https://github.com/AztecProtocol/aztec-packages/issues/10002)) ([c8696b1](https://github.com/AztecProtocol/aztec-packages/commit/c8696b165425ee6dd7a2398f4b90b29f24d762f4))
+* UltraRollupRecursiveFlavor ([#10088](https://github.com/AztecProtocol/aztec-packages/issues/10088)) ([4418ef2](https://github.com/AztecProtocol/aztec-packages/commit/4418ef2a5768e0f627160b86e8dc8735d4bf00e7))
+
+
+### Miscellaneous
+
+* **avm:** Operands reordering ([#10182](https://github.com/AztecProtocol/aztec-packages/issues/10182)) ([69bdf4f](https://github.com/AztecProtocol/aztec-packages/commit/69bdf4f0341cbd95908e5e632b71a57da5df1433)), closes [#10136](https://github.com/AztecProtocol/aztec-packages/issues/10136)
+
 ## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.63.1...barretenberg-v0.64.0) (2024-11-25)
 
 

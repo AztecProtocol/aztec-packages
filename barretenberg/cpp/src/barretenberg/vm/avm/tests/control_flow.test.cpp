@@ -1,5 +1,6 @@
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include <cstdint>
 
@@ -49,7 +50,7 @@ class AvmControlFlowTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 };
 

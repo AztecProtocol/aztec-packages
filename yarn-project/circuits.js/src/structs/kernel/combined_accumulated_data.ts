@@ -1,8 +1,9 @@
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
@@ -98,11 +99,11 @@ export class CombinedAccumulatedData {
   }
 
   static get schema() {
-    return hexSchemaFor(CombinedAccumulatedData);
+    return bufferSchemaFor(CombinedAccumulatedData);
   }
 
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   toBuffer() {
@@ -110,7 +111,7 @@ export class CombinedAccumulatedData {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -139,7 +140,7 @@ export class CombinedAccumulatedData {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return CombinedAccumulatedData.fromBuffer(Buffer.from(str, 'hex'));
+    return CombinedAccumulatedData.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {

@@ -10,16 +10,21 @@ import {
   PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { ContractClassTxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
+
+export { RevertCodeEnum } from '@aztec/circuits.js';
 
 export class TxEffect {
   constructor(
@@ -256,21 +261,45 @@ export class TxEffect {
   }
 
   /** Returns a hex representation of the TxEffect object. */
-  toString(): string {
-    return this.toBuffer().toString('hex');
+  toString() {
+    return bufferToHex(this.toBuffer());
   }
 
-  toJSON() {
-    return this.toString();
+  static from(fields: Omit<FieldsOf<TxEffect>, 'txHash'>) {
+    return new TxEffect(
+      fields.revertCode,
+      fields.transactionFee,
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.publicDataWrites,
+      fields.privateLogs,
+      fields.unencryptedLogsLength,
+      fields.contractClassLogsLength,
+      fields.unencryptedLogs,
+      fields.contractClassLogs,
+    );
   }
 
   static get schema() {
-    return hexSchemaFor(TxEffect);
+    return z
+      .object({
+        revertCode: RevertCode.schema,
+        transactionFee: schemas.Fr,
+        noteHashes: z.array(schemas.Fr),
+        nullifiers: z.array(schemas.Fr),
+        l2ToL1Msgs: z.array(schemas.Fr),
+        publicDataWrites: z.array(PublicDataWrite.schema),
+        privateLogs: z.array(PrivateLog.schema),
+        unencryptedLogsLength: schemas.Fr,
+        contractClassLogsLength: schemas.Fr,
+        unencryptedLogs: UnencryptedTxL2Logs.schema,
+        contractClassLogs: ContractClassTxL2Logs.schema,
+      })
+      .transform(TxEffect.from);
   }
 
   [inspect.custom]() {
-    // print out the non-empty fields
-
     return `TxEffect {
       revertCode: ${this.revertCode},
       transactionFee: ${this.transactionFee},
@@ -281,8 +310,8 @@ export class TxEffect {
       privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
       unencryptedLogsLength: ${this.unencryptedLogsLength},
       contractClassLogsLength: ${this.contractClassLogsLength},
-      unencryptedLogs: ${JSON.stringify(this.unencryptedLogs.toJSON())}
-      contractClassLogs: ${JSON.stringify(this.contractClassLogs.toJSON())}
+      unencryptedLogs: ${jsonStringify(this.unencryptedLogs)}
+      contractClassLogs: ${jsonStringify(this.contractClassLogs)}
      }`;
   }
 
@@ -292,7 +321,7 @@ export class TxEffect {
    * @returns An instance of TxEffect.
    */
   static fromString(str: string) {
-    return TxEffect.fromBuffer(Buffer.from(str, 'hex'));
+    return TxEffect.fromBuffer(hexToBuffer(str));
   }
 
   get txHash(): TxHash {

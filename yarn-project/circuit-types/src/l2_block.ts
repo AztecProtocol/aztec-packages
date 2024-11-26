@@ -1,7 +1,8 @@
-import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
@@ -31,14 +32,6 @@ export class L2Block {
       .transform(({ archive, header, body }) => new L2Block(archive, header, body));
   }
 
-  toJSON() {
-    return {
-      archive: this.archive,
-      header: this.header,
-      body: this.body,
-    };
-  }
-
   /**
    * Deserializes a block from a buffer
    * @returns A deserialized L2 block.
@@ -66,7 +59,7 @@ export class L2Block {
    * @returns Deserialized L2 block.
    */
   static fromString(str: string): L2Block {
-    return L2Block.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    return L2Block.fromBuffer(hexToBuffer(str));
   }
 
   /**
@@ -74,7 +67,7 @@ export class L2Block {
    * @returns A serialized L2 block as a string.
    */
   toString(): string {
-    return this.toBuffer().toString(STRING_ENCODING);
+    return bufferToHex(this.toBuffer());
   }
 
   /**

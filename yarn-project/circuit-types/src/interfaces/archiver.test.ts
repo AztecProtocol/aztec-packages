@@ -9,6 +9,7 @@ import {
   PrivateLog,
   type PublicFunction,
   PublicKeys,
+  computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -192,6 +193,21 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
+  it('getContractFunctionName', async () => {
+    const selector = FunctionSelector.fromNameAndParameters(
+      artifact.functions[0].name,
+      artifact.functions[0].parameters,
+    );
+    const result = await context.client.getContractFunctionName(AztecAddress.random(), selector);
+    expect(result).toEqual(artifact.functions[0].name);
+  });
+
+  it('getBytecodeCommitment', async () => {
+    const contractClass = getContractClassFromArtifact(artifact);
+    const result = await context.client.getBytecodeCommitment(Fr.random());
+    expect(result).toEqual(computePublicBytecodeCommitment(contractClass.packedBytecode));
+  });
+
   it('getContractClassIds', async () => {
     const result = await context.client.getContractClassIds();
     expect(result).toEqual([expect.any(Fr)]);
@@ -329,6 +345,20 @@ class MockArchiver implements ArchiverApi {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
+  }
+  getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    expect(id).toBeInstanceOf(Fr);
+    const contractClass = getContractClassFromArtifact(this.artifact);
+    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
+  }
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    expect(address).toBeInstanceOf(AztecAddress);
+    expect(selector).toBeInstanceOf(FunctionSelector);
+    return Promise.resolve(
+      this.artifact.functions.find(f =>
+        FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+      )?.name,
+    );
   }
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve({
