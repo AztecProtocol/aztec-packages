@@ -162,7 +162,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         complete_kernel_circuit_logic(circuit);
     }
 
-    // Construct merge proof for the present circuit and add to merge verification queue
+    // // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
 
@@ -174,7 +174,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
         proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
+        // trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
         proving_key = std::make_shared<DeciderProvingKey>(
             circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
@@ -185,7 +185,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
-    trace_usage_tracker.update(circuit);
+    // trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
@@ -197,10 +197,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
         OinkProver<Flavor> oink_prover{ proving_key };
-        vinfo("computing oink proof...");
+        info("computing oink proof...");
         oink_prover.prove();
-        vinfo("oink proof constructed");
+        info("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
+        proving_key->target_sum = 0;
         // Initialize the gate challenges to zero for use in first round of folding
         proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
@@ -212,10 +213,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
+        info("in folding prover");
         FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
-        vinfo("constructed folding prover");
+        info("constructed folding prover");
         fold_output = folding_prover.prove();
-        vinfo("constructed folding proof");
+        info("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });

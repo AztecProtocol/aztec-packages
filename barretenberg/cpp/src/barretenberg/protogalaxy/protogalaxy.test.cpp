@@ -93,6 +93,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator,
                                                     bool expected_result)
     {
+
+        info("in the test");
         size_t accumulator_size = accumulator->proving_key.circuit_size;
         PGInternal pg_internal;
         auto expected_honk_evals = pg_internal.compute_row_evaluations(
@@ -477,6 +479,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<size_t> log2_num_gates = { 14, 18 };
         for (size_t i = 0; i < 2; ++i) {
             MegaCircuitBuilder builder;
+
             MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates[i]);
 
             auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);

@@ -104,6 +104,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
+            // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
@@ -212,6 +213,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                    info("lookup_read_tags size: ", max_tables_size, " table_offsets: ", table_offset);
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
@@ -229,6 +231,10 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                                           table_offset + MAX_LOOKUP_TABLES_SIZE));
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
+                    info("lookup_inverses start: ",
+                         lookup_inverses_start,
+                         " actual size",
+                         lookup_inverses_end - lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {
                         const size_t q_busread_end =
                             circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);
@@ -257,7 +263,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.lagrange_first = Polynomial(
                         /* size=*/1, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
 
-                    // Even though lagrange_last has a singe non-zero element, we cannot set its size to 0 as different
+                    // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
                     // keys being folded might have lagrange_last set at different indexes and folding does not work
                     // correctly unless the polynomial is allocated in the correct range to accomodate this
                     proving_key.polynomials.lagrange_last = Polynomial(

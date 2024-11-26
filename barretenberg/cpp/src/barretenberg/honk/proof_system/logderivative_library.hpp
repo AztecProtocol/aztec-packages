@@ -29,7 +29,8 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
-
+    info("in logderivative inverse");
+    static_cast<void>(circuit_size);
     auto& inverse_polynomial = Relation::template get_inverse_polynomial(polynomials);
     for (size_t i = 0; i < circuit_size; ++i) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
@@ -38,6 +39,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
         if (!has_inverse) {
             continue;
         }
+        info(i);
         FF denominator = 1;
         bb::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
             auto denominator_term =

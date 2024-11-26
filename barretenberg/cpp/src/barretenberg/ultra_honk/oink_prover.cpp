@@ -14,6 +14,7 @@ namespace bb {
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 {
     if (proving_key->proving_key.commitment_key == nullptr) {
+        info("initialising proving_key with circuit size: ", proving_key->proving_key.circuit_size);
         proving_key->proving_key.commitment_key =
             std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
     }

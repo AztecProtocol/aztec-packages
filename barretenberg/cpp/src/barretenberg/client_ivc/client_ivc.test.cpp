@@ -33,7 +33,9 @@ class ClientIVCTests : public ::testing::Test {
 
     // WORKTODO: duplicate of similar logic in pg test suite; put in some more central location for use by all modules
     static void check_accumulator_target_sum_consistency(const std::shared_ptr<DeciderProvingKey>& accumulator)
+
     {
+        info("in check accumulator target sum consistency, size: ", accumulator->proving_key.circuit_size);
         ProtogalaxyProverInternal<DeciderProvingKeys> pg_internal;
         auto expected_honk_evals = pg_internal.compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
@@ -46,6 +48,8 @@ class ClientIVCTests : public ::testing::Test {
         for (size_t idx = 0; idx < accumulator->proving_key.circuit_size; idx++) {
             expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
         }
+        info("expected target sum: ", expected_target_sum);
+        info("acc target sum: ", accumulator->target_sum);
         EXPECT_TRUE(accumulator->target_sum == expected_target_sum);
     }
 
@@ -484,7 +488,7 @@ TEST_F(ClientIVCTests, DynamicOverflow)
 TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
 {
     uint32_t overflow_capacity = 0;
-    // uint32_t overflow_capacity = 1 << 18;
+    // uint32_t overflow_capacity = 1 << 1;
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE, overflow_capacity } };
 
     MockCircuitProducer circuit_producer;
@@ -499,8 +503,8 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
         ivc.accumulate(circuit);
     }
 
-    // DEBUG: check consistency of the target sum computed internal to ivc
     check_accumulator_target_sum_consistency(ivc.fold_output.accumulator);
+    // DEBUG: check consistency of the target sum computed internal to ivc
 
     // DEBUG: run native pg verifier then native decider prover/verifier
     // fold_verify_then_decider_prove_and_verify(ivc);
