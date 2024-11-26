@@ -21,8 +21,11 @@ import {
   RewardDistributorBytecode,
   RollupAbi,
   RollupBytecode,
+  RollupLinkReferences,
   TestERC20Abi,
   TestERC20Bytecode,
+  TxsDecoderAbi,
+  TxsDecoderBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -163,6 +166,15 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   rollup: {
     contractAbi: RollupAbi,
     contractBytecode: RollupBytecode,
+    libraries: {
+      linkReferences: RollupLinkReferences,
+      libraryCode: {
+        TxsDecoder: {
+          contractAbi: TxsDecoderAbi,
+          contractBytecode: TxsDecoderBytecode,
+        },
+      },
+    },
   },
   feeJuice: {
     contractAbi: TestERC20Abi,

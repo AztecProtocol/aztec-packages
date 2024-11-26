@@ -5,7 +5,6 @@ import { ARCHIVE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
-import { SpongeBlob } from '../sponge_blob.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 import { PrivateBaseStateDiffHints, PublicBaseStateDiffHints } from './state_diff_hints.js';
 
@@ -15,8 +14,6 @@ export class PrivateBaseRollupHints {
   constructor(
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,
-    /** Sponge state to absorb blob inputs at the start of the rollup. */
-    public startSpongeBlob: SpongeBlob,
     /** Hints used while proving state diff validity. */
     public stateDiffHints: PrivateBaseStateDiffHints,
     /** Public data read hint for accessing the balance of the fee payer. */
@@ -39,7 +36,6 @@ export class PrivateBaseRollupHints {
   static getFields(fields: FieldsOf<PrivateBaseRollupHints>) {
     return [
       fields.start,
-      fields.startSpongeBlob,
       fields.stateDiffHints,
       fields.feePayerFeeJuiceBalanceReadHint,
       fields.archiveRootMembershipWitness,
@@ -67,7 +63,6 @@ export class PrivateBaseRollupHints {
     const reader = BufferReader.asReader(buffer);
     return new PrivateBaseRollupHints(
       reader.readObject(PartialStateReference),
-      reader.readObject(SpongeBlob),
       reader.readObject(PrivateBaseStateDiffHints),
       reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
@@ -82,7 +77,6 @@ export class PrivateBaseRollupHints {
   static empty() {
     return new PrivateBaseRollupHints(
       PartialStateReference.empty(),
-      SpongeBlob.empty(),
       PrivateBaseStateDiffHints.empty(),
       PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
@@ -95,8 +89,6 @@ export class PublicBaseRollupHints {
   constructor(
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,
-    /** Sponge state to absorb blob inputs at the start of the rollup. */
-    public startSpongeBlob: SpongeBlob,
     /** Hints used while proving state diff validity. */
     public stateDiffHints: PublicBaseStateDiffHints,
     /** Public data read hint for accessing the balance of the fee payer. */
@@ -118,7 +110,6 @@ export class PublicBaseRollupHints {
   static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
     return [
       fields.start,
-      fields.startSpongeBlob,
       fields.stateDiffHints,
       fields.feePayerFeeJuiceBalanceReadHint,
       fields.archiveRootMembershipWitness,
@@ -146,7 +137,6 @@ export class PublicBaseRollupHints {
     const reader = BufferReader.asReader(buffer);
     return new PublicBaseRollupHints(
       reader.readObject(PartialStateReference),
-      reader.readObject(SpongeBlob),
       reader.readObject(PublicBaseStateDiffHints),
       reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
@@ -161,7 +151,6 @@ export class PublicBaseRollupHints {
   static empty() {
     return new PublicBaseRollupHints(
       PartialStateReference.empty(),
-      SpongeBlob.empty(),
       PublicBaseStateDiffHints.empty(),
       PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),

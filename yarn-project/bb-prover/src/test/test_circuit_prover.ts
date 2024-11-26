@@ -38,7 +38,6 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { fileURLToPath } from '@aztec/foundation/url';
 import {
   ProtocolCircuitVks,
   type ServerProtocolArtifact,
@@ -64,16 +63,10 @@ import {
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import {
-  NativeACVMSimulator,
-  type SimulationProvider,
-  WASMSimulator,
-  emitCircuitSimulationStats,
-} from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
-import path from 'path';
 
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
@@ -320,21 +313,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertInput(input);
     const circuitName = mapProtocolArtifactNameToCircuitName(artifactName);
 
-    let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
-    // With the blob circuit, we require a long array of constants and lots of unconstrained.
-    // Unfortunately, this overflows wasm limits, so cannot be simulated via wasm.
-    // The below forces use of the native simulator just for this circuit:
-    if (artifactName == 'BlockRootRollupArtifact' && !(simulationProvider instanceof NativeACVMSimulator)) {
-      simulationProvider = new NativeACVMSimulator(
-        process.env.TEMP_DIR || `/tmp`,
-        process.env.ACVM_BINARY_PATH ||
-          `${path.resolve(
-            path.dirname(fileURLToPath(import.meta.url)),
-            '../../../../noir/',
-            process.env.NOIR_RELEASE_DIRECTORY || 'noir-repo/target/release',
-          )}/acvm`,
-      );
-    }
+    const simulationProvider = this.simulationProvider ?? this.wasmSimulator;
     const witness = await simulationProvider.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts[artifactName]);
 
     const result = convertOutput(witness);

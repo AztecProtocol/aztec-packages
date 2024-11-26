@@ -4,7 +4,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RollupTypes } from '../shared.js';
-import { SpongeBlob } from '../sponge_blob.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
@@ -33,18 +32,16 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public end: PartialStateReference,
     /**
-     * Sponge state to absorb blob inputs at the start of the rollup circuit.
+     * SHA256 hash of transactions effects. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public startSpongeBlob: SpongeBlob,
-    /**
-     * Sponge state to absorb blob inputs at the end of the rollup circuit.
-     */
-    public endSpongeBlob: SpongeBlob,
+    public txsEffectsHash: Fr,
     /**
      * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,
+
     /**
      * The summed `transaction_fee` of the constituent transactions.
      */
@@ -59,8 +56,7 @@ export class BaseOrMergeRollupPublicInputs {
       ConstantRollupData.empty(),
       PartialStateReference.empty(),
       PartialStateReference.empty(),
-      SpongeBlob.empty(),
-      SpongeBlob.empty(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
     );
@@ -80,8 +76,8 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(ConstantRollupData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
-      reader.readObject(SpongeBlob),
-      reader.readObject(SpongeBlob),
+      //TODO check
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
@@ -100,9 +96,7 @@ export class BaseOrMergeRollupPublicInputs {
       this.start,
       this.end,
 
-      this.startSpongeBlob,
-      this.endSpongeBlob,
-
+      this.txsEffectsHash,
       this.outHash,
 
       this.accumulatedFees,
