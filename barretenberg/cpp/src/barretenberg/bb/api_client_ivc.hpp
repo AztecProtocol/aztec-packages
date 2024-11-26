@@ -82,20 +82,13 @@ std::vector<uint8_t> decompress(uint8_t* bytes, size_t size)
 }
 
 class ClientIVCAPI : public API {
-    static ClientIVC _accumulate(const std::string& decode_msgpack,
-                                 const std::filesystem::path& bytecode_path,
-                                 const std::filesystem::path& witness_path)
+    static std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& decode_msgpack,
+                                                                      const std::filesystem::path& bytecode_path,
+                                                                      const std::filesystem::path& witness_path)
     {
-        using Builder = MegaCircuitBuilder;
-        using Program = acir_format::AcirProgram;
-
         using namespace acir_format;
 
-        // WORKTODO: dynamic setting of these
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
-
-        std::vector<Program> folding_stack;
+        std::vector<AcirProgram> folding_stack;
 
         if (decode_msgpack == "--decode-msgpack") {
             std::vector<std::string> gzipped_bincodes;
@@ -113,15 +106,29 @@ class ClientIVCAPI : public API {
                 AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
                 WitnessVector witness = witness_buf_to_witness_data(witness_buf);
 
-                folding_stack.push_back(Program{ constraints, witness });
+                folding_stack.push_back(AcirProgram{ constraints, witness });
             }
         } else if (decode_msgpack == "--do-not-decode-msgpack") {
             AcirFormat constraints = get_constraint_system(bytecode_path, /*honk_recursion=*/false);
             WitnessVector witness = get_witness(witness_path);
-            folding_stack.push_back(Program{ constraints, witness });
+            folding_stack.push_back(AcirProgram{ constraints, witness });
         } else {
             throw_or_abort("invalid msgpack decoding flag");
         }
+
+        return folding_stack;
+    };
+
+    static ClientIVC _accumulate(std::vector<acir_format::AcirProgram>& folding_stack)
+    {
+        using Builder = MegaCircuitBuilder;
+        using Program = acir_format::AcirProgram;
+
+        using namespace acir_format;
+
+        // WORKTODO: dynamic setting of these
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
 
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
@@ -154,30 +161,31 @@ class ClientIVCAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        using ECCVMVK = ECCVMFlavor::VerificationKey;
-        using TranslatorVK = TranslatorFlavor::VerificationKey;
-        using DeciderVK = ClientIVC::DeciderVerificationKey;
-
+        // WORKTODO: move and systematize validation logic
         if (output_type_flag != "--msgpack") {
             throw_or_abort("Output type " + output_type_flag + " not supported");
         }
 
-        ClientIVC ivc = _accumulate(decode_msgpack, bytecode_path, witness_path);
+        std::vector<acir_format::AcirProgram> folding_stack =
+            _build_folding_stack(decode_msgpack, bytecode_path, witness_path);
+        ClientIVC ivc = _accumulate(folding_stack);
         ClientIVC::Proof proof = ivc.prove();
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
         // this directory is passed by bb.js)
-        const std::string proof_path = output_dir / "client_ivc_proof";
-        const std::string hidinc_circuig_vk_path = output_dir / "mega_vk"; // the vk of the last circuit in the stack
-        const std::string translator_vk_path = output_dir / "translator_vk";
-        const std::string eccvm_vk_path = output_dir / "ecc_vk";
-        auto hiding_circuit_vk = std::make_shared<DeciderVK>(ivc.honk_vk);
-        auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
-        auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
+        const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
+        const std::filesystem::path mega_vk_path = output_dir / "mega_vk"; // the vk of the last circuit in the stack
+        const std::filesystem::path translator_vk_path = output_dir / "translator_vk";
+        const std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
+
+        auto mega_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.honk_vk);
+        auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+        auto translator_vk =
+            std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
 
         vinfo("writing ClientIVC proof and vk...");
         write_file(proof_path, to_buffer(proof));
-        write_file(hidinc_circuig_vk_path, to_buffer(hiding_circuit_vk));
+        write_file(mega_vk_path, to_buffer(mega_vk));
         write_file(translator_vk_path, to_buffer(translator_vk));
         write_file(eccvm_vk_path, to_buffer(eccvm_vk));
     };
@@ -203,14 +211,17 @@ class ClientIVCAPI : public API {
         init_grumpkin_crs(1 << 15);
 
         const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
+
         const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(mega_vk);
         final_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
         const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
         eccvm_vk->pcs_verification_key =
             std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
+
         const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
         translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+
         const bool verified = ClientIVC::verify(proof, final_vk, eccvm_vk, translator_vk);
         vinfo("verified: ", verified);
         return verified;
@@ -220,7 +231,9 @@ class ClientIVCAPI : public API {
                           const std::filesystem::path& bytecode_path,
                           const std::filesystem::path& witness_path) override
     {
-        ClientIVC ivc = _accumulate(decode_msgpack, bytecode_path, witness_path);
+        std::vector<acir_format::AcirProgram> folding_stack =
+            _build_folding_stack(decode_msgpack, bytecode_path, witness_path);
+        ClientIVC ivc = _accumulate(folding_stack);
         const bool verified = ivc.prove_and_verify();
         return verified;
     };
