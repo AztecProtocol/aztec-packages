@@ -275,7 +275,13 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
     auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, POLY_LENGTH, this->vk());
     auto stdlib_verifier_transcript =
         std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
-    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, output_claim, stdlib_verifier_transcript);
+    OpeningClaim<Curve> ipa_claim;
+    ipa_claim.opening_pair.challenge =
+        Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.challenge.get_value());
+    ipa_claim.opening_pair.evaluation =
+        Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.evaluation.get_value());
+    ipa_claim.commitment = Curve::AffineElement::from_witness(&root_rollup, output_claim.commitment.get_value());
+    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, ipa_claim, stdlib_verifier_transcript);
     root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
     EXPECT_TRUE(result);
     info("Full IPA Recursive Verifier num finalized gates for length ",
