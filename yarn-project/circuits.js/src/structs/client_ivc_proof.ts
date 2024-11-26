@@ -71,19 +71,15 @@ export class ClientIvcProof {
 
   static fromBuffer(buffer: Buffer | BufferReader): ClientIvcProof {
     const reader = BufferReader.asReader(buffer);
-    return new ClientIvcProof(reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer());
+    return new ClientIvcProof(reader.readBuffer(), reader.readBuffer());
   }
 
   public toBuffer() {
     return serializeToBuffer(
-      this.megaVkBuffer.length,
-      this.megaVkBuffer,
       this.clientIvcProofBuffer.length,
       this.clientIvcProofBuffer,
-      this.translatorVkBuffer.length,
-      this.translatorVkBuffer,
-      this.eccVkBuffer.length,
-      this.eccVkBuffer,
+      this.clientIvcVkBuffer.length,
+      this.clientIvcVkBuffer,
     );
   }
 }

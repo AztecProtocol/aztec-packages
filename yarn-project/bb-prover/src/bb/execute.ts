@@ -448,7 +448,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!filePresent(vkPath) || !filePresent(proofPath) || !filePresent(translatorVkPath) || !filePresent(eccVkPath)) {
+    if (!filePresent(vkPath) || !filePresent(proofPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
