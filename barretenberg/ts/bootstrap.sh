@@ -21,7 +21,9 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-yarn install --immutable
+yarn install
+
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::bb.js build"
 echo "Building with command 'yarn $BUILD_CMD'..."
 yarn $BUILD_CMD
 echo "Barretenberg ts build successful"
@@ -29,7 +31,10 @@ echo "Barretenberg ts build successful"
 export PATH=$PWD/../../build-system/s3-cache-scripts:$PATH
 export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
 cache-upload.sh bb.js-$(compute-content-hash.sh).tar.gz dest
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 
 if [ "${CI:-0}" -eq 1 ]; then
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::bb.js test"
   yarn test
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 fi

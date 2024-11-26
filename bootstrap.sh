@@ -148,7 +148,9 @@ HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::Pull Submodules"
 git submodule update --init --recursive
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 
 check_toolchains
 

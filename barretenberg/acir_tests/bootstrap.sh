@@ -1,13 +1,17 @@
 #!/bin/bash
 set -eu
 
+# Update yarn so it can be committed.
+(cd browser-test-app && yarn)
+(cd headless-test && yarn)
+
 # We only run tests in CI.
 if [ "${CI:-0}" -eq 0 ]; then
   exit 0
 fi
 
-(cd browser-test-app && yarn --immutable && yarn build)
-(cd headless-test && yarn --immutable)
+# Keep build as part of CI only.
+(cd browser-test-app && yarn build)
 
 # Download ignition up front to ensure no race conditions at runtime.
 # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.

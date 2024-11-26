@@ -3,19 +3,32 @@ name: CI3
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
+
+concurrency:
+  # force parallelism in master
+  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: runner-01
-    container:
-      image: aztecprotocol/build:1.0
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Run bootstrap script
+        with:
+          # Ensure it is not an artificial merge commit
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup
         run: |
-          git config --global --add safe.directory /__w/aztec-packages/aztec-packages
-          CI=1 ./bootstrap.sh full
+          # Ensure we can SSH into the spot instances we request
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+      - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          ./bootstrap_ci.sh

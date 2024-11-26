@@ -22,6 +22,7 @@ if [ -n "${USE_CACHE:-}" ]; then
     ./bootstrap_cache.sh && ./noir-repo/target/release/nargo --version >/dev/null 2>&1 && exit 0
 fi
 
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::noir build"
 # Continue with native bootstrapping if the cache was not used or nargo verification failed.
 ./scripts/bootstrap_native.sh
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns_native
@@ -30,10 +31,12 @@ cache-upload.sh noir-nargo-$(compute-content-hash.sh).tar.gz noir-repo/target/re
 ./scripts/bootstrap_packages.sh
 export AZTEC_CACHE_REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
 cache-upload.sh noir-packages-$(compute-content-hash.sh).tar.gz packages
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 
 if [ "${CI:-0}" -eq 1 ]; then
   export PATH="$PWD/noir-repo/target/release/:$PATH"
-
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::noir test"
   ./scripts/test_native.sh
   ./scripts/test_js_packages.sh
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
 fi
