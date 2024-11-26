@@ -21,8 +21,8 @@ cd $(dirname $0)
 current_commit=$(git rev-parse HEAD)
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-if [ $(git fetch origin --negotiate-only --negotiation-tip=$current_commit) != $current_commit ] ; then
-  echo "Commit $current_commit is not pushed. The build instance needs this; exiting."
+if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]] ; then
+  echo "Commit $current_commit is not pushed, exiting."
   exit 1
 fi
 
@@ -53,7 +53,7 @@ ssh -F build-system/remote/ssh_config ubuntu@$ip "
       touch started
       mkdir -p /root/aztec-packages
       cd /root/aztec-packages
-      git init
+      git init &>/dev/null
       git remote add origin http://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null

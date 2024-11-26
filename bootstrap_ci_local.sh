@@ -30,7 +30,7 @@ docker run --name aztec_build -ti --rm \
   git config --global --add safe.directory /aztec-packages-host/.git
   mkdir -p /root/aztec-packages && cd /root/aztec-packages
   # Ensure we get a clean clone of the repo.
-  git init
+  git init &>/dev/null
   git remote add origin http://github.com/aztecprotocol/aztec-packages
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD &>/dev/null
