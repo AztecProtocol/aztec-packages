@@ -142,8 +142,8 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
         const RelationSeparator alpha,
-        ZKSumcheckData<Flavor> zk_sumcheck_data,
-        RowDisablingPolynomial<FF> row_disabling_poly) // only populated when Flavor HasZK
+        ZKSumcheckData<Flavor> zk_sumcheck_data, // only populated when Flavor HasZK
+        RowDisablingPolynomial<FF> row_disabling_poly)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -205,6 +205,12 @@ template <typename Flavor> class SumcheckProverRound {
         }
     }
 
+    /*!
+     * @brief For ZK Flavors: A method disabling the last 4 rows of the ProverPolynomials
+     *
+     * @details See description of RowDisablingPolynomial
+     *
+     */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_disabled_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
@@ -212,14 +218,12 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
         const RelationSeparator alpha,
         const size_t round_idx,
-        const RowDisablingPolynomial<FF> row_disabling_poly) // only populated when Flavor HasZK
+        const RowDisablingPolynomial<FF> row_disabling_polynomial)
     {
-        PROFILE_THIS_NAME("compute_univariate");
-        SumcheckRoundUnivariate result;
-
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
-        // Construct extended edge containers
         ExtendedEdges extended_edges;
+
+        // In Round 0, we have to compute the contribution from 2 edges: n - 1 = (1,1,...,1) and n-4 = (0,1,...,1).
         size_t edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
 
         extend_edges(extended_edges, polynomials, edge_idx);
@@ -228,7 +232,8 @@ template <typename Flavor> class SumcheckProverRound {
                                         relation_parameters,
                                         gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
 
-        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+        SumcheckRoundUnivariate result =
+            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
 
         if (round_idx == 0) {
             edge_idx += 2;
@@ -240,10 +245,15 @@ template <typename Flavor> class SumcheckProverRound {
 
             result += batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
         }
+
+        // In later Rounds, the contribution from the main relation is multiplied by the exntension of the linear
+        // polynomial (0, u_2*...*u_{d-1}) (in Lagrange basis)
         if (round_idx > 1) {
-            auto row_disabler = bb::Univariate<FF, 2>({ row_disabling_poly.eval_at_0, row_disabling_poly.eval_at_1 });
-            auto row_disabler_extended = row_disabler.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-            result *= row_disabler_extended;
+            auto row_disabling_factor =
+                bb::Univariate<FF, 2>({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
+            auto row_disabling_factor_extended =
+                row_disabling_factor.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+            result *= row_disabling_factor_extended;
         }
 
         return result;
@@ -255,12 +265,12 @@ template <typename Flavor> class SumcheckProverRound {
      * \f$\alpha\f$, extend to the correct degree, and take the sum multiplying by \f$pow_{\beta}\f$-contributions.
      *
      * @details This method receives as input the univariate accumulators computed by \ref
-     * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube
-     * and applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
-     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale
-     * univariates", extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using
-     * \ref extend_and_batch_univariates "extend and batch univariates method" to return a vector
-     * \f$(\tilde{S}^i(0), \ldots, \tilde{S}^i(D))\f$.
+     * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube and
+     * applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
+     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale univariates",
+     * extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
+     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0), \ldots,
+     * \tilde{S}^i(D))\f$.
      *
      * @param challenge Challenge \f$\alpha\f$.
      * @param gate_sparators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.

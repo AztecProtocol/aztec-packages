@@ -197,21 +197,27 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0 };
         std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
         // Setting all of these to 0 ensures the GrandProductRelation is satisfied
+
+        // For ZK Flavors: add some randomness to ProverPolynomials
         if constexpr (Flavor::HasZK) {
             w_l[7] = FF::random_element();
             w_r[6] = FF::random_element();
-            std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, w_l[7], 0 };
-            full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
-
             w_4[6] = FF::random_element();
+            auto z_1 = FF::random_element();
+            auto z_2 = FF::random_element();
             auto r = FF::random_element();
+
+            std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, z_1, z_2 };
             std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, 0, r * r, r };
+
+            full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
             full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-            std::array<FF, multivariate_n> ecc_op_wire = { 0, 0, 0, 0, 0, 0, r * r * r, w_4[6] };
+
             if constexpr (std::is_same<Flavor, MegaZKFlavor>::value) {
-                full_polynomials.ecc_op_wire_1 = bb::Polynomial<FF>(ecc_op_wire);
+                std::array<FF, multivariate_n> ecc_op_wire = { 0, 0, 0, 0, 0, 0, r * r * r, w_4[6] };
                 std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, FF(7) * r * r, -r };
 
+                full_polynomials.ecc_op_wire_1 = bb::Polynomial<FF>(ecc_op_wire);
                 full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
             }
         }
@@ -275,7 +281,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_failure_prover_verifier_flow()
     {
-        const size_t multivariate_d(2);
+        // Since the last 4 rows in ZK Flavors are disabled, we extend an invalid circuit of size 4 to size 8 by padding
+        // with 0.
+        const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
         // Construct prover polynomials where each is the zero polynomial.
@@ -357,9 +365,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
         auto verified = verifier_output.verified.value();
-        // In this test, the circuit is of size 4. We disable the rows 1, 2, and 3, while the first is set to 0.
-        // Therefore, changing the second entry in w_l does not affect the result for ZK fa.
-        EXPECT_EQ(verified, Flavor::HasZK);
+
+        EXPECT_EQ(verified, false);
     };
 };
 

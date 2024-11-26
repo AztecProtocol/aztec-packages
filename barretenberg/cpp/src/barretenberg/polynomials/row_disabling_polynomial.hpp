@@ -8,6 +8,7 @@
 #include <vector>
 namespace bb {
 /**
+ * @struct RowDisablingPolynomial
  * @brief Polynomial for Sumcheck with disabled Rows
  *
  * \f$ n = 2^d \f$ circuit size
@@ -132,18 +133,16 @@ namespace bb {
  */
 
 template <typename FF> struct RowDisablingPolynomial {
-    // by default it is a constant multilinear polynomial = 1
+    // initialized as a constant linear polynomial = 1
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
-    FF one = FF{ 1 };
-    FF zero = FF{ 0 };
 
     RowDisablingPolynomial() = default;
 
     void update_evaluations(FF round_challenge, size_t round_idx)
     {
         if (round_idx == 1) {
-            eval_at_0 = zero;
+            eval_at_0 = FF{ 0 };
         }
         if (round_idx >= 2) {
             eval_at_1 *= round_challenge;
@@ -158,7 +157,7 @@ template <typename FF> struct RowDisablingPolynomial {
             evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
         }
 
-        return FF(1) - evaluation_at_multivariate_challenge;
+        return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
 };
 
