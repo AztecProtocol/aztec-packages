@@ -45,7 +45,7 @@ Public state works similarly to other chains like Ethereum, behaving like a publ
 ![Public vs private state](../../static/img/public-and-private-state-diagram.png)
 
 Aztec [smart contract](./smart_contracts_overview.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
- 
+
 ## Accounts and keys
 
 ### Account abstraction
@@ -102,7 +102,7 @@ Explore the Concepts for a deeper understanding into the components that make up
 
   <Card shadow='tl' link='/aztec/concepts/circuits'>
     <CardHeader>
-      <h3>Circuits</h3>
+      <h3>Protocol Circuits</h3>
     </CardHeader>
     <CardBody>
       Central to Aztec's operations are circuits in the core protocol and the developer-written Aztec.nr contracts
@@ -146,4 +146,3 @@ Explore the Concepts for a deeper understanding into the components that make up
   </Card>
 
 </div>
-
