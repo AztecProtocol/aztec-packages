@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732647630239,
+  "lastUpdate": 1732653342978,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23c122d36091b3b756084584ecba59b800196d58",
-          "message": "fix: tree heights that last past 3 days (#9760)\n\nThe L1-L2 message tree height was a bottleneck running \r\n```\r\npost-mortem of 1-validator network (bot set to 0.05 TPS, 1 private / 2 public transfers per tx)\r\nLasted long, got to block 4091, last tried to propose block 4097\r\nHit issues and did not reorg past them\r\nRoot issue (guess):\r\n2024-11-05 08:32:53.148\tError assembling block: 'Error: Failed to append leaves: Tree is full'\r\n```\r\nAlso updated tree heights with constants proposed by @iAmMichaelConnor\r\nhere (https://github.com/AztecProtocol/aztec-packages/issues/9451)\r\n(thanks for the thoughtful analysis I could lazily steal!\r\nAutomated test is a bit awkward here or I'd write one. It'd either\r\ntrivially pass or have to go through 3-days worth of transactions.",
-          "timestamp": "2024-11-08T18:07:54-05:00",
-          "tree_id": "717c13b8c0bf4ff4d68f3ea9a779308514765576",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/23c122d36091b3b756084584ecba59b800196d58"
-        },
-        "date": 1731109316584,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29099.553415000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27115.808192000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5365.781077999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5025.194563999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84549.91017500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84549912000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15084.447399000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15084448000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3111354952,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3111354952 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143330783,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143330783 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 141708192,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141708192 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da265b6b7d61a0d991fa23bd044f711513a0e86c",
+          "message": "feat: Speed up transaction execution (#10172)\n\nThis PR make a number of optimisation related to the speed up of\r\ntransaction execution. Namely:\r\n\r\n1. We don't re-initialise the instruction set mapping with each\r\ninstruction decode.\r\n2. We now compute public bytecode commitments at the point of receiving\r\na contract and persist them, meaning they don't need to be computed at\r\nthe point of execution.\r\n3. We only store and iterate opcode and program counter tally\r\ninformation when in debug.\r\n4. Function names are also cached at the point contract artifacts are\r\nshared with the node.\r\n5. World state status summary and previous block archive roots are\r\ncached to reduce the impact on the world state DB whilst execution is\r\ntaking place.",
+          "timestamp": "2024-11-26T20:01:54Z",
+          "tree_id": "a366fb8e89dec841f0a838e327e8b9c49f3f9dd6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da265b6b7d61a0d991fa23bd044f711513a0e86c"
+        },
+        "date": 1732653336019,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28053.537981999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26512.373425 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5051.639926999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4669.6807739999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83771.467434,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83771467000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15206.716956999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15206717000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3085343907,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3085343907 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141354712,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141354712 ns\nthreads: 1"
           }
         ]
       }
