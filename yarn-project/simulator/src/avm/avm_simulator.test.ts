@@ -191,7 +191,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.reverted).toBe(false);
   });
 
-  it('execution of a non-existent contract immediately reverts', async () => {
+  it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
     const context = initContext();
     const results = await new AvmSimulator(context).execute();
 
