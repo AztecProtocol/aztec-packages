@@ -2,7 +2,8 @@
 set -eu
 
 cd "$(dirname "$0")"
+ci3="$(git rev-parse --show-toplevel)/ci3"
 
 echo -e "\033[1mRetrieving avm-transpiler from remote cache...\033[0m"
-HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native .rebuild_patterns" ../build-system/s3-cache-scripts/compute-content-hash.sh)
-../build-system/s3-cache-scripts/cache-download.sh avm-transpiler-$HASH.tar.gz
+HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native .rebuild_patterns" $ci3/cache/content_hash)
+$ci3/cache/download avm-transpiler-$HASH.tar.gz
