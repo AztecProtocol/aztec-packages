@@ -39,9 +39,9 @@ mod tests {
     use crate::test::mocks::mock_struct::MockStruct;
     use std::test::OracleMock;
 
-    global address = AztecAddress::from_field(29);
-    global slot = 7;
-    global block_number = 17;
+    global address: AztecAddress = AztecAddress::from_field(29);
+    global slot: Field = 7;
+    global block_number: u32 = 17;
 
     #[test]
     unconstrained fn test_raw_storage_read() {
