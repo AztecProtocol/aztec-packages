@@ -323,9 +323,9 @@ devbox:
   CMD ["/bin/zsh"]
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/devbox:1.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/devbox:1.1-$TARGETARCH
   # Save it without the arch tag as this is what's referenced in devcontainer.json
-  SAVE IMAGE aztecprotocol/devbox:1.0
+  SAVE IMAGE aztecprotocol/devbox:1.1
 
 devbox-manifest:
   LET VERSION = 1.1
