@@ -11,10 +11,7 @@ import { Fq, Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { type ZodFor } from './types.js';
-import { hexSchema } from './utils.js';
-
-// Copied from zod internals, which was copied from https://stackoverflow.com/questions/7860392/determine-if-string-is-in-base64-using-javascript
-const base64Regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
+import { bufferSchema, hexSchema } from './utils.js';
 
 /** Validation schemas for common types. Every schema must match its toJSON. */
 export const schemas = {
@@ -62,12 +59,7 @@ export const schemas = {
 
   /** Accepts a base64 string or an object `{ type: 'Buffer', data: [byte, byte...] }` as a buffer. */
   Buffer: z.union([
-    z
-      .string()
-      // We only test the str for base64 if it's shorter than 1024 bytes, otherwise we've run into maximum
-      // stack size exceeded errors when trying to validate excessively long strings (such as contract bytecode).
-      .refine(str => str.length > 1024 || base64Regex.test(str), 'Not a valid base64 string')
-      .transform(data => Buffer.from(data, 'base64')),
+    bufferSchema,
     z
       .object({
         type: z.literal('Buffer'),
