@@ -65,7 +65,7 @@ class ClientIVC {
      * @details This proof will be zero-knowledge.
      */
     struct Proof {
-        HonkProof mega_proof;
+        HonkProof mega_proof; // formerly a decider proof, now a full honk proof
         GoblinProof goblin_proof;
 
         size_t size() const { return mega_proof.size() + goblin_proof.size(); }
@@ -99,6 +99,7 @@ class ClientIVC {
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
+    HonkProof tmp_mega_proof;
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
@@ -125,6 +126,8 @@ class ClientIVC {
     GoblinProver goblin;
 
     bool initialized = false; // Is the IVC accumulator initialized
+
+    uint32_t ivc_step{ 0 };
 
     ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
         : trace_settings(trace_settings)

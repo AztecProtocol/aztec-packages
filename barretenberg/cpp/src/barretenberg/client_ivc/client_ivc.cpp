@@ -189,14 +189,15 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
+        vinfo("set honk vk metadata");
     }
-    vinfo("set honk vk metadata");
 
-    // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
-        OinkProver<Flavor> oink_prover{ proving_key };
+        // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
+        // proof
+        MegaProver oink_prover{ proving_key };
         vinfo("computing oink proof...");
-        oink_prover.prove();
+        tmp_mega_proof = oink_prover.prove();
         vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
@@ -218,6 +219,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
     }
+    ivc_step++;
 }
 
 /**
@@ -244,7 +246,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
-    vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION", num_public_inputs);
+    vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION ", num_public_inputs);
     num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     vinfo("num_public_inputs of the last folding proof ", num_public_inputs);
@@ -295,7 +297,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    HonkProof mega_proof = construct_and_prove_hiding_circuit();
+    const HonkProof mega_proof = ivc_step == 1 ? tmp_mega_proof : construct_and_prove_hiding_circuit();
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     MergeProof& merge_proof = merge_verification_queue[0];
     return { mega_proof, goblin.prove(merge_proof) };
@@ -341,8 +343,8 @@ HonkProof ClientIVC::decider_prove() const
     vinfo("prove decider...");
     fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
-    return decider_prover.construct_proof();
     vinfo("finished decider proving.");
+    return decider_prover.construct_proof();
 }
 
 /**
