@@ -90,12 +90,17 @@ struct Context {
 
     /// Contains sets of values which are constrained to be equivalent to each other.
     ///
-    /// The mapping's structure is `side_effects_enabled_var => (constrained_value => simplified_value)`.
+    /// The mapping's structure is `side_effects_enabled_var => (constrained_value => [(block, simplified_value)])`.
     ///
     /// We partition the maps of constrained values according to the side-effects flag at the point
     /// at which the values are constrained. This prevents constraints which are only sometimes enforced
     /// being used to modify the rest of the program.
-    constraint_simplification_mappings: HashMap<ValueId, HashMap<ValueId, ValueId>>,
+    ///
+    /// We also keep track of how a value was simplified to other values per block. That is,
+    /// a same ValueId could have been simplified to one value in one block and to another value
+    /// in another block.
+    constraint_simplification_mappings:
+        HashMap<ValueId, HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
 
     // Cache of instructions without any side-effects along with their outputs.
     cached_instruction_results: InstructionResultCache,
@@ -154,8 +159,15 @@ impl Context {
         id: InstructionId,
         side_effects_enabled_var: &mut ValueId,
     ) {
-        let constraint_simplification_mapping = self.get_constraint_map(*side_effects_enabled_var);
-        let instruction = Self::resolve_instruction(id, dfg, constraint_simplification_mapping);
+        let constraint_simplification_mapping =
+            self.constraint_simplification_mappings.get(side_effects_enabled_var);
+        let instruction = Self::resolve_instruction(
+            id,
+            block,
+            dfg,
+            &mut self.dom,
+            constraint_simplification_mapping,
+        );
         let old_results = dfg.instruction_results(id).to_vec();
 
         // If a copy of this instruction exists earlier in the block, then reuse the previous results.
@@ -189,8 +201,10 @@ impl Context {
     /// Fetches an [`Instruction`] by its [`InstructionId`] and fully resolves its inputs.
     fn resolve_instruction(
         instruction_id: InstructionId,
+        block: BasicBlockId,
         dfg: &DataFlowGraph,
-        constraint_simplification_mapping: &HashMap<ValueId, ValueId>,
+        dom: &mut DominatorTree,
+        constraint_simplification_mapping: Option<&HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
     ) -> Instruction {
         let instruction = dfg[instruction_id].clone();
 
@@ -201,19 +215,30 @@ impl Context {
         // constraints to the cache.
         fn resolve_cache(
             dfg: &DataFlowGraph,
-            cache: &HashMap<ValueId, ValueId>,
+            dom: &mut DominatorTree,
+            cache: Option<&HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
             value_id: ValueId,
+            block: BasicBlockId,
         ) -> ValueId {
             let resolved_id = dfg.resolve(value_id);
-            match cache.get(&resolved_id) {
-                Some(cached_value) => resolve_cache(dfg, cache, *cached_value),
-                None => resolved_id,
+            let Some(cached_values) = cache.and_then(|cache| cache.get(&resolved_id)) else {
+                return resolved_id;
+            };
+
+            for (cached_block, cached_value) in cached_values {
+                // We can only use the simplified value if it was simplified in a block that dominates the current one
+                if dom.dominates(*cached_block, block) {
+                    return resolve_cache(dfg, dom, cache, *cached_value, block);
+                }
             }
+
+            resolved_id
         }
 
         // Resolve any inputs to ensure that we're comparing like-for-like instructions.
-        instruction
-            .map_values(|value_id| resolve_cache(dfg, constraint_simplification_mapping, value_id))
+        instruction.map_values(|value_id| {
+            resolve_cache(dfg, dom, constraint_simplification_mapping, value_id, block)
+        })
     }
 
     /// Pushes a new [`Instruction`] into the [`DataFlowGraph`] which applies any optimizations
@@ -259,26 +284,11 @@ impl Context {
             // to map from the more complex to the simpler value.
             if let Instruction::Constrain(lhs, rhs, _) = instruction {
                 // These `ValueId`s should be fully resolved now.
-                match (&dfg[lhs], &dfg[rhs]) {
-                    // Ignore trivial constraints
-                    (Value::NumericConstant { .. }, Value::NumericConstant { .. }) => (),
-
-                    // Prefer replacing with constants where possible.
-                    (Value::NumericConstant { .. }, _) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(rhs, lhs);
-                    }
-                    (_, Value::NumericConstant { .. }) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(lhs, rhs);
-                    }
-                    // Otherwise prefer block parameters over instruction results.
-                    // This is as block parameters are more likely to be a single witness rather than a full expression.
-                    (Value::Param { .. }, Value::Instruction { .. }) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(rhs, lhs);
-                    }
-                    (Value::Instruction { .. }, Value::Param { .. }) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(lhs, rhs);
-                    }
-                    (_, _) => (),
+                if let Some((complex, simple)) = simplify(dfg, lhs, rhs) {
+                    self.get_constraint_map(side_effects_enabled_var)
+                        .entry(complex)
+                        .or_default()
+                        .push((block, simple));
                 }
             }
         }
@@ -302,7 +312,7 @@ impl Context {
     fn get_constraint_map(
         &mut self,
         side_effects_enabled_var: ValueId,
-    ) -> &mut HashMap<ValueId, ValueId> {
+    ) -> &mut HashMap<ValueId, Vec<(BasicBlockId, ValueId)>> {
         self.constraint_simplification_mappings.entry(side_effects_enabled_var).or_default()
     }
 
@@ -352,6 +362,25 @@ impl ResultCache {
             }
         }
         None
+    }
+}
+
+/// Check if one expression is simpler than the other.
+/// Returns `Some((complex, simple))` if a simplification was found, otherwise `None`.
+/// Expects the `ValueId`s to be fully resolved.
+fn simplify(dfg: &DataFlowGraph, lhs: ValueId, rhs: ValueId) -> Option<(ValueId, ValueId)> {
+    match (&dfg[lhs], &dfg[rhs]) {
+        // Ignore trivial constraints
+        (Value::NumericConstant { .. }, Value::NumericConstant { .. }) => None,
+
+        // Prefer replacing with constants where possible.
+        (Value::NumericConstant { .. }, _) => Some((rhs, lhs)),
+        (_, Value::NumericConstant { .. }) => Some((lhs, rhs)),
+        // Otherwise prefer block parameters over instruction results.
+        // This is as block parameters are more likely to be a single witness rather than a full expression.
+        (Value::Param { .. }, Value::Instruction { .. }) => Some((rhs, lhs)),
+        (Value::Instruction { .. }, Value::Param { .. }) => Some((lhs, rhs)),
+        (_, _) => None,
     }
 }
 
