@@ -115,7 +115,7 @@ function download_docker_compose {
   if [ "$VERSION" != "latest" ]; then
     install_url="http://$INSTALL_HOST/$VERSION/docker-compose.${1}.yml"
   else
-    install_url="http://$INSTALL_HOST/master/docker-compose.${1}.yml"
+    install_url="http://$INSTALL_HOST/docker-compose.${1}.yml"
   fi
   curl -fsSL "$install_url" -o $AZTEC_PATH/docker-compose.${1}.yml
   echo "Installed docker-compose.${1}.yml"
