@@ -5,14 +5,12 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   GasSettings,
-  LogHash,
   MAX_ENQUEUED_CALLS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedDataBuilder,
-  ScopedLogHash,
   SerializableContractInstance,
   computeContractAddressFromInstance,
   computeContractClassId,
@@ -102,13 +100,14 @@ export const mockTx = (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  const contractClassLog = ContractClassTxL2Logs.random(1, 1);
   data.constants.txContext.gasSettings = GasSettings.default();
   data.feePayer = feePayer;
 
   let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
   let publicTeardownFunctionCall = PublicExecutionRequest.empty();
-  if (isForPublic) {
+  if (!isForPublic) {
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
+  } else {
     data.forRollup = undefined;
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
@@ -138,26 +137,13 @@ export const mockTx = (
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
       .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
-  } else {
-    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
-
-    const contractClassUnencryptedLog = contractClassLog.functionLogs[0].logs[0];
-    const hash = new ScopedLogHash(
-      new LogHash(
-        Fr.fromBuffer(contractClassUnencryptedLog.hash()),
-        /* counter */ 0,
-        new Fr(contractClassUnencryptedLog.length + 4), // +4 for encoding the length of the buffer
-      ),
-      contractClassUnencryptedLog.contractAddress,
-    );
-    data.forRollup!.end.contractClassLogsHashes[0] = hash;
   }
 
   const tx = new Tx(
     data,
     ClientIvcProof.empty(),
     UnencryptedTxL2Logs.empty(),
-    contractClassLog,
+    ContractClassTxL2Logs.empty(),
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
   );

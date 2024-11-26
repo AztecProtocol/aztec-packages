@@ -373,7 +373,7 @@ export class SimulatorOracle implements DBOracle {
     do {
       const currentTags = [...new Array(INDEX_OFFSET)].map((_, i) => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
-        return indexedAppTaggingSecret.computeTag(recipient);
+        return indexedAppTaggingSecret.computeSiloedTag(recipient, contractAddress);
       });
       previousEmptyBack = currentEmptyBack;
 

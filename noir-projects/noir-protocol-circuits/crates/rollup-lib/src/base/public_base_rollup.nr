@@ -16,12 +16,9 @@ use crate::{
 use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmProofData,
-        combined_constant_data::CombinedConstantData,
-        log_hash::{LogHash, ScopedLogHash},
-        nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_write::PublicDataWrite,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
+        combined_constant_data::CombinedConstantData, log_hash::ScopedLogHash,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         tube::PublicTubeData,
     },
     constants::{
