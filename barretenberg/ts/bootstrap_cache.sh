@@ -5,9 +5,13 @@ cd "$(dirname "$0")"
 
 PATH=$PWD/../../build-system/s3-cache-scripts:$PATH
 
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::bb.js cache lookup"
+
 echo -e "\033[1mRetrieving bb.js from remote cache...\033[0m"
 export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
 cache-download.sh bb.js-$(compute-content-hash.sh).tar.gz
 
 # We still need to install modules, so they can be found as part of module resolution when portalled.
 GITHUB_ACTIONS="" yarn install
+
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"

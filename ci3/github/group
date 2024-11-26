@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -eu
+
+[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$1"
