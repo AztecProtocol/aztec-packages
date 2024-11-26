@@ -292,7 +292,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   });
 
   describe('error scenarios in deployment', () => {
-    it('app logic call to an undeployed contract reverts, but can be included is not dropped', async () => {
+    it('app logic call to an undeployed contract reverts, but can be included', async () => {
       const whom = wallet.getAddress();
       const outgoingViewer = whom;
       const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, outgoingViewer, 42] });
