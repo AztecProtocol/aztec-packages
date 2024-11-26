@@ -647,7 +647,8 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
     WorldStateStatusFull status;
     for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
         if (!remove_historical_block(blockNumber, status)) {
-            throw std::runtime_error(format("Failed to remove historical block", toBlockNumber));
+            throw std::runtime_error(format(
+                "Failed to remove historical block ", blockNumber, " when removing blocks up to ", toBlockNumber));
         }
     }
     populate_status_summary(status);
