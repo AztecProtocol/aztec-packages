@@ -94,7 +94,7 @@ export abstract class Instruction {
    * Computes gas cost for the instruction based on its base cost and memory operations.
    * @returns Gas cost.
    */
-  public gasCost(dynMultiplier: number = 0): Gas {
+  protected gasCost(dynMultiplier: number = 0): Gas {
     const baseGasCost = getBaseGasCost(this.opcode);
     const dynGasCost = mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
     return sumGas(baseGasCost, dynGasCost);
