@@ -423,7 +423,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     init_grumpkin_crs(1 << 15);
 
     const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(mega_vk);
+    const auto final_vk = read_to_shared_ptr<MegaFlavor::VerificationKey>(mega_vk);
     final_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);

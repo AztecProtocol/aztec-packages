@@ -156,7 +156,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * @param circuit
  * @param precomputed_vk
  */
-void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
+void ClientIVC::accumulate(ClientCircuit& circuit,
+                           const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
+                           bool mock_vk)
 {
     if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
         complete_kernel_circuit_logic(circuit);
@@ -186,7 +188,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
-    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
+    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
     }
@@ -280,7 +282,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     merge_verification_queue.emplace_back(merge_proof);
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
+    honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
     MegaProver prover(decider_pk);
 
     HonkProof proof = prover.construct_proof();
@@ -302,7 +304,7 @@ ClientIVC::Proof ClientIVC::prove()
 };
 
 bool ClientIVC::verify(const Proof& proof,
-                       const std::shared_ptr<VerificationKey>& mega_vk,
+                       const std::shared_ptr<MegaVerificationKey>& mega_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
@@ -379,12 +381,12 @@ bool ClientIVC::prove_and_verify()
  * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
  *
  * @param circuits A copy of the circuits to be accumulated (passing by reference would alter the original circuits)
- * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
+ * @return std::vector<std::shared_ptr<MegaFlavor::VerificationKey>>
  */
-std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
+std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
     std::vector<ClientCircuit> circuits)
 {
-    std::vector<std::shared_ptr<VerificationKey>> vkeys;
+    std::vector<std::shared_ptr<MegaVerificationKey>> vkeys;
 
     for (auto& circuit : circuits) {
         accumulate(circuit);

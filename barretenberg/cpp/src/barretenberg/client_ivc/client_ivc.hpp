@@ -27,7 +27,7 @@ class ClientIVC {
 
   public:
     using Flavor = MegaFlavor;
-    using VerificationKey = Flavor::VerificationKey;
+    using MegaVerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
@@ -73,12 +73,18 @@ class ClientIVC {
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
+    // struct _VerificationKey {
+    //     std::shared_ptr<VerificationKey> honk_verification_key;
+    //     std::shared_ptr<VerificationKey> honk_verification_key;
+    //     std::shared_ptr<VerificationKey> honk_verification_key;
+    // };
+
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::shared_ptr<VerificationKey> honk_verification_key;
+        std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
     using VerificationQueue = std::vector<VerifierInputs>;
@@ -101,7 +107,7 @@ class ClientIVC {
     ProverFoldOutput fold_output; // prover accumulator and fold proof
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
-    std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
+    std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of tuples {proof, verification_key, type} to be recursively verified
     VerificationQueue verification_queue;
@@ -158,7 +164,7 @@ class ClientIVC {
      * @param mock_vk A boolean to say whether the precomputed vk shoudl have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
-                    const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr,
+                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     bool mock_vk = false);
 
     Proof prove();
@@ -166,7 +172,7 @@ class ClientIVC {
     HonkProof construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof,
-                       const std::shared_ptr<VerificationKey>& mega_vk,
+                       const std::shared_ptr<MegaVerificationKey>& mega_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 
@@ -176,7 +182,7 @@ class ClientIVC {
 
     HonkProof decider_prove() const;
 
-    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(
+    std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
 };
 } // namespace bb
