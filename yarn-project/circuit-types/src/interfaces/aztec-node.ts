@@ -4,6 +4,7 @@ import {
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
+  GasFees,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -225,6 +226,12 @@ export interface AztecNode
    * @returns The blocks requested.
    */
   getBlocks(from: number, limit: number): Promise<L2Block[]>;
+
+  /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  getCurrentBaseFees(): Promise<GasFees>;
 
   /**
    * Method to fetch the version of the package.
@@ -491,6 +498,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   isReady: z.function().returns(z.boolean()),
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
+
+  getCurrentBaseFees: z.function().returns(GasFees.schema),
 
   getNodeVersion: z.function().returns(z.string()),
 
