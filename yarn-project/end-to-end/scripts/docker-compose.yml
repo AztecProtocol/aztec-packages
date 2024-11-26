@@ -1,7 +1,7 @@
 version: '3'
 services:
   fork:
-    image: aztecprotocol/build:1.0
+    image: aztecprotocol/build:2.0
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
@@ -15,7 +15,7 @@ services:
       - ../../../:/root/aztec-packages
 
   sandbox:
-    image: aztecprotocol/build:1.0
+    image: aztecprotocol/build:2.0
     volumes:
       - ../../../:/root/aztec-packages
     working_dir: /root/aztec-packages/yarn-project/aztec
@@ -35,7 +35,7 @@ services:
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
 
   end-to-end:
-    image: aztecprotocol/build:1.0
+    image: aztecprotocol/build:2.0
     volumes:
       - ../../../:/root/aztec-packages
     working_dir: /root/aztec-packages/yarn-project/end-to-end

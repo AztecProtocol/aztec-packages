@@ -79,7 +79,7 @@
     "lodash.every": "^4.6.0",
     "memdown": "^6.1.1",
     "process": "^0.11.10",
-    "puppeteer": "^22.2",
+    "puppeteer-core": "^22.2",
     "resolve-typescript-plugin": "^2.0.1",
     "solc": "^0.8.27",
     "stream-browserify": "^3.0.0",
