@@ -14,7 +14,6 @@ import {
   type Fr,
   Gas,
   type GlobalVariables,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
   type PublicCallRequest,
   type RevertCode,
 } from '@aztec/circuits.js';
@@ -255,23 +254,17 @@ export class PublicTxSimulator {
     const selector = executionRequest.callContext.functionSelector;
     const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
-    const availableGas = context.getGasLeftForPhase(phase);
-    // Gas allocated to an enqueued call can be different from the available gas
-    // if there is more gas available than the max allocation per enqueued call.
-    const allocatedGas = new Gas(
-      /*daGas=*/ availableGas.daGas,
-      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
-    );
+    const allocatedGas = context.getGasLeftAtPhase(phase);
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
       executionRequest,
       allocatedGas,
-      context.getTransactionFee(phase),
+      /*transactionFee=*/ context.getTransactionFee(phase),
       fnName,
     );
 
-    const gasUsed = allocatedGas.sub(result.gasLeft);
+    const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
     this.log.verbose(
       `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,

@@ -3,7 +3,7 @@ import {
   Fr,
   type FunctionSelector,
   type GlobalVariables,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -44,8 +44,8 @@ export class AvmSimulator {
 
   constructor(private context: AvmContext) {
     assert(
-      context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
-      `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
+      context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+      `Cannot allocate more than ${MAX_L2_GAS_PER_TX_PUBLIC_PORTION} to the AVM for execution.`,
     );
     this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
   }

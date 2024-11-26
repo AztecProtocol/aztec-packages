@@ -14,6 +14,7 @@ import {
   type GasSettings,
   type GlobalVariables,
   type Header,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
   RevertCode,
@@ -243,13 +244,13 @@ export class PublicTxContext {
   }
 
   /**
-   * How much gas is left for the specified phase?
+   * How much gas is left as of the specified phase?
    */
-  getGasLeftForPhase(phase: TxExecutionPhase): Gas {
+  getGasLeftAtPhase(phase: TxExecutionPhase): Gas {
     if (phase === TxExecutionPhase.TEARDOWN) {
-      return this.gasSettings.teardownGasLimits;
+      return applyMaxToAvailableGas(this.gasSettings.teardownGasLimits);
     } else {
-      return this.gasSettings.gasLimits.sub(this.gasUsed);
+      return applyMaxToAvailableGas(this.gasSettings.gasLimits).sub(this.gasUsed);
     }
   }
 
@@ -413,4 +414,14 @@ class PhaseStateManager {
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }
+}
+
+/**
+ * Apply L2 gas maximum.
+ */
+function applyMaxToAvailableGas(availableGas: Gas) {
+    return new Gas(
+      /*daGas=*/ availableGas.daGas,
+      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+    );
 }

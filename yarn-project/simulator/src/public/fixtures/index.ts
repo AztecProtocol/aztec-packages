@@ -8,7 +8,7 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   type PublicFunction,
@@ -127,7 +127,7 @@ export function createTxForPublicCall(
 ): Tx {
   const callRequest = executionRequest.toCallRequest();
   // use max limits
-  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL);
+  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
