@@ -289,3 +289,40 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
          " = ",
          root_rollup.get_num_finalized_gates());
 }
+
+/**
+ * @brief Test accumulation of IPA claims with different polynomial lengths
+ *
+ */
+TEST_F(IPARecursiveTests, AccumulationWithDifferentSizes)
+{
+    // We create a circuit that does two IPA verifications of different sizes. However, we don't do the full
+    // verifications and instead accumulate the claims into one claim. This accumulation is done in circuit. Create two
+    // accumulators, which contain the commitment and an opening claim.
+    const size_t POLY_LENGTH_1 = 16;
+    const size_t POLY_LENGTH_2 = 32;
+    Builder builder;
+
+    auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH_1);
+    auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH_2);
+
+    // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
+    // polynomial.
+    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+    builder.finalize_circuit(/*ensure_nonzero=*/false);
+    info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
+         builder.get_num_finalized_gates());
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
+                                                 bb::fq(output_claim.opening_pair.evaluation.get_value()) };
+    Commitment native_comm = output_claim.commitment.get_value();
+    const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
+
+    // Natively verify this proof to check it.
+    auto verifier_transcript = std::make_shared<NativeTranscript>(ipa_proof);
+
+    auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result);
+}

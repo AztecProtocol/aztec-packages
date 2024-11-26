@@ -621,7 +621,7 @@ template <typename Curve_> class IPA {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
-
+        info("poly_length = ", poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
@@ -880,8 +880,11 @@ template <typename Curve_> class IPA {
      * @return Polynomial<bb::fq> 
      */
     static Polynomial<bb::fq> create_challenge_poly(const size_t log_poly_length_1, const std::vector<bb::fq>& u_challenges_inv_1, const size_t log_poly_length_2, const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
-        Polynomial challenge_poly = construct_poly_from_u_challenges_inv(log_poly_length_1, u_challenges_inv_1);
+        // Always extend each to 1<<CONST_ECCVM_LOG_N length
+        Polynomial<bb::fq> challenge_poly(1<<CONST_ECCVM_LOG_N);
+        Polynomial challenge_poly_1 = construct_poly_from_u_challenges_inv(log_poly_length_1, u_challenges_inv_1);
         Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(log_poly_length_2, u_challenges_inv_2);
+        challenge_poly += challenge_poly_1;
         challenge_poly.add_scaled(challenge_poly_2, alpha);
         return challenge_poly;
     }
