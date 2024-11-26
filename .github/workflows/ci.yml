@@ -743,6 +743,10 @@ jobs:
           tester_ttl: ${{ matrix.config.timeout }}
           run: |
             cd yarn-project/end-to-end
+            # with stern and 16+ validators, we need a lot of open files:
+            sudo ulimit -n 1000000
+            sudo sysctl -w kern.maxfiles=200000
+            sudo sysctl -w kern.maxfilesperproc=100000
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.config.test }}
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
