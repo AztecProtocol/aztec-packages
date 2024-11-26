@@ -6,7 +6,6 @@ import {
   type PublicFunction,
   PublicKeys,
   SerializableContractInstance,
-  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeVarArgsHash } from '@aztec/circuits.js/hash';
