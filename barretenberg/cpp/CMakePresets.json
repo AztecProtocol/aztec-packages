@@ -396,7 +396,8 @@
         "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
-        "MULTITHREADING": "OFF"
+        "MULTITHREADING": "OFF",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {

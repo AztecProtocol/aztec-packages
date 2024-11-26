@@ -68,10 +68,8 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size)
-    {
-        PROFILE_THIS();
-    }
+        : Polynomial(size, size){};
+
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
@@ -286,6 +284,14 @@ template <typename Fr> class Polynomial {
             thread_heuristics::ALWAYS_MULTITHREAD);
         return p;
     }
+
+    /**
+     * @brief A factory to construct a polynomial where parallel initialization is
+     *        not possible (e.g. AVM code).
+     *
+     * @return a polynomial initialized with zero on the range defined by size
+     */
+    static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
 
     /**
      * @brief Expands the polynomial with new start_index and end_index

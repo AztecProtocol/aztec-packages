@@ -1,0 +1,23 @@
+# Imposes the network conditions that are stated as requirements for node operators
+global:
+  namespace: "smoke"
+
+networkShaping:
+  enabled: true
+  conditions:
+    latency:
+      enabled: true
+      delay:
+        # Regional network latency (e.g., cross-country)
+        latency: 100ms
+        jitter: 20ms
+        correlation: "75"
+    bandwidth:
+      enabled: true
+      rate: 250mbps
+      limit: 125000000
+      buffer: 25000
+    packetLoss:
+      enabled: true
+      loss: "0.5"
+      correlation: "60"

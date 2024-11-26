@@ -3,7 +3,7 @@ import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -27,7 +27,7 @@ export class InMemoryTxPool implements TxPool {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
-    this.metrics = new PoolInstrumentation(telemetry, 'InMemoryTxPool');
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
   }
 
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {

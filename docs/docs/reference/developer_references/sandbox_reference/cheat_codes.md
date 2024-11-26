@@ -1,6 +1,7 @@
 ---
 title: Cheat Codes
 tags: [sandbox]
+sidebar_position: 1
 ---
 
 import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";

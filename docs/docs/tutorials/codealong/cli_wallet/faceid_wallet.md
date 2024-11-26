@@ -5,7 +5,7 @@ keywords: [wallet, cli wallet, faceid]
 importance: 3
 ---
 
-In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](../../../reference/developer_references/sandbox_reference/cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
+In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](../../../reference/developer_references/cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
 
 :::warning
 
@@ -92,7 +92,7 @@ aztec-wallet deploy --from accounts:my-wallet token_contract@Token --args accoun
 You should get prompted to sign with TouchID or password. Once authorized, you should see `Contract stored in database with aliases last & devtoken`
 ```
 
-Check [the reference](../../../reference/developer_references/sandbox_reference/cli_wallet_reference.md) for the whole set of commands, but these mean:
+Check [the reference](../../../reference/developer_references/cli_wallet_reference.md) for the whole set of commands, but these mean:
 
 - --from is the sender: our account `my-wallet`. We use the alias because it's easier than writing the key stored in our Secure Enclave. The wallet resolves the alias and knows where to grab it.
 - token_contract@Token is a shorthand to look in the `target` folder for our contract `token_contract-Token`
@@ -111,7 +111,7 @@ aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:n
 
 ### What next
 
-In this tutorial, we created an account with the Aztec's [CLI Wallet](../../../reference/developer_references/sandbox_reference/cli_wallet_reference.md), using the Apple Mac's Secure Enclave to store the private key.
+In this tutorial, we created an account with the Aztec's [CLI Wallet](../../../reference/developer_references/cli_wallet_reference.md), using the Apple Mac's Secure Enclave to store the private key.
 
 You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the account contract.
 

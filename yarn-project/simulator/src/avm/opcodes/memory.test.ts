@@ -19,11 +19,11 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.SET_8, // opcode
         0x01, // indirect
+        ...Buffer.from('56', 'hex'), // dstOffset
         TypeTag.UINT8, // inTag
         ...Buffer.from('12', 'hex'),
-        ...Buffer.from('56', 'hex'), // dstOffset
       ]);
-      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT8, /*value=*/ 0x12, /*dstOffset=*/ 0x56).as(
+      const inst = new Set(/*indirect=*/ 0x01, /*dstOffset=*/ 0x56, /*inTag=*/ TypeTag.UINT8, /*value=*/ 0x12).as(
         Opcode.SET_8,
         Set.wireFormat8,
       );
@@ -36,11 +36,11 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.SET_16, // opcode
         0x01, // indirect
+        ...Buffer.from('3456', 'hex'), // dstOffset
         TypeTag.UINT16, // inTag
         ...Buffer.from('1234', 'hex'),
-        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x1234, /*dstOffset=*/ 0x3456).as(
+      const inst = new Set(/*indirect=*/ 0x01, /*dstOffset=*/ 0x3456, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x1234).as(
         Opcode.SET_16,
         Set.wireFormat16,
       );
@@ -53,15 +53,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.SET_32, // opcode
         0x01, // indirect
+        ...Buffer.from('3456', 'hex'), // dstOffset
         TypeTag.UINT32, // inTag
         ...Buffer.from('12345678', 'hex'),
-        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
+        /*dstOffset=*/ 0x3456,
         /*inTag=*/ TypeTag.UINT32,
         /*value=*/ 0x12345678,
-        /*dstOffset=*/ 0x3456,
       ).as(Opcode.SET_32, Set.wireFormat32);
 
       expect(Set.as(Set.wireFormat32).deserialize(buf)).toEqual(inst);
@@ -72,15 +72,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.SET_64, // opcode
         0x01, // indirect
+        ...Buffer.from('34567', 'hex'), // dstOffset
         TypeTag.UINT64, // inTag
         ...Buffer.from('1234567812345678', 'hex'),
-        ...Buffer.from('34567', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
+        /*dstOffset=*/ 0x3456,
         /*inTag=*/ TypeTag.UINT64,
         /*value=*/ 0x1234567812345678n,
-        /*dstOffset=*/ 0x3456,
       ).as(Opcode.SET_64, Set.wireFormat64);
 
       expect(Set.as(Set.wireFormat64).deserialize(buf)).toEqual(inst);
@@ -91,15 +91,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.SET_128, // opcode
         0x01, // indirect
+        ...Buffer.from('3456', 'hex'), // dstOffset
         TypeTag.UINT128, // inTag
         ...Buffer.from('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
-        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
+        /*dstOffset=*/ 0x3456,
         /*inTag=*/ TypeTag.UINT128,
         /*value=*/ 0x12345678123456781234567812345678n,
-        /*dstOffset=*/ 0x3456,
       ).as(Opcode.SET_128, Set.wireFormat128);
 
       expect(Set.as(Set.wireFormat128).deserialize(buf)).toEqual(inst);
@@ -110,15 +110,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.SET_FF, // opcode
         0x01, // indirect
+        ...Buffer.from('3456', 'hex'), // dstOffset
         TypeTag.UINT128, // inTag
         ...Buffer.from('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // const (will be 32 bytes)
-        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
+        /*dstOffset=*/ 0x3456,
         /*inTag=*/ TypeTag.UINT128,
         /*value=*/ 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefn,
-        /*dstOffset=*/ 0x3456,
       ).as(Opcode.SET_FF, Set.wireFormatFF);
 
       expect(Set.as(Set.wireFormatFF).deserialize(buf)).toEqual(inst);
@@ -126,7 +126,7 @@ describe('Memory instructions', () => {
     });
 
     it('should correctly set value and tag (uninitialized)', async () => {
-      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*value=*/ 1234n, /*offset=*/ 1).execute(context);
+      await new Set(/*indirect=*/ 0, /*offset=*/ 1, /*inTag=*/ TypeTag.UINT16, /*value=*/ 1234n).execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -138,7 +138,7 @@ describe('Memory instructions', () => {
     it('should correctly set value and tag (overwriting)', async () => {
       context.machineState.memory.set(1, new Field(27));
 
-      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1234n, /*offset=*/ 1).execute(context);
+      await new Set(/*indirect=*/ 0, /*offset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1234n).execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -148,7 +148,7 @@ describe('Memory instructions', () => {
     });
 
     it('should correctly set value and tag (truncating)', async () => {
-      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x12345678n, /*offset=*/ 1).execute(context);
+      await new Set(/*indirect=*/ 0, /*offset=*/ 1, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x12345678n).execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -163,15 +163,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Opcode.CAST_16, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // dstTag
         ...Buffer.from('1234', 'hex'), // aOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
+        TypeTag.FIELD, // dstTag
       ]);
       const inst = new Cast(
         /*indirect=*/ 0x01,
-        /*dstTag=*/ TypeTag.FIELD,
         /*aOffset=*/ 0x1234,
         /*dstOffset=*/ 0x3456,
+        /*dstTag=*/ TypeTag.FIELD,
       ).as(Opcode.CAST_16, Cast.wireFormat16);
 
       expect(Cast.as(Cast.wireFormat16).deserialize(buf)).toEqual(inst);
@@ -186,11 +186,11 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Uint128(1n << 100n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 10, /*dstTag=*/ TypeTag.UINT16),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 1, /*dstOffset=*/ 11, /*dstTag=*/ TypeTag.UINT32),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 2, /*dstOffset=*/ 12, /*dstTag=*/ TypeTag.UINT64),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 3, /*dstOffset=*/ 13, /*dstTag=*/ TypeTag.UINT128),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 4, /*dstOffset=*/ 14, /*dstTag=*/ TypeTag.UINT128),
       ];
 
       for (const op of ops) {
@@ -217,11 +217,11 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Uint128((1n << 100n) - 1n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 10, /*dstTag=*/ TypeTag.UINT8),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 1, /*dstOffset=*/ 11, /*dstTag=*/ TypeTag.UINT8),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 2, /*dstOffset=*/ 12, /*dstTag=*/ TypeTag.UINT16),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 3, /*dstOffset=*/ 13, /*dstTag=*/ TypeTag.UINT32),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 4, /*dstOffset=*/ 14, /*dstTag=*/ TypeTag.UINT64),
       ];
 
       for (const op of ops) {
@@ -248,11 +248,11 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Uint128(1n << 100n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 10, /*dstTag=*/ TypeTag.FIELD),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 1, /*dstOffset=*/ 11, /*dstTag=*/ TypeTag.FIELD),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 2, /*dstOffset=*/ 12, /*dstTag=*/ TypeTag.FIELD),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 3, /*dstOffset=*/ 13, /*dstTag=*/ TypeTag.FIELD),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 4, /*dstOffset=*/ 14, /*dstTag=*/ TypeTag.FIELD),
       ];
 
       for (const op of ops) {
@@ -279,11 +279,11 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Field((1n << 200n) - 1n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 10, /*dstTag=*/ TypeTag.UINT8),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 1, /*dstOffset=*/ 11, /*dstTag=*/ TypeTag.UINT16),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 2, /*dstOffset=*/ 12, /*dstTag=*/ TypeTag.UINT32),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 3, /*dstOffset=*/ 13, /*dstTag=*/ TypeTag.UINT64),
+        new Cast(/*indirect=*/ 0, /*aOffset=*/ 4, /*dstOffset=*/ 14, /*dstTag=*/ TypeTag.UINT128),
       ];
 
       for (const op of ops) {
@@ -305,7 +305,7 @@ describe('Memory instructions', () => {
     it('Should cast between field elements', async () => {
       context.machineState.memory.set(0, new Field(12345678n));
 
-      await new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Cast(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 1, /*dstTag=*/ TypeTag.FIELD).execute(context);
 
       const actual = context.machineState.memory.get(1);
       expect(actual).toEqual(new Field(12345678n));
