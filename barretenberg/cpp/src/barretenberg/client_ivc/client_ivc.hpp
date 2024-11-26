@@ -73,11 +73,13 @@ class ClientIVC {
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
-    // struct _VerificationKey {
-    //     std::shared_ptr<VerificationKey> honk_verification_key;
-    //     std::shared_ptr<VerificationKey> honk_verification_key;
-    //     std::shared_ptr<VerificationKey> honk_verification_key;
-    // };
+    struct VerificationKey {
+        std::shared_ptr<MegaVerificationKey> mega;
+        std::shared_ptr<ECCVMVerificationKey> eccvm;
+        std::shared_ptr<TranslatorVerificationKey> translator;
+
+        MSGPACK_FIELDS(mega, eccvm, translator);
+    };
 
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
 
@@ -95,6 +97,7 @@ class ClientIVC {
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
+
     using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
@@ -171,10 +174,7 @@ class ClientIVC {
 
     HonkProof construct_and_prove_hiding_circuit();
 
-    static bool verify(const Proof& proof,
-                       const std::shared_ptr<MegaVerificationKey>& mega_vk,
-                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
-                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
+    static bool verify(const Proof& proof, const VerificationKey& vk);
 
     bool verify(const Proof& proof);
 
