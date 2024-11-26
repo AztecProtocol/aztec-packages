@@ -99,7 +99,7 @@ class ClientIVC {
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof tmp_mega_proof;
+    HonkProof mega_proof;
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
@@ -125,9 +125,9 @@ class ClientIVC {
 
     GoblinProver goblin;
 
-    bool initialized = false; // Is the IVC accumulator initialized
+    bool one_circuit = false;
 
-    uint32_t ivc_step{ 0 };
+    bool initialized = false; // Is the IVC accumulator initialized
 
     ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
         : trace_settings(trace_settings)
@@ -161,8 +161,9 @@ class ClientIVC {
      * @param mock_vk A boolean to say whether the precomputed vk shoudl have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
+                    const bool _one_circuit = false,
                     const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr,
-                    bool mock_vk = false);
+                    const bool mock_vk = false);
 
     Proof prove();
 
