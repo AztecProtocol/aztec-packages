@@ -34,6 +34,6 @@ if [ "${CI:-0}" -eq 1 ]; then
   $ci3/github/group "bb.js test"
   yarn test
   export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
-  $ci3/cache/upload bb.js-$(compute-content-hash.sh).tar.gz dest
+  $ci3/cache/upload bb.js-$($ci3/cache/content_hash).tar.gz dest
   $ci3/github/endgroup
 fi
