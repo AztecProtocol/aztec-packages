@@ -1,6 +1,7 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type DataStoreConfig, createStore } from '@aztec/kv-store/utils';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { createStore } from '@aztec/kv-store/utils';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -15,17 +16,28 @@ export async function createWorldStateSynchronizer(
   client: TelemetryClient,
 ) {
   const merkleTrees = await createWorldState(config, client);
-  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config);
+  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, client);
 }
 
-export async function createWorldState(config: DataStoreConfig, client: TelemetryClient = new NoopTelemetryClient()) {
+export async function createWorldState(
+  config: WorldStateConfig & DataStoreConfig,
+  client: TelemetryClient = new NoopTelemetryClient(),
+) {
+  const newConfig = {
+    dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,
+    dataStoreMapSizeKB: config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB,
+  } as DataStoreConfig;
   const merkleTrees = ['true', '1'].includes(process.env.USE_LEGACY_WORLD_STATE ?? '')
     ? await MerkleTrees.new(
-        await createStore('world-state', config, createDebugLogger('aztec:world-state:lmdb')),
+        await createStore('world-state', newConfig, createDebugLogger('aztec:world-state:lmdb')),
         client,
       )
-    : config.dataDirectory
-    ? await NativeWorldStateService.new(config.l1Contracts.rollupAddress, config.dataDirectory)
+    : newConfig.dataDirectory
+    ? await NativeWorldStateService.new(
+        config.l1Contracts.rollupAddress,
+        newConfig.dataDirectory,
+        newConfig.dataStoreMapSizeKB,
+      )
     : await NativeWorldStateService.tmp(
         config.l1Contracts.rollupAddress,
         !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),

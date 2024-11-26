@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -16,75 +17,71 @@ describe('avm public storage', () => {
 
   describe('AVM Public Storage', () => {
     it('Reading an unwritten slot works (gets zero & DNE)', async () => {
-      const contractAddress = new Fr(1);
+      const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       // never written!
-      const { exists, value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
+      publicDb.storageRead.mockResolvedValue(Fr.ZERO);
+      const { value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
       // doesn't exist, value is zero
-      expect(exists).toEqual(false);
       expect(gotValue).toEqual(Fr.ZERO);
       expect(cached).toEqual(false);
     });
 
     it('Should cache storage write, reading works after write', async () => {
-      const contractAddress = new Fr(1);
+      const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       const value = new Fr(3);
       // Write to cache
       publicStorage.write(contractAddress, slot, value);
-      const { exists, value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
       // exists because it was previously written
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(value);
       expect(cached).toEqual(true);
     });
 
     it('Reading works on fallback to host (gets value & exists)', async () => {
-      const contractAddress = new Fr(1);
+      const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       const storedValue = new Fr(420);
       // ensure that fallback to host gets a value
       publicDb.storageRead.mockResolvedValue(storedValue);
 
-      const { exists, value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
       // it exists in the host, so it must've been written before
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(storedValue);
       expect(cached).toEqual(false);
     });
 
     it('Reading works on fallback to parent (gets value & exists)', async () => {
-      const contractAddress = new Fr(1);
+      const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       const value = new Fr(3);
       const childStorage = new PublicStorage(publicDb, publicStorage);
 
       publicStorage.write(contractAddress, slot, value);
-      const { exists, value: gotValue, cached } = await childStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await childStorage.read(contractAddress, slot);
       // exists because it was previously written!
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(value);
       expect(cached).toEqual(true);
     });
 
     it('Reading works on fallback to grandparent (gets value & exists)', async () => {
-      const contractAddress = new Fr(1);
+      const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       const value = new Fr(3);
       const childStorage = new PublicStorage(publicDb, publicStorage);
       const grandChildStorage = new PublicStorage(publicDb, childStorage);
 
       publicStorage.write(contractAddress, slot, value);
-      const { exists, value: gotValue, cached } = await grandChildStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await grandChildStorage.read(contractAddress, slot);
       // exists because it was previously written!
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(value);
       expect(cached).toEqual(true);
     });
 
     it('When reading from storage, should check cache, then parent, then host', async () => {
       // Store a different value in storage vs the cache, and make sure the cache is returned
-      const contractAddress = new Fr(1);
+      const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       const storedValue = new Fr(420);
       const parentValue = new Fr(69);
@@ -117,7 +114,7 @@ describe('avm public storage', () => {
 
   it('Should be able to merge two public storages together', async () => {
     // Checking that child's writes take precedence on marge
-    const contractAddress = new Fr(1);
+    const contractAddress = AztecAddress.fromNumber(1);
     const slot = new Fr(2);
     // value written initially in parent
     const value = new Fr(1);
@@ -135,8 +132,7 @@ describe('avm public storage', () => {
     publicStorage.acceptAndMerge(childStorage);
 
     // Read from parent gives latest value written in child before merge (valueT1)
-    const { exists, value: result } = await publicStorage.read(contractAddress, slot);
-    expect(exists).toEqual(true);
+    const { value: result } = await publicStorage.read(contractAddress, slot);
     expect(result).toEqual(valueT1);
   });
 });

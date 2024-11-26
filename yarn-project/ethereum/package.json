@@ -2,7 +2,11 @@
   "name": "@aztec/ethereum",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./test": "./dest/test/index.js",
+    "./contracts": "./dest/contracts/index.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -26,9 +30,12 @@
   "dependencies": {
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
+    "get-port": "^7.1.0",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15"
+    "viem": "^2.7.15",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

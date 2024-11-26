@@ -12,13 +12,14 @@ import {
   Tx,
   TxHash,
   type WorldStateSynchronizer,
+  metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -84,7 +85,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
 
   // Request and response sub service
-  private reqresp: ReqResp;
+  public reqresp: ReqResp;
 
   /**
    * Callback for when a block is received from a peer.
@@ -101,11 +102,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    telemetry: TelemetryClient,
+    private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    // Instatntiate tracer
     super(telemetry, 'LibP2PService');
 
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
@@ -218,6 +218,8 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const datastore = new AztecDatastore(store);
 
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -257,6 +259,8 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          metricsRegister: otelMetricsAdapter,
+          metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({

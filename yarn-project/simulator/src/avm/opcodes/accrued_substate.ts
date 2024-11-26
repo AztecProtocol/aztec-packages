@@ -43,7 +43,6 @@ export class NoteHashExists extends Instruction {
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -74,7 +73,6 @@ export class EmitNoteHash extends Instruction {
     context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -109,13 +107,12 @@ export class NullifierExists extends Instruction {
     memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
 
     const nullifier = memory.get(nullifierOffset).toFr();
-    const address = memory.get(addressOffset).toFr();
+    const address = memory.get(addressOffset).toAztecAddress();
     const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -157,7 +154,6 @@ export class EmitNullifier extends Instruction {
     }
 
     memory.assert({ reads: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -201,7 +197,6 @@ export class L1ToL2MessageExists extends Instruction {
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -236,7 +231,6 @@ export class EmitUnencryptedLog extends Instruction {
     context.persistableState.writeUnencryptedLog(contractAddress, log);
 
     memory.assert({ reads: 1 + logSize, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -261,12 +255,12 @@ export class SendL2ToL1Message extends Instruction {
     const operands = [this.recipientOffset, this.contentOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [recipientOffset, contentOffset] = addressing.resolve(operands, memory);
+    memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();
     context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
 
     memory.assert({ reads: 2, addressing });
-    context.machineState.incrementPc();
   }
 }

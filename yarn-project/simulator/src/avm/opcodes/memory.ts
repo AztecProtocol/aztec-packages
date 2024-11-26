@@ -12,51 +12,51 @@ export class Set extends Instruction {
   public static readonly wireFormat8: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT8, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT8, // const (value)
-    OperandType.UINT8, // dstOffset
   ];
   public static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT16, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormat32: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT32, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormat64: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT64, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormat128: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT128, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormatFF: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.FF, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
 
   constructor(
     private indirect: number,
+    private dstOffset: number,
     private inTag: number,
     private value: bigint | number,
-    private dstOffset: number,
   ) {
     super();
   }
@@ -72,7 +72,6 @@ export class Set extends Instruction {
     memory.set(dstOffset, res);
 
     memory.assert({ writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -90,12 +89,12 @@ export class Cast extends Instruction {
   static readonly wireFormat16 = [
     OperandType.UINT8,
     OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
     OperandType.UINT8,
-    OperandType.UINT16,
-    OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private dstTag: number, private srcOffset: number, private dstOffset: number) {
+  constructor(private indirect: number, private srcOffset: number, private dstOffset: number, private dstTag: number) {
     super();
   }
 
@@ -113,7 +112,6 @@ export class Cast extends Instruction {
     memory.set(dstOffset, casted);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -152,7 +150,6 @@ export class Mov extends Instruction {
     memory.set(dstOffset, a);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -193,7 +190,6 @@ export class CalldataCopy extends Instruction {
     memory.setSlice(dstOffset, transformedData);
 
     memory.assert({ reads: 2, writes: copySize, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -217,7 +213,6 @@ export class ReturndataSize extends Instruction {
     memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
 
     memory.assert({ writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -260,6 +255,5 @@ export class ReturndataCopy extends Instruction {
     memory.setSlice(dstOffset, transformedData);
 
     memory.assert({ reads: 2, writes: copySize, addressing });
-    context.machineState.incrementPc();
   }
 }

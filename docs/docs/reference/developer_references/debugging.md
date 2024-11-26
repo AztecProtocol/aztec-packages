@@ -1,6 +1,6 @@
 ---
-title: Logging
-sidebar_position: 2
+title: Debugging
+sidebar_position: 4
 ---
 
 ## Logging in Aztec.nr

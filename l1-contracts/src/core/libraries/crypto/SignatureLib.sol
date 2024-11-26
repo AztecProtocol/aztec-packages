@@ -13,6 +13,14 @@ library SignatureLib {
   }
 
   /**
+   * @notice The domain seperator for the signatures
+   */
+  enum SignatureDomainSeperator {
+    blockProposal,
+    blockAttestation
+  }
+
+  /**
    * @notice Verified a signature, throws if the signature is invalid or empty
    *
    * @param _signature - The signature to verify

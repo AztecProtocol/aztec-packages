@@ -10,7 +10,7 @@ A typical example of shared state is some kind of system configuration, such as 
 
 A naive way to solve this is to enqueue a public call that will assert the current public value, but this leaks _which_ public value is being read, severely reducing privacy. Even if the value itself is already public, the fact that we're using it because we're interacting with some related contract is not. For example, we may leak that we're interacting with a certain DeFi protocol by reading its fee.
 
-An alternative approach is to create notes in public that are then nullified in private, but this introduces contention: only a single user may use the note and therefore read the state, since nullifying it will prevent all others from doing the same. In some schemes there's only one account that will read the state anyway (such as when shielding token balances), but this is not the general case.
+An alternative approach is to create notes in public that are then nullified in private, but this introduces contention: only a single user may use the note and therefore read the state, since nullifying it will prevent all others from doing the same. In some schemes there's only one account that will read the state anyway, but this is not the general case.
 
 Shared state works around this by introducing **delays**: while public values are mutable, they cannot change _immediately_. Instead, a value change must be scheduled ahead of time, and some minimum amount of time must pass between the scheduling and the new value taking effect. This means that we can privately prove that a historical public value cannot possibly change before some point in the future (due to the minimum delay), and therefore that our transaction will be valid **as long as it gets included before this future time**.
 
@@ -80,56 +80,20 @@ If one wishes to schedule a value change from private, simply enqueue a public c
 A `SharedMutable`'s storage **must** only be mutated via `schedule_value_change`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
 :::
 
-### `get_current_value_in_public`
+### `get_current_value`
 
-Returns the current value in a public execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
+Returns the current value in a public, private or unconstrained execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
 
 #include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
-### `get_current_value_in_private`
-
-Returns the current value in a private execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
-
-Calling this function will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
+Calling this function in a private execution context will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
 
 #include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
-### `get_scheduled_value_in_public`
+### `get_scheduled_value`
 
 Returns the last scheduled value change, along with the block number at which the scheduled value becomes the current value. This may either be a pending change, if the block number is in the future, or the last executed scheduled change if the block number is in the past (in which case there are no pending changes).
 
 #include_code shared_mutable_get_scheduled_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
 It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.
-
-## `SharedImmutable`
-
-`SharedImmutable` (formerly known as `StablePublicState`) is a simplification of the `SharedMutable` case, where the value can only be set once during initialization. Because there's no further mutation, there's no need for delays. These state variables are useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a token or its number of decimals.
-
-Like most state variables, `SharedImmutable` is generic over the variable type `T`. This type `MUST` implement the `Serialize` and `Deserialize` traits.
-
-#include_code storage-shared-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
-You can find the details of `SharedImmutable` in the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_immutable.nr).
-
-### `initialize`
-
-This function sets the immutable value. It must only be called once during contract construction.
-
-#include_code initialize_decimals /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-:::warning
-A `SharedImmutable`'s storage **must** only be set once via `initialize`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
-:::
-
-### `read_public`
-
-Returns the stored immutable value in a public execution context.
-
-#include_code read_decimals_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-### `read_private`
-
-Returns the stored immutable value in a private execution context.
-
-#include_code read_decimals_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust

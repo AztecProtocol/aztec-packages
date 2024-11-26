@@ -69,7 +69,7 @@ export async function setupTestWalletsWithTokens(
   logger.verbose(`Minting ${mintAmount} public assets to the ${wallets.length} wallets...`);
 
   await Promise.all(
-    wallets.map(w => tokenAdminWallet.methods.mint_public(w.getAddress(), mintAmount).send().wait({ timeout: 600 })),
+    wallets.map(w => tokenAdminWallet.methods.mint_to_public(w.getAddress(), mintAmount).send().wait({ timeout: 600 })),
   );
 
   logger.verbose(`Minting complete.`);
@@ -95,7 +95,7 @@ export async function performTransfers({
       testWallets.wallets.map(async w =>
         (
           await TokenContract.at(testWallets.tokenAddress, w)
-        ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+        ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
       ),
     );
 

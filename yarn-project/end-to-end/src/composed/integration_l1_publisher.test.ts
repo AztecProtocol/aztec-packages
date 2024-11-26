@@ -1,41 +1,25 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  EthCheatCodes,
-  Fr,
-  GlobalVariables,
-  type L2Block,
-  createDebugLogger,
-  mockTx,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createDebugLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type BlockBuilder,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
 } from '@aztec/circuit-types';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  ETHEREUM_SLOT_DURATION,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
   type Header,
-  KernelCircuitPublicInputs,
-  LogHash,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PublicDataUpdateRequest,
-  ScopedLogHash,
 } from '@aztec/circuits.js';
-import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
-import { makeTuple, range } from '@aztec/foundation/array';
+import { range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -79,7 +63,7 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 const logger = createDebugLogger('aztec:integration_l1_publisher');
 
 const config = getConfigEnvVars();
-config.l1RpcUrl = config.l1RpcUrl || 'http://localhost:8545';
+config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
 
 const numberOfConsecutiveBlocks = 2;
 
@@ -160,8 +144,14 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateProvenBlocksOnly: false,
+      worldStateDbMapSizeKb: 10 * 1024 * 1024,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(
+      builderDb,
+      blockSource,
+      worldStateConfig,
+      new NoopTelemetryClient(),
+    );
     await worldStateSynchronizer.start();
     fork = await worldStateSynchronizer.fork();
     builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
@@ -175,6 +165,7 @@ describe('L1Publisher integration', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: config.ethereumSlotDuration,
       },
       new NoopTelemetryClient(),
     );
@@ -203,35 +194,15 @@ describe('L1Publisher integration', () => {
       protocolContractTreeRoot,
     );
 
-  const makeBloatedProcessedTx = (seed = 0x1): ProcessedTx => {
-    const tx = mockTx(seed);
-    const kernelOutput = KernelCircuitPublicInputs.empty();
-    kernelOutput.constants.txContext.chainId = fr(chainId);
-    kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
-    kernelOutput.constants.protocolContractTreeRoot = protocolContractTreeRoot;
-    kernelOutput.constants.historicalHeader = prevHeader;
-    kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
-      seed + 0x500,
-    );
-
-    const processedTx = makeProcessedTx(tx, kernelOutput);
-
-    processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
-    processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
-    processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
-    processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x300);
-    processedTx.encryptedLogs.unrollLogs().forEach((log, i) => {
-      processedTx.data.end.encryptedLogsHashes[i] = new ScopedLogHash(
-        new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
-        log.maskedContractAddress,
-      );
+  const makeProcessedTx = (seed = 0x1): ProcessedTx =>
+    makeBloatedProcessedTx({
+      header: prevHeader,
+      chainId: fr(chainId),
+      version: fr(config.version),
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      seed,
     });
-
-    return processedTx;
-  };
 
   const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
     return sendL1ToL2Message(
@@ -368,14 +339,14 @@ describe('L1Publisher integration', () => {
         // Ensure that each transaction has unique (non-intersecting nullifier values)
         const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
         const txs = [
-          makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NULLIFIERS_PER_TX),
-          makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NULLIFIERS_PER_TX),
-          makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NULLIFIERS_PER_TX),
-          makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
+          makeProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NULLIFIERS_PER_TX),
+          makeProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NULLIFIERS_PER_TX),
+          makeProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NULLIFIERS_PER_TX),
+          makeProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
         ];
 
         const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -422,10 +393,12 @@ describe('L1Publisher integration', () => {
           abi: RollupAbi,
           functionName: 'propose',
           args: [
-            `0x${block.header.toBuffer().toString('hex')}`,
-            `0x${block.archive.root.toBuffer().toString('hex')}`,
-            `0x${block.header.hash().toBuffer().toString('hex')}`,
-            [],
+            {
+              header: `0x${block.header.toBuffer().toString('hex')}`,
+              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              txHashes: [],
+            },
             [],
             `0x${block.body.toBuffer().toString('hex')}`,
           ],
@@ -480,7 +453,7 @@ describe('L1Publisher integration', () => {
         const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
         const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -519,10 +492,12 @@ describe('L1Publisher integration', () => {
           abi: RollupAbi,
           functionName: 'propose',
           args: [
-            `0x${block.header.toBuffer().toString('hex')}`,
-            `0x${block.archive.root.toBuffer().toString('hex')}`,
-            `0x${block.header.hash().toBuffer().toString('hex')}`,
-            [],
+            {
+              header: `0x${block.header.toBuffer().toString('hex')}`,
+              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              txHashes: [],
+            },
             [],
             `0x${block.body.toBuffer().toString('hex')}`,
           ],
@@ -550,7 +525,7 @@ describe('L1Publisher integration', () => {
 
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
       const ts = (await publicClient.getBlock()).timestamp;
-      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+      const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),

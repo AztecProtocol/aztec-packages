@@ -45,8 +45,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = ECCVMFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = ECCVMFlavor::NUM_WITNESS_ENTITIES;
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = ECCVMFlavor::NUM_ALL_WITNESS_ENTITIES;
 
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = ECCVMFlavor::REPEATED_COMMITMENTS;
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;
@@ -54,7 +54,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // think these two are not needed for recursive verifier land
     // using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // using LookupRelation = ECCVMLookupRelation<FF>;
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, true>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation

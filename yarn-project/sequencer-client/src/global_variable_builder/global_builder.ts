@@ -1,12 +1,6 @@
 import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  ETHEREUM_SLOT_DURATION,
-  type EthAddress,
-  GasFees,
-  GlobalVariables,
-} from '@aztec/circuits.js';
-import { type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -30,11 +24,14 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
+  private ethereumSlotDuration: number;
 
-  constructor(config: L1ReaderConfig) {
+  constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
     const { l1RpcUrl, l1ChainId: chainId, l1Contracts } = config;
 
     const chain = createEthereumChain(l1RpcUrl, chainId);
+
+    this.ethereumSlotDuration = config.ethereumSlotDuration;
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
@@ -67,7 +64,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const chainId = new Fr(this.publicClient.chain.id);
 
     if (slotNumber === undefined) {
-      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
       slotNumber = await this.rollupContract.read.getSlotAt([ts]);
     }
 

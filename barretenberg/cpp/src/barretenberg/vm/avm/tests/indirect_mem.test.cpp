@@ -42,7 +42,8 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
 
     // All indirect flags are encoded as 7 = 1 + 2 + 4
     trace_builder.op_add(7, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the addition selector
@@ -91,7 +92,8 @@ TEST_F(AvmIndirectMemTests, indirectOutputSub)
 
     // The indirect flag is encoded as 4
     trace_builder.op_sub(4, 50, 51, 5);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the subtraction selector
@@ -139,7 +141,8 @@ TEST_F(AvmIndirectMemTests, indirectInputAMul)
 
     // The indirect flag is encoded as 1
     trace_builder.op_mul(1, 1000, 101, 102);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the multiplication selector

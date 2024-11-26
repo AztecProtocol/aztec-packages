@@ -146,6 +146,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
         { name: 'cancellable', type: { kind: 'boolean' } },
       ],
       returnTypes: [],
+      errorTypes: {},
     } as FunctionAbi;
   }
 }

@@ -43,10 +43,9 @@ export class SStore extends BaseStorageInstruction {
 
     const slot = memory.get(slotOffset).toFr();
     const value = memory.get(srcOffset).toFr();
-    context.persistableState.writeStorage(context.environment.address, slot, value);
+    await context.persistableState.writeStorage(context.environment.address, slot, value);
 
     memory.assert({ reads: 2, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -71,7 +70,6 @@ export class SLoad extends BaseStorageInstruction {
     const value = await context.persistableState.readStorage(context.environment.address, slot);
     memory.set(dstOffset, new Field(value));
 
-    context.machineState.incrementPc();
     memory.assert({ writes: 1, reads: 1, addressing });
   }
 }

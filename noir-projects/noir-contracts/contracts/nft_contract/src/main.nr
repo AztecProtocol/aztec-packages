@@ -24,7 +24,7 @@ contract NFT {
         oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicMutable, SharedImmutable,
+            PublicContext, PublicImmutable, PublicMutable,
         },
         protocol_types::{point::Point, traits::Serialize},
         utils::comparison::Comparator,
@@ -45,9 +45,9 @@ contract NFT {
     #[storage]
     struct Storage<Context> {
         // The symbol of the NFT
-        symbol: SharedImmutable<FieldCompressedString, Context>,
+        symbol: PublicImmutable<FieldCompressedString, Context>,
         // The name of the NFT
-        name: SharedImmutable<FieldCompressedString, Context>,
+        name: PublicImmutable<FieldCompressedString, Context>,
         // The admin of the contract
         admin: PublicMutable<AztecAddress, Context>,
         // Addresses that can mint
@@ -96,25 +96,25 @@ contract NFT {
     #[public]
     #[view]
     fn public_get_name() -> pub FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> pub FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
     #[public]
@@ -150,8 +150,8 @@ contract NFT {
 
         let nft = NFT::at(context.this_address());
 
-        // We prepare the transfer.
-        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+        // We prepare the private balance increase.
+        let hiding_point_slot = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
@@ -160,20 +160,20 @@ contract NFT {
         );
     }
 
-    /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
-    /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
+    /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
+    /// `finalize_transfer_to_private. Returns a hiding point slot.
     #[private]
-    fn prepare_transfer_to_private(to: AztecAddress) -> Field {
-        _prepare_transfer_to_private(to, &mut context, storage)
+    fn prepare_private_balance_increase(to: AztecAddress) -> Field {
+        _prepare_private_balance_increase(to, &mut context, storage)
     }
 
-    /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
+    /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
     #[contract_library_method]
-    fn _prepare_transfer_to_private(
+    fn _prepare_private_balance_increase(
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -235,7 +235,7 @@ contract NFT {
     }
 
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
     fn finalize_transfer_to_private(token_id: Field, hiding_point_slot: Field) {

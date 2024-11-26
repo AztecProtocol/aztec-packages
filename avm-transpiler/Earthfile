@@ -18,7 +18,6 @@ build:
         --command="./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}" \
         --build_artifacts="target"
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
-    SAVE ARTIFACT scripts/compile_then_transpile.sh
 
 format:
   FROM +source

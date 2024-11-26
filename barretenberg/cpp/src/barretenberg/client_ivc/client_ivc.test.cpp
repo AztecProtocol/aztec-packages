@@ -76,11 +76,10 @@ class ClientIVCTests : public ::testing::Test {
         }
 
         auto precompute_verification_keys(const size_t num_circuits,
-                                          TraceStructure trace_structure,
+                                          TraceSettings trace_settings,
                                           size_t log2_num_gates = 16)
         {
-            ClientIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
-            ivc.trace_structure = trace_structure;
+            ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
             std::vector<std::shared_ptr<VerificationKey>> vkeys;
 
@@ -162,8 +161,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 {
     // Confirm that the IVC verifies if nothing is tampered with
     {
-        ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::SMALL_TEST;
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
         MockCircuitProducer circuit_producer;
 
@@ -178,8 +176,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
     {
-        ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::SMALL_TEST;
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
         MockCircuitProducer circuit_producer;
 
@@ -203,8 +200,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
     // The IVC fails if the SECOND fold proof is tampered with
     {
-        ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::SMALL_TEST;
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
         MockCircuitProducer circuit_producer;
 
@@ -228,8 +224,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
     // The IVC fails if the 3rd/FINAL fold proof is tampered with
     {
-        ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::SMALL_TEST;
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
         MockCircuitProducer circuit_producer;
 
@@ -277,8 +272,7 @@ TEST_F(ClientIVCTests, BasicLarge)
  */
 TEST_F(ClientIVCTests, BasicStructured)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -307,7 +301,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 
     MockCircuitProducer circuit_producer;
 
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceStructure::NONE);
+    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -324,8 +318,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
  */
 TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
     size_t NUM_CIRCUITS = 4;
     size_t log2_num_gates = 5; // number of gates in baseline mocked circuit
@@ -333,7 +326,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     MockCircuitProducer circuit_producer;
 
     auto precomputed_vks =
-        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_structure, log2_num_gates);
+        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -356,11 +349,10 @@ TEST(ClientIVCBenchValidation, Full6)
     bb::srs::init_crs_factory("../srs_db/ignition");
     bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
     size_t total_num_circuits{ 12 };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_structure);
+    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
     perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
@@ -376,8 +368,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
         bb::srs::init_crs_factory("../srs_db/ignition");
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
-        ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+        ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
         size_t total_num_circuits{ 12 };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         auto mocked_vkeys = mock_verification_keys(total_num_circuits);
@@ -387,3 +378,30 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
     };
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
+
+/**
+ * @brief Test use of structured trace overflow block mechanism
+ * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the prescribed
+ * arithmetic block size and make use of the overflow block which has sufficient capacity.
+ *
+ */
+TEST_F(ClientIVCTests, StructuredTraceOverflow)
+{
+
+    // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
+
+    MockCircuitProducer circuit_producer;
+
+    size_t NUM_CIRCUITS = 4;
+
+    // Construct and accumulate some circuits of varying size
+    size_t log2_num_gates = 14;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+        ivc.accumulate(circuit);
+        log2_num_gates += 1;
+    }
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};

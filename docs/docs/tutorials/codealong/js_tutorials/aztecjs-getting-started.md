@@ -83,6 +83,9 @@ yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @ty
 
 ```ts
 #include_code imports /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts raw
+#include_code token_utils /yarn-project/end-to-end/src/fixtures/token_utils.ts raw
+
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
 #include_code setup /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts raw
@@ -176,8 +179,7 @@ We can break this down as follows:
 3. We retrieve the transaction receipt containing the transaction status and contract address.
 4. We connect to the contract with Alice
 5. Alice initialize the contract with herself as the admin and a minter.
-6. Alice mints 1,000,000 tokens to be claimed by herself in private.
-7. Alice redeems the tokens privately.
+6. Alice privately mints 1,000,000 tokens to herself
 
 ## View the balance of an account
 
@@ -234,12 +236,12 @@ We can see that each account has the expected balance of tokens.
 
 ## Create and submit a transaction
 
-Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 4 arguments:
+### Transfer
 
-1. The sender.
-2. The recipient.
-3. The quantity of tokens to be transferred.
-4. The nonce for the [authentication witness](../../../aztec/concepts/accounts/index.md#authorizing-actions), or 0 if msg.sender equal sender.
+Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 2 arguments:
+
+1. The recipient.
+2. The quantity of tokens to be transferred.
 
 Here is the Typescript code to call the `transfer` function, add this to your `index.ts` at the bottom of the `main` function:
 
@@ -282,17 +284,18 @@ Our output should now look like this:
 
 Here, we used the same contract abstraction as was previously used for reading Alice's balance. But this time we called `send()` generating and sending a transaction to the network. After waiting for the transaction to settle we were able to check the new balance values.
 
-Finally, the contract has 2 `mint` functions that can be used to generate new tokens for an account.
-We will focus only on `mint_private`.
-This function is public but it mints tokens privately.
+### Mint
+
+Finally, the contract has several `mint` functions that can be used to generate new tokens for an account.
+We will focus only on `mint_to_private`.
+This function has private and public execution components, but it mints tokens privately.
 This function takes:
 
-1. A quantity of tokens to be minted.
-2. A secret hash.
+1. A minter (`from`)
+2. A recipient
+3. An amount of tokens to mint
 
-This function is public and it inserts a new note into the note hash tree and increases the total token supply by the amount minted.
-
-To make the note spendable the note has to be redeemed. A user can do that by calling the `redeem_shield` function.
+This function starts as private to set up the creation of a [partial note](../../aztec/concepts/storage/partial_notes.md). The private function calls a public function that checks that the minter is authorized to mint new tokens an increments the public total supply. The recipient of the tokens remains private, but the minter and the amount of tokens minted are public.
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 

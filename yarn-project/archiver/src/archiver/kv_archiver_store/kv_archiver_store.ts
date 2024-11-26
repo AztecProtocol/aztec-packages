@@ -1,15 +1,15 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L2Block,
   type L2BlockL2Logs,
   type LogFilter,
   type LogType,
-  type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -33,6 +33,7 @@ import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
+import { NullifierStore } from './nullifier_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -40,6 +41,7 @@ import { MessageStore } from './message_store.js';
 export class KVArchiverDataStore implements ArchiverDataStore {
   #blockStore: BlockStore;
   #logStore: LogStore;
+  #nullifierStore: NullifierStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
@@ -47,13 +49,14 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   #log = createDebugLogger('aztec:archiver:data-store');
 
-  constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
+  constructor(private db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
     this.#contractArtifactStore = new ContractArtifactsStore(db);
+    this.#nullifierStore = new NullifierStore(db);
   }
 
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
@@ -159,7 +162,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param txHash - The txHash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+  getTxEffect(txHash: TxHash) {
     return Promise.resolve(this.#blockStore.getTxEffect(txHash));
   }
 
@@ -183,6 +186,23 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
+  }
+
+  /**
+   * Append new nullifiers to the store's list.
+   * @param blocks - The blocks for which to add the nullifiers.
+   * @returns True if the operation is successful.
+   */
+  addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    return this.#nullifierStore.addNullifiers(blocks);
+  }
+
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
+    return this.#nullifierStore.deleteNullifiers(blocks);
+  }
+
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    return this.#nullifierStore.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -245,7 +265,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     try {
       return this.#logStore.getLogsByTags(tags);
     } catch (err) {
@@ -261,6 +281,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     try {
       return Promise.resolve(this.#logStore.getUnencryptedLogs(filter));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    try {
+      return Promise.resolve(this.#logStore.getContractClassLogs(filter));
     } catch (err) {
       return Promise.reject(err);
     }
@@ -310,5 +343,9 @@ export class KVArchiverDataStore implements ArchiverDataStore {
       blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
       messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
     });
+  }
+
+  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return this.db.estimateSize();
   }
 }

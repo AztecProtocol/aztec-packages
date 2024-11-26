@@ -41,10 +41,10 @@ describe('Contract Class', () => {
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
-    apellaAddress: EthAddress.random(),
-    nomismatokopioAddress: EthAddress.random(),
-    sysstiaAddress: EthAddress.random(),
-    gerousiaAddress: EthAddress.random(),
+    governanceAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
+    rewardDistributorAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
@@ -87,6 +87,7 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
       },
       {
@@ -97,6 +98,7 @@ describe('Contract Class', () => {
         isInternal: false,
         parameters: [],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
@@ -124,6 +126,7 @@ describe('Contract Class', () => {
         ],
         bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
+        errorTypes: {},
       },
     ],
     outputs: {

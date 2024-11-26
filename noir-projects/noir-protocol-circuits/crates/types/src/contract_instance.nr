@@ -1,8 +1,5 @@
 use crate::{
-    address::{
-        aztec_address::AztecAddress, partial_address::PartialAddress,
-        public_keys_hash::PublicKeysHash,
-    },
+    address::{aztec_address::AztecAddress, partial_address::PartialAddress},
     constants::CONTRACT_INSTANCE_LENGTH,
     contract_class_id::ContractClassId,
     public_keys::PublicKeys,
@@ -10,11 +7,11 @@ use crate::{
 };
 
 pub struct ContractInstance {
-    salt: Field,
-    deployer: AztecAddress,
-    contract_class_id: ContractClassId,
-    initialization_hash: Field,
-    public_keys: PublicKeys,
+    pub salt: Field,
+    pub deployer: AztecAddress,
+    pub contract_class_id: ContractClassId,
+    pub initialization_hash: Field,
+    pub public_keys: PublicKeys,
 }
 
 impl Eq for ContractInstance {
@@ -82,7 +79,7 @@ impl Hash for ContractInstance {
 }
 
 impl ContractInstance {
-    fn to_address(self) -> AztecAddress {
+    pub fn to_address(self) -> AztecAddress {
         AztecAddress::compute(
             self.public_keys,
             PartialAddress::compute(

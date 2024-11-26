@@ -3,6 +3,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
@@ -53,5 +54,6 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
 using MegaProver = UltraProver_<MegaFlavor>;
+using MegaZKProver = UltraProver_<MegaZKFlavor>;
 
 } // namespace bb

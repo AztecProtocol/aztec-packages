@@ -1,5 +1,5 @@
 import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types';
-import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
@@ -169,8 +169,8 @@ export class EthCheatCodes {
    * Set the next block timestamp and mines the block
    * @param timestamp - The timestamp to set the next block to
    */
-  public async warp(timestamp: number): Promise<void> {
-    const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
+  public async warp(timestamp: number | bigint): Promise<void> {
+    const res = await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
     if (res.error) {
       throw new Error(`Error warping: ${res.error.message}`);
     }
@@ -298,7 +298,7 @@ export class RollupCheatCodes {
 
   private logger = createDebugLogger('aztec:js:cheat_codes');
 
-  constructor(private ethCheatCodes: EthCheatCodes, private addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
+  constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
     this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
     this.rollup = getContract({
       abi: RollupAbi,
@@ -324,20 +324,31 @@ export class RollupCheatCodes {
    * @returns The pending and proven chain tips
    */
   public async getTips(): Promise<{
-    /** The pending chain tip */
-    pending: bigint;
-    /** The proven chain tip */
-    proven: bigint;
+    /** The pending chain tip */ pending: bigint;
+    /** The proven chain tip */ proven: bigint;
   }> {
     const [pending, proven] = await this.rollup.read.tips();
     return { pending, proven };
   }
 
+  /** Fetches the epoch and slot duration config from the rollup contract */
+  public async getConfig(): Promise<{
+    /** Epoch duration */ epochDuration: bigint;
+    /** Slot duration */ slotDuration: bigint;
+  }> {
+    const [epochDuration, slotDuration] = await Promise.all([
+      this.rollup.read.EPOCH_DURATION(),
+      this.rollup.read.SLOT_DURATION(),
+    ]);
+    return { epochDuration, slotDuration };
+  }
+
   /** Warps time in L1 until the next epoch */
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();
-    const slotsUntilNextEpoch = BigInt(AZTEC_EPOCH_DURATION) - (slot % BigInt(AZTEC_EPOCH_DURATION)) + 1n;
-    const timeToNextEpoch = slotsUntilNextEpoch * BigInt(AZTEC_SLOT_DURATION);
+    const { epochDuration, slotDuration } = await this.getConfig();
+    const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
+    const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
     await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch));
     this.logger.verbose(`Advanced to next epoch`);
@@ -348,8 +359,9 @@ export class RollupCheatCodes {
    * @param howMany - The number of slots to advance.
    */
   public async advanceSlots(howMany: number) {
-    const l1Timestamp = Number((await this.client.getBlock()).timestamp);
-    const timeToWarp = howMany * AZTEC_SLOT_DURATION;
+    const l1Timestamp = (await this.client.getBlock()).timestamp;
+    const slotDuration = await this.rollup.read.SLOT_DURATION();
+    const timeToWarp = BigInt(howMany) * slotDuration;
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp);
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.verbose(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
@@ -432,7 +444,8 @@ export class AztecCheatCodes {
    * @returns The storage slot of the value in the map
    */
   public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
-    return deriveStorageSlotInMap(mapSlot, new Fr(key));
+    const keyFr = typeof key === 'bigint' ? new Fr(key) : key.toField();
+    return deriveStorageSlotInMap(mapSlot, keyFr);
   }
 
   /**

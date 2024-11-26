@@ -21,6 +21,13 @@ export class NoBytecodeForContractError extends AvmExecutionError {
   }
 }
 
+export class ArithmeticError extends AvmExecutionError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ArithmeticError';
+  }
+}
+
 /**
  * Error is thrown when the program counter goes to an invalid location.
  * There is no instruction at the provided pc
@@ -60,6 +67,17 @@ export class TagCheckError extends AvmExecutionError {
   }
 }
 
+/**
+ * Error is thrown when a relative memory address resolved to an offset which
+ * is out of range, i.e, greater than maxUint32.
+ */
+export class AddressOutOfRangeError extends AvmExecutionError {
+  constructor(baseAddr: number, relOffset: number) {
+    super(`Address out of range. Base address ${baseAddr}, relative offset ${relOffset}`);
+    this.name = 'AddressOutOfRangeError';
+  }
+}
+
 /** Error thrown when out of gas. */
 export class OutOfGasError extends AvmExecutionError {
   constructor(dimensions: string[]) {
@@ -79,18 +97,6 @@ export class StaticCallAlterationError extends InstructionExecutionError {
 }
 
 /**
- * Error thrown to propagate a nested call's revert.
- * @param message - the error's message
- * @param nestedError - the revert reason of the nested call
- */
-export class RethrownError extends AvmExecutionError {
-  constructor(message: string, public nestedError: AvmRevertReason) {
-    super(message);
-    this.name = 'RethrownError';
-  }
-}
-
-/**
  * Meaningfully named alias for ExecutionError when used in the context of the AVM.
  * Maintains a recursive structure reflecting the AVM's external callstack/errorstack, where
  * options.cause is the error that caused this error (if this is not the root-cause itself).
@@ -101,22 +107,28 @@ export class AvmRevertReason extends ExecutionError {
   }
 }
 
-/**
- * Helper to create a "revert reason" error optionally with a nested error cause.
- *
- * @param message - the error message
- * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
- * @param nestedError - the error that caused this one (if this is not the root-cause itself)
- */
-function createRevertReason(message: string, context: AvmContext, nestedError?: AvmRevertReason): AvmRevertReason {
+function createRevertReason(message: string, revertData: Fr[], context: AvmContext): AvmRevertReason {
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
   // If the function selector is the public dispatch selector, we need to extract the actual function selector from the calldata.
   // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
   let functionSelector = context.environment.functionSelector;
-  const internalCallStack = context.machineState.internalCallStack;
+  // We drop the returnPc information.
+  const internalCallStack = context.machineState.internalCallStack.map(entry => entry.callPc);
   if (functionSelector.toField().equals(new Fr(PUBLIC_DISPATCH_SELECTOR)) && context.environment.calldata.length > 0) {
     functionSelector = FunctionSelector.fromField(context.environment.calldata[0]);
   }
+
+  // If we are reverting due to the same error that we have been tracking, we use the nested error as the cause.
+  let nestedError = undefined;
+  const revertDataEquals = (a: Fr[], b: Fr[]) => a.length === b.length && a.every((v, i) => v.equals(b[i]));
+  if (
+    context.machineState.collectedRevertInfo &&
+    revertDataEquals(context.machineState.collectedRevertInfo.revertDataRepresentative, revertData)
+  ) {
+    nestedError = context.machineState.collectedRevertInfo.recursiveRevertReason;
+    message = context.machineState.collectedRevertInfo.recursiveRevertReason.message;
+  }
+
   return new AvmRevertReason(
     message,
     /*failingFunction=*/ {
@@ -129,16 +141,13 @@ function createRevertReason(message: string, context: AvmContext, nestedError?: 
 }
 
 /**
- * Create a "revert reason" error for an exceptional halt,
- * creating the recursive structure if the halt was a RethrownError.
+ * Create a "revert reason" error for an exceptional halt.
  *
  * @param haltingError - the lower-level error causing the exceptional halt
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
 export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError, context: AvmContext): AvmRevertReason {
-  // A RethrownError has a nested/child AvmRevertReason
-  const nestedError = haltingError instanceof RethrownError ? haltingError.nestedError : undefined;
-  return createRevertReason(haltingError.message, context, nestedError);
+  return createRevertReason(haltingError.message, [], context);
 }
 
 /**
@@ -148,26 +157,5 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
 export function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): AvmRevertReason {
-  const revertMessage = decodeRevertDataAsMessage(revertData);
-  return createRevertReason(revertMessage, context);
-}
-
-/**
- * Interpret revert data as a message string.
- *
- * @param revertData - output data of an explicit REVERT instruction
- */
-export function decodeRevertDataAsMessage(revertData: Fr[]): string {
-  if (revertData.length === 0) {
-    return 'Assertion failed';
-  } else {
-    try {
-      // We remove the first element which is the 'error selector'.
-      const revertOutput = revertData.slice(1);
-      // Try to interpret the output as a text string.
-      return 'Assertion failed: ' + String.fromCharCode(...revertOutput.map(fr => fr.toNumber()));
-    } catch (e) {
-      return 'Assertion failed: <cannot interpret as string>';
-    }
-  }
+  return createRevertReason('Assertion failed: ', revertData, context);
 }

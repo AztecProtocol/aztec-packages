@@ -1,5 +1,6 @@
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -91,11 +92,10 @@ describe('L1Publisher', () => {
       l1RpcUrl: `http://127.0.0.1:8545`,
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
-      l1Contracts: {
-        rollupAddress: EthAddress.ZERO.toString(),
-      },
+      l1Contracts: { rollupAddress: EthAddress.ZERO.toString() },
       l1PublishRetryIntervalMS: 1,
-    } as unknown as TxSenderConfig & PublisherConfig;
+      ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
+    } as unknown as TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
 
     publisher = new L1Publisher(config, new NoopTelemetryClient());
 
@@ -120,10 +120,12 @@ describe('L1Publisher', () => {
     expect(result).toEqual(true);
 
     const args = [
-      `0x${header.toString('hex')}`,
-      `0x${archive.toString('hex')}`,
-      `0x${blockHash.toString('hex')}`,
-      [],
+      {
+        header: `0x${header.toString('hex')}`,
+        archive: `0x${archive.toString('hex')}`,
+        blockHash: `0x${blockHash.toString('hex')}`,
+        txHashes: [],
+      },
       [],
       `0x${body.toString('hex')}`,
     ] as const;

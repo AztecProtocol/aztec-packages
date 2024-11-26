@@ -6,8 +6,8 @@ use dep::types::{
     utils::reader::Reader,
 };
 
-global BASE_ROLLUP_TYPE = 0;
-global MERGE_ROLLUP_TYPE = 1;
+pub(crate) global BASE_ROLLUP_TYPE = 0;
+pub(crate) global MERGE_ROLLUP_TYPE = 1;
 
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
@@ -73,7 +73,7 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
 
         assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
