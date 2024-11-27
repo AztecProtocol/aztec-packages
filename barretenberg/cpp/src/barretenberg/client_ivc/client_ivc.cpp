@@ -176,7 +176,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
         trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+        proving_key = std::make_shared<DeciderProvingKey>(
+            circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key);
     }
 
     proving_key->proving_key.commitment_key = bn254_commitment_key;
