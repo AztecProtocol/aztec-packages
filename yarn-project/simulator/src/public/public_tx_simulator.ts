@@ -20,7 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
@@ -55,15 +55,18 @@ export class PublicTxSimulator {
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
-    client: TelemetryClient,
+    telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private realAvmProvingRequests: boolean = true,
     private doMerkleOperations: boolean = false,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(client, 'PublicTxSimulator');
+    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
+  get tracer(): Tracer {
+    return this.metrics.tracer;
+  }
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
@@ -244,6 +247,12 @@ export class PublicTxSimulator {
    * @param executionRequest - The execution request (includes args)
    * @returns The result of execution.
    */
+  @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, _callRequest, executionRequest) => ({
+    [Attributes.TX_HASH]: context.getTxHash().toString(),
+    [Attributes.TARGET_ADDRESS]: executionRequest.callContext.contractAddress.toString(),
+    [Attributes.SENDER_ADDRESS]: executionRequest.callContext.msgSender.toString(),
+    [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
+  }))
   private async simulateEnqueuedCall(
     phase: TxExecutionPhase,
     context: PublicTxContext,
@@ -312,6 +321,12 @@ export class PublicTxSimulator {
    * @param fnName - The name of the function
    * @returns The result of execution.
    */
+  @trackSpan(
+    'PublicTxSimulator.simulateEnqueuedCallInternal',
+    (_stateManager, _executionRequest, _allocatedGas, _transactionFee, fnName) => ({
+      [Attributes.APP_CIRCUIT_NAME]: fnName,
+    }),
+  )
   private async simulateEnqueuedCallInternal(
     stateManager: AvmPersistableStateManager,
     executionRequest: PublicExecutionRequest,
@@ -356,7 +371,7 @@ export class PublicTxSimulator {
     if (result.reverted) {
       this.metrics.recordFunctionSimulationFailure();
     } else {
-      this.metrics.recordFunctionSimulation(timer.ms());
+      this.metrics.recordFunctionSimulation(timer.ms(), allocatedGas.sub(result.gasLeft).l2Gas, fnName);
     }
 
     return result;

@@ -3,6 +3,8 @@ import { Fr } from '@aztec/aztec.js';
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// rate(aztec_public_executor_simulation_gas_per_second_per_second_sum[5m]) / rate(aztec_public_executor_simulation_gas_per_second_per_second_count[5m])
+
 describe('e2e_token_contract transfer public', () => {
   const t = new TokenContractTest('transfer_in_public');
   let { asset, accounts, tokenSim, wallets, badAccount } = t;
