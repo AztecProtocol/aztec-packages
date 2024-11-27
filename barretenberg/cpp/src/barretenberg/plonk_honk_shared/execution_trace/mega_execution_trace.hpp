@@ -30,10 +30,17 @@ template <typename T> struct MegaTraceBlockData {
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",     "pub_inputs",         "busread",
-                 "arithmetic", "delta_range",        "elliptic",
-                 "aux",        "poseidon2_external", "poseidon2_internal",
-                 "lookup" };
+        return { "ecc_op",
+                 "pub_inputs",
+                 "busread",
+                 "arithmetic",
+                 "delta_range",
+                 "elliptic",
+                 "aux",
+                 "poseidon2_external",
+                 "poseidon2_internal",
+                 "lookup",
+                 "overflow" };
     }
 
     auto get()
@@ -220,10 +227,10 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         info("");
     }
 
-    size_t get_structured_dyadic_size()
+    size_t get_structured_dyadic_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
-        for (auto block : this->get()) {
+        for (const auto& block : this->get()) {
             total_size += block.get_fixed_size();
         }
 

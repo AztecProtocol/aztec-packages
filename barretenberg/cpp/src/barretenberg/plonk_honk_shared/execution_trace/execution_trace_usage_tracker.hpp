@@ -31,6 +31,21 @@ struct ExecutionTraceUsageTracker {
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
 
+    // For printing only. Must match the order of the members in the arithmetization
+    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+                                                                    "pub_inputs",
+                                                                    "busread",
+                                                                    "arithmetic",
+                                                                    "delta_range",
+                                                                    "elliptic",
+                                                                    "aux",
+                                                                    "poseidon2_external",
+                                                                    "poseidon2_internal",
+                                                                    "lookup",
+                                                                    "overflow",
+                                                                    "databus_table_data",
+                                                                    "lookup_table_data" };
+
     TraceSettings trace_settings;
 
     ExecutionTraceUsageTracker(const TraceSettings& trace_settings = TraceSettings{})
@@ -72,8 +87,12 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start).
-        size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
+        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start) so we
+        // need to determine the dyadic size for this. We call the size function on the current circuit which will have
+        // the same fixed block sizes but might also have an overflow block potentially influencing the dyadic circuit
+        // size.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1160)
+        const size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
         // max_databus_size } but this breaks for certain choices of num_threads.
@@ -98,24 +117,13 @@ struct ExecutionTraceUsageTracker {
         });
     }
 
-    // For printing only. Must match the order of the members in the arithmetization
-    std::vector<std::string> block_labels{ "ecc_op",
-                                           "pub_inputs",
-                                           "busread",
-                                           "arithmetic",
-                                           "delta_range",
-                                           "elliptic",
-                                           "aux",
-                                           "poseidon2_external",
-                                           "poseidon2_internal",
-                                           "lookup",
-                                           "overflow" };
-
     void print()
     {
         info("Minimum required block sizes for structured trace: ");
-        for (auto [label, max_size] : zip_view(block_labels, max_sizes.get())) {
-            std::cout << std::left << std::setw(20) << (label + ":") << max_size << std::endl;
+        size_t idx = 0;
+        for (auto max_size : max_sizes.get()) {
+            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
+            idx++;
         }
         info("");
     }
@@ -124,8 +132,18 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of accumulator: ");
         for (auto [label, range] : zip_view(block_labels, active_ranges)) {
-            std::cout << std::left << std::setw(20) << (label + ":") << "(" << range.first << ", " << range.second
-                      << ")" << std::endl;
+            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+                      << std::endl;
+        }
+        info("");
+    }
+
+    void print_previous_active_ranges()
+    {
+        info("Active regions of previous accumulator: ");
+        for (auto [label, range] : zip_view(block_labels, previous_active_ranges)) {
+            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+                      << std::endl;
         }
         info("");
     }

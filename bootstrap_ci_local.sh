@@ -20,6 +20,8 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
+BOOTSTRAP_SCRIPT=${BOOTSTRAP_SCRIPT:-"CI=1 ./bootstrap.sh fast || exec /bin/bash"}
+
 docker run --name aztec_build -ti --rm \
   --privileged \
   -v boostrap_ci_local_docker:/var/lib/docker \
@@ -34,5 +36,5 @@ docker run --name aztec_build -ti --rm \
   git remote add origin http://github.com/aztecprotocol/aztec-packages
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD &>/dev/null
-  CI=1 ./bootstrap.sh fast || exec /bin/bash
+  $BOOTSTRAP_SCRIPT
 "
