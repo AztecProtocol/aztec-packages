@@ -14,9 +14,8 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {Rollup} from "./harnesses/Rollup.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
@@ -726,9 +725,55 @@ contract RollupTest is DecoderBase, TimeFns {
     assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
+  function testRevertSubmittingProofForBlocksAcrossEpochs() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+    _testBlock("mixed_block_2", false, TestConstants.AZTEC_EPOCH_DURATION + 1);
+
+    DecoderBase.Data memory data = load("mixed_block_2").block;
+
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid initial proven block number");
+
+    BlockLog memory blockLog = rollup.getBlock(0);
+
+    bytes32[7] memory args = [
+      blockLog.archive,
+      data.archive,
+      blockLog.blockHash,
+      data.blockHash,
+      bytes32(0),
+      bytes32(0),
+      bytes32(0)
+    ];
+
+    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+
+    fees[0] = bytes32(uint256(uint160(address(0))));
+    fees[1] = bytes32(0);
+
+    bytes memory aggregationObject = "";
+    bytes memory proof = "";
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidEpoch.selector, Epoch.wrap(0), Epoch.wrap(1))
+    );
+
+    rollup.submitEpochRootProof(
+      SubmitEpochRootProofArgs({
+        epochSize: 2,
+        args: args,
+        fees: fees,
+        aggregationObject: aggregationObject,
+        proof: proof
+      })
+    );
+
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
+  }
+
   function testProveEpochWithTwoMixedBlocks() public setUpFor("mixed_block_1") {
-    _testBlock("mixed_block_1", false);
-    _testBlock("mixed_block_2", false);
+    _testBlock("mixed_block_1", false, 1);
+    _testBlock("mixed_block_2", false, 2);
 
     DecoderBase.Data memory data = load("mixed_block_2").block;
 
@@ -1125,7 +1170,15 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes memory aggregationObject = "";
     bytes memory proof = "";
 
-    _rollup.submitEpochRootProof(_epochSize, args, fees, aggregationObject, proof);
+    _rollup.submitEpochRootProof(
+      SubmitEpochRootProofArgs({
+        epochSize: _epochSize,
+        args: args,
+        fees: fees,
+        aggregationObject: aggregationObject,
+        proof: proof
+      })
+    );
   }
 
   function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)
