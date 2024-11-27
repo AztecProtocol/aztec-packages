@@ -7,6 +7,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
   Vector,
 } from '@aztec/circuits.js';
+import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
@@ -39,8 +40,8 @@ export class ContractClassStore {
     return contractClass && { ...deserializeContractClassPublic(contractClass), id };
   }
 
-  getContractClassIds(): Fr[] {
-    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromString(key));
+  async getContractClassIds(): Promise<Fr[]> {
+    return (await toArray(this.#contractClasses.keys())).map(key => Fr.fromString(key));
   }
 
   async addFunctions(

@@ -1,5 +1,6 @@
 import { Body, type InBlock, L2Block, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { toArray } from '@aztec/foundation/iterable';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
 
@@ -88,9 +89,9 @@ export class BlockStore {
    * @param blocksToUnwind - The number of blocks we are to unwind
    * @returns True if the operation is successful
    */
-  unwindBlocks(from: number, blocksToUnwind: number) {
-    return this.db.transaction(() => {
-      const last = this.getSynchedL2BlockNumber();
+  async unwindBlocks(from: number, blocksToUnwind: number) {
+    return await this.db.transaction(async () => {
+      const last = await this.getSynchedL2BlockNumber();
       if (from != last) {
         throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
       }
@@ -121,8 +122,8 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  *getBlocks(start: number, limit: number): IterableIterator<L1Published<L2Block>> {
-    for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
+  async *getBlocks(start: number, limit: number): AsyncIterableIterator<L1Published<L2Block>> {
+    for await (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
       yield this.getBlockFromBlockStorage(blockStorage);
     }
   }
@@ -147,8 +148,8 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers
    */
-  *getBlockHeaders(start: number, limit: number): IterableIterator<Header> {
-    for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
+  async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<Header> {
+    for await (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
       yield Header.fromBuffer(blockStorage.header);
     }
   }
@@ -238,8 +239,8 @@ export class BlockStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getSynchedL2BlockNumber(): number {
-    const [lastBlockNumber] = this.#blocks.keys({ reverse: true, limit: 1 });
+  async getSynchedL2BlockNumber(): Promise<number> {
+    const [lastBlockNumber] = await toArray(this.#blocks.keys({ reverse: true, limit: 1 }));
     return typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1;
   }
 

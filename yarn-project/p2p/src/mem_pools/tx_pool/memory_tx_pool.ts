@@ -67,12 +67,14 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve();
   }
 
-  public getPendingTxHashes(): TxHash[] {
-    return Array.from(this.pendingTxs).map(x => TxHash.fromBigInt(x));
+  public getPendingTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve(Array.from(this.pendingTxs).map(x => TxHash.fromBigInt(x)));
   }
 
-  public getMinedTxHashes(): [TxHash, number][] {
-    return Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]);
+  public getMinedTxHashes(): Promise<[TxHash, number][]> {
+    return Promise.resolve(
+      Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]),
+    );
   }
 
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
@@ -149,15 +151,15 @@ export class InMemoryTxPool implements TxPool {
    * Gets all the transactions stored in the pool.
    * @returns Array of tx objects in the order they were added to the pool.
    */
-  public getAllTxs(): Tx[] {
-    return Array.from(this.txs.values()).map(x => Tx.clone(x));
+  public getAllTxs(): Promise<Tx[]> {
+    return Promise.resolve(Array.from(this.txs.values()).map(x => Tx.clone(x)));
   }
 
   /**
    * Gets the hashes of all transactions currently in the tx pool.
    * @returns An array of transaction hashes found in the tx pool.
    */
-  public getAllTxHashes(): TxHash[] {
-    return Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x));
+  public getAllTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
   }
 }

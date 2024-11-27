@@ -1,4 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
+import { toArray } from '@aztec/foundation/iterable';
 
 import { type Database, open } from 'lmdb';
 
@@ -70,7 +71,7 @@ describe('LmdbAztecCounter', () => {
       await counter.update(key, 1);
       await counter.update(key, 2);
 
-      expect([...counter.entries()]).toEqual([[key, 3]]);
+      expect(await toArray(counter.entries())).toEqual([[key, 3]]);
     });
   });
 
@@ -118,6 +119,6 @@ describe('LmdbAztecCounter', () => {
   ])('iterates in key order', async (insertOrder, expectedOrder) => {
     const counter = new LmdbAztecCounter(db, 'test');
     await Promise.all(insertOrder.map(([key, value]) => counter.update(key, value as number)));
-    expect([...counter.entries()]).toEqual(expectedOrder);
+    expect(await toArray(counter.entries())).toEqual(expectedOrder);
   });
 });

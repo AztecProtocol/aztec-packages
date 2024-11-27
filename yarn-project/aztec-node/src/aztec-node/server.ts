@@ -403,11 +403,11 @@ export class AztecNodeService implements AztecNode {
    * @returns - The pending txs.
    */
   public getPendingTxs() {
-    return Promise.resolve(this.p2pClient!.getTxs('pending'));
+    return this.p2pClient!.getTxs('pending');
   }
 
-  public getPendingTxCount() {
-    return Promise.resolve(this.p2pClient!.getTxs('pending').length);
+  public async getPendingTxCount() {
+    return (await this.p2pClient!.getTxs('pending')).length;
   }
 
   /**

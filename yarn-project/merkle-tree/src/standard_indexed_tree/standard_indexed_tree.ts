@@ -1,6 +1,7 @@
 import { type BatchInsertionResult, type LowLeafWitnessData, SiblingPath } from '@aztec/circuit-types';
 import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { toArray } from '@aztec/foundation/iterable';
 import { type FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
@@ -126,10 +127,10 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The found leaf index and a flag indicating if the corresponding leaf's value is equal to `newValue`.
    */
-  findIndexOfPreviousKey(
+  async findIndexOfPreviousKey(
     newKey: bigint,
     includeUncommitted: boolean,
-  ):
+  ): Promise<
     | {
         /**
          * The index of the found leaf.
@@ -140,8 +141,9 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
          */
         alreadyPresent: boolean;
       }
-    | undefined {
-    let lowLeafIndex = this.getDbLowLeafIndex(newKey);
+    | undefined
+  > {
+    let lowLeafIndex = await this.getDbLowLeafIndex(newKey);
     let lowLeafPreimage = lowLeafIndex !== undefined ? this.getDbPreimage(lowLeafIndex) : undefined;
 
     if (includeUncommitted) {
@@ -187,8 +189,8 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     return undefined;
   }
 
-  private getDbLowLeafIndex(key: bigint): bigint | undefined {
-    const values = Array.from(
+  private async getDbLowLeafIndex(key: bigint): Promise<bigint | undefined> {
+    const values = await toArray(
       this.leafIndex.values({
         end: buildDbKeyForLeafIndex(this.getName(), key),
         limit: 1,
@@ -500,7 +502,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
         insertedKeys.set(newLeaf.getKey(), true);
       }
 
-      const indexOfPrevious = this.findIndexOfPreviousKey(newLeaf.getKey(), true);
+      const indexOfPrevious = await this.findIndexOfPreviousKey(newLeaf.getKey(), true);
       if (indexOfPrevious === undefined) {
         return {
           lowLeavesWitnessData: undefined,

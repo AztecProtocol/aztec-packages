@@ -82,7 +82,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
   // eslint-disable-next-line require-await
   public async start(): Promise<void> {
-    for (const [item, result] of this.database.allProvingJobs()) {
+    for await (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`);
 
       this.jobsCache.set(item.id, item);

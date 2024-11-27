@@ -12,21 +12,21 @@ export interface AztecKVStore {
    * @param name - The name of the map
    * @returns The map
    */
-  openMap<K extends string | number, V>(name: string): AztecMap<K, V>;
+  openMap<K extends Key, V>(name: string): AztecMap<K, V>;
 
   /**
    * Creates a new set.
    * @param name - The name of the set
    * @returns The set
    */
-  openSet<K extends string | number>(name: string): AztecSet<K>;
+  openSet<K extends Key>(name: string): AztecSet<K>;
 
   /**
    * Creates a new multi-map.
    * @param name - The name of the multi-map
    * @returns The multi-map
    */
-  openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V>;
+  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V>;
 
   /**
    * Creates a new array.

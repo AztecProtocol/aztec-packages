@@ -35,7 +35,7 @@ export class InMemoryDatabase implements ProvingJobDatabase {
     return Promise.resolve();
   }
 
-  *allProvingJobs(): Iterable<[V2ProvingJob, V2ProvingJobResult | undefined]> {
+  async *allProvingJobs(): AsyncIterableIterator<[V2ProvingJob, V2ProvingJobResult | undefined]> {
     for (const item of this.jobs.values()) {
       yield [item, this.results.get(item.id)] as const;
     }

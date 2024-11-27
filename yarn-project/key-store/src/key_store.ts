@@ -15,6 +15,7 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
@@ -88,8 +89,8 @@ export class KeyStore {
    * Retrieves addresses of accounts stored in the key store.
    * @returns A Promise that resolves to an array of account addresses.
    */
-  public getAccounts(): Promise<AztecAddress[]> {
-    const allMapKeys = Array.from(this.#keys.keys());
+  public async getAccounts(): Promise<AztecAddress[]> {
+    const allMapKeys = await toArray(this.#keys.keys());
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
     return Promise.resolve(accounts.map(account => AztecAddress.fromString(account)));
@@ -102,8 +103,8 @@ export class KeyStore {
    * @param contractAddress - The contract address to silo the secret key in the key validation request with.
    * @returns The key validation request.
    */
-  public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkMHash);
+  public async getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
     // Now we find the master public key for the account
     const pkMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
@@ -253,8 +254,8 @@ export class KeyStore {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkM);
+  public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
+    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
     const secretKeyBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
     if (!secretKeyBuffer) {
@@ -277,9 +278,9 @@ export class KeyStore {
    * @dev Note that this is quite inefficient but it should not matter because there should never be too many keys
    * in the key store.
    */
-  public getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
+  public async getKeyPrefixAndAccount(value: Bufferable): Promise<[KeyPrefix, AztecAddress]> {
     const valueBuffer = serializeToBuffer(value);
-    for (const [key, val] of this.#keys.entries()) {
+    for await (const [key, val] of this.#keys.entries()) {
       if (val.equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {

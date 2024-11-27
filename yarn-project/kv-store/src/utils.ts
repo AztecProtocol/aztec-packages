@@ -5,6 +5,7 @@ import { join } from 'path';
 
 import { type DataStoreConfig } from './config.js';
 import { type AztecKVStore } from './interfaces/store.js';
+import { AztecJungleDBStore } from './jungledb/store.js';
 import { AztecLmdbStore } from './lmdb/store.js';
 
 export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
@@ -65,4 +66,8 @@ async function initStoreForRollup<T extends AztecKVStore>(
 export function openTmpStore(ephemeral: boolean = false): AztecLmdbStore {
   const mapSize = 1024 * 1024 * 10; // 10 GB map size
   return AztecLmdbStore.open(undefined, mapSize, ephemeral);
+}
+
+export async function openTmpJungleStore(ephemeral: boolean = false): Promise<AztecJungleDBStore> {
+  return AztecJungleDBStore.open(undefined, ephemeral);
 }

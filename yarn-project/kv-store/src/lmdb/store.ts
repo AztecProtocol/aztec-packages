@@ -2,11 +2,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { mkdirSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
-import { type Database, type Key, type RootDatabase, open } from 'lmdb';
+import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 
 import { type AztecArray } from '../interfaces/array.js';
+import { Key } from '../interfaces/common.js';
 import { type AztecCounter } from '../interfaces/counter.js';
 import { type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
 import { type AztecSet } from '../interfaces/set.js';
@@ -92,7 +93,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends string | number, V>(name: string): AztecMap<K, V> {
+  openMap<K extends Key, V>(name: string): AztecMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -101,7 +102,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the set
    * @returns A new AztecSet
    */
-  openSet<K extends string | number>(name: string): AztecSet<K> {
+  openSet<K extends Key>(name: string): AztecSet<K> {
     return new LmdbAztecSet(this.#data, name);
   }
 
@@ -110,11 +111,11 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
+  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> {
     return new LmdbAztecMap(this.#multiMapData, name);
   }
 
-  openCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
+  openCounter<K extends Key | Array<string | number>>(name: string): AztecCounter<K> {
     return new LmdbAztecCounter(this.#data, name);
   }
 

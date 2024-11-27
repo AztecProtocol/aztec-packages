@@ -1,5 +1,6 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSet } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -82,12 +83,12 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
-  public getPendingTxHashes(): TxHash[] {
-    return Array.from(this.#pendingTxs.entries()).map(x => TxHash.fromString(x));
+  public async getPendingTxHashes(): Promise<TxHash[]> {
+    return (await toArray(this.#pendingTxs.entries())).map(x => TxHash.fromString(x));
   }
 
-  public getMinedTxHashes(): [TxHash, number][] {
-    return Array.from(this.#minedTxs.entries()).map(([txHash, blockNumber]) => [
+  public async getMinedTxHashes(): Promise<[TxHash, number][]> {
+    return (await toArray(this.#minedTxs.entries())).map(([txHash, blockNumber]) => [
       TxHash.fromString(txHash),
       blockNumber,
     ]);
@@ -176,15 +177,15 @@ export class AztecKVTxPool implements TxPool {
    * Gets all the transactions stored in the pool.
    * @returns Array of tx objects in the order they were added to the pool.
    */
-  public getAllTxs(): Tx[] {
-    return Array.from(this.#txs.values()).map(buffer => Tx.fromBuffer(buffer));
+  public async getAllTxs(): Promise<Tx[]> {
+    return (await toArray(this.#txs.values())).map(buffer => Tx.fromBuffer(buffer));
   }
 
   /**
    * Gets the hashes of all transactions currently in the tx pool.
    * @returns An array of transaction hashes found in the tx pool.
    */
-  public getAllTxHashes(): TxHash[] {
-    return Array.from(this.#txs.keys()).map(x => TxHash.fromString(x));
+  public async getAllTxHashes(): Promise<TxHash[]> {
+    return (await toArray(this.#txs.keys())).map(x => TxHash.fromString(x));
   }
 }

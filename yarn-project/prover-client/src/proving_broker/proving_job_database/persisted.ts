@@ -16,8 +16,8 @@ export class PersistedProvingJobDatabase implements ProvingJobDatabase {
     await this.jobs.set(job.id, JSON.stringify(job));
   }
 
-  *allProvingJobs(): Iterable<[V2ProvingJob, V2ProvingJobResult | undefined]> {
-    for (const jobStr of this.jobs.values()) {
+  async *allProvingJobs(): AsyncIterableIterator<[V2ProvingJob, V2ProvingJobResult | undefined]> {
+    for await (const jobStr of this.jobs.values()) {
       const job = V2ProvingJob.parse(JSON.parse(jobStr));
       const resultStr = this.jobResults.get(job.id);
       const result = resultStr ? V2ProvingJobResult.parse(JSON.parse(resultStr)) : undefined;

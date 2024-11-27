@@ -40,15 +40,15 @@ export interface AztecArray<T> {
   /**
    * Iterates over the array with indexes.
    */
-  entries(): IterableIterator<[number, T]>;
+  entries(): AsyncIterableIterator<[number, T]>;
 
   /**
    * Iterates over the array.
    */
-  values(): IterableIterator<T>;
+  values(): AsyncIterableIterator<T>;
 
   /**
    * Iterates over the array.
    */
-  [Symbol.iterator](): IterableIterator<T>;
+  [Symbol.asyncIterator](): AsyncIterableIterator<T>;
 }

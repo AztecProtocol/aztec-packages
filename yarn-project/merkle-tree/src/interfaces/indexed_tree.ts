@@ -52,7 +52,7 @@ export interface IndexedTree
   findIndexOfPreviousKey(
     newValue: bigint,
     includeUncommitted: boolean,
-  ):
+  ): Promise<
     | {
         /**
          * The index of the found leaf.
@@ -63,7 +63,8 @@ export interface IndexedTree
          */
         alreadyPresent: boolean;
       }
-    | undefined;
+    | undefined
+  >;
 
   /**
    * Gets the latest LeafPreimage copy.

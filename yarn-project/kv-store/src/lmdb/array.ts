@@ -81,7 +81,7 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     return this.#db.put(this.#slot(index), val);
   }
 
-  *entries(): IterableIterator<[number, T]> {
+  async *entries(): AsyncIterableIterator<[number, T]> {
     const values = this.#db.getRange({
       start: this.#slot(0),
       limit: this.length,
@@ -93,13 +93,13 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     }
   }
 
-  *values(): IterableIterator<T> {
-    for (const [_, value] of this.entries()) {
+  async *values(): AsyncIterableIterator<T> {
+    for await (const [_, value] of this.entries()) {
       yield value;
     }
   }
 
-  [Symbol.iterator](): IterableIterator<T> {
+  [Symbol.asyncIterator](): AsyncIterableIterator<T> {
     return this.values();
   }
 

@@ -202,7 +202,7 @@ export class AztecDatastore implements Datastore {
       };
     }
 
-    for (const [key, value] of this.#dbDatastore.entries()) {
+    for await (const [key, value] of this.#dbDatastore.entries()) {
       if (!this.#memoryDatastore.has(key)) {
         yield {
           key: new Key(key),

@@ -27,5 +27,5 @@ export interface AztecSet<K extends Key> {
    * Iterates over the sets's keys entries in the key's natural order
    * @param range - The range of keys to iterate over
    */
-  entries(range?: Range<K>): IterableIterator<K>;
+  entries(range?: Range<K>): AsyncIterableIterator<K>;
 }

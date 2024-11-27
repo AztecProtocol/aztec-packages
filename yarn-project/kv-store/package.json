@@ -60,6 +60,7 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@nimiq/jungle-db": "^0.11.1",
     "lmdb": "^3.0.6"
   },
   "devDependencies": {

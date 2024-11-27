@@ -24,7 +24,7 @@ export interface ProvingJobDatabase {
   /**
    * Returns an iterator over all saved proving jobs
    */
-  allProvingJobs(): Iterable<[V2ProvingJob, V2ProvingJobResult | undefined]>;
+  allProvingJobs(): AsyncIterableIterator<[V2ProvingJob, V2ProvingJobResult | undefined]>;
 
   /**
    * Saves the result of a proof request

@@ -155,12 +155,12 @@ export class WalletDB {
     }
   }
 
-  listAliases(type?: AliasType) {
+  async listAliases(type?: AliasType) {
     const result = [];
     if (type && !Aliases.includes(type)) {
       throw new Error(`Unknown alias type ${type}`);
     }
-    for (const [key, value] of this.#aliases.entries()) {
+    for await (const [key, value] of this.#aliases.entries()) {
       if (!type || key.startsWith(`${type}:`)) {
         result.push({ key, value: value.toString() });
       }

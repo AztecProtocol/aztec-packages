@@ -125,7 +125,7 @@ export interface P2P {
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
-  getTxs(filter: 'all' | 'pending' | 'mined'): Tx[];
+  getTxs(filter: 'all' | 'pending' | 'mined'): Promise<Tx[]>;
 
   /**
    * Returns a transaction in the transaction pool by its hash.
@@ -442,19 +442,15 @@ export class P2PClient extends WithTracer implements P2P {
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
-  public getTxs(filter: 'all' | 'pending' | 'mined'): Tx[] {
+  public async getTxs(filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
     if (filter === 'all') {
       return this.txPool.getAllTxs();
     } else if (filter === 'mined') {
-      return this.txPool
-        .getMinedTxHashes()
-        .map(([txHash]) => this.txPool.getTxByHash(txHash))
-        .filter((tx): tx is Tx => !!tx);
+      const txHashes = await this.txPool.getMinedTxHashes();
+      return txHashes.map(([txHash]) => this.txPool.getTxByHash(txHash)).filter((tx): tx is Tx => !!tx);
     } else if (filter === 'pending') {
-      return this.txPool
-        .getPendingTxHashes()
-        .map(txHash => this.txPool.getTxByHash(txHash))
-        .filter((tx): tx is Tx => !!tx);
+      const txHashes = await this.txPool.getPendingTxHashes();
+      return txHashes.map(txHash => this.txPool.getTxByHash(txHash)).filter((tx): tx is Tx => !!tx);
     } else {
       const _: never = filter;
       throw new Error(`Unknown filter ${filter}`);
@@ -640,7 +636,7 @@ export class P2PClient extends WithTracer implements P2P {
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
     const txsToDelete: TxHash[] = [];
-    for (const tx of this.txPool.getAllTxs()) {
+    for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
         txsToDelete.push(tx.getTxHash());
@@ -661,7 +657,7 @@ export class P2PClient extends WithTracer implements P2P {
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
     const txsToMoveToPending: TxHash[] = [];
-    for (const [txHash, blockNumber] of this.txPool.getMinedTxHashes()) {
+    for (const [txHash, blockNumber] of await this.txPool.getMinedTxHashes()) {
       if (blockNumber > latestBlock) {
         txsToMoveToPending.push(txHash);
       }
@@ -703,7 +699,7 @@ export class P2PClient extends WithTracer implements P2P {
       return;
     }
 
-    const txs = this.txPool.getAllTxs();
+    const txs = await this.txPool.getAllTxs();
     if (txs.length > 0) {
       this.log.debug(`Publishing ${txs.length} previously stored txs`);
       await Promise.all(txs.map(tx => this.p2pService.propagate(tx)));

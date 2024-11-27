@@ -558,7 +558,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       if (txHash) {
         await checkTx(client, txHash, false, log);
       } else if (db) {
-        const aliases = db.listAliases('transactions');
+        const aliases = await db.listAliases('transactions');
         const totalPages = Math.ceil(aliases.length / pageSize);
         page = Math.min(page - 1, totalPages - 1);
         const dataRows = await Promise.all(

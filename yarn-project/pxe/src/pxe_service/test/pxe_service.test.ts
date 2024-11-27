@@ -15,11 +15,11 @@ import { TestPrivateKernelProver } from '../../kernel_prover/test/test_circuit_p
 import { PXEService } from '../pxe_service.js';
 import { pxeTestSuite } from './pxe_test_suite.js';
 
-function createPXEService(): Promise<PXE> {
+async function createPXEService(): Promise<PXE> {
   const kvStore = openTmpStore();
   const keyStore = new KeyStore(kvStore);
   const node = mock<AztecNode>();
-  const db = new KVPxeDatabase(kvStore);
+  const db = await KVPxeDatabase.create(kvStore);
   const tips = new L2TipsStore(kvStore, 'pxe');
   const config: PXEServiceConfig = {
     l2BlockPollingIntervalMS: 100,
@@ -59,12 +59,12 @@ describe('PXEService', () => {
   let config: PXEServiceConfig;
   let tips: L2TipsStore;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const kvStore = openTmpStore();
     keyStore = new KeyStore(kvStore);
     node = mock<AztecNode>();
     tips = new L2TipsStore(kvStore, 'pxe');
-    db = new KVPxeDatabase(kvStore);
+    db = await KVPxeDatabase.create(kvStore);
     config = {
       l2BlockPollingIntervalMS: 100,
       l2StartingBlock: INITIAL_L2_BLOCK_NUM,

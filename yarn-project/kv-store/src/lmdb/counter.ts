@@ -45,11 +45,11 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
     return this.#map.get(key) ?? 0;
   }
 
-  entries(range: Range<K> = {}): IterableIterator<[K, number]> {
+  entries(range: Range<K> = {}): AsyncIterableIterator<[K, number]> {
     return this.#map.entries(range);
   }
 
-  keys(range: Range<K> = {}): IterableIterator<K> {
+  keys(range: Range<K> = {}): AsyncIterableIterator<K> {
     return this.#map.keys(range);
   }
 }

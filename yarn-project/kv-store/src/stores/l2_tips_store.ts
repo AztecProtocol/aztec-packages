@@ -60,7 +60,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
         break;
       case 'chain-finalized':
         await this.l2TipsStore.set('finalized', event.blockNumber);
-        for (const key of this.l2BlockHashesStore.keys({ end: event.blockNumber })) {
+        for await (const key of this.l2BlockHashesStore.keys({ end: event.blockNumber })) {
           await this.l2BlockHashesStore.delete(key);
         }
         break;

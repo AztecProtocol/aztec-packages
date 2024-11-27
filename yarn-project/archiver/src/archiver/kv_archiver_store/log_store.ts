@@ -177,11 +177,11 @@ export class LogStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  *getLogs<TLogType extends LogType>(
+  async *getLogs<TLogType extends LogType>(
     start: number,
     limit: number,
     logType: TLogType,
-  ): IterableIterator<L2BlockL2Logs<FromLogType<TLogType>>> {
+  ): AsyncIterableIterator<L2BlockL2Logs<FromLogType<TLogType>>> {
     const logMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
@@ -205,7 +205,7 @@ export class LogStore {
       }
     })();
     const L2BlockL2Logs = logTypeMap;
-    for (const buffer of logMap.values({ start, limit })) {
+    for await (const buffer of logMap.values({ start, limit })) {
       yield L2BlockL2Logs.fromBuffer(buffer) as L2BlockL2Logs<FromLogType<TLogType>>;
     }
   }
@@ -229,7 +229,7 @@ export class LogStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): GetUnencryptedLogsResponse {
+  async getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     if (filter.afterLog) {
       return this.#filterUnencryptedLogsBetweenBlocks(filter);
     } else if (filter.txHash) {
@@ -258,7 +258,7 @@ export class LogStore {
     return { logs, maxLogsHit };
   }
 
-  #filterUnencryptedLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+  async #filterUnencryptedLogsBetweenBlocks(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;
@@ -273,7 +273,7 @@ export class LogStore {
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     let maxLogsHit = false;
-    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#unencryptedLogsByBlock.entries({ start, end })) {
+    loopOverBlocks: for await (const [blockNumber, logBuffer] of this.#unencryptedLogsByBlock.entries({ start, end })) {
       const unencryptedLogsInBlock = UnencryptedL2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
@@ -293,7 +293,7 @@ export class LogStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): GetUnencryptedLogsResponse {
+  async getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     if (filter.afterLog) {
       return this.#filterContractClassLogsBetweenBlocks(filter);
     } else if (filter.txHash) {
@@ -303,7 +303,7 @@ export class LogStore {
     }
   }
 
-  #filterContractClassLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+  async #filterContractClassLogsOfTx(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
@@ -324,7 +324,7 @@ export class LogStore {
     return { logs, maxLogsHit };
   }
 
-  #filterContractClassLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+  async #filterContractClassLogsBetweenBlocks(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;
@@ -339,7 +339,10 @@ export class LogStore {
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     let maxLogsHit = false;
-    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({ start, end })) {
+    loopOverBlocks: for await (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({
+      start,
+      end,
+    })) {
       const contractClassLogsInBlock = ContractClass2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();

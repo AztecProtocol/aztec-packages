@@ -33,7 +33,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
    * @param leaf - The leaf to append.
    * @returns Empty promise.
    */
-  private appendLeaf(leaf: Buffer): void {
+  private async appendLeaf(leaf: Buffer): Promise<void> {
     const newLeaf = this.leafFactory.fromBuffer(leaf);
 
     // Special case when appending zero
@@ -42,7 +42,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
       return;
     }
 
-    const lowLeafIndex = this.findIndexOfPreviousKey(newLeaf.getKey(), true);
+    const lowLeafIndex = await this.findIndexOfPreviousKey(newLeaf.getKey(), true);
     if (lowLeafIndex === undefined) {
       throw new Error(`Previous leaf not found!`);
     }

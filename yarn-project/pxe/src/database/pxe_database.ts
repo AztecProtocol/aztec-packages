@@ -137,7 +137,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Retrieves the list of contact addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): AztecAddress[];
+  getContactAddresses(): Promise<AztecAddress[]>;
 
   /**
    * Removes a contact address from the database.

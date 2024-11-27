@@ -21,6 +21,7 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { toArray } from '@aztec/foundation/iterable';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 
@@ -134,7 +135,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
     try {
-      return Promise.resolve(Array.from(this.#blockStore.getBlocks(start, limit)));
+      return toArray(this.#blockStore.getBlocks(start, limit));
     } catch (err) {
       // this function is sync so if any errors are thrown we need to make sure they're passed on as rejected Promises
       return Promise.reject(err);
@@ -150,7 +151,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   getBlockHeaders(start: number, limit: number): Promise<Header[]> {
     try {
-      return Promise.resolve(Array.from(this.#blockStore.getBlockHeaders(start, limit)));
+      return toArray(this.#blockStore.getBlockHeaders(start, limit));
     } catch (err) {
       // this function is sync so if any errors are thrown we need to make sure they're passed on as rejected Promises
       return Promise.reject(err);
@@ -253,7 +254,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     try {
-      return Promise.resolve(Array.from(this.#logStore.getLogs(start, limit, logType)));
+      return toArray(this.#logStore.getLogs(start, limit, logType));
     } catch (err) {
       return Promise.reject(err);
     }

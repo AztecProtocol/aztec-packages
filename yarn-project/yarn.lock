@@ -770,6 +770,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@nimiq/jungle-db": ^0.11.1
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
     jest: ^29.5.0
@@ -3409,6 +3410,17 @@ __metadata:
     uint8-varint: ^2.0.1
     uint8arrays: ^5.0.0
   checksum: 086a71f86caeb441ea8895e497d7ce1e46d8bda881bc275812054b02a94d08323f100ca78d1ff9979347488145563b492d1d4ffc8d800baf5ce5c726d02af451
+  languageName: node
+  linkType: hard
+
+"@nimiq/jungle-db@npm:^0.11.1":
+  version: 0.11.1
+  resolution: "@nimiq/jungle-db@npm:0.11.1"
+  dependencies:
+    atob: ^2.0.3
+    btoa: ^1.1.2
+    node-lmdb: ^0.10.1
+  checksum: 81fdfe1c940a520f3b9682413432c53cfd7ea791b17d63326b4dcd7e7a478d5da4f5e05b295d4ca6cfcf544b08bdbf4245a18a6ce927a73565dd0e511d1e8081
   languageName: node
   linkType: hard
 
@@ -6292,6 +6304,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"atob@npm:^2.0.3":
+  version: 2.1.2
+  resolution: "atob@npm:2.1.2"
+  bin:
+    atob: bin/atob.js
+  checksum: dfeeeb70090c5ebea7be4b9f787f866686c645d9f39a0d184c817252d0cf08455ed25267d79c03254d3be1f03ac399992a792edcd5ffb9c91e097ab5ef42833a
+  languageName: node
+  linkType: hard
+
 "available-typed-arrays@npm:^1.0.7":
   version: 1.0.7
   resolution: "available-typed-arrays@npm:1.0.7"
@@ -6839,6 +6860,15 @@ __metadata:
   dependencies:
     node-int64: ^0.4.0
   checksum: 9ba4dc58ce86300c862bffc3ae91f00b2a03b01ee07f3564beeeaf82aa243b8b03ba53f123b0b842c190d4399b94697970c8e7cf7b1ea44b61aa28c3526a4449
+  languageName: node
+  linkType: hard
+
+"btoa@npm:^1.1.2":
+  version: 1.2.1
+  resolution: "btoa@npm:1.2.1"
+  bin:
+    btoa: bin/btoa.js
+  checksum: afbf004fb1b1d530e053ffa66ef5bd3878b101c59d808ac947fcff96810b4452abba2b54be687adadea2ba9efc7af48b04228742789bf824ef93f103767e690c
   languageName: node
   linkType: hard
 
@@ -13905,6 +13935,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nan@npm:^2.19.0":
+  version: 2.22.0
+  resolution: "nan@npm:2.22.0"
+  dependencies:
+    node-gyp: latest
+  checksum: 222e3a090e326c72f6782d948f44ee9b81cfb2161d5fe53216f04426a273fd094deee9dcc6813096dd2397689a2b10c1a92d3885d2e73fd2488a51547beb2929
+  languageName: node
+  linkType: hard
+
 "nanoassert@npm:^1.1.0":
   version: 1.1.0
   resolution: "nanoassert@npm:1.1.0"
@@ -14074,6 +14113,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-gyp-build@npm:^4.8.1":
+  version: 4.8.4
+  resolution: "node-gyp-build@npm:4.8.4"
+  bin:
+    node-gyp-build: bin.js
+    node-gyp-build-optional: optional.js
+    node-gyp-build-test: build-test.js
+  checksum: 8b81ca8ffd5fa257ad8d067896d07908a36918bc84fb04647af09d92f58310def2d2b8614d8606d129d9cd9b48890a5d2bec18abe7fcff54818f72bedd3a7d74
+  languageName: node
+  linkType: hard
+
 "node-gyp@npm:latest":
   version: 10.1.0
   resolution: "node-gyp@npm:10.1.0"
@@ -14098,6 +14148,17 @@ __metadata:
   version: 0.4.0
   resolution: "node-int64@npm:0.4.0"
   checksum: d0b30b1ee6d961851c60d5eaa745d30b5c95d94bc0e74b81e5292f7c42a49e3af87f1eb9e89f59456f80645d679202537de751b7d72e9e40ceea40c5e449057e
+  languageName: node
+  linkType: hard
+
+"node-lmdb@npm:^0.10.1":
+  version: 0.10.1
+  resolution: "node-lmdb@npm:0.10.1"
+  dependencies:
+    nan: ^2.19.0
+    node-gyp: latest
+    node-gyp-build: ^4.8.1
+  checksum: 2c5fccffb238b27d1ecd5d9aa5caad25af77373ae20db2527d69bfbf4967243d0097c223d1b321263b42df65dbb3775897189db8819ecb1fab0734d1b79aea5a
   languageName: node
   linkType: hard
 

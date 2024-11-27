@@ -24,11 +24,11 @@ describe('Synchronizer', () => {
     }
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const store = openTmpStore();
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
-    database = new KVPxeDatabase(store);
+    database = await KVPxeDatabase.create(store);
     tipsStore = new L2TipsStore(store, 'pxe');
     synchronizer = new TestSynchronizer(aztecNode, database, tipsStore);
   });

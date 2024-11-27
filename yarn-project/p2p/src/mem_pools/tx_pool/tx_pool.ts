@@ -40,25 +40,25 @@ export interface TxPool {
    * Gets all transactions currently in the tx pool.
    * @returns An array of transaction objects found in the tx pool.
    */
-  getAllTxs(): Tx[];
+  getAllTxs(): Promise<Tx[]>;
 
   /**
    * Gets the hashes of all transactions currently in the tx pool.
    * @returns An array of transaction hashes found in the tx pool.
    */
-  getAllTxHashes(): TxHash[];
+  getAllTxHashes(): Promise<TxHash[]>;
 
   /**
    * Gets the hashes of pending transactions currently in the tx pool.
    * @returns An array of pending transaction hashes found in the tx pool.
    */
-  getPendingTxHashes(): TxHash[];
+  getPendingTxHashes(): Promise<TxHash[]>;
 
   /**
    * Gets the hashes of mined transactions currently in the tx pool.
    * @returns An array of mined transaction hashes found in the tx pool.
    */
-  getMinedTxHashes(): [tx: TxHash, blockNumber: number][];
+  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: number][]>;
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.
