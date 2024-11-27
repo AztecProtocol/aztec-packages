@@ -143,6 +143,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     assertEq(manaBaseFee, rollup.getManaBaseFee(true), "mana base fee mismatch");
 
+    uint256 manaSpent = point.block_header.mana_spent;
+
     // Updating the header with important information!
     assembly {
       let headerRef := add(header, 0x20)
@@ -164,10 +166,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       mstore(add(headerRef, 0x01e8), 0)
       mstore(add(headerRef, 0x0208), 0)
       mstore(add(headerRef, 0x0228), manaBaseFee)
-    }
 
-    // We extend the with 20 bytes of mana spent information.
-    header = bytes.concat(header, bytes32(point.block_header.mana_spent));
+      mstore(add(headerRef, 0x0268), manaSpent)
+    }
 
     return Block({
       archive: archiveRoot,
