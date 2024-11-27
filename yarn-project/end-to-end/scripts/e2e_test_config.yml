@@ -84,7 +84,8 @@ tests:
   e2e_state_vars: {}
   e2e_static_calls: {}
   e2e_synching: {}
-  e2e_token_contract: {}
+  e2e_token_contract:
+    with_alerts: true
   e2e_p2p_gossip:
     test_path: 'e2e_p2p/gossip_network.test.ts'
     with_alerts: true
