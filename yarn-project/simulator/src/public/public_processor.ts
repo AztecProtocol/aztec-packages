@@ -79,7 +79,7 @@ export class PublicProcessor {
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,
-    private log = createDebugLogger('aztec:sequencer:public-processor'),
+    private log = createDebugLogger('aztec:simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -195,6 +195,7 @@ export class PublicProcessor {
     feePayer: AztecAddress,
   ): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
+      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
       return;
     }
 
@@ -202,7 +203,7 @@ export class PublicProcessor {
     const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
 
-    this.log.debug(`Deducting ${txFee} balance in Fee Juice for ${feePayer}`);
+    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
     const existingBalanceWrite = publicDataWrites.find(write => write.leafSlot.equals(leafSlot));
 
@@ -211,7 +212,9 @@ export class PublicProcessor {
       : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
-      throw new Error(`Not enough balance for fee payer to pay for transaction (got ${balance} needs ${txFee})`);
+      throw new Error(
+        `Not enough balance for fee payer to pay for transaction (got ${balance.toBigInt()} needs ${txFee.toBigInt()})`,
+      );
     }
 
     const updatedBalance = balance.sub(txFee);
@@ -220,6 +223,9 @@ export class PublicProcessor {
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
 
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
@@ -270,7 +276,8 @@ export class PublicProcessor {
     );
 
     const phaseCount = processedPhases.length;
-    this.metrics.recordTx(phaseCount, timer.ms());
+    const durationMs = timer.ms();
+    this.metrics.recordTx(phaseCount, durationMs);
 
     const data = avmProvingRequest.inputs.output;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(

@@ -25,20 +25,8 @@ export class EncryptedL2NoteLog {
     return this.data;
   }
 
-  /** Returns a JSON-friendly representation of the log. */
-  public toJSON(): object {
-    return { data: this.data.toString('hex') };
-  }
-
   static get schema() {
-    return z
-      .object({ data: schemas.HexString })
-      .transform(({ data }) => new EncryptedL2NoteLog(Buffer.from(data, 'hex')));
-  }
-
-  /** Converts a plain JSON object into an instance. */
-  public static fromJSON(obj: any) {
-    return new EncryptedL2NoteLog(Buffer.from(obj.data, 'hex'));
+    return z.object({ data: schemas.Buffer }).transform(({ data }) => new EncryptedL2NoteLog(data));
   }
 
   /**

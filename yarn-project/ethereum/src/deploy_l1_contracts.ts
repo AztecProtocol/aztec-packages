@@ -21,6 +21,8 @@ import {
   RewardDistributorBytecode,
   RollupAbi,
   RollupBytecode,
+  SampleLibAbi,
+  SampleLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
@@ -163,6 +165,15 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   rollup: {
     contractAbi: RollupAbi,
     contractBytecode: RollupBytecode,
+    libraries: {
+      linkReferences: RollupLinkReferences,
+      libraryCode: {
+        SampleLib: {
+          contractAbi: SampleLibAbi,
+          contractBytecode: SampleLibBytecode,
+        },
+      },
+    },
   },
   feeJuice: {
     contractAbi: TestERC20Abi,
@@ -379,7 +390,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000;
+  const FEE_JUICE_INITIAL_MINT = 20000000000000000000;
   const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
@@ -611,9 +622,15 @@ export async function deployL1Contract(
       );
 
       for (const linkRef in libraries.linkReferences) {
-        for (const c in libraries.linkReferences[linkRef]) {
-          const start = 2 + 2 * libraries.linkReferences[linkRef][c][0].start;
-          const length = 2 * libraries.linkReferences[linkRef][c][0].length;
+        for (const contractName in libraries.linkReferences[linkRef]) {
+          // If the library name matches the one we just deployed, we replace it.
+          if (contractName !== libraryName) {
+            continue;
+          }
+
+          // We read the first instance to figure out what we are to replace.
+          const start = 2 + 2 * libraries.linkReferences[linkRef][contractName][0].start;
+          const length = 2 * libraries.linkReferences[linkRef][contractName][0].length;
 
           const toReplace = bytecode.slice(start, start + length);
           replacements[toReplace] = address;

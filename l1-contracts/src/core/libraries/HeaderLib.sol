@@ -52,6 +52,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | 0x0248                                                                           | 0x20         | total_fees
+ *  | 0x0268                                                                           | 0x20         | total_mana_used
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -102,6 +103,7 @@ library HeaderLib {
     StateReference stateReference;
     GlobalVariables globalVariables;
     uint256 totalFees;
+    uint256 totalManaUsed;
   }
 
   uint256 private constant HEADER_LENGTH = Constants.HEADER_LENGTH_BYTES; // Header byte length
@@ -157,6 +159,9 @@ library HeaderLib {
 
     // Reading totalFees
     header.totalFees = uint256(bytes32(_header[0x0248:0x0268]));
+
+    // Reading totalManaUsed
+    header.totalManaUsed = uint256(bytes32(_header[0x0268:0x0288]));
 
     return header;
   }

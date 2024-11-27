@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RollupTypes } from '../shared.js';
@@ -49,6 +50,10 @@ export class BaseOrMergeRollupPublicInputs {
      * The summed `transaction_fee` of the constituent transactions.
      */
     public accumulatedFees: Fr,
+    /**
+     * The summed `mana_used` of the constituent transactions.
+     */
+    public accumulatedManaUsed: Fr,
   ) {}
 
   /** Returns an empty instance. */
@@ -61,6 +66,7 @@ export class BaseOrMergeRollupPublicInputs {
       PartialStateReference.empty(),
       SpongeBlob.empty(),
       SpongeBlob.empty(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
     );
@@ -82,6 +88,7 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(PartialStateReference),
       reader.readObject(SpongeBlob),
       reader.readObject(SpongeBlob),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
@@ -106,6 +113,7 @@ export class BaseOrMergeRollupPublicInputs {
       this.outHash,
 
       this.accumulatedFees,
+      this.accumulatedManaUsed,
     );
   }
 
@@ -114,7 +122,7 @@ export class BaseOrMergeRollupPublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -123,16 +131,16 @@ export class BaseOrMergeRollupPublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BaseOrMergeRollupPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(BaseOrMergeRollupPublicInputs);
+    return bufferSchemaFor(BaseOrMergeRollupPublicInputs);
   }
 }

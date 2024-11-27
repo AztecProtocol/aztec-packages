@@ -21,6 +21,7 @@ pub struct Header {
     pub state: StateReference,
     pub global_variables: GlobalVariables,
     pub total_fees: Field,
+    pub total_mana_used: Field,
 }
 // docs:end:header
 
@@ -31,6 +32,7 @@ impl Eq for Header {
             & self.state.eq(other.state)
             & self.global_variables.eq(other.global_variables)
             & self.total_fees.eq(other.total_fees)
+            & self.total_mana_used.eq(other.total_mana_used)
     }
 }
 
@@ -43,7 +45,7 @@ impl Serialize<HEADER_LENGTH> for Header {
         fields.extend_from_array(self.state.serialize());
         fields.extend_from_array(self.global_variables.serialize());
         fields.push(self.total_fees);
-
+        fields.push(self.total_mana_used);
         fields.storage()
     }
 }
@@ -68,6 +70,9 @@ impl Deserialize<HEADER_LENGTH> for Header {
         offset = offset + GLOBAL_VARIABLES_LENGTH;
 
         let total_fees = serialized[offset];
+        offset = offset + 1;
+
+        let total_mana_used = serialized[offset];
 
         Header {
             last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
@@ -75,6 +80,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
             total_fees,
+            total_mana_used,
         }
     }
 }
@@ -87,6 +93,7 @@ impl Empty for Header {
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
             total_fees: 0,
+            total_mana_used: 0,
         }
     }
 }

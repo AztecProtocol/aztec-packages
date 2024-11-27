@@ -1,5 +1,5 @@
 import {
-  type Body,
+  Body,
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
@@ -324,6 +324,7 @@ export function buildHeaderFromCircuitOutputs(
     state,
     previousMergeData[0].constants.globalVariables,
     previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
+    previousMergeData[0].accumulatedManaUsed.add(previousMergeData[1].accumulatedManaUsed),
   );
   if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
     logger?.error(
@@ -336,8 +337,8 @@ export function buildHeaderFromCircuitOutputs(
   return header;
 }
 
-export async function buildHeaderFromTxEffects(
-  body: Body,
+export async function buildHeaderAndBodyFromTxs(
+  txs: ProcessedTx[],
   globalVariables: GlobalVariables,
   l1ToL2Messages: Fr[],
   db: MerkleTreeReadOperations,
@@ -352,6 +353,9 @@ export async function buildHeaderFromTxEffects(
   );
 
   const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+
+  const nonEmptyTxEffects: TxEffect[] = txs.map(tx => tx.txEffect).filter(txEffect => !txEffect.isEmpty());
+  const body = new Body(nonEmptyTxEffects);
 
   const outHash = computeUnbalancedMerkleRoot(
     body.txEffects.map(tx => tx.txOutHash()),
@@ -374,7 +378,11 @@ export async function buildHeaderFromTxEffects(
   );
 
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-  return new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees);
+  const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+
+  const header = new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+
+  return { header, body };
 }
 
 export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {

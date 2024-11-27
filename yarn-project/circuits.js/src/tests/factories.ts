@@ -728,6 +728,7 @@ export function makeBaseOrMergeRollupPublicInputs(
     makeSpongeBlob(seed + 0x600),
     fr(seed + 0x901),
     fr(seed + 0x902),
+    fr(seed + 0x903),
   );
 }
 
@@ -935,6 +936,7 @@ export function makeHeader(
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
     fr(seed + 0x800),
+    fr(seed + 0x900),
   );
 }
 

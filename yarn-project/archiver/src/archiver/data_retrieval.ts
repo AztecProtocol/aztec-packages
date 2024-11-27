@@ -146,6 +146,10 @@ async function getBlockFromRollupTx(
       header: Hex;
       archive: Hex;
       blockHash: Hex;
+      oracleInput: {
+        provingCostModifier: bigint;
+        feeAssetPriceModifier: bigint;
+      };
       txHashes: Hex[];
     },
     ViemSignature[],
@@ -322,11 +326,20 @@ export async function getProofFromSubmitProofTx(
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
-    const [submitArgs, aggregationObjectHex, proofHex] = args!;
-    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
-    proverId = Fr.fromString(submitArgs.args[6]);
-    archiveRoot = Fr.fromString(submitArgs.args[1]);
-    proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
+    const [decodedArgs] = args as readonly [
+      {
+        epochSize: bigint;
+        args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
+        fees: readonly Hex[];
+        aggregationObject: Hex;
+        proof: Hex;
+      },
+    ];
+
+    aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
+    proverId = Fr.fromString(decodedArgs.args[6]);
+    archiveRoot = Fr.fromString(decodedArgs.args[1]);
+    proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);
   }

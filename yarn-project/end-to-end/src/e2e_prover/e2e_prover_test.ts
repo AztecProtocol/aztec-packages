@@ -253,7 +253,7 @@ export class FullProverTest {
 
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-    const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).to0xString());
+    const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).toString());
     this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
     this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);

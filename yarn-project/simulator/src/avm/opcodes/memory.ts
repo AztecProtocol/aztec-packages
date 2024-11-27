@@ -59,16 +59,19 @@ export class Set extends Instruction {
     private value: bigint | number,
   ) {
     super();
+    TaggedMemory.checkIsValidTag(inTag);
   }
 
   public async execute(context: AvmContext): Promise<void> {
+    // Constructor ensured that this.inTag is a valid tag
+    const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
+
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
-    const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
     memory.set(dstOffset, res);
 
     memory.assert({ writes: 1, addressing });
@@ -96,6 +99,7 @@ export class Cast extends Instruction {
 
   constructor(private indirect: number, private srcOffset: number, private dstOffset: number, private dstTag: number) {
     super();
+    TaggedMemory.checkIsValidTag(dstTag);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -107,6 +111,7 @@ export class Cast extends Instruction {
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
 
     const a = memory.get(srcOffset);
+    // Constructor ensured that this.dstTag is a valid tag
     const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
 
     memory.set(dstOffset, casted);

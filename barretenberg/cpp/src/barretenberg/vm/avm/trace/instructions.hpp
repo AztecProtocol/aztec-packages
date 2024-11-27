@@ -2,6 +2,7 @@
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/errors.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 
 #include <cstdint>
@@ -48,6 +49,11 @@ class Instruction {
         }
         return str;
     }
+};
+
+struct InstructionWithError {
+    Instruction instruction;
+    AvmError error;
 };
 
 } // namespace bb::avm_trace

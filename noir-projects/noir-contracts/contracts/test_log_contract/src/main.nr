@@ -33,7 +33,7 @@ contract TestLog {
     }
 
     // EXAMPLE_EVENT_0_BYTES_LEN + 16
-    global EXAMPLE_EVENT_0_CIPHERTEXT_BYTES_LEN = 144;
+    global EXAMPLE_EVENT_0_CIPHERTEXT_BYTES_LEN: Field = 144;
 
     #[private]
     fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {

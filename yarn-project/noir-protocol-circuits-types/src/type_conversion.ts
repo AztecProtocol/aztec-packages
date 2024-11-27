@@ -1795,6 +1795,7 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     end_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.endSpongeBlob),
     out_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.outHash),
     accumulated_fees: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedFees),
+    accumulated_mana_used: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedManaUsed),
   };
 }
 
@@ -1869,6 +1870,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.end_sponge_blob),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.out_hash),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_fees),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_mana_used),
   );
 }
 
@@ -2111,6 +2113,7 @@ export function mapHeaderToNoir(header: Header): HeaderNoir {
     state: mapStateReferenceToNoir(header.state),
     global_variables: mapGlobalVariablesToNoir(header.globalVariables),
     total_fees: mapFieldToNoir(header.totalFees),
+    total_mana_used: mapFieldToNoir(header.totalManaUsed),
   };
 }
 
@@ -2126,6 +2129,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
     mapFieldFromNoir(header.total_fees),
+    mapFieldFromNoir(header.total_mana_used),
   );
 }
 

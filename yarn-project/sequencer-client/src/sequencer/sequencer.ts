@@ -296,6 +296,7 @@ export class Sequencer {
       StateReference.empty(),
       newGlobalVariables,
       Fr.ZERO,
+      Fr.ZERO,
     );
 
     // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here

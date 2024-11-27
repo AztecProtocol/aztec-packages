@@ -7,8 +7,8 @@ use dep::types::{
     utils::reader::Reader,
 };
 
-pub(crate) global BASE_ROLLUP_TYPE = 0;
-pub(crate) global MERGE_ROLLUP_TYPE = 1;
+pub(crate) global BASE_ROLLUP_TYPE: u32 = 0;
+pub(crate) global MERGE_ROLLUP_TYPE: u32 = 1;
 
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
@@ -32,6 +32,7 @@ pub struct BaseOrMergeRollupPublicInputs {
     out_hash: Field,
 
     accumulated_fees: Field,
+    accumulated_mana_used: Field,
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {
@@ -46,6 +47,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             end_sponge_blob: SpongeBlob::empty(),
             out_hash: 0,
             accumulated_fees: 0,
+            accumulated_mana_used: 0,
         }
     }
 }
@@ -61,6 +63,7 @@ impl Eq for BaseOrMergeRollupPublicInputs {
             & (self.end_sponge_blob.eq(other.end_sponge_blob))
             & (self.out_hash == other.out_hash)
             & (self.accumulated_fees == other.accumulated_fees)
+            & (self.accumulated_mana_used == other.accumulated_mana_used)
     }
 }
 
@@ -77,7 +80,7 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
         fields.extend_from_array(self.end_sponge_blob.serialize());
         fields.push(self.out_hash as Field);
         fields.push(self.accumulated_fees as Field);
-
+        fields.push(self.accumulated_mana_used as Field);
         assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
@@ -99,6 +102,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
             end_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
             out_hash: reader.read(),
             accumulated_fees: reader.read(),
+            accumulated_mana_used: reader.read(),
         };
 
         reader.finish();

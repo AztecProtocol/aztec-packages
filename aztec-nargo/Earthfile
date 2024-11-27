@@ -4,7 +4,7 @@ run:
     FROM ubuntu:noble
     # Install Tini as nargo doesn't handle signals properly.
     # Install git as nargo needs it to clone.
-    RUN apt-get update && apt-get install -y git tini jq && rm -rf /var/lib/apt/lists/* && apt-get clean
+    RUN apt-get update && apt-get install -y git tini jq curl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
     # Copy binaries to /usr/bin
     COPY ../noir+nargo/nargo /usr/bin/nargo
