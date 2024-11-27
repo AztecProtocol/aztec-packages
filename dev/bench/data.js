@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732711864730,
+  "lastUpdate": 1732714614448,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "abdd912bd0d3cf9a8e09339a3766c61eea712ede",
-          "message": "fix(avm): derive unencrypted log in test (#9813)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
-          "timestamp": "2024-11-12T14:26:53+01:00",
-          "tree_id": "8fb30133b6d36748b1d0e6f7f22c3bd685bd9cec",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/abdd912bd0d3cf9a8e09339a3766c61eea712ede"
-        },
-        "date": 1731419474640,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28854.566656999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27154.555409 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5358.253938000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5053.039269 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84257.61815400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84257619000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15180.245385,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15180247000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3096817133,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3096817133 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143701329,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143701329 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 140635164,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140635164 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01eb392f15995f344e40aa8f8e41a28f6f5b825d",
+          "message": "feat: Configure world state block history (#10216)\n\nThis PR introduces a new configuration option `WS_NUM_HISTORIC_BLOCKS`\r\nwhich determines how much history the world state stores. Blocks beyond\r\nthis history are pruned.",
+          "timestamp": "2024-11-27T13:02:58Z",
+          "tree_id": "2116e41c11b8f4c072a38d845aeba49a0977ae0d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/01eb392f15995f344e40aa8f8e41a28f6f5b825d"
+        },
+        "date": 1732714607614,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27921.283971000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26447.057706 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5014.060822999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4701.979388000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83542.874923,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83542875000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15134.962835999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15134963000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3085038257,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3085038257 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140448213,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140448213 ns\nthreads: 1"
           }
         ]
       }
