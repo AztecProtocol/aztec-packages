@@ -10,7 +10,8 @@ import {
   FeeHeader,
   ManaBaseFeeComponents,
   BlockLog,
-  L1FeeData
+  L1FeeData,
+  SubmitEpochRootProofArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -51,6 +52,13 @@ struct Config {
   uint256 aztecEpochProofClaimWindowInL2Slots;
 }
 
+struct SubmitEpochRootProofInterimValues {
+  uint256 previousBlockNumber;
+  uint256 endBlockNumber;
+  Epoch epochToProve;
+  Epoch startEpoch;
+}
+
 /**
  * @title Rollup
  * @author Aztec Labs
@@ -64,6 +72,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SafeERC20 for IERC20;
   using ProposeLib for ProposeArgs;
   using FeeMath for uint256;
+  using FeeMath for ManaBaseFeeComponents;
 
   struct L1GasOracleValues {
     L1FeeData pre;
@@ -80,6 +89,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
   // for justification of CLAIM_DURATION_IN_L2_SLOTS.
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
+
+  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
+  // such as sacrificial hearts, during rituals performed within temples.
+  address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
 
   address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
   bool public immutable IS_FOUNDRY_TEST;
@@ -154,7 +167,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
         excessMana: 0,
         feeAssetPriceNumerator: 0,
         manaUsed: 0,
-        provingCostPerManaNumerator: 0
+        provingCostPerManaNumerator: 0,
+        congestionCost: 0
       }),
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(0), // TODO(palla/prover): The first block does not have hash zero
@@ -263,37 +277,41 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @dev     We provide the `_archive` and `_blockHash` even if it could be read from storage itself because it allow for
    *          better error messages. Without passing it, we would just have a proof verification failure.
    *
-   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
-   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
-   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   * @param  _aggregationObject - The aggregation object for the proof
-   * @param  _proof - The proof to verify
+   * @param _args - The arguments to submit the epoch root proof:
+   *          _epochSize - The size of the epoch (to be promoted to a constant)
+   *          _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
+   *          _aggregationObject - The aggregation object for the proof
+   *          _proof - The proof to verify
    */
-  function submitEpochRootProof(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
-    bytes calldata _aggregationObject,
-    bytes calldata _proof
-  ) external override(IRollup) {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollup) {
     if (canPrune()) {
       _prune();
     }
 
-    uint256 previousBlockNumber = tips.provenBlockNumber;
-    uint256 endBlockNumber = previousBlockNumber + _epochSize;
+    SubmitEpochRootProofInterimValues memory interimValues;
+
+    interimValues.previousBlockNumber = tips.provenBlockNumber;
+    interimValues.endBlockNumber = interimValues.previousBlockNumber + _args.epochSize;
 
     // @note The getEpochForBlock is expected to revert if the block is beyond pending.
     //       If this changes you are gonna get so rekt you won't believe it.
     //       I mean proving blocks that have been pruned rekt.
-    Epoch epochToProve = getEpochForBlock(endBlockNumber);
+    interimValues.epochToProve = getEpochForBlock(interimValues.endBlockNumber);
+    interimValues.startEpoch = getEpochForBlock(interimValues.previousBlockNumber + 1);
+
+    // Ensure that the proof is not across epochs
+    require(
+      interimValues.startEpoch == interimValues.epochToProve,
+      Errors.Rollup__InvalidEpoch(interimValues.startEpoch, interimValues.epochToProve)
+    );
 
     bytes32[] memory publicInputs =
-      getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
+      getEpochProofPublicInputs(_args.epochSize, _args.args, _args.fees, _args.aggregationObject);
 
-    require(epochProofVerifier.verify(_proof, publicInputs), Errors.Rollup__InvalidProof());
+    require(epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
-    tips.provenBlockNumber = endBlockNumber;
+    tips.provenBlockNumber = interimValues.endBlockNumber;
 
     // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
     //        Otherwise, the fees are unbacked #7938.
@@ -301,17 +319,25 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
     uint256 totalProverReward = 0;
+    uint256 totalBurn = 0;
 
     if (isFeeCanonical || isRewardDistributorCanonical) {
-      for (uint256 i = 0; i < _epochSize; i++) {
+      for (uint256 i = 0; i < _args.epochSize; i++) {
         address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
         uint256 reward = 0;
         uint256 toProver = 0;
+        uint256 burn = 0;
 
         if (isFeeCanonical) {
           uint256 fees = uint256(publicInputs[10 + i * 2]);
           if (fees > 0) {
-            reward += fees;
+            // This is insanely expensive, and will be fixed as part of the general storage cost reduction.
+            // See #9826.
+            FeeHeader storage feeHeader =
+              blocks[interimValues.previousBlockNumber + 1 + i].feeHeader;
+            burn += feeHeader.congestionCost * feeHeader.manaUsed;
+
+            reward += (fees - burn);
             FEE_JUICE_PORTAL.distributeFees(address(this), fees);
           }
         }
@@ -335,6 +361,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
         }
 
         totalProverReward += toProver;
+        totalBurn += burn;
       }
 
       if (totalProverReward > 0) {
@@ -343,13 +370,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
           proofClaim.bondProvider == address(0) ? msg.sender : proofClaim.bondProvider;
         ASSET.safeTransfer(proofRewardRecipient, totalProverReward);
       }
+
+      if (totalBurn > 0) {
+        ASSET.safeTransfer(CUAUHXICALLI, totalBurn);
+      }
     }
 
-    if (proofClaim.epochToProve == epochToProve) {
+    if (proofClaim.epochToProve == interimValues.epochToProve) {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
 
-    emit L2ProofVerified(endBlockNumber, _args[6]);
+    emit L2ProofVerified(interimValues.endBlockNumber, _args.args[6]);
   }
 
   function status(uint256 _myHeaderBlockNumber)
@@ -520,13 +551,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_args.header);
 
-    bytes32 digest = _args.digest();
     setupEpoch();
-    uint256 manaBaseFee = getManaBaseFee(true);
+    ManaBaseFeeComponents memory components = getManaBaseFeeComponents(true);
+    uint256 manaBaseFee = FeeMath.summedBaseFee(components);
     _validateHeader({
       _header: header,
       _signatures: _signatures,
-      _digest: digest,
+      _digest: _args.digest(),
       _currentTime: Timestamp.wrap(block.timestamp),
       _manaBaseFee: manaBaseFee,
       _txEffectsHash: txsEffectsHash,
@@ -553,17 +584,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
           manaUsed: header.totalManaUsed,
           provingCostPerManaNumerator: parentFeeHeader.provingCostPerManaNumerator.clampedAdd(
             _args.oracleInput.provingCostModifier
-          )
+          ),
+          congestionCost: components.congestionCost
         })
       });
     }
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
-    bytes32 inHash = INBOX.consume(blockNumber);
-    require(
-      header.contentCommitment.inHash == inHash,
-      Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash)
-    );
+    {
+      bytes32 inHash = INBOX.consume(blockNumber);
+      require(
+        header.contentCommitment.inHash == inHash,
+        Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash)
+      );
+    }
 
     // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
     // Min size = smallest path of the rollup tree + 1
@@ -644,9 +678,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @return The mana base fee
    */
   function getManaBaseFee(bool _inFeeAsset) public view override(IRollup) returns (uint256) {
-    ManaBaseFeeComponents memory components = manaBaseFeeComponents(_inFeeAsset);
-    return
-      components.dataCost + components.gasCost + components.provingCost + components.congestionCost;
+    ManaBaseFeeComponents memory components = getManaBaseFeeComponents(_inFeeAsset);
+    return components.summedBaseFee();
   }
 
   /**
@@ -661,7 +694,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *
    * @return The mana base fee components
    */
-  function manaBaseFeeComponents(bool _inFeeAsset)
+  function getManaBaseFeeComponents(bool _inFeeAsset)
     public
     view
     override(ITestRollup)
