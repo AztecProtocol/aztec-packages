@@ -5,21 +5,6 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec/bb.js@file:../../ts::locator=headless-test%40workspace%3A.":
-  version: 0.63.1
-  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=67fc6e&locator=headless-test%40workspace%3A."
-  dependencies:
-    comlink: "npm:^4.4.1"
-    commander: "npm:^10.0.1"
-    debug: "npm:^4.3.4"
-    fflate: "npm:^0.8.0"
-    tslib: "npm:^2.4.0"
-  bin:
-    bb.js: ./dest/node/main.js
-  checksum: 10c0/7e771f1f9afb28160fb3ee8f6e854238b3514a82a7f53f19c0861cc0b5ca2220e11a45cb87d60e079f1358eefbab894ea7e0b78be6db9eb626e4f4ea34d67bc2
-  languageName: node
-  linkType: hard
-
 "@babel/code-frame@npm:^7.0.0":
   version: 7.22.10
   resolution: "@babel/code-frame@npm:7.22.10"
@@ -509,20 +494,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"comlink@npm:^4.4.1":
-  version: 4.4.2
-  resolution: "comlink@npm:4.4.2"
-  checksum: 10c0/38aa1f455cf08e94aaa8fc494fd203cc0ef02ece6c21404b7931ce17567e8a72deacddab98aa5650cfd78332ff24c34610586f6fb27fd19dc77e753ed1980deb
-  languageName: node
-  linkType: hard
-
-"commander@npm:^10.0.1":
-  version: 10.0.1
-  resolution: "commander@npm:10.0.1"
-  checksum: 10c0/53f33d8927758a911094adadda4b2cbac111a5b377d8706700587650fd8f45b0bbe336de4b5c3fe47fd61f420a3d9bd452b6e0e6e5600a7e74d7bf0174f6efe3
-  languageName: node
-  linkType: hard
-
 "commander@npm:^12.1.0":
   version: 12.1.0
   resolution: "commander@npm:12.1.0"
@@ -776,13 +747,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fflate@npm:^0.8.0":
-  version: 0.8.2
-  resolution: "fflate@npm:0.8.2"
-  checksum: 10c0/03448d630c0a583abea594835a9fdb2aaf7d67787055a761515bf4ed862913cfd693b4c4ffd5c3f3b355a70cf1e19033e9ae5aedcca103188aaff91b8bd6e293
-  languageName: node
-  linkType: hard
-
 "foreground-child@npm:^3.1.0":
   version: 3.3.0
   resolution: "foreground-child@npm:3.3.0"
@@ -903,7 +867,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "headless-test@workspace:."
   dependencies:
-    "@aztec/bb.js": ../../ts
     chalk: "npm:^5.3.0"
     commander: "npm:^12.1.0"
     playwright: "npm:^1.49.0"
@@ -1874,13 +1837,6 @@ __metadata:
   version: 2.6.2
   resolution: "tslib@npm:2.6.2"
   checksum: 10c0/e03a8a4271152c8b26604ed45535954c0a45296e32445b4b87f8a5abdb2421f40b59b4ca437c4346af0f28179780d604094eb64546bee2019d903d01c6c19bdb
-  languageName: node
-  linkType: hard
-
-"tslib@npm:^2.4.0":
-  version: 2.8.1
-  resolution: "tslib@npm:2.8.1"
-  checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
   languageName: node
   linkType: hard
 
