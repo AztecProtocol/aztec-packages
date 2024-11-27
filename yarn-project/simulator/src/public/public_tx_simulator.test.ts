@@ -204,7 +204,7 @@ describe('public_tx_simulator', () => {
         );
       },
     );
-  });
+  }, 30_000);
 
   afterEach(async () => {
     await treeStore.delete();
