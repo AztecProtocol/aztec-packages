@@ -16,12 +16,12 @@ use dep::types::{
     tests::fixture_builder::FixtureBuilder,
 };
 
-global NOTE_HASH_PENDING_AMOUNT = 6;
-global NOTE_HASH_SETTLED_AMOUNT = 3;
-global NULLIFIER_PENDING_AMOUNT = 5;
-global NULLIFIER_SETTLED_AMOUNT = 2;
-global NULLIFIER_KEYS = 2;
-global TRANSIENT_DATA_AMOUNT = 5;
+global NOTE_HASH_PENDING_AMOUNT: u32 = 6;
+global NOTE_HASH_SETTLED_AMOUNT: u32 = 3;
+global NULLIFIER_PENDING_AMOUNT: u32 = 5;
+global NULLIFIER_SETTLED_AMOUNT: u32 = 2;
+global NULLIFIER_KEYS: u32 = 2;
+global TRANSIENT_DATA_AMOUNT: u32 = 5;
 
 pub struct ResetOutputValidatorBuilder {
     output: FixtureBuilder,

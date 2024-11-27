@@ -156,15 +156,15 @@ mod tests {
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
     };
 
-    global NOTE_HASH_PENDING_AMOUNT = 6;
-    global NOTE_HASH_SETTLED_AMOUNT = 3;
-    global NULLIFIER_PENDING_AMOUNT = 5;
-    global NULLIFIER_SETTLED_AMOUNT = 2;
-    global NULLIFIER_KEYS = 2;
-    global TRANSIENT_DATA_AMOUNT = 6;
-    global NOTE_HASH_SILOING_AMOUNT = 6;
-    global NULLIFIER_SILOING_AMOUNT = 6;
-    global PRIVATE_LOG_SILOING_AMOUNT = 5;
+    global NOTE_HASH_PENDING_AMOUNT: u32 = 6;
+    global NOTE_HASH_SETTLED_AMOUNT: u32 = 3;
+    global NULLIFIER_PENDING_AMOUNT: u32 = 5;
+    global NULLIFIER_SETTLED_AMOUNT: u32 = 2;
+    global NULLIFIER_KEYS: u32 = 2;
+    global TRANSIENT_DATA_AMOUNT: u32 = 6;
+    global NOTE_HASH_SILOING_AMOUNT: u32 = 6;
+    global NULLIFIER_SILOING_AMOUNT: u32 = 6;
+    global PRIVATE_LOG_SILOING_AMOUNT: u32 = 5;
 
     struct PrivateKernelResetInputsBuilder {
         previous_kernel: FixtureBuilder,
