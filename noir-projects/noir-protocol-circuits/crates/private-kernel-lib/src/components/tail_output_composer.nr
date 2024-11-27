@@ -1,9 +1,6 @@
 mod meter_gas_used;
 
-use crate::components::{
-    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
-    tail_output_composer::meter_gas_used::meter_gas_used,
-};
+use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
         accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
@@ -18,6 +15,7 @@ use dep::types::{
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
 };
+pub use meter_gas_used::meter_gas_used;
 
 pub struct TailOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,

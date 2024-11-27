@@ -1,9 +1,6 @@
 mod tail_output_hints;
 
-use crate::components::{
-    tail_output_composer::meter_gas_used::meter_gas_used,
-    tail_output_validator::tail_output_hints::{generate_tail_output_hints, TailOutputHints},
-};
+use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
@@ -15,6 +12,7 @@ use dep::types::{
     traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
+use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 
 pub struct TailOutputValidator {
     output: KernelCircuitPublicInputs,

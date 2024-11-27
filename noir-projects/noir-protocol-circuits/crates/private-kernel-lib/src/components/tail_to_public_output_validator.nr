@@ -1,11 +1,6 @@
 mod tail_to_public_output_hints;
 
-use crate::components::{
-    tail_to_public_output_composer::meter_gas_used::meter_gas_used,
-    tail_to_public_output_validator::tail_to_public_output_hints::{
-        generate_tail_to_public_output_hints, TailToPublicOutputHints,
-    },
-};
+use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
@@ -24,6 +19,7 @@ use dep::types::{
         assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,
     },
 };
+use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints};
 
 pub struct TailToPublicOutputValidator {
     output: PrivateToPublicKernelCircuitPublicInputs,

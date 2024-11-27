@@ -2,8 +2,9 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_L2_TO_L1_MSG,
+        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::utils::{assert_array_eq, swap_items},
 };
@@ -15,7 +16,7 @@ fn tail_to_public_output_composer_succeeds() {
     let teardown_gas_limits = Gas::new(789, 3254);
     builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = teardown_gas_limits;
 
-    // Non-revertibles.
+    // Non-revertible.
     builder.previous_kernel.append_siloed_note_hashes(4);
 
     builder.previous_kernel.append_siloed_nullifiers(2);
@@ -30,7 +31,7 @@ fn tail_to_public_output_composer_succeeds() {
 
     builder.previous_kernel.end_setup();
 
-    // Revertibles.
+    // Revertible.
     builder.previous_kernel.set_public_teardown_call_request();
 
     builder.previous_kernel.append_siloed_note_hashes(2);
@@ -139,6 +140,8 @@ fn tail_to_public_output_composer_succeeds() {
 
     let computed_l2_gas = num_note_hashes * L2_GAS_PER_NOTE_HASH
         + num_nullifiers * L2_GAS_PER_NULLIFIER
+        + num_msgs * L2_GAS_PER_L2_TO_L1_MSG
+        + num_private_logs * L2_GAS_PER_PRIVATE_LOG
         + contract_class_log_bytes * L2_GAS_PER_LOG_BYTE
         + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
 

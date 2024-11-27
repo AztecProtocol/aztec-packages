@@ -1,8 +1,9 @@
 use dep::types::{
     abis::{accumulated_data::combined_accumulated_data::CombinedAccumulatedData, gas::Gas},
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     utils::arrays::array_length,
 };
@@ -21,9 +22,11 @@ pub fn meter_gas_used(data: CombinedAccumulatedData) -> Gas {
 
     let num_l2_to_l1_msgs = array_length(data.l2_to_l1_msgs);
     metered_da_fields += num_l2_to_l1_msgs;
+    metered_l2_gas += num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG;
 
     let num_private_logs = array_length(data.private_logs);
     metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+    metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
     let mut metered_da_bytes = metered_da_fields * DA_BYTES_PER_FIELD;
     metered_da_bytes += data.contract_class_log_preimages_length as u32;

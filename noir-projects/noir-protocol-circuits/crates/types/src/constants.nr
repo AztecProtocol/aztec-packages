@@ -213,6 +213,8 @@ pub global L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST: u32 =
 
 // Gas for hashing and validating logs
 pub global L2_GAS_PER_LOG_BYTE: u32 = 4;
+// Zero gas because we don't have to hash and validate the private logs
+pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
 
 // Gas for writing message to L1 portal
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;

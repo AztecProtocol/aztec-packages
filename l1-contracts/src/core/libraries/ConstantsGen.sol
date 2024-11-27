@@ -130,6 +130,7 @@ library Constants {
   uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 2400;
   uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1170;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
+  uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
   uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant MAX_PROTOCOL_CONTRACTS = 7;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS = 1;
