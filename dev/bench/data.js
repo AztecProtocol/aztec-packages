@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732721975314,
+  "lastUpdate": 1732724337688,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de6564e8374d6d546e0fccbb0429d6c12e828ab3",
-          "message": "feat: Add Origin Tags to cycle group (#9879)\n\nAdds Origin Tag support (mechanism for tracking dangerous interactions\r\nof stdlib primitives) to cycle_group",
-          "timestamp": "2024-11-12T15:12:53Z",
-          "tree_id": "c8af4959a6ed54e2f59eade788d5ca5595c64832",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/de6564e8374d6d546e0fccbb0429d6c12e828ab3"
-        },
-        "date": 1731426834728,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28845.67156099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26976.581123 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5336.046377999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5042.269751000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85162.577345,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85162578000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15221.214948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15221216000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3098999696,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3098999696 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144607377,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144607377 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 139729064,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139729064 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "089c34cc3e9fb5cb493096246525c2205e646204",
+          "message": "refactor: CIVC VK (#10223)\n\nAs a step toward a consistent API, we add to `ClientIVC`\r\n```\r\n    struct VerificationKey {\r\n        std::shared_ptr<MegaVerificationKey> mega;\r\n        std::shared_ptr<ECCVMVerificationKey> eccvm;\r\n        std::shared_ptr<TranslatorVerificationKey> translator;\r\n\r\n        MSGPACK_FIELDS(mega, eccvm, translator);\r\n    };\r\n```\r\n\r\nClientIVC API before;\r\n```\r\n    static bool verify(const Proof& proof,\r\n                       const std::shared_ptr<MegaVerificationKey>& mega_vk,\r\n                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,\r\n                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);\r\n```\r\n(three vk paths need to be provided to CLI)\r\n\r\nClientIVC API after: \r\n```\r\n    static bool verify(const Proof& proof, const VerificationKey& vk);`\r\n```\r\n(and one vk path needs to be provided to CLI)",
+          "timestamp": "2024-11-27T10:46:11-05:00",
+          "tree_id": "15bb5742f4af493ce0e60e3e6fe1989266ad1597",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/089c34cc3e9fb5cb493096246525c2205e646204"
+        },
+        "date": 1732724330465,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28005.986659000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26315.656614 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5032.924441999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4713.488985 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83547.696289,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83547697000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15144.496462,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15144496000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3052192836,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3052192836 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140263845,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140263845 ns\nthreads: 1"
           }
         ]
       }
