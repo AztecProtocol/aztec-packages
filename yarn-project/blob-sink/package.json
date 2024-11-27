@@ -10,6 +10,7 @@
     ],
     "scripts": {
         "build": "yarn clean && tsc -b",
+        "start": "node ./dest/bin/run.js",
         "build:dev": "tsc -b --watch",
         "clean": "rm -rf ./dest .tsbuildinfo",
         "formatting": "run -T prettier --check ./src && run -T eslint ./src",
