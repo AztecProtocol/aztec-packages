@@ -12,9 +12,9 @@ BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 function terminate_instance {
     set +e
     if [ -n "${ip:-}" ] && [ "$NO_TERMINATE" -eq 0 ]; then
-        echo "Terminating instance..."
-        ssh ubuntu@$ip sudo halt -p > /dev/null 2>&1
-        aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir >/dev/null 2>&1
+        echo "Terminating instance: $ip..."
+        ssh ubuntu@$ip sudo halt -p
+        aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir
     fi
     if [ -n "${ip:-}" ] && [ "$NO_TERMINATE" -ne 0 ]; then
       echo "Remote machine not terminated, connect with: ./bootstrap_ci.sh ssh"
