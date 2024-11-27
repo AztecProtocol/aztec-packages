@@ -12,13 +12,13 @@
 using namespace acir_format;
 using namespace bb;
 
-class AcirHonkRecursionConstraint : public ::testing::Test {
+template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing::Test {
 
   public:
-    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using Prover = bb::UltraProver;
-    using VerificationKey = UltraFlavor::VerificationKey;
-    using Verifier = bb::UltraVerifier;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using Prover = bb::UltraProver_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using Verifier = bb::UltraVerifier_<Flavor>;
 
     Builder create_inner_circuit()
     {
@@ -186,45 +186,49 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_F(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
+using Flavors = testing::Types<UltraFlavor, UltraRollupFlavor>;
+
+TYPED_TEST_SUITE(AcirHonkRecursionConstraint, Flavors);
+
+TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 {
     std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(create_inner_circuit());
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
-    auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
+    auto layer_2_circuit = TestFixture::create_outer_circuit(layer_1_circuits);
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
-    Prover prover(proving_key);
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_2_circuit);
+    typename TestFixture::Prover prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-    Verifier verifier(verification_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
+TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 {
     std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(create_inner_circuit());
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
-    layer_1_circuits.push_back(create_inner_circuit());
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
-    auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
+    auto layer_2_circuit = TestFixture::create_outer_circuit(layer_1_circuits);
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
-    Prover prover(proving_key);
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_2_circuit);
+    typename TestFixture::Prover prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-    Verifier verifier(verification_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
+TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
 {
     /**
      * We want to test the following:
@@ -259,55 +263,55 @@ TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
      * Final aggregation object contains aggregated proofs for 2 instances of A and 1 instance of B
      */
     std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(create_inner_circuit());
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
     info("created first inner circuit");
 
     std::vector<Builder> layer_2_circuits;
-    layer_2_circuits.push_back(create_inner_circuit());
+    layer_2_circuits.push_back(TestFixture::create_inner_circuit());
     info("created second inner circuit");
 
-    layer_2_circuits.push_back(create_outer_circuit(layer_1_circuits));
+    layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_1_circuits));
     info("created first outer circuit");
 
-    auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
+    auto layer_3_circuit = TestFixture::create_outer_circuit(layer_2_circuits);
     info("created second outer circuit");
     info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(layer_3_circuit);
-    Prover prover(proving_key);
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_3_circuit);
+    typename TestFixture::Prover prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-    Verifier verifier(verification_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
+TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
 {
     std::vector<Builder> layer_b_1_circuits;
-    layer_b_1_circuits.push_back(create_inner_circuit());
+    layer_b_1_circuits.push_back(TestFixture::create_inner_circuit());
     info("created first inner circuit");
 
     std::vector<Builder> layer_b_2_circuits;
-    layer_b_2_circuits.push_back(create_inner_circuit());
+    layer_b_2_circuits.push_back(TestFixture::create_inner_circuit());
     info("created second inner circuit");
 
     std::vector<Builder> layer_2_circuits;
-    layer_2_circuits.push_back(create_outer_circuit(layer_b_1_circuits));
+    layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_b_1_circuits));
     info("created first outer circuit");
 
-    layer_2_circuits.push_back(create_outer_circuit(layer_b_2_circuits));
+    layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_b_2_circuits));
     info("created second outer circuit");
 
-    auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
+    auto layer_3_circuit = TestFixture::create_outer_circuit(layer_2_circuits);
     info("created third outer circuit");
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(layer_3_circuit);
-    Prover prover(proving_key);
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_3_circuit);
+    typename TestFixture::Prover prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-    Verifier verifier(verification_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
