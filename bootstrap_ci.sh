@@ -4,18 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
-GITHUB_ACTIONS=${GITHUB_ACTIONS:-}
+# picked up by $ci3/github/group and $ci3/github/endgroup
+GITHUB_LOG=${GITHUB_ACTIONS:-}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 cd $(dirname $0)
-
-function gh_start_group {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$1" || true
-}
-
-function gh_end_group {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::" || true
-}
 
 # Trap function to terminate our running instance when the script exits.
 function terminate_instance {
@@ -66,7 +59,6 @@ sir="${parts[1]}"
 trap terminate_instance EXIT
 $ci3/github/endgroup
 
-GITHUB_LOG=${GITHUB_ACTIONS:-}
 # pass env vars to inform if we are inside github actions, and our AWS creds
 
 args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"

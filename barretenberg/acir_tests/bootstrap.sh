@@ -2,7 +2,7 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
-$ci3/github/group "Updating yarn"
+$ci3/github/group "acir_tests updating yarn"
 # Update yarn.lock so it can be committed.
 # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
 (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn)
@@ -16,12 +16,12 @@ if [ "${CI:-0}" -ne 1 ]; then
   exit 0
 fi
 
-$ci3/github/group "Building browser-test-app"
+$ci3/github/group "acir_tests building browser-test-app"
 # Keep build as part of CI only.
 (cd browser-test-app && yarn build)
 $ci3/github/endgroup
 
-$ci3/github/group "Run acir tests"
+$ci3/github/group "acir_tests run tests"
 # Download ignition up front to ensure no race conditions at runtime.
 # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
 mkdir -p $HOME/.bb-crs
