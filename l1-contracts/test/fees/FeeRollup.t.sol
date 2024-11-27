@@ -99,8 +99,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   Rollup internal rollup;
 
+  address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
-  address internal moneyMaker = address(bytes20("MONEY MAKER"));
+  FakeCanonical internal fakeCanonical;
 
   function setUp() public {
     // We deploy a the rollup and sets the time and all to
@@ -111,7 +112,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     asset = new TestERC20();
 
-    FakeCanonical fakeCanonical = new FakeCanonical(IERC20(address(asset)));
+    fakeCanonical = new FakeCanonical(IERC20(address(asset)));
     rollup = new Rollup(
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
@@ -128,7 +129,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
 
-    vm.label(moneyMaker, "MONEY MAKER");
+    vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
@@ -174,8 +175,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     uint256 manaSpent = point.block_header.mana_spent;
 
-    // Put money maker onto the stack
-    address cb = moneyMaker;
+    // Put coinbase onto the stack
+    address cb = coinbase;
 
     // Updating the header with important information!
     assembly {
@@ -211,7 +212,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
-  function test_BigBrainTime() public {
+  function test_FeeModelEquivalence() public {
     Slot nextSlot = Slot.wrap(1);
     Epoch nextEpoch = Epoch.wrap(1);
 
@@ -312,7 +313,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           burnSum += rollup.getBlock(start + feeIndex).feeHeader.manaUsed
             * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
 
-          fees[feeIndex * 2] = bytes32(uint256(uint160(moneyMaker)));
+          fees[feeIndex * 2] = bytes32(uint256(uint160(coinbase)));
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
@@ -320,7 +321,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         bytes memory proof = "";
 
         uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.CUAUHXICALLI());
-        uint256 moneyMakerBalanceBefore = asset.balanceOf(moneyMaker);
+        uint256 coinbaseBalanceBefore = asset.balanceOf(coinbase);
 
         bytes32[7] memory args = [
           rollup.getBlock(start).archive,
@@ -343,7 +344,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         uint256 burned = asset.balanceOf(rollup.CUAUHXICALLI()) - cuauhxicalliBalanceBefore;
         assertEq(
-          asset.balanceOf(moneyMaker) - moneyMakerBalanceBefore - 50e18 * epochSize + burned,
+          asset.balanceOf(coinbase) - coinbaseBalanceBefore
+            - fakeCanonical.BLOCK_REWARD() * epochSize + burned,
           feeSum,
           "Sum of fees does not match"
         );

@@ -311,6 +311,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     require(epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
+    if (proofClaim.epochToProve == interimValues.epochToProve) {
+      PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
+    }
+
     tips.provenBlockNumber = interimValues.endBlockNumber;
 
     // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
@@ -374,10 +378,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       if (totalBurn > 0) {
         ASSET.safeTransfer(CUAUHXICALLI, totalBurn);
       }
-    }
-
-    if (proofClaim.epochToProve == interimValues.epochToProve) {
-      PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
 
     emit L2ProofVerified(interimValues.endBlockNumber, _args.args[6]);

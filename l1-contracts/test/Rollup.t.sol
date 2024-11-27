@@ -725,7 +725,7 @@ contract RollupTest is DecoderBase, TimeFns {
     assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
-  function testRevertBlocksAcrossEpochs() public setUpFor("mixed_block_1") {
+  function testRevertSubmittingProofForBlocksAcrossEpochs() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
     _testBlock("mixed_block_2", false, TestConstants.AZTEC_EPOCH_DURATION + 1);
 
