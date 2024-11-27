@@ -59,7 +59,11 @@ export class ServerWorldStateSynchronizer
     this.instrumentation = new WorldStateInstrumentation(telemetry);
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
     this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
-    this.log.info(`Created world state synchroniser with block history of ${this.historyToKeep === undefined ? 'infinity' : this.historyToKeep}`);
+    this.log.info(
+      `Created world state synchroniser with block history of ${
+        this.historyToKeep === undefined ? 'infinity' : this.historyToKeep
+      }`,
+    );
   }
 
   public getCommitted(): MerkleTreeReadOperations {
@@ -273,7 +277,7 @@ export class ServerWorldStateSynchronizer
     if (this.historyToKeep === undefined) {
       return;
     }
-    const newHistoricBlock = (summary.finalisedBlockNumber - BigInt(this.historyToKeep)) + 1n;
+    const newHistoricBlock = summary.finalisedBlockNumber - BigInt(this.historyToKeep) + 1n;
     if (newHistoricBlock <= 1) {
       return;
     }

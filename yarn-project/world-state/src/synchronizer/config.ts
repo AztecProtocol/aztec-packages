@@ -1,4 +1,9 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 
 /** World State synchronizer configuration values. */
 export interface WorldStateConfig {
@@ -51,7 +56,7 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
     env: 'WS_NUM_HISTORIC_BLOCKS',
     description: 'The number of historic blocks to maintain. Values less than 1 mean all history is maintained',
     ...numberConfigHelper(64),
-  }
+  },
 };
 
 /**
