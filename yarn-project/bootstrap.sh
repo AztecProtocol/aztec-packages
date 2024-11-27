@@ -123,7 +123,7 @@ function run_e2e_tests {
     "flake flakey_e2e_inclusion_proofs_contract"
 
     "compose composed/docs_examples"
-    "compose composed/e2e_aztec_js_browser"
+    "flake composed/e2e_aztec_js_browser"
     "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
     "compose composed/pxe"

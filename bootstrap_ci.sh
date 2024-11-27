@@ -38,29 +38,36 @@ fi
 
 instance_name="${BRANCH//\//_}"
 
-if [ "$CMD" == "livelog" ]; then
-  while true; do
-    ip=$(aws ec2 describe-instances \
-      --region us-east-2 \
-      --filters "Name=tag:Name,Values=$instance_name" \
-      --query "Reservations[].Instances[].PublicIpAddress" \
-      --output text)
-    if [ -z "$ip" ]; then
-      echo "No instance found with name: $instance_name"
-      sleep 5
-      continue
-    fi
-    ssh -t ubuntu@$ip docker logs -f aztec_build
-    [ $? -eq 130 ] && break  # Exit if SSH exited due to Ctrl-C (exit code 130)
-    sleep 5
-  done
-  exit 0
-elif [ "$CMD" == "log" ]; then
+if [ "$CMD" == "log" ]; then
+  # Get workflow id of most recent CI3 run for this given branch.
   workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
-  run_id=$(gh run list --workflow $workflow_id -b cl/ci3 --limit 1 --json databaseId -q .[0].databaseId)
-  job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
-  gh run view -j $job_id --log
-  exit 0
+
+  # Check if we're in progress.
+  if gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json status --jq '.[] | select(.status == "in_progress" or .status == "queued")' | grep -q .; then
+    # If we're in progress, tail live logs from launched instance,
+    while true; do
+      ip=$(aws ec2 describe-instances \
+        --region us-east-2 \
+        --filters "Name=tag:Name,Values=$instance_name" \
+        --query "Reservations[].Instances[].PublicIpAddress" \
+        --output text)
+      if [ -z "$ip" ]; then
+        echo "No instance found with name: $instance_name"
+        sleep 5
+        continue
+      fi
+      ssh -t ubuntu@$ip docker logs -f aztec_build
+      [ $? -eq 130 ] && break  # Exit if SSH exited due to Ctrl-C (exit code 130)
+      sleep 5
+    done
+    exit 0
+  else
+    # If not in progress, dump the log from github.
+    run_id=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId)
+    job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
+    PAGER= gh run view -j $job_id --log
+    exit 0
+  fi
 fi
 
 gh_start_group "Request Build Instance"
