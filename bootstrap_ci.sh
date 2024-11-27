@@ -38,7 +38,7 @@ fi
 
 instance_name="${BRANCH//\//_}"
 
-if [ "$CMD" == "log" ]; then
+if [ "$CMD" == "livelog" ]; then
   while true; do
     ip=$(aws ec2 describe-instances \
       --region us-east-2 \
@@ -54,6 +54,12 @@ if [ "$CMD" == "log" ]; then
     [ $? -eq 130 ] && break  # Exit if SSH exited due to Ctrl-C (exit code 130)
     sleep 5
   done
+  exit 0
+elif [ "$CMD" == "log" ]; then
+  workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
+  run_id=$(gh run list --workflow $workflow_id -b cl/ci3 --limit 1 --json databaseId -q .[0].databaseId)
+  job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
+  gh run view -j $job_id --log
   exit 0
 fi
 
