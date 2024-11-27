@@ -50,6 +50,8 @@ tests:
     test_path: 'e2e_fees/gas_estimation.test.ts'
   e2e_fees_private_payments:
     test_path: 'e2e_fees/private_payments.test.ts'
+  e2e_fees_public_payments:
+    test_path: 'e2e_fees/public_payments.test.ts'
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}
@@ -82,7 +84,8 @@ tests:
   e2e_state_vars: {}
   e2e_static_calls: {}
   e2e_synching: {}
-  e2e_token_contract: {}
+  e2e_token_contract:
+    with_alerts: true
   e2e_p2p_gossip:
     test_path: 'e2e_p2p/gossip_network.test.ts'
     with_alerts: true

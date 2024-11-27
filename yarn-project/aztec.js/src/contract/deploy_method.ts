@@ -112,7 +112,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     };
 
     if (options.estimateGas) {
-      request.fee = await this.getFeeOptionsFromEstimatedGas(request);
+      request.fee = await this.getFeeOptionsFromEstimatedGas(request, options.estimatedGasPad);
     }
 
     return request;

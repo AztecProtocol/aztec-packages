@@ -12,7 +12,6 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
 
-import { jest } from '@jest/globals';
 import fs from 'fs/promises';
 import { tmpdir } from 'node:os';
 import os from 'os';
@@ -23,9 +22,6 @@ import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
-
-jest.setTimeout(240_000);
-
 const logger = createDebugLogger('aztec:avm-integration');
 
 describe('AVM Integration', () => {
@@ -120,7 +116,7 @@ describe('AVM Integration', () => {
     );
 
     expect(verifyResult.status).toBe(BB_RESULT.SUCCESS);
-  });
+  }, 240_000);
 });
 
 async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): Promise<BBSuccess> {

@@ -1,5 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Header computes empty hash 1`] = `Fr<0x1c97ed6fbc35f8b400d31bd38ce5cc938921e0cf2e20159d316f8c7011f9f42c>`;
+exports[`Header computes empty hash 1`] = `Fr<0x28e48e620bc00817609b5fc765bc74864561f25a3c941b33e5ee05266b752839>`;
 
-exports[`Header computes hash 1`] = `Fr<0x305c2bb392f94210b9505dda720c1295cc625634c30f47f2798ccac9985d016e>`;
+exports[`Header computes hash 1`] = `Fr<0x2352a779093c231d53586b8c09d3d63033327f5f80029f007fe9deedc67c4be3>`;

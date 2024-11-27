@@ -1,6 +1,7 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
@@ -80,11 +81,11 @@ export class AvmCircuitPublicInputs {
   }
 
   static fromString(str: string) {
-    return AvmCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
