@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-set -eu
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 echo -e "\033[1mRetrieving contracts from remote cache...\033[0m"
-HASH=$(AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns ../build-system/s3-cache-scripts/compute-content-hash.sh)
-../build-system/s3-cache-scripts/cache-download.sh l1-contracts-$HASH.tar.gz
+export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
+HASH=$($ci3/cache/content_hash)
+$ci3/cache/download l1-contracts-$HASH.tar.gz

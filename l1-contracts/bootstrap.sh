@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 
@@ -18,7 +18,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::l1-contracts build"
+$ci3/github/group "l1-contracts build"
 # Clean
 rm -rf broadcast cache out serve
 
@@ -30,10 +30,10 @@ git submodule update --init --recursive ./lib
 
 # Compile contracts
 forge build
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+$ci3/github/endgroup
 
 if [ "${CI:-0}" -eq 1 ]; then
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::l1-contracts build"
+  $ci3/github/group "l1-contracts build"
   forge test --no-match-contract UniswapPortalTest
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+  $ci3/github/endgroup
 fi

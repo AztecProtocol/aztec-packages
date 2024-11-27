@@ -1,20 +1,14 @@
 #!/bin/bash
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
-GITHUB_ACTIONS=${GITHUB_ACTIONS:-}
+# picked up by $ci3/github/group and $ci3/github/endgroup
+GITHUB_LOG=${GITHUB_ACTIONS:-}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 cd $(dirname $0)
-
-function gh_start_group {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$1" || true
-}
-
-function gh_end_group {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::" || true
-}
 
 # Trap function to terminate our running instance when the script exits.
 function terminate_instance {
@@ -84,7 +78,7 @@ case "$CMD" in
   ;;
 esac
 
-gh_start_group "Request Build Instance"
+$ci3/github/group "Request Build Instance"
 # Terminate any existing instance with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
@@ -95,27 +89,27 @@ if [ -n "$existing_instance" ]; then
   echo "Terminating existing instance: $existing_instance"
   aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance 2>&1
 fi
+
 # Request new instance.
 ip_sir=$(./build-system/scripts/request_spot $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
 trap terminate_instance EXIT
-gh_end_group
+$ci3/github/endgroup
 
-# Pass env vars to inform if we are inside github actions, and our AWS credentials.
-args="-e GITHUB_ACTIONS='$GITHUB_ACTIONS' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
+args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails).
 # Run in our build container, cloning commit and running bootstrap.sh.
-gh_start_group "Start CI Image"
-ssh -F build-system/remote/ssh_config ubuntu@$ip "
+$ci3/github/group "Start CI Image"
+ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   docker run --privileged $args --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
     aztecprotocol/ci:2.0 bash -c '
-      [ -n \"$GITHUB_ACTIONS\" ] && echo "::endgroup::"
-      [ -n \"$GITHUB_ACTIONS\" ] && echo "::group::Clone Repository"
+      [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
+      [ -n \"$GITHUB_LOG\" ] && echo "::group::Clone Repository"
       set -e
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
@@ -127,7 +121,7 @@ ssh -F build-system/remote/ssh_config ubuntu@$ip "
       git remote add origin http://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null
-      [ -n \"$GITHUB_ACTIONS\" ] && echo "::endgroup::"
+      [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
       CI=1 ./bootstrap.sh fast
     '
 "

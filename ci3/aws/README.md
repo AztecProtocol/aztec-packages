@@ -1,0 +1,1 @@
+Infrastructure for requesting AWS spot/on-demand instances. You need the ssh key ~/.ssh/build_instance_key installed.

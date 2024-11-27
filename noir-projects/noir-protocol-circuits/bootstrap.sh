@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 

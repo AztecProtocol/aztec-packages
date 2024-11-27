@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 cleanup() {
     BG_PIDS=$(jobs -p)
@@ -9,9 +10,6 @@ cleanup() {
     fi
 }
 trap cleanup EXIT
-
-# Navigate to script folder
-cd "$(dirname "$0")"
 
 CMD=${1:-}
 
@@ -68,8 +66,6 @@ echo "# When running cmake directly, remember to use: --build --preset $PRESET"
 echo "#################################"
 
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
-export PATH=$PWD/../../build-system/s3-cache-scripts:$PATH
-
 function build_native {
   # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
@@ -85,20 +81,20 @@ function build_native {
   mkdir -p ../../yarn-project/world-state/build/
   cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 
-  cache-upload.sh barretenberg-preset-release-$(compute-content-hash.sh).tar.gz build/bin
-  cache-upload.sh barretenberg-preset-release-world-state-$(compute-content-hash.sh).tar.gz build-pic/lib
+  $ci3/cache/upload barretenberg-preset-release-$($ci3/cache/content_hash).tar.gz build/bin
+  $ci3/cache/upload barretenberg-preset-release-world-state-$($ci3/cache/content_hash).tar.gz build-pic/lib
 }
 
 function build_wasm {
   cmake --preset wasm
   cmake --build --preset wasm
-  cache-upload.sh barretenberg-preset-wasm-$(compute-content-hash.sh).tar.gz build-wasm/bin
+  $ci3/cache/upload barretenberg-preset-wasm-$($ci3/cache/content_hash).tar.gz build-wasm/bin
 }
 
 function build_wasm_threads {
   cmake --preset wasm-threads
   cmake --build --preset wasm-threads
-  cache-upload.sh barretenberg-preset-wasm-threads-$(compute-content-hash.sh).tar.gz build-wasm-threads/bin
+  $ci3/cache/upload barretenberg-preset-wasm-threads-$($ci3/cache/content_hash).tar.gz build-wasm-threads/bin
 }
 
 g="\033[32m"  # Green

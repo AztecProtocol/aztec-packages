@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 YELLOW="\033[93m"
 BLUE="\033[34m"
@@ -8,12 +9,10 @@ GREEN="\033[32m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-cd "$(dirname "$0")"
-
 CMD=${1:-}
 
 function build {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::yarn-project build"
+  $ci3/github/group "yarn-project build"
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
 
@@ -35,11 +34,11 @@ function build {
 
   echo
   echo -e "${GREEN}Yarn project successfully built!${RESET}"
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+  $ci3/github/endgroup
 }
 
 function run_e2e_tests {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::yarn-project test"
+  $ci3/github/group "yarn-project test"
   cd end-to-end
 
   # Pre-pull the required image for visibility.
@@ -136,6 +135,7 @@ function run_e2e_tests {
 
   commands=()
   tests=()
+  env_vars=()
   for entry in "${TESTS[@]}"; do
     cmd=$(echo "$entry" | awk '{print $1}')
     test=$(echo "$entry" | awk '{print $2}')
@@ -168,7 +168,7 @@ function run_e2e_tests {
   echo "=== Job Log ==="
   cat joblog.txt
 
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+  $ci3/github/endgroup
   exit $code
 }
 

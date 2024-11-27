@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-
-cd $(dirname "$0")
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 
@@ -21,6 +20,10 @@ if [[ "$OSTYPE" != "darwin"* ]] && [ -n "${USE_CACHE:-}" ]; then
   ./bootstrap_cache.sh && exit
 fi
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::avm-transpiler build"
+$ci3/github/group "avm-transpiler build"
 ./scripts/bootstrap_native.sh
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+if [ "${CI:-0}" -eq 1 ]; then
+  export AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native .rebuild_patterns"
+  $ci3/cache/upload avm-transpiler-$($ci3/cache/content_hash).tar.gz target
+fi
+$ci3/github/endgroup

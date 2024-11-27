@@ -1,18 +1,27 @@
 #!/bin/bash
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
-# Update yarn so it can be committed.
-(cd browser-test-app && yarn)
+$ci3/github/group "acir_tests updating yarn"
+# Update yarn.lock so it can be committed.
+# Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
+(cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn)
 (cd headless-test && yarn)
+# The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps
+find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
+$ci3/github/endgroup
 
 # We only run tests in CI.
-if [ "${CI:-0}" -eq 0 ]; then
+if [ "${CI:-0}" -ne 1 ]; then
   exit 0
 fi
 
+$ci3/github/group "acir_tests building browser-test-app"
 # Keep build as part of CI only.
 (cd browser-test-app && yarn build)
+$ci3/github/endgroup
 
+$ci3/github/group "acir_tests run tests"
 # Download ignition up front to ensure no race conditions at runtime.
 # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
 mkdir -p $HOME/.bb-crs
@@ -49,3 +58,4 @@ function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
 
 export -f f0 f1 f2 f3 f4 f5 f6
 parallel ::: f0 f1 f2 f3 f4 f5 f6
+$ci3/github/endgroup

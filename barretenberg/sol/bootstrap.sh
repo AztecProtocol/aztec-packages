@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 echo "Installing foundry..."
 rm -rf broadcast cache out
