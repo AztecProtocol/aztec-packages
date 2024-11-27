@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks that all logs needed for assembling aggregate benchmarks have been retrieved.
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 LOG_FOLDER="${LOG_FOLDER:-log}"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # If this script fails (nonzero exit), then the working copy is not clean.
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Given a repository, extracts the builds entire /usr/src dir to the current path if the working copy is clean.
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1

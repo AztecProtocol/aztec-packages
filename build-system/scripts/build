@@ -18,7 +18,7 @@
 # - Perform the build of the image itself.
 # - Push the image tagged with the content hash to the cache.
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -euo pipefail
 
 REPOSITORY=$1

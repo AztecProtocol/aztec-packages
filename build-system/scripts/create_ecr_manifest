@@ -5,7 +5,7 @@
 # 3. Creates a manifest list using a platform agnositc image uri, adds each image to it
 # 4. Pushes the manifest list
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1

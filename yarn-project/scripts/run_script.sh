@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Downloads the image that contains the built scripts package and executes the given command in it.
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"

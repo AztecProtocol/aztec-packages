@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check that the current system is able to run the build system.
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 # check that our bash version is new enough.

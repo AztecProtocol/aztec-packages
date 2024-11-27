@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Uploads aggregated benchmark logs to S3
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 BUCKET_NAME="aztec-ci-artifacts"

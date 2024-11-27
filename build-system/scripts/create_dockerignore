@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build a dockerignore file that only permits git files and untracked files.
 # Exludes any docker related files.
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1

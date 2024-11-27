@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc

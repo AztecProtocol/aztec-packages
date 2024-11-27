@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
 cd "$(dirname "$0")"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Removes all cache-* docker images for the given repository that are not the current content hash.
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1

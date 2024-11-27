@@ -6,7 +6,7 @@
 # 2... ARGS: Script and arguments to run.
 #
 # e.g. remote_run_script 1.2.3.4 build my_repo
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 IP=$1
@@ -29,7 +29,7 @@ ssh -A -F $SSH_CONFIG_PATH $IP "
   export PULL_REQUEST=${PULL_REQUEST:-}
   export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
   export ECR_URL=$ECR_URL
-  export CI3_DEBUG=${CI3_DEBUG:-}
+  export BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}
 
   source ./remote_initialize
   $@

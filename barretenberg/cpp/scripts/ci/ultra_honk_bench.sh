@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 # enter script folder
