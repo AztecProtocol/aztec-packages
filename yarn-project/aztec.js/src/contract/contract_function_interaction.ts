@@ -63,7 +63,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     const calls = [this.request()];
-    const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
+    const fee = opts?.estimateGas
+      ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }, opts?.estimatedGasPad)
+      : opts?.fee;
     const txRequest = await this.wallet.createTxExecutionRequest({
       calls,
       fee,

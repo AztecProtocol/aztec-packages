@@ -1,7 +1,22 @@
 import { Fr } from '@aztec/aztec.js';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { TokenContractTest } from './token_contract_test.js';
+
+const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
+
+const qosAlerts: AlertConfig[] = [
+  {
+    // Dummy alert to check that the metric is being emitted.
+    // Separate benchmark tests will use dedicated machines with the published system requirements.
+    alert: 'publishing_mana_per_second',
+    expr: 'rate(aztec_public_executor_simulation_mana_per_second_per_second_sum[5m]) / rate(aztec_public_executor_simulation_mana_per_second_per_second_count[5m]) < 10',
+    for: '5m',
+    annotations: {},
+    labels: {},
+  },
+];
 
 describe('e2e_token_contract transfer public', () => {
   const t = new TokenContractTest('transfer_in_public');
@@ -17,6 +32,10 @@ describe('e2e_token_contract transfer public', () => {
 
   afterAll(async () => {
     await t.teardown();
+    if (CHECK_ALERTS) {
+      const alertChecker = new AlertChecker(t.logger);
+      await alertChecker.runAlertCheck(qosAlerts);
+    }
   });
 
   afterEach(async () => {

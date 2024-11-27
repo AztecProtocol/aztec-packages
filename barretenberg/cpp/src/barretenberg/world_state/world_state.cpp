@@ -639,12 +639,16 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
-        throw std::runtime_error("Unable to remove historical block, block not found");
+        throw std::runtime_error(format("Unable to remove historical blocks to block number ",
+                                        toBlockNumber,
+                                        ", blocks not found. Current oldest block: ",
+                                        archive_state.meta.oldestHistoricBlock));
     }
     WorldStateStatusFull status;
     for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
         if (!remove_historical_block(blockNumber, status)) {
-            throw std::runtime_error("Failed to remove historical block");
+            throw std::runtime_error(format(
+                "Failed to remove historical block ", blockNumber, " when removing blocks up to ", toBlockNumber));
         }
     }
     populate_status_summary(status);
@@ -828,6 +832,8 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
                               0,
                               0,
                               // total fees
+                              0,
+                              // total mana used
                               0 });
 }
 
