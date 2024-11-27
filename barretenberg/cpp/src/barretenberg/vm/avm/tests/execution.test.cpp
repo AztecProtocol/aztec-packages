@@ -54,6 +54,9 @@ class AvmExecutionTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
         public_inputs.gas_settings.gas_limits.l2_gas = DEFAULT_INITIAL_L2_GAS;
         public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
+        public_inputs.start_gas_used.l2_gas = 0;
+        public_inputs.start_gas_used.da_gas = 0;
+
         // These values are magic because of how some tests work! Don't change them
         PublicCallRequest dummy_request = {
             /* msg_sender */ FF::one(),
