@@ -173,14 +173,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     circuit.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the proving key for circuit
-    std::shared_ptr<DeciderProvingKey> proving_key;
-    if (!initialized) {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
-    } else {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-    }
+    std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
+    // The commitment key is initialised with the number of points determined by the trace_settings' dyadic size. If a
+    // circuit overflows past the dyadic size the commitment key will not have enough points so we need to increase it
+    if (proving_key->proving_key.circuit_size > trace_settings.dyadic_size()) {
+        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
+        goblin.commitment_key = bn254_commitment_key;
+    }
     proving_key->proving_key.commitment_key = bn254_commitment_key;
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
@@ -194,7 +194,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     }
     vinfo("set honk vk metadata");
 
-    // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
+    // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
+    // proof
     if (!initialized) {
         OinkProver<Flavor> oink_prover{ proving_key };
         vinfo("computing oink proof...");
@@ -212,8 +213,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
+        vinfo("computing folding proof");
         FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
-        vinfo("constructed folding prover");
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
