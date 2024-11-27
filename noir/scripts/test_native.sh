@@ -14,4 +14,6 @@ RUSTFLAGS=-Dwarnings cargo clippy --workspace --locked --release
 ./.github/scripts/cargo-binstall-install.sh
 cargo-binstall cargo-nextest --version 0.9.67 -y --secure
 
+# See https://github.com/AztecProtocol/aztec-packages/pull/10080
+RUST_MIN_STACK=8388608
 cargo nextest run --workspace --locked --release -E '!test(hello_world_example) & !test(simple_verifier_codegen)'
