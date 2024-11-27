@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+cd $(dirname $0)
 
 CMD=${1:-}
 
