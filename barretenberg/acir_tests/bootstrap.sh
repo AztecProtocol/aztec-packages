@@ -6,7 +6,7 @@ $ci3/github/group "acir_tests updating yarn"
 # Update yarn.lock so it can be committed.
 # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
 (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn)
-(cd headless-test && yarn add --dev @aztec/bb.js@../../ts && yarn)
+(cd headless-test && yarn)
 # The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps
 find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup
