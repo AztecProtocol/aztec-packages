@@ -21,7 +21,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
 ClientIVC::MergeProof create_dummy_merge_proof();
 
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
-                                     const std::shared_ptr<ClientIVC::VerificationKey>& mock_verification_key,
+                                     const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
                                      std::vector<uint32_t>& key_witness_indices);
 
 } // namespace acir_format
