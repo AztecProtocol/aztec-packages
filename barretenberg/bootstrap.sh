@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 (cd cpp && ./bootstrap.sh $@)
 (cd ts && ./bootstrap.sh $@)
