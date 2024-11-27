@@ -190,6 +190,7 @@ impl PublicBaseRollupInputs {
             self.avm_proof_data.public_inputs.transaction_fee,
             all_public_data_update_requests,
             out_hash,
+            combined_accumulated_data.note_hashes, // We have already constructed unique siloed note hashes in the AVM
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data

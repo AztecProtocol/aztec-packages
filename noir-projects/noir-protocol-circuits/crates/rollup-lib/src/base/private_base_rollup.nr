@@ -121,6 +121,7 @@ impl PrivateBaseRollupInputs {
             transaction_fee,
             all_public_data_update_requests,
             out_hash,
+            note_hashes,
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data

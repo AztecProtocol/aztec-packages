@@ -258,6 +258,7 @@ pub fn compute_tx_effects_hash(
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     out_hash: Field,
+    unique_siloed_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
 ) -> Field {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
