@@ -131,6 +131,7 @@ export function generateAvmCircuitPublicInputs(
     MAX_NOTE_HASHES_PER_TX,
   );
 
+  // TODO(Miranda): Update here
   const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
 
   const scopedNoteHashesFromPublic = trace.getSideEffects().noteHashes;

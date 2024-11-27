@@ -193,6 +193,7 @@ impl PublicBaseRollupInputs {
             self.avm_proof_data.public_inputs.transaction_fee,
             all_public_data_update_requests,
             siloed_l2_to_l1_msgs,
+            combined_accumulated_data.note_hashes, // We have already constructed unique siloed note hashes in the AVM
             self.start_sponge_blob,
         );
 
@@ -768,6 +769,7 @@ mod tests {
                 0,
                 pre_existing_public_data_update_requests,
                 [0; MAX_L2_TO_L1_MSGS_PER_TX],
+                [0; MAX_NOTE_HASHES_PER_TX],
                 SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
             );
 

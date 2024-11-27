@@ -60,15 +60,27 @@ pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> F
     )
 }
 
-/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
-/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
-pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_tx: u32) -> Field {
-    if note_hash.contract_address.is_zero() {
+/// We assume the input note hash has already been siloed
+pub fn compute_unique_siloed_note_hash(
+    siloed_note_hash: Field,
+    tx_hash: Field,
+    note_index_in_tx: u32,
+) -> Field {
+    if siloed_note_hash == 0 {
         0
     } else {
         let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
-        let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
-        compute_siloed_note_hash(note_hash.contract_address, unique_note_hash)
+        compute_unique_note_hash(nonce, siloed_note_hash)
+    }
+}
+
+/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
+/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
+pub fn silo_note_hash(note_hash: ScopedNoteHash) -> Field {
+    if note_hash.contract_address.is_zero() {
+        0
+    } else {
+        compute_siloed_note_hash(note_hash.contract_address, note_hash.value())
     }
 }
 
@@ -80,6 +92,7 @@ pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
 }
 
 pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
+    // TODO(Miranda) change to 0
     if nullifier.contract_address.is_zero() {
         nullifier.value() // Return value instead of 0 because the first nullifier's contract address is zero.
     } else {

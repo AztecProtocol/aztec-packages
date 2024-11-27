@@ -20,11 +20,11 @@ use dep::types::{
         sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
-        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-        PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX,
+        ARCHIVE_HEIGHT, MAX_NOTE_HASHES_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        NOTE_HASH_SUBTREE_HEIGHT, PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
-    hash::silo_l2_to_l1_message,
+    hash::{compute_unique_siloed_note_hash, silo_l2_to_l1_message},
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
@@ -79,8 +79,11 @@ impl PrivateBaseRollupInputs {
                 "kernel max_block_number is smaller than block number",
             );
         }
+        // TODO(Miranda): insert new tx_hash
+        let note_hashes =
+            self.compute_unique_siloed_note_hashes(self.tube_data.public_inputs.end.nullifiers[0]);
 
-        let commitments_tree_subroot = self.calculate_commitments_subtree();
+        let commitments_tree_subroot = calculate_subtree_root(note_hashes);
 
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
@@ -119,6 +122,7 @@ impl PrivateBaseRollupInputs {
             transaction_fee,
             all_public_data_update_requests,
             siloed_l2_to_l1_msgs,
+            note_hashes,
             self.start_sponge_blob,
         );
 
@@ -144,12 +148,6 @@ impl PrivateBaseRollupInputs {
             out_hash,
             accumulated_fees: transaction_fee,
         }
-    }
-
-    // TODO(Kev): This should say calculate_commitments_subtree_root
-    // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
-    fn calculate_commitments_subtree(self) -> Field {
-        calculate_subtree_root(self.tube_data.public_inputs.end.note_hashes)
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
@@ -210,6 +208,16 @@ impl PrivateBaseRollupInputs {
         }
     }
 
+    fn compute_unique_siloed_note_hashes(self, tx_hash: Field) -> [Field; MAX_NOTE_HASHES_PER_TX] {
+        // The reset has already siloed the note hashes by address, but they may not be unique
+        // We use the tx_hash to ensure uniqueness
+        let mut note_hashes = self.tube_data.public_inputs.end.note_hashes;
+        for i in 0..note_hashes.len() {
+            note_hashes[i] = compute_unique_siloed_note_hash(note_hashes[i], tx_hash, i);
+        }
+        note_hashes
+    }
+
     fn insert_fee_public_data_write(self, fee_write: PublicDataWrite) -> AppendOnlyTreeSnapshot {
         public_data_tree_insert(
             fee_write,
@@ -254,7 +262,7 @@ mod tests {
             TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::silo_l2_to_l1_message,
+        hash::{compute_unique_siloed_note_hash, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
@@ -586,6 +594,7 @@ mod tests {
                 0,
                 pre_existing_public_data_update_requests,
                 [0; MAX_L2_TO_L1_MSGS_PER_TX],
+                [0; MAX_NOTE_HASHES_PER_TX],
                 SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
             );
 
@@ -671,7 +680,14 @@ mod tests {
         assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
         for i in 0..note_hashes.len() {
-            expected_commitments_tree.update_leaf(i + MAX_NOTE_HASHES_PER_TX, note_hashes[i]);
+            expected_commitments_tree.update_leaf(
+                i + MAX_NOTE_HASHES_PER_TX,
+                compute_unique_siloed_note_hash(
+                    note_hashes[i],
+                    builder.tube_data.nullifiers.storage()[0].nullifier.value,
+                    i,
+                ),
+            );
         }
         let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
@@ -848,7 +864,11 @@ mod tests {
         );
         tx_effects[2] = field_from_bytes([NOTES_PREFIX, 0, 50 as u8], true);
         for i in 0..50 {
-            tx_effects[i + 3] = builder.tube_data.note_hashes.storage()[i].value();
+            tx_effects[i + 3] = compute_unique_siloed_note_hash(
+                builder.tube_data.note_hashes.storage()[i].value(),
+                builder.tube_data.nullifiers.storage()[0].nullifier.value,
+                i,
+            );
         }
         let mut expected_sponge = outputs.start_sponge_blob;
 
@@ -913,8 +933,11 @@ mod tests {
         reconstructed_tx_effects[offset] = notes_prefix;
         offset += 1;
         for i in 0..NUM_NOTES {
-            reconstructed_tx_effects[offset + i] =
-                builder.tube_data.note_hashes.storage()[i].value();
+            reconstructed_tx_effects[offset + i] = compute_unique_siloed_note_hash(
+                    builder.tube_data.note_hashes.storage()[i].value(),
+                    builder.nullifiers.storage()[0].value,
+                    i,
+                );
         }
         offset += NUM_NOTES;
         // nullifiers

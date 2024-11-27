@@ -63,6 +63,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         );
 
         // note_hash_read_requests
+        // TODO(Miranda): HERE we need to inject a nonce to re-hash the note hashes (tests do not cover this)
         verify_reset_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.pending_note_hashes,

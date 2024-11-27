@@ -289,11 +289,12 @@ pub fn append_tx_effects_for_blob(
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+    unique_siloed_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     start_sponge_blob: SpongeBlob,
 ) -> SpongeBlob {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
 
-    let note_hashes = combined.note_hashes;
+    let note_hashes = unique_siloed_note_hashes;
     let nullifiers = combined.nullifiers;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.

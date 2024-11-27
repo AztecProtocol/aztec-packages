@@ -172,13 +172,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         let kept_note_hashes = self.hints.kept_note_hashes;
         let siloed_note_hashes = self.output.end.note_hashes;
         let sorted_indexes = self.hints.sorted_note_hash_indexes;
-        let tx_hash = self.output.end.nullifiers[0].value(); // First nullifier is tx hash.
         for i in 0..kept_note_hashes.len() {
             if i < self.note_hash_siloing_amount {
                 let note_hash = kept_note_hashes[i];
                 let sorted_index = sorted_indexes[i];
                 let siloed_note_hash = siloed_note_hashes[sorted_index];
-                let siloed_value = silo_note_hash(note_hash, tx_hash, sorted_index);
+                let siloed_value = silo_note_hash(note_hash);
                 assert_eq(siloed_note_hash.value(), siloed_value, "incorrect siloed note hashes");
             } else {
                 // Don't have to check empty items here.
