@@ -194,6 +194,7 @@ describe('NativeWorldState', () => {
         stateReference,
         makeGlobalVariables(),
         Fr.ZERO,
+        Fr.ZERO,
       );
 
       await fork.updateArchive(header);
@@ -222,6 +223,7 @@ describe('NativeWorldState', () => {
         makeContentCommitment(),
         stateReference,
         makeGlobalVariables(),
+        Fr.ZERO,
         Fr.ZERO,
       );
 
