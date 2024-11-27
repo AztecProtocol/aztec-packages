@@ -12,7 +12,7 @@ find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/nu
 $ci3/github/endgroup
 
 # We only run tests in CI.
-if [ "${CI:-0}" -eq 0 ]; then
+if [ "${CI:-0}" -ne 1 ]; then
   exit 0
 fi
 
