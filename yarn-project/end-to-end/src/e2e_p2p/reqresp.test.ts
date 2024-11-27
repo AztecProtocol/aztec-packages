@@ -6,6 +6,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import { getContract } from 'viem';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -26,6 +27,8 @@ describe('e2e_p2p_reqresp_tx', () => {
       testName: 'e2e_p2p_reqresp_tx',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
+      metricsPort: shouldCollectMetrics(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
@@ -67,6 +70,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other

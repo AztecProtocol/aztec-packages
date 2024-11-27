@@ -20,9 +20,8 @@ use types::{
     state_reference::StateReference,
     traits::Empty,
 };
-use types::debug_log::debug_log_format;
 
-global ALLOWED_PREVIOUS_CIRCUITS =
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 pub struct BlockRootRollupInputs {

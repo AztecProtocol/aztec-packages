@@ -34,4 +34,9 @@ bool LMDBTransaction::get_value(std::vector<uint8_t>& key, std::vector<uint8_t>&
 {
     return lmdb_queries::get_value(key, data, db, *this);
 }
+
+bool LMDBTransaction::get_value(std::vector<uint8_t>& key, index_t& data, const LMDBDatabase& db) const
+{
+    return lmdb_queries::get_value(key, data, db, *this);
+}
 } // namespace bb::crypto::merkle_tree

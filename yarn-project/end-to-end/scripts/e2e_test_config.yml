@@ -50,6 +50,8 @@ tests:
     test_path: 'e2e_fees/gas_estimation.test.ts'
   e2e_fees_private_payments:
     test_path: 'e2e_fees/private_payments.test.ts'
+  e2e_fees_public_payments:
+    test_path: 'e2e_fees/public_payments.test.ts'
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}
@@ -85,9 +87,9 @@ tests:
   e2e_token_contract: {}
   e2e_p2p_gossip:
     test_path: 'e2e_p2p/gossip_network.test.ts'
+    with_alerts: true
   e2e_p2p_upgrade_governance_proposer:
     test_path: 'e2e_p2p/upgrade_governance_proposer.test.ts'
-  # https://github.com/AztecProtocol/aztec-packages/issues/9843
   e2e_p2p_rediscovery:
     test_path: 'e2e_p2p/rediscovery.test.ts'
   e2e_p2p_reqresp:

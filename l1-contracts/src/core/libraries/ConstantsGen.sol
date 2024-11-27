@@ -97,7 +97,8 @@ library Constants {
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     19007378675971183768036762391356802220352606103602592933942074152320327194720;
-  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000;
+  uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000000000000;
+  uint256 internal constant FEE_FUNDING_FOR_TESTER_ACCOUNT = 100000000000000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
@@ -115,7 +116,6 @@ library Constants {
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 12000000;
   uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
-  uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant DA_GAS_PER_BYTE = 16;
   uint256 internal constant FIXED_DA_GAS = 512;
