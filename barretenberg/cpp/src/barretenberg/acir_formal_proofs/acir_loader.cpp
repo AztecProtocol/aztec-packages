@@ -38,7 +38,7 @@ AcirToSmtLoader::AcirToSmtLoader(std::string filename)
     builder.set_variable_name(0, "a");
     builder.set_variable_name(1, "b");
     builder.set_variable_name(2, "c");
-    // builder.set_variable_name(3, "d");
+    builder.set_variable_name(3, "d");
     this->circuit_buf = builder.export_circuit();
 }
 

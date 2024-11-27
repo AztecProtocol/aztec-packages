@@ -16,7 +16,7 @@ class AcirToSmtLoader {
     ~AcirToSmtLoader() = default;
     AcirToSmtLoader(std::string filename);
 
-    acir_format::AcirFormat get_constraint_systems() { return this->constraint_system; }
+    acir_format::AcirFormat& get_constraint_systems() { return this->constraint_system; }
     smt_solver::Solver get_solver();
     smt_circuit::UltraCircuit get_circuit(smt_solver::Solver* solver);
 

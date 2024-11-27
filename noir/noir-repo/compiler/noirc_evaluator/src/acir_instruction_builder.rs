@@ -3,7 +3,7 @@ use acvm::{
     acir::{
         circuit::{
             Circuit, ExpressionWidth,
-            Program as AcirProgram
+            Program as AcirProgram, PublicInputs
         },
         native_types::Witness,
     },
@@ -93,19 +93,30 @@ fn ssa_to_acir_program(ssa: Ssa) -> AcirProgram<FieldElement> {
         .expect("Should compile manually written SSA into ACIR");
 
     let mut functions: Vec<Circuit<FieldElement>> = Vec::new();
+    // TODO refactor this...
+    let public_vars: bool = true;
+
     for acir_func in acir_functions.iter() {
-        // inputs and output as private
         let mut private_params: BTreeSet<Witness> = acir_func.input_witnesses.clone().into_iter().collect();
         let ret_values: BTreeSet<Witness> = acir_func.return_witnesses.clone().into_iter().collect();
-
-        let circuit: Circuit<FieldElement> ;
+        let circuit: Circuit<FieldElement>;
+        if public_vars {
+            circuit = Circuit {
+                current_witness_index: acir_func.current_witness_index().witness_index(),
+                opcodes: acir_func.opcodes().to_vec(),
+                public_parameters: PublicInputs(private_params.clone()),
+                return_values: PublicInputs(ret_values.clone()),
+                ..Circuit::<FieldElement>::default()
+            };
+        } else {
+            circuit = Circuit {
+                current_witness_index: acir_func.current_witness_index().witness_index(),
+                opcodes: acir_func.opcodes().to_vec(),
+                private_parameters: private_params.clone(),
+                ..Circuit::<FieldElement>::default()
+            };
+        }
         private_params.extend(ret_values.iter().cloned());
-        circuit = Circuit {
-            current_witness_index: acir_func.current_witness_index().witness_index(),
-            opcodes: acir_func.opcodes().to_vec(),
-            private_parameters: private_params,
-            ..Circuit::<FieldElement>::default()
-        };
         functions.push(circuit);
     }
     return AcirProgram { functions: functions, unconstrained_functions: brillig };
@@ -115,7 +126,7 @@ fn binary_function(op: BinaryOp) -> Ssa {
     // returns v0 op v1
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    let v0 = builder.add_parameter(Type::unsigned(8));
+    let v0 = builder.add_parameter(Type::unsigned(16));
 
     // bit size of v1 differs, because shl shr max second argument 8 bit;
     let v1;
@@ -124,7 +135,7 @@ fn binary_function(op: BinaryOp) -> Ssa {
     if op == BinaryOp::Shl || op == BinaryOp::Shr {
         v1 = builder.add_parameter(Type::unsigned(8));
     } else {
-        v1 = builder.add_parameter(Type::unsigned(8));
+        v1 = builder.add_parameter(Type::unsigned(16));
     }
 
     let v2 = builder.insert_binary(v0, op, v1);
