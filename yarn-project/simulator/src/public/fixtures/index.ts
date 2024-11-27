@@ -23,14 +23,14 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { FunctionArtifact, type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 import { PublicTxSimulator, WorldStateDB } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
 import { strict as assert } from 'assert';
 
