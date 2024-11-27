@@ -136,7 +136,8 @@ class ClientIVC {
     bool initialized = false; // Is the IVC accumulator initialized
 
     ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
-        : trace_settings(trace_settings)
+        : trace_usage_tracker(trace_settings)
+        , trace_settings(trace_settings)
         , auto_verify_mode(auto_verify_mode)
         , bn254_commitment_key(trace_settings.structure.has_value()
                                    ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
