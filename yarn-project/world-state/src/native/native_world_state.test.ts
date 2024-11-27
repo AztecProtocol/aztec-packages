@@ -348,9 +348,11 @@ describe('NativeWorldState', () => {
       }
 
       //can't prune what has already been pruned
-      for (let i = 0; i < highestPrunedBlockNumber; i++) {
+      for (let i = 0; i <= highestPrunedBlockNumber; i++) {
         await expect(ws.removeHistoricalBlocks(BigInt(i + 1))).rejects.toThrow(
-          'Unable to remove historical block, block not found',
+          `Unable to remove historical blocks to block number ${BigInt(
+            i + 1,
+          )}, blocks not found. Current oldest block: ${highestPrunedBlockNumber + 1}`,
         );
       }
     });
