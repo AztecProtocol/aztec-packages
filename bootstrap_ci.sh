@@ -38,43 +38,64 @@ fi
 
 instance_name="${BRANCH//\//_}"
 
-if [ "$CMD" == "log" ]; then
-  # Get workflow id of most recent CI3 run for this given branch.
-  workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
+case "$CMD" in
+  "log")
+    # Get workflow id of most recent CI3 run for this given branch.
+    workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
 
-  # Check if we're in progress.
-  if gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json status --jq '.[] | select(.status == "in_progress" or .status == "queued")' | grep -q .; then
-    # If we're in progress, tail live logs from launched instance,
-    while true; do
-      ip=$(aws ec2 describe-instances \
-        --region us-east-2 \
-        --filters "Name=tag:Name,Values=$instance_name" \
-        --query "Reservations[].Instances[].PublicIpAddress" \
-        --output text)
-      if [ -z "$ip" ]; then
-        echo "No instance found with name: $instance_name"
+    # Check if we're in progress.
+    if gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json status --jq '.[] | select(.status == "in_progress" or .status == "queued")' | grep -q .; then
+      # If we're in progress, tail live logs from launched instance,
+      while true; do
+        ip=$(aws ec2 describe-instances \
+          --region us-east-2 \
+          --filters "Name=tag:Name,Values=$instance_name" \
+          --query "Reservations[].Instances[].PublicIpAddress" \
+          --output text)
+        if [ -z "$ip" ]; then
+          echo "No instance found with name: $instance_name"
+          sleep 5
+          continue
+        fi
+        if ssh -t ubuntu@$ip docker logs -f aztec_build; then
+          # Exit loop if SSH exited due to successful completion.
+          break
+        fi
+        # Exit loop if SSH exited due to Ctrl-C.
+        [ $? -eq 130 ] && break
         sleep 5
-        continue
-      fi
-      if ssh -t ubuntu@$ip docker logs -f aztec_build; then
-        # Exit loop if SSH exited due to successful completion.
-        break
-      fi
-      # Exit loop if SSH exited due to Ctrl-C.
-      [ $? -eq 130 ] && break
-      sleep 5
-    done
+      done
+    else
+      # If not in progress, dump the log from github.
+      run_id=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId)
+      job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
+      PAGER= gh run view -j $job_id --log
+    fi
     exit 0
-  else
-    # If not in progress, dump the log from github.
-    run_id=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId)
-    job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
-    PAGER= gh run view -j $job_id --log
-    exit 0
-  fi
-fi
+  ;;
+  "ssh")
+    ip=$(aws ec2 describe-instances \
+      --region us-east-2 \
+      --filters "Name=tag:Name,Values=$instance_name" \
+      --query "Reservations[].Instances[].PublicIpAddress" \
+      --output text)
+      ssh -t ubuntu@$ip 'docker exec -it aztec_build bash'
+      exit 0
+  ;;
+esac
 
 gh_start_group "Request Build Instance"
+# Terminate any existing instance with the same name.
+existing_instance=$(aws ec2 describe-instances \
+  --region us-east-2 \
+  --filters "Name=tag:Name,Values=$instance_name" \
+  --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
+  --output text)
+if [ -n "$existing_instance" ]; then
+  echo "Terminating existing instance with ip: $ip"
+  aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance 2>&1
+fi
+# Request new instance.
 ip_sir=$(./build-system/scripts/request_spot $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
@@ -82,12 +103,12 @@ sir="${parts[1]}"
 trap terminate_instance EXIT
 gh_end_group
 
-# pass env vars to inform if we are inside github actions, and our AWS creds
+# Pass env vars to inform if we are inside github actions, and our AWS credentials.
 args="-e GITHUB_ACTIONS='$GITHUB_ACTIONS' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
-# - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
-# - Run in our build container, cloning commit and running bootstrap.sh
+# Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails).
+# Run in our build container, cloning commit and running bootstrap.sh.
 gh_start_group "Start CI Image"
 ssh -F build-system/remote/ssh_config ubuntu@$ip "
   docker run --privileged $args --name aztec_build -t \
