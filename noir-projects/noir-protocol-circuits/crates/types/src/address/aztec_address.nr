@@ -204,6 +204,14 @@ fn compute_address_from_partial_and_pub_keys() {
 }
 
 #[test]
+fn compute_preaddress_from_partial_and_pub_keys() {
+    let pre_address = poseidon2_hash_with_separator([1, 2], GENERATOR_INDEX__CONTRACT_ADDRESS_V1);
+    let expected_computed_preaddress_from_partial_and_pubkey =
+        0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
+    assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);
+}
+
+#[test]
 fn from_field_to_field() {
     let address = AztecAddress { inner: 37 };
     assert_eq(FromField::from_field(address.to_field()), address);

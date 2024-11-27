@@ -1,5 +1,3 @@
-import { strict as assert } from 'assert';
-
 /*
  * A Buffer-like class that automatically advances the position.
  */
@@ -24,7 +22,6 @@ export class BufferCursor {
 
   public advance(n: number): void {
     this._position += n;
-    assert(n < this._buffer.length);
   }
 
   public peekUint8(): number {

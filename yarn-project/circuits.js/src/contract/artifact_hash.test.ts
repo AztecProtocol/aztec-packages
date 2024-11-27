@@ -7,6 +7,8 @@ import { readFileSync } from 'fs';
 import { getPathToFixture, getTestContractArtifact } from '../tests/fixtures.js';
 import { computeArtifactHash } from './artifact_hash.js';
 
+const TEST_CONTRACT_ARTIFACT_HASH = `"0x08f4e5d2a0be9dc5c31894f88aaa93d353918078cd7fdfbbc7818ec3f2268b77"`;
+
 describe('ArtifactHash', () => {
   it('calculates the artifact hash', () => {
     const emptyArtifact: ContractArtifact = {
@@ -29,9 +31,7 @@ describe('ArtifactHash', () => {
     const testArtifact = getTestContractArtifact();
 
     for (let i = 0; i < 1000; i++) {
-      expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(
-        `"0x21070d88558fdc3906322f267cf6f0f632caf3949295520fe1f71f156fbb0d0b"`,
-      );
+      expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(TEST_CONTRACT_ARTIFACT_HASH);
     }
   });
 
@@ -42,8 +42,6 @@ describe('ArtifactHash', () => {
 
     const testArtifact = loadContractArtifact(content);
 
-    expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(
-      `"0x21070d88558fdc3906322f267cf6f0f632caf3949295520fe1f71f156fbb0d0b"`,
-    );
+    expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(TEST_CONTRACT_ARTIFACT_HASH);
   });
 });

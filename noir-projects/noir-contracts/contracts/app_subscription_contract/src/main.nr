@@ -29,8 +29,8 @@ contract AppSubscription {
         fee_juice_limit_per_tx: PublicImmutable<Field, Context>,
     }
 
-    global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
-    global SUBSCRIPTION_TXS = 5;
+    global SUBSCRIPTION_DURATION_IN_BLOCKS: Field = 5;
+    global SUBSCRIPTION_TXS: Field = 5;
 
     #[private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
