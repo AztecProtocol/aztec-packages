@@ -425,7 +425,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy_structured_trace()
     {
-        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
         TupleOfKeys keys_1 = construct_keys(2, trace_settings);
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
@@ -450,7 +450,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_fold_with_virtual_size_expansion()
     {
         uint32_t overflow_capacity = 0; // consider the case where the overflow is not known until runtime
-        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE, overflow_capacity };
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity };
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
 
         std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;

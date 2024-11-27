@@ -146,7 +146,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto builder_copy = builder;
 
     // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
     auto circuit_size = proving_key->proving_key.circuit_size;
@@ -378,7 +378,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
 
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
 
     // Construct a simple circuit and make a copy of it
     Builder builder;

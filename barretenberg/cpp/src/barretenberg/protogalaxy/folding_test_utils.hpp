@@ -6,6 +6,7 @@
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
 
 namespace bb {
+
 /**
  * @brief Utility to manually compute the target sum of an accumulator and compare it to the one produced in Protogalxy
  * to attest correctness.

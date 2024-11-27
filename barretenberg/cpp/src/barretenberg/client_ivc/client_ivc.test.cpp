@@ -416,7 +416,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 TEST_F(ClientIVCTests, DynamicOverflow)
 {
     // Define trace settings with zero overflow capacity
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/0 } };
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, /*overflow_capacity=*/0 } };
 
     MockCircuitProducer circuit_producer;
 
@@ -445,7 +445,7 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
 {
     uint32_t overflow_capacity = 0;
     // uint32_t overflow_capacity = 1 << 1;
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE, overflow_capacity } };
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
 
     MockCircuitProducer circuit_producer;
 

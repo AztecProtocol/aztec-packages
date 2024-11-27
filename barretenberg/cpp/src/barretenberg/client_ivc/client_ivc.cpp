@@ -171,8 +171,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     circuit.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the proving key for circuit
-    std::shared_ptr<DeciderProvingKey> proving_key;
-    proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
     // The commitment key is initialised with the number of points determined by the trace_settings' dyadic size. If a
     // circuit overflows past the dyadic size the commitment key will not have enough points so we need to increase it
