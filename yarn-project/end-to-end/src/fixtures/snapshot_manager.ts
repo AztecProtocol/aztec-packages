@@ -451,10 +451,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
-    dataStoreConfig: {
-      dataDirectory: statePath,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-    },
+    dataDirectory: statePath,
+    dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
   });
   await blobSink.start();
 

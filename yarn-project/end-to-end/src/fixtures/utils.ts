@@ -389,7 +389,11 @@ export async function setup(
 
   // Blob sink service - blobs get posted here and served from here
   const blobSinkPort = await getPort();
-  const blobSink = await createBlobSinkServer({ port: blobSinkPort });
+  const blobSink = await createBlobSinkServer({
+    port: blobSinkPort,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1, // will be unused, set as default
+  });
   config.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   const deployL1ContractsValues =

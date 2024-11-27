@@ -15,6 +15,13 @@ services:
       FORK_BLOCK_NUMBER:
       ANVIL_PORT: ${ANVIL_PORT:-8545}
 
+  # TODO: add a readiness probe to this
+  # TODO: delete all of these extra images and just have one, then symlink them???
+  blob-sink:
+    image: aztecprotocol/blob-sink
+    ports:
+      - "${BLOB_SINK_PORT:-5052}:${BLOB_SINK_PORT:-5052}"
+
   aztec:
     image: "aztecprotocol/aztec"
     ports:
@@ -29,6 +36,7 @@ services:
       SEQ_TX_POLLING_INTERVAL_MS: 50
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      SEQ_BLOB_SINK_URL: http://blob-sink:${BLOB_SINK_PORT:-5052}
       PXE_PORT: ${PXE_PORT:-8080}
       PORT: ${AZTEC_NODE_PORT:-8080}
       TEST_ACCOUNTS: ${TEST_ACCOUNTS:-true}
@@ -36,4 +44,5 @@ services:
       - ./log:/usr/src/yarn-project/aztec/log:rw
     depends_on:
       - ethereum
+      - blob-sink
     command: "start --sandbox"

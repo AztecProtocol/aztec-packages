@@ -25,6 +25,7 @@ services:
       SEQ_TX_POLLING_INTERVAL_MS: 50
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      SEQ_BLOB_SINK_URL: http://blob-sink:5052
     healthcheck:
       test: ["CMD", "curl", "-fSs", "http://127.0.0.1:8080/status"]
       interval: 3s
@@ -32,6 +33,13 @@ services:
       start_period: 120s
     depends_on:
       - ethereum
+
+  blob-sink:
+    image: aztecprotocol/blob-sink:${AZTEC_DOCKER_TAG:-latest}
+    environment:
+      PORT: 5052
+      DEBUG: "aztec:*"
+      DEBUG_COLORS: "true"
 
   boxes:
     image: aztecprotocol/build:2.0

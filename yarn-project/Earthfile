@@ -22,6 +22,24 @@ export-cli-wallet:
     ARG ARCH
     SAVE IMAGE --push aztecprotocol/cli-wallet:${DIST_TAG}${ARCH:+-$ARCH}
 
+blob-sink-build:
+    FROM +bootstrap
+    RUN yarn workspaces focus @aztec/blob-sink --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
+
+blob-sink:
+    FROM ubuntu:noble
+    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    COPY +blob-sink-build/usr/src /usr/src
+    ENTRYPOINT ["node", "/usr/src/yarn-project/blob-sink/dest/run.js"]
+
+# TODO(ci3) move to bootstrap.sh
+export-blob-sink:
+    FROM +blob-sink
+    ARG DIST_TAG="latest"
+    ARG ARCH
+    SAVE IMAGE --push aztecprotocol/blob-sink:${DIST_TAG}${ARCH:+-$ARCH}
+
 anvil:
     FROM ../build-images+from-registry
     SAVE ARTIFACT /opt/foundry/bin/anvil
