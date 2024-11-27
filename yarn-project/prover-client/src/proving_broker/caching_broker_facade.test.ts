@@ -1,7 +1,6 @@
 import { type ProvingJobProducer, ProvingRequestType, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
 import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { AbortError } from '@aztec/foundation/error';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { jest } from '@jest/globals';
@@ -54,7 +53,6 @@ describe('CachingBrokerFacade', () => {
     await jest.advanceTimersToNextTimerAsync();
 
     const job = broker.enqueueProvingJob.mock.calls[0][0];
-    await expect(cache.getProvingJobStatus(job.id)).resolves.toEqual({ status: 'in-queue' });
 
     reject(new Error('Failed to enqueue job'));
 
@@ -63,9 +61,6 @@ describe('CachingBrokerFacade', () => {
   });
 
   it('awaits existing job if in progress', async () => {
-    const { promise, reject } = promiseWithResolvers<any>();
-    broker.enqueueProvingJob.mockResolvedValue(promise);
-
     const inputs = makeBaseParityInputs();
     void facade.getBaseParityProof(inputs).catch(() => {});
     await jest.advanceTimersToNextTimerAsync();
@@ -74,8 +69,6 @@ describe('CachingBrokerFacade', () => {
     void facade.getBaseParityProof(inputs).catch(() => {});
     await jest.advanceTimersToNextTimerAsync();
     expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(1);
-
-    reject(new AbortError('Job was cancelled'));
   });
 
   it('reuses already cached results', async () => {

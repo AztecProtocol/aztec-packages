@@ -65,6 +65,10 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     let jobEnqueued = false;
     try {
       const cachedResult = await this.cache.getProvingJobStatus(id);
+      if (cachedResult.status !== 'not-found') {
+        this.log.debug(`Found cached result for job=${id}: status=${cachedResult.status}`);
+      }
+
       if (cachedResult.status === 'fulfilled') {
         const output = await this.proofStore.getProofOutput(cachedResult.value);
         if (output.type === type) {
@@ -94,6 +98,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
         });
         await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
       } catch (err) {
+        this.log.error(`Failed to enqueue proving job id=${id}: ${err}`);
         await this.cache.setProvingJobStatus(id, { status: 'not-found' });
         throw err;
       }
