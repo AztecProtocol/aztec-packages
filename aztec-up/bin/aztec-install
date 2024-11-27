@@ -107,6 +107,7 @@ if [ -z "${SKIP_PULL:-}" ]; then
   pull_container aztec-nargo
   pull_container aztec
   pull_container cli-wallet
+  pull_container blob-sink
 fi
 
 # Download the Docker Compose file. Used by aztec.

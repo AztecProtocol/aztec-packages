@@ -11,7 +11,7 @@ services:
     image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
     command: 'start --sandbox'
     environment:
-      DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
+      DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory,-aztec:l2_block_stream:*,-aztec:world-state:database}
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
@@ -21,10 +21,18 @@ services:
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      SEQ_BLOB_SINK_URL: http://blob-sink:${BLOB_SINK_PORT:-5052}
       ENABLE_GAS: ${ENABLE_GAS:-}
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
     expose:
       - '8080'
+
+  blob-sink:
+    image: aztecprotocol/blob-sink
+    environment:
+      PORT: ${BLOB_SINK_PORT:-5052}
+      DEBUG: "aztec:*"
+      DEBUG_COLORS: 1
 
   end-to-end:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}

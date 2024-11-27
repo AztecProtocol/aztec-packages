@@ -127,7 +127,8 @@ BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_netw
         \"./validators.sh $NUM_VALIDATORS\" \
         $PROVER_SCRIPT \
         ./pxe.sh \
-        ./transaction-bot.sh"
+        ./transaction-bot.sh \
+        ./blob-sink.sh"
 
 # Execute the command
 eval $BASE_CMD
