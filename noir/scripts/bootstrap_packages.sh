@@ -22,7 +22,7 @@ PROJECTS=(
 )
 INCLUDE=$(printf " --include %s" "${PROJECTS[@]}")
 
-$(git rev-parse --show-toplevel)/ci3/yarn/install
+yarn install
 
 yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
 

@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/base/source
 
 $ci3/github/group "Updating yarn"
 # Update yarn.lock so it can be committed.
-(cd browser-test-app && GITHUB_ACTIONS="" yarn add --dev @aztec/bb.js@../../ts && $ci3/yarn/install)
-(cd headless-test && GITHUB_ACTIONS="" yarn add --dev @aztec/bb.js@../../ts && $ci3/yarn/install)
+(cd browser-test-app && yarn)
+(cd headless-test && yarn)
 # The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps
 find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup

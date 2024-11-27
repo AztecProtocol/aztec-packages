@@ -34,8 +34,9 @@ ip="${parts[0]}"
 sir="${parts[1]}"
 $ci3/github/endgroup
 
+GITHUB_LOG=${GITHUB_ACTIONS:-}
 # pass env vars to inform if we are inside github actions, and our AWS creds
-args="-e GITHUB_ACTIONS='${GITHUB_ACTIONS:-}' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
+args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
 $ci3/github/group "Start CI Image"
@@ -46,8 +47,8 @@ ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   docker run --privileged $args --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
     aztecprotocol/ci:2.0 bash -c '
-      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::endgroup::"
-      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::group::Clone Repository"
+      [ -n \"${GITHUB_LOG:-}\" ] && echo "::endgroup::"
+      [ -n \"${GITHUB_LOG:-}\" ] && echo "::group::Clone Repository"
       set -e
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
@@ -59,7 +60,7 @@ ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git remote add origin http://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null
-      [ -n \"${GITHUB_ACTIONS:-}\" ] && echo "::endgroup::"
-      CI=1 ./bootstrap.sh fast
+      [ -n \"${GITHUB_LOG:-}\" ] && echo "::endgroup::"
+      CI=0 ./bootstrap.sh fast
     '
 "

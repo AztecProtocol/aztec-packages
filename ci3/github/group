@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eu
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$@" || true
+[ -n "${GITHUB_LOG:-}" ] && echo "::group::$@" || true

@@ -18,7 +18,7 @@ fi
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
 # TODO: For the love of god can we stop bringing in entire node stacks for what can be done in a bash script?
-$ci3/yarn/install
+yarn install
 
 $ci3/github/group "noir-projects build"
 parallel --line-buffer --tag {} ::: \

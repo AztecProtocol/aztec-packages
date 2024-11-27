@@ -7,7 +7,7 @@ __metadata:
 
 "@aztec/bb.js@file:../../ts::locator=headless-test%40workspace%3A.":
   version: 0.63.1
-  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=3aa743&locator=headless-test%40workspace%3A."
+  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=1d8509&locator=headless-test%40workspace%3A."
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^10.0.1"
@@ -16,7 +16,7 @@ __metadata:
     tslib: "npm:^2.4.0"
   bin:
     bb.js: ./dest/node/main.js
-  checksum: 10c0/97c8a4a8be95f732e85a89cb4ec7742c5179a11aa946c868588f31513c32acff597a4e00d7d0dc0f3d83561da6d9bdaa36761fb20776b5a08ac2311330da95ae
+  checksum: 10c0/2d0e031302c825346828720a070428d208f166f98f17e85da8933a5f45ec80e2b62b760db4cf39782ed1952f7a73b1379e9ea6d5ff532d09213e9b6bff1e20a0
   languageName: node
   linkType: hard
 
