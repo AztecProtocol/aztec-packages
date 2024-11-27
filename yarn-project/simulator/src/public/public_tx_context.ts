@@ -87,14 +87,9 @@ export class PublicTxContext {
 
     const innerCallTrace = new PublicSideEffectTrace();
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
-      /*publicDataReads*/ 0,
       /*publicDataWrites*/ 0,
-      /*noteHashReadRequests*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
-      /*nullifierReadRequests*/ 0,
-      /*nullifierNonExistentReadRequests*/ 0,
-      /*nullifiers=*/ 0, // inserted before setup
-      /*l1ToL2MsgReadRequests*/ 0,
+      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );
