@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732735736492,
+  "lastUpdate": 1732741475569,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9325f6ff987022da1a4dabb771781cdc999af18e",
-          "message": "feat: mock data for IVC (#9893)\n\nIncremental work towards a write_vk flow for kernel circuits. kernel\r\ncircuits are generated from acir via the method\r\n`acir_format::create_kernel_circuit()` which takes as input the raw acir\r\ndata plus a ClientIvc instance containing the proofs to be recursively\r\nverified in that circuit (Oink/PG + merge). In the context of VK\r\ngeneration, those proofs are not yet known, so the IVC state has to be\r\nmocked. This PR adds such functionality but only for the oink case (i.e.\r\nthe state of the IVC after accumulating the first app which only calls\r\nthe pink prover). Equivalent logic for mocking the state after\r\nsubsequent accumulations will be handled in a follow on.",
-          "timestamp": "2024-11-12T14:39:30-07:00",
-          "tree_id": "ec55eac7301c947e731b20dbf5b80db296cd89e4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9325f6ff987022da1a4dabb771781cdc999af18e"
-        },
-        "date": 1731450058671,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28726.523216999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27126.963959999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5342.71464199999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5051.560577 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84599.24814899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84599249000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15201.274542999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15201275000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3102320973,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3102320973 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142073295,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142073295 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2978,6 +2918,66 @@ window.BENCHMARK_DATA = {
             "value": 140666464,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140666464 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7b282cd0fb306abbe3951a55a1a4f4d42ed7f8e",
+          "message": "feat: swap polys to facilitate dynamic trace overflow (#9976)\n\nUpdate PG/ClientIvc so that during accumulation we can handle a circuit\r\nthat overflows the nominal structured trace (and potentially increases\r\nthe dyadic size of the accumulator) without knowing about the size of\r\nthe overflow in advance. (A previous PR makes it possible to overflow\r\narbitrarily as long as ClientIvc is initialized with the proper overflow\r\ncapacity). Ensure the ExecutionTraceTracker is updated correctly when\r\nencountering a circuit that overflows and also ensure that the tracker\r\nis used appropriately in Protogalaxy.\r\n\r\n---------\r\n\r\nCo-authored-by: maramihali <mara@aztecprotocol.com>",
+          "timestamp": "2024-11-27T15:22:09-05:00",
+          "tree_id": "eca71991eb4839e20ba88bebde59fac32583d695",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b7b282cd0fb306abbe3951a55a1a4f4d42ed7f8e"
+        },
+        "date": 1732741468619,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28225.632292000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26587.677380999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5020.246728000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4673.310028999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84009.54356300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84009544000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15132.574935999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15132576000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3076078674,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3076078674 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139484576,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139484576 ns\nthreads: 1"
           }
         ]
       }
