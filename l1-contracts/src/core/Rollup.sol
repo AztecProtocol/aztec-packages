@@ -4,21 +4,29 @@ pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {IRollup, ITestRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  IRollup,
+  ITestRollup,
+  FeeHeader,
+  ManaBaseFeeComponents,
+  BlockLog,
+  L1FeeData
+} from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {FeeMath} from "@aztec/core/libraries/FeeMath.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
@@ -29,6 +37,19 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Vm} from "forge-std/Vm.sol";
+
+struct ChainTips {
+  uint256 pendingBlockNumber;
+  uint256 provenBlockNumber;
+}
+
+struct Config {
+  uint256 aztecSlotDuration;
+  uint256 aztecEpochDuration;
+  uint256 targetCommitteeSize;
+  uint256 aztecEpochProofClaimWindowInL2Slots;
+}
 
 /**
  * @title Rollup
@@ -42,28 +63,26 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using EpochLib for Epoch;
   using SafeERC20 for IERC20;
   using ProposeLib for ProposeArgs;
+  using FeeMath for uint256;
 
-  struct ChainTips {
-    uint256 pendingBlockNumber;
-    uint256 provenBlockNumber;
+  struct L1GasOracleValues {
+    L1FeeData pre;
+    L1FeeData post;
+    Slot slotOfChange;
   }
 
-  struct BlockLog {
-    bytes32 archive;
-    bytes32 blockHash;
-    Slot slotNumber;
-  }
+  uint256 internal constant BLOB_GAS_PER_BLOB = 2 ** 17;
+  uint256 internal constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
-  struct Config {
-    uint256 aztecSlotDuration;
-    uint256 aztecEpochDuration;
-    uint256 targetCommitteeSize;
-    uint256 aztecEpochProofClaimWindowInL2Slots;
-  }
+  Slot public constant LIFETIME = Slot.wrap(5);
+  Slot public constant LAG = Slot.wrap(2);
 
   // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
   // for justification of CLAIM_DURATION_IN_L2_SLOTS.
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
+
+  address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
+  bool public immutable IS_FOUNDRY_TEST;
 
   uint256 public immutable CLAIM_DURATION_IN_L2_SLOTS;
   uint256 public immutable L1_BLOCK_AT_GENESIS;
@@ -85,10 +104,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   //        e.g., changing any values in the block or header should in the end make its way to the archive
   //
   //        More direct approach would be storing keccak256(header) as well
-  mapping(uint256 blockNumber => BlockLog log) public blocks;
-  // The below public inputs are filled when proposing a block, then used to verify an epoch proof.
-  // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
-  mapping(uint256 blockNumber => bytes32) public blobPublicInputsHashes;
+  mapping(uint256 blockNumber => BlockLog log) internal blocks;
 
   bytes32 public vkTreeRoot;
   bytes32 public protocolContractTreeRoot;
@@ -97,8 +113,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
-  // @note  Always true, exists to override to false for testing only
-  bool public checkBlob = true;
+  L1GasOracleValues public l1GasOracleValues;
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
@@ -131,11 +146,24 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     L1_BLOCK_AT_GENESIS = block.number;
     CLAIM_DURATION_IN_L2_SLOTS = _config.aztecEpochProofClaimWindowInL2Slots;
 
+    IS_FOUNDRY_TEST = VM_ADDRESS.code.length > 0;
+
     // Genesis block
     blocks[0] = BlockLog({
+      feeHeader: FeeHeader({
+        excessMana: 0,
+        feeAssetPriceNumerator: 0,
+        manaUsed: 0,
+        provingCostPerManaNumerator: 0
+      }),
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(0), // TODO(palla/prover): The first block does not have hash zero
       slotNumber: Slot.wrap(0)
+    });
+    l1GasOracleValues = L1GasOracleValues({
+      pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
+      post: L1FeeData({baseFee: block.basefee, blobFee: _getBlobBaseFee()}),
+      slotOfChange: LIFETIME
     });
     for (uint256 i = 0; i < _validators.length; i++) {
       _addValidator(_validators[i]);
@@ -209,18 +237,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *
    * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
-   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
    * @param _body - The body of the L2 block
-   * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function proposeAndClaim(
     ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    bytes calldata _blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
-    propose(_args, _signatures, _body, _blobInput);
+    propose(_args, _signatures, _body);
     claimEpochProofRight(_quote);
   }
 
@@ -238,17 +263,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @dev     We provide the `_archive` and `_blockHash` even if it could be read from storage itself because it allow for
    *          better error messages. Without passing it, we would just have a proof verification failure.
    *
-   * @param  _submitArgs - Struct for constructing PIs which has:
-   *   epochSize - The size of the epoch (to be promoted to a constant)
-   *   args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
-   *   fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *   blobPublicInputs- The blob PIs for the proof
+   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    * @param  _aggregationObject - The aggregation object for the proof
    * @param  _proof - The proof to verify
    */
   function submitEpochRootProof(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
-    bytes calldata _aggregationObject, // having separate inputs here caused stack too deep
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
+    bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
     if (canPrune()) {
@@ -256,14 +281,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
 
     uint256 previousBlockNumber = tips.provenBlockNumber;
-    uint256 endBlockNumber = previousBlockNumber + _submitArgs.epochSize;
+    uint256 endBlockNumber = previousBlockNumber + _epochSize;
 
     // @note The getEpochForBlock is expected to revert if the block is beyond pending.
     //       If this changes you are gonna get so rekt you won't believe it.
     //       I mean proving blocks that have been pruned rekt.
     Epoch epochToProve = getEpochForBlock(endBlockNumber);
 
-    bytes32[] memory publicInputs = getEpochProofPublicInputs(_submitArgs, _aggregationObject);
+    bytes32[] memory publicInputs =
+      getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
 
     require(epochProofVerifier.verify(_proof, publicInputs), Errors.Rollup__InvalidProof());
 
@@ -277,7 +303,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 totalProverReward = 0;
 
     if (isFeeCanonical || isRewardDistributorCanonical) {
-      for (uint256 i = 0; i < _submitArgs.epochSize; i++) {
+      for (uint256 i = 0; i < _epochSize; i++) {
         address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
         uint256 reward = 0;
         uint256 toProver = 0;
@@ -323,7 +349,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
 
-    emit L2ProofVerified(endBlockNumber, _submitArgs.args[6]);
+    emit L2ProofVerified(endBlockNumber, _args[6]);
   }
 
   function status(uint256 _myHeaderBlockNumber)
@@ -396,7 +422,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
-   * @param _blobsHash - The EVM blob hash for this block
    * @param _flags - The flags to validate
    */
   function validateHeader(
@@ -404,11 +429,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
+    uint256 manaBaseFee = getManaBaseFee(true);
     HeaderLib.Header memory header = HeaderLib.decode(_header);
-    _validateHeader(header, _signatures, _digest, _currentTime, _blobsHash, _flags);
+    _validateHeader(
+      header, _signatures, _digest, _currentTime, manaBaseFee, _txsEffectsHash, _flags
+    );
   }
 
   /**
@@ -428,6 +456,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       Errors.Rollup__ProofRightAlreadyClaimed()
     );
     return epochToProve;
+  }
+
+  function computeTxsEffectsHash(bytes calldata _body)
+    external
+    pure
+    override(IRollup)
+    returns (bytes32)
+  {
+    return TxsDecoder.decode(_body);
   }
 
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
@@ -463,49 +500,63 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *
    * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
-   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
-   * @param  - The body of the L2 block
-   * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
+   * @param _body - The body of the L2 block
    */
   function propose(
     ProposeArgs calldata _args,
     SignatureLib.Signature[] memory _signatures,
-    // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata,
-    bytes calldata _blobInput
+    bytes calldata _body
   ) public override(IRollup) {
     if (canPrune()) {
       _prune();
     }
-    // Since an invalid blob hash here would fail the consensus checks of
-    // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (bytes32 blobsHash, bytes32 blobPublicInputsHash) = _validateBlobs(_blobInput);
+    updateL1GasFeeOracle();
+
+    // The `body` is passed outside the "args" as it does not directly need to be in the digest
+    // as long as the `txsEffectsHash` is included and matches what is in the header.
+    // Which we are checking in the `_validateHeader` call below.
+    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_args.header);
 
-    {
-      bytes32 digest = _args.digest();
-      setupEpoch();
-      _validateHeader({
-        _header: header,
-        _signatures: _signatures,
-        _digest: digest,
-        _currentTime: Timestamp.wrap(block.timestamp),
-        _blobsHash: blobsHash,
-        _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
-      });
-    }
+    bytes32 digest = _args.digest();
+    setupEpoch();
+    uint256 manaBaseFee = getManaBaseFee(true);
+    _validateHeader({
+      _header: header,
+      _signatures: _signatures,
+      _digest: digest,
+      _currentTime: Timestamp.wrap(block.timestamp),
+      _manaBaseFee: manaBaseFee,
+      _txEffectsHash: txsEffectsHash,
+      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+    });
 
     uint256 blockNumber = ++tips.pendingBlockNumber;
 
-    blocks[blockNumber] = BlockLog({
-      archive: _args.archive,
-      blockHash: _args.blockHash,
-      slotNumber: Slot.wrap(header.globalVariables.slotNumber)
-    });
+    {
+      FeeHeader memory parentFeeHeader = blocks[blockNumber - 1].feeHeader;
+      uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
+        -int256(FeeMath.MANA_TARGET)
+      );
 
-    blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
+      blocks[blockNumber] = BlockLog({
+        archive: _args.archive,
+        blockHash: _args.blockHash,
+        slotNumber: Slot.wrap(header.globalVariables.slotNumber),
+        feeHeader: FeeHeader({
+          excessMana: excessMana,
+          feeAssetPriceNumerator: parentFeeHeader.feeAssetPriceNumerator.clampedAdd(
+            _args.oracleInput.feeAssetPriceModifier
+          ),
+          manaUsed: header.totalManaUsed,
+          provingCostPerManaNumerator: parentFeeHeader.provingCostPerManaNumerator.clampedAdd(
+            _args.oracleInput.provingCostModifier
+          )
+        })
+      });
+    }
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     bytes32 inHash = INBOX.consume(blockNumber);
@@ -543,6 +594,113 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
   }
 
+  /**
+   * @notice  Updates the l1 gas fee oracle
+   * @dev     This function is called by the `propose` function
+   */
+  function updateL1GasFeeOracle() public override(IRollup) {
+    Slot slot = getCurrentSlot();
+    // The slot where we find a new queued value acceptable
+    Slot acceptableSlot = l1GasOracleValues.slotOfChange + (LIFETIME - LAG);
+
+    if (slot < acceptableSlot) {
+      return;
+    }
+
+    l1GasOracleValues.pre = l1GasOracleValues.post;
+    l1GasOracleValues.post = L1FeeData({baseFee: block.basefee, blobFee: _getBlobBaseFee()});
+    l1GasOracleValues.slotOfChange = slot + LAG;
+  }
+
+  /**
+   * @notice  Gets the fee asset price as fee_asset / eth with 1e9 precision
+   *
+   * @return The fee asset price
+   */
+  function getFeeAssetPrice() public view override(IRollup) returns (uint256) {
+    return FeeMath.feeAssetPriceModifier(
+      blocks[tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
+    );
+  }
+
+  /**
+   * @notice  Gets the current l1 fees
+   *
+   * @return  The current l1 fees
+   */
+  function getCurrentL1Fees() public view override(IRollup) returns (L1FeeData memory) {
+    Slot slot = getCurrentSlot();
+    if (slot < l1GasOracleValues.slotOfChange) {
+      return l1GasOracleValues.pre;
+    }
+    return l1GasOracleValues.post;
+  }
+
+  /**
+   * @notice  Gets the mana base fee
+   *
+   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
+   *
+   * @return The mana base fee
+   */
+  function getManaBaseFee(bool _inFeeAsset) public view override(IRollup) returns (uint256) {
+    ManaBaseFeeComponents memory components = manaBaseFeeComponents(_inFeeAsset);
+    return
+      components.dataCost + components.gasCost + components.provingCost + components.congestionCost;
+  }
+
+  /**
+   * @notice  Gets the mana base fee components
+   *          For more context, consult:
+   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
+   *
+   * @dev     TODO #10004 - As part of the refactor, will likely get rid of this function or make it private
+   *          keeping it public for now makes it simpler to test.
+   *
+   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
+   *
+   * @return The mana base fee components
+   */
+  function manaBaseFeeComponents(bool _inFeeAsset)
+    public
+    view
+    override(ITestRollup)
+    returns (ManaBaseFeeComponents memory)
+  {
+    FeeHeader storage parentFeeHeader = blocks[tips.pendingBlockNumber].feeHeader;
+    uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
+      -int256(FeeMath.MANA_TARGET)
+    );
+
+    L1FeeData memory fees = getCurrentL1Fees();
+    uint256 dataCost =
+      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, fees.blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
+      + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
+    uint256 gasCost = Math.mulDiv(gasUsed, fees.baseFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 provingCost = FeeMath.provingCostPerMana(
+      blocks[tips.pendingBlockNumber].feeHeader.provingCostPerManaNumerator
+    );
+
+    uint256 congestionMultiplier = FeeMath.congestionMultiplier(excessMana);
+    uint256 total = dataCost + gasCost + provingCost;
+    uint256 congestionCost = Math.mulDiv(
+      total, congestionMultiplier, FeeMath.MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor
+    ) - total;
+
+    uint256 feeAssetPrice = _inFeeAsset ? getFeeAssetPrice() : 1e9;
+
+    // @todo @lherskind. The following is a crime against humanity, but it makes it
+    // very neat to plot etc from python, #10004 will fix it across the board
+    return ManaBaseFeeComponents({
+      dataCost: Math.mulDiv(dataCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      gasCost: Math.mulDiv(gasCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      provingCost: Math.mulDiv(provingCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      congestionCost: Math.mulDiv(congestionCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      congestionMultiplier: congestionMultiplier
+    });
+  }
+
   function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
     public
     view
@@ -559,20 +717,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * own public inputs used for generating the proof vs the ones assembled
    * by this contract when verifying it.
    *
-   * @param  _submitArgs - Struct for constructing PIs which has:
-   *   epochSize - The size of the epoch (to be promoted to a constant)
-   *   args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
-   *   fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *   blobPublicInputs- The blob PIs for the proof
+   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) public view override(IRollup) returns (bytes32[] memory) {
     uint256 previousBlockNumber = tips.provenBlockNumber;
-    uint256 endBlockNumber = previousBlockNumber + _submitArgs.epochSize;
-    bytes32[7] memory args = _submitArgs.args;
+    uint256 endBlockNumber = previousBlockNumber + _epochSize;
+
     // Args are defined as an array because Solidity complains with "stack too deep" otherwise
     // 0 bytes32 _previousArchive,
     // 1 bytes32 _endArchive,
@@ -588,26 +746,26 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       // We do it this way to provide better error messages than passing along the storage values
       bytes32 expectedPreviousArchive = blocks[previousBlockNumber].archive;
       require(
-        expectedPreviousArchive == args[0],
-        Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, args[0])
+        expectedPreviousArchive == _args[0],
+        Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0])
       );
 
       bytes32 expectedEndArchive = blocks[endBlockNumber].archive;
       require(
-        expectedEndArchive == args[1], Errors.Rollup__InvalidArchive(expectedEndArchive, args[1])
+        expectedEndArchive == _args[1], Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
       );
 
       bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
       // TODO: Remove 0 check once we inject the proper genesis block hash
       require(
-        expectedPreviousBlockHash == 0 || expectedPreviousBlockHash == args[2],
-        Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, args[2])
+        expectedPreviousBlockHash == 0 || expectedPreviousBlockHash == _args[2],
+        Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2])
       );
 
       bytes32 expectedEndBlockHash = blocks[endBlockNumber].blockHash;
       require(
-        expectedEndBlockHash == args[3],
-        Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, args[3])
+        expectedEndBlockHash == _args[3],
+        Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3])
       );
     }
 
@@ -625,15 +783,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
-    //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
+    //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
-    //   prover_id: Field,
-    //   blob_public_inputs: [BlockBlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
+    //   prover_id: Field
     // }
 
     // previous_archive.root: the previous archive tree root
-    publicInputs[0] = args[0];
+    publicInputs[0] = _args[0];
 
     // previous_archive.next_available_leaf_index: the previous archive next available index
     // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
@@ -641,85 +798,41 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     publicInputs[1] = bytes32(previousBlockNumber + 1);
 
     // end_archive.root: the new archive tree root
-    publicInputs[2] = args[1];
+    publicInputs[2] = _args[1];
 
     // end_archive.next_available_leaf_index: the new archive next available index
     publicInputs[3] = bytes32(endBlockNumber + 1);
 
     // previous_block_hash: the block hash just preceding this epoch
-    publicInputs[4] = args[2];
+    publicInputs[4] = _args[2];
 
     // end_block_hash: the last block hash in the epoch
-    publicInputs[5] = args[3];
+    publicInputs[5] = _args[3];
 
     // end_timestamp: the timestamp of the last block in the epoch
-    publicInputs[6] = args[4];
+    publicInputs[6] = _args[4];
 
     // end_block_number: last block number in the epoch
     publicInputs[7] = bytes32(endBlockNumber);
 
     // out_hash: root of this epoch's l2 to l1 message tree
-    publicInputs[8] = args[5];
+    publicInputs[8] = _args[5];
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
     for (uint256 i = 0; i < feesLength; i++) {
-      publicInputs[9 + i] = _submitArgs.fees[i];
+      publicInputs[9 + i] = _fees[i];
     }
-    uint256 offset = 9 + feesLength;
+    uint256 feesEnd = 9 + feesLength;
 
     // vk_tree_root
-    publicInputs[offset] = vkTreeRoot;
-    offset += 1;
+    publicInputs[feesEnd] = vkTreeRoot;
 
     // protocol_contract_tree_root
-    publicInputs[offset] = protocolContractTreeRoot;
-    offset += 1;
+    publicInputs[feesEnd + 1] = protocolContractTreeRoot;
 
     // prover_id: id of current epoch's prover
-    publicInputs[offset] = args[6];
-    offset += 1;
-
-    // blob_public_inputs
-    uint256 blobOffset = 0;
-    for (uint256 i = 0; i < _submitArgs.epochSize; i++) {
-      uint8 blobsInBlock = uint8(_submitArgs.blobPublicInputs[blobOffset++]);
-      // asserting here to avoid looping twice in one fn
-      {
-        // Blob public inputs are 112 bytes long - see _validateBlobs() for explanation
-        bytes32 calcBlobPublicInputsHash = sha256(
-          abi.encodePacked(_submitArgs.blobPublicInputs[blobOffset:blobOffset + 112 * blobsInBlock])
-        );
-        require(
-          calcBlobPublicInputsHash == blobPublicInputsHashes[previousBlockNumber + i + 1],
-          Errors.Rollup__InvalidBlobPublicInputsHash(
-            blobPublicInputsHashes[previousBlockNumber + i + 1], calcBlobPublicInputsHash
-          )
-        );
-      }
-      for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
-        if (j < blobsInBlock) {
-          // z
-          publicInputs[offset++] =
-            bytes32(_submitArgs.blobPublicInputs[blobOffset:blobOffset += 32]);
-          // y
-          (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
-            _bytes32ToBigNum(bytes32(_submitArgs.blobPublicInputs[blobOffset:blobOffset += 32]));
-          // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
-          // TODO: The below left pads, possibly inefficiently
-          // c[0]
-          publicInputs[offset++] = bytes32(
-            uint256(uint248(bytes31(_submitArgs.blobPublicInputs[blobOffset:blobOffset += 31])))
-          );
-          // c[1]
-          publicInputs[offset++] = bytes32(
-            uint256(uint136(bytes17(_submitArgs.blobPublicInputs[blobOffset:blobOffset += 17])))
-          );
-        } else {
-          offset += Constants.BLOB_PUBLIC_INPUTS;
-        }
-      }
-    }
+    publicInputs[feesEnd + 2] = _args[6];
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
@@ -730,7 +843,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH] = part;
+      publicInputs[i + feesEnd + 3] = part;
     }
 
     return publicInputs;
@@ -807,6 +920,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   function getPendingBlockNumber() public view override(IRollup) returns (uint256) {
     return tips.pendingBlockNumber;
+  }
+
+  function getBlock(uint256 _blockNumber) public view override(IRollup) returns (BlockLog memory) {
+    require(
+      _blockNumber <= tips.pendingBlockNumber,
+      Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, _blockNumber)
+    );
+    return blocks[_blockNumber];
   }
 
   function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
@@ -900,7 +1021,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _signatures - The signatures for the attestations
    * @param _digest - The digest that signatures signed
    * @param _currentTime - The time of execution
-   * @param _blobsHash - The EVM blob hash for this block
    * @dev                - This value is provided to allow for simple simulation of future
    * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
@@ -909,12 +1029,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    uint256 _manaBaseFee,
+    bytes32 _txEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber =
       canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
-    _validateHeaderForSubmissionBase(_header, _currentTime, _blobsHash, pendingBlockNumber, _flags);
+    _validateHeaderForSubmissionBase(
+      _header, _currentTime, _manaBaseFee, _txEffectsHash, pendingBlockNumber, _flags
+    );
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );
@@ -971,7 +1094,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *          - The last archive root in the header MUST match the current archive
    *          - The slot MUST be larger than the slot of the previous block (ensures single block per slot)
    *          - The timestamp MUST be equal to GENESIS_TIME + slot * SLOT_DURATION
-   *          - The `blobsHash` of the block must match the computed `_blobsHash`
+   *          - The `txsEffectsHash` of the header must match the computed `_txsEffectsHash`
    *            - This can be relaxed to happen at the time of `submitProof` instead
    *
    * @param _header - The header to validate
@@ -979,7 +1102,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function _validateHeaderForSubmissionBase(
     HeaderLib.Header memory _header,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    uint256 _manaBaseFee,
+    bytes32 _txsEffectsHash,
     uint256 _pendingBlockNumber,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
@@ -1026,102 +1150,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Check if the data is available
     require(
-      _flags.ignoreDA || _header.contentCommitment.blobsHash == _blobsHash,
-      Errors.Rollup__UnavailableTxs(_header.contentCommitment.blobsHash)
+      _flags.ignoreDA || _header.contentCommitment.txsEffectsHash == _txsEffectsHash,
+      Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash)
     );
 
     // If not canonical rollup, require that the fees are zero
     if (address(this) != FEE_JUICE_PORTAL.canonicalRollup()) {
       require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
       require(_header.globalVariables.gasFees.feePerL2Gas == 0, Errors.Rollup__NonZeroL2Fee());
+    } else {
+      require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
+      require(
+        _header.globalVariables.gasFees.feePerL2Gas == _manaBaseFee,
+        Errors.Rollup__InvalidManaBaseFee(_manaBaseFee, _header.globalVariables.gasFees.feePerL2Gas)
+      );
     }
-  }
-
-  /**
-   * @notice  Validate a blob.
-   * Input bytes:
-   * input[:32]     - versioned_hash
-   * input[32:64]   - z
-   * input[64:96]   - y
-   * input[96:144]  - commitment C
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
-   *  - This can be relaxed to happen at the time of `submitProof` instead
-   * @notice Apparently there is no guarantee that the blobs will be processed in the order sent
-   * so the use of blobhash(_blobNumber) may fail in production
-   * @param _blobInput - The above bytes to verify a blob
-   */
-  function _validateBlob(bytes calldata _blobInput, uint256 _blobNumber)
-    internal
-    view
-    returns (bytes32 blobHash)
-  {
-    if (!checkBlob) {
-      return bytes32(_blobInput[0:32]);
-    }
-    assembly {
-      blobHash := blobhash(_blobNumber)
-    }
-    require(blobHash == bytes32(_blobInput[0:32]), Errors.Rollup__InvalidBlobHash(blobHash));
-
-    // Staticcall the point eval precompile https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile :
-    (bool success,) = address(0x0a).staticcall(_blobInput);
-    require(success, Errors.Rollup__InvalidBlobProof(blobHash));
-  }
-
-  /**
-   * @notice  Validate an L2 block's blobs and return the hashed blobHashes and public inputs.
-   * Input bytes:
-   * input[:1] - num blobs in block
-   * input[1:] - 192 * num blobs of the above _blobInput
-   * @param _blobsInput - The above bytes to verify a blob
-   */
-  function _validateBlobs(bytes calldata _blobsInput)
-    internal
-    view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
-  {
-    // We cannot input the incorrect number of blobs below, as the blobsHash
-    // and epoch proof verification will fail.
-    uint8 numBlobs = uint8(_blobsInput[0]);
-    bytes32[] memory blobHashes = new bytes32[](numBlobs);
-    bytes memory blobPublicInputs;
-    for (uint256 i = 0; i < numBlobs; i++) {
-      // Add 1 for the numBlobs prefix
-      uint256 blobInputStart = i * 192 + 1;
-      // Since an invalid blob hash here would fail the consensus checks of
-      // the header, the `blobInput` is implicitly accepted by consensus as well.
-      blobHashes[i] = _validateBlob(_blobsInput[blobInputStart:blobInputStart + 192], i);
-      // We want to extract the 112 bytes we use for public inputs:
-      //  * input[32:64]   - z
-      //  * input[64:96]   - y
-      //  * input[96:144]  - commitment C
-      // Out of 192 bytes per blob.
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
-    }
-    // Return the hash of all z, y, and Cs, so we can use them in proof verification later
-    blobPublicInputsHash = sha256(blobPublicInputs);
-    // Hash the EVM blob hashes for the block header
-    blobsHash = Hash.sha256ToField(abi.encodePacked(blobHashes));
-  }
-
-  /**
-   * @notice  Converts a BLS12 field element from bytes32 to a nr BigNum type
-   * The nr bignum type for BLS12 fields is encoded as 3 nr fields - see blob_public_inputs.ts:
-   * firstLimb = last 15 bytes;
-   * secondLimb = bytes 2 -> 17;
-   * thirdLimb = first 2 bytes;
-   * Used when verifying epoch proofs to gather public inputs.
-   * @param _input - The field in bytes32
-   */
-  function _bytes32ToBigNum(bytes32 _input)
-    internal
-    pure
-    returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
-  {
-    firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
-    secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
-    thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
   }
 
   function _fakeBlockNumberAsProven(uint256 _blockNumber) private {
@@ -1141,5 +1184,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
         });
       }
     }
+  }
+
+  /**
+   * @notice  Get the blob base fee
+   *
+   * @dev     If we are in a foundry test, we use the cheatcode to get the blob base fee.
+   *          Otherwise, we use the `block.blobbasefee`
+   *
+   * @return uint256 - The blob base fee
+   */
+  function _getBlobBaseFee() private view returns (uint256) {
+    if (IS_FOUNDRY_TEST) {
+      return Vm(VM_ADDRESS).getBlobBaseFee();
+    }
+    return block.blobbasefee;
   }
 }

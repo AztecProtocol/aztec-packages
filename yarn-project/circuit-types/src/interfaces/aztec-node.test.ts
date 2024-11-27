@@ -5,6 +5,7 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
+  GasFees,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -157,6 +158,11 @@ describe('AztecNodeApiSchema', () => {
   it('getBlock', async () => {
     const response = await context.client.getBlock(1);
     expect(response).toBeInstanceOf(L2Block);
+  });
+
+  it('getCurrentBaseFees', async () => {
+    const response = await context.client.getCurrentBaseFees();
+    expect(response).toEqual(GasFees.empty());
   });
 
   it('getBlockNumber', async () => {
@@ -434,6 +440,9 @@ class MockAztecNode implements AztecNode {
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
+  }
+  getCurrentBaseFees(): Promise<GasFees> {
+    return Promise.resolve(GasFees.empty());
   }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);

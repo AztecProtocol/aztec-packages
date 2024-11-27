@@ -20,7 +20,7 @@ pub struct ContractData {
 }
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-pub global default_contract = ContractData {
+pub global default_contract: ContractData = ContractData {
     contract_address_salt: 0x000000000000000000000000000000000000000000000000000000000000ddd5,
     artifact_hash: 0x0000000000000000000000000000000000000000000000000000000000003039,
     public_bytecode_commitment: 0x0000000000000000000000000000000000000000000000000000000000000005,
@@ -44,7 +44,7 @@ pub global default_contract = ContractData {
 };
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-pub global parent_contract = ContractData {
+pub global parent_contract: ContractData = ContractData {
     contract_address_salt: 0x0000000000000000000000000000000000000000000000000000000000001618,
     artifact_hash: 0x00000000000000000000000000000000000000000000000000000000000004bc,
     public_bytecode_commitment: 0x0000000000000000000000000000000000000000000000000000000000000005,

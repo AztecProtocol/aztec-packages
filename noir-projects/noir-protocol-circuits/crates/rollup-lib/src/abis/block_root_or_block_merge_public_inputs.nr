@@ -8,7 +8,6 @@ use dep::types::{
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
-use blob::blob_public_inputs::BlockBlobPublicInputs;
 
 pub struct FeeRecipient {
     recipient: EthAddress,
@@ -18,7 +17,7 @@ pub struct FeeRecipient {
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
 impl Empty for FeeRecipient {
     fn empty() -> Self {
-        Self { recipient: EthAddress::zero(), value: 0 }
+        FeeRecipient { recipient: EthAddress::zero(), value: 0 }
     }
 }
 
@@ -54,7 +53,6 @@ pub struct BlockRootOrBlockMergePublicInputs {
     vk_tree_root: Field, // Root of allowed vk tree
     protocol_contract_tree_root: Field, // Root of protocol contract tree
     prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-    blob_public_inputs: [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -77,7 +75,6 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
             prover_id: 0,
-            blob_public_inputs: [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
         }
     }
 }
@@ -95,7 +92,6 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
             & (self.vk_tree_root == other.vk_tree_root)
             & (self.protocol_contract_tree_root == other.protocol_contract_tree_root)
             & (self.prover_id == other.prover_id)
-            & (self.blob_public_inputs.eq(other.blob_public_inputs))
     }
 }
 
@@ -117,9 +113,6 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.push(self.vk_tree_root);
         fields.push(self.protocol_contract_tree_root);
         fields.push(self.prover_id as Field);
-        for i in 0..AZTEC_MAX_EPOCH_DURATION {
-            fields.extend_from_array(self.blob_public_inputs[i].serialize());
-        }
         assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
@@ -146,10 +139,6 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),
             prover_id: reader.read(),
-            blob_public_inputs: reader.read_struct_array(
-                BlockBlobPublicInputs::deserialize,
-                [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
-            ),
         };
 
         reader.finish();

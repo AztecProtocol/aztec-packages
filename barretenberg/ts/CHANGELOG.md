@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.64.0...barretenberg.js-v0.65.0) (2024-11-26)
+
+
+### Bug Fixes
+
+* **bb.js:** Don't minify bb.js - webpack config ([#10170](https://github.com/AztecProtocol/aztec-packages/issues/10170)) ([6e7fae7](https://github.com/AztecProtocol/aztec-packages/commit/6e7fae7c78496b0b2241e2061b35ab22a3b3b186))
+
 ## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.63.1...barretenberg.js-v0.64.0) (2024-11-25)
 
 

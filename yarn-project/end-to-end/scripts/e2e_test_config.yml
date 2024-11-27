@@ -35,8 +35,7 @@ tests:
   e2e_devnet_smoke: {}
   docs_examples:
     use_compose: true
-  # TODO(#10177): reenable
-  # e2e_epochs: {}
+  e2e_epochs: {}
   e2e_escrow_contract: {}
   e2e_fees_account_init:
     test_path: 'e2e_fees/account_init.test.ts'
@@ -51,6 +50,8 @@ tests:
     test_path: 'e2e_fees/gas_estimation.test.ts'
   e2e_fees_private_payments:
     test_path: 'e2e_fees/private_payments.test.ts'
+  e2e_fees_public_payments:
+    test_path: 'e2e_fees/public_payments.test.ts'
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}

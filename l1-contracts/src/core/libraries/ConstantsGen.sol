@@ -92,13 +92,13 @@ library Constants {
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
-  uint256 internal constant FIELDS_PER_BLOB = 4096;
-  uint256 internal constant BLOBS_PER_BLOCK = 3;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_BYTES = 576;
+  uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     19007378675971183768036762391356802220352606103602592933942074152320327194720;
-  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000;
+  uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000000000000;
+  uint256 internal constant FEE_FUNDING_FOR_TESTER_ACCOUNT = 100000000000000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
@@ -116,7 +116,6 @@ library Constants {
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 12000000;
   uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
-  uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant DA_GAS_PER_BYTE = 16;
   uint256 internal constant FIXED_DA_GAS = 512;
@@ -171,9 +170,6 @@ library Constants {
   uint256 internal constant FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
   uint256 internal constant GLOBAL_VARIABLES_LENGTH = 9;
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH = 2;
-  uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES = 36;
-  uint256 internal constant SPONGE_BLOB_LENGTH = 11;
-  uint256 internal constant BLOB_PUBLIC_INPUTS = 6;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
   uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 3;
   uint256 internal constant SCOPED_L2_TO_L1_MESSAGE_LENGTH = 4;
@@ -206,7 +202,6 @@ library Constants {
   uint256 internal constant TX_REQUEST_LENGTH = 12;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
-  uint256 internal constant HEADER_LENGTH_BYTES = 616;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 490;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 866;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 37;
@@ -226,9 +221,9 @@ library Constants {
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1140;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 605;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
-  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 51;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 666;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 652;
+  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 30;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 90;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 76;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
@@ -277,17 +272,6 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
-  uint256 internal constant TX_START_PREFIX = 8392562855083340404;
-  uint256 internal constant REVERT_CODE_PREFIX = 1;
-  uint256 internal constant TX_FEE_PREFIX = 2;
-  uint256 internal constant NOTES_PREFIX = 3;
-  uint256 internal constant NULLIFIERS_PREFIX = 4;
-  uint256 internal constant L2_L1_MSGS_PREFIX = 5;
-  uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
-  uint256 internal constant NOTE_ENCRYPTED_LOGS_PREFIX = 7;
-  uint256 internal constant ENCRYPTED_LOGS_PREFIX = 8;
-  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 9;
-  uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 10;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;

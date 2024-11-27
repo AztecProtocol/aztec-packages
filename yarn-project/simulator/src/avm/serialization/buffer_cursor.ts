@@ -10,6 +10,10 @@ export class BufferCursor {
     return this._position;
   }
 
+  public buffer(): Buffer {
+    return this._buffer;
+  }
+
   public eof(): boolean {
     return this._position === this._buffer.length;
   }
@@ -21,6 +25,11 @@ export class BufferCursor {
   public advance(n: number): void {
     this._position += n;
     assert(n < this._buffer.length);
+  }
+
+  public peekUint8(): number {
+    const ret = this._buffer.readUint8(this._position);
+    return ret;
   }
 
   public readUint8(): number {
