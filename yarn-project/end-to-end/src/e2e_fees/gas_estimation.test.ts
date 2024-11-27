@@ -1,3 +1,4 @@
+import { type AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   type AztecAddress,
@@ -72,23 +73,13 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
+    (t.aztecNode as AztecNodeService).getSequencer()!.updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
-    if (withEstimate.blockNumber !== withoutEstimate.blockNumber) {
-      // The two txs are in different blocks
-      // Sums are not so interesting when there is only one element.
-
-      expect((await t.pxe.getBlock(withEstimate.blockNumber!))!.header.totalManaUsed.toNumber()).toBe(
-        estimatedGas.gasLimits.l2Gas,
-      );
-      expect((await t.pxe.getBlock(withoutEstimate.blockNumber!))!.header.totalManaUsed.toNumber()).toBe(
-        estimatedGas.gasLimits.l2Gas,
-      );
-    } else {
-      // This is the interesting case, which we hit most of the time.
-      const block = await t.pxe.getBlock(withEstimate.blockNumber!);
-      expect(block!.header.totalManaUsed.toNumber()).toBe(estimatedGas.gasLimits.l2Gas * 2);
-    }
+    // This is the interesting case, which we hit most of the time.
+    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    expect(block!.header.totalManaUsed.toNumber()).toBe(estimatedGas.gasLimits.l2Gas * 2);
 
     // Tx has no teardown cost, so both fees should just reflect the actual gas cost.
     expect(withEstimate.transactionFee!).toEqual(withoutEstimate.transactionFee!);
