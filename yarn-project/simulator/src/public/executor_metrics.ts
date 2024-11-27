@@ -1,6 +1,5 @@
 import {
   Attributes,
-  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -14,7 +13,7 @@ export class ExecutorMetrics {
   public readonly tracer: Tracer;
   private fnCount: UpDownCounter;
   private fnDuration: Histogram;
-  private gasPerSecond: Gauge;
+  private gasPerSecond: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicExecutor') {
     this.tracer = client.getTracer(name);
