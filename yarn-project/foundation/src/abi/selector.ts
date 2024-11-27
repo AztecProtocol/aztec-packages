@@ -2,6 +2,7 @@ import { inspect } from 'util';
 
 import { toBufferBE } from '../bigint-buffer/index.js';
 import { Fr } from '../fields/index.js';
+import { bufferToHex } from '../string/index.js';
 
 /** A selector is the first 4 bytes of the hash of a signature. */
 export abstract class Selector {
@@ -36,7 +37,7 @@ export abstract class Selector {
    * @returns The string.
    */
   toString(): string {
-    return '0x' + this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   [inspect.custom]() {

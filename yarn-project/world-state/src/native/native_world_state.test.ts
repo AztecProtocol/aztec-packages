@@ -122,7 +122,7 @@ describe('NativeWorldState', () => {
     });
 
     it('Fails to sync further blocks if trees are out of sync', async () => {
-      // open ws against the same data dir but a different rollup
+      // open ws against the same data dir but a different rollup and with a small max db size
       const rollupAddress = EthAddress.random();
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
       const initialFork = await ws.fork();
@@ -194,6 +194,7 @@ describe('NativeWorldState', () => {
         stateReference,
         makeGlobalVariables(),
         Fr.ZERO,
+        Fr.ZERO,
       );
 
       await fork.updateArchive(header);
@@ -222,6 +223,7 @@ describe('NativeWorldState', () => {
         makeContentCommitment(),
         stateReference,
         makeGlobalVariables(),
+        Fr.ZERO,
         Fr.ZERO,
       );
 
@@ -346,9 +348,11 @@ describe('NativeWorldState', () => {
       }
 
       //can't prune what has already been pruned
-      for (let i = 0; i < highestPrunedBlockNumber; i++) {
+      for (let i = 0; i <= highestPrunedBlockNumber; i++) {
         await expect(ws.removeHistoricalBlocks(BigInt(i + 1))).rejects.toThrow(
-          'Unable to remove historical block, block not found',
+          `Unable to remove historical blocks to block number ${BigInt(
+            i + 1,
+          )}, blocks not found. Current oldest block: ${highestPrunedBlockNumber + 1}`,
         );
       }
     });

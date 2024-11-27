@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.64.0...aztec-packages-v0.65.0) (2024-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove SharedImmutable ([#10183](https://github.com/AztecProtocol/aztec-packages/issues/10183))
+* rename sharedimmutable methods ([#10164](https://github.com/AztecProtocol/aztec-packages/issues/10164))
+
+### Features
+
+* **avm:** New public inputs witgen ([#10179](https://github.com/AztecProtocol/aztec-packages/issues/10179)) ([ac8f13e](https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b))
+* Blobs. ([#9302](https://github.com/AztecProtocol/aztec-packages/issues/9302)) ([03b7e0e](https://github.com/AztecProtocol/aztec-packages/commit/03b7e0eee49680e18fafa5b78199b24e8b60fd5d))
+* One liner for nodes to join rough-rhino ([#10168](https://github.com/AztecProtocol/aztec-packages/issues/10168)) ([3a425e9](https://github.com/AztecProtocol/aztec-packages/commit/3a425e9faa9d1c13f28fb61279eb9f842897f516))
+* Origin tags implemented in biggroup ([#10002](https://github.com/AztecProtocol/aztec-packages/issues/10002)) ([c8696b1](https://github.com/AztecProtocol/aztec-packages/commit/c8696b165425ee6dd7a2398f4b90b29f24d762f4))
+* Remove SharedImmutable ([#10183](https://github.com/AztecProtocol/aztec-packages/issues/10183)) ([a9f3b5f](https://github.com/AztecProtocol/aztec-packages/commit/a9f3b5f6e7e5bc9d4bc9c0600b492a5e0cd2c1d9))
+* Rename sharedimmutable methods ([#10164](https://github.com/AztecProtocol/aztec-packages/issues/10164)) ([ef7cd86](https://github.com/AztecProtocol/aztec-packages/commit/ef7cd861c180b73000f7dab5807200ccdd5f1680))
+* UltraRollupRecursiveFlavor ([#10088](https://github.com/AztecProtocol/aztec-packages/issues/10088)) ([4418ef2](https://github.com/AztecProtocol/aztec-packages/commit/4418ef2a5768e0f627160b86e8dc8735d4bf00e7))
+
+
+### Bug Fixes
+
+* Aztec-nargo curl in the earthfile also ([#10199](https://github.com/AztecProtocol/aztec-packages/issues/10199)) ([985a678](https://github.com/AztecProtocol/aztec-packages/commit/985a678dcc4ae5112edd81dabbce314568e8fe36))
+* **bb.js:** Don't minify bb.js - webpack config ([#10170](https://github.com/AztecProtocol/aztec-packages/issues/10170)) ([6e7fae7](https://github.com/AztecProtocol/aztec-packages/commit/6e7fae7c78496b0b2241e2061b35ab22a3b3b186))
+* Docker compose aztec up fix ([#10197](https://github.com/AztecProtocol/aztec-packages/issues/10197)) ([d7ae959](https://github.com/AztecProtocol/aztec-packages/commit/d7ae95908f14693e18fb6aefc50702ec4857f51a))
+* Increase test timeouts ([#10205](https://github.com/AztecProtocol/aztec-packages/issues/10205)) ([195aa3d](https://github.com/AztecProtocol/aztec-packages/commit/195aa3d6a708a7e676416745552416d1f69aa6c3))
+* Release l1-contracts ([#10095](https://github.com/AztecProtocol/aztec-packages/issues/10095)) ([29f0d7a](https://github.com/AztecProtocol/aztec-packages/commit/29f0d7af38f8663f49e9522120725992dc9975e5))
+* Revert "feat: blobs. ([#9302](https://github.com/AztecProtocol/aztec-packages/issues/9302))" ([#10187](https://github.com/AztecProtocol/aztec-packages/issues/10187)) ([a415f65](https://github.com/AztecProtocol/aztec-packages/commit/a415f6552ae9893699747b4d1fc799553e9a9a7e))
+
+
+### Miscellaneous
+
+* Added ref to env variables ([#10193](https://github.com/AztecProtocol/aztec-packages/issues/10193)) ([b51fc43](https://github.com/AztecProtocol/aztec-packages/commit/b51fc43a6fbd07eb89faae5bd518246182fa9d0f))
+* **avm:** Operands reordering ([#10182](https://github.com/AztecProtocol/aztec-packages/issues/10182)) ([69bdf4f](https://github.com/AztecProtocol/aztec-packages/commit/69bdf4f0341cbd95908e5e632b71a57da5df1433)), closes [#10136](https://github.com/AztecProtocol/aztec-packages/issues/10136)
+* Fix devbox ([#10201](https://github.com/AztecProtocol/aztec-packages/issues/10201)) ([323eaee](https://github.com/AztecProtocol/aztec-packages/commit/323eaee1128b64c0e9749823e9e10a5b246375d4))
+* Misc cleanup ([#10194](https://github.com/AztecProtocol/aztec-packages/issues/10194)) ([dd01417](https://github.com/AztecProtocol/aztec-packages/commit/dd014178f927fcd18f5dcacab5655ca01ff18629))
+* Reinstate docs-preview, fix doc publish ([#10213](https://github.com/AztecProtocol/aztec-packages/issues/10213)) ([ed9a0e3](https://github.com/AztecProtocol/aztec-packages/commit/ed9a0e36827fc5e60e85ded7f21115b5725430b1))
+* Replace relative paths to noir-protocol-circuits ([1650446](https://github.com/AztecProtocol/aztec-packages/commit/1650446e62b696b90857f12d264b8cf61b265113))
+
 ## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.63.1...aztec-packages-v0.64.0) (2024-11-25)
 
 

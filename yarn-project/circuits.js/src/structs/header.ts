@@ -2,6 +2,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -26,6 +27,8 @@ export class Header {
     public globalVariables: GlobalVariables,
     /** Total fees in the block, computed by the root rollup circuit */
     public totalFees: Fr,
+    /** Total mana used in the block, computed by the root rollup circuit */
+    public totalManaUsed: Fr,
   ) {}
 
   static get schema() {
@@ -36,18 +39,9 @@ export class Header {
         state: StateReference.schema,
         globalVariables: GlobalVariables.schema,
         totalFees: schemas.Fr,
+        totalManaUsed: schemas.Fr,
       })
       .transform(Header.from);
-  }
-
-  toJSON() {
-    return {
-      lastArchive: this.lastArchive,
-      contentCommitment: this.contentCommitment,
-      state: this.state,
-      globalVariables: this.globalVariables,
-      totalFees: this.totalFees,
-    };
   }
 
   static getFields(fields: FieldsOf<Header>) {
@@ -58,6 +52,7 @@ export class Header {
       fields.state,
       fields.globalVariables,
       fields.totalFees,
+      fields.totalManaUsed,
     ] as const;
   }
 
@@ -71,7 +66,8 @@ export class Header {
       this.contentCommitment.getSize() +
       this.state.getSize() +
       this.globalVariables.getSize() +
-      this.totalFees.size
+      this.totalFees.size +
+      this.totalManaUsed.size
     );
   }
 
@@ -100,6 +96,7 @@ export class Header {
       reader.readObject(StateReference),
       reader.readObject(GlobalVariables),
       reader.readObject(Fr),
+      reader.readObject(Fr),
     );
   }
 
@@ -112,6 +109,7 @@ export class Header {
       StateReference.fromFields(reader),
       GlobalVariables.fromFields(reader),
       reader.readField(),
+      reader.readField(),
     );
   }
 
@@ -122,6 +120,7 @@ export class Header {
       state: StateReference.empty(),
       globalVariables: GlobalVariables.empty(),
       totalFees: Fr.ZERO,
+      totalManaUsed: Fr.ZERO,
       ...fields,
     });
   }
@@ -131,7 +130,9 @@ export class Header {
       this.lastArchive.isZero() &&
       this.contentCommitment.isEmpty() &&
       this.state.isEmpty() &&
-      this.globalVariables.isEmpty()
+      this.globalVariables.isEmpty() &&
+      this.totalFees.isZero() &&
+      this.totalManaUsed.isZero()
     );
   }
 
@@ -139,13 +140,12 @@ export class Header {
    * Serializes this instance into a string.
    * @returns Encoded string.
    */
-  public toString(): string {
-    return this.toBuffer().toString('hex');
+  public toString() {
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string): Header {
-    const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
-    return Header.fromBuffer(buffer);
+    return Header.fromBuffer(hexToBuffer(str));
   }
 
   hash(): Fr {
@@ -165,6 +165,7 @@ export class Header {
   state.publicDataTree: ${inspect(this.state.partial.publicDataTree)},
   globalVariables: ${inspect(this.globalVariables)},
   totalFees: ${this.totalFees},
+  totalManaUsed: ${this.totalManaUsed},
 }`;
   }
 
@@ -174,6 +175,7 @@ export class Header {
       this.state.equals(other.state) &&
       this.globalVariables.equals(other.globalVariables) &&
       this.totalFees.equals(other.totalFees) &&
+      this.totalManaUsed.equals(other.totalManaUsed) &&
       this.lastArchive.equals(other.lastArchive)
     );
   }
