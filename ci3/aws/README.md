@@ -1,2 +1,1 @@
 Infrastructure for requesting AWS spot/on-demand instances. You need the ssh key ~/.ssh/build_instance_key installed.
-General tools, other than some hardcoding of Aztec's AWS AMI's and security groups.
