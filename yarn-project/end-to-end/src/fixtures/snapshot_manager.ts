@@ -420,11 +420,9 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // TODO(md): will this revive state???
   const blobSink = await createBlobSinkService({
-    port: blobSinkPort,
-    dataStoreConfig: {
-      dataDirectory: statePath,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-    },
+    port: 5052,
+    dataDirectory: statePath,
+    dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
   });
   await blobSink.start();
 

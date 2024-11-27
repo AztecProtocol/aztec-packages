@@ -242,6 +242,13 @@ cli-wallet:
     - yarn-project
   multiarch: buildx
 
+blob-sink:
+  buildDir: yarn-project
+  projectDir: yarn-project/blob-sink
+  dependencies:
+    - yarn-project
+  multiarch: buildx
+
 # Builds all the boxes. They are then independently tested in the container.
 boxes:
   buildDir: boxes
