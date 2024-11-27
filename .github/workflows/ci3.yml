@@ -6,6 +6,11 @@ on:
     branches:
       - master
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
 
 concurrency:
   # force parallelism in master
@@ -15,6 +20,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: >
+      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
     steps:
       - name: Checkout
         uses: actions/checkout@v3
