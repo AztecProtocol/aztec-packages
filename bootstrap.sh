@@ -26,14 +26,6 @@ function encourage_dev_container {
 # Checks for required utilities, toolchains and their versions.
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
-  # TODO: Move to build-image. Remove the yarn we installed and install corepack.
-  if ! command -v corepack > /dev/null; then
-      npm uninstall --global yarn
-      npm install --global corepack
-      corepack enable
-      corepack install --global yarn@4.5.2
-  fi
-
   # Check for various required utilities.
   for util in jq parallel awk git curl; do
     if ! command -v $util > /dev/null; then
@@ -94,7 +86,7 @@ function check_toolchains {
     exit 1
   fi
   # Check for required npm globals.
-  for util in yarn solhint; do
+  for util in corepack solhint; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "$util not found."
@@ -104,40 +96,46 @@ function check_toolchains {
   done
 }
 
-if [ "$CMD" = "clean" ]; then
-  echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
-  echo -n "Continue? [y/n] "
-  read user_input
-  if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
-    echo "Exiting without cleaning"
+case "$CMD" in
+  "clean")
+    echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
+    echo -n "Continue? [y/n] "
+    read user_input
+    if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
+      echo "Exiting without cleaning"
+      exit 1
+    fi
+
+    # Remove hooks and submodules.
+    rm -rf .git/hooks/*
+    rm -rf .git/modules/*
+    for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+      rm -rf $SUBMODULE
+    done
+
+    # Remove all untracked files, directories, nested repos, and .gitignore files.
+    git clean -ffdx
+
+    echo "Cleaning complete"
+    exit 0
+  ;;
+  "full")
+    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
+    echo
+  ;;
+  "fast")
+    export USE_CACHE=1
+  ;;
+  "check")
+    check_toolchains
+    echo "Toolchains look good! 🎉"
+    exit 0
+  ;;
+  *)
+    echo "usage: $0 <full|fast|check|clean>"
     exit 1
-  fi
-
-  # Remove hooks and submodules.
-  rm -rf .git/hooks/*
-  rm -rf .git/modules/*
-  for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
-    rm -rf $SUBMODULE
-  done
-
-  # Remove all untracked files, directories, nested repos, and .gitignore files.
-  git clean -ffdx
-
-  echo "Cleaning complete"
-  exit 0
-elif [ "$CMD" = "full" ]; then
-  echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-  echo
-elif [ "$CMD" = "fast" ]; then
-  export USE_CACHE=1
-elif [ "$CMD" = "check" ]; then
-  check_toolchains
-  echo "Toolchains look good! 🎉"
-  exit 0
-else
-  echo "usage: $0 <full|fast|check|clean>"
-  exit 1
-fi
+  ;;
+esac
 
 # Install pre-commit git hooks.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
@@ -157,6 +155,7 @@ PROJECTS=(
   avm-transpiler
   noir-projects
   yarn-project
+  boxes
 )
 
 # Build projects.

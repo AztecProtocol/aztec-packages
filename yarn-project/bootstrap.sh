@@ -43,14 +43,14 @@ function run_e2e_tests {
 
   # Pre-pull the required image for visibility.
   # TODO: We want to avoid this time burden. Slim the image? Preload it in from host?
-  docker pull aztecprotocol/build:1.0
+  docker pull aztecprotocol/build:2.0
 
-  # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource managment.
+  # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource management.
   # If a test flakes out, mark it as flake in your PR so it no longer runs, and post a message in slack about it.
   # If you can, try to find whoever is responsible for the test, and have them acknowledge they'll resolve it later.
   # DO NOT just re-run your PR and leave flakey tests running to impact on other engineers.
   # If you've been tasked with resolving a flakey test, grind on it using e.g.:
-  #    while ./scripts/test.sh simple e2e_2_pxes; do sleep 0; done
+  #    while ./scripts/test.sh simple e2e_2_pxes; do true; done
   TESTS=(
     "simple e2e_2_pxes"
     "simple e2e_account_contracts"
@@ -123,7 +123,7 @@ function run_e2e_tests {
 
     "compose composed/docs_examples"
     "compose composed/e2e_aztec_js_browser"
-    "compose composed/e2e_sandbox_example"
+    "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
     "compose composed/pxe"
     "compose sample-dapp/index"

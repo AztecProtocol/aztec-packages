@@ -47,7 +47,7 @@
     "yup": "^1.2.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.46.1",
+    "@playwright/test": "1.49.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.5.9",
     "@types/react": "^18.2.15",
@@ -89,5 +89,5 @@
     "!*.test.*"
   ],
   "types": "./dist/index.d.ts",
-  "packageManager": "yarn@4.0.2"
+  "packageManager": "yarn@4.5.2"
 }

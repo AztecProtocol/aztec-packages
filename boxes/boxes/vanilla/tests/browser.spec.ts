@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('Deploying, setting, and getting a number', async ({ page }) => {
+  page.on('console', msg => console.log(msg.text()));
   test.slow();
   await page.goto('/');
 
