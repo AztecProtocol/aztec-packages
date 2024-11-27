@@ -1,8 +1,6 @@
 use crate::{
     abis::{gas::Gas, gas_fees::GasFees},
-    constants::{
-        DEFAULT_GAS_LIMIT, DEFAULT_MAX_FEE_PER_GAS, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH,
-    },
+    constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH},
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
@@ -16,14 +14,6 @@ pub struct GasSettings {
 impl GasSettings {
     pub fn new(gas_limits: Gas, teardown_gas_limits: Gas, max_fees_per_gas: GasFees) -> Self {
         Self { gas_limits, teardown_gas_limits, max_fees_per_gas }
-    }
-
-    pub fn default() -> Self {
-        GasSettings::new(
-            Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
-            Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
-            GasFees::new(DEFAULT_MAX_FEE_PER_GAS, DEFAULT_MAX_FEE_PER_GAS),
-        )
     }
 }
 

@@ -18,18 +18,18 @@ export class GetContractInstance extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect bits
-    OperandType.UINT8, // member enum (immediate)
     OperandType.UINT16, // addressOffset
     OperandType.UINT16, // dstOffset
     OperandType.UINT16, // existsOfsset
+    OperandType.UINT8, // member enum (immediate)
   ];
 
   constructor(
     private indirect: number,
-    private memberEnum: number,
     private addressOffset: number,
     private dstOffset: number,
     private existsOffset: number,
+    private memberEnum: number,
   ) {
     super();
   }

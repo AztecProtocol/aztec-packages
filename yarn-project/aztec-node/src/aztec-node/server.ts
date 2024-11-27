@@ -42,6 +42,7 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
+  type GasFees,
   type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -57,7 +58,7 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -72,7 +73,7 @@ import {
   createP2PClient,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
+import { GlobalVariableBuilder, type L1Publisher, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -139,10 +140,14 @@ export class AztecNodeService implements AztecNode {
    */
   public static async createAndSync(
     config: AztecNodeConfig,
-    telemetry?: TelemetryClient,
-    log = createDebugLogger('aztec:node'),
+    deps: {
+      telemetry?: TelemetryClient;
+      logger?: DebugLogger;
+      publisher?: L1Publisher;
+    } = {},
   ): Promise<AztecNodeService> {
-    telemetry ??= new NoopTelemetryClient();
+    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    const log = deps.logger ?? createDebugLogger('aztec:node');
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -172,16 +177,16 @@ export class AztecNodeService implements AztecNode {
     // now create the sequencer
     const sequencer = config.disableValidator
       ? undefined
-      : await SequencerClient.new(
-          config,
+      : await SequencerClient.new(config, {
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
-          archiver,
-          archiver,
-          archiver,
+          contractDataSource: archiver,
+          l2BlockSource: archiver,
+          l1ToL2MessageSource: archiver,
           telemetry,
-        );
+          ...deps,
+        });
 
     return new AztecNodeService(
       config,
@@ -252,6 +257,14 @@ export class AztecNodeService implements AztecNode {
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return (await this.blockSource.getBlocks(from, limit)) ?? [];
+  }
+
+  /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentBaseFees();
   }
 
   /**

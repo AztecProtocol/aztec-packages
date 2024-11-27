@@ -142,6 +142,8 @@ build:
           # Python (clang bindings for wasm bindgen.)
           python3 \
           python3-clang \
+          # Unminimize ubuntu installation, recently removed from base images
+          unminimize \
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -357,12 +359,12 @@ devbox:
   CMD ["/bin/zsh"]
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/devbox:1.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/devbox:2.2-$TARGETARCH
   # Save it without the arch tag as this is what's referenced in devcontainer.json
-  SAVE IMAGE aztecprotocol/devbox:2.0
+  SAVE IMAGE aztecprotocol/devbox:2.1
 
 devbox-manifest:
-  LET VERSION = 2.0
+  LET VERSION = 2.1
   ARG TARGETARCH
   WAIT
     BUILD +devbox
@@ -462,5 +464,5 @@ sysbox:
   EXPOSE 22
 
   ARG TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:2.0-$TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:2.0
+  SAVE IMAGE aztecprotocol/sysbox:2.1-$TARGETARCH
+  SAVE IMAGE aztecprotocol/sysbox:2.1

@@ -33,6 +33,7 @@ import {
   type PublicFunction,
   UnconstrainedFunctionBroadcastedEvent,
   type UnconstrainedFunctionWithMembershipProof,
+  computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
@@ -43,6 +44,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { count } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -271,6 +273,9 @@ export class Archiver implements ArchiveSource {
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+
+      const storeSizes = this.store.estimateSize();
+      this.instrumentation.recordDBMetrics(storeSizes);
     }
   }
 
@@ -285,12 +290,14 @@ export class Archiver implements ArchiveSource {
       (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));
 
     if (canPrune) {
-      this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.verbose(
-        `Unwinding ${blocksToUnwind} block${blocksToUnwind > 1n ? 's' : ''} from block ${localPendingBlockNumber}`,
+        `L2 prune will occur on next submission. ` +
+          `Unwinding ${count(blocksToUnwind, 'block')} from block ${localPendingBlockNumber} ` +
+          `to the last proven block ${provenBlockNumber}.`,
       );
       await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+      this.log.verbose(`Unwound ${count(blocksToUnwind, 'block')}. New L2 block is ${await this.getBlockNumber()}.`);
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -585,14 +592,11 @@ export class Archiver implements ArchiveSource {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    try {
-      const headers = await this.store.getBlockHeaders(number, 1);
-      return headers.length === 0 ? undefined : headers[0];
-    } catch (e) {
-      // If the latest is 0, then getBlockHeaders will throw an error
-      this.log.error(`getBlockHeader: error fetching block number: ${number}`);
+    if (number === 0) {
       return undefined;
     }
+    const headers = await this.store.getBlockHeaders(number, 1);
+    return headers.length === 0 ? undefined : headers[0];
   }
 
   public getTxEffect(txHash: TxHash) {
@@ -703,6 +707,10 @@ export class Archiver implements ArchiveSource {
     return this.store.getContractClass(id);
   }
 
+  public getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    return this.store.getBytecodeCommitment(id);
+  }
+
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.store.getContractInstance(address);
   }
@@ -731,7 +739,11 @@ export class Archiver implements ArchiveSource {
 
   // TODO(#10007): Remove this method
   async addContractClass(contractClass: ContractClassPublic): Promise<void> {
-    await this.store.addContractClasses([contractClass], 0);
+    await this.store.addContractClasses(
+      [contractClass],
+      [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+      0,
+    );
     return;
   }
 
@@ -741,6 +753,10 @@ export class Archiver implements ArchiveSource {
 
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
+  }
+
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getContractFunctionName(address, selector);
   }
 
   async getL2Tips(): Promise<L2Tips> {
@@ -801,8 +817,12 @@ class ArchiverStoreHelper
   constructor(private readonly store: ArchiverDataStore) {}
 
   // TODO(#10007): Remove this method
-  addContractClasses(contractClasses: ContractClassPublic[], blockNum: number): Promise<boolean> {
-    return this.store.addContractClasses(contractClasses, blockNum);
+  addContractClasses(
+    contractClasses: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNum: number,
+  ): Promise<boolean> {
+    return this.store.addContractClasses(contractClasses, bytecodeCommitments, blockNum);
   }
 
   /**
@@ -817,7 +837,12 @@ class ArchiverStoreHelper
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
-        return await this.store.addContractClasses(contractClasses, blockNum);
+        // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
+        return await this.store.addContractClasses(
+          contractClasses,
+          contractClasses.map(x => computePublicBytecodeCommitment(x.packedBytecode)),
+          blockNum,
+        );
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
@@ -1025,6 +1050,9 @@ class ArchiverStoreHelper
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     return this.store.getContractClass(id);
   }
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return this.store.getBytecodeCommitment(contractClassId);
+  }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.store.getContractInstance(address);
   }
@@ -1037,8 +1065,14 @@ class ArchiverStoreHelper
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
   }
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getContractFunctionName(address, selector);
+  }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();
+  }
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return this.store.estimateSize();
   }
 }
 

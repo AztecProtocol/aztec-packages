@@ -19,6 +19,8 @@ export type SendMethodOptions = {
   fee?: FeeOptions;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings (will default to true later down the road). */
   estimateGas?: boolean;
+  /** Percentage to pad the suggested gas limits by, if empty, defaults to 10%. */
+  estimatedGasPad?: number;
   /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
   nonce?: Fr;
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
@@ -84,6 +86,7 @@ export abstract class BaseContractInteraction {
   /**
    * Estimates gas for a given tx request and returns gas limits for it.
    * @param opts - Options.
+   * @param pad - Percentage to pad the suggested gas limits by, if empty, defaults to 10%.
    * @returns Gas limits.
    */
   public async estimateGas(
@@ -91,21 +94,25 @@ export abstract class BaseContractInteraction {
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     const txRequest = await this.create({ ...opts, estimateGas: false });
     const simulationResult = await this.wallet.simulateTx(txRequest, true);
-    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult);
+    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
+      simulationResult,
+      opts?.estimatedGasPad,
+    );
     return { gasLimits, teardownGasLimits };
   }
 
   /**
    * Helper method to return fee options based on the user opts, estimating tx gas if needed.
    * @param request - Request to execute for this interaction.
+   * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
    * @returns Fee options for the actual transaction.
    */
-  protected async getFeeOptionsFromEstimatedGas(request: ExecutionRequestInit) {
+  protected async getFeeOptionsFromEstimatedGas(request: ExecutionRequestInit, pad?: number) {
     const fee = request.fee;
     if (fee) {
       const txRequest = await this.wallet.createTxExecutionRequest(request);
       const simulationResult = await this.wallet.simulateTx(txRequest, true);
-      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult);
+      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult, pad);
       this.log.debug(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );
