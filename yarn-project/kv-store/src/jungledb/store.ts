@@ -173,7 +173,7 @@ export class AztecJungleDBStore implements AztecKVStore {
     }
   }
 
-  estimateSize(): { bytes: number } {
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
     throw new Error('Method not implemented.');
   }
 }
