@@ -421,6 +421,13 @@ class MegaFlavor {
                 shifted = to_be_shifted.shifted();
             }
         }
+
+        void increase_polynomials_virtual_size(const size_t size_in)
+        {
+            for (auto& polynomial : this->get_all()) {
+                polynomial.increase_virtual_size(size_in);
+            }
+        }
     };
 
     /**
