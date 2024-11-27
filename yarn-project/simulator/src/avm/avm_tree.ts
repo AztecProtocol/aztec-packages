@@ -531,15 +531,15 @@ export class AvmEphemeralForest {
       }
       counter++;
     }
-    return [result, pathAbsentInEphemeralTree];;
+    return [result, pathAbsentInEphemeralTree];
   }
 
   /**
    * This hashes the preimage to a field element
    */
   hashPreimage<T extends TreeLeafPreimage>(preimage: T): Fr {
-     const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
-     return poseidon2Hash(input);
+    const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
+    return poseidon2Hash(input);
   }
 }
 
