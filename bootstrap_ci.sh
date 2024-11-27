@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 
+CMD=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
 GITHUB_ACTIONS=${GITHUB_ACTIONS:-}
 
@@ -14,8 +15,8 @@ function gh_end_group {
   [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::" || true
 }
 
-# Ensure we terminate our running instance when the script exits.
-function on_exit {
+# Trap function to terminate our running instance when the script exits.
+function terminate_instance {
     set +e
     if [ -n "${ip:-}" ] && [ "$NO_TERMINATE" -eq 0 ]; then
         echo "Terminating instance..."
@@ -26,7 +27,6 @@ function on_exit {
       echo "Remote machine not terminated, connect with: ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'"
     fi
 }
-trap on_exit EXIT
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -37,7 +37,7 @@ fi
 
 instance_name=$(git rev-parse --abbrev-ref HEAD | sed 's|/|_|g')
 
-if [ "$1" == "log" ]; then
+if [ "$CMD" == "log" ]; then
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
     --filters "Name=tag:Name,Values=$instance_name" \
@@ -47,7 +47,11 @@ if [ "$1" == "log" ]; then
     echo "No instance found with name: $instance_name"
     exit 1
   fi
-  ssh -t ubuntu@$ip docker logs -f aztec_build
+  while true; do
+    ssh -t ubuntu@$ip docker logs -f aztec_build
+    [ $? -eq 130 ] && break  # Exit if SSH exited due to Ctrl-C (exit code 130)
+    sleep 5
+  done
   exit 0
 fi
 
@@ -56,6 +60,7 @@ ip_sir=$(./build-system/scripts/request_spot $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
+trap terminate_instance EXIT
 gh_end_group
 
 # pass env vars to inform if we are inside github actions, and our AWS creds
