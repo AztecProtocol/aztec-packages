@@ -19,13 +19,6 @@
       "request": "attach",
       "name": "Attach",
       "port": 9229
-    },
-    {
-      "name": "Attach to running lldb",
-      "type": "lldb",
-      "request": "attach",
-      "pid": "${command:pickProcess}",
-      "stopOnEntry": true
-  }
+    }
   ]
 }
