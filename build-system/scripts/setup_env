@@ -10,7 +10,7 @@
 # Save current options as we might be sourcing.
 CURRENT_SHELL_OPTS=$(set +o)
 trap 'eval "$CURRENT_SHELL_OPTS"' EXIT
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 COMMIT_HASH=$1
@@ -106,7 +106,7 @@ echo export DOCKER_CLI_HINTS=false >> $BASH_ENV
 echo set -euo pipefail >> $BASH_ENV
 # Enable logging if [ci debug] is in commit message.
 if [[ "$COMMIT_MESSAGE" == *"[ci debug]"* ]]; then
-  echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
+  echo export CI3_DEBUG=1 >> $BASH_ENV
   echo set -x >> $BASH_ENV
 fi
 
@@ -137,7 +137,7 @@ if [ -n "$COMMIT_HASH" ]; then
   cp $BUILD_SYSTEM_PATH/remote/ssh_config ~/.ssh/config
 
   if [[ "$COMMIT_MESSAGE" == *"[ci debug]"* ]]; then
-    echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
+    echo export CI3_DEBUG=1 >> $BASH_ENV
   fi
 fi
 

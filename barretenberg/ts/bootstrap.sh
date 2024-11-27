@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-cd "$(dirname "$0")"
-ci3="$(git rev-parse --show-toplevel)/ci3"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 BUILD_CMD="build"
@@ -22,8 +20,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-GITHUB_ACTIONS="" yarn install
-find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
+$ci3/yarn/install
 
 $ci3/github/group "bb.js build"
 echo "Building with command 'yarn $BUILD_CMD'..."

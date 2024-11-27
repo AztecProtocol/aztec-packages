@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 cleanup() {
     BG_PIDS=$(jobs -p)
@@ -10,10 +10,6 @@ cleanup() {
     fi
 }
 trap cleanup EXIT
-
-# Navigate to script folder
-cd "$(dirname "$0")"
-ci3="$(git rev-parse --show-toplevel)/ci3"
 
 CMD=${1:-}
 

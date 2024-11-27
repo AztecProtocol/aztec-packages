@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 # Redeploy services with the latest image that match $DEPLOY_TAG followed by $SERVICE_NAME.

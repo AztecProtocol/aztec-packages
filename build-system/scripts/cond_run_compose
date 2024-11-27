@@ -6,7 +6,7 @@
 # Can be used to build and test a container (runDependencies would just be dependency containers).
 # The trailing arguments are environment variables in the form KEY=VALUE, made available to docker-compose.
 
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1

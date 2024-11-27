@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-cd "$(dirname "$0")"
-ci3="$(git rev-parse --show-toplevel)/ci3"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 YELLOW="\033[93m"
 BLUE="\033[34m"
@@ -21,7 +20,7 @@ function build {
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  GITHUB_ACTIONS="" yarn install
+  $ci3/yarn/install
 
   case "${1:-}" in
     "fast") yarn build::fast;;

@@ -1,7 +1,6 @@
 #!/bin/bash
-set -eu
-cd "$(dirname "$0")"
-ci3="$(git rev-parse --show-toplevel)/ci3"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 NO_TERMINATE=${NO_TERMINATE:-0}
 

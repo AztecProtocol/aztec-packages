@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-
-cd "$(dirname "$0")"
-ci3="$(git rev-parse --show-toplevel)/ci3"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 echo -e "\033[1mRetrieving noir projects from remote cache...\033[0m"
 

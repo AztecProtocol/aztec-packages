@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Downloads base benchmarks from S3 to compare with the current benchmarks via bench-comment
 
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 BUCKET_NAME="aztec-ci-artifacts"

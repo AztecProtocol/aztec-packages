@@ -1,7 +1,7 @@
 # Uploads to S3 the contents of a doxygen barretenberg C++ documentation build.
 # This is then to be used as a static website.
 #!/usr/bin/env bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 retry ecr_login

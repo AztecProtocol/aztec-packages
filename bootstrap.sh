@@ -4,10 +4,8 @@
 #   fast: Bootstrap the repo using CI cache where possible to save time building.
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
-set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-cd "$(dirname "$0")"
-ci3="$(git rev-parse --show-toplevel)/ci3"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 if [ "$(uname)" == "Darwin" ]; then
   shopt -s expand_aliases
