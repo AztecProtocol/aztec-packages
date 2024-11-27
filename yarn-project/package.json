@@ -70,6 +70,7 @@
     "eslint": "^8.21.0",
     "eslint-import-resolver-typescript": "^3.5.5",
     "eslint-plugin-import": "^2.27.5",
+    "jest-silent-reporter": "^0.6.0",
     "madge": "^6.1.0",
     "prettier": "^2.8.8",
     "typedoc": "^0.24.8",

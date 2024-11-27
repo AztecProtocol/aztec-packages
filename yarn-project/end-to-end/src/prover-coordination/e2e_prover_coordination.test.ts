@@ -128,6 +128,10 @@ describe('e2e_prover_coordination', () => {
     await performEscrow(10000000n);
   });
 
+  afterEach(async () => {
+    await snapshotManager.teardown();
+  });
+
   const expectProofClaimOnL1 = async (expected: {
     epochToProve: bigint;
     basisPointFee: number;
