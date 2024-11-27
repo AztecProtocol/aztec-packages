@@ -1,4 +1,4 @@
-import { ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 export type BlobSinkConfig = {

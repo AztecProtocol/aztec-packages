@@ -282,6 +282,11 @@ export-aztec:
     FROM +aztec
     SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
 
+export-e2e-blob-sink:
+    ARG EARTHLY_GIT_HASH
+    FROM +blob-sink
+    SAVE IMAGE aztecprotocol/blob-sink:$EARTHLY_GIT_HASH
+
 export-aztec-arch:
     FROM +aztec
     ARG DIST_TAG="latest"
@@ -302,6 +307,7 @@ export-end-to-end-arch:
 export-e2e-test-images:
     BUILD +export-aztec
     BUILD +export-end-to-end
+    BUILD +export-e2e-blob-sink
 
 export-images-arch:
     ARG DIST_TAG="latest"
