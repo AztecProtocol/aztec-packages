@@ -567,6 +567,7 @@ describe('Batch Insertion', () => {
   });
 });
 
+// This benchmark also performs a convenient sanity check
 /* eslint no-console: ["error", { allow: ["time", "timeEnd"] }] */
 describe('A basic benchmark', () => {
   it('Should benchmark writes', async () => {
@@ -576,14 +577,30 @@ describe('A basic benchmark', () => {
     const slots = leaves.map((_, i) => new Fr(i + 128));
 
     const container = await AvmEphemeralForest.create(copyState);
+    await publicDataInsertWorldState(new Fr(0), new Fr(128));
 
     // Updating the first slot, triggers the index 0 to be added to the minimum stored key in the container
     await container.writePublicStorage(new Fr(0), new Fr(128));
+
+    // Check Roots before benchmarking
+    let wsRoot = await getWorldStateRoot(MerkleTreeId.PUBLIC_DATA_TREE);
+    let computedRoot = container.treeMap.get(MerkleTreeId.PUBLIC_DATA_TREE)!.getRoot();
+    expect(computedRoot.toBuffer()).toEqual(wsRoot);
+
     console.time('benchmark');
     // These writes are all new leaves and should be impacted by the key sorted algorithm of the tree.
     for (let i = 0; i < leaves.length; i++) {
       await container.writePublicStorage(slots[i], leaves[i]);
     }
     console.timeEnd('benchmark');
+
+    // Update worldstate for sanity check
+    for (let i = 0; i < leaves.length; i++) {
+      await publicDataInsertWorldState(slots[i], leaves[i]);
+    }
+    // Check roots
+    wsRoot = await getWorldStateRoot(MerkleTreeId.PUBLIC_DATA_TREE);
+    computedRoot = container.treeMap.get(MerkleTreeId.PUBLIC_DATA_TREE)!.getRoot();
+    expect(computedRoot.toBuffer()).toEqual(wsRoot);
   });
 });
