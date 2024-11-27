@@ -1,36 +1,60 @@
 #!/usr/bin/env bash
-# Run earthly with our necesary secrets initialized
-# AWS credentials can be blank HOWEVER this will disable S3 caching.
+# Run Earthly with the necessary secrets initialized.
+# AWS credentials can be blank; however, this will disable S3 caching.
 export EARTHLY_ALLOW_PRIVILEGED=true
 
 set -eu
 
 function start_minio() {
-  if nc -z 127.0.0.1 12000 2>/dev/null >/dev/null ; then
-    # Already started
+  if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
+    # MinIO is already running.
     return
   fi
-  docker run -d -p 12000:9000 -p 12001:12001 -v minio-data:/data \
+  echo "Starting MinIO..."
+  docker run -d --name minio \
+    -p 12000:9000 -p 12001:9001 \
+    -v minio-data:/data \
     quay.io/minio/minio server /data --console-address ":12001"
-  # make our cache bucket
-  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
+
+  # Wait for MinIO to be ready
+  while ! nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
+    sleep 1
+  done
+
+  # Create the cache bucket
+  echo "Creating MinIO bucket for cache..."
+  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" \
+    aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
 }
 
-S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
-S3_BUILD_CACHE_MINIO_URL="http://$(hostname -I | awk '{print $1}'):12000"
+earthly_config_tmp=$(mktemp)
+function cleanup() {
+  echo "Cleaning up..."
+  rm -f $earthly_config_tmp
+  # Optionally stop MinIO if needed
+  # docker stop minio && docker rm minio
+}
 
-# local file server for a quicker cache layer
+trap cleanup EXIT
+
+# Local file server for a quicker cache layer
 start_minio
 
+# Initialize variables
+S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
+S3_BUILD_CACHE_DOWNLOAD=${S3_BUILD_CACHE_DOWNLOAD:-false}
+S3_BUILD_CACHE_MINIO_URL="http://$(hostname -I | awk '{print $1}'):12000"
+
+# Check for unstaged changes to avoid polluting the cache
 if ! git diff-index --quiet HEAD --; then
-  echo "Warning: You have unstaged changes. Disabling S3 caching and local minio caching for earthly to not accidentally pollute cache (which uses git data)." >&2
+  echo "Warning: You have unstaged changes. Disabling S3 and local MinIO caching for Earthly to avoid polluting the cache." >&2
   S3_BUILD_CACHE_UPLOAD=false
   S3_BUILD_CACHE_DOWNLOAD=false
   S3_BUILD_CACHE_MINIO_URL=""
-elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
+elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ]; then
   S3_BUILD_CACHE_DOWNLOAD=true
 elif [ -f ~/.aws/credentials ]; then
-  # make credentials avaialble to earthly
+  # Make AWS credentials available to Earthly
   AWS_ACCESS_KEY_ID=$(aws configure get default.aws_access_key_id)
   AWS_SECRET_ACCESS_KEY=$(aws configure get default.aws_secret_access_key)
   S3_BUILD_CACHE_DOWNLOAD=true
@@ -39,9 +63,21 @@ else
   S3_BUILD_CACHE_DOWNLOAD=false
 fi
 
-earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-        --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+# Generate Earthly configuration dynamically
+echo 'global:
+  buildkit_additional_config: |
+    [registry."'$(hostname -I | awk '{print $1}')':5000"]
+      http = true
+    [registry."local-registry.io"]
+      http = true
+      mirrors = ["http://'$(hostname -I | awk '{print $1}')':5000"]' > $earthly_config_tmp
+
+export EARTHLY_CONFIG=$earthly_config_tmp
+
+# Run Earthly with all secrets
+earthly --secret AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
+        --secret AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" \
         --secret S3_BUILD_CACHE_MINIO_URL="$S3_BUILD_CACHE_MINIO_URL" \
         --secret S3_BUILD_CACHE_UPLOAD="$S3_BUILD_CACHE_UPLOAD" \
         --secret S3_BUILD_CACHE_DOWNLOAD="$S3_BUILD_CACHE_DOWNLOAD" \
-        --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} $@
+        --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN="${AZTEC_BOT_GITHUB_TOKEN:-}" "$@"
