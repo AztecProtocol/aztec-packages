@@ -16,7 +16,7 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-GITHUB_ACTIONS="" yarn
+yarn
 node ./scripts/generate_variants.js
 
 export RAYON_NUM_THREADS=16
