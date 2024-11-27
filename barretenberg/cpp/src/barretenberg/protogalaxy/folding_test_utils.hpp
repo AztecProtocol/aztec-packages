@@ -10,6 +10,9 @@ namespace bb {
 /**
  * @brief Utility to manually compute the target sum of an accumulator and compare it to the one produced in Protogalxy
  * to attest correctness.
+ *
+ * @details As we create a ProtogalaxyProverInternal object with an empty execution trace tracker and no active_ranges
+ * set, compute_row_evaluations will operate on all rows.
  */
 template <typename Flavor>
 static bool check_accumulator_target_sum_manual(const std::shared_ptr<DeciderProvingKey_<Flavor>>& accumulator)

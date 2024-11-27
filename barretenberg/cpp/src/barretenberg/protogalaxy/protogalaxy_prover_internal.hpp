@@ -113,8 +113,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
                                             const RelationSeparator& alphas_,
-                                            const RelationParameters<FF>& relation_parameters,
-                                            const bool use_prev_accumulator_tracker = false)
+                                            const RelationParameters<FF>& relation_parameters)
 
     {
 
@@ -145,7 +144,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
             for (size_t idx = start; idx < end; idx++) {
                 // The contribution is only non-trivial at a given row if the accumulator is active at that row
-                if (trace_usage_tracker.check_is_active(idx, use_prev_accumulator_tracker)) {
+                if (trace_usage_tracker.check_is_active(idx, true)) {
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =
@@ -228,10 +227,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                        const std::vector<FF>& deltas)
     {
         PROFILE_THIS();
-        auto full_honk_evaluations = compute_row_evaluations(accumulator->proving_key.polynomials,
-                                                             accumulator->alphas,
-                                                             accumulator->relation_parameters,
-                                                             /*use_prev_accumulator_tracker=*/true);
+        auto full_honk_evaluations = compute_row_evaluations(
+            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
