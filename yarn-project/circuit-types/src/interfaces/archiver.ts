@@ -70,6 +70,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args(schemas.AztecAddress, schemas.FunctionSelector)
     .returns(PublicFunctionSchema.optional()),
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+  getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   getContractArtifact: z.function().args(schemas.AztecAddress).returns(ContractArtifactSchema.optional()),
@@ -78,4 +79,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
+  getContractFunctionName: z
+    .function()
+    .args(schemas.AztecAddress, schemas.FunctionSelector)
+    .returns(optional(z.string())),
 };

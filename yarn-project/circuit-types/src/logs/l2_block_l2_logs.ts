@@ -1,5 +1,6 @@
 import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import isEqual from 'lodash.isequal';
 import { z } from 'zod';
@@ -70,7 +71,7 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
    * @returns A string representation of the serialized logs.
    */
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -114,16 +115,6 @@ export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog
   }
 
   /**
-   * Convert a plain JSON object to a L2BlockL2Logs class object.
-   * @param obj - A plain L2BlockL2Logs JSON object.
-   * @returns A L2BlockL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const txLogs = obj.txLogs.map((log: any) => EncryptedNoteTxL2Logs.fromJSON(log));
-    return new EncryptedNoteL2BlockL2Logs(txLogs);
-  }
-
-  /**
    * Deserializes logs from a buffer.
    * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
@@ -144,8 +135,7 @@ export class EncryptedNoteL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2NoteLog
    * @returns A new `L2BlockL2Logs` object.
    */
   public static fromString(data: string): EncryptedNoteL2BlockL2Logs {
-    const buffer = Buffer.from(data, 'hex');
-    return EncryptedNoteL2BlockL2Logs.fromBuffer(buffer);
+    return EncryptedNoteL2BlockL2Logs.fromBuffer(hexToBuffer(data));
   }
 
   /**
@@ -195,16 +185,6 @@ export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
   }
 
   /**
-   * Convert a plain JSON object to a L2BlockL2Logs class object.
-   * @param obj - A plain L2BlockL2Logs JSON object.
-   * @returns A L2BlockL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const txLogs = obj.txLogs.map((log: any) => EncryptedTxL2Logs.fromJSON(log));
-    return new EncryptedL2BlockL2Logs(txLogs);
-  }
-
-  /**
    * Deserializes logs from a buffer.
    * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
@@ -225,8 +205,7 @@ export class EncryptedL2BlockL2Logs extends L2BlockL2Logs<EncryptedL2Log> {
    * @returns A new `L2BlockL2Logs` object.
    */
   public static fromString(data: string): EncryptedL2BlockL2Logs {
-    const buffer = Buffer.from(data, 'hex');
-    return EncryptedL2BlockL2Logs.fromBuffer(buffer);
+    return EncryptedL2BlockL2Logs.fromBuffer(hexToBuffer(data));
   }
 
   /**
@@ -276,16 +255,6 @@ export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
   }
 
   /**
-   * Convert a plain JSON object to a L2BlockL2Logs class object.
-   * @param obj - A plain L2BlockL2Logs JSON object.
-   * @returns A L2BlockL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const txLogs = obj.txLogs.map((log: any) => UnencryptedTxL2Logs.fromJSON(log));
-    return new UnencryptedL2BlockL2Logs(txLogs);
-  }
-
-  /**
    * Deserializes logs from a buffer.
    * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
@@ -306,8 +275,7 @@ export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
    * @returns A new `L2BlockL2Logs` object.
    */
   public static fromString(data: string): UnencryptedL2BlockL2Logs {
-    const buffer = Buffer.from(data, 'hex');
-    return UnencryptedL2BlockL2Logs.fromBuffer(buffer);
+    return UnencryptedL2BlockL2Logs.fromBuffer(hexToBuffer(data));
   }
 
   /**
@@ -359,16 +327,6 @@ export class ContractClass2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
   }
 
   /**
-   * Convert a plain JSON object to a L2BlockL2Logs class object.
-   * @param obj - A plain L2BlockL2Logs JSON object.
-   * @returns A L2BlockL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const txLogs = obj.txLogs.map((log: any) => ContractClassTxL2Logs.fromJSON(log));
-    return new ContractClass2BlockL2Logs(txLogs);
-  }
-
-  /**
    * Deserializes logs from a buffer.
    * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
@@ -389,8 +347,7 @@ export class ContractClass2BlockL2Logs extends L2BlockL2Logs<UnencryptedL2Log> {
    * @returns A new `L2BlockL2Logs` object.
    */
   public static fromString(data: string): ContractClass2BlockL2Logs {
-    const buffer = Buffer.from(data, 'hex');
-    return ContractClass2BlockL2Logs.fromBuffer(buffer);
+    return ContractClass2BlockL2Logs.fromBuffer(hexToBuffer(data));
   }
 
   /**

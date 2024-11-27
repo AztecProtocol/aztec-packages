@@ -10,19 +10,13 @@ import path from 'path';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
 import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
-const TIMEOUT = 180_000;
-
 describe('AVM WitGen, proof generation and verification', () => {
-  it(
-    'Should prove and verify bulk_testing',
-    async () => {
-      await proveAndVerifyAvmTestContract(
-        'bulk_testing',
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
-      );
-    },
-    TIMEOUT,
-  );
+  it('Should prove and verify bulk_testing', async () => {
+    await proveAndVerifyAvmTestContract(
+      'bulk_testing',
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+    );
+  }, 180_000);
 });
 
 async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = []) {

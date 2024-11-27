@@ -1,3 +1,5 @@
+import { mapValues } from '../collection/object.js';
+
 type Deserializable = { fromString(str: string): object };
 
 /**
@@ -23,9 +25,39 @@ export class TypeRegistry {
   }
 }
 
+function replace<T>(value: T) {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toString' in value &&
+    TypeRegistry.getConstructor(value.constructor.name)
+  ) {
+    return {
+      type: value.constructor.name,
+      value: value.toString(),
+    };
+  }
+
+  return value;
+}
+
 // Resolver function that enables JSON serialization of BigInts.
 export function resolver(_: any, value: any) {
-  return typeof value === 'bigint' ? value.toString() + 'n' : value;
+  if (typeof value === 'bigint') {
+    return value.toString() + 'n';
+  }
+
+  if (typeof value === 'object' && value) {
+    if (Array.isArray(value)) {
+      return value.map(replace);
+    } else if (Buffer.isBuffer(value)) {
+      return { type: 'buffer', value: value.toString('hex') };
+    } else {
+      return mapValues(value, replace);
+    }
+  }
+
+  return value;
 }
 
 // Reviver function that uses TypeRegistry to instantiate objects.

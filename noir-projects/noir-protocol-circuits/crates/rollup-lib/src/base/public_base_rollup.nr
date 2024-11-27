@@ -121,7 +121,6 @@ impl PublicBaseRollupInputs {
         //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         // }
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
-
         let reverted = self.avm_proof_data.public_inputs.reverted;
 
         let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
@@ -213,6 +212,7 @@ impl PublicBaseRollupInputs {
             txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: self.avm_proof_data.public_inputs.transaction_fee,
+            accumulated_mana_used: self.avm_proof_data.public_inputs.end_gas_used.l2_gas as Field,
         }
     }
 
@@ -407,9 +407,9 @@ mod tests {
     }
 
     global MAX_NULLIFIERS_PER_TEST: u32 = 4;
-    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST = 128;
-    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST = 7;
-    global PRE_EXISTING_PUBLIC_DATA_LEAVES = 10;
+    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST: u32 = 128;
+    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST: u32 = 7;
+    global PRE_EXISTING_PUBLIC_DATA_LEAVES: u32 = 10;
 
     fn update_public_data_tree<let AVAILABLE_LEAVES: u32, let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<AVAILABLE_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,

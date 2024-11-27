@@ -8,12 +8,11 @@ import {
   AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmExternalCallHint,
-  AvmKeyValueHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  type AztecAddress,
+  AztecAddress,
   type ContractClassIdPreimage,
   EthAddress,
   Gas,
@@ -49,6 +48,7 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
@@ -293,7 +293,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    // New Hints
     this.avmCircuitHints.nullifierReadRequest.items.push(
       new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
     );
@@ -314,7 +313,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
 
-    // New hinting
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
@@ -326,13 +324,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     _contractAddress: AztecAddress,
     msgHash: Fr,
     msgLeafIndex: Fr,
-    exists: boolean,
+    _exists: boolean,
     path: Fr[] = emptyL1ToL2MessagePath(),
   ) {
-    this.avmCircuitHints.l1ToL2MessageExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
-    );
-    // New Hinting
     this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
   }
 
@@ -417,9 +411,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
     this.log.debug(
-      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${JSON.stringify(
-        contractInstance,
-      )}`,
+      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
     );
   }
 

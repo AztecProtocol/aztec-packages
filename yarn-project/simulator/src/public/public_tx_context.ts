@@ -89,7 +89,14 @@ export class PublicTxContext {
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
+<<<<<<< HEAD
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
+=======
+      /*nullifierReadRequests*/ 0,
+      /*nullifierNonExistentReadRequests*/ 0,
+      /*nullifiers=*/ 0, // inserted before setup
+      /*l1ToL2MsgReadRequests*/ 0,
+>>>>>>> master
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );

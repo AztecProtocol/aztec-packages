@@ -7,12 +7,12 @@
 using FF = bb::AvmFlavorSettings::FF;
 
 struct EthAddress {
-    std::array<uint8_t, 20> value;
+    std::array<uint8_t, 20> value{};
 };
 
 struct Gas {
-    uint32_t l2_gas;
-    uint32_t da_gas;
+    uint32_t l2_gas = 0;
+    uint32_t da_gas = 0;
 };
 
 inline void read(uint8_t const*& it, Gas& gas)
@@ -23,8 +23,8 @@ inline void read(uint8_t const*& it, Gas& gas)
 }
 
 struct GasFees {
-    FF fee_per_da_gas;
-    FF fee_per_l2_gas;
+    FF fee_per_da_gas{};
+    FF fee_per_l2_gas{};
 };
 
 inline void read(uint8_t const*& it, GasFees& gas_fees)
@@ -50,20 +50,20 @@ inline void read(uint8_t const*& it, GasSettings& gas_settings)
 
 struct GlobalVariables {
     /** ChainId for the L2 block. */
-    FF chain_id;
+    FF chain_id{};
     /** Version for the L2 block. */
-    FF version;
+    FF version{};
     /** Block number of the L2 block. */
-    FF block_number;
+    FF block_number{};
     /** Slot number of the L2 block */
-    FF slot_number;
+    FF slot_number{};
     /** Timestamp of the L2 block. */
-    FF timestamp;
+    FF timestamp{};
     /** Recipient of block reward */
     // This is an eth address so it's actually only 20 bytes
-    FF coinbase;
+    FF coinbase{};
     /** Address to receive fees. */
-    FF fee_recipient;
+    FF fee_recipient{};
     /** Global gas prices for this block. */
     GasFees gas_fees;
 };
@@ -85,8 +85,8 @@ inline void read(uint8_t const*& it, GlobalVariables& global_variables)
 }
 
 struct AppendOnlyTreeSnapshot {
-    FF root;
-    uint32_t size;
+    FF root{};
+    uint32_t size = 0;
 };
 
 inline void read(uint8_t const*& it, AppendOnlyTreeSnapshot& tree_snapshot)
@@ -116,20 +116,20 @@ struct PublicCallRequest {
     /**
      * Address of the account which represents the entity who invoked the call.
      */
-    FF msg_sender;
+    FF msg_sender{};
     /**
      * The contract address being called.
      */
-    FF contract_address;
+    FF contract_address{};
     /**
      * Function selector of the function being called.
      */
-    uint32_t function_selector;
+    uint32_t function_selector = 0;
     /**
      * Determines whether the call is modifying state.
      */
-    bool is_static_call;
-    FF args_hash;
+    bool is_static_call = false;
+    FF args_hash{};
 };
 
 inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)
@@ -143,9 +143,9 @@ inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)
 }
 
 struct PrivateToAvmAccumulatedDataArrayLengths {
-    uint32_t note_hashes;
-    uint32_t nullifiers;
-    uint32_t l2_to_l1_msgs;
+    uint32_t note_hashes = 0;
+    uint32_t nullifiers = 0;
+    uint32_t l2_to_l1_msgs = 0;
 };
 
 inline void read(uint8_t const*& it, PrivateToAvmAccumulatedDataArrayLengths& lengths)
@@ -157,8 +157,8 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedDataArrayLengths& le
 }
 
 struct ScopedL2ToL1Message {
-    FF l2_to_l1_message;
-    FF contract_address;
+    FF l2_to_l1_message{};
+    FF contract_address{};
 };
 
 inline void read(uint8_t const*& it, ScopedL2ToL1Message& l2_to_l1_message)
@@ -169,8 +169,8 @@ inline void read(uint8_t const*& it, ScopedL2ToL1Message& l2_to_l1_message)
 }
 
 struct PrivateToAvmAccumulatedData {
-    std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes;
-    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers;
+    std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
+    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers{};
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> l2_to_l1_msgs;
 };
 
@@ -189,9 +189,9 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedData& accumulated_da
 }
 
 struct LogHash {
-    FF value;
-    FF counter;
-    FF length;
+    FF value{};
+    FF counter{};
+    FF length{};
 };
 
 inline void read(uint8_t const*& it, LogHash& log_hash)
@@ -204,7 +204,7 @@ inline void read(uint8_t const*& it, LogHash& log_hash)
 
 struct ScopedLogHash {
     LogHash log_hash;
-    FF contract_address;
+    FF contract_address{};
 };
 
 inline void read(uint8_t const*& it, ScopedLogHash& scoped_log_hash)
@@ -215,8 +215,8 @@ inline void read(uint8_t const*& it, ScopedLogHash& scoped_log_hash)
 }
 
 struct PublicDataWrite {
-    FF leaf_slot;
-    FF value;
+    FF leaf_slot{};
+    FF value{};
 };
 
 inline void read(uint8_t const*& it, PublicDataWrite& public_data_write)
@@ -230,11 +230,11 @@ struct AvmAccumulatedData {
     /**
      * The note hashes from private combining with those made in the AVM execution.
      */
-    std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes;
+    std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
     /**
      * The nullifiers from private combining with those made in the AVM execution.
      */
-    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers;
+    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers{};
     /**
      * The L2 to L1 messages from private combining with those made in the AVM execution.
      */
@@ -285,8 +285,8 @@ class AvmPublicInputs {
     TreeSnapshots end_tree_snapshots;
     Gas end_gas_used;
     AvmAccumulatedData accumulated_data;
-    FF transaction_fee;
-    bool reverted;
+    FF transaction_fee{};
+    bool reverted = false;
 
     AvmPublicInputs() = default;
     static AvmPublicInputs from(const std::vector<uint8_t>& data)

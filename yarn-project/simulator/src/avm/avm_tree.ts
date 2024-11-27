@@ -408,7 +408,7 @@ export class AvmEphemeralForest {
         // We are starting with the leaf with largest key <= the specified key
         // Starting at that "min leaf", search for specified key in both the indexed updates
         // and the underlying DB. If not found, return its low leaf.
-        const leafOrLowLeafInfo = await this._searchForLeafOrLowLeaf<ID, T>(
+        const [leafOrLowLeafInfo, pathAbsentInEphemeralTree] = await this._searchForLeafOrLowLeaf<ID, T>(
           treeId,
           bigIntKey,
           minPreimage,
@@ -416,7 +416,7 @@ export class AvmEphemeralForest {
         );
         // We did not find it - this is unexpected... the leaf OR low leaf should always be present
         assert(leafOrLowLeafInfo !== undefined, 'Could not find leaf or low leaf. This should not happen!');
-        return [leafOrLowLeafInfo, /*pathAbsentInEphemeralTree=*/ false];
+        return [leafOrLowLeafInfo, pathAbsentInEphemeralTree];
       }
     }
   }
@@ -480,6 +480,10 @@ export class AvmEphemeralForest {
    * @param minPreimage - The leaf with the largest key <= the specified key. Expected to be present in local indexedUpdates.
    * @param minIndex - The index of the leaf with the largest key <= the specified key.
    * @param T - The type of the preimage (PublicData or Nullifier)
+   * @returns [
+   *     preimageWitness | undefined - The leaf or low leaf info (preimage & leaf index),
+   *     pathAbsentInEphemeralTree - whether its sibling path is absent in the ephemeral tree (useful during insertions)
+   * ]
    *
    * @details We look for the low element by bouncing between our local indexedUpdates map or the external DB
    * The conditions we are looking for are:
@@ -493,7 +497,7 @@ export class AvmEphemeralForest {
     key: bigint,
     minPreimage: T,
     minIndex: bigint,
-  ): Promise<PreimageWitness<T> | undefined> {
+  ): Promise<[PreimageWitness<T> | undefined, /*pathAbsentInEphemeralTree=*/ boolean]> {
     let found = false;
     let curr = minPreimage as T;
     let result: PreimageWitness<T> | undefined = undefined;
@@ -501,6 +505,7 @@ export class AvmEphemeralForest {
     const LIMIT = 2n ** BigInt(getTreeHeight(treeId)) - 1n;
     let counter = 0n;
     let lowPublicDataIndex = minIndex;
+    let pathAbsentInEphemeralTree = false;
     while (!found && counter < LIMIT) {
       const bigIntKey = key;
       if (curr.getKey() === bigIntKey) {
@@ -517,25 +522,22 @@ export class AvmEphemeralForest {
         lowPublicDataIndex = curr.getNextIndex();
         if (this.hasLocalUpdates(treeId, lowPublicDataIndex)) {
           curr = this.getIndexedUpdate(treeId, lowPublicDataIndex)!;
+          pathAbsentInEphemeralTree = false;
         } else {
           const preimage: IndexedTreeLeafPreimage = (await this.treeDb.getLeafPreimage(treeId, lowPublicDataIndex))!;
           curr = preimage as T;
+          pathAbsentInEphemeralTree = true;
         }
       }
       counter++;
     }
-    return result;
+    return [result, pathAbsentInEphemeralTree];
   }
 
   /**
    * This hashes the preimage to a field element
    */
   hashPreimage<T extends TreeLeafPreimage>(preimage: T): Fr {
-    // Watch for this edge-case, we are hashing the key=0 leaf to 0.
-    // This is for backward compatibility with the world state implementation
-    if (preimage.getKey() === 0n) {
-      return Fr.zero();
-    }
     const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
     return poseidon2Hash(input);
   }

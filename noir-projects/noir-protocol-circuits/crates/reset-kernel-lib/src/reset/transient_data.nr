@@ -205,7 +205,7 @@ mod tests {
         address::AztecAddress,
     };
 
-    global contract_address = AztecAddress::from_field(987654);
+    global contract_address: AztecAddress = AztecAddress::from_field(987654);
 
     struct TestDataBuilder<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32> {
         note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],

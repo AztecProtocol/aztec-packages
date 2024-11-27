@@ -25,21 +25,8 @@ export class EncryptedL2Log {
 
   static get schema() {
     return z
-      .object({ data: schemas.BufferHex, maskedContractAddress: schemas.Fr })
+      .object({ data: schemas.Buffer, maskedContractAddress: schemas.Fr })
       .transform(({ data, maskedContractAddress }) => new EncryptedL2Log(data, maskedContractAddress));
-  }
-
-  /** Returns a JSON-friendly representation of the log. */
-  public toJSON(): object {
-    return {
-      data: this.data.toString('hex'),
-      maskedContractAddress: this.maskedContractAddress.toString(),
-    };
-  }
-
-  /** Converts a plain JSON object into an instance. */
-  public static fromJSON(obj: any) {
-    return new EncryptedL2Log(Buffer.from(obj.data, 'hex'), Fr.fromString(obj.maskedContractAddress));
   }
 
   /**

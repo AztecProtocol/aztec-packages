@@ -70,7 +70,7 @@ export class BotFactory {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
       const sentTx = account.deploy();
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.to0xString()}`);
+      this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
         await this.node!.flushTxs();
@@ -117,7 +117,7 @@ export class BotFactory {
       this.log.info(`Deploying token contract at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.to0xString()}`);
+      this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
         await this.node!.flushTxs();
@@ -164,7 +164,7 @@ export class BotFactory {
     }
     const sentTx = new BatchCall(token.wallet, calls).send();
     const txHash = await sentTx.getTxHash();
-    this.log.info(`Sent tx with hash ${txHash.to0xString()}`);
+    this.log.info(`Sent tx with hash ${txHash.toString()}`);
     if (this.config.flushSetupTransactions) {
       this.log.verbose('Flushing transactions');
       await this.node!.flushTxs();
