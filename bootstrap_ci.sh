@@ -4,6 +4,7 @@ set -eu
 CMD=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
 GITHUB_ACTIONS=${GITHUB_ACTIONS:-}
+BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 cd $(dirname $0)
 
@@ -35,19 +36,20 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-instance_name=$(git rev-parse --abbrev-ref HEAD | sed 's|/|_|g')
+instance_name="${BRANCH//\//_}"
 
 if [ "$CMD" == "log" ]; then
-  ip=$(aws ec2 describe-instances \
-    --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
-    --query "Reservations[].Instances[].PublicIpAddress" \
-    --output text)
-  if [ -z "$ip" ]; then
-    echo "No instance found with name: $instance_name"
-    exit 1
-  fi
   while true; do
+    ip=$(aws ec2 describe-instances \
+      --region us-east-2 \
+      --filters "Name=tag:Name,Values=$instance_name" \
+      --query "Reservations[].Instances[].PublicIpAddress" \
+      --output text)
+    if [ -z "$ip" ]; then
+      echo "No instance found with name: $instance_name"
+      sleep 5
+      continue
+    fi
     ssh -t ubuntu@$ip docker logs -f aztec_build
     [ $? -eq 130 ] && break  # Exit if SSH exited due to Ctrl-C (exit code 130)
     sleep 5
