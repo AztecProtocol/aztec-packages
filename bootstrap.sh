@@ -161,6 +161,7 @@ PROJECTS=(
   avm-transpiler
   noir-projects
   yarn-project
+  boxes
 )
 
 # Build projects.
