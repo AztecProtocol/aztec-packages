@@ -1,19 +1,33 @@
 /// Given an input amount of an asset and pair balances, returns the maximum output amount of the other asset.
 pub fn get_amount_out(amount_in: U128, balance_in: U128, balance_out: U128) -> U128 {
-    // Based on Uniswap v2: https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2Library.sol#L43
     assert(amount_in > U128::zero(), "INSUFFICIENT_INPUT_AMOUNT");
     assert((balance_in > U128::zero()) & (balance_out > U128::zero()), "INSUFFICIENT_LIQUIDITY");
+
+    // The expression below is:
+    //    (amount_in * 997 * balance_out) / (balance_in * 10000 + amount_in * 997)
+    // which is equivalent to:
+    //    balance_out * ((amount_in * 0.997) / (balance_in + amount_in * 0.997))
+    // resulting in an implicit 0.3% fee on the amount in, as the fee tokens are not taken into consideration.
+
     let amount_in_with_fee = amount_in * U128::from_integer(997);
     let numerator = amount_in_with_fee * balance_out;
     let denominator = balance_in * U128::from_integer(1000) + amount_in_with_fee;
     numerator / denominator
+
 }
 
 /// Given an output amount of an asset and pair balances, returns a required input amount of the other asset.
 pub fn get_amount_in(amount_out: U128, balance_in: U128, balance_out: U128) -> U128 {
-    // Based on Uniswap v2: https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2Library.sol#L53
     assert(amount_out > U128::zero(), "INSUFFICIENT_OUTPUT_AMOUNT");
     assert((balance_in > U128::zero()) & (balance_out > U128::zero()), "INSUFFICIENT_LIQUIDITY");
+
+    // The expression below is:
+    //    (balance_in * amount_out * 1000) / (balance_out - amout_out * 997) + 1
+    // which is equivalent to:
+    //    balance_in * (amount_out / (balance_in + amount_in)) *  1/0.997 + 1
+    // resulting in an implicit 0.3% fee on the amount in, as the fee tokens are not taken into consideration. The +1
+    // at the end ensures the rounding error favors the pool.
+
     let numerator = balance_in * amount_out * U128::from_integer(1000);
     let denominator = (balance_out - amount_out) * U128::from_integer(997);
     (numerator / denominator) + U128::from_integer(1)
@@ -60,10 +74,21 @@ pub fn get_amounts_to_add(
     }
 }
 
+/// Returns the amount of tokens to return to a liquidity provider when they remove liquidity from the pool.
+pub fn get_amounts_on_remove(
+    to_burn: U128,
+    total_supply: U128,
+    balance0: U128,
+    balance1: U128,
+) -> (U128, U128) {
+    // Since the liquidity token tracks ownership of the pool, the liquidity provider gets a proportional share of each
+    // token.
+    (to_burn * balance0 / total_supply, to_burn * balance1 / total_supply)
+}
+
 /// Given some amount of an asset and pair balances, returns an equivalent amount of the other asset. Tokens should be
 /// added and removed from the Pool respecting this ratio.
 fn get_equivalent_amount(amount0: U128, balance0: U128, balance1: U128) -> U128 {
-    // Based on Uniswap v2:  https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2Library.sol#L36
     assert((balance0 > U128::zero()) & (balance1 > U128::zero()), "INSUFFICIENT_LIQUIDITY");
 
     // This is essentially the Rule of Three, since we're computing proportional ratios. Note we divide at the end to

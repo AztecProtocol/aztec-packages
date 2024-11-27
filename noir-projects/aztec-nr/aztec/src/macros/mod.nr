@@ -71,20 +71,20 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
     quote {
         pub struct $module_name {
-            target_contract: dep::aztec::protocol_types::address::AztecAddress
+            addr: dep::aztec::protocol_types::address::AztecAddress
         }
 
         impl $module_name {
             $fn_stubs_quote
 
             pub fn at(
-                target_contract: aztec::protocol_types::address::AztecAddress
+                addr: aztec::protocol_types::address::AztecAddress
             ) -> Self {
-                Self { target_contract }
+                Self { addr }
             }
 
             pub fn interface() -> Self {
-                Self { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+                Self { addr: aztec::protocol_types::address::AztecAddress::zero() }
             }
 
             $storage_layout_getter
@@ -92,14 +92,14 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
         #[contract_library_method]
         pub fn at(
-            target_contract: aztec::protocol_types::address::AztecAddress
+            addr: aztec::protocol_types::address::AztecAddress
         ) -> $module_name {
-            $module_name { target_contract }
+            $module_name { addr }
         }
 
         #[contract_library_method]
         pub fn interface() -> $module_name {
-            $module_name { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+            $module_name { addr: aztec::protocol_types::address::AztecAddress::zero() }
         }
 
         $library_storage_layout_getter

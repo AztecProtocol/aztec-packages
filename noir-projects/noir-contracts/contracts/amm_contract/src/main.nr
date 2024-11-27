@@ -35,7 +35,10 @@ use dep::aztec::macros::aztec;
 ///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
 contract AMM {
-    use crate::{config::Config, lib::{get_amount_in, get_amount_out, get_amounts_to_add}};
+    use crate::{
+        config::Config,
+        lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
+    };
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         prelude::{AztecAddress, PublicImmutable},
@@ -50,8 +53,8 @@ contract AMM {
     /// Amount of liquidity which gets locked when liquidity is provided for the first time. Its purpose is to prevent
     /// the pool from ever emptying which could lead to undefined behavior.
     global MINIMUM_LIQUIDITY = U128::from_integer(1000);
-    /// We set it to 100 times the minimum liquidity. That way the first LP gets 99% of the value of their deposit.
-    global INITIAL_LIQUIDITY = U128::from_integer(100000);
+    /// We set it to 99 times the minimum liquidity. That way the first LP gets 99% of the value of their deposit.
+    global INITIAL_LIQUIDITY = U128::from_integer(99000);
 
     // TODO(#9480): Either deploy the liquidity contract in the constructor or verify it that it corresponds to what
     // this contract expects (i.e. that the AMM has permission to mint and burn).
@@ -61,10 +64,13 @@ contract AMM {
         storage.config.initialize(Config { token0, token1, liquidity_token });
     }
 
-    /// Privately adds liquidity to the pool. The identity of the liquidity provider not revealed, but the action and
-    /// amounts is. This function receives the minimum and maximum number of tokens the caller is willing to add, in
-    /// order to account for changing market conditions, and will try to add as many tokens as possible.
-    // `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    /// Privately adds liquidity to the pool. This function receives the minimum and maximum number of tokens the caller
+    /// is willing to add, in order to account for changing market conditions, and will try to add as many tokens as
+    /// possible.
+    ///
+    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    ///
+    /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[private]
     fn add_liquidity(
         amount0_max: Field,
@@ -73,8 +79,14 @@ contract AMM {
         amount1_min: Field,
         nonce: Field,
     ) {
-        assert(amount0_min.lt(amount0_max) | (amount0_min == amount0_max), "INCORRECT_TOKEN0_LIMITS");
-        assert(amount1_min.lt(amount1_max) | (amount1_min == amount1_max), "INCORRECT_TOKEN1_LIMITS");
+        assert(
+            amount0_min.lt(amount0_max) | (amount0_min == amount0_max),
+            "INCORRECT_TOKEN0_LIMITS",
+        );
+        assert(
+            amount1_min.lt(amount1_max) | (amount1_min == amount1_max),
+            "INCORRECT_TOKEN1_LIMITS",
+        );
         assert(0.lt(amount0_max) & 0.lt(amount1_max), "INSUFFICIENT_INPUT_AMOUNTS");
 
         let config = storage.config.read();
@@ -83,27 +95,28 @@ contract AMM {
         let token1 = Token::at(config.token1);
         let liquidity_token = Token::at(config.liquidity_token);
 
+        let sender = context.msg_sender();
+
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
         // maximum amounts here, and prepare partial notes that return the change to the sender (if any).
-        token0
-            .transfer_to_public(context.msg_sender(), context.this_address(), amount0_max, nonce)
-            .call(&mut context);
+        token0.transfer_to_public(sender, context.this_address(), amount0_max, nonce).call(
+            &mut context,
+        );
         let refund_token0_hiding_point_slot =
-            token0.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
+            token0.prepare_private_balance_increase(sender, sender).call(&mut context);
 
-        token1
-            .transfer_to_public(context.msg_sender(), context.this_address(), amount1_max, nonce)
-            .call(&mut context);
+        token1.transfer_to_public(sender, context.this_address(), amount1_max, nonce).call(
+            &mut context,
+        );
         let refund_token1_hiding_point_slot =
-            token1.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
+            token1.prepare_private_balance_increase(sender, sender).call(&mut context);
 
         // The number of liquidity tokens to mint for the caller depends on both the live balances and the amount
         // supplied, both of which can only be known during public execution. We therefore prepare a partial note that
         // will get completed via minting.
-        let liquidity_hiding_point_slot = liquidity_token
-            .prepare_private_balance_increase(context.msg_sender())
-            .call(&mut context);
+        let liquidity_hiding_point_slot =
+            liquidity_token.prepare_private_balance_increase(sender, sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
@@ -223,10 +236,12 @@ contract AMM {
             .call(&mut context);
     }
 
-    /// Removes `liquidity` from the pool and transfers the tokens back to the user. `amount0_min` and `amount1_min` are
-    /// the minimum amounts of `token0` and `token1` the user is willing to accept. `nonce` can be arbitrary non-zero
-    /// value and its purpose is to isolate authwits to this specific call.
-    /// TODO(#8271): Type the args as U128
+    /// Privately removes liquidity from the pool. This function receives how many liquidity tokens to burn, and the
+    /// minimum number of tokens the caller is willing to receive, in order to account for changing market conditions.
+    ///
+    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    ///
+    /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[private]
     fn remove_liquidity(liquidity: Field, amount0_min: Field, amount1_min: Field, nonce: Field) {
         let config = storage.config.read();
@@ -235,23 +250,31 @@ contract AMM {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
 
-        // We transfer the liquidity tokens to this contract and prepare partial notes for the output tokens. We are
-        // forced to first transfer into the AMM because it is not possible to burn in private - the enqueued public
-        // call would reveal who the owner was. The only way to pbalance their identity is to first privately transfer.
-        liquidity_token
-            .transfer_to_public(context.msg_sender(), context.this_address(), liquidity, nonce)
-            .call(&mut context);
-        let token0_hiding_point_slot =
-            token0.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
-        let token1_hiding_point_slot =
-            token1.prepare_private_balance_increase(context.msg_sender()).call(&mut context);
+        let sender = context.msg_sender();
 
+        // Liquidity tokens are burned when liquidity is removed in order to reduce the total supply. However, we lack
+        // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and them have
+        // the AMM publicly burn its own tokens.
+        liquidity_token.transfer_to_public(sender, context.this_address(), liquidity, nonce).call(
+            &mut context,
+        );
+
+        // We don't yet know how many tokens the sender will get - that can only be computed during public execution
+        // since the it depends on the live balances. We therefore simply prepare partial notes to the sender.
+        let token0_hiding_point_slot =
+            token0.prepare_private_balance_increase(sender, sender).call(&mut context);
+        let token1_hiding_point_slot =
+            token1.prepare_private_balance_increase(sender, sender).call(&mut context);
+
+        // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
+        // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
+        // partial notees.
         AMM::at(context.this_address())
             ._remove_liquidity(
                 config,
+                liquidity,
                 token0_hiding_point_slot,
                 token1_hiding_point_slot,
-                liquidity,
                 amount0_min,
                 amount1_min,
             )
@@ -261,11 +284,10 @@ contract AMM {
     #[public]
     #[internal]
     fn _remove_liquidity(
-        // We pass the state as an argument in order to not have to read it from public storage again.
-        config: Config,
+        config: Config, // We could read this in public, but it's cheaper to receive from private
+        liquidity: Field,
         token0_hiding_point_slot: Field,
         token1_hiding_point_slot: Field,
-        liquidity: Field,
         amount0_min: Field,
         amount1_min: Field,
     ) {
@@ -278,7 +300,8 @@ contract AMM {
         let token1 = Token::at(config.token1);
         let liquidity_token = Token::at(config.liquidity_token);
 
-        // We get the balances and the liquidity token total supply.
+        // We need the current balance of both tokens as well as the liquidity token total supply in order to compute
+        // the amounts to send the user.
         let balance0 = U128::from_integer(token0.balance_of_public(context.this_address()).view(
             &mut context,
         ));
@@ -288,15 +311,13 @@ contract AMM {
         let total_supply = U128::from_integer(liquidity_token.total_supply().view(&mut context));
 
         // We calculate the amounts of token0 and token1 the user is entitled to based on the amount of liquidity they
-        // are removing.
-        let amount0 = liquidity * balance0 / total_supply;
-        let amount1 = liquidity * balance1 / total_supply;
-
-        // We check if the amounts are greater than the minimum amounts the user is willing to accept.
+        // are removing, and check that they are above the minimum amounts they requested.
+        let (amount0, amount1) = get_amounts_on_remove(liquidity, total_supply, balance0, balance1);
         assert(amount0 >= amount0_min, "INSUFFICIENT_0_AMOUNT");
         assert(amount1 >= amount1_min, "INSUFFICIENT_1_AMOUNT");
 
-        // At last we burn the liquidity tokens and transfer the token0 and token1 to the user.
+        // We can now burn the liquidity tokens that had been privately transferred into the AMM, as well as complete
+        // both partial notes.
         liquidity_token.burn_public(context.this_address(), liquidity.to_integer(), 0).call(
             &mut context,
         );
@@ -308,10 +329,11 @@ contract AMM {
         );
     }
 
-    /// Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
-    /// whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
-    /// purpose is to isolate authwits to this specific call.
-    /// TODO(#8271): Type the args as U128
+    /// Privately swaps `amount_in` `token_in` tokens for at least `amount_out_mint` `token_out` tokens with the pool.
+    ///
+    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    ///
+    /// The identity of the swapper is not revealed, but the action and amounts are.
     #[private]
     fn swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
@@ -322,20 +344,19 @@ contract AMM {
     ) {
         let config = storage.config.read();
 
-        // We check the tokens are valid
-        assert(token_in != token_out);
-        assert((token_in == config.token0) | (token_in == config.token1));
-        assert((token_out == config.token0) | (token_out == config.token1));
+        assert((token_in == config.token0) | (token_in == config.token1), "TOKEN_IN_IS_INVALID");
+        assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
+        assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
-        let token_in_contract = Token::at(token_in);
-        let token_out_contract = Token::at(token_out);
+        let sender = context.msg_sender();
 
-        // We transfer the `amount_in` to this contract and we prepare partial note for the output token.
-        token_in_contract
-            .transfer_to_public(context.msg_sender(), context.this_address(), amount_in, nonce)
+        // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
+        // which will only be known during public execution as it depends on the live balances.
+        Token::at(token_in)
+            .transfer_to_public(sender, context.this_address(), amount_in, nonce)
             .call(&mut context);
-        let token_out_hiding_point_slot = token_out_contract
-            .prepare_private_balance_increase(context.msg_sender())
+        let token_out_hiding_point_slot = Token::at(token_out)
+            .prepare_private_balance_increase(sender, sender)
             .call(&mut context);
 
         AMM::at(context.this_address())
@@ -362,31 +383,32 @@ contract AMM {
         let amount_in = U128::from_integer(amount_in);
         let amount_out_min = U128::from_integer(amount_out_min);
 
-        let token_in_contract = Token::at(token_in);
-        let token_out_contract = Token::at(token_out);
-
-        // We get the balances. The `amount_in` was already transferred to this contract so we need to subtract it.
-        let balance_in_plus_amount_in = U128::from_integer(token_in_contract
+        // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
+        // transfer has already been completed as that function call was enqueued before this one. We therefore need to
+        // subtract the amount in to get the pre-swap balances.
+        let balance_in_plus_amount_in = U128::from_integer(Token::at(token_in)
             .balance_of_public(context.this_address())
             .view(&mut context));
         let balance_in = balance_in_plus_amount_in - amount_in;
-        let balance_out = U128::from_integer(token_out_contract
+
+        let balance_out = U128::from_integer(Token::at(token_out)
             .balance_of_public(context.this_address())
             .view(&mut context));
 
-        // Calculate the amount of output token we will get.
+        // We can now compute the number of tokens to transfer and complete the partial note.
         let amount_out = get_amount_out(amount_in, balance_in, balance_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        // Transfer the output token to the user.
-        token_out_contract
+        Token::at(token_out)
             .finalize_transfer_to_private(amount_out.to_integer(), token_out_hiding_point_slot)
             .call(&mut context);
     }
 
-    /// Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
-    /// whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
-    /// purpose is to isolate authwits to this specific call.
+    /// Privately swaps at most `amount_in_max` `token_in` tokens for `amount_out` `token_out` tokens with the pool.
+    ///
+    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    ///
+    /// The identity of the swapper is not revealed, but the action and amounts are.
     #[private]
     fn swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
@@ -395,29 +417,28 @@ contract AMM {
         amount_in_max: Field,
         nonce: Field,
     ) {
-        // TODO(#8271): Type the args as U128 and nuke these ugly casts
-        let amount_out = U128::from_integer(amount_out);
-
         let config = storage.config.read();
 
-        // We check the tokens are valid
-        assert(token_in != token_out);
-        assert((token_in == config.token0) | (token_in == config.token1));
-        assert((token_out == config.token0) | (token_out == config.token1));
+        assert((token_in == config.token0) | (token_in == config.token1), "TOKEN_IN_IS_INVALID");
+        assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
+        assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
-        let token_in_contract = Token::at(token_in);
-        let token_out_contract = Token::at(token_out);
+        let sender = context.msg_sender();
 
-        // We transfer the `amount_in_max` to this contract and we prepare partial notes for refund and for the output
-        // token.
-        token_in_contract
-            .transfer_to_public(context.msg_sender(), context.this_address(), amount_in_max, nonce)
+        // We don't know how many tokens we'll receive from the user, since the swap amount will only be known during
+        // public execution as it depends on the live balances. We therefore transfer the full maximum amount and
+        // prepare partial notes both for the token out and the refund.
+        // Technically the token out note does not need to be partial, since we do know the amount out, but we do want
+        // to wait until the swap has been completed before commiting the note to the tree to avoid it being spent too
+        // early.
+        Token::at(token_in)
+            .transfer_to_public(sender, context.this_address(), amount_in_max, nonce)
             .call(&mut context);
-        let refund_token_in_hiding_point_slot = token_in_contract
-            .prepare_private_balance_increase(context.msg_sender())
-            .call(&mut context);
-        let token_out_hiding_point_slot = token_out_contract
-            .prepare_private_balance_increase(context.msg_sender())
+        let change_token_in_hiding_point_slot =
+            Token::at(token_in).prepare_private_balance_increase(sender, sender).call(&mut context);
+
+        let token_out_hiding_point_slot = Token::at(token_out)
+            .prepare_private_balance_increase(sender, sender)
             .call(&mut context);
 
         AMM::at(context.this_address())
@@ -425,8 +446,8 @@ contract AMM {
                 token_in,
                 token_out,
                 amount_in_max,
-                amount_out.to_integer(),
-                refund_token_in_hiding_point_slot,
+                amount_out,
+                change_token_in_hiding_point_slot,
                 token_out_hiding_point_slot,
             )
             .enqueue(&mut context);
@@ -439,43 +460,59 @@ contract AMM {
         token_out: AztecAddress,
         amount_in_max: Field,
         amount_out: Field,
-        refund_token_in_hiding_point_slot: Field,
+        change_token_in_hiding_point_slot: Field,
         token_out_hiding_point_slot: Field,
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_out = U128::from_integer(amount_out);
         let amount_in_max = U128::from_integer(amount_in_max);
 
-        let token_in_contract = Token::at(token_in);
-        let token_out_contract = Token::at(token_out);
-
-        // We get the balances. The `amount_in_max` was already transferred to this contract so we need to subtract it.
-        let balance_in_plus_amount_in_max = U128::from_integer(token_in_contract
+        // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
+        // transfer has already been completed as that function call was enqueued before this one. We therefore need to
+        // subtract the amount in to get the pre-swap balances.
+        let balance_in_plus_amount_in_max = U128::from_integer(Token::at(token_in)
             .balance_of_public(context.this_address())
             .view(&mut context));
         let balance_in = balance_in_plus_amount_in_max - amount_in_max;
-        let balance_out = U128::from_integer(token_out_contract
+
+        let balance_out = U128::from_integer(Token::at(token_out)
             .balance_of_public(context.this_address())
             .view(&mut context));
 
-        // Calculate the amount of input token needed to get the desired amount of output token.
+        // We can now compute the number of tokens we need to receive and complete the partial note with the change.
         let amount_in = get_amount_in(amount_out, balance_in, balance_out);
-        assert(amount_in <= amount_in_max, "EXCESSIVE_INPUT_AMOUNT");
+        assert(amount_in <= amount_in_max, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        // If less than amount_in_max of input token was needed we refund the difference.
-        let refund_amount = amount_in_max - amount_in;
-        if (refund_amount > U128::zero()) {
-            token_in_contract
-                .finalize_transfer_to_private(
-                    refund_amount.to_integer(),
-                    refund_token_in_hiding_point_slot,
-                )
-                .call(&mut context);
+        let change = amount_in_max - amount_in;
+        if (change > U128::zero()) {
+            Token::at(token_in)
+                .finalize_transfer_to_private(change.to_integer(), change_token_in_hiding_point_slot
+                    )
+                    .call(&mut context);
         }
 
-        // Transfer the output token to the user.
-        token_out_contract
+        // Note again that we already knew the amount out, but for consistency we want to only commit this note once
+        // all other steps have been performed.
+        Token::at(token_out)
             .finalize_transfer_to_private(amount_out.to_integer(), token_out_hiding_point_slot)
             .call(&mut context);
+    }
+
+    unconstrained fn get_amount_out_for_exact_in(
+        balance_in: Field,
+        balance_out: Field,
+        amount_in: Field,
+    ) -> Field {
+        // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
+        get_amount_out(U128::from_integer(amount_in), U128::from_integer(balance_in), U128::from_integer(balance_out)).to_integer()
+    }
+
+    unconstrained fn get_amount_in_for_exact_out(
+        balance_in: Field,
+        balance_out: Field,
+        amount_out: Field,
+    ) -> Field {
+        // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
+        get_amount_in(U128::from_integer(amount_out), U128::from_integer(balance_in), U128::from_integer(balance_out)).to_integer()
     }
 }
