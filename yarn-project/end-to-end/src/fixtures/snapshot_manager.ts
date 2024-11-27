@@ -29,6 +29,7 @@ import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig }
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
+import getPort from 'get-port';
 import { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -274,15 +275,17 @@ async function setupFromFresh(
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
+  const blobSinkPort = await getPort();
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // Setup blob sink service
   const blobSink = await createBlobSinkService({
-    port: 5052,
+    port: blobSinkPort,
     dataStoreConfig: {
       dataDirectory: statePath,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
@@ -414,16 +417,20 @@ async function setupFromFresh(
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
 
+  // Run the blob sink on a random port
+  const blobSinkPort = await getPort();
+
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // TODO(md): will this revive state???
   const blobSink = await createBlobSinkService({
-    port: 5052,
+    port: blobSinkPort,
     dataStoreConfig: {
       dataDirectory: statePath,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,

@@ -71,6 +71,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import getPort from 'get-port';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };
@@ -366,7 +367,9 @@ export async function setup(
   }
 
   // Blob sink service - blobs get posted here and served from here
-  const blobSink = await createBlobSinkService();
+  const blobSinkPort = await getPort();
+  const blobSink = await createBlobSinkService({ port: blobSinkPort });
+  config.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
