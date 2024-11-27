@@ -228,6 +228,9 @@ export class PublicProcessor {
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
 
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
