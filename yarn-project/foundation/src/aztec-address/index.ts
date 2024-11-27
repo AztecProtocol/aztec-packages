@@ -2,6 +2,7 @@
 import { inspect } from 'util';
 
 import { Fr, Point, fromBuffer } from '../fields/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { type BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 import { hexToBuffer } from '../string/index.js';
@@ -133,10 +134,11 @@ export class AztecAddress {
   }
 
   toJSON() {
-    return {
-      type: 'AztecAddress',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(AztecAddress, AztecAddress.isAddress);
   }
 }
 

@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
@@ -131,11 +131,11 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   static get schema() {
-    return hexSchemaFor(PrivateKernelTailCircuitPublicInputs);
+    return bufferSchemaFor(PrivateKernelTailCircuitPublicInputs);
   }
 
   toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
+    return this.toBuffer();
   }
 
   getSize() {
@@ -238,16 +238,6 @@ export class PrivateKernelTailCircuitPublicInputs {
         )
       : this.forRollup!.end.nullifiers;
     return nullifiers.filter(n => !n.isZero());
-  }
-
-  getNonEmptyL2toL1Msgs() {
-    const msgs = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs,
-          this.forPublic.revertibleAccumulatedData.l2ToL1Msgs,
-        )
-      : this.forRollup!.end.l2ToL1Msgs;
-    return msgs.filter(n => !n.isEmpty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

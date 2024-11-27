@@ -56,13 +56,15 @@ describe('prover/orchestrator/failures', () => {
         const msgs = [new Fr(i + 100)];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(globalVariables, msgs);
+          await orchestrator.startNewBlock(txs.length, globalVariables, msgs);
           let allTxsAdded = true;
-          try {
-            await orchestrator.addTxs(txs);
-          } catch (err) {
-            allTxsAdded = false;
-            break;
+          for (const tx of txs) {
+            try {
+              await orchestrator.addNewTx(tx);
+            } catch (err) {
+              allTxsAdded = false;
+              break;
+            }
           }
 
           if (!allTxsAdded) {

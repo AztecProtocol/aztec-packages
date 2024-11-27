@@ -6,7 +6,16 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.65
+
+### [aztec.nr] Removed SharedImmutable
+
+The `SharedImmutable` state variable has been removed, since it was essentially the exact same as `PublicImmutable`, which now contains functions for reading from private:
+
+```diff
+-   foo: SharedImmutable<T, Context>.
++   foo: PublicImmutable<T, Context>.
+```
 
 ### [aztec.nr] SharedImmutable renamings
 

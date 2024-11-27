@@ -13,6 +13,7 @@ enum Poseidon2Caller {
     NONE = 0,
     BYTECODE_HASHING = 1,
     MERKLE_TREE = 2,
+    SILO = 3,
 };
 
 class AvmPoseidon2TraceBuilder {

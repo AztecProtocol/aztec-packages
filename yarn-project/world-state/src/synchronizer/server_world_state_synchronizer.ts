@@ -41,7 +41,9 @@ export class ServerWorldStateSynchronizer
   private readonly merkleTreeCommitted: MerkleTreeReadOperations;
 
   private latestBlockNumberAtStart = 0;
+  private historyToKeep: number | undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
+  private latestBlockHashQuery: { blockNumber: number; hash: string | undefined } | undefined = undefined;
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
@@ -56,6 +58,12 @@ export class ServerWorldStateSynchronizer
   ) {
     this.instrumentation = new WorldStateInstrumentation(telemetry);
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
+    this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
+    this.log.info(
+      `Created world state synchroniser with block history of ${
+        this.historyToKeep === undefined ? 'infinity' : this.historyToKeep
+      }`,
+    );
   }
 
   public getCommitted(): MerkleTreeReadOperations {
@@ -160,10 +168,19 @@ export class ServerWorldStateSynchronizer
   }
 
   /** Returns the L2 block hash for a given number. Used by the L2BlockStream for detecting reorgs. */
-  public getL2BlockHash(number: number): Promise<string | undefined> {
-    return number === 0
-      ? Promise.resolve(this.merkleTreeCommitted.getInitialHeader().hash().toString())
-      : this.merkleTreeCommitted.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number)).then(leaf => leaf?.toString());
+  public async getL2BlockHash(number: number): Promise<string | undefined> {
+    if (number === 0) {
+      return Promise.resolve(this.merkleTreeCommitted.getInitialHeader().hash().toString());
+    }
+    if (this.latestBlockHashQuery?.hash === undefined || number !== this.latestBlockHashQuery.blockNumber) {
+      this.latestBlockHashQuery = {
+        hash: await this.merkleTreeCommitted
+          .getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number))
+          .then(leaf => leaf?.toString()),
+        blockNumber: number,
+      };
+    }
+    return this.latestBlockHashQuery.hash;
   }
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
@@ -256,7 +273,16 @@ export class ServerWorldStateSynchronizer
 
   private async handleChainFinalized(blockNumber: number) {
     this.log.verbose(`Chain finalized at block ${blockNumber}`);
-    await this.merkleTreeDb.setFinalised(BigInt(blockNumber));
+    const summary = await this.merkleTreeDb.setFinalised(BigInt(blockNumber));
+    if (this.historyToKeep === undefined) {
+      return;
+    }
+    const newHistoricBlock = summary.finalisedBlockNumber - BigInt(this.historyToKeep) + 1n;
+    if (newHistoricBlock <= 1) {
+      return;
+    }
+    this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
+    await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
   }
 
   private handleChainProven(blockNumber: number) {
@@ -267,6 +293,7 @@ export class ServerWorldStateSynchronizer
   private async handleChainPruned(blockNumber: number) {
     this.log.info(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
+    this.latestBlockHashQuery = undefined;
     this.instrumentation.updateWorldStateMetrics(status);
   }
 

@@ -1,8 +1,9 @@
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type ContractClassIdPreimage } from '../../contract/contract_class_id.js';
@@ -34,7 +35,7 @@ export class AvmEnqueuedCallHint {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -79,7 +80,7 @@ export class AvmEnqueuedCallHint {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmEnqueuedCallHint {
-    return AvmEnqueuedCallHint.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmEnqueuedCallHint.fromBuffer(hexToBuffer(str));
   }
 }
 
@@ -100,7 +101,7 @@ export class AvmKeyValueHint {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -145,7 +146,7 @@ export class AvmKeyValueHint {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmKeyValueHint {
-    return AvmKeyValueHint.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmKeyValueHint.fromBuffer(hexToBuffer(str));
   }
 }
 
@@ -182,7 +183,7 @@ export class AvmExternalCallHint {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -245,7 +246,7 @@ export class AvmExternalCallHint {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmExternalCallHint {
-    return AvmExternalCallHint.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmExternalCallHint.fromBuffer(hexToBuffer(str));
   }
 }
 
@@ -272,7 +273,7 @@ export class AvmContractInstanceHint {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -341,7 +342,7 @@ export class AvmContractInstanceHint {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmContractInstanceHint {
-    return AvmContractInstanceHint.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmContractInstanceHint.fromBuffer(hexToBuffer(str));
   }
 }
 
@@ -369,7 +370,7 @@ export class AvmContractBytecodeHints {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -434,7 +435,7 @@ export class AvmContractBytecodeHints {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmContractBytecodeHints {
-    return AvmContractBytecodeHints.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmContractBytecodeHints.fromBuffer(hexToBuffer(str));
   }
 }
 
@@ -914,7 +915,7 @@ export class AvmExecutionHints {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -1026,7 +1027,7 @@ export class AvmExecutionHints {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmCircuitInputs {
-    return AvmCircuitInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmCircuitInputs.fromBuffer(hexToBuffer(str));
   }
 }
 
@@ -1061,7 +1062,7 @@ export class AvmCircuitInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static empty(): AvmCircuitInputs {
@@ -1114,16 +1115,16 @@ export class AvmCircuitInputs {
    * @returns The deserialized instance.
    */
   static fromString(str: string): AvmCircuitInputs {
-    return AvmCircuitInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmCircuitInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(AvmCircuitInputs);
+    return bufferSchemaFor(AvmCircuitInputs);
   }
 }

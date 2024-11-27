@@ -50,7 +50,7 @@ export const BLOCK_PARENT = 'aztec.block.parent';
 export const BLOCK_CANDIDATE_TXS_COUNT = 'aztec.block.candidate_txs_count';
 /** How many actual txs were included in this block */
 export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
-/** The block size */
+/** The block size (power of 2) */
 export const BLOCK_SIZE = 'aztec.block.size';
 /** How many blocks are included in this epoch */
 export const EPOCH_SIZE = 'aztec.epoch.size';
@@ -83,3 +83,8 @@ export const P2P_ID = 'aztec.p2p.id';
 export const POOL_NAME = 'aztec.pool.name';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
+
+export const SIMULATOR_PHASE = 'aztec.simulator.phase';
+export const TARGET_ADDRESS = 'aztec.address.target';
+export const SENDER_ADDRESS = 'aztec.address.sender';
+export const MANA_USED = 'aztec.mana.used';

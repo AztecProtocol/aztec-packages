@@ -190,7 +190,7 @@ use dep::aztec::protocol_types::{
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
+global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
 /**
  * Assert that `on_behalf_of` have authorized the current call with a valid authentication witness

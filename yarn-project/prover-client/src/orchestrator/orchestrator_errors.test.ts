@@ -37,11 +37,14 @@ describe('prover/orchestrator/errors', () => {
       ];
 
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, []);
-      await context.orchestrator.addTxs(txs);
+      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
-      await expect(async () => await context.orchestrator.addTxs([makeEmptyProcessedTestTx()])).rejects.toThrow(
-        'Must end previous block before starting a new one',
+      for (const tx of txs) {
+        await context.orchestrator.addNewTx(tx);
+      }
+
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+        'Rollup not accepting further transactions',
       );
 
       const block = await context.orchestrator.setBlockCompleted();
@@ -51,24 +54,23 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if adding too many blocks', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, []);
-      await context.orchestrator.addTxs([]);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
       await context.orchestrator.setBlockCompleted();
 
-      await expect(async () => await context.orchestrator.startNewBlock(context.globalVariables, [])).rejects.toThrow(
-        'Epoch not accepting further blocks',
-      );
+      await expect(
+        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, []),
+      ).rejects.toThrow('Epoch not accepting further blocks');
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
-      await expect(async () => await context.orchestrator.addTxs([makeEmptyProcessedTestTx()])).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     });
 
     it('throws if adding a transaction before starting block', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await expect(async () => await context.orchestrator.addTxs([makeEmptyProcessedTestTx()])).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     });
@@ -82,21 +84,31 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if setting an incomplete block as completed', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, []);
+      await context.orchestrator.startNewBlock(3, context.globalVariables, []);
       await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
-        `Invalid proving state, call startNewBlock before adding transactions or completing the block`,
+        `Block not ready for completion: expecting ${3} more transactions.`,
       );
     });
 
     it('throws if adding to a cancelled block', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, []);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
       context.orchestrator.cancel();
 
-      await expect(async () => await context.orchestrator.addTxs([makeEmptyProcessedTestTx()])).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
         'Invalid proving state when adding a tx',
       );
     });
+
+    it.each([[-4], [0], [1], [8.1]] as const)(
+      'fails to start a block with %i transactions',
+      async (blockSize: number) => {
+        context.orchestrator.startNewEpoch(1, 1);
+        await expect(
+          async () => await context.orchestrator.startNewBlock(blockSize, context.globalVariables, []),
+        ).rejects.toThrow(`Invalid number of txs for block (got ${blockSize})`);
+      },
+    );
 
     it.each([[-4], [0], [8.1]] as const)('fails to start an epoch with %i blocks', (epochSize: number) => {
       context.orchestrator.startNewEpoch(1, 1);
@@ -109,7 +121,7 @@ describe('prover/orchestrator/errors', () => {
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
       context.orchestrator.startNewEpoch(1, 1);
       await expect(
-        async () => await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages),
+        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, l1ToL2Messages),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });

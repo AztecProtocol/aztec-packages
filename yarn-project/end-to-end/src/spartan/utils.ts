@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import { z } from 'zod';
 
 import type { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
 
@@ -19,6 +20,10 @@ const k8sConfigSchema = z.object({
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
   CONTAINER_ETHEREUM_PORT: z.coerce.number().default(8545),
+  HOST_METRICS_PORT: z.coerce.number().min(1, 'HOST_METRICS_PORT env variable must be set'),
+  CONTAINER_METRICS_PORT: z.coerce.number().default(80),
+  GRAFANA_PASSWORD: z.string().min(1, 'GRAFANA_PASSWORD env variable must be set'),
+  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1/query'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
   K8S: z.literal('true'),
 });
@@ -381,4 +386,16 @@ export async function enableValidatorDynamicBootNode(
   });
 
   logger.info(`Validator dynamic boot node enabled`);
+}
+
+export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], logger: Logger) {
+  if (isK8sConfig(config)) {
+    const alertChecker = new AlertChecker(logger, {
+      grafanaEndpoint: `http://localhost:${config.HOST_METRICS_PORT}${config.METRICS_API_PATH}`,
+      grafanaCredentials: `admin:${config.GRAFANA_PASSWORD}`,
+    });
+    await alertChecker.runAlertCheck(alerts);
+  } else {
+    logger.info('Not running alert check in non-k8s environment');
+  }
 }
