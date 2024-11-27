@@ -15,6 +15,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
 
   log(`Block ${blockNumber} (${block.hash().toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
+  log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
     ` Fee per gas unit: DA=${block.header.globalVariables.gasFees.feePerDaGas.toBigInt()} L2=${block.header.globalVariables.gasFees.feePerL2Gas.toBigInt()}`,
   );
@@ -58,7 +59,7 @@ export async function inspectTx(
   const artifactMap = opts?.artifactMap ?? (await getKnownArtifacts(pxe));
 
   if (opts.includeBlockInfo) {
-    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString('hex')})`);
+    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);
   }
   if (receipt.transactionFee) {
     log(` Fee: ${receipt.transactionFee.toString()}`);

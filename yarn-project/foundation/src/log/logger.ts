@@ -25,6 +25,9 @@ function getLogLevel() {
 
 export let currentLevel = getLogLevel();
 
+const logElapsedTime = ['1', 'true'].includes(process.env.LOG_ELAPSED_TIME ?? '');
+const firstTimestamp: number = Date.now();
+
 function filterNegativePatterns(debugString: string): string {
   return debugString
     .split(',')
@@ -146,7 +149,12 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?
 
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
   if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
-    debug('[%s] %s', level.toUpperCase(), msg);
+    if (logElapsedTime) {
+      const ts = ((Date.now() - firstTimestamp) / 1000).toFixed(3);
+      debug('%ss [%s] %s', ts, level.toUpperCase(), msg);
+    } else {
+      debug('[%s] %s', level.toUpperCase(), msg);
+    }
   }
 }
 

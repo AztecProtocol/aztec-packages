@@ -1,17 +1,13 @@
 services:
   fork:
-    image: aztecprotocol/build:2.0
-    entrypoint: >
-      sh -c '
-      if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
-        exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
-      else
-        exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
-      fi'
+    image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
     environment:
       RAYON_NUM_THREADS: 1
     volumes:
       - ../../../:/root/aztec-packages
+    ports:
+      - 8545:8545
 
   sandbox:
     image: aztecprotocol/build:2.0

@@ -48,6 +48,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
     size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
 
+    size_t overflow_size{ 0 }; // size of the structured execution trace overflow
+
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
                        std::shared_ptr<CommitmentKey> commitment_key = nullptr)
@@ -67,6 +69,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
                 circuit.blocks.summarize();
                 move_structured_trace_overflow_to_overflow_block(circuit);
+                overflow_size = circuit.blocks.overflow.size();
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
             } else {
                 dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
@@ -102,6 +105,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
+            // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
@@ -256,7 +260,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.lagrange_first = Polynomial(
                         /* size=*/1, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
 
-                    // Even though lagrange_last has a singe non-zero element, we cannot set its size to 0 as different
+                    // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
                     // keys being folded might have lagrange_last set at different indexes and folding does not work
                     // correctly unless the polynomial is allocated in the correct range to accomodate this
                     proving_key.polynomials.lagrange_last = Polynomial(
@@ -310,7 +314,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        if constexpr (HasIPAAccumulatorFlavor<Flavor>) { // Set the IPA claim indices
+        if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
             proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
             proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
             proving_key.ipa_proof = circuit.ipa_proof;

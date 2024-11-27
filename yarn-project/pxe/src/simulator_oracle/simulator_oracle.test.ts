@@ -43,6 +43,8 @@ import { SimulatorOracle } from './index.js';
 const TXS_PER_BLOCK = 4;
 const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NOTE_HASHES_PER_TX;
 
+jest.setTimeout(30_000);
+
 function getRandomNoteLogPayload(tag = Fr.random(), app = AztecAddress.random()): EncryptedLogPayload {
   return new EncryptedLogPayload(tag, app, L1NotePayload.random(app).toIncomingBodyPlaintext());
 }
@@ -143,7 +145,7 @@ describe('Simulator oracle', () => {
   describe('sync tagged logs', () => {
     const NUM_SENDERS = 10;
     const SENDER_OFFSET_WINDOW_SIZE = 10;
-    let senders: { completeAddress: CompleteAddress; ivsk: Fq }[];
+    let senders: { completeAddress: CompleteAddress; ivsk: Fq; secretKey: Fr }[];
 
     function generateMockLogs(senderOffset: number) {
       const logs: { [k: string]: TxScopedL2Log[] } = {};
@@ -231,7 +233,7 @@ describe('Simulator oracle', () => {
         const partialAddress = Fr.random();
         const address = computeAddress(keys.publicKeys, partialAddress);
         const completeAddress = new CompleteAddress(address, keys.publicKeys, partialAddress);
-        return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey };
+        return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey, secretKey: new Fr(index) };
       });
       for (const sender of senders) {
         await database.addContactAddress(sender.completeAddress.address);
@@ -265,6 +267,59 @@ describe('Simulator oracle', () => {
       // We should have called the node 12 times:
       // 2 times with logs (sliding the window) + 10 times with no results (window size)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 + SENDER_OFFSET_WINDOW_SIZE);
+    });
+
+    it('should sync tagged logs as senders', async () => {
+      for (const sender of senders) {
+        await database.addCompleteAddress(sender.completeAddress);
+        await keyStore.addAccount(sender.secretKey, sender.completeAddress.partialAddress);
+      }
+
+      let senderOffset = 0;
+      generateMockLogs(senderOffset);
+
+      // Recompute the secrets (as recipient) to ensure indexes are updated
+      const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      const secrets = senders.map(sender => {
+        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+      });
+
+      const indexesAsSender = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
+
+      for (let i = 0; i < senders.length; i++) {
+        await simulatorOracle.syncTaggedLogsAsSender(
+          contractAddress,
+          senders[i].completeAddress.address,
+          recipient.address,
+        );
+      }
+
+      let indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+
+      // Two windows are fetch for each sender
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
+      aztecNode.getLogsByTags.mockReset();
+
+      // We add more logs at the end of the window to make sure we only detect them and bump the indexes if it lies within our window
+      senderOffset = 10;
+      generateMockLogs(senderOffset);
+      for (let i = 0; i < senders.length; i++) {
+        await simulatorOracle.syncTaggedLogsAsSender(
+          contractAddress,
+          senders[i].completeAddress.address,
+          recipient.address,
+        );
+      }
+
+      indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSenderAfterSync).toStrictEqual([11, 11, 11, 11, 11, 12, 12, 12, 12, 12]);
+
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
 
     it('should sync tagged logs with a sender index offset', async () => {

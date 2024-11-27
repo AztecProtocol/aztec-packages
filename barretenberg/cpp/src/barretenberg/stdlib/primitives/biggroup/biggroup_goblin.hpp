@@ -10,6 +10,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib::element_goblin {
 
@@ -116,6 +117,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     {
         return batch_mul({ *this, other }, { Fr(1), Fr(1) });
     }
+
     goblin_element operator-(const goblin_element& other) const
     {
         auto builder = get_context(other);
@@ -165,6 +167,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
             y_lo.assert_equal(y.limbs[0]);
             y_hi.assert_equal(y.limbs[1]);
         }
+
+        // Set the tag of the result to the union of the tags of inputs
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return result;
     }
 
@@ -276,6 +281,18 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         result.x = Fq::conditional_assign(is_infinity, zero, result.x);
         result.y = Fq::conditional_assign(is_infinity, zero, result.y);
         return result;
+    }
+
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
+    void set_origin_tag(const OriginTag& tag)
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
     }
 
     Fq x;

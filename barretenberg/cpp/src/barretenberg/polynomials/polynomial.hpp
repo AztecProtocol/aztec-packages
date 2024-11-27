@@ -65,7 +65,7 @@ template <typename Fr> class Polynomial {
     using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
-    Polynomial(size_t size, size_t virtual_size, size_t start_index = 0, bool disable_parallelisation = false);
+    Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
         : Polynomial(size, size){};
@@ -249,6 +249,7 @@ template <typename Fr> class Polynomial {
 
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
+    void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
@@ -283,6 +284,14 @@ template <typename Fr> class Polynomial {
             thread_heuristics::ALWAYS_MULTITHREAD);
         return p;
     }
+
+    /**
+     * @brief A factory to construct a polynomial where parallel initialization is
+     *        not possible (e.g. AVM code).
+     *
+     * @return a polynomial initialized with zero on the range defined by size
+     */
+    static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
 
     /**
      * @brief Expands the polynomial with new start_index and end_index

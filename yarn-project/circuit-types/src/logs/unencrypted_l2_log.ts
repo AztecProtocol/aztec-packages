@@ -48,21 +48,8 @@ export class UnencryptedL2Log {
 
   static get schema() {
     return z
-      .object({ contractAddress: schemas.AztecAddress, data: schemas.BufferHex })
+      .object({ contractAddress: schemas.AztecAddress, data: schemas.Buffer })
       .transform(({ contractAddress, data }) => new UnencryptedL2Log(contractAddress, data));
-  }
-
-  /** Returns a JSON-friendly representation of the log. */
-  public toJSON(): object {
-    return {
-      contractAddress: this.contractAddress.toString(),
-      data: this.data.toString('hex'),
-    };
-  }
-
-  /** Converts a plain JSON object into an instance. */
-  public static fromJSON(obj: any) {
-    return new UnencryptedL2Log(AztecAddress.fromString(obj.contractAddress), Buffer.from(obj.data, 'hex'));
   }
 
   /**

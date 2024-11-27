@@ -1,3 +1,5 @@
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+
 import { EncryptedFunctionL2Logs, EncryptedNoteFunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
 
 function shouldBehaveLikeFunctionL2Logs(
@@ -19,8 +21,8 @@ function shouldBehaveLikeFunctionL2Logs(
     it('can encode L2Logs to JSON and back', () => {
       const l2Logs = FunctionL2Logs.random(3);
 
-      const buffer = JSON.stringify(l2Logs.toJSON());
-      const recovered = FunctionL2Logs.fromJSON(JSON.parse(buffer));
+      const buffer = jsonStringify(l2Logs);
+      const recovered = FunctionL2Logs.schema.parse(JSON.parse(buffer));
 
       expect(recovered).toEqual(l2Logs);
     });

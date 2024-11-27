@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -54,7 +55,6 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
                                                            const size_t num_public_inputs = 0)
 {
     using Flavor = MegaFlavor;
-    using VerificationKey = ClientIVC::VerificationKey;
     using FF = bb::fr;
 
     MegaExecutionTraceBlocks blocks;
@@ -88,7 +88,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
     }
 
     // Set relevant VK metadata and commitments
-    verifier_inputs.honk_verification_key = std::make_shared<VerificationKey>();
+    verifier_inputs.honk_verification_key = std::make_shared<Flavor::VerificationKey>();
     verifier_inputs.honk_verification_key->circuit_size = structured_dyadic_size;
     verifier_inputs.honk_verification_key->num_public_inputs = total_num_public_inputs;
     verifier_inputs.honk_verification_key->pub_inputs_offset = blocks.pub_inputs.trace_offset; // must be set correctly
@@ -145,7 +145,7 @@ ClientIVC::MergeProof create_dummy_merge_proof()
  * @param key_witness_indices
  */
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
-                                     const std::shared_ptr<ClientIVC::VerificationKey>& mock_verification_key,
+                                     const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
                                      std::vector<uint32_t>& key_witness_indices)
 {
     using Flavor = MegaFlavor;

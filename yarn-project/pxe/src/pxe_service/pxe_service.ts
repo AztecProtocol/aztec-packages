@@ -36,6 +36,7 @@ import {
   type CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
+  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -43,7 +44,6 @@ import {
   computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
-  computePoint,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
@@ -293,7 +293,7 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
-          computePoint(completeAddress.address).equals(dao.addressPoint),
+          completeAddress.address.toAddressPoint().equals(dao.addressPoint),
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
@@ -395,7 +395,7 @@ export class PXEService implements PXE {
           noteHash,
           siloedNullifier,
           index,
-          computePoint(owner.address),
+          owner.address.toAddressPoint(),
         ),
         scope,
       );
@@ -440,7 +440,7 @@ export class PXEService implements PXE {
           noteHash,
           Fr.ZERO, // We are not able to derive
           index,
-          computePoint(note.owner),
+          note.owner.toAddressPoint(),
         ),
       );
     }
@@ -490,6 +490,10 @@ export class PXEService implements PXE {
       blockNumber = await this.node.getBlockNumber();
     }
     return await this.node.getBlock(blockNumber);
+  }
+
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.node.getCurrentBaseFees();
   }
 
   async #simulateKernels(

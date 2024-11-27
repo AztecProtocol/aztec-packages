@@ -10,10 +10,6 @@ impl GasFees {
         Self { fee_per_da_gas, fee_per_l2_gas }
     }
 
-    pub fn default() -> Self {
-        GasFees::new(1, 1)
-    }
-
     pub fn is_empty(self) -> bool {
         (self.fee_per_da_gas == 0) & (self.fee_per_l2_gas == 0)
     }
