@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.0...aztec-package-v0.65.1) (2024-11-27)
+
+
+### Miscellaneous
+
+* Delete old serialization methods ([#9951](https://github.com/AztecProtocol/aztec-packages/issues/9951)) ([10d3f6f](https://github.com/AztecProtocol/aztec-packages/commit/10d3f6fe851dc73f5f12edec26b028fe526f0be6))
+
 ## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.64.0...aztec-package-v0.65.0) (2024-11-26)
 
 
