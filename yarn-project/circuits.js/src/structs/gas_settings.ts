@@ -5,12 +5,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import {
-  DEFAULT_GAS_LIMIT,
-  DEFAULT_MAX_FEE_PER_GAS,
-  DEFAULT_TEARDOWN_GAS_LIMIT,
-  GAS_SETTINGS_LENGTH,
-} from '../constants.gen.js';
+import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH } from '../constants.gen.js';
 import { Gas, GasDimensions } from './gas.js';
 import { GasFees } from './gas_fees.js';
 
@@ -66,11 +61,14 @@ export class GasSettings {
   }
 
   /** Default gas settings to use when user has not provided them. */
+  // @todo @lherskind The `MAX_FEES_PER_GAS` should be not be set as a default.
+  // deleting the default values, and trying to figure out the plumbing.
+  // Issue: #10104
   static default(overrides: Partial<FieldsOf<GasSettings>> = {}) {
     return GasSettings.from({
       gasLimits: { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
       teardownGasLimits: { l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT, daGas: DEFAULT_TEARDOWN_GAS_LIMIT },
-      maxFeesPerGas: { feePerL2Gas: new Fr(DEFAULT_MAX_FEE_PER_GAS), feePerDaGas: new Fr(DEFAULT_MAX_FEE_PER_GAS) },
+      maxFeesPerGas: { feePerL2Gas: new Fr(10), feePerDaGas: new Fr(10) },
       ...compact(overrides),
     });
   }

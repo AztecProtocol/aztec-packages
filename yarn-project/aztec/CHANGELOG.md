@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.64.0...aztec-package-v0.65.0) (2024-11-26)
+
+
+### Features
+
+* **avm:** New public inputs witgen ([#10179](https://github.com/AztecProtocol/aztec-packages/issues/10179)) ([ac8f13e](https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b))
+
 ## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.1...aztec-package-v0.64.0) (2024-11-25)
 
 

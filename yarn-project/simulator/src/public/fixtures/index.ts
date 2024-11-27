@@ -17,6 +17,7 @@ import {
   SerializableContractInstance,
   TxConstantData,
   TxContext,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -47,7 +48,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   calldata = [functionSelector.toField(), ...calldata];
 
   const globalVariables = GlobalVariables.empty();
-  globalVariables.gasFees = GasFees.default();
+  globalVariables.gasFees = GasFees.empty();
   globalVariables.timestamp = TIMESTAMP;
 
   const worldStateDB = mock<WorldStateDB>();
@@ -84,6 +85,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     .mockResolvedValue(contractInstance);
   worldStateDB.getContractClass.mockResolvedValue(contractClass);
   worldStateDB.getBytecode.mockResolvedValue(bytecode);
+  worldStateDB.getBytecodeCommitment.mockResolvedValue(computePublicBytecodeCommitment(bytecode));
 
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
@@ -93,6 +95,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     worldStateDB,
     new NoopTelemetryClient(),
     globalVariables,
+    /*realAvmProving=*/ true,
     /*doMerkleOperations=*/ true,
   );
 
