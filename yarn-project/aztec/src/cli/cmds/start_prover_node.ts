@@ -81,10 +81,6 @@ export async function startProverNode(
   const proverNode = await createProverNode(proverConfig, { telemetry, broker });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  if (!proverConfig.proverBrokerUrl) {
-    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
-  }
-
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
   // Automatically start proving unproven blocks

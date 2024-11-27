@@ -111,8 +111,6 @@ export interface EpochProverManager {
 
   stop(): Promise<void>;
 
-  getProvingJobSource(): ProvingJobConsumer;
-
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
 }
 

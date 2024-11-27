@@ -114,14 +114,6 @@ export class TxProver implements EpochProverManager {
     return prover;
   }
 
-  public getProvingJobSource(): ProvingJobConsumer {
-    if (!this.agentClient) {
-      throw new Error('Agent client not provided');
-    }
-
-    return this.agentClient;
-  }
-
   private async createAndStartAgents(): Promise<void> {
     if (this.agents.length > 0) {
       throw new Error('Agents already started');

@@ -31,8 +31,6 @@ import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prov
 import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
-import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
-import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {
@@ -44,7 +42,6 @@ export class TestContext {
     public globalVariables: GlobalVariables,
     public actualDb: MerkleTreeWriteOperations,
     public prover: ServerCircuitProver,
-    public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
@@ -58,7 +55,7 @@ export class TestContext {
   static async new(
     logger: DebugLogger,
     worldState: 'native' | 'legacy' = 'native',
-    proverCount = 4,
+    _proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
     blockNumber = 3,
@@ -117,12 +114,7 @@ export class TestContext {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
-    const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount);
-
-    queue.start();
-    agent.start(queue);
+    const orchestrator = new ProvingOrchestrator(proverDb, localProver, telemetry, Fr.ZERO);
 
     return new this(
       publicTxSimulator,
@@ -132,7 +124,6 @@ export class TestContext {
       globalVariables,
       proverDb,
       localProver,
-      agent,
       orchestrator,
       blockNumber,
       directoriesToCleanup,
@@ -141,7 +132,6 @@ export class TestContext {
   }
 
   async cleanup() {
-    await this.proverAgent.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
