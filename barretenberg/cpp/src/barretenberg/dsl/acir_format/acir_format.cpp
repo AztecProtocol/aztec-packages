@@ -359,8 +359,19 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
-        current_aggregation_object = create_honk_recursion_constraints(
-            builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+        if (constraint.proof_type == HONK) {
+            auto [next_aggregation_object, ipa_claim_indices] =
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            current_aggregation_object = next_aggregation_object;
+        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROLLUP_ROOT_HONK) {
+            auto [next_aggregation_object, ipa_claim_indices] =
+                create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
+                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            current_aggregation_object = next_aggregation_object;
+        } else {
+            throw_or_abort("Invalid Honk proof type");
+        }
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
