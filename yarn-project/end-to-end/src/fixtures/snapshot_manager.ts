@@ -279,11 +279,9 @@ async function setupFromFresh(
 
   // Setup blob sink service
   const blobSink = await createBlobSinkService({
-    port: blobSinkPort,
-    dataStoreConfig: {
-      dataDirectory: statePath,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-    },
+    port: 5052,
+    dataDirectory: statePath,
+    dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
   });
   await blobSink.start();
 
