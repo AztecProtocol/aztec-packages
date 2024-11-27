@@ -10,7 +10,7 @@ use std::{
     meta::{typ::fresh_type_variable, type_of, unquote},
 };
 
-comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
+comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -22,7 +22,7 @@ pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Q
 /// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
 /// and returning it as a `Field`.
 comptime fn compute_note_type_id(name: Quoted) -> Field {
-    let name_as_str_quote = name.as_str_quote();
+    let (name_as_str_quote, _) = name.as_str_quote();
 
     unquote!(
         quote {
@@ -267,7 +267,7 @@ pub(crate) comptime fn generate_note_export(
     let hash = hasher.finish() as u32;
     let global_export_name = f"{name}_{hash}_EXPORTS".quoted_contents();
     let note_fields_name = f"{name}Fields_{hash}".quoted_contents();
-    let note_name_as_str = name.as_str_quote();
+    let (note_name_as_str, _) = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
 
     let mut note_fields = &[];

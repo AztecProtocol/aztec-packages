@@ -110,8 +110,12 @@ function generateCircuits(dimensionsList, nargoToml, isSimulated) {
     for (let i = 0; i < dimensions.length; i++) {
       const value = dimensions[i];
       const name = dimensionNames[i];
+      const regex = new RegExp(`^global\\s+${name}:\\su32\\s=\\s.*;.*$`, "m");
+      if (!mainDotNoirCode.match(regex)) {
+        throw new Error(`Could not find dimension ${name} in main.nr`);
+      }
       mainDotNoirCode = mainDotNoirCode.replace(
-        new RegExp(`^global\\s+${name}\\s=\\s.*;.*$`, "m"),
+        regex,
         `global ${name}: u32 = ${value};`
       );
     }

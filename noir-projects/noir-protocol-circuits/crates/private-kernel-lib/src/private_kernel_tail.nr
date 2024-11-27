@@ -11,7 +11,7 @@ use dep::types::{
     PrivateKernelCircuitPublicInputs,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS =
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelTailCircuitPrivateInputs {
@@ -116,6 +116,25 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
+    }
+
+    #[test]
+    fn measuring_of_log_lengths() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        // Logs for the previous call stack.
+        let prev_contract_class_logs_hash = 956;
+        let prev_contract_class_log_preimages_length = 24;
+        builder.previous_kernel.add_contract_class_log_hash(
+            prev_contract_class_logs_hash,
+            prev_contract_class_log_preimages_length,
+        );
+
+        let public_inputs = builder.execute();
+
+        assert_eq(
+            public_inputs.end.contract_class_log_preimages_length,
+            prev_contract_class_log_preimages_length,
+        );
     }
 
     #[test]

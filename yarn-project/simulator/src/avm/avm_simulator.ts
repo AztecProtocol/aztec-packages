@@ -141,11 +141,6 @@ export class AvmSimulator {
       let instrCounter = 0;
       while (!machineState.getHalted()) {
         const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
-        assert(
-          !!instruction,
-          'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
-        );
-
         const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
         const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
 

@@ -221,7 +221,7 @@ mod tests {
         tests::utils::pad_end,
     };
 
-    global contract_address = AztecAddress::from_field(987654);
+    global contract_address: AztecAddress = AztecAddress::from_field(987654);
 
     fn mock_log(filled_with: Field) -> PrivateLog {
         PrivateLog::new([filled_with; PRIVATE_LOG_SIZE_IN_FIELDS])

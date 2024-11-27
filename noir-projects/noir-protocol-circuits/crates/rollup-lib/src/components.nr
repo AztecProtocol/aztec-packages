@@ -137,6 +137,13 @@ pub fn accumulate_fees(
     left.accumulated_fees + right.accumulated_fees
 }
 
+pub fn accumulate_mana_used(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs,
+) -> Field {
+    left.accumulated_mana_used + right.accumulated_mana_used
+}
+
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
@@ -224,7 +231,7 @@ fn silo_and_hash_unencrypted_logs<let N: u32>(
 //                                                                                                                                    __
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!      |-> 2 types of flexible-length logs - 2 fields for their hashes
 // 1 contract class logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1
+global TX_EFFECTS_HASH_INPUT_FIELDS: u32 = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX

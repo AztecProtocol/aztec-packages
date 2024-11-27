@@ -828,6 +828,8 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
                               0,
                               0,
                               // total fees
+                              0,
+                              // total mana used
                               0 });
 }
 

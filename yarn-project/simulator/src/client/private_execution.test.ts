@@ -166,6 +166,7 @@ describe('Private Execution test suite', () => {
         ),
         header.globalVariables,
         header.totalFees,
+        header.totalManaUsed,
       );
     } else {
       header = new Header(
@@ -174,6 +175,7 @@ describe('Private Execution test suite', () => {
         new StateReference(newSnap, header.state.partial),
         header.globalVariables,
         header.totalFees,
+        header.totalManaUsed,
       );
     }
 

@@ -18,7 +18,7 @@ import {
   TxConstantData,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
-import { makeCombinedAccumulatedData, makeGas, makePrivateToPublicAccumulatedData } from '@aztec/circuits.js/testing';
+import { makeCombinedAccumulatedData, makePrivateToPublicAccumulatedData } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
@@ -129,8 +129,8 @@ export function makeBloatedProcessedTx({
     );
 
     const gasUsed = {
-      totalGas: makeGas(),
-      teardownGas: makeGas(),
+      totalGas: Gas.empty(),
+      teardownGas: Gas.empty(),
     };
 
     return makeProcessedTxFromTxWithPublicCalls(
