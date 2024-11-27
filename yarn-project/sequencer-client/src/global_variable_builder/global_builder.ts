@@ -46,8 +46,13 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     });
   }
 
+  /**
+   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
+   * @returns Base fees for the expected next block
+   */
   public async getCurrentBaseFees(): Promise<GasFees> {
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFee([true])));
+    const timestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
+    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
   }
 
   /**
@@ -77,7 +82,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);
 
-    const gasFees = await this.getCurrentBaseFees();
+    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
 
     const globalVariables = new GlobalVariables(
       chainId,
