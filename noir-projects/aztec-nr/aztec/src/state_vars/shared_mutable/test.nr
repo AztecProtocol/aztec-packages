@@ -9,11 +9,11 @@ use crate::{
 
 use dep::std::{mem::zeroed, test::OracleMock};
 
-global new_value = 17;
+global new_value: Field = 17;
 
-global new_delay = 20;
+global new_delay: u32 = 20;
 
-global storage_slot = 47;
+global storage_slot: Field = 47;
 
 global TEST_INITIAL_DELAY: u32 = 32;
 

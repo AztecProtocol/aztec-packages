@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
@@ -31,13 +32,11 @@ struct StartGas {
 template <typename OpcodesFunc, typename CheckFunc>
 void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trace)
 {
-    std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {};
+    AvmPublicInputs public_inputs;
 
-    kernel_inputs[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET] = FF(startGas.l2_gas);
-    kernel_inputs[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET] = FF(startGas.da_gas);
+    public_inputs.gas_settings.gas_limits.l2_gas = startGas.l2_gas;
+    public_inputs.gas_settings.gas_limits.da_gas = startGas.da_gas;
 
-    VmPublicInputsNT public_inputs;
-    std::get<0>(public_inputs) = kernel_inputs;
     auto trace_builder =
         AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false);
 

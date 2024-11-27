@@ -1,5 +1,6 @@
 import {
   type AvmProvingRequest,
+  MerkleTreeId,
   type MerkleTreeReadOperations,
   type PublicExecutionRequest,
   type SimulationError,
@@ -67,10 +68,9 @@ export class PublicTxContext {
     private readonly setupExecutionRequests: PublicExecutionRequest[],
     private readonly appLogicExecutionRequests: PublicExecutionRequest[],
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
-    private readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
-    private readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
-    private doMerkleOperations: boolean,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
     this.gasUsed = startGasUsed;
@@ -84,23 +84,12 @@ export class PublicTxContext {
     doMerkleOperations: boolean,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
-    const revertibleAccumulatedDataFromPrivate = tx.data.forPublic!.revertibleAccumulatedData;
-    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
-      n => !n.isEmpty(),
-    );
-    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty());
 
     const innerCallTrace = new PublicSideEffectTrace();
-
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
-      /*publicDataReads*/ 0,
       /*publicDataWrites*/ 0,
-      /*noteHashReadRequests*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
-      /*nullifierReadRequests*/ 0,
-      /*nullifierNonExistentReadRequests*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
-      /*l1ToL2MsgReadRequests*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );
@@ -111,12 +100,7 @@ export class PublicTxContext {
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.newWithPendingSiloedNullifiers(
-      worldStateDB,
-      trace,
-      nonRevertibleNullifiersFromPrivate,
-      doMerkleOperations,
-    );
+    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations);
 
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
@@ -134,7 +118,6 @@ export class PublicTxContext {
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       enqueuedCallTrace,
-      doMerkleOperations,
     );
   }
 
@@ -144,6 +127,9 @@ export class PublicTxContext {
    * Actual transaction fee and actual total consumed gas can now be queried.
    */
   halt() {
+    if (this.state.isForked()) {
+      this.state.mergeForkedState();
+    }
     this.halted = true;
   }
 
@@ -315,6 +301,11 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
+    // TODO(dbanks12): use the state roots from ephemeral trees
+    endStateReference.partial.nullifierTree.root = this.state
+      .getActiveStateManager()
+      .merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!
+      .getRoot();
     return generateAvmCircuitPublicInputs(
       this.trace,
       this.globalVariables,
@@ -379,16 +370,21 @@ export class PublicTxContext {
  * so that we can conditionally fork at the start of a phase.
  *
  * There is a state manager that lives at the level of the entire transaction,
- * but for setup and teardown the active state manager will be a fork of the
+ * but for app logic and teardown the active state manager will be a fork of the
  * transaction level one.
  */
 class PhaseStateManager {
+  private log: DebugLogger;
+
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {}
+  constructor(private readonly txStateManager: AvmPersistableStateManager) {
+    this.log = createDebugLogger(`aztec:public_phase_state_manager`);
+  }
 
   fork() {
     assert(!this.currentlyActiveStateManager, 'Cannot fork when already forked');
+    this.log.debug(`Forking phase state manager`);
     this.currentlyActiveStateManager = this.txStateManager.fork();
   }
 
@@ -402,12 +398,14 @@ class PhaseStateManager {
 
   mergeForkedState() {
     assert(this.currentlyActiveStateManager, 'No forked state to merge');
+    this.log.debug(`Merging in forked state`);
     this.txStateManager.merge(this.currentlyActiveStateManager!);
     // Drop the forked state manager now that it is merged
     this.currentlyActiveStateManager = undefined;
   }
 
   discardForkedState() {
+    this.log.debug(`Discarding forked state`);
     assert(this.currentlyActiveStateManager, 'No forked state to discard');
     this.txStateManager.reject(this.currentlyActiveStateManager!);
     // Drop the forked state manager. We don't want it!

@@ -5,7 +5,7 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSet } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -38,7 +38,7 @@ export class AztecKVTxPool implements TxPool {
 
     this.#store = store;
     this.#log = log;
-    this.#metrics = new PoolInstrumentation(telemetry, 'AztecKVTxPool');
+    this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
   }
 
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
@@ -54,6 +54,8 @@ export class AztecKVTxPool implements TxPool {
       }
       this.#metrics.recordRemovedObjects(deleted, 'pending');
       this.#metrics.recordAddedObjects(txHashes.length, 'mined');
+      const storeSizes = this.#store.estimateSize();
+      this.#metrics.recordDBMetrics(storeSizes);
     });
   }
 

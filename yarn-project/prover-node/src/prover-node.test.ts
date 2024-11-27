@@ -307,7 +307,7 @@ describe('prover-node', () => {
         port,
       );
       const kvStore = openTmpStore();
-      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0, telemetryClient);
+      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0);
     };
 
     beforeEach(async () => {

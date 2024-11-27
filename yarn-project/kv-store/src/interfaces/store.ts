@@ -72,5 +72,5 @@ export interface AztecKVStore {
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): { bytes: number };
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
 }

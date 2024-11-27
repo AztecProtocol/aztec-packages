@@ -296,6 +296,7 @@ export class Sequencer {
       StateReference.empty(),
       newGlobalVariables,
       Fr.ZERO,
+      Fr.ZERO,
     );
 
     // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
@@ -633,11 +634,13 @@ export class Sequencer {
       const txHashes = validTxs.map(tx => tx.getTxHash());
 
       this.isFlushing = false;
-      this.log.info('Collecting attestations');
+      this.log.verbose('Collecting attestations');
+      const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
       const attestations = await this.collectAttestations(block, txHashes);
-      this.log.info('Attestations collected');
+      this.log.verbose('Attestations collected');
+      stopCollectingAttestationsTimer();
+      this.log.verbose('Collecting proof quotes');
 
-      this.log.info('Collecting proof quotes');
       const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
       this.log.info(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
 

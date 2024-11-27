@@ -27,6 +27,7 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
@@ -556,9 +557,9 @@ export class SimulatorOracle implements DBOracle {
       if (incomingNotePayload || outgoingNotePayload) {
         if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
           this.log.warn(
-            `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+            `Incoming and outgoing note payloads do not match. Incoming: ${tryJsonStringify(
               incomingNotePayload,
-            )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
+            )}, Outgoing: ${tryJsonStringify(outgoingNotePayload)}`,
           );
           continue;
         }

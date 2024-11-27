@@ -1,5 +1,4 @@
 import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
-import { mapValues } from '@aztec/foundation/collection';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import times from 'lodash.times';
@@ -29,20 +28,6 @@ export class NestedProcessReturnValues {
         nested: z.array(z.lazy(() => NestedProcessReturnValues.schema)),
       })
       .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested));
-  }
-
-  toJSON(): any {
-    return {
-      values: this.values?.map(fr => fr.toString()),
-      nested: this.nested.map(n => n.toJSON()),
-    };
-  }
-
-  static fromJSON(json: any): NestedProcessReturnValues {
-    return new NestedProcessReturnValues(
-      json.values?.map(Fr.fromString),
-      json.nested?.map((n: any) => NestedProcessReturnValues.fromJSON(n)),
-    );
   }
 
   static empty() {
@@ -88,28 +73,6 @@ export class PublicSimulationOutput {
             fields.gasUsed,
           ),
       );
-  }
-
-  toJSON() {
-    return {
-      revertReason: this.revertReason,
-      constants: this.constants.toBuffer().toString('hex'),
-      txEffect: this.txEffect.toBuffer().toString('hex'),
-      publicReturnValues: this.publicReturnValues.map(returns => returns?.toJSON()),
-      gasUsed: mapValues(this.gasUsed, gas => gas?.toJSON()),
-    };
-  }
-
-  static fromJSON(json: any): PublicSimulationOutput {
-    return new PublicSimulationOutput(
-      json.revertReason,
-      CombinedConstantData.fromBuffer(Buffer.from(json.constants, 'hex')),
-      TxEffect.fromBuffer(Buffer.from(json.txEffect, 'hex')),
-      Array.isArray(json.publicReturnValues)
-        ? json.publicReturnValues.map((returns: any) => NestedProcessReturnValues.fromJSON(returns))
-        : [],
-      mapValues(json.gasUsed, gas => Gas.fromJSON(gas)),
-    );
   }
 
   static random() {
