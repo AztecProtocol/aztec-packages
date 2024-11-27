@@ -56,8 +56,12 @@ if [ "$CMD" == "log" ]; then
         sleep 5
         continue
       fi
-      ssh -t ubuntu@$ip docker logs -f aztec_build
-      [ $? -eq 130 ] && break  # Exit if SSH exited due to Ctrl-C (exit code 130)
+      if ssh -t ubuntu@$ip docker logs -f aztec_build; then
+        # Exit loop if SSH exited due to successful completion.
+        break
+      fi
+      # Exit loop if SSH exited due to Ctrl-C.
+      [ $? -eq 130 ] && break
       sleep 5
     done
     exit 0
