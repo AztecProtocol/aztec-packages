@@ -8,9 +8,10 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 const qosAlerts: AlertConfig[] = [
   {
-    // 2.5M gas/s
-    alert: 'public_executor_gas_per_second',
-    expr: 'rate(aztec_public_executor_simulation_gas_per_second_per_second_sum[5m]) / rate(aztec_public_executor_simulation_gas_per_second_per_second_count[5m]) < 2500000',
+    // Dummy alert to check that the metric is being emitted.
+    // Separate benchmark tests will use dedicated machines with the published system requirements.
+    alert: 'publishing_mana_per_second',
+    expr: 'rate(aztec_public_executor_simulation_mana_per_second_per_second_sum[5m]) / rate(aztec_public_executor_simulation_mana_per_second_per_second_count[5m]) < 10',
     for: '5m',
     annotations: {},
     labels: {},
