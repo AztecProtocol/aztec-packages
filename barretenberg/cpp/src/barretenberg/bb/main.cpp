@@ -1096,23 +1096,31 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        std::string command = args[0];
+        const API::Flags flags = [&args]() {
+            return API::Flags{
+                .output_type = get_option(args, "--output_type", "bytes"),
+                .decode_msgpack = flag_present(args, "--decode-msgpack"),
+            };
+        }();
+
+        const std::string command = args[0];
         vinfo("bb command is: ", command);
-        std::string proof_system = get_option(args, "-s", "");
-        std::string bytecode_path = get_option(args, "-b", "./target/program.json");
-        std::string witness_path = get_option(args, "-w", "./target/witness.gz");
-        std::string proof_path = get_option(args, "-p", "./proofs/proof");
-        std::string vk_path = get_option(args, "-k", "./target/vk");
-        std::string pk_path = get_option(args, "-r", "./target/pk");
-        bool honk_recursion = flag_present(args, "-h");
-        bool recursive = flag_present(args, "--recursive");
+        const std::string proof_system = get_option(args, "-s", "");
+        const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
+        const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
+        const std::string proof_path = get_option(args, "-p", "./proofs/proof");
+        const std::string vk_path = get_option(args, "-k", "./target/vk");
+        const std::string pk_path = get_option(args, "-r", "./target/pk");
+
+        const bool honk_recursion = flag_present(args, "-h");
+        const bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
-        const auto execute_command = [&](const std::string& command, API& api) {
+        const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
             if (command == "prove") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 // TODO(#7371): remove this (msgpack version...)
-                api.prove("--do-not-decode-msgpack", "--msgpack", bytecode_path, witness_path, output_dir);
+                api.prove(flags, bytecode_path, witness_path, output_dir);
                 return 0;
             }
 
@@ -1121,11 +1129,11 @@ int main(int argc, char* argv[])
                 const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
                 const std::filesystem::path vk_path = output_dir / "client_ivc_vk";
 
-                return api.verify(proof_path, vk_path) ? 0 : 1;
+                return api.verify(flags, proof_path, vk_path) ? 0 : 1;
             }
 
             if (command == "prove_and_verify") {
-                return api.prove_and_verify("--do-not-decode-msgpack", bytecode_path, witness_path) ? 0 : 1;
+                return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
             }
 
             if (command == "client_ivc_prove_output_all") {
@@ -1146,7 +1154,7 @@ int main(int argc, char* argv[])
 
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
-            execute_command(command, api);
+            execute_command(command, flags, api);
         } else if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove_and_verify_ultra_honk") {
@@ -1171,9 +1179,6 @@ int main(int argc, char* argv[])
         } else if (command == "prove_mega_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "client_ivc_prove_output_all") {
-            std::string output_path = get_option(args, "-o", "./target");
-            client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./target");
             prove_tube(output_path);

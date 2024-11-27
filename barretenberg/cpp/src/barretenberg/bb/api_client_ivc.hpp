@@ -82,7 +82,7 @@ std::vector<uint8_t> decompress(uint8_t* bytes, size_t size)
 }
 
 class ClientIVCAPI : public API {
-    static std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& decode_msgpack,
+    static std::vector<acir_format::AcirProgram> _build_folding_stack(const bool decode_msgpack,
                                                                       const std::filesystem::path& bytecode_path,
                                                                       const std::filesystem::path& witness_path)
     {
@@ -90,7 +90,7 @@ class ClientIVCAPI : public API {
 
         std::vector<AcirProgram> folding_stack;
 
-        if (decode_msgpack == "--decode-msgpack") {
+        if (decode_msgpack) {
             std::vector<std::string> gzipped_bincodes;
             std::vector<std::string> witness_data;
             gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
@@ -108,12 +108,10 @@ class ClientIVCAPI : public API {
 
                 folding_stack.push_back(AcirProgram{ constraints, witness });
             }
-        } else if (decode_msgpack == "--do-not-decode-msgpack") {
+        } else {
             AcirFormat constraints = get_constraint_system(bytecode_path, /*honk_recursion=*/false);
             WitnessVector witness = get_witness(witness_path);
             folding_stack.push_back(AcirProgram{ constraints, witness });
-        } else {
-            throw_or_abort("invalid msgpack decoding flag");
         }
 
         return folding_stack;
@@ -158,19 +156,21 @@ class ClientIVCAPI : public API {
     };
 
   public:
-    void prove(const std::string& decode_msgpack,
-               const std::string& output_type_flag,
+    void prove(const API::Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
         // WORKTODO: move and systematize validation logic
-        if (output_type_flag != "--msgpack") {
-            throw_or_abort("Output type " + output_type_flag + " not supported");
+        if (!flags.output_type || *flags.output_type != "msgpack") {
+            throw_or_abort("No output_type or output_type not supported");
+        }
+        if (!flags.decode_msgpack) {
+            throw_or_abort("decode_msgpack not supplied");
         }
 
         std::vector<acir_format::AcirProgram> folding_stack =
-            _build_folding_stack(decode_msgpack, bytecode_path, witness_path);
+            _build_folding_stack(*flags.decode_msgpack, bytecode_path, witness_path);
         ClientIVC ivc = _accumulate(folding_stack);
         ClientIVC::Proof proof = ivc.prove();
 
@@ -198,7 +198,9 @@ class ClientIVCAPI : public API {
      * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
      * @return true (resp., false) if the proof is valid (resp., invalid).
      */
-    bool verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path) override
+    bool verify(const API::Flags& flags,
+                const std::filesystem::path& proof_path,
+                const std::filesystem::path& vk_path) override
     {
         init_bn254_crs(1);
         init_grumpkin_crs(1 << 15);
@@ -216,23 +218,40 @@ class ClientIVCAPI : public API {
         return verified;
     };
 
-    bool prove_and_verify(const std::string& decode_msgpack,
+    bool prove_and_verify(const API::Flags& flags,
                           const std::filesystem::path& bytecode_path,
                           const std::filesystem::path& witness_path) override
     {
+        if (!flags.decode_msgpack) {
+            throw_or_abort("decode_msgpack flag not supplied to prove_and_verify");
+        }
         std::vector<acir_format::AcirProgram> folding_stack =
-            _build_folding_stack(decode_msgpack, bytecode_path, witness_path);
+            _build_folding_stack(*flags.decode_msgpack, bytecode_path, witness_path);
         ClientIVC ivc = _accumulate(folding_stack);
         const bool verified = ivc.prove_and_verify();
         return verified;
     };
 
-    void gates(const std::filesystem::path& bytecode_path, const std::filesystem::path& witness_path) override{};
+    void gates(const API::Flags& flags,
+               const std::filesystem::path& bytecode_path,
+               const std::filesystem::path& witness_path) override
+    {
+        throw_or_abort("API function not implemented");
+    };
 
-    void contract(const std::filesystem::path& output_path, const std::filesystem::path& vk_path) override{};
+    void contract(const API::Flags& flags,
+                  const std::filesystem::path& output_path,
+                  const std::filesystem::path& vk_path) override
+    {
+        throw_or_abort("API function not implemented");
+    };
 
-    void to_fields(const std::filesystem::path& proof_path,
+    void to_fields(const API::Flags& flags,
+                   const std::filesystem::path& proof_path,
                    const std::filesystem::path& vk_path,
-                   const std::filesystem::path& output_path) override{};
+                   const std::filesystem::path& output_path) override
+    {
+        throw_or_abort("API function not implemented");
+    };
 };
 } // namespace bb
