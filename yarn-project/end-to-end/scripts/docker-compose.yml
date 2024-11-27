@@ -1,4 +1,3 @@
-version: '3'
 services:
   fork:
     image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}

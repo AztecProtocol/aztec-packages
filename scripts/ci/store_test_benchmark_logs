@@ -2,7 +2,7 @@
 # Script for storing barretenberg benchmark results.
 # Uploads results to the AztecProtocol/benchmark-archive repository.
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -e
 
 AZTEC_GITHUB_TOKEN=$1

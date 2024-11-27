@@ -5,7 +5,7 @@
 # Logs are uploaded to aztec-ci-artifacts/logs-v1/master/$COMMIT/$JOB.jsonl
 # or to aztec-ci-artifacts/logs-v1/pulls/$PRNUMBER/$JOB.jsonl if on a PR
 
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 LOG_FOLDER=$1

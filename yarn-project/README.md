@@ -78,7 +78,7 @@ You may also need to modify the [Dockerfile](yarn-project/yarn-project-base/Dock
 cd project
 ./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" "" ""
 source /tmp/.bash_env*
-CI3_DEBUG=1
+BUILD_SYSTEM_DEBUG=1
 COMMIT_TAG=<RELEASE_TAG_NUMBER_YOU_WANT e.g. aztec-packages-v0.8.8>
 ```
 4. Follow the [`deploy-npm` script](./deploy_npm.sh).

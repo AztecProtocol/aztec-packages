@@ -7,4 +7,4 @@ cd "$(dirname $(caller 0 | cut -d' ' -f2))"
 # Expose $ci3 as a base path.
 ci3="$(git rev-parse --show-toplevel)/ci3"
 # Conditionally print all statements ran in CI scripts. Useful for debugging commands that weren't expected to error out.
-[ -n "${CI3_DEBUG:-}" ] && set -x || true
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true

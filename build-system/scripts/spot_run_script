@@ -6,7 +6,7 @@
 #
 # Env vars:
 # JOB_NAME: Set within setup-env. The job name as per CI.
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 REPOSITORY=$1
 NAME=$2

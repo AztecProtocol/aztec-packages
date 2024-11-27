@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 
@@ -16,7 +14,7 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-GITHUB_ACTIONS="" yarn
+yarn
 node ./scripts/generate_variants.js
 
 export RAYON_NUM_THREADS=16

@@ -3,7 +3,7 @@
 # If the second argument is set:
 #   It's used to suffix the tag with the given unique arch descriptor.
 #   Unless it's "host" in which case use the host machines arch as the arch descriptor.
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1
