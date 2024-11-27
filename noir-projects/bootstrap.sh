@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-[ -n "${CI3_DEBUG:-}" ] && set -x # conditionally trace
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 
@@ -20,22 +18,22 @@ fi
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
 # TODO: For the love of god can we stop bringing in entire node stacks for what can be done in a bash script?
-GITHUB_ACTIONS="" yarn
+$ci3/yarn/install
 
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::noir-projects build"
+$ci3/github/group "noir-projects build"
 parallel --line-buffer --tag {} ::: \
   ./noir-contracts/bootstrap.sh \
   ./noir-protocol-circuits/bootstrap.sh \
   ./mock-protocol-circuits/bootstrap.sh
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+$ci3/github/endgroup "noir-projects build"
 
 if [ "${CI:-0}" -eq 1 ]; then
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::noir-projects test"
+  $ci3/github/group "noir-projects test"
   NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
   (cd ./noir-protocol-circuits && node ./scripts/generate_variants.js && $NARGO fmt --check && $NARGO test --silence-warnings)
   (cd ./mock-protocol-circuits && $NARGO fmt --check)
   (cd ./noir-contracts && $NARGO fmt --check)
   (cd ./aztec-nr && $NARGO fmt --check)
   # Testing aztec.nr/contracts requires TXE, so must be pushed to after the final yarn project build.
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+  $ci3/github/endgroup "noir-projects build"
 fi

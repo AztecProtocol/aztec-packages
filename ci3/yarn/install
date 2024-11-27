@@ -5,4 +5,4 @@ set -eu
 # Note yarn interprets CI being set as --immutable.
 GITHUB_ACTIONS="" yarn install
 # Make sure timestamps are reset
-find . -path src -prune -o -exec touch -d "@0" {} + 2>/dev/null || true
+find . -type d -name "src" -prune -o -exec touch -d "@0" {} + 2>/dev/null || true

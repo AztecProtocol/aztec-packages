@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/base/source
 
 $ci3/github/group "Updating yarn"
 # Update yarn.lock so it can be committed.
-(cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && GITHUB_ACTIONS="" yarn)
-(cd headless-test && yarn add --dev @aztec/bb.js@../../ts && GITHUB_ACTIONS="" yarn)
+(cd browser-test-app && GITHUB_ACTIONS="" yarn add --dev @aztec/bb.js@../../ts && $ci3/yarn/install)
+(cd headless-test && GITHUB_ACTIONS="" yarn add --dev @aztec/bb.js@../../ts && $ci3/yarn/install)
 # The md5sum of everything is the same after each yarn call, yet seemingly yarn's content hash will churn unless we reset timestamps
 find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup
@@ -20,6 +20,7 @@ $ci3/github/group "Building browser-test-app"
 (cd browser-test-app && yarn build)
 $ci3/github/endgroup
 
+$ci3/github/group "Run acir tests"
 # Download ignition up front to ensure no race conditions at runtime.
 # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
 mkdir -p $HOME/.bb-crs
@@ -56,3 +57,4 @@ function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
 
 export -f f0 f1 f2 f3 f4 f5 f6
 parallel ::: f0 f1 f2 f3 f4 f5 f6
+$ci3/github/endgroup
