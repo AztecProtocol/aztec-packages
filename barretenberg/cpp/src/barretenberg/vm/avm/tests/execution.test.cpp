@@ -125,8 +125,8 @@ class AvmExecutionTests : public ::testing::Test {
 TEST_F(AvmExecutionTests, basicAddReturn)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) +           // opcode SET
-                               "07"                              // dst_offset 0
                                "00"                              // Indirect flag
+                               "07"                              // dst_offset 0
                                + to_hex(AvmMemoryTag::U8) + "00" // val
                                + to_hex(OpCode::SET_8) +         // opcode SET
                                "00"                              // Indirect flag
