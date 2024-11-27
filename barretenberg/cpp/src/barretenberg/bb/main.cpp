@@ -1118,12 +1118,10 @@ int main(int argc, char* argv[])
 
             if (command == "verify") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                const std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
-                const std::filesystem::path mega_vk_path = output_dir / "mega_vk";
-                const std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
-                const std::filesystem::path translator_vk_path = output_dir / "translator_vk";
+                const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
+                const std::filesystem::path vk_path = output_dir / "client_ivc_vk";
 
-                return api.verify(client_ivc_proof_path, mega_vk_path, eccvm_vk_path, translator_vk_path) ? 0 : 1;
+                return api.verify(proof_path, vk_path) ? 0 : 1;
             }
 
             if (command == "prove_and_verify") {

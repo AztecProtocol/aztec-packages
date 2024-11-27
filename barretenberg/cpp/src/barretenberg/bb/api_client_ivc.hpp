@@ -178,10 +178,12 @@ class ClientIVCAPI : public API {
         // this directory is passed by bb.js)
         vinfo("writing ClientIVC proof and vk...");
         write_file(output_dir / "client_ivc_proof", to_buffer(proof));
-        write_file(output_dir / "mega_vk", to_buffer(ivc.honk_vk));
-        write_file(output_dir / "ecc_vk", to_buffer(ECCVMFlavor::VerificationKey(ivc.goblin.get_eccvm_proving_key())));
-        write_file(output_dir / "translator_vk",
-                   to_buffer(TranslatorFlavor::VerificationKey(ivc.goblin.get_translator_proving_key())));
+
+        auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+        auto translator_vk =
+            std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+        write_file(output_dir / "client_ivc_vk",
+                   to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
     };
 
     /**
@@ -196,27 +198,20 @@ class ClientIVCAPI : public API {
      * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
      * @return true (resp., false) if the proof is valid (resp., invalid).
      */
-    bool verify(const std::filesystem::path& proof_path,
-                const std::filesystem::path& mega_vk,
-                const std::filesystem::path& eccvm_vk_path,
-                const std::filesystem::path& translator_vk_path) override
+    bool verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path) override
     {
         init_bn254_crs(1);
         init_grumpkin_crs(1 << 15);
 
         const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
+        const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
-        const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(mega_vk);
-        final_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+        vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+        vk.eccvm->pcs_verification_key =
+            std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
+        vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-        const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
-        eccvm_vk->pcs_verification_key =
-            std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
-
-        const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
-        translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
-        const bool verified = ClientIVC::verify(proof, final_vk, eccvm_vk, translator_vk);
+        const bool verified = ClientIVC::verify(proof, vk);
         vinfo("verified: ", verified);
         return verified;
     };

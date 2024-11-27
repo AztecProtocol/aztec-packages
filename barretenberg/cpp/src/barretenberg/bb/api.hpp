@@ -10,10 +10,7 @@ class API {
                        const std::filesystem::path& witness_path,
                        const std::filesystem::path& output_dir) = 0;
 
-    virtual bool verify(const std::filesystem::path& proof_path,
-                        const std::filesystem::path& vk_path, // WORKTODO
-                        const std::filesystem::path& eccvm_vk_path,
-                        const std::filesystem::path& translator_vk_path) = 0;
+    virtual bool verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path) = 0;
 
     virtual bool prove_and_verify(const std::string& decode_msgpack, // WORKTODO
                                   const std::filesystem::path& bytecode_path,
