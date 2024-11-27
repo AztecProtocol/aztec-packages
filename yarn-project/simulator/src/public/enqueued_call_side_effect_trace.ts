@@ -12,7 +12,7 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  AztecAddress,
+  type AztecAddress,
   type ContractClassIdPreimage,
   EthAddress,
   Gas,
