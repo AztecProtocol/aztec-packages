@@ -124,7 +124,7 @@ function run_e2e_tests {
 
     "compose composed/docs_examples"
     "compose composed/e2e_aztec_js_browser"
-    "compose composed/e2e_sandbox_example"
+    "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
     "compose composed/pxe"
     "compose sample-dapp/index"
