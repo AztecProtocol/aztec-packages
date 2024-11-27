@@ -21,6 +21,7 @@
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm/generated/flavor.hpp"
@@ -259,10 +260,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/mega_vk"; // the vk of the last circuit in the stack
+    std::string vkPath = outputPath + "/client_ivc_vk";
     std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
 
     auto proof = ivc.prove();
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
@@ -271,9 +270,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.honk_vk)); // maybe dereference
-    write_file(translatorVkPath, to_buffer(translator_vk));
-    write_file(eccVkPath, to_buffer(eccvm_vk));
+    write_file(vkPath, to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
 }
 
 /**
@@ -284,19 +281,15 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
  */
 void prove_tube(const std::string& output_path)
 {
-    using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using StackHonkVK = typename MegaFlavor::VerificationKey;
-    using ECCVMVk = ECCVMFlavor::VerificationKey;
-    using TranslatorVk = TranslatorFlavor::VerificationKey;
-    using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
-    using VerifierInput = ClientIVC::VerifierInput;
+    using namespace stdlib::recursion::honk;
+
+    using GoblinVerifierInput = ClientIVCRecursiveVerifier::GoblinVerifierInput;
+    using VerifierInput = ClientIVCRecursiveVerifier::VerifierInput;
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/mega_vk"; // the vk of the last circuit in the stack
+    std::string vkPath = output_path + "/client_ivc_vk";
     std::string proofPath = output_path + "/client_ivc_proof";
-    std::string translatorVkPath = output_path + "/translator_vk";
-    std::string eccVkPath = output_path + "/ecc_vk";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
     init_bn254_crs(1 << 25);
@@ -304,17 +297,15 @@ void prove_tube(const std::string& output_path)
 
     // Read the proof  and verification data from given files
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
-    std::shared_ptr<StackHonkVK> mega_vk = std::make_shared<StackHonkVK>(from_buffer<StackHonkVK>(read_file(vkPath)));
-    std::shared_ptr<TranslatorVk> translator_vk =
-        std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
-    std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
+    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vkPath));
+
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
     // IPA. The + 1 is to satisfy IPA verification key requirements.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
-    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
+    vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
 
-    GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
-    VerifierInput input{ mega_vk, goblin_verifier_input };
+    GoblinVerifierInput goblin_verifier_input{ vk.eccvm, vk.translator };
+    VerifierInput input{ vk.mega, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
 
     // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
@@ -328,9 +319,9 @@ void prove_tube(const std::string& output_path)
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
     }
-    ClientIVC verifier{ builder, input };
+    ClientIVCRecursiveVerifier verifier{ builder, input };
 
-    ClientIVC::Output client_ivc_rec_verifier_output = verifier.verify(proof);
+    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
     PairingPointAccumulatorIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
@@ -695,13 +686,12 @@ void avm_prove(const std::filesystem::path& calldata_path,
                const std::filesystem::path& output_path)
 {
     std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
-    std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(read_file(public_inputs_path));
+    auto const avm_new_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
     vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
     vinfo("calldata size: ", calldata.size());
-    vinfo("public_inputs size: ", public_inputs_vec.size());
     vinfo("hints.storage_value_hints size: ", avm_hints.storage_value_hints.size());
     vinfo("hints.note_hash_exists_hints size: ", avm_hints.note_hash_exists_hints.size());
     vinfo("hints.nullifier_exists_hints size: ", avm_hints.nullifier_exists_hints.size());
@@ -715,7 +705,7 @@ void avm_prove(const std::filesystem::path& calldata_path,
 
     // Prove execution and return vk
     auto const [verification_key, proof] =
-        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(calldata, public_inputs_vec, avm_hints));
+        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(calldata, avm_new_public_inputs, avm_hints));
 
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
@@ -825,7 +815,7 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
     // verifier.
     std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
-    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         init_grumpkin_crs(1 << 16);
         vk->contains_ipa_claim = false;
         ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);

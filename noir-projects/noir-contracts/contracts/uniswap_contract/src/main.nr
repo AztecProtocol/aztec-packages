@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Uniswap {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PublicImmutable};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
@@ -25,7 +25,7 @@ contract Uniswap {
 
     #[storage]
     struct Storage<Context> {
-        portal_address: SharedImmutable<EthAddress, Context>,
+        portal_address: PublicImmutable<EthAddress, Context>,
     }
 
     #[public]
