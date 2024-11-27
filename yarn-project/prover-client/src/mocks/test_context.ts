@@ -1,5 +1,6 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
+  type ForkMerkleTreeWriteOperations,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
@@ -43,6 +44,7 @@ export class TestContext {
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public actualDb: MerkleTreeWriteOperations,
+    public forksProvider: ForkMerkleTreeWriteOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
@@ -72,15 +74,18 @@ export class TestContext {
     // Separated dbs for public processor and prover - see public_processor for context
     let publicDb: MerkleTreeWriteOperations;
     let proverDb: MerkleTreeWriteOperations;
+    let forksProvider: ForkMerkleTreeWriteOperations;
 
     if (worldState === 'native') {
       const ws = await NativeWorldStateService.tmp();
       publicDb = await ws.fork();
       proverDb = await ws.fork();
+      forksProvider = ws;
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);
       publicDb = await ws.getLatest();
       proverDb = await ws.getLatest();
+      forksProvider = ws;
     }
     worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
 
@@ -118,7 +123,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry, Fr.ZERO);
+    const orchestrator = new ProvingOrchestrator(forksProvider, queue, telemetry, Fr.ZERO);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -131,6 +136,7 @@ export class TestContext {
       simulationProvider,
       globalVariables,
       proverDb,
+      forksProvider,
       localProver,
       agent,
       orchestrator,

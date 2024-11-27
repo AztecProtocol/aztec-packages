@@ -47,7 +47,7 @@ describe('prover/orchestrator/errors', () => {
         'Rollup not accepting further transactions',
       );
 
-      const block = await context.orchestrator.setBlockCompleted();
+      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
       expect(block.number).toEqual(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
     });
@@ -55,7 +55,7 @@ describe('prover/orchestrator/errors', () => {
     it('throws if adding too many blocks', async () => {
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
-      await context.orchestrator.setBlockCompleted();
+      await context.orchestrator.setBlockCompleted(context.blockNumber);
 
       await expect(
         async () => await context.orchestrator.startNewBlock(2, context.globalVariables, []),
@@ -77,7 +77,7 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if completing a block before start', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
+      await expect(async () => await context.orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
         'Invalid proving state, call startNewBlock before adding transactions or completing the block',
       );
     });
@@ -85,7 +85,7 @@ describe('prover/orchestrator/errors', () => {
     it('throws if setting an incomplete block as completed', async () => {
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(3, context.globalVariables, []);
-      await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
+      await expect(async () => await context.orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
         `Block not ready for completion: expecting ${3} more transactions.`,
       );
     });

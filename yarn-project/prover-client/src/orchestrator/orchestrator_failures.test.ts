@@ -34,7 +34,7 @@ describe('prover/orchestrator/failures', () => {
 
     beforeEach(() => {
       mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
+      orchestrator = new ProvingOrchestrator(context.forksProvider, mockProver, new NoopTelemetryClient());
     });
 
     const run = async (message: string) => {
@@ -68,9 +68,11 @@ describe('prover/orchestrator/failures', () => {
           }
 
           if (!allTxsAdded) {
-            await expect(orchestrator.setBlockCompleted()).rejects.toThrow(`Block proving failed: ${message}`);
+            await expect(orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
+              `Block proving failed: ${message}`,
+            );
           } else {
-            await orchestrator.setBlockCompleted();
+            await orchestrator.setBlockCompleted(context.blockNumber);
           }
         } catch (err) {
           break;

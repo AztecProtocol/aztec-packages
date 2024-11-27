@@ -42,7 +42,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
         await context.orchestrator.addNewTx(tx);
       }
 
-      const block = await context.orchestrator.setBlockCompleted();
+      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
@@ -59,7 +59,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
         await context.orchestrator.addNewTx(tx);
       }
 
-      const block = await context.orchestrator.setBlockCompleted();
+      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
       expect(block.number).toEqual(context.blockNumber);
 

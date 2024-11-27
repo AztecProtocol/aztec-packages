@@ -116,7 +116,7 @@ describe('prover/orchestrator', () => {
         await sleep(1000);
 
         // now finish the block
-        await orchestrator.setBlockCompleted();
+        await orchestrator.setBlockCompleted(context.blockNumber);
 
         const result = await orchestrator.finaliseEpoch();
         expect(result.proof).toBeDefined();

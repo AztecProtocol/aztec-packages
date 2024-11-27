@@ -60,7 +60,7 @@ describe('prover/bb_prover/full-rollup', () => {
         expect(failed.length).toBe(0);
 
         log.info(`Setting block as completed`);
-        await context.orchestrator.setBlockCompleted();
+        await context.orchestrator.setBlockCompleted(context.blockNumber);
       }
 
       log.info(`Awaiting proofs`);
@@ -106,7 +106,7 @@ describe('prover/bb_prover/full-rollup', () => {
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
-    await context.orchestrator.setBlockCompleted();
+    await context.orchestrator.setBlockCompleted(context.blockNumber);
 
     const result = await context.orchestrator.finaliseEpoch();
     await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();

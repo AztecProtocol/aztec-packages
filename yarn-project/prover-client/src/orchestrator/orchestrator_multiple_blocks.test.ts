@@ -42,7 +42,7 @@ describe('prover/orchestrator/multi-block', () => {
         await context.orchestrator.addNewTx(tx);
 
         //  we need to complete the block as we have not added a full set of txs
-        const block = await context.orchestrator.setBlockCompleted();
+        const block = await context.orchestrator.setBlockCompleted(blockNum);
         header = block!.header;
       }
 

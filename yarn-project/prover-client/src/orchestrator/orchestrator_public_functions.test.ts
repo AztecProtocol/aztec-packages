@@ -49,7 +49,7 @@ describe('prover/orchestrator/public-functions', () => {
           await context.orchestrator.addNewTx(processedTx);
         }
 
-        const block = await context.orchestrator.setBlockCompleted();
+        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
         await context.orchestrator.finaliseEpoch();
         expect(block.number).toEqual(context.blockNumber);
       },

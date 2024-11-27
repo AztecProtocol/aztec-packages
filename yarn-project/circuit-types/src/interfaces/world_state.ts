@@ -25,10 +25,14 @@ export interface WorldStateSynchronizerStatus {
   syncedToL2Block: L2BlockId;
 }
 
-/**
- * Defines the interface for a world state synchronizer.
- */
-export interface WorldStateSynchronizer {
+/** Provides writeable forks of the world state at a given block number. */
+export interface ForkMerkleTreeWriteOperations {
+  /** Forks the world state at the given block number, defaulting to the latest one. */
+  fork(block?: number): Promise<MerkleTreeWriteOperations>;
+}
+
+/** Defines the interface for a world state synchronizer. */
+export interface WorldStateSynchronizer extends ForkMerkleTreeWriteOperations {
   /**
    * Starts the synchronizer.
    * @returns A promise that resolves once the initial sync is completed.
@@ -52,11 +56,6 @@ export interface WorldStateSynchronizer {
    * @returns A promise that resolves with the block number the world state was synced to
    */
   syncImmediate(minBlockNumber?: number): Promise<number>;
-
-  /**
-   * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
-   */
-  fork(block?: number): Promise<MerkleTreeWriteOperations>;
 
   /**
    * Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data.
