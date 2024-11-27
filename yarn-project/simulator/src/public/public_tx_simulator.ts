@@ -26,6 +26,7 @@ import { strict as assert } from 'assert';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
@@ -385,7 +386,15 @@ export class PublicTxSimulator {
    */
   public async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
     const stateManager = context.state.getActiveStateManager();
-    await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+    try {
+      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        throw new NullifierCollisionError(
+          `Nullifier collision encountered when inserting non-revertible nullifiers from private. Details: ${e.message}`,
+        );
+      }
+    }
   }
 
   /**
@@ -396,6 +405,14 @@ export class PublicTxSimulator {
     // Fork the state manager so we can rollback to end of setup if app logic reverts.
     context.state.fork();
     const stateManager = context.state.getActiveStateManager();
-    await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+    try {
+      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        throw new NullifierCollisionError(
+          `Nullifier collision encountered when inserting revertible nullifiers from private. Details: ${e.message}`,
+        );
+      }
+    }
   }
 }
