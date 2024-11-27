@@ -40,13 +40,6 @@ export class PublicExecutionRequest {
       .transform(PublicExecutionRequest.from);
   }
 
-  toJSON() {
-    return {
-      callContext: this.callContext,
-      args: this.args,
-    };
-  }
-
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicExecutionRequest(CallContext.fromBuffer(reader), reader.readVector(Fr));

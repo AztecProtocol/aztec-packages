@@ -45,17 +45,6 @@ function shouldBehaveLikeL2BlockL2Logs(
       }
     });
 
-    it('serializes to and from JSON via fromJSON', () => {
-      const l2Logs =
-        L2BlockL2Logs.name == 'ContractClass2BlockL2Logs'
-          ? L2BlockL2Logs.random(3, 1, 1)
-          : L2BlockL2Logs.random(3, 4, 2);
-      const json = jsonStringify(l2Logs);
-      const recovered = L2BlockL2Logs.fromJSON(JSON.parse(json));
-      expect(recovered).toEqual(l2Logs);
-      expect(recovered).toBeInstanceOf(L2BlockL2Logs);
-    });
-
     it('serializes to and from JSON via schema', () => {
       const l2Logs =
         L2BlockL2Logs.name == 'ContractClass2BlockL2Logs'

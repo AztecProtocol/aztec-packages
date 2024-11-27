@@ -42,10 +42,8 @@ docker run \
     -e METRICS_PORT="4318" \
     -e COLLECT_METRICS="true" \
     -e PULL_REQUEST="$PULL_REQUEST" \
+    -e CHECK_ALERTS="true" \
     $env_args \
     --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
     "$test_path" "$@" || [ "$ignore_failures" = "true" ]
 
-
-echo "Running alert checker..."
-docker run --network host --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG quality_of_service/alert_checker.test.ts
