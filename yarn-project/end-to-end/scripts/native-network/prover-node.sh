@@ -26,7 +26,7 @@ echo "Done waiting."
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 
 # Get node info from the boot node
-output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-node-info -u http://127.0.0.1:8080)
+output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-node-info --node-url http://127.0.0.1:8080)
 
 # Extract boot node ENR
 export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
