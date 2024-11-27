@@ -146,7 +146,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       } else {
         url = options.rpcUrl;
       }
-      await getNodeInfo(url, options.pxe, debugLogger, log);
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
     });
 
   program
