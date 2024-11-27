@@ -14,7 +14,6 @@
     "puppeteer": "^22.4.1"
   },
   "devDependencies": {
-    "@aztec/bb.js": "../../ts",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2"
   },
