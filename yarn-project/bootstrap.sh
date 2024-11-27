@@ -44,7 +44,7 @@ function run_e2e_tests {
 
   # Pre-pull the required image for visibility.
   # TODO: We want to avoid this time burden. Slim the image? Preload it in from host?
-  docker pull aztecprotocol/build:1.0
+  docker pull aztecprotocol/build:2.0
 
   # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource management.
   # If a test flakes out, mark it as flake in your PR so it no longer runs, and post a message in slack about it.

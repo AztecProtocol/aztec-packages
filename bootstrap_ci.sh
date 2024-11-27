@@ -4,10 +4,17 @@ set -eu
 NO_TERMINATE=${NO_TERMINATE:-0}
 GITHUB_ACTIONS=${GITHUB_ACTIONS:-}
 
-function gh_echo {
-  [ -n "${GITHUB_ACTIONS:-}" ] && echo $1 || true
+cd $(dirname $0)
+
+function gh_start_group {
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$1" || true
 }
 
+function gh_end_group {
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::" || true
+}
+
+# Ensure we terminate our running instance when the script exits.
 function on_exit {
     set +e
     if [ -n "${ip:-}" ] && [ "$NO_TERMINATE" -eq 0 ]; then
@@ -21,8 +28,6 @@ function on_exit {
 }
 trap on_exit EXIT
 
-cd $(dirname $0)
-
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
 if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]] ; then
@@ -30,21 +35,36 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-gh_echo "::group::Request Build Instance"
-ip_sir=$(./build-system/scripts/request_spot ci3-$USER 128 x86_64)
+instance_name=$(git rev-parse --abbrev-ref HEAD | sed 's|/|_|g')
+
+if [ "$1" == "log" ]; then
+  ip=$(aws ec2 describe-instances \
+    --region us-east-2 \
+    --filters "Name=tag:Name,Values=$instance_name" \
+    --query "Reservations[].Instances[].PublicIpAddress" \
+    --output text)
+  if [ -z "$ip" ]; then
+    echo "No instance found with name: $instance_name"
+    exit 1
+  fi
+  ssh -t ubuntu@$ip docker logs -f aztec_build
+  exit 0
+fi
+
+gh_start_group "Request Build Instance"
+ip_sir=$(./build-system/scripts/request_spot $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
-gh_echo "::endgroup::"
+gh_end_group
 
 # pass env vars to inform if we are inside github actions, and our AWS creds
 args="-e GITHUB_ACTIONS='$GITHUB_ACTIONS' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
-gh_echo "::group::Start CI Image"
-
 # - Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails)
 # - Run in our build container, cloning commit and running bootstrap.sh
+gh_start_group "Start CI Image"
 ssh -F build-system/remote/ssh_config ubuntu@$ip "
   docker run --privileged $args --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
