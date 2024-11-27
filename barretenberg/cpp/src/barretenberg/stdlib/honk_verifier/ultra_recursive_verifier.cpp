@@ -155,8 +155,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                         ->public_inputs[verification_key->verification_key
                                             ->ipa_claim_public_input_indices[Curve::BaseField::NUM_LIMBS + k]];
             }
-            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
-            ipa_claim.opening_pair.evaluation = 0;
+            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
+            ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
             ipa_claim.commitment = {
                 verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[8]],
                 verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]],
