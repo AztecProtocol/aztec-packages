@@ -1,5 +1,5 @@
 [package]
-name = "brillig_uninitialized_arrays"
+name = "negated_jmpif_condition"
 type = "bin"
 authors = [""]
 
