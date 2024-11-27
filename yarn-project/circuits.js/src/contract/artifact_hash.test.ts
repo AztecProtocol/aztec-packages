@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import { getPathToFixture, getTestContractArtifact } from '../tests/fixtures.js';
 import { computeArtifactHash } from './artifact_hash.js';
 
-const TEST_CONTRACT_ARTIFACT_HASH = `"0x08f4e5d2a0be9dc5c31894f88aaa93d353918078cd7fdfbbc7818ec3f2268b77"`;
+const TEST_CONTRACT_ARTIFACT_HASH = `"0x1d429080e986cf55e59203b4229063bf9b4d875e832fe56c5257303075110190"`;
 
 describe('ArtifactHash', () => {
   it('calculates the artifact hash', () => {
@@ -30,8 +30,10 @@ describe('ArtifactHash', () => {
   it('calculates the test contract artifact hash multiple times to ensure deterministic hashing', () => {
     const testArtifact = getTestContractArtifact();
 
+    const calculatedArtifactHash = computeArtifactHash(testArtifact).toString();
+    expect(calculatedArtifactHash).toMatchInlineSnapshot(TEST_CONTRACT_ARTIFACT_HASH);
     for (let i = 0; i < 1000; i++) {
-      expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(TEST_CONTRACT_ARTIFACT_HASH);
+      expect(computeArtifactHash(testArtifact).toString()).toBe(calculatedArtifactHash);
     }
   });
 
