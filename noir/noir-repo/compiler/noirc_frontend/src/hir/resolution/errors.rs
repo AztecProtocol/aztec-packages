@@ -101,6 +101,8 @@ pub enum ResolverError {
     JumpOutsideLoop { is_break: bool, span: Span },
     #[error("Only `comptime` globals can be mutable")]
     MutableGlobal { span: Span },
+    #[error("Globals must have a specified type")]
+    UnspecifiedGlobalType { span: Span, expected_type: Type },
     #[error("Self-referential structs are not supported")]
     SelfReferentialStruct { span: Span },
     #[error("#[no_predicates] attribute is only allowed on constrained functions")]
@@ -431,6 +433,13 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             },
+            ResolverError::UnspecifiedGlobalType { span, expected_type } => {
+                Diagnostic::simple_error(
+                    "Globals must have a specified type".to_string(),
+                    format!("Inferred type is `{expected_type}`"),
+                    *span,
+                )
+            },
             ResolverError::SelfReferentialStruct { span } => {
                 Diagnostic::simple_error(
                     "Self-referential structs are not supported".into(),
@@ -585,7 +594,7 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
             },
             ResolverError::TraitNotImplemented { impl_trait, missing_trait: the_trait, type_missing_trait: typ, span, missing_trait_location} => {
                 let mut diagnostic = Diagnostic::simple_error(
-                    format!("The trait bound `{typ}: {the_trait}` is not satisfied"), 
+                    format!("The trait bound `{typ}: {the_trait}` is not satisfied"),
                     format!("The trait `{the_trait}` is not implemented for `{typ}")
                     , *span);
                 diagnostic.add_secondary_with_file(format!("required by this bound in `{impl_trait}"), missing_trait_location.span, missing_trait_location.file);
