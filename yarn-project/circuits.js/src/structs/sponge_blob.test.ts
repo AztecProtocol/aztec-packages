@@ -18,12 +18,11 @@ describe('SpongeBlob', () => {
     expect(res).toEqual(spongeBlob);
   });
 
-  // TODO(Miranda): reinstate if we need to/from fields
-  // it('serializes to field array and deserializes it back', () => {
-  //   const fieldArray = spongeBlob.toFields();
-  //   const res = SpongeBlob.fromFields(fieldArray);
-  //   expect(res).toEqual(spongeBlob);
-  // });
+  it('serializes to field array and deserializes it back', () => {
+    const fieldArray = spongeBlob.toFields();
+    const res = SpongeBlob.fromFields(fieldArray);
+    expect(res).toEqual(spongeBlob);
+  });
 
   it('number of fields matches constant', () => {
     const fields = spongeBlob.sponge.cache.concat([

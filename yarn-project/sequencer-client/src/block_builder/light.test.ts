@@ -366,44 +366,8 @@ describe('LightBlockBuilder', () => {
       blobsHash,
     });
 
-    // TODO(Miranda): the wasm simulator can't run block root due to the bignum-based blob lib (stack too deep).
-    // For this test only I'm building outputs in ts. For other tests, I force the simulator to use native ACVM (not wasm).
-    // const result = await simulator.getBlockRootRollupProof(inputs);
-
-    const newArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, fork);
-    const newBlockHash = await fork.getLeafValue(
-      MerkleTreeId.ARCHIVE,
-      BigInt(newArchiveSnapshot.nextAvailableLeafIndex - 1),
-    );
-    const fees = [
-      new FeeRecipient(
-        rollupLeft.baseOrMergeRollupPublicInputs.constants.globalVariables.coinbase,
-        rollupLeft.baseOrMergeRollupPublicInputs.accumulatedFees.add(
-          rollupRight.baseOrMergeRollupPublicInputs.accumulatedFees,
-        ),
-      ),
-    ];
-
-    const blobPublicInputs = [BlockBlobPublicInputs.fromBlobs(blobs)];
-    const outputs = new BlockRootOrBlockMergePublicInputs(
-      inputs.startArchiveSnapshot,
-      newArchiveSnapshot,
-      previousBlockHash,
-      newBlockHash!,
-      rollupLeft.baseOrMergeRollupPublicInputs.constants.globalVariables,
-      rollupLeft.baseOrMergeRollupPublicInputs.constants.globalVariables,
-      sha256ToField([
-        rollupLeft.baseOrMergeRollupPublicInputs.outHash,
-        rollupRight.baseOrMergeRollupPublicInputs.outHash,
-      ]),
-      padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), AZTEC_MAX_EPOCH_DURATION),
-      rollupLeft.baseOrMergeRollupPublicInputs.constants.vkTreeRoot,
-      rollupLeft.baseOrMergeRollupPublicInputs.constants.protocolContractTreeRoot,
-      inputs.proverId,
-      padArrayEnd(blobPublicInputs, BlockBlobPublicInputs.empty(), AZTEC_MAX_EPOCH_DURATION),
-    );
-
-    return outputs;
+    const result = await simulator.getBlockRootRollupProof(inputs);
+    return result.inputs;
   };
 
   function getVkMembershipWitness(vk: VerificationKeyAsFields) {

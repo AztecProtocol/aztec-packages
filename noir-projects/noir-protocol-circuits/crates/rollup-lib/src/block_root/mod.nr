@@ -42,7 +42,9 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn check_blob() {
+    fn check_blob() {
+        // Note: this test will not run in unconstrained, because it reaches the foreign call
+        // TODO(BLOB_ORACLE): remove the oracle and switch this test to unconstrained
         let inputs = default_block_root_rollup_inputs();
         let outputs = inputs.block_root_rollup_circuit();
 

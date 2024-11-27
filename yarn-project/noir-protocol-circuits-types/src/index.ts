@@ -1,6 +1,7 @@
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  BlockBlobPublicInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -22,7 +23,9 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  SpongeBlob,
 } from '@aztec/circuits.js';
+import { Blob } from '@aztec/foundation/blob';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
@@ -497,6 +500,19 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
 }
 
 /**
+ * Converts the inputs of the simulated block root rollup circuit into a witness map.
+ * @param inputs - The block root rollup inputs.
+ * @returns The witness map
+ */
+export function convertSimulatedBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
+  const mapped = mapBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
+/**
  * Converts the inputs of the empty block root rollup circuit into a witness map.
  * @param inputs - The empty block root rollup inputs.
  * @returns The witness map
@@ -665,6 +681,23 @@ export function convertBlockRootRollupOutputsFromWitnessMap(outputs: WitnessMap)
 }
 
 /**
+ * Converts the outputs of the simulated block root rollup circuit from a witness map.
+ * @param outputs - The block root rollup outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertSimulatedBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+/**
  * Converts the outputs of the block merge rollup circuit from a witness map.
  * @param outputs - The block merge rollup outputs as a witness map.
  * @returns The public inputs.
@@ -728,6 +761,10 @@ function fromACVMField(field: string): Fr {
   return Fr.fromBuffer(Buffer.from(field.slice(2), 'hex'));
 }
 
+function toACVMField(field: Fr): string {
+  return `0x${field.toBuffer().toString('hex')}`;
+}
+
 export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
@@ -738,6 +775,36 @@ export function foreignCallHandler(name: string, args: ForeignCallInput[]): Prom
     const msg: string = msgRaw.map(acvmField => String.fromCharCode(fromACVMField(acvmField).toNumber())).join('');
     const fieldsFr: Fr[] = fields.map((field: string) => fromACVMField(field));
     log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
+  } else if (name === 'evaluateBlobs') {
+    // TODO(BLOB_ORACLE): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
+    // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
+    // If/when simulation times of unconstrained are improved, remove this.
+    // Create and evaulate our blobs:
+    const blobsAsFr: Fr[] = args[0].map((field: string) => fromACVMField(field)).filter(field => !field.isZero());
+    const blobs = Blob.getBlobs(blobsAsFr);
+    const blobPublicInputs = BlockBlobPublicInputs.fromBlobs(blobs);
+    // Checks on injected values:
+    const kzgCommitments = args[1].map((field: string) => fromACVMField(field));
+    const spongeBlob = SpongeBlob.fromFields(
+      args
+        .slice(2)
+        .flat()
+        .map((field: string) => fromACVMField(field)),
+    );
+    blobs.forEach((blob, i) => {
+      const injected = kzgCommitments.slice(2 * i, 2 * i + 2);
+      const calculated = blob.commitmentToFields();
+      if (!calculated[0].equals(injected[0]) || !calculated[1].equals(injected[1])) {
+        throw new Error(`Blob commitment mismatch. Real: ${calculated}, Injected: ${injected}`);
+      }
+      const hash = spongeBlob.squeeze();
+      if (!hash.equals(blob.fieldsHash)) {
+        throw new Error(
+          `Injected blob fields do not match rolled up fields. Real hash: ${hash}, Injected hash: ${blob.fieldsHash}`,
+        );
+      }
+    });
+    return Promise.resolve([blobPublicInputs.toFields().map(toACVMField)]);
   } else {
     throw Error(`unexpected oracle during execution: ${name}`);
   }

@@ -131,11 +131,22 @@ impl BlockRootRollupInputs {
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
         let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-        blob_public_inputs[0] = evaluate_blobs(
-            self.blobs_fields,
-            self.blob_commitments,
-            right.end_sponge_blob,
-        );
+        if !dep::std::runtime::is_unconstrained() {
+            blob_public_inputs[0] = evaluate_blobs(
+                self.blobs_fields,
+                self.blob_commitments,
+                right.end_sponge_blob,
+            );
+        } else {
+            // TODO(BLOB_ORACLE): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            blob_public_inputs[0] = unsafe {
+                blob::mock_blob_oracle::evaluate_blobs(
+                    self.blobs_fields,
+                    self.blob_commitments,
+                    right.end_sponge_blob,
+                )
+            };
+        }
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
