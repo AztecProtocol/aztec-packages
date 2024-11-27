@@ -11,11 +11,12 @@ use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
-use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
+use crate::ssa::{ir::function::RuntimeType, opt::flatten_cfg::value_merger::ValueMerger};
 
 use super::{
     basic_block::BasicBlockId,
     dfg::{CallStack, DataFlowGraph},
+    function::Function,
     map::Id,
     types::{NumericType, Type},
     value::{Value, ValueId},
@@ -70,6 +71,8 @@ pub(crate) enum Intrinsic {
     IsUnconstrained,
     DerivePedersenGenerators,
     FieldLessThan,
+    ArrayRefCount,
+    SliceRefCount,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -99,6 +102,8 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::IsUnconstrained => write!(f, "is_unconstrained"),
             Intrinsic::DerivePedersenGenerators => write!(f, "derive_pedersen_generators"),
             Intrinsic::FieldLessThan => write!(f, "field_less_than"),
+            Intrinsic::ArrayRefCount => write!(f, "array_refcount"),
+            Intrinsic::SliceRefCount => write!(f, "slice_refcount"),
         }
     }
 }
@@ -112,6 +117,10 @@ impl Intrinsic {
             Intrinsic::AssertConstant
             | Intrinsic::StaticAssert
             | Intrinsic::ApplyRangeConstraint
+            // Array & slice ref counts are treated as having side effects since they operate
+            // on hidden variables on otherwise identical array values.
+            | Intrinsic::ArrayRefCount
+            | Intrinsic::SliceRefCount
             | Intrinsic::AsWitness => true,
 
             // These apply a constraint that the input must fit into a specified number of limbs.
@@ -170,6 +179,8 @@ impl Intrinsic {
             "is_unconstrained" => Some(Intrinsic::IsUnconstrained),
             "derive_pedersen_generators" => Some(Intrinsic::DerivePedersenGenerators),
             "field_less_than" => Some(Intrinsic::FieldLessThan),
+            "array_refcount" => Some(Intrinsic::ArrayRefCount),
+            "slice_refcount" => Some(Intrinsic::SliceRefCount),
 
             other => BlackBoxFunc::lookup(other).map(Intrinsic::BlackBox),
         }
@@ -269,15 +280,7 @@ pub(crate) enum Instruction {
     ///     else_value
     /// }
     /// ```
-    ///
-    /// Where we save the result of !then_condition so that we have the same
-    /// ValueId for it each time.
-    IfElse {
-        then_condition: ValueId,
-        then_value: ValueId,
-        else_condition: ValueId,
-        else_value: ValueId,
-    },
+    IfElse { then_condition: ValueId, then_value: ValueId, else_value: ValueId },
 
     /// Creates a new array or slice.
     ///
@@ -371,12 +374,12 @@ impl Instruction {
         }
     }
 
-    pub(crate) fn can_eliminate_if_unused(&self, dfg: &DataFlowGraph) -> bool {
+    pub(crate) fn can_eliminate_if_unused(&self, function: &Function) -> bool {
         use Instruction::*;
         match self {
             Binary(binary) => {
                 if matches!(binary.operator, BinaryOp::Div | BinaryOp::Mod) {
-                    if let Some(rhs) = dfg.get_numeric_constant(binary.rhs) {
+                    if let Some(rhs) = function.dfg.get_numeric_constant(binary.rhs) {
                         rhs != FieldElement::zero()
                     } else {
                         false
@@ -395,15 +398,26 @@ impl Instruction {
             | ArraySet { .. }
             | MakeArray { .. } => true,
 
+            // Store instructions must be removed by DIE in acir code, any load
+            // instructions should already be unused by that point.
+            //
+            // Note that this check assumes that it is being performed after the flattening
+            // pass and after the last mem2reg pass. This is currently the case for the DIE
+            // pass where this check is done, but does mean that we cannot perform mem2reg
+            // after the DIE pass.
+            Store { .. } => {
+                matches!(function.runtime(), RuntimeType::Acir(_))
+                    && function.reachable_blocks().len() == 1
+            }
+
             Constrain(..)
-            | Store { .. }
             | EnableSideEffectsIf { .. }
             | IncrementRc { .. }
             | DecrementRc { .. }
             | RangeCheck { .. } => false,
 
             // Some `Intrinsic`s have side effects so we must check what kind of `Call` this is.
-            Call { func, .. } => match dfg[*func] {
+            Call { func, .. } => match function.dfg[*func] {
                 // Explicitly allows removal of unused ec operations, even if they can fail
                 Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::MultiScalarMul))
                 | Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::EmbeddedCurveAdd)) => true,
@@ -524,14 +538,11 @@ impl Instruction {
                     assert_message: assert_message.clone(),
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
-                Instruction::IfElse {
-                    then_condition: f(*then_condition),
-                    then_value: f(*then_value),
-                    else_condition: f(*else_condition),
-                    else_value: f(*else_value),
-                }
-            }
+            Instruction::IfElse { then_condition, then_value, else_value } => Instruction::IfElse {
+                then_condition: f(*then_condition),
+                then_value: f(*then_value),
+                else_value: f(*else_value),
+            },
             Instruction::MakeArray { elements, typ } => Instruction::MakeArray {
                 elements: elements.iter().copied().map(f).collect(),
                 typ: typ.clone(),
@@ -590,10 +601,9 @@ impl Instruction {
             | Instruction::RangeCheck { value, .. } => {
                 f(*value);
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_value } => {
                 f(*then_condition);
                 f(*then_value);
-                f(*else_condition);
                 f(*else_value);
             }
             Instruction::MakeArray { elements, typ: _ } => {
@@ -756,7 +766,7 @@ impl Instruction {
                     None
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_value } => {
                 let typ = dfg.type_of_value(*then_value);
 
                 if let Some(constant) = dfg.get_numeric_constant(*then_condition) {
@@ -775,13 +785,11 @@ impl Instruction {
 
                 if matches!(&typ, Type::Numeric(_)) {
                     let then_condition = *then_condition;
-                    let else_condition = *else_condition;
 
                     let result = ValueMerger::merge_numeric_values(
                         dfg,
                         block,
                         then_condition,
-                        else_condition,
                         then_value,
                         else_value,
                     );
