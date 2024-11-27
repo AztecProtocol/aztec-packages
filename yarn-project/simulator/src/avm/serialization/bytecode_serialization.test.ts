@@ -178,7 +178,7 @@ describe('Bytecode Serialization', () => {
 
     const bytecode = encodeToBytecode(instructions);
 
-    for (let i = 1; i < 7; i++) {
+    for (let i = 1; i < bytecode.length; i++) {
       const truncated = bytecode.subarray(0, bytecode.length - i);
       expect(decodeIncomplete(truncated)).toThrow(AvmParsingError);
     }
