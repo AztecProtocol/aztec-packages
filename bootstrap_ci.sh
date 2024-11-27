@@ -92,7 +92,7 @@ existing_instance=$(aws ec2 describe-instances \
   --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
   --output text)
 if [ -n "$existing_instance" ]; then
-  echo "Terminating existing instance with ip: $ip"
+  echo "Terminating existing instance: $existing_instance"
   aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance 2>&1
 fi
 # Request new instance.
