@@ -391,7 +391,7 @@ export class PublicTxSimulator {
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
-          `Nullifier collision encountered when inserting non-revertible nullifiers from private. Details: ${e.message}`,
+          `Nullifier collision encountered when inserting non-revertible nullifiers from private.\nDetails: ${e.message}\n.Stack:${e.stack}`,
         );
       }
     }
@@ -410,7 +410,7 @@ export class PublicTxSimulator {
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
-          `Nullifier collision encountered when inserting revertible nullifiers from private. Details: ${e.message}`,
+          `Nullifier collision encountered when inserting revertible nullifiers from private. Details:\n${e.message}\n.Stack:${e.stack}`,
         );
       }
     }
