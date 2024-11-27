@@ -204,7 +204,7 @@ jobs:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Build & push aztec blob sink image x86-64
         run: |
-          earthly-ci --no-output --push ./yarn-project+export-blob-sink --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=x86_64
+          earthly-ci --no-output --push ./yarn-project+export-blob-sink-arch --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=x86_64
 
   build-blob-sink-arm:
     needs: [configure, build-aztec-arm]
@@ -219,7 +219,7 @@ jobs:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Build & push aztec blob sink image arm
         run: |
-          earthly-ci --no-output --push ./yarn-project+export-blob-sink --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=arm64
+          earthly-ci --no-output --push ./yarn-project+export-blob-sink-arch --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=arm64
 
   publish-manifests:
     needs:

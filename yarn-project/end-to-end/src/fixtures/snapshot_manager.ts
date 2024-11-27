@@ -428,7 +428,6 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   aztecNodeConfig.dataDirectory = statePath;
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
-  // TODO(md): will this revive state???
   const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
     dataStoreConfig: {

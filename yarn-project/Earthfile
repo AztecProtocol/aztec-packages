@@ -157,8 +157,12 @@ blob-sink:
 export-blob-sink:
     FROM +blob-sink
     ARG DIST_TAG="latest"
+    SAVE IMAGE aztecprotocol/blob-sink:${DIST_TAG}
+
+export-blob-sink-arch:
+    FROM +blob-sink
     ARG ARCH
-    SAVE IMAGE --push aztecprotocol/blob-sink:${DIST_TAG}${ARCH:+-$ARCH}
+    SAVE IMAGE --push aztecprotocol/blob-sink:${ARCH:+-$ARCH}
 
 aztec-prod:
     FROM +cli-base
