@@ -148,6 +148,18 @@ export-cli-wallet:
     ARG ARCH
     SAVE IMAGE --push aztecprotocol/cli-wallet:${DIST_TAG}${ARCH:+-$ARCH}
 
+blob-sink:
+    FROM +cli-base
+    RUN yarn workspaces focus @aztec/blob-sink --production && yarn cache clean
+    ENTRYPOINT ["node", "/usr/src/yarn-project/blob-sink/dest/bin/run.js"]
+    SAVE ARTIFACT /usr/src /usr/src
+
+export-blob-sink:
+    FROM +blob-sink
+    ARG DIST_TAG="latest"
+    ARG ARCH
+    SAVE IMAGE --push aztecprotocol/blob-sink:${DIST_TAG}${ARCH:+-$ARCH}
+
 aztec-prod:
     FROM +cli-base
     RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
