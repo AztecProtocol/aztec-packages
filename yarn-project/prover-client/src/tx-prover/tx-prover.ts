@@ -99,7 +99,6 @@ export class TxProver implements EpochProverManager {
     }
     this.running = false;
     await this.stopAgents();
-    // TODO(palla/prover-node): Keep a reference to all proving orchestrators that are alive and stop them?
   }
 
   /**

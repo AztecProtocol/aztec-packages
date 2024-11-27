@@ -25,7 +25,7 @@ export async function startProverAgent(
     ...extractRelevantOptions<ProverAgentConfig>(options, proverAgentConfigMappings, 'proverAgent'), // override with command line options
   };
 
-  if (config.realProofs && (!config.bbBinaryPath || config.acvmBinaryPath)) {
+  if (config.realProofs && (!config.bbBinaryPath || !config.acvmBinaryPath)) {
     process.exit(1);
   }
 

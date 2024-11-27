@@ -37,7 +37,7 @@ export class ProverCacheManager {
     return new KVProverCache(store);
   }
 
-  public async removedStaleCaches(currentEpochNumber: bigint): Promise<void> {
+  public async removeStaleCaches(currentEpochNumber: bigint): Promise<void> {
     if (!this.cacheDir) {
       return;
     }

@@ -81,13 +81,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
 
     if (!jobEnqueued) {
       try {
-        await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
         const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
         await this.broker.enqueueProvingJob({
           id,
           type,
           inputsUri,
         });
+        await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
       } catch (err) {
         await this.cache.setProvingJobStatus(id, { status: 'not-found' });
         throw err;
