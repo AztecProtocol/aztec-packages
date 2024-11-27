@@ -11,8 +11,8 @@ struct EthAddress {
 };
 
 struct Gas {
-    uint32_t l2_gas{};
-    uint32_t da_gas{};
+    uint32_t l2_gas = 0;
+    uint32_t da_gas = 0;
 };
 
 inline void read(uint8_t const*& it, Gas& gas)
@@ -86,7 +86,7 @@ inline void read(uint8_t const*& it, GlobalVariables& global_variables)
 
 struct AppendOnlyTreeSnapshot {
     FF root{};
-    uint32_t size{};
+    uint32_t size = 0;
 };
 
 inline void read(uint8_t const*& it, AppendOnlyTreeSnapshot& tree_snapshot)
@@ -124,7 +124,7 @@ struct PublicCallRequest {
     /**
      * Function selector of the function being called.
      */
-    uint32_t function_selector{};
+    uint32_t function_selector = 0;
     /**
      * Determines whether the call is modifying state.
      */
@@ -143,9 +143,9 @@ inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)
 }
 
 struct PrivateToAvmAccumulatedDataArrayLengths {
-    uint32_t note_hashes{};
-    uint32_t nullifiers{};
-    uint32_t l2_to_l1_msgs{};
+    uint32_t note_hashes = 0;
+    uint32_t nullifiers = 0;
+    uint32_t l2_to_l1_msgs = 0;
 };
 
 inline void read(uint8_t const*& it, PrivateToAvmAccumulatedDataArrayLengths& lengths)
