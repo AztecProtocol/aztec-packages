@@ -321,6 +321,7 @@ describe('e2e_block_building', () => {
 
       // call test contract
       const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
+      const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
       const action = testContract.methods.emit_array_as_encrypted_log(
         values,
         thisWallet.getAddress(),
@@ -336,10 +337,11 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      for (let i = 0; i < 2; i++) {
-        const event = L1EventPayload.decryptAsIncoming(privateLogs[i], thisWallet.getEncryptionSecret())!;
-        expect(event.event.items).toEqual(values);
-      }
+      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      expect(event0.event.items).toEqual(values);
+
+      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      expect(event1.event.items).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.

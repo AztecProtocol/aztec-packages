@@ -87,20 +87,13 @@ describe('Logs', () => {
     it('emits multiple events as encrypted logs and decodes them', async () => {
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
-      let i = 0;
-      const firstTx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), preimage[i])
-        .send()
-        .wait();
-      await Promise.all(
-        [...new Array(3)].map(() =>
-          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage[++i]).send().wait(),
+      const txs = await Promise.all(
+        [...new Array(5)].map((_, i) =>
+          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage[i]).send().wait(),
         ),
       );
-      const lastTx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), preimage[i])
-        .send()
-        .wait();
+      const firstTx = txs[0];
+      const lastTx = txs[txs.length - 1];
 
       // We get all the events we can decrypt with either our incoming or outgoing viewing keys
 

@@ -87,9 +87,9 @@ done
 # At last, generate the flamegraph.
 # If it's a mega honk circuit, we need to set the backend_gates_command argument to "gates_mega_honk".
 if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-    $PROFILER gates-flamegraph --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" --backend-gates-command "gates_mega_honk" -- -h
+    $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" --backend-gates-command "gates_mega_honk" -- -h
 else
-    $PROFILER gates-flamegraph --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" -- -h
+    $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" -- -h
 fi
 
 # Serve the file over http if -s is set.
