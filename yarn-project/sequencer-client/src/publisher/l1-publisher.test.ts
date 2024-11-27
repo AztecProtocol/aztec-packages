@@ -243,7 +243,7 @@ describe('L1Publisher', () => {
       data,
       account,
       to: rollupContract.address,
-      blobs: blobs.map(blob => blob.data),
+      blobs: blobs.map(blob => blob.fullData),
       kzg,
       maxFeePerBlobGas: 10000000000n,
     });

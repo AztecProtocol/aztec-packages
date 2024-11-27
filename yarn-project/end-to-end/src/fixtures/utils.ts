@@ -51,6 +51,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil } from '@viem/anvil';
+import getPort from 'get-port';
 import * as path from 'path';
 import {
   type Account,
@@ -71,7 +72,6 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import getPort from 'get-port';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };
