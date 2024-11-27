@@ -173,7 +173,6 @@ pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
 pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
 pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
-pub global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
