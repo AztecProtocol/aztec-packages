@@ -2544,9 +2544,12 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ slot_offset, dest_offset }, mem_trace_builder);
     auto [resolved_slot, resolved_dest] = resolved_addrs;
+    error = res_error;
 
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
@@ -2570,6 +2573,10 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     FF value = read_hint.leaf_preimage.value;
     auto write_a = constrained_write_to_memory(
         call_ptr, clk, resolved_dest, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+
+    if (is_ok(error) && !write_a.tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
 
     // TODO(8945): remove fake rows
     auto row = Row{
@@ -2600,7 +2607,7 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     clk++;
 
     pc += Deserialization::get_pc_increment(OpCode::SLOAD);
-    return write_a.tag_match ? AvmError::NO_ERROR : AvmError::TAG_ERROR;
+    return error;
 }
 
 AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset)
@@ -2608,9 +2615,12 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     // We keep the first encountered error
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ src_offset, slot_offset }, mem_trace_builder);
     auto [resolved_src, resolved_slot] = resolved_addrs;
+    error = res_error;
 
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
@@ -2619,6 +2629,10 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
 
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_src, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+
+    if (is_ok(error) && !read_a.tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
 
     // Merkle check for SSTORE
     // (a) We compute the tree leaf slot of the low nullifier
@@ -2666,7 +2680,7 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     side_effect_counter++;
     clk++;
     pc += Deserialization::get_pc_increment(OpCode::SSTORE);
-    return read_a.tag_match ? AvmError::NO_ERROR : AvmError::TAG_ERROR;
+    return error;
 }
 
 AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
