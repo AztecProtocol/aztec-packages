@@ -48,7 +48,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   calldata = [functionSelector.toField(), ...calldata];
 
   const globalVariables = GlobalVariables.empty();
-  globalVariables.gasFees = GasFees.default();
+  globalVariables.gasFees = GasFees.empty();
   globalVariables.timestamp = new Fr(99833);
 
   const telemetry = new NoopTelemetryClient();
