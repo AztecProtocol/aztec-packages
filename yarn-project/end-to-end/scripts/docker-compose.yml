@@ -19,10 +19,18 @@ services:
       SEQ_TX_POLLING_INTERVAL_MS: 50
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      SEQ_BLOB_SINK_URL: http://blob-sink:${BLOB_SINK_PORT:-5052}
       ENABLE_GAS: ${ENABLE_GAS:-}
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
     expose:
       - '8080'
+
+  blob-sink:
+    image: aztecprotocol/blob-sink
+    environment:
+      PORT: ${BLOB_SINK_PORT:-5052}
+      DEBUG: 'aztec:*'
+      DEBUG_COLORS: 1
 
   end-to-end:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}

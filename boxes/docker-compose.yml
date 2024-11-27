@@ -18,8 +18,16 @@ services:
       SEQ_TX_POLLING_INTERVAL_MS: 50
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      SEQ_BLOB_SINK_URL: http://blob-sink:5052
     depends_on:
       - ethereum
+
+  blob-sink:
+    image: aztecprotocol/blob-sink:${AZTEC_DOCKER_TAG:-latest}
+    environment:
+      PORT: 5052
+      DEBUG: "aztec:*"
+      DEBUG_COLORS: "true"
 
   boxes:
     image: aztecprotocol/boxes:${AZTEC_DOCKER_TAG:-latest}
