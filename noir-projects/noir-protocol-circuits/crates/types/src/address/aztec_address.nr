@@ -19,10 +19,8 @@ use crate::{
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
-use std::{
-    ec::{pow, sqrt},
-    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
-};
+use ec::{pow, sqrt};
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
 // Aztec address
 pub struct AztecAddress {
