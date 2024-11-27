@@ -657,7 +657,7 @@ export class TXE implements TypedOracle {
     globalVariables.chainId = this.chainId;
     globalVariables.version = this.version;
     globalVariables.blockNumber = new Fr(this.blockNumber);
-    globalVariables.gasFees = GasFees.default();
+    globalVariables.gasFees = new GasFees(1, 1);
 
     const simulator = new PublicTxSimulator(
       db,
