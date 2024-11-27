@@ -215,8 +215,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceNullifierCheck(
-    _contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     exists: boolean,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
@@ -227,7 +226,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.enforceLimitOnNullifierChecks();
 
-    const readRequest = new ReadRequest(nullifier, this.sideEffectCounter);
+    const readRequest = new ReadRequest(siloedNullifier, this.sideEffectCounter);
     if (exists) {
       this.nullifierReadRequests.push(readRequest);
     } else {
@@ -246,8 +245,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceNewNullifier(
-    _contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
@@ -257,7 +255,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     if (this.nullifiers.length >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
-    this.nullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+    // this will be wrong for siloedNullifier
+    this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
     // New hinting
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));

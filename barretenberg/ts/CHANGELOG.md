@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.65.0...barretenberg.js-v0.65.1) (2024-11-27)
+
+
+### Features
+
+* Speed up transaction execution ([#10172](https://github.com/AztecProtocol/aztec-packages/issues/10172)) ([da265b6](https://github.com/AztecProtocol/aztec-packages/commit/da265b6b7d61a0d991fa23bd044f711513a0e86c))
+
+
+### Bug Fixes
+
+* Add pako as a dependency in bb.js ([#10186](https://github.com/AztecProtocol/aztec-packages/issues/10186)) ([b773c14](https://github.com/AztecProtocol/aztec-packages/commit/b773c14a8fe8bf425dc755b3a156e500e9924c1e))
+
 ## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.64.0...barretenberg.js-v0.65.0) (2024-11-26)
 
 
