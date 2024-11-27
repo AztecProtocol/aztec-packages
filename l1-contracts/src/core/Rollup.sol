@@ -238,11 +238,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @dev     We provide the `_archive` and `_blockHash` even if it could be read from storage itself because it allow for
    *          better error messages. Without passing it, we would just have a proof verification failure.
    *
-   * @param  _submitArgs - Struct for constructing PIs which has:
+   * @param  _submitArgs - Struct for constructing public inputs which has:
    *   epochSize - The size of the epoch (to be promoted to a constant)
    *   args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    *   fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *   blobPublicInputs- The blob PIs for the proof
+   *   blobPublicInputs- The blob public inputs for the proof
    * @param  _aggregationObject - The aggregation object for the proof
    * @param  _proof - The proof to verify
    */
@@ -396,7 +396,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
-   * @param _blobsHash - The EVM blob hash for this block
+   * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
   function validateHeader(
@@ -559,11 +559,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * own public inputs used for generating the proof vs the ones assembled
    * by this contract when verifying it.
    *
-   * @param  _submitArgs - Struct for constructing PIs which has:
+   * @param  _submitArgs - Struct for constructing public inputs which has:
    *   epochSize - The size of the epoch (to be promoted to a constant)
    *   args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    *   fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *   blobPublicInputs- The blob PIs for the proof
+   *   blobPublicInputs- The blob public inputs for the proof
    * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
@@ -572,7 +572,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) public view override(IRollup) returns (bytes32[] memory) {
     uint256 previousBlockNumber = tips.provenBlockNumber;
     uint256 endBlockNumber = previousBlockNumber + _submitArgs.epochSize;
-    bytes32[7] memory args = _submitArgs.args;
     // Args are defined as an array because Solidity complains with "stack too deep" otherwise
     // 0 bytes32 _previousArchive,
     // 1 bytes32 _endArchive,
@@ -588,26 +587,27 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       // We do it this way to provide better error messages than passing along the storage values
       bytes32 expectedPreviousArchive = blocks[previousBlockNumber].archive;
       require(
-        expectedPreviousArchive == args[0],
-        Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, args[0])
+        expectedPreviousArchive == _submitArgs.args[0],
+        Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _submitArgs.args[0])
       );
 
       bytes32 expectedEndArchive = blocks[endBlockNumber].archive;
       require(
-        expectedEndArchive == args[1], Errors.Rollup__InvalidArchive(expectedEndArchive, args[1])
+        expectedEndArchive == _submitArgs.args[1],
+        Errors.Rollup__InvalidArchive(expectedEndArchive, _submitArgs.args[1])
       );
 
       bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
       // TODO: Remove 0 check once we inject the proper genesis block hash
       require(
-        expectedPreviousBlockHash == 0 || expectedPreviousBlockHash == args[2],
-        Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, args[2])
+        expectedPreviousBlockHash == 0 || expectedPreviousBlockHash == _submitArgs.args[2],
+        Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _submitArgs.args[2])
       );
 
       bytes32 expectedEndBlockHash = blocks[endBlockNumber].blockHash;
       require(
-        expectedEndBlockHash == args[3],
-        Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, args[3])
+        expectedEndBlockHash == _submitArgs.args[3],
+        Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _submitArgs.args[3])
       );
     }
 
@@ -633,7 +633,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // }
 
     // previous_archive.root: the previous archive tree root
-    publicInputs[0] = args[0];
+    publicInputs[0] = _submitArgs.args[0];
 
     // previous_archive.next_available_leaf_index: the previous archive next available index
     // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
@@ -641,25 +641,25 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     publicInputs[1] = bytes32(previousBlockNumber + 1);
 
     // end_archive.root: the new archive tree root
-    publicInputs[2] = args[1];
+    publicInputs[2] = _submitArgs.args[1];
 
     // end_archive.next_available_leaf_index: the new archive next available index
     publicInputs[3] = bytes32(endBlockNumber + 1);
 
     // previous_block_hash: the block hash just preceding this epoch
-    publicInputs[4] = args[2];
+    publicInputs[4] = _submitArgs.args[2];
 
     // end_block_hash: the last block hash in the epoch
-    publicInputs[5] = args[3];
+    publicInputs[5] = _submitArgs.args[3];
 
     // end_timestamp: the timestamp of the last block in the epoch
-    publicInputs[6] = args[4];
+    publicInputs[6] = _submitArgs.args[4];
 
     // end_block_number: last block number in the epoch
     publicInputs[7] = bytes32(endBlockNumber);
 
     // out_hash: root of this epoch's l2 to l1 message tree
-    publicInputs[8] = args[5];
+    publicInputs[8] = _submitArgs.args[5];
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
@@ -677,7 +677,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     offset += 1;
 
     // prover_id: id of current epoch's prover
-    publicInputs[offset] = args[6];
+    publicInputs[offset] = _submitArgs.args[6];
     offset += 1;
 
     // blob_public_inputs
@@ -900,7 +900,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _signatures - The signatures for the attestations
    * @param _digest - The digest that signatures signed
    * @param _currentTime - The time of execution
-   * @param _blobsHash - The EVM blob hash for this block
+   * @param _blobsHash - The blobs hash for this block
    * @dev                - This value is provided to allow for simple simulation of future
    * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
