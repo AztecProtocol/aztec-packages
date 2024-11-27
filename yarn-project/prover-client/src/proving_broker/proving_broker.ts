@@ -178,7 +178,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       // exhaust the queue and make sure we're not sending a job that's already in progress
       // or has already been completed
       // this can happen if the broker crashes and restarts
-      // it's possible agents will report progress or results for jobs that are no longer in the queue
+      // it's possible agents will report progress or results for jobs that are in the queue (after the restart)
       while ((job = queue.getImmediate())) {
         if (!this.inProgress.has(job.id) && !this.resultsCache.has(job.id)) {
           const time = this.timeSource();

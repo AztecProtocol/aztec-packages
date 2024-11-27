@@ -8,7 +8,6 @@ import {
   ProvingRequestType,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
@@ -33,8 +32,7 @@ export class ProvingAgent {
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
-    name = randomBytes(4).toString('hex'),
-    private log = createDebugLogger('aztec:prover-client:proving-agent:' + name),
+    private log = createDebugLogger('aztec:prover-client:proving-agent'),
   ) {
     this.runningPromise = new RunningPromise(this.safeWork, this.pollIntervalMs);
   }
@@ -77,8 +75,8 @@ export class ProvingAgent {
         return;
       }
 
-      let abortedProofJobId: string = '';
-      let abortedProofName: string = '';
+      let abortedProofJobId: string | undefined;
+      let abortedProofName: string | undefined;
       if (this.currentJobController?.getStatus() === ProvingJobControllerStatus.PROVING) {
         abortedProofJobId = this.currentJobController.getJobId();
         abortedProofName = this.currentJobController.getProofTypeName();

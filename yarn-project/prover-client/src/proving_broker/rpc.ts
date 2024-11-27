@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuit-types';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type ApiSchemaFor } from '@aztec/foundation/schemas';
+import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -32,16 +32,15 @@ export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
   waitForJobToSettle: z.function().args(ProvingJobId).returns(ProvingJobSettledResult),
 };
 
-// can't use ApiSchemaFor because of the optional parameters
-export const ProvingJobConsumerSchema = {
-  getProvingJob: z.function().args(ProvingJobFilterSchema.optional()).returns(GetProvingJobResponse.optional()),
-  reportProvingJobError: z.function().args(ProvingJobId, z.string(), z.boolean().optional()).returns(z.void()),
+export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
+  getProvingJob: z.function().args(optional(ProvingJobFilterSchema)).returns(GetProvingJobResponse.optional()),
+  reportProvingJobError: z.function().args(ProvingJobId, z.string(), optional(z.boolean())).returns(z.void()),
   reportProvingJobProgress: z
     .function()
-    .args(ProvingJobId, z.number(), ProvingJobFilterSchema.optional())
+    .args(ProvingJobId, z.number(), optional(ProvingJobFilterSchema))
     .returns(GetProvingJobResponse.optional()),
   reportProvingJobSuccess: z.function().args(ProvingJobId, ProofUri).returns(z.void()),
-} as unknown as ApiSchemaFor<ProvingJobConsumer>;
+};
 
 export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
   ...ProvingJobConsumerSchema,

@@ -9,28 +9,28 @@ import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
-import type {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AvmCircuitInputs,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
-  KernelCircuitPublicInputs,
-  MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  ParityPublicInputs,
-  PrivateBaseRollupInputs,
-  PrivateKernelEmptyInputData,
-  PublicBaseRollupInputs,
-  RECURSIVE_PROOF_LENGTH,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
-  TUBE_PROOF_LENGTH,
-  TubeInputs,
+import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  type AvmCircuitInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
+  type PrivateBaseRollupInputs,
+  type PrivateKernelEmptyInputData,
+  type PublicBaseRollupInputs,
+  type RECURSIVE_PROOF_LENGTH,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type TUBE_PROOF_LENGTH,
+  type TubeInputs,
 } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -38,6 +38,9 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { InlineProofStore, type ProofStore } from './proof_store.js';
 import { InMemoryProverCache } from './prover_cache/memory.js';
+
+// 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
+const MAX_WAIT_MS = 1_200_000;
 
 /**
  * A facade around a job broker that generates stable job ids and caches results
@@ -47,6 +50,8 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     private broker: ProvingJobProducer,
     private cache: ProverCache = new InMemoryProverCache(),
     private proofStore: ProofStore = new InlineProofStore(),
+    private waitTimeoutMs = MAX_WAIT_MS,
+    private pollIntervalMs = 1000,
     private log = createDebugLogger('aztec:prover-client:caching-prover-broker'),
   ) {}
 
@@ -106,10 +111,17 @@ export class CachingBrokerFacade implements ServerCircuitProver {
       // loop here until the job settles
       // NOTE: this could also terminate because the job was cancelled through event listener above
       const result = await retryUntil(
-        () => this.broker.waitForJobToSettle(id),
+        async () => {
+          try {
+            return await this.broker.waitForJobToSettle(id);
+          } catch (err) {
+            // waitForJobToSettle can only fail for network errors
+            // keep retrying until we time out
+          }
+        },
         `Proving job=${id} type=${ProvingRequestType[type]}`,
-        0,
-        1,
+        this.waitTimeoutMs / 1000,
+        this.pollIntervalMs / 1000,
       );
 
       try {

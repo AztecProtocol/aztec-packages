@@ -260,7 +260,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     const cleanUp = async () => {
       await publicDb.close();
       await proverDb.close();
-      await this.proverCacheManager.removedStaleCaches(epochNumber);
+      await proverCache.close();
+      await this.proverCacheManager.removeStaleCaches(epochNumber);
       this.jobs.delete(job.getId());
     };
 

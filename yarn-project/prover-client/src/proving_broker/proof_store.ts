@@ -53,9 +53,10 @@ export interface ProofStore {
   getProofOutput(uri: ProofUri): Promise<ProvingJobResult>;
 }
 
-const PREFIX = 'data:application/json;base64';
+// use an ASCII encoded data uri https://datatracker.ietf.org/doc/html/rfc2397#section-2
+// we do this to avoid double encoding to base64 (since the inputs already serialize to a base64 string)
+const PREFIX = 'data:application/json;charset=utf-8';
 const SEPARATOR = ',';
-const BUFFER_ENCODING = 'base64url';
 
 /**
  * An implementation of a proof input/output database that stores data inline in the URI.
@@ -67,9 +68,7 @@ export class InlineProofStore implements ProofStore {
     inputs: ProvingJobInputsMap[T],
   ): Promise<ProofUri> {
     const jobInputs = { type, inputs } as ProvingJobInputs;
-    return Promise.resolve(
-      (PREFIX + SEPARATOR + Buffer.from(JSON.stringify(jobInputs)).toString(BUFFER_ENCODING)) as ProofUri,
-    );
+    return Promise.resolve(this.encode(jobInputs));
   }
 
   saveProofOutput<T extends ProvingRequestType>(
@@ -78,26 +77,28 @@ export class InlineProofStore implements ProofStore {
     result: ProvingJobResultsMap[T],
   ): Promise<ProofUri> {
     const jobResult = { type, result } as ProvingJobResult;
-    return Promise.resolve(
-      (PREFIX + SEPARATOR + Buffer.from(JSON.stringify(jobResult)).toString(BUFFER_ENCODING)) as ProofUri,
-    );
+    return Promise.resolve(this.encode(jobResult));
   }
 
   getProofInput(uri: ProofUri): Promise<ProvingJobInputs> {
+    return Promise.resolve(ProvingJobInputs.parse(this.decode(uri)));
+  }
+
+  getProofOutput(uri: ProofUri): Promise<ProvingJobResult> {
+    return Promise.resolve(ProvingJobResult.parse(this.decode(uri)));
+  }
+
+  private encode(obj: object): ProofUri {
+    const encoded = encodeURIComponent(JSON.stringify(obj));
+    return (PREFIX + SEPARATOR + encoded) as ProofUri;
+  }
+
+  private decode(uri: ProofUri): object {
     const [prefix, data] = uri.split(SEPARATOR);
     if (prefix !== PREFIX) {
       throw new Error('Invalid proof input URI: ' + prefix);
     }
 
-    return Promise.resolve(ProvingJobInputs.parse(JSON.parse(Buffer.from(data, BUFFER_ENCODING).toString())));
-  }
-
-  getProofOutput(uri: ProofUri): Promise<ProvingJobResult> {
-    const [prefix, data] = uri.split(SEPARATOR);
-    if (prefix !== PREFIX) {
-      throw new Error('Invalid proof output URI: ' + prefix);
-    }
-
-    return Promise.resolve(ProvingJobResult.parse(JSON.parse(Buffer.from(data, BUFFER_ENCODING).toString())));
+    return JSON.parse(decodeURIComponent(data));
   }
 }

@@ -93,6 +93,11 @@ export interface ProverCache {
    * @param jobId - The job ID
    */
   getProvingJobStatus(jobId: string): Promise<ProvingJobStatus>;
+
+  /**
+   * Closes the cache
+   */
+  close(): Promise<void>;
 }
 
 /**

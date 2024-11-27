@@ -34,10 +34,15 @@ export class ProverCacheManager {
 
     const store = AztecLmdbStore.open(dataDir);
     this.log.debug(`Created new database for epoch ${epochNumber} at ${dataDir}`);
-    return new KVProverCache(store);
+    const cleanup = () => store.close();
+    return new KVProverCache(store, cleanup);
   }
 
-  public async removeStaleCaches(currentEpochNumber: bigint): Promise<void> {
+  /**
+   * Removes all caches for epochs older than the given epoch (including)
+   * @param upToAndIncludingEpoch - The epoch number up to which to remove caches
+   */
+  public async removeStaleCaches(upToAndIncludingEpoch: bigint): Promise<void> {
     if (!this.cacheDir) {
       return;
     }
@@ -55,7 +60,7 @@ export class ProverCacheManager {
       }
 
       const epochNumberInt = BigInt(epochNumber);
-      if (epochNumberInt < currentEpochNumber) {
+      if (epochNumberInt <= upToAndIncludingEpoch) {
         this.log.info(`Removing old epoch database for epoch ${epochNumberInt} at ${join(this.cacheDir, item.name)}`);
         await rm(join(this.cacheDir, item.name), { recursive: true });
       }

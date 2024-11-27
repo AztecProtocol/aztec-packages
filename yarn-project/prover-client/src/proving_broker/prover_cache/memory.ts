@@ -13,4 +13,8 @@ export class InMemoryProverCache implements ProverCache {
   getProvingJobStatus(jobId: string): Promise<ProvingJobStatus> {
     return Promise.resolve(this.proofs[jobId] ?? { status: 'not-found' });
   }
+
+  close(): Promise<void> {
+    return Promise.resolve();
+  }
 }
