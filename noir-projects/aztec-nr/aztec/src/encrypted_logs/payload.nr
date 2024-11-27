@@ -38,7 +38,7 @@ pub comptime global OVERHEAD_SIZE: u32 = 32 /* eph_pk */
     + OUTGOING_BODY_SIZE /* outgoing_body */
     + OVERHEAD_PADDING /* padding */;
 
-global PLAINTEXT_LENGTH_SIZE = 2;
+global PLAINTEXT_LENGTH_SIZE: u32 = 2;
 
 // This is enough for 8 fields of data.
 // 1 field for storage slot, 1 field for note/event type id, allowing 6 fields for custom values.
