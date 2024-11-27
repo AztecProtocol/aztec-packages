@@ -15,6 +15,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
 
   log(`Block ${blockNumber} (${block.hash().toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
+  log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
     ` Fee per gas unit: DA=${block.header.globalVariables.gasFees.feePerDaGas.toBigInt()} L2=${block.header.globalVariables.gasFees.feePerL2Gas.toBigInt()}`,
   );

@@ -48,6 +48,8 @@ impl MergeRollupInputs {
 
         let accumulated_fees = components::accumulate_fees(left, right);
 
+        let accumulated_mana_used = components::accumulate_mana_used(left, right);
+
         let public_inputs = BaseOrMergeRollupPublicInputs {
             rollup_type: MERGE_ROLLUP_TYPE,
             num_txs: left.num_txs + right.num_txs,
@@ -57,6 +59,7 @@ impl MergeRollupInputs {
             txs_effects_hash,
             out_hash,
             accumulated_fees,
+            accumulated_mana_used,
         };
 
         public_inputs
