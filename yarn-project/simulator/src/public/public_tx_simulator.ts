@@ -24,8 +24,6 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 
 import { strict as assert } from 'assert';
 
-import { strict as assert } from 'assert';
-
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
