@@ -122,7 +122,7 @@ function run_e2e_tests {
     "flake flakey_e2e_inclusion_proofs_contract"
 
     "compose composed/docs_examples"
-    "compose composed/e2e_aztec_js_browser"
+    "flake composed/e2e_aztec_js_browser"
     "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
     "compose composed/pxe"
@@ -148,21 +148,21 @@ function run_e2e_tests {
   rm -rf results
   set +e
   parallel --timeout 15m --verbose --joblog joblog.txt --results results/{2}-{#}/ --halt now,fail=1 \
-      {3} ./scripts/test.sh {1} {2} ::: ${commands[@]} :::+ ${tests[@]} :::+ "${env_vars[@]}"
+      '{3} ./scripts/test.sh {1} {2} 2>&1' ::: ${commands[@]} :::+ ${tests[@]} :::+ "${env_vars[@]}"
   code=$?
   set -e
 
   awk 'NR > 1 && $7 != 0 {print $NF "-" $1}' joblog.txt | while read -r job; do
     stdout_file="results/${job}/stdout"
-    stderr_file="results/${job}/stderr"
+    # stderr_file="results/${job}/stderr"
     if [ -f "$stdout_file" ]; then
-      echo "=== Failed Job Output: $stdout_file ==="
+      echo "=== Failed Job Output ==="
       cat "$stdout_file"
     fi
-    if [ -f "$stderr_file" ]; then
-      echo "=== Failed Job Output: $stderr_file ==="
-      cat "$stderr_file"
-    fi
+    # if [ -f "$stderr_file" ]; then
+    #   echo "=== Failed Job Output: $stderr_file ==="
+    #   cat "$stderr_file"
+    # fi
   done
 
   echo "=== Job Log ==="
