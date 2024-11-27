@@ -30,6 +30,9 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          USER: ${{ github.actor }}
         run: |
+          # Sanitize the branch name
+          BRANCH_NAME=$(echo "${GITHUB_REF_NAME}" | sed 's/[^a-zA-Z0-9-]/-/g')
+          export USER="${{ github.actor }}-${BRANCH_NAME}"
+          echo "Running with instance ${USER}"
           ./bootstrap_ci.sh
