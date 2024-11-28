@@ -1,0 +1,24 @@
+#!/bin/bash
+set -eu
+
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $0 <flag name>"
+  exit 1
+fi
+
+if [ ${CI:-0} = 0 ] ; then
+  # Don't upload if not in CI mode.
+  exit 0
+fi
+
+function on_exit() {
+  # Cleanup the temporary tar.gz file
+  rm -f .success
+}
+
+NAME="$1"
+
+shift 1
+echo "success" > .success
+
+aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp .success "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress

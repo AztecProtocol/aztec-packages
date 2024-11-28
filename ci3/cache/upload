@@ -6,6 +6,11 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
+if [ ${CI:-0} = 0 ] ; then
+  # Don't upload if not in CI mode.
+  exit 0
+fi
+
 # Name, intended to have .tar.gz ending
 NAME="$1"
 
