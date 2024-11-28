@@ -1,6 +1,0 @@
-#!/bin/bash
-# An entrypoint tailored to run tests on one module.
-# Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
-
-USE_CACHE=1 TEST=1 ../../l1-contracts/bootstrap.sh

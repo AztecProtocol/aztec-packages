@@ -41,9 +41,13 @@ base-log-uploader:
         rm -rf aws awscliv2.zip
     COPY +scripts/scripts /usr/src/scripts
 
-bootstrap:
+bootstrap-test:
     # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
     FROM ./build-images+from-registry
+    WORKDIR /usr/src
     ARG EARTHLY_BUILD_SHA
-    COPY . .
-    RUN TEST=0 CI=1 ./bootstrap.sh
+    RUN git init  &&\
+      git remote add origin http://github.com/aztecprotocol/aztec-packages &&\
+      git fetch --depth 1 origin $EARTHLY_BUILD_SHA &&\
+      git checkout FETCH_HEAD >/dev/null
+    RUN ci3/tests/bootstrap_test
