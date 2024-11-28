@@ -6,9 +6,9 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
-if [ ${CI:-0} = 0 ] ; then
-  # Don't upload if not in CI mode.
-  exit 0
+if [ "${CACHE:-0}" -lt 2 ] ; then
+  # Don't upload if CACHE isn't set to 2.
+  exit 1
 fi
 
 function on_exit() {
