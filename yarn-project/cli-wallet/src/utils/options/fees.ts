@@ -44,8 +44,8 @@ function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGa
   return `da=${estimate.gasLimits.daGas},l2=${estimate.gasLimits.l2Gas},teardownDA=${estimate.teardownGasLimits.daGas},teardownL2=${estimate.teardownGasLimits.l2Gas}`;
 }
 
-function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, fees: GasFees) {
-  return GasSettings.from({ ...GasSettings.default(), ...estimate, maxFeesPerGas: fees })
+function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, maxFeesPerGas: GasFees) {
+  return GasSettings.default({ ...estimate, maxFeesPerGas })
     .getFeeLimit()
     .toBigInt();
 }
@@ -60,8 +60,8 @@ export class FeeOpts implements IFeeOpts {
 
   async toSendOpts(sender: AccountWallet): Promise<SendMethodOptions> {
     return {
-      estimateGas: this.estimateGas,
       fee: {
+        estimateGas: this.estimateGas,
         gasSettings: this.gasSettings,
         paymentMethod: await this.paymentMethodFactory(sender),
       },
@@ -90,12 +90,10 @@ export class FeeOpts implements IFeeOpts {
     const gasFees = args.maxFeesPerGas
       ? parseGasFees(args.maxFeesPerGas)
       : { maxFeesPerGas: await pxe.getCurrentBaseFees() };
-    const input = {
-      ...GasSettings.default(),
-      ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
+    const gasSettings = GasSettings.default({
       ...gasFees,
-    };
-    const gasSettings = GasSettings.from(input);
+      ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
+    });
 
     if (!args.gasLimits && !args.payment) {
       return new NoFeeOpts(estimateOnly, gasSettings);

@@ -22,7 +22,7 @@ describe('prover/bb_prover/full-rollup', () => {
       return prover;
     };
     log = createDebugLogger('aztec:bb-prover-full-rollup');
-    context = await TestContext.new(log, 'legacy', 1, buildProver);
+    context = await TestContext.new(log, 'native', 1, buildProver);
   });
 
   afterAll(async () => {

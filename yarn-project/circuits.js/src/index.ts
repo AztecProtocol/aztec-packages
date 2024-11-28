@@ -1,4 +1,4 @@
-export * from './constants.gen.js';
+export * from './constants.js';
 export * from './contract/index.js';
 export * from './hints/index.js';
 export * from './interfaces/index.js';
