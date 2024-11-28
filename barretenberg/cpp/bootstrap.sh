@@ -44,9 +44,7 @@ if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
 fi
 
 # Download ignition transcripts.
-$ci3/github/group "download ignition"
 $ci3/base/denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
-$ci3/github/endgroup
 
 # Pick native toolchain file.
 ARCH=$(uname -m)

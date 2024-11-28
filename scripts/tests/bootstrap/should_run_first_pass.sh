@@ -6,4 +6,3 @@ if ! $ci3/cache/should_run.bkup "$@"; then
 fi
 # We never return true, as we don't want to run tests
 exit 1
-

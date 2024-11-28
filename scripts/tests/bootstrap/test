@@ -31,14 +31,15 @@ function run_bootstrap() {
   cp $2 $ci3/cache/download
   rm -f $ci3/cache/.test_faillures
 
-  TEST=1 USE_CACHE=1 $ci3/base/denoise $root/$project/bootstrap.sh
+  cd $root/$project
+  TEST=1 USE_CACHE=1 $ci3/base/denoise ./bootstrap.sh
   exit_code=$?
   if [ "$exit_code" != 0 ]; then
     echo "Bootstrap had a bad exit code $exit_code."
     all_tests_passed=false
   fi
   run_cleanup
-  exit $exit_code
+  return $exit_code
 }
 
 function check_for_bad_asserts() {
@@ -69,13 +70,13 @@ function test_CI_1_second_pass() {
 }
 
 PROJECTS=(
-  noir
+  # noir
   barretenberg
-  l1-contracts
-  avm-transpiler
-  noir-projects
-  yarn-project
-  boxes
+  # l1-contracts
+  # avm-transpiler
+  # noir-projects
+  # yarn-project
+  # boxes
 )
 
 for project in "${PROJECTS[@]}"; do

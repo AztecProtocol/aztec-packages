@@ -8,4 +8,11 @@ cd "$(dirname $0)"
 root="$(git rev-parse --show-toplevel)"
 ci3="$root/ci3"
 # Conditionally print all statements ran in CI scripts. Useful for debugging commands that weren't expected to error out.
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+if [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] ; then
+  set -x
+elif [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
+  exec 19>>"$BUILD_SYSTEM_DEBUG"
+  BASH_XTRACEFD=19
+
+  set -x
+fi
