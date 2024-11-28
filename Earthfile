@@ -45,9 +45,9 @@ bootstrap-test:
     # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
     FROM ./build-images+from-registry
     WORKDIR /usr/src
-    ARG EARTHLY_BUILD_SHA
-    RUN git init &>/dev/null &&\
-      git remote add origin http://github.com/aztecprotocol/aztec-packages &&\
-      git fetch --depth 1 origin $EARTHLY_BUILD_SHA &&\
-      git checkout FETCH_HEAD >/dev/null
-    RUN ci3/tests/bootstrap_test
+    ARG EARTHLY_GIT_HASH
+    RUN git init
+    RUN git remote add origin http://github.com/aztecprotocol/aztec-packages
+    RUN git fetch --depth 1 origin $EARTHLY_GIT_HASH
+    RUN git checkout FETCH_HEAD
+    RUN scripts/tests/bootstrap/bootstrap_test
