@@ -46,8 +46,10 @@ bootstrap-test:
     FROM ./build-images+from-registry
     WORKDIR /usr/src
     ARG EARTHLY_GIT_HASH
-    RUN git init
-    RUN git remote add origin https://github.com/aztecprotocol/aztec-packages
-    RUN git fetch --depth 1 origin $EARTHLY_GIT_HASH
-    RUN git checkout FETCH_HEAD
-    RUN scripts/test/bootstrap/bootstrap_test
+    # Use a cache volume
+    RUN --mount=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
+        git init || true && \
+        git remote add origin https://github.com/aztecprotocol/aztec-packages || true && \
+        git fetch --depth 1 origin $EARTHLY_GIT_HASH && \
+        git checkout FETCH_HEAD && \
+        scripts/test/bootstrap/bootstrap_test
