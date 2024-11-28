@@ -86,6 +86,12 @@ export enum Opcode {
   TORADIXBE,
 }
 
+export const MAX_OPCODE_VALUE = Math.max(
+  ...Object.values(Opcode)
+    .map(k => +k)
+    .filter(k => !isNaN(k)),
+);
+
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
 // See vm/avm_trace/deserialization.cpp)
 // Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,

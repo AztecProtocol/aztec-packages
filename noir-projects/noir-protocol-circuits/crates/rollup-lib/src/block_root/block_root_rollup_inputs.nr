@@ -20,9 +20,8 @@ use types::{
     state_reference::StateReference,
     traits::Empty,
 };
-use types::debug_log::debug_log_format;
 
-global ALLOWED_PREVIOUS_CIRCUITS =
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 pub struct BlockRootRollupInputs {
@@ -97,6 +96,8 @@ impl BlockRootRollupInputs {
 
         let total_fees = components::accumulate_fees(left, right);
 
+        let total_mana_used = components::accumulate_mana_used(left, right);
+
         // unsafe {
         //     debug_log_format("Assembling header in block root rollup", []);
         //     debug_log_format(
@@ -113,6 +114,7 @@ impl BlockRootRollupInputs {
         //         left.constants.global_variables.serialize()
         //     );
         //     debug_log_format("header.total_fees={0}", [total_fees]);
+        //     debug_log_format("header.total_mana_used={0}", [total_mana_used]);
         // }
         let header = Header {
             last_archive: left.constants.last_archive,
@@ -120,6 +122,7 @@ impl BlockRootRollupInputs {
             state,
             global_variables: left.constants.global_variables,
             total_fees,
+            total_mana_used,
         };
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.

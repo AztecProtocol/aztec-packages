@@ -41,6 +41,7 @@ export class ServerWorldStateSynchronizer
   private readonly merkleTreeCommitted: MerkleTreeReadOperations;
 
   private latestBlockNumberAtStart = 0;
+  private historyToKeep: number | undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
   private latestBlockHashQuery: { blockNumber: number; hash: string | undefined } | undefined = undefined;
 
@@ -57,6 +58,12 @@ export class ServerWorldStateSynchronizer
   ) {
     this.instrumentation = new WorldStateInstrumentation(telemetry);
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
+    this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
+    this.log.info(
+      `Created world state synchroniser with block history of ${
+        this.historyToKeep === undefined ? 'infinity' : this.historyToKeep
+      }`,
+    );
   }
 
   public getCommitted(): MerkleTreeReadOperations {
@@ -266,7 +273,16 @@ export class ServerWorldStateSynchronizer
 
   private async handleChainFinalized(blockNumber: number) {
     this.log.verbose(`Chain finalized at block ${blockNumber}`);
-    await this.merkleTreeDb.setFinalised(BigInt(blockNumber));
+    const summary = await this.merkleTreeDb.setFinalised(BigInt(blockNumber));
+    if (this.historyToKeep === undefined) {
+      return;
+    }
+    const newHistoricBlock = summary.finalisedBlockNumber - BigInt(this.historyToKeep) + 1n;
+    if (newHistoricBlock <= 1) {
+      return;
+    }
+    this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
+    await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
   }
 
   private handleChainProven(blockNumber: number) {

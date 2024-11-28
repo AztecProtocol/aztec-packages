@@ -707,7 +707,18 @@ export class L1Publisher {
   }): Promise<string | undefined> {
     try {
       const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-      const txArgs = [...this.getSubmitEpochProofArgs(args), proofHex] as const;
+      const argsArray = this.getSubmitEpochProofArgs(args);
+
+      const txArgs = [
+        {
+          epochSize: argsArray[0],
+          args: argsArray[1],
+          fees: argsArray[2],
+          aggregationObject: argsArray[3],
+          proof: proofHex,
+        },
+      ] as const;
+
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
       await this.rollupContract.simulate.submitEpochRootProof(txArgs, { account: this.account });
       return await this.rollupContract.write.submitEpochRootProof(txArgs, { account: this.account });

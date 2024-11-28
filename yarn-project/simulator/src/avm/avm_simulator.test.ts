@@ -8,7 +8,7 @@ import {
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -54,11 +54,7 @@ import {
   EmitUnencryptedLog,
   type Instruction,
   Jump,
-  L1ToL2MessageExists,
-  NoteHashExists,
-  NullifierExists,
   Return,
-  SLoad,
   SStore,
   SendL2ToL1Message,
   Set,
@@ -534,6 +530,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const listSlot1 = new Fr(listSlotNumber1);
     const value0 = new Fr(420);
     const value1 = new Fr(69);
+    const siloedNullifier0 = siloNullifier(address, value0);
 
     let worldStateDB: WorldStateDB;
     let trace: PublicSideEffectTraceInterface;
@@ -605,7 +602,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const isPending = false;
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
         const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, exists);
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, exists);
       });
     });
 
@@ -671,7 +668,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.output).toEqual([]);
 
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
 
     describe('Cached nullifiers', () => {
@@ -686,10 +683,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         // New nullifier and nullifier existence check should be traced
         expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+        expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
         expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, /*exists=*/ true);
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, /*exists=*/ true);
       });
       it(`Emits same nullifier twice (expect failure)`, async () => {
         const calldata = [value0];
@@ -703,7 +700,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         // Nullifier should be traced exactly once
         expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+        expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
       });
     });
 
@@ -1102,27 +1099,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it.each([
         ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
-        ['Public storage reads', () => new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 0)],
-        [
-          'Note hash checks',
-          () => new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffest=*/ 0, /*existsOffset=*/ 1),
-        ],
         ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        [
-          'Nullifier checks',
-          () => new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffest=*/ 0, /*existsOffset=*/ 1),
-        ],
         ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        [
-          'L1 to L2 message checks',
-          () =>
-            new L1ToL2MessageExists(
-              /*indirect=*/ 0,
-              /*msgHashOffset=*/ 0,
-              /*msgLeafIndexOffest=*/ 0,
-              /*existsOffset=*/ 1,
-            ),
-        ],
         ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logOffset=*/ 0, /*logSizeOffest=*/ 1)],
         [
           'New L1 to L2 messages',

@@ -353,7 +353,7 @@ AvmError AvmTraceBuilder::op_add(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a + b = c
@@ -436,7 +436,7 @@ AvmError AvmTraceBuilder::op_sub(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a - b = c
@@ -517,7 +517,7 @@ AvmError AvmTraceBuilder::op_mul(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a * b = c
@@ -599,7 +599,7 @@ AvmError AvmTraceBuilder::op_div(
 
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a / b = c
@@ -695,7 +695,7 @@ AvmError AvmTraceBuilder::op_fdiv(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a * b^(-1) = c
@@ -789,7 +789,7 @@ AvmError AvmTraceBuilder::op_eq(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = read_a.val;
@@ -860,7 +860,7 @@ AvmError AvmTraceBuilder::op_lt(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -929,7 +929,7 @@ AvmError AvmTraceBuilder::op_lte(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1003,7 +1003,7 @@ AvmError AvmTraceBuilder::op_and(
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1073,7 +1073,7 @@ AvmError AvmTraceBuilder::op_or(
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1143,7 +1143,7 @@ AvmError AvmTraceBuilder::op_xor(
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1217,7 +1217,7 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
 
     if (is_ok(error) && !check_tag_integral(read_a.tag)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // ~a = c
@@ -1284,7 +1284,7 @@ AvmError AvmTraceBuilder::op_shl(
     auto read_b = unconstrained_read_from_memory(resolved_b);
 
     if (is_ok(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = is_ok(error) ? read_a.val : FF(0);
@@ -1351,7 +1351,7 @@ AvmError AvmTraceBuilder::op_shr(
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
     auto read_b = unconstrained_read_from_memory(resolved_b);
     if (is_ok(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = is_ok(error) ? read_a.val : FF(0);
@@ -1773,7 +1773,7 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     bool tag_match = true;
     if (is_ok(error) && !(check_tag(AvmMemoryTag::U32, cd_offset_resolved) &&
                           check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO: constrain these.
@@ -1823,7 +1823,7 @@ AvmError AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offs
     error = res_error;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF returndata_size = tag_match ? FF(nested_returndata.size()) : FF(0);
@@ -1867,7 +1867,7 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     bool tag_match = true;
     if (is_ok(error) && !(check_tag(AvmMemoryTag::U32, rd_offset_resolved) &&
                           check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO: constrain these.
@@ -2024,7 +2024,7 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t cond_offset, uint3
     error = res_error;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Specific JUMPI loading of conditional value into intermediate register id without any tag constraint.
@@ -2184,7 +2184,7 @@ AvmError AvmTraceBuilder::op_set(
         call_ptr, clk, resolved_dst_offset, val, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
 
     if (is_ok(error) && !write_c.tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Constrain gas cost
@@ -2240,7 +2240,7 @@ AvmError AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t
     error = res_error;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Reading from memory and loading into ia without tag check.
@@ -2305,7 +2305,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint
         call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_a.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     return RowWithError{ .row =
@@ -2360,7 +2360,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     return RowWithError{ .row =
@@ -2507,7 +2507,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hi
     bool tag_match = write_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     return RowWithError{ .row =
@@ -2544,9 +2544,12 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ slot_offset, dest_offset }, mem_trace_builder);
     auto [resolved_slot, resolved_dest] = resolved_addrs;
+    error = res_error;
 
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
@@ -2570,6 +2573,10 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     FF value = read_hint.leaf_preimage.value;
     auto write_a = constrained_write_to_memory(
         call_ptr, clk, resolved_dest, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+
+    if (is_ok(error) && !write_a.tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
 
     // TODO(8945): remove fake rows
     auto row = Row{
@@ -2600,7 +2607,7 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     clk++;
 
     pc += Deserialization::get_pc_increment(OpCode::SLOAD);
-    return write_a.tag_match ? AvmError::NO_ERROR : AvmError::TAG_ERROR;
+    return error;
 }
 
 AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset)
@@ -2608,9 +2615,12 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     // We keep the first encountered error
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ src_offset, slot_offset }, mem_trace_builder);
     auto [resolved_src, resolved_slot] = resolved_addrs;
+    error = res_error;
 
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
@@ -2619,6 +2629,10 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
 
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_src, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+
+    if (is_ok(error) && !read_a.tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
 
     // Merkle check for SSTORE
     // (a) We compute the tree leaf slot of the low nullifier
@@ -2666,7 +2680,7 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     side_effect_counter++;
     clk++;
     pc += Deserialization::get_pc_increment(OpCode::SSTORE);
-    return read_a.tag_match ? AvmError::NO_ERROR : AvmError::TAG_ERROR;
+    return error;
 }
 
 AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
@@ -2685,7 +2699,7 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
@@ -2742,7 +2756,7 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 
         row.main_sel_op_note_hash_exists = FF(1);
         if (is_ok(error) && row.main_tag_err != FF(0)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     } else {
         row = Row{
@@ -2814,7 +2828,7 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_address)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
@@ -2881,7 +2895,7 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
         // clk, resolved_nullifier_offset, resolved_address, resolved_dest);
         row.main_sel_op_nullifier_exists = FF(1);
         if (is_ok(error) && row.main_tag_err != FF(0)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     } else {
         row = Row{
@@ -2977,7 +2991,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
     if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
@@ -3035,7 +3049,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 
         row.main_sel_op_l1_to_l2_msg_exists = FF(1);
         if (is_ok(error) && row.main_tag_err != FF(0)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     } else {
         row = Row{
@@ -3094,7 +3108,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
         call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_address.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Read the contract instance
@@ -3196,7 +3210,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
     if (is_ok(error) &&
         !(check_tag(AvmMemoryTag::FF, resolved_log_offset) && check_tag(AvmMemoryTag::U32, resolved_log_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
@@ -3217,7 +3231,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
         direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
         if (!check_tag_range(AvmMemoryTag::FF, direct_field_addr, log_size)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         };
     }
 
@@ -3337,7 +3351,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_args_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO: constrain this
@@ -3476,7 +3490,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     error = res_error;
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
@@ -3550,7 +3564,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     error = res_error;
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, ret_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const auto ret_size =
@@ -3631,7 +3645,7 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_fields_size_offset)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const uint32_t fields_size =
@@ -3642,7 +3656,7 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
 
     if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
                           check_tag_range(AvmMemoryTag::FF, resolved_fields_offset, fields_size))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     main_trace.push_back(Row{
@@ -3726,7 +3740,7 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
     bool read_tag_valid = read_a.tag_match && read_b.tag_match && read_c.tag_match && read_d.tag_match;
 
     if (is_ok(error) && !read_tag_valid) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     if (is_ok(error)) {
@@ -3776,7 +3790,7 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
 
         bool write_tag_valid = write_a.tag_match && write_b.tag_match && write_c.tag_match && write_d.tag_match;
         if (is_ok(error) && !write_tag_valid) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     }
 
@@ -3836,7 +3850,7 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
 
     if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE) &&
                           check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Constrain gas cost
@@ -3935,7 +3949,7 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
 
     if (is_ok(error) &&
         !(tag_match && check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Constrain gas cost
@@ -4020,7 +4034,7 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
         check_tag(AvmMemoryTag::FF, resolved_rhs_y_offset) && check_tag(AvmMemoryTag::U1, resolved_rhs_is_inf_offset);
 
     if (is_ok(error) && !tags_valid) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
@@ -4092,7 +4106,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_point_length_offset)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
@@ -4116,7 +4130,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     tags_valid = tags_valid && check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length);
 
     if (is_ok(error) && !tags_valid) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO(dbanks12): length needs to fit into u32 here or it will certainly
@@ -4245,7 +4259,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
@@ -4253,7 +4267,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     FF input = read_src.val;
 
     if (is_ok(error) && !read_src.tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO(8603): uncomment

@@ -169,6 +169,11 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
+    // Set the accumulator circuit size data based on the max of the keys being accumulated
+    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
+    accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
+
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
         combination = linear_combination(to_combine, lagranges);
