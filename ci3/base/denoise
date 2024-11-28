@@ -1,15 +1,16 @@
 #!/bin/bash
 set -uo pipefail
 
-if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
-  set -e
-  $@
-  exit 0
-fi
 # Ensure a command is passed
 if [ "$#" -eq 0 ]; then
   echo "Usage: $0 <command>"
   exit 1
+fi
+
+if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
+  set -e
+  $@
+  exit 0
 fi
 
 dots_per_line=${LINE_WIDTH:-64}

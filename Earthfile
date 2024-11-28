@@ -42,7 +42,8 @@ base-log-uploader:
     COPY +scripts/scripts /usr/src/scripts
 
 bootstrap:
-    # Note: Assumes a fresh clone!
+    # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
     FROM ./build-images+from-registry
+    ARG EARTHLY_BUILD_SHA
     COPY . .
     RUN TEST=0 CI=1 ./bootstrap.sh
