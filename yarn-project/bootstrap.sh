@@ -25,7 +25,7 @@ function build {
   echo
   yarn install
 
-  if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+  if $ci3/is_build && ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;
@@ -43,6 +43,11 @@ function build {
     echo -e "${GREEN}Yarn project successfully built!${RESET}"
   fi
   $ci3/github/endgroup
+
+  if $ci3/is_test; then
+    yarn test
+    run_e2e_tests
+  fi
 }
 
 function run_e2e_tests {
@@ -192,13 +197,8 @@ case "$CMD" in
   ;;
   ""|"fast")
     case "${CI:-0}" in
-      0)
+      0|1)
         build
-      ;;
-      1)
-        build
-        yarn test
-        run_e2e_tests
       ;;
       2)
         run_e2e_tests

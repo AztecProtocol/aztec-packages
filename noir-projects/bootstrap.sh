@@ -25,7 +25,7 @@ VKS_HASH=$($ci3/cache/content_hash)
 export AZTEC_CACHE_REBUILD_PATTERNS={../noir,noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns
 CIRCUITS_HASH=$($ci3/cache/content_hash)
 
-if $ci3/is_build; then
+if $ci3/base/is_build; then
   $ci3/github/group "noir-projects build"
   # Attempt to just pull artefacts from CI first.
   if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_circuits.sh ; then
@@ -40,7 +40,7 @@ if $ci3/is_build; then
   $ci3/github/endgroup
 fi
 
-if $ci3/is_test && $ci3/cache/should_run noir-projects-tests-$CIRCUITS_HASH; then
+if $ci3/base/is_test && $ci3/cache/should_run noir-projects-tests-$CIRCUITS_HASH; then
   $ci3/github/group "noir-projects test"
   NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 
