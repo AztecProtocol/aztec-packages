@@ -60,7 +60,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
         affine_element input_a(element::random_element());
-        affine_element input_b(element::random_element());
 
         element_ct a = element_ct::from_witness(&builder, input_a);
         a.set_origin_tag(next_submitted_value_origin_tag);
@@ -76,6 +75,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
+        affine_element input_b(element::random_element());
         // Working with instant death tagged element causes an exception
         element_ct b = element_ct::from_witness(&builder, input_b);
         b.set_origin_tag(instant_death_tag);

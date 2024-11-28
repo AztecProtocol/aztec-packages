@@ -64,8 +64,7 @@ export class FeesTest {
 
   public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
 
-  public gasSettings = GasSettings.default();
-  public maxFee = this.gasSettings.getFeeLimit().toBigInt();
+  public gasSettings!: GasSettings;
 
   public feeJuiceContract!: FeeJuiceContract;
   public bananaCoin!: BananaCoin;
@@ -135,6 +134,7 @@ export class FeesTest {
       async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
+        this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
