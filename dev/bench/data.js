@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732804034997,
+  "lastUpdate": 1732805788852,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d8db656980c09ad219c375e831443bd523100d4b",
-          "message": "chore(avm): bugfixing witness generation for add, sub, mul for FF (#9938)",
-          "timestamp": "2024-11-13T20:15:38+01:00",
-          "tree_id": "cffc65c0ae6d54fd926c67fc0784c29522f23814",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d8db656980c09ad219c375e831443bd523100d4b"
-        },
-        "date": 1731526741238,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28815.428674000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27248.134212 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5341.941288000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4998.441659 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84529.191735,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84529193000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15179.100264,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15179102000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3087761895,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3087761895 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144162870,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144162870 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2978,6 +2918,66 @@ window.BENCHMARK_DATA = {
             "value": 139642057,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139642057 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c22be8b23e6d16cf4a60509494b979c3edfdba9b",
+          "message": "fix: Don't store indices of zero leaves. (#10270)\n\nThis PR ensures we don't store indices of zero leaves as this could be\r\nmisleading. Requesting the index of a zero leaf is deemed invalid.\r\n\r\nIt also adds tests that ensure we can unwind blocks of zero leaves",
+          "timestamp": "2024-11-28T14:22:54Z",
+          "tree_id": "e2e218a7dde2adc2d1a8f08c848f0235e80a1b93",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c22be8b23e6d16cf4a60509494b979c3edfdba9b"
+        },
+        "date": 1732805781859,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28077.81052499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26478.350335 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4994.416454999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4641.7432229999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83494.305385,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83494306000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15162.920884,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15162922000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3065184537,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3065184537 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139364858,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139364858 ns\nthreads: 1"
           }
         ]
       }
