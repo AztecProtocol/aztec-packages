@@ -15,7 +15,7 @@ import {
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 // eslint-disable-next-line no-restricted-imports
 import { PXESchema } from '@aztec/circuit-types';
-import { GasSettings, deriveSigningKey } from '@aztec/circuits.js';
+import { deriveSigningKey } from '@aztec/circuits.js';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -178,7 +178,6 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          gasSettings: GasSettings.default(),
           paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
             claimAmount: Fr.fromString(claimAmount),
             claimSecret: Fr.fromString(claimSecret.value),

@@ -12,6 +12,7 @@ import {
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
+  GasSettings,
   type Header,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -84,6 +85,8 @@ describe('L1Publisher integration', () => {
 
   // The header of the last block
   let prevHeader: Header;
+
+  let baseFee: GasFees;
 
   let blockSource: MockProxy<ArchiveSource>;
   let blocks: L2Block[] = [];
@@ -192,6 +195,8 @@ describe('L1Publisher integration', () => {
     prevHeader = fork.getInitialHeader();
     await fork.close();
 
+    baseFee = new GasFees(0, await rollup.read.getManaBaseFee([true]));
+
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = await rollup.read.EPOCH_DURATION();
     await progressTimeBySlot(timeToJump);
@@ -216,6 +221,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(config.version),
       vkTreeRoot: getVKTreeRoot(),
+      gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,
     });
