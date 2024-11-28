@@ -67,16 +67,6 @@ describe('AMM', () => {
       token1: bigint,
     }
 
-    type Delta = {
-      type: 'gt' | 'gte' | 'lt' | 'lte';
-      amount: bigint;
-    }
-
-    type BalanceDelta = {
-      token0: bigint | Delta,
-      token1: bigint | Delta,
-    }
-
     async function getAmmBalances(): Promise<Balance> {
       return {
         token0: await token0.methods.balance_of_public(amm.address).simulate(),
@@ -91,25 +81,9 @@ describe('AMM', () => {
       };
     }
 
-    function assertBalancesDelta(before: Balance, after: Balance, delta: BalanceDelta) {
-      assertTokenBalanceDelta(before.token0, after.token0, delta.token0);
-      assertTokenBalanceDelta(before.token1, after.token1, delta.token1);
-    }
-
-    function assertTokenBalanceDelta(before: bigint, after: bigint, delta: bigint | Delta) {
-      if (typeof delta === 'bigint') {
-        expect(after - before).toEqual(delta);
-      } else if (delta.type == 'gt') {
-          expect(after - before).toBeGreaterThan(delta.amount);
-      } else if (delta.type == 'gte') {
-        expect(after - before).toBeGreaterThanOrEqual(delta.amount);
-      } else if (delta.type == 'lt') {
-          expect(after - before).toBeLessThan(delta.amount);
-      } else if (delta.type == 'lte') {
-        expect(after - before).toBeLessThanOrEqual(delta.amount);
-      } else {
-        throw new Error(`Unknwon delta type ${delta.type}`)
-      }
+    function assertBalancesDelta(before: Balance, after: Balance, delta: Balance) {
+      expect(after.token0 - before.token0).toEqual(delta.token0);
+      expect(after.token1 - before.token1).toEqual(delta.token1);
     }
 
     it('add initial liquidity', async () => {
