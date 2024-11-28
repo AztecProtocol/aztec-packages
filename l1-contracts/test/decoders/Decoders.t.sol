@@ -168,7 +168,7 @@ contract DecodersTest is DecoderBase {
     // The public inputs are computed based of these values, but not directly part of the decoding per say.
   }
 
-  function testComputeKernelLogsIterationWithoutLogs() public {
+  function testComputeKernelLogsIterationWithoutLogs() public view {
     bytes memory kernelLogsLength = hex"00000004"; // 4 bytes containing value 4
     bytes memory iterationLogsLength = hex"00000000"; // 4 empty bytes indicating that length of this iteration's logs is 0
     bytes memory encodedLogs = abi.encodePacked(kernelLogsLength, iterationLogsLength);
@@ -181,7 +181,7 @@ contract DecodersTest is DecoderBase {
     assertEq(logsHash, bytes32(0), "Incorrect logs hash");
   }
 
-  function testComputeKernelLogs1Iteration() public {
+  function testComputeKernelLogs1Iteration() public view {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS ||
     // K_LOGS_LEN = 4 + 8 = 12 (hex"0000000c")
     // I1_LOGS_LEN = 8 (hex"00000008")
@@ -215,7 +215,7 @@ contract DecodersTest is DecoderBase {
     assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
   }
 
-  function testComputeKernelLogs2Iterations() public {
+  function testComputeKernelLogs2Iterations() public view {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS ||
     // K_LOGS_LEN = 4 + 8 + 4 + 20 = 36 (hex"00000024")
     // I1_LOGS_LEN = 8 (hex"00000008")
@@ -265,7 +265,7 @@ contract DecodersTest is DecoderBase {
     assertEq(logsHash, referenceLogsHashFromIteration2, "Incorrect logs hash");
   }
 
-  function testComputeKernelLogsMiddleIterationWithoutLogs() public {
+  function testComputeKernelLogsMiddleIterationWithoutLogs() public view {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
     // K_LOGS_LEN = 4 + 8 + 4 + 0 + 4 + 20 = 40 (hex"00000028")
     // I1_LOGS_LEN = 8 (hex"00000008")
@@ -323,7 +323,7 @@ contract DecodersTest is DecoderBase {
     assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
   }
 
-  function testComputeTxOutHash() public {
+  function testComputeTxOutHash() public view {
     // A tx with no msgs should give an out hash of 0
     bytes memory encodedMsgs = abi.encodePacked(hex"00");
     bytes32 outHash = txsHelper.computeTxOutHash(encodedMsgs);
@@ -338,7 +338,7 @@ contract DecodersTest is DecoderBase {
     assertEq(outHash, expectedOutHash, "Incorrect tx out hash");
   }
 
-  function testTxsDecoderCorrectlyComputesNumTxEffectsToPad() public {
+  function testTxsDecoderCorrectlyComputesNumTxEffectsToPad() public view {
     // Minimum num txs is 2 so when there are no real txs we need to pad to 2
     uint32 numTxEffects = 0;
     uint32 paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
@@ -357,7 +357,7 @@ contract DecodersTest is DecoderBase {
     assertEq(paddedNumTxEffects, 0, "Incorrect number of tx effects to pad");
   }
 
-  function testTxsDecoderCorrectlyComputesNumMsgsToPad() public {
+  function testTxsDecoderCorrectlyComputesNumMsgsToPad() public view {
     uint32 numMsgs = 0;
     uint32 numMsgsToPad = txsHelper.computeNumMsgsToPad(numMsgs);
     assertEq(numMsgsToPad, 1, "Incorrect number of msgs to pad");
