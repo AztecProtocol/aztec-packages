@@ -326,6 +326,14 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
         teardown_call_requests.push_back(public_inputs.public_teardown_call_request);
     }
 
+    // Temporary spot for private non-revertible insertion
+    std::vector<FF> siloed_nullifier;
+    siloed_nullifier.insert(siloed_nullifier.end(),
+                            public_inputs.accumulated_data.nullifiers.begin(),
+                            public_inputs.accumulated_data.nullifiers.begin() +
+                                public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
+    trace_builder.insert_private_state(siloed_nullifier, {});
+
     // Loop over all the public call requests
     uint8_t call_ctx = 0;
     const auto phases = { TxExecutionPhase::SETUP, TxExecutionPhase::APP_LOGIC, TxExecutionPhase::TEARDOWN };

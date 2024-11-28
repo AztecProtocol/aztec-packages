@@ -56,8 +56,6 @@ class AvmTraceBuilder {
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
-    TreeSnapshots& get_intermediate_tree_snapshots() { return intermediate_tree_snapshots; }
-
     // Compute - Arithmetic
     AvmError op_add(
         uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::ADD_16);

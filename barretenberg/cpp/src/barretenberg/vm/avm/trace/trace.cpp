@@ -2888,6 +2888,17 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     // Update the root with the new leaf that is appended
     merkle_tree_trace_builder.perform_note_hash_append(clk, siloed_note_hash, note_hash_write_hint.sibling_path);
 
+    AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
+    ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
+    // We first check that the index is currently empty
+    bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
+        clk, FF::zero(), note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
+    ASSERT(insert_index_is_empty);
+
+    // Update the root with the new leaf that is appended
+    merkle_tree_trace_builder.perform_note_hash_append(
+        clk, row.main_ia, note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
+
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
 
