@@ -6,7 +6,10 @@ namespace bb::avm_trace {
 
 enum class AvmError : uint32_t {
     NO_ERROR,
-    TAG_ERROR,
+    INVALID_PROGRAM_COUNTER,
+    INVALID_OPCODE,
+    INVALID_TAG_VALUE,
+    CHECK_TAG_ERROR,
     ADDR_RES_TAG_ERROR,
     REL_ADDR_OUT_OF_RANGE,
     DIV_ZERO,
@@ -14,6 +17,7 @@ enum class AvmError : uint32_t {
     ENV_VAR_UNKNOWN,
     CONTRACT_INST_MEM_UNKNOWN,
     RADIX_OUT_OF_BOUNDS,
+    DUPLICATE_NULLIFIER,
 };
 
 } // namespace bb::avm_trace

@@ -14,11 +14,12 @@ import {
   ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
   Fr,
-  FunctionSelector,
+  type FunctionSelector,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PublicDataTreeLeafPreimage,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -38,11 +39,11 @@ import {
 export class ContractsDataSourcePublicDB implements PublicContractsDB {
   private instanceCache = new Map<string, ContractInstanceWithAddress>();
   private classCache = new Map<string, ContractClassPublic>();
+  private bytecodeCommitmentCache = new Map<string, Fr>();
 
   private log = createDebugLogger('aztec:sequencer:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
-
   /**
    * Add new contracts from a transaction
    * @param tx - The transaction to add contracts from.
@@ -92,6 +93,31 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     return this.classCache.get(contractClassId.toString()) ?? (await this.dataSource.getContractClass(contractClassId));
   }
 
+  public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    // Try and retrieve from cache
+    const key = contractClassId.toString();
+    const result = this.bytecodeCommitmentCache.get(key);
+    if (result !== undefined) {
+      return result;
+    }
+    // Now try from the store
+    const fromStore = await this.dataSource.getBytecodeCommitment(contractClassId);
+    if (fromStore !== undefined) {
+      this.bytecodeCommitmentCache.set(key, fromStore);
+      return fromStore;
+    }
+
+    // Not in either the store or the cache, build it here and cache
+    const contractClass = await this.getContractClass(contractClassId);
+    if (contractClass === undefined) {
+      return undefined;
+    }
+
+    const value = computePublicBytecodeCommitment(contractClass.packedBytecode);
+    this.bytecodeCommitmentCache.set(key, value);
+    return value;
+  }
+
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
     const instance = await this.getContractInstance(address);
     if (!instance) {
@@ -105,19 +131,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const artifact = await this.dataSource.getContractArtifact(address);
-    if (!artifact) {
-      return Promise.resolve(undefined);
-    }
-
-    const f = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters(f.name, f.parameters).equals(selector),
-    );
-    if (!f) {
-      return Promise.resolve(undefined);
-    }
-
-    return Promise.resolve(`${artifact.name}:${f.name}`);
+    return await this.dataSource.getContractFunctionName(address, selector);
   }
 }
 

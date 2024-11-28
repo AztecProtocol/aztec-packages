@@ -112,7 +112,7 @@ describe('e2e_prover_coordination', () => {
     const proverKey = Buffer32.random();
     proverSigner = new Secp256k1Signer(proverKey);
     proverWallet = createWalletClient({
-      account: privateKeyToAccount(proverKey.to0xString()),
+      account: privateKeyToAccount(proverKey.toString()),
       chain: foundry,
       transport: http(ctx.aztecNodeConfig.l1RpcUrl),
     });
@@ -126,6 +126,10 @@ describe('e2e_prover_coordination', () => {
 
     // Ensure the prover has enough funds to put in escrow
     await performEscrow(10000000n);
+  });
+
+  afterEach(async () => {
+    await snapshotManager.teardown();
   });
 
   const expectProofClaimOnL1 = async (expected: {

@@ -11,7 +11,7 @@ use crate::{
         },
         state_diff_hints::PublicBaseStateDiffHints,
     },
-    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
+    components::{compute_kernel_out_hash, compute_tx_effects_hash},
 };
 use dep::types::{
     abis::{
@@ -22,7 +22,6 @@ use dep::types::{
         log_hash::{LogHash, ScopedLogHash},
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_write::PublicDataWrite,
-        sponge_blob::SpongeBlob,
         tube::PublicTubeData,
     },
     constants::{
@@ -45,7 +44,6 @@ pub struct PublicBaseRollupInputs {
     avm_proof_data: AvmProofData,
 
     start: PartialStateReference,
-    start_sponge_blob: SpongeBlob,
 
     state_diff_hints: PublicBaseStateDiffHints,
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
@@ -123,7 +121,6 @@ impl PublicBaseRollupInputs {
         //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         // }
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
-
         let reverted = self.avm_proof_data.public_inputs.reverted;
 
         let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
@@ -187,13 +184,12 @@ impl PublicBaseRollupInputs {
 
         let revert_code = if reverted { 1 } else { 0 };
 
-        let end_sponge_blob = append_tx_effects_for_blob(
+        let tx_effects_hash = compute_tx_effects_hash(
             combined_accumulated_data,
             revert_code,
             self.avm_proof_data.public_inputs.transaction_fee,
             all_public_data_update_requests,
-            siloed_l2_to_l1_msgs,
-            self.start_sponge_blob,
+            out_hash,
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -213,10 +209,10 @@ impl PublicBaseRollupInputs {
                 nullifier_tree: end_nullifier_tree_snapshot,
                 public_data_tree: end_public_data_tree_snapshot,
             },
-            start_sponge_blob: self.start_sponge_blob,
-            end_sponge_blob,
+            txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: self.avm_proof_data.public_inputs.transaction_fee,
+            accumulated_mana_used: self.avm_proof_data.public_inputs.end_gas_used.l2_gas as Field,
         }
     }
 
@@ -375,27 +371,22 @@ mod tests {
             components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             public_base_rollup::PublicBaseRollupInputs, state_diff_hints::PublicBaseStateDiffHints,
         },
-        components::{append_tx_effects_for_blob, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS},
+        components::TX_EFFECTS_HASH_INPUT_FIELDS,
     };
     use dep::types::{
         abis::{
-            accumulated_data::CombinedAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-            sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+            ARCHIVE_HEIGHT, AVM_VK_INDEX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
             MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
-            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX,
-            PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT,
-            PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
+            NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            PRIVATE_KERNEL_EMPTY_INDEX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -405,8 +396,8 @@ mod tests {
         tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
         traits::{Empty, is_empty},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
-            field::{field_from_bytes, full_field_less_than},
+            arrays::get_sorted_tuple::get_sorted_tuple,
+            field::{field_from_bytes_32_trunc, full_field_less_than},
         },
     };
 
@@ -416,9 +407,9 @@ mod tests {
     }
 
     global MAX_NULLIFIERS_PER_TEST: u32 = 4;
-    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST = 128;
-    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST = 7;
-    global PRE_EXISTING_PUBLIC_DATA_LEAVES = 10;
+    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST: u32 = 128;
+    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST: u32 = 7;
+    global PRE_EXISTING_PUBLIC_DATA_LEAVES: u32 = 10;
 
     fn update_public_data_tree<let AVAILABLE_LEAVES: u32, let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<AVAILABLE_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
@@ -544,30 +535,6 @@ mod tests {
                     }
                 },
             )
-        }
-
-        fn build_pre_existing_tx_effects(
-            self,
-        ) -> (CombinedAccumulatedData, [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
-            let mut res = CombinedAccumulatedData::empty();
-            res.note_hashes = self.pre_existing_notes;
-            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
-                nullifier.nullifier
-            });
-            let all_public_data_update_requests = self.pre_existing_public_data.map(
-                |leaf_preimage: PublicDataTreeLeafPreimage| {
-                    PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
-                },
-            );
-            let padded_all_public_data_update_requests = array_concat(
-                all_public_data_update_requests,
-                [
-                    PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-                        - PRE_EXISTING_PUBLIC_DATA_LEAVES
-                ],
-            );
-
-            (res, padded_all_public_data_update_requests)
         }
 
         fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
@@ -759,18 +726,6 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot,
             };
 
-            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) =
-                self.build_pre_existing_tx_effects();
-
-            let start_sponge_blob = append_tx_effects_for_blob(
-                pre_existing_tx_effects,
-                0,
-                0,
-                pre_existing_public_data_update_requests,
-                [0; MAX_L2_TO_L1_MSGS_PER_TX],
-                SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
-            );
-
             let state_diff_hints = PublicBaseStateDiffHints {
                 nullifier_predecessor_preimages,
                 nullifier_predecessor_membership_witnesses,
@@ -787,7 +742,6 @@ mod tests {
                 tube_data,
                 avm_proof_data,
                 start,
-                start_sponge_blob,
                 state_diff_hints,
                 archive_root_membership_witness: MembershipWitness {
                     leaf_index: 0,
@@ -1009,178 +963,13 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_tx_effects_sponge() {
+    unconstrained fn empty_tx_effects_hash() {
         let outputs = PublicBaseRollupInputsBuilder::new().execute();
-        let mut expected_sponge = outputs.start_sponge_blob;
-        assert(outputs.end_sponge_blob.eq(expected_sponge));
-    }
 
-    #[test]
-    unconstrained fn non_empty_tx_effects_sponge() {
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.avm_data.append_note_hashes(50);
-        let outputs = builder.execute();
-        let mut tx_effects = [0; 53];
-        // TODO(#8954): This test uses 50 notes and 3 extra absorbed fields
-        // This may change when logs are deconstructed
-        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-        // The first 3 are: i=0 init field, i=1: tx fee, i=2: note prefix
-        tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
-            true,
-        );
-        tx_effects[1] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
-            true,
-        );
-        tx_effects[2] = field_from_bytes([NOTES_PREFIX, 0, 50 as u8], true);
-        for i in 0..50 {
-            tx_effects[i + 3] = builder.avm_data.note_hashes.storage()[i].value();
-        }
-        let mut expected_sponge = outputs.start_sponge_blob;
-
-        expected_sponge.absorb(tx_effects, tx_effects.len());
-        assert(outputs.end_sponge_blob.eq(expected_sponge));
-    }
-
-    #[test]
-    unconstrained fn fuller_tx_effects_sponge() {
-        let NUM_NOTES = 50;
-        let NUM_NULLIFIERS = 3;
-        let NUM_MSGS = 5;
-        let NUM_ENC_LOGS = 4;
-        let NUM_UNENC_LOGS = 6;
-        let NUM_CC_LOGS = 1;
-        let PUB_DATA_SLOT = 25;
-        let PUB_DATA_VALUE = 60;
-        let tx_fee = 100_000;
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.transaction_fee = tx_fee;
-        builder.avm_data.append_note_hashes(NUM_NOTES);
-        // Copied from nullifier tests above:
-        builder.pre_existing_nullifiers[0] =
-            NullifierLeafPreimage { nullifier: 0, next_nullifier: 7, next_index: 1 };
-        builder.pre_existing_nullifiers[1] =
-            NullifierLeafPreimage { nullifier: 7, next_nullifier: 0, next_index: 0 };
-        for i in 0..NUM_NULLIFIERS {
-            builder.nullifiers.push(
-                NullifierInsertion { existing_index: 1, value: (8 + i) as Field },
-            );
-        }
-        builder.avm_data.append_l2_to_l1_msgs(NUM_MSGS);
-        // Copied from public data test below:
-        builder.pre_existing_public_data[0] =
-            PublicDataTreeLeafPreimage { slot: 20, value: 40, next_slot: 0, next_index: 0 };
-        builder.public_data_writes.push((
-            0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
-        ));
-        builder.tube_data.append_encrypted_log_hashes(NUM_ENC_LOGS);
-        builder.avm_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
-        // Below will only work with NUM_CC_LOGS=1
-        builder.tube_data.add_contract_class_log_hash(1, 2);
-        let outputs = builder.execute();
-
-        let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
-        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-        // revert code = 0
-        // fields appended here = 80 = offset once appending complete
-        reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, 80, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
-            true,
-        );
-        // tx fee
-        reconstructed_tx_effects[1] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
-            true,
-        );
-        // notes
-        let mut offset = 2;
-        let notes_prefix = field_from_bytes([NOTES_PREFIX, 0, NUM_NOTES as u8], true);
-        reconstructed_tx_effects[offset] = notes_prefix;
-        offset += 1;
-        for i in 0..NUM_NOTES {
-            reconstructed_tx_effects[offset + i] =
-                builder.avm_data.note_hashes.storage()[i].value();
-        }
-        offset += NUM_NOTES;
-        // nullifiers
-        let nullifiers_prefix =
-            field_from_bytes([NULLIFIERS_PREFIX, 0, NUM_NULLIFIERS as u8], true);
-        reconstructed_tx_effects[offset] = nullifiers_prefix;
-        offset += 1;
-        for i in 0..NUM_NULLIFIERS {
-            reconstructed_tx_effects[offset + i] = builder.nullifiers.storage()[i].value;
-        }
-        offset += NUM_NULLIFIERS;
-        // l2 to l1 msgs
-        let l2_to_l1_msgs_prefix = field_from_bytes([L2_L1_MSGS_PREFIX, 0, NUM_MSGS as u8], true);
-        reconstructed_tx_effects[offset] = l2_to_l1_msgs_prefix;
-        offset += 1;
-        for i in 0..NUM_MSGS {
-            reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.avm_data.l2_to_l1_msgs.storage()[i],
-                builder.avm_data.tx_context.version,
-                builder.avm_data.tx_context.chain_id,
-            );
-        }
-        offset += NUM_MSGS;
-        // public data update
-        let public_data_update_requests_prefix =
-            field_from_bytes([PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, 0, 2], true);
-        reconstructed_tx_effects[offset] = public_data_update_requests_prefix;
-        offset += 1;
-        reconstructed_tx_effects[offset] = PUB_DATA_SLOT;
-        reconstructed_tx_effects[offset + 1] = PUB_DATA_VALUE;
-        offset += 2;
-        // TODO(#8954): The below will change with log deconstruction
-        // enc logs
-        let encrypted_logs_prefix =
-            field_from_bytes([ENCRYPTED_LOGS_PREFIX, 0, NUM_ENC_LOGS as u8], true);
-        reconstructed_tx_effects[offset] = encrypted_logs_prefix;
-        offset += 1;
-        for i in 0..NUM_ENC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_encrypted_log_hash(builder
-                .tube_data
-                .encrypted_logs_hashes
-                .storage()[i]
-                .expose_to_public());
-        }
-        offset += NUM_ENC_LOGS;
-        // unenc logs
-        let unencrypted_logs_prefix =
-            field_from_bytes([UNENCRYPTED_LOGS_PREFIX, 0, NUM_UNENC_LOGS as u8], true);
-        reconstructed_tx_effects[offset] = unencrypted_logs_prefix;
-        offset += 1;
-        for i in 0..NUM_UNENC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
-                builder.avm_data.unencrypted_logs_hashes.storage()[i],
-            );
-        }
-        offset += NUM_UNENC_LOGS;
-        // cc logs
-        let contract_class_logs_prefix =
-            field_from_bytes([CONTRACT_CLASS_LOGS_PREFIX, 0, NUM_CC_LOGS as u8], true);
-        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
-        offset += 1;
-        for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
-                builder.tube_data.contract_class_logs_hashes.storage()[i],
-            );
-        }
-        offset += NUM_CC_LOGS;
-
-        // Sanity check - if this fails change the above use of 80
-        assert(offset == 80);
-
-        let mut expected_sponge = outputs.start_sponge_blob;
-        expected_sponge.absorb(reconstructed_tx_effects, offset);
-        assert(outputs.end_sponge_blob.eq(expected_sponge));
+        let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
+        let sha_digest = std::hash::sha256(hash_input_flattened);
+        let expected_tx_effects_hash = field_from_bytes_32_trunc(sha_digest);
+        assert_eq(outputs.txs_effects_hash, expected_tx_effects_hash);
     }
 
     #[test]

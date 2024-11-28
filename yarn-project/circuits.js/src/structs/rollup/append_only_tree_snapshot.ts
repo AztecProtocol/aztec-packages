@@ -1,11 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { STRING_ENCODING, type UInt32 } from '../shared.js';
+import { type UInt32 } from '../shared.js';
 
 /**
  * Snapshot of an append only tree.
@@ -39,10 +40,6 @@ export class AppendOnlyTreeSnapshot {
       .transform(({ root, nextAvailableLeafIndex }) => new AppendOnlyTreeSnapshot(root, nextAvailableLeafIndex));
   }
 
-  toJSON() {
-    return { root: this.root, nextAvailableLeafIndex: this.nextAvailableLeafIndex };
-  }
-
   getSize() {
     return this.root.size + 4;
   }
@@ -56,7 +53,7 @@ export class AppendOnlyTreeSnapshot {
   }
 
   toString(): string {
-    return this.toBuffer().toString(STRING_ENCODING);
+    return bufferToHex(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): AppendOnlyTreeSnapshot {
@@ -65,7 +62,7 @@ export class AppendOnlyTreeSnapshot {
   }
 
   static fromString(str: string): AppendOnlyTreeSnapshot {
-    return AppendOnlyTreeSnapshot.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    return AppendOnlyTreeSnapshot.fromBuffer(hexToBuffer(str));
   }
 
   static fromFields(fields: Fr[] | FieldReader): AppendOnlyTreeSnapshot {

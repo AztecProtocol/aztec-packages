@@ -10,7 +10,8 @@ pub struct ReadRequestStateEnum {
     pub SETTLED: u8,
 }
 
-pub global ReadRequestState = ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
+pub global ReadRequestState: ReadRequestStateEnum =
+    ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
 
 pub struct ReadRequestStatus {
     pub state: u8,

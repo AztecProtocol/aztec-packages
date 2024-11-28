@@ -23,6 +23,7 @@ import {
   type SiblingPath,
   SimulationError,
   type Tx,
+  type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   TxProvingResult,
@@ -36,6 +37,7 @@ import {
   type CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
+  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -491,6 +493,10 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.node.getCurrentBaseFees();
+  }
+
   async #simulateKernels(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
@@ -616,7 +622,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash) {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.node.getTxEffect(txHash);
   }
 

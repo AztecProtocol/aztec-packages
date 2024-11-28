@@ -3,7 +3,7 @@ use crate::keys::getters::get_public_keys;
 use crate::test::helpers::{cheatcodes, test_environment::TestEnvironment, utils::TestAccount};
 use dep::std::test::OracleMock;
 
-global KEY_ORACLE_RESPONSE_LENGTH = 13; // 12 fields for the keys, one field for the partial address
+global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one field for the partial address
 
 unconstrained fn setup() -> TestAccount {
     let _ = TestEnvironment::new();

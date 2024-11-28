@@ -5,13 +5,12 @@ use crate::{
     },
     components,
 };
-use blob::{blob::evaluate_blobs, blob_public_inputs::{BlobCommitment, BlockBlobPublicInputs}};
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK, FIELDS_PER_BLOB,
-        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
+        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PRIVATE_BASE_ROLLUP_VK_INDEX,
         PUBLIC_BASE_ROLLUP_VK_INDEX,
     },
@@ -22,7 +21,7 @@ use types::{
     traits::Empty,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS =
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 pub struct BlockRootRollupInputs {
@@ -47,14 +46,6 @@ pub struct BlockRootRollupInputs {
     previous_block_hash: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
-    // Fields for blob verification made of all tx effects in this block
-    // (will likely change to be accumulated and sent up to the final root)
-    blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    // see blob/src/main.nr -> main() -  these are used for creating the challenge z
-    blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
-    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract check its validity vs the blob_public_inputs below
-    // NB: to fit it into a field, we truncate to 31 bytes
-    blobs_hash: Field,
 }
 
 impl BlockRootRollupInputs {
@@ -78,7 +69,6 @@ impl BlockRootRollupInputs {
         components::assert_txs_filled_from_left(left, right);
         components::assert_equal_constants(left, right);
         components::assert_prev_rollups_follow_on_from_each_other(left, right);
-        components::assert_first_sponge_blob_empty(left);
 
         // Insert subtree into the l1 to l2 data tree
         let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
@@ -99,19 +89,40 @@ impl BlockRootRollupInputs {
 
         let content_commitment = ContentCommitment {
             num_txs: (left.num_txs + right.num_txs) as Field,
-            blobs_hash: self.blobs_hash,
+            txs_effects_hash: components::compute_txs_effects_hash(self.previous_rollup_data),
             in_hash: self.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: components::compute_out_hash(self.previous_rollup_data),
         };
 
         let total_fees = components::accumulate_fees(left, right);
 
+        let total_mana_used = components::accumulate_mana_used(left, right);
+
+        // unsafe {
+        //     debug_log_format("Assembling header in block root rollup", []);
+        //     debug_log_format(
+        //         "header.last_archive={}",
+        //         left.constants.last_archive.serialize()
+        //     );
+        //     debug_log_format(
+        //         "header.content_commitment={}",
+        //         content_commitment.serialize()
+        //     );
+        //     debug_log_format("header.state={}", state.serialize());
+        //     debug_log_format(
+        //         "header.global_variables={}",
+        //         left.constants.global_variables.serialize()
+        //     );
+        //     debug_log_format("header.total_fees={0}", [total_fees]);
+        //     debug_log_format("header.total_mana_used={0}", [total_mana_used]);
+        // }
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
             state,
             global_variables: left.constants.global_variables,
             total_fees,
+            total_mana_used,
         };
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
@@ -130,13 +141,6 @@ impl BlockRootRollupInputs {
         fee_arr[0] =
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-        blob_public_inputs[0] = evaluate_blobs(
-            self.blobs_fields,
-            self.blob_commitments,
-            right.end_sponge_blob,
-        );
-
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
             new_archive: archive, // archive once this block was added
@@ -149,7 +153,6 @@ impl BlockRootRollupInputs {
             vk_tree_root: left.constants.vk_tree_root,
             protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: self.prover_id,
-            blob_public_inputs,
         }
     }
 }
@@ -166,9 +169,6 @@ impl Empty for BlockRootRollupInputs {
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
             prover_id: 0,
-            blobs_fields: [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-            blob_commitments: [BlobCommitment::empty(); BLOBS_PER_BLOCK],
-            blobs_hash: 0,
         }
     }
 }

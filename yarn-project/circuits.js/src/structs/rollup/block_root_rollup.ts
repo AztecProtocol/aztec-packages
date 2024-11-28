@@ -1,12 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
-  BLOBS_PER_BLOCK,
-  FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -56,22 +55,6 @@ export class BlockRootRollupInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
-    /**
-     * Flat list of all tx effects which will be added to the blob.
-     * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-     * Tuple<Fr, FIELDS_PER_BLOB * BLOBS_PER_BLOCK>
-     */
-    public blobFields: Fr[],
-    /**
-     * KZG commitments representing the blob (precomputed in ts, injected to use inside circuit).
-     * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
-     */
-    public blobCommitments: Tuple<Tuple<Fr, 2>, typeof BLOBS_PER_BLOCK>,
-    /**
-     * The hash of eth blob hashes for this block
-     * See yarn-project/foundation/src/blob/index.ts or body.ts for calculation
-     */
-    public blobsHash: Fr,
   ) {}
 
   /**
@@ -87,7 +70,7 @@ export class BlockRootRollupInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -115,9 +98,6 @@ export class BlockRootRollupInputs {
       fields.newArchiveSiblingPath,
       fields.previousBlockHash,
       fields.proverId,
-      fields.blobFields,
-      fields.blobCommitments,
-      fields.blobsHash,
     ] as const;
   }
 
@@ -138,11 +118,6 @@ export class BlockRootRollupInputs {
       reader.readArray(ARCHIVE_HEIGHT, Fr),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      // reader.readArray(FIELDS_PER_BLOB, Fr),
-      Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK }, () => Fr.fromBuffer(reader)),
-      reader.readArray(BLOBS_PER_BLOCK, { fromBuffer: () => reader.readArray(2, Fr) }),
-      Fr.fromBuffer(reader),
     );
   }
 
@@ -152,16 +127,16 @@ export class BlockRootRollupInputs {
    * @returns A new RootRollupInputs instance.
    */
   static fromString(str: string) {
-    return BlockRootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockRootRollupInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(BlockRootRollupInputs);
+    return bufferSchemaFor(BlockRootRollupInputs);
   }
 }

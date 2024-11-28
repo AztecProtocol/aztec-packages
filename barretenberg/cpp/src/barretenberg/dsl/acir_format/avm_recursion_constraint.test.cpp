@@ -14,6 +14,7 @@
 #include "barretenberg/vm/avm/generated/verifier.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/constants.hpp"
@@ -43,9 +44,11 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     // mutate the input kernel_public_inputs_vec to add end gas values
-    static InnerBuilder create_inner_circuit(std::vector<FF>& kernel_public_inputs_vec)
+    static InnerBuilder create_inner_circuit([[maybe_unused]] std::vector<FF>& kernel_public_inputs_vec)
     {
-        auto public_inputs = convert_public_inputs(kernel_public_inputs_vec);
+        AvmPublicInputs public_inputs;
+        public_inputs.gas_settings.gas_limits.l2_gas = 1000000;
+        public_inputs.gas_settings.gas_limits.da_gas = 1000000;
         AvmTraceBuilder trace_builder(public_inputs);
         InnerBuilder builder;
 
@@ -57,12 +60,6 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
         trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
         trace_builder.op_return(0, 0, 100);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
-
-        avm_trace::inject_end_gas_values(public_inputs, trace);
-        kernel_public_inputs_vec.at(DA_END_GAS_LEFT_PCPI_OFFSET) =
-            std::get<KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET);
-        kernel_public_inputs_vec.at(L2_END_GAS_LEFT_PCPI_OFFSET) =
-            std::get<KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET);
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
@@ -132,9 +129,9 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 TEST_F(AcirAvmRecursionConstraint, TestBasicSingleAvmRecursionConstraint)
 {
     std::vector<FF> public_inputs_vec;
-    public_inputs_vec.resize(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
-    public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = FF(1000000);
-    public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = FF(1000000);
+    // public_inputs_vec.resize(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    // public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = FF(1000000);
+    // public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = FF(1000000);
 
     std::vector<InnerBuilder> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit(public_inputs_vec));

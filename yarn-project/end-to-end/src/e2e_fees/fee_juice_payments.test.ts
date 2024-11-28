@@ -4,7 +4,7 @@ import {
   FeeJuicePaymentMethod,
   FeeJuicePaymentMethodWithClaim,
 } from '@aztec/aztec.js';
-import { type GasSettings } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT, type GasSettings } from '@aztec/circuits.js';
 import { type TokenContract as BananaCoin, type FeeJuiceContract } from '@aztec/noir-contracts.js';
 
 import { FeesTest } from './fees_test.js';
@@ -50,7 +50,7 @@ describe('e2e_fees Fee Juice payments', () => {
     });
 
     it('claims bridged funds and pays with them on the same tx', async () => {
-      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(t.INITIAL_GAS_BALANCE, aliceAddress);
+      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, aliceAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(aliceAddress, claim);
       const receipt = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
@@ -59,8 +59,8 @@ describe('e2e_fees Fee Juice payments', () => {
       const endBalance = await feeJuiceContract.methods.balance_of_public(aliceAddress).simulate();
 
       expect(endBalance).toBeGreaterThan(0n);
-      expect(endBalance).toBeLessThan(t.INITIAL_GAS_BALANCE);
-      expect(endBalance).toEqual(t.INITIAL_GAS_BALANCE - receipt.transactionFee!);
+      expect(endBalance).toBeLessThan(FEE_FUNDING_FOR_TESTER_ACCOUNT);
+      expect(endBalance).toEqual(FEE_FUNDING_FOR_TESTER_ACCOUNT - receipt.transactionFee!);
     });
   });
 
