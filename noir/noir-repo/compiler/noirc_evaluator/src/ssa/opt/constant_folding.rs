@@ -212,7 +212,11 @@ struct ResultCache {
 }
 
 impl<'brillig> Context<'brillig> {
-    fn new(function: &Function, use_constraint_info: bool, brillig_info: Option<BrilligInfo<'brillig>>) -> Self {
+    fn new(
+        function: &Function,
+        use_constraint_info: bool,
+        brillig_info: Option<BrilligInfo<'brillig>>,
+    ) -> Self {
         Self {
             use_constraint_info,
             brillig_info,
