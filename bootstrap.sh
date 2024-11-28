@@ -126,8 +126,7 @@ case "$CMD" in
   "fast")
     export USE_CACHE=1
   ;;
-  "fast-write")
-    # Reads from cache, writes to cache
+  "fast-with-upload")
     export USE_CACHE=2
   ;;
   "check")
@@ -136,7 +135,7 @@ case "$CMD" in
     exit 0
   ;;
   *)
-    echo "usage: $0 <full|fast|fast-write|check|clean>"
+    echo "usage: $0 <full|fast|fast-with-upload|check|clean>"
     exit 1
   ;;
 esac

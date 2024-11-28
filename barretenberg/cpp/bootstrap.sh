@@ -66,35 +66,42 @@ echo "# When running cmake directly, remember to use: --build --preset $PRESET"
 echo "#################################"
 
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
+HASH=$($ci3/cache/content_hash)
 function build_native {
-  # Build bb with standard preset and world_state_napi with Position Independent code variant
-  cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  if [ "${CI:-0}" -eq 1 ]; then
+  if $ci3/base/is_build; then
+    # Build bb with standard preset and world_state_napi with Position Independent code variant
+    cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --build --preset $PRESET --target bb
+    cmake --build --preset $PIC_PRESET --target world_state_napi
+    # copy the world_state_napi build artifact over to the world state in yarn-project
+    mkdir -p ../../yarn-project/world-state/build/
+    cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
+
+    $ci3/cache/upload barretenberg-preset-release-$HASH.tar.gz build/bin
+    $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
+  fi
+  if $ci3/base/is_test && $ci3/base/download_flag barretenberg-test-$HASH; then
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
-  else
-    cmake --build --preset $PRESET --target bb
+    $ci3/base/upload_flag barretenberg-test-$HASH
   fi
-  cmake --build --preset $PIC_PRESET --target world_state_napi
-  # copy the world_state_napi build artifact over to the world state in yarn-project
-  mkdir -p ../../yarn-project/world-state/build/
-  cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
-
-  $ci3/cache/upload barretenberg-preset-release-$($ci3/cache/content_hash).tar.gz build/bin
-  $ci3/cache/upload barretenberg-preset-release-world-state-$($ci3/cache/content_hash).tar.gz build-pic/lib
 }
 
 function build_wasm {
-  cmake --preset wasm
-  cmake --build --preset wasm
-  $ci3/cache/upload barretenberg-preset-wasm-$($ci3/cache/content_hash).tar.gz build-wasm/bin
+  if $ci3/base/is_build; then
+    cmake --preset wasm
+    cmake --build --preset wasm
+    $ci3/cache/upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
+  fi
 }
 
 function build_wasm_threads {
-  cmake --preset wasm-threads
-  cmake --build --preset wasm-threads
-  $ci3/cache/upload barretenberg-preset-wasm-threads-$($ci3/cache/content_hash).tar.gz build-wasm-threads/bin
+  if $ci3/base/is_build; then
+    cmake --preset wasm-threads
+    cmake --build --preset wasm-threads
+    $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
+  fi
 }
 
 g="\033[32m"  # Green
