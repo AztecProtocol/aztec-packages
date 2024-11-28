@@ -31,9 +31,9 @@ fi
 
 if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_vks.sh ; then
   parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_vks.sh
-  $ci3/cache/upload noir-projects-circuits-$VKS_HASH.tar.gz noir-contracts/target {noir-protocol-circuits,mock-protocol-circuits}/target/keys
+  $ci3/cache/upload noir-projects-vks-$VKS_HASH.tar.gz noir-contracts/target {noir-protocol-circuits,mock-protocol-circuits}/target/keys
 fi
-$ci3/github/endgroup "noir-projects build"
+$ci3/github/endgroup
 
 if [ "${CI:-0}" -eq 1 ]; then
   $ci3/github/group "noir-projects test"
@@ -47,5 +47,5 @@ if [ "${CI:-0}" -eq 1 ]; then
     $ci3/cache/upload_flag noir-projects-tests-$CIRCUITS_HASH
     # Testing aztec.nr/contracts requires TXE, so must be pushed to after the final yarn project build.
   fi
-  $ci3/github/endgroup "noir-projects build"
+  $ci3/github/endgroup
 fi
