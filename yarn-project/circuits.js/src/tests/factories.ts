@@ -210,7 +210,7 @@ export function makeTxContext(seed: number = 1): TxContext {
  * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
  */
 export function makeGasSettings() {
-  return GasSettings.default();
+  return GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
 }
 
 /**
