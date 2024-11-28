@@ -823,7 +823,7 @@ impl<'f> Context<'f> {
 
 #[cfg(test)]
 mod test {
-    use acvm::acir::{FieldElement, AcirField};
+    use acvm::acir::{AcirField, FieldElement};
 
     use crate::ssa::{
         function_builder::FunctionBuilder,
