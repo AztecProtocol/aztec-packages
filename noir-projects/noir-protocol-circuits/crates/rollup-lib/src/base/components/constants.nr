@@ -1,5 +1,6 @@
-use crate::abis::constant_rollup_data::ConstantRollupData;
-use types::abis::combined_constant_data::CombinedConstantData;
+use types::abis::{
+    combined_constant_data::CombinedConstantData, constant_rollup_data::ConstantRollupData,
+};
 
 pub(crate) fn validate_combined_constant_data(
     constants: CombinedConstantData,

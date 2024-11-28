@@ -1,13 +1,11 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        constant_rollup_data::ConstantRollupData,
-    },
+    abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
-            nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
+            nullifier_tree::nullifier_tree_batch_insert, PrivateTubeDataValidator,
+            public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
@@ -15,7 +13,7 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         tube::PrivateTubeData,
     },
@@ -55,11 +53,9 @@ impl PrivateBaseRollupInputs {
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
-        if !dep::std::runtime::is_unconstrained() {
-            self.tube_data.verify();
-            // TODO(#7410)
-            // self.tube_data.vk_data.validate_in_vk_tree(self.tube_data.public_inputs.constants.vk_tree_root, ALLOWED_PREVIOUS_CIRCUITS);
-        }
+        let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
+        tube_data_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        tube_data_validator.validate_with_rollup_data(self.constants);
 
         let transaction_fee = self.compute_transaction_fee();
 
@@ -221,10 +217,7 @@ impl PrivateBaseRollupInputs {
 
 mod tests {
     use crate::{
-        abis::{
-            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-            constant_rollup_data::ConstantRollupData,
-        },
+        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         base::{
             components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             private_base_rollup::PrivateBaseRollupInputs,
@@ -234,7 +227,8 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            append_only_tree_snapshot::AppendOnlyTreeSnapshot, gas::Gas, gas_fees::GasFees,
+            append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+            constant_rollup_data::ConstantRollupData, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             nullifier_leaf_preimage::NullifierLeafPreimage,
         },

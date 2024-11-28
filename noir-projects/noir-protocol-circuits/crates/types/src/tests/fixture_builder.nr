@@ -4,9 +4,11 @@ use crate::{
             avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
             PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
         },
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
         gas_settings::GasSettings,
@@ -159,6 +161,9 @@ pub struct FixtureBuilder {
     pub protocol_contract_tree_root: Field,
     pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
+    // Tree snapshots.
+    pub archive_tree: AppendOnlyTreeSnapshot,
+
     // Counters.
     pub min_revertible_side_effect_counter: u32,
     pub counter_start: u32,
@@ -285,6 +290,15 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            global_variables: self.global_variables,
+        }
+    }
+
+    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
+        ConstantRollupData {
+            last_archive: self.archive_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
@@ -1047,13 +1061,13 @@ impl FixtureBuilder {
         fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
-    fn to_private_tube_data(self) -> PrivateTubeData {
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
         let mut result: PrivateTubeData = std::mem::zeroed();
         result.public_inputs = self.to_kernel_circuit_public_inputs();
         result
     }
 
-    fn to_public_tube_data(self) -> PublicTubeData {
+    pub fn to_public_tube_data(self) -> PublicTubeData {
         let mut result: PublicTubeData = std::mem::zeroed();
         result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
         result
@@ -1133,6 +1147,7 @@ impl Empty for FixtureBuilder {
             vk_tree_root: FixtureBuilder::vk_tree_root(),
             protocol_contract_tree_root: 0,
             protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
+            archive_tree: AppendOnlyTreeSnapshot::zero(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

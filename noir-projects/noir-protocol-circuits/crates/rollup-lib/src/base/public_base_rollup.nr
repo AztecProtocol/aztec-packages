@@ -1,13 +1,11 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        constant_rollup_data::ConstantRollupData,
-    },
+    abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
+            PublicTubeDataValidator,
         },
         state_diff_hints::PublicBaseStateDiffHints,
     },
@@ -19,6 +17,7 @@ use dep::types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
         combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData,
         log_hash::{LogHash, ScopedLogHash},
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_write::PublicDataWrite,
@@ -109,11 +108,9 @@ impl PublicBaseRollupInputs {
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
-        if !dep::std::runtime::is_unconstrained() {
-            self.tube_data.verify();
-            // TODO(#7410)
-            // self.tube_data.vk_data.validate_in_vk_tree([TUBE_VK_INDEX]);
-        }
+        let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
+        tube_data_validator.verify_proof();
+        tube_data_validator.validate_with_rollup_data(self.constants);
 
         // TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {
@@ -363,10 +360,7 @@ impl PublicBaseRollupInputs {
 
 mod tests {
     use crate::{
-        abis::{
-            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-            constant_rollup_data::ConstantRollupData,
-        },
+        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         base::{
             components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             public_base_rollup::PublicBaseRollupInputs, state_diff_hints::PublicBaseStateDiffHints,
@@ -376,6 +370,7 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+            constant_rollup_data::ConstantRollupData,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         },
         address::{AztecAddress, EthAddress},
