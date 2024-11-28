@@ -7,9 +7,9 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
-if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
+if [[ -n "${BUILD_SYSTEM_DEBUG:-}" || "${DENOISE:-0}" -eq 0 ]] ; then
   set -e
-  $@
+  eval "$*"
   exit 0
 fi
 
@@ -23,7 +23,7 @@ exec 3>&1
 # Execute the command and process the output
 echo -n "0 "
 output=$(
-  "$@" 2>&1 | while IFS= read -r -d '' -n 1 char; do
+  eval "$*" 2>&1 | while IFS= read -r -d '' -n 1 char; do
     if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
       printf "." >&3
       ((dot_count++))
