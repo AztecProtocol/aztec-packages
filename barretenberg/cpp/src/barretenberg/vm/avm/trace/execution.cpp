@@ -287,6 +287,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             public_call_requests.push_back(setup_requests);
         }
     }
+    size_t setup_counter = public_call_requests.size();
+
     for (const auto& app_requests : public_inputs.public_app_logic_call_requests) {
         if (app_requests.contract_address != 0) {
             public_call_requests.push_back(app_requests);
@@ -297,9 +299,30 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
         public_call_requests.push_back(public_inputs.public_teardown_call_request);
     }
 
+    // Temporary spot for private non-revertible insertion
+    std::vector<FF> siloed_nullifier;
+    siloed_nullifier.insert(siloed_nullifier.end(),
+                            public_inputs.accumulated_data.nullifiers.begin(),
+                            public_inputs.accumulated_data.nullifiers.begin() +
+                                public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
+    trace_builder.insert_private_state(siloed_nullifier, {});
+
     // Loop over all the public call requests
     uint8_t call_ctx = 0;
-    for (const auto& public_call_request : public_call_requests) {
+    for (size_t i = 0; i < public_call_requests.size(); i++) {
+
+        // When we get this, it means we have done our non-revertible setup phase
+        if (i + 1 == setup_counter) {
+            // Temporary spot for private revertible insertion
+            std::vector<FF> siloed_nullifiers;
+            siloed_nullifiers.insert(siloed_nullifiers.end(),
+                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
+                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
+                                         public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
+            trace_builder.insert_private_state(siloed_nullifiers, {});
+        }
+
+        auto public_call_request = public_call_requests.at(i);
         trace_builder.set_public_call_request(public_call_request);
         trace_builder.set_call_ptr(call_ctx++);
 

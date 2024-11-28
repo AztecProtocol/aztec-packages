@@ -56,8 +56,6 @@ class AvmTraceBuilder {
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
-    TreeSnapshots& get_intermediate_tree_snapshots() { return intermediate_tree_snapshots; }
-
     // Compute - Arithmetic
     AvmError op_add(
         uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::ADD_16);
@@ -226,6 +224,8 @@ class AvmTraceBuilder {
     std::vector<Row> finalize();
     void reset();
 
+    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
+
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
     {
@@ -262,8 +262,6 @@ class AvmTraceBuilder {
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
-    // These are the tracked roots for intermediate steps
-    TreeSnapshots intermediate_tree_snapshots;
     // These are some counters for the tree acceess hints that we probably dont need in the future
     uint32_t note_hash_read_counter = 0;
     uint32_t note_hash_write_counter = 0;
