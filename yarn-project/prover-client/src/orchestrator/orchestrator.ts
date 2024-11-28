@@ -39,7 +39,7 @@ import {
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -162,7 +162,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     logger.info(
-      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions`,
+      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()} with ${numTxs} transactions`,
     );
 
     // Fork world state at the end of the immediately previous block
@@ -235,34 +235,39 @@ export class ProvingOrchestrator implements EpochProver {
   }))
   public async addNewTx(tx: ProcessedTx): Promise<void> {
     const blockNumber = tx.constants.globalVariables.blockNumber.toNumber();
+    try {
+      const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
+      if (!provingState) {
+        throw new Error(`Block proving state for ${blockNumber} not found`);
+      }
 
-    const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
-    if (!provingState) {
-      throw new Error(`Block proving state for ${blockNumber} not found`);
-    }
+      if (!provingState.isAcceptingTransactions()) {
+        throw new Error(`Rollup not accepting further transactions`);
+      }
 
-    if (!provingState.isAcceptingTransactions()) {
-      throw new Error(`Rollup not accepting further transactions`);
-    }
+      if (!provingState.verifyState()) {
+        throw new Error(`Invalid proving state when adding a tx`);
+      }
 
-    if (!provingState.verifyState()) {
-      throw new Error(`Invalid proving state when adding a tx`);
-    }
+      validateTx(tx);
 
-    validateTx(tx);
+      logger.info(`Received transaction: ${tx.hash}`);
 
-    logger.info(`Received transaction: ${tx.hash}`);
+      if (tx.isEmpty) {
+        logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
+        return;
+      }
 
-    if (tx.isEmpty) {
-      logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
-      return;
-    }
+      const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
+      this.enqueueFirstProofs(hints, treeSnapshots, tx, provingState);
 
-    const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
-    this.enqueueFirstProofs(hints, treeSnapshots, tx, provingState);
-
-    if (provingState.transactionsReceived === provingState.totalNumTxs) {
-      logger.verbose(`All transactions received for block ${provingState.globalVariables.blockNumber}.`);
+      if (provingState.transactionsReceived === provingState.totalNumTxs) {
+        logger.verbose(`All transactions received for block ${provingState.globalVariables.blockNumber}.`);
+      }
+    } catch (err: any) {
+      throw new Error(`Error adding transaction ${tx.hash.toString()} to block ${blockNumber}: ${err.message}`, {
+        cause: err,
+      });
     }
   }
 
@@ -348,7 +353,7 @@ export class ProvingOrchestrator implements EpochProver {
   })
   private padEpoch(): Promise<void> {
     const provingState = this.provingState!;
-    const lastBlock = provingState.blocks.at(-1)?.block;
+    const lastBlock = maxBy(provingState.blocks, b => b.blockNumber)?.block;
     if (!lastBlock) {
       return Promise.reject(new Error(`Epoch needs at least one completed block in order to be padded`));
     }
