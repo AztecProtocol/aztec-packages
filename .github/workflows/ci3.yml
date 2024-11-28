@@ -40,5 +40,6 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_LOG: 1
         run: |
           BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }} ./ci.sh ec2
