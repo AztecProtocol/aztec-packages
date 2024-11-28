@@ -506,7 +506,15 @@ WorldStateStatusFull WorldState::sync_block(
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
-        NullifierTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        NullifierTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
+            // take the first error
+            bool expected = true;
+            if (!resp.success && success.compare_exchange_strong(expected, false)) {
+                err_message = resp.message;
+            }
+
+            signal.signal_decrement();
+        };
         wrapper.tree->add_or_update_values(nullifiers, 0, completion);
     }
 
