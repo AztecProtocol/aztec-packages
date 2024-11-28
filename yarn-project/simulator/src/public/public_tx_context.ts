@@ -2,6 +2,7 @@ import {
   type AvmProvingRequest,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -9,14 +10,15 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
+  AvmCircuitInputs,
   type AvmCircuitPublicInputs,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
+  PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
   countAccumulatedItems,
@@ -26,13 +28,12 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
-import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
+import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
@@ -58,7 +59,6 @@ export class PublicTxContext {
   constructor(
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
-    private readonly historicalHeader: Header, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
     private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
@@ -105,7 +105,6 @@ export class PublicTxContext {
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
       globalVariables,
-      tx.data.constants.historicalHeader,
       await db.getStateReference(),
       tx.data.gasUsed,
       tx.data.constants.txContext.gasSettings,
@@ -328,38 +327,17 @@ export class PublicTxContext {
    * Generate the proving request for the AVM circuit.
    */
   generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
-    // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
-    // proving request for the first time
-    this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
-    return this.avmProvingRequest!;
-  }
-
-  // TODO(dbanks12): remove once AVM proves entire public tx
-  updateProvingRequest(
-    real: boolean,
-    phase: TxExecutionPhase,
-    fnName: string,
-    stateManager: AvmPersistableStateManager,
-    executionRequest: PublicExecutionRequest,
-    result: AvmFinalizedCallResult,
-    allocatedGas: Gas,
-  ) {
-    if (this.avmProvingRequest === undefined) {
-      // Propagate the very first avmProvingRequest of the tx for now.
-      // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = generateAvmProvingRequest(
-        real,
-        fnName,
-        stateManager,
-        this.historicalHeader,
-        this.globalVariables,
-        executionRequest,
-        // TODO(dbanks12): do we need this return type unless we are doing an isolated call?
-        stateManager.trace.toPublicEnqueuedCallExecutionResult(result),
-        allocatedGas,
-        this.getTransactionFee(phase),
-      );
-    }
+    const hints = this.trace.getAvmCircuitHints();
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs(
+        'public_dispatch',
+        [],
+        PublicCircuitPublicInputs.empty(),
+        hints,
+        this.generateAvmCircuitPublicInputs(endStateReference),
+      ),
+    };
   }
 }
 

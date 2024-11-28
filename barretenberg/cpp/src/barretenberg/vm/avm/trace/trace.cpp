@@ -35,6 +35,7 @@
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/stats.hpp"
 
