@@ -39,7 +39,7 @@ if [ "${CI:-0}" -eq 1 ]; then
   $ci3/github/group "noir-projects test"
   NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 
-  if [ -z "${USE_CACHE:-}" ] || ! $ci3/cache/download_flag noir-projects-tests-$CIRCUITS_HASH ; then
+  if [ -z "${USE_CACHE:-}" ] || $ci3/cache/should_run noir-projects-tests-$CIRCUITS_HASH ; then
     (cd ./noir-protocol-circuits && $NARGO fmt --check && $NARGO test --silence-warnings)
     (cd ./mock-protocol-circuits && $NARGO fmt --check)
     (cd ./noir-contracts && $NARGO fmt --check)

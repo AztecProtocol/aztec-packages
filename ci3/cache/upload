@@ -6,8 +6,8 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
-if [ "${USE_CACHE:-0}" -lt 2 ] ; then
-  # Don't upload if USE_CACHE isn't set to 2.
+if [ "${CI:-0}" -lt 1 ] ; then
+  # Don't upload if CI is not on.
   exit 1
 fi
 

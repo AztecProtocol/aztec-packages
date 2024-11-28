@@ -126,9 +126,6 @@ case "$CMD" in
   "fast")
     export USE_CACHE=1
   ;;
-  "fast-with-upload")
-    export USE_CACHE=2
-  ;;
   "check")
     check_toolchains
     echo "Toolchains look good! 🎉"
