@@ -44,7 +44,9 @@ if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
 fi
 
 # Download ignition transcripts.
-(cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
+$ci3/github/group "download ignition"
+$ci3/base/denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
+$ci3/github/endgroup
 
 # Pick native toolchain file.
 ARCH=$(uname -m)
@@ -109,7 +111,7 @@ function build_wasm_threads {
   fi
 }
 
-export PRESET PIC_PRESET HASH ci3
+export PRESET PIC_PRESET HASH SKIP_BUILD ci3
 export -f build_native build_wasm build_wasm_threads
 
 parallel --line-buffered -v --tag --memfree 8g $ci3/base/denoise {} ::: build_native build_wasm build_wasm_threads
