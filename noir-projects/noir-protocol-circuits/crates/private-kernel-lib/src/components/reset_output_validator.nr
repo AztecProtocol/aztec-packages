@@ -16,6 +16,12 @@ use dep::types::{
     utils::arrays::assert_sorted_transformed_value_array_capped_size,
 };
 
+// Verifies that the first field of a private log is siloed with the contract address.
+// Apps can define the meaning of the first field: it could be a tag, part of a tag, or a random value embedded in the
+// content, etc.
+// This siloing ensures that the log is verifiably linked to the specified contract address.
+// Without this check, an app could impersonate another by emitting a log identical to one from a different contract
+// or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
 fn is_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) -> bool {
     let siloed_field =
         compute_siloed_private_log_field(prev.contract_address, prev.inner.log.fields[0]);

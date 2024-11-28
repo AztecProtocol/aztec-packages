@@ -106,10 +106,10 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
     // Silo the tag with contract address.
-    // This is done by the kernel circuit to the private logs.
-    // But since the partial log will be finalized and emitted in public as unencrypted log, its tag is not siloed at the moment.
+    // This is done by the kernel circuit to the private logs, but since the partial log will be finalized and emitted
+    // in public as unencrypted log, its tag is not siloed at the moment.
     // To avoid querying logs using two types of tags, we silo the tag manually here.
-    // This should be done by the AVM when its processing the raw logs instead of their hashes.
+    // TODO(#10273) This should be done by the AVM when it's processing the raw logs instead of their hashes.
     let siloed_tag_bytes: [u8; 32] =
         poseidon2_hash([contract_address.to_field(), tag]).to_be_bytes();
 

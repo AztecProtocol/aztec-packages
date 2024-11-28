@@ -93,25 +93,16 @@ where
     Note: NoteInterface<N>,
 {
     |e: NoteEmission<Note>| {
-        //   Having the log hash be unconstrained here is fine because the way this works is we send the log hash
-        // to the kernel, and it gets included as part of its public inputs. Then we send the tx to the sequencer,
-        // which includes the kernel proof and the log preimages. The sequencer computes the hashes of the logs
-        // and checks that they are the ones in the public inputs of the kernel, and drops the tx otherwise (proposing
-        // the block on L1 would later fail if it didn't because of txs effects hash mismatch).
-        //   So if we don't constrain the log hash, then a malicious sender can compute the correct log, submit a bad
-        // log hash to the kernel, and then submit the bad log preimage to the sequencer. All checks will pass, but
-        // the submitted log will not be the one that was computed by the app.
-        //   In the unconstrained case, we don't care about the log at all because we don't do anything with it,
-        // and because it's unconstrained: it could be anything. So if a sender chooses to broadcast the tx with a log
-        // that is different from the one that was used in the circuit, then they'll be able to, but they were already
-        // able to change the log before anyway, so the end result is the same. It's important here that we do not
-        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
-        // be wrong.
+        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
+        // recipient is unable to decrypt the payload.
         //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
         // more than one log and removes all of the matching ones, so all a malicious sender could do is either: cause
         // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
         // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
         // for a note that doesn't exist).
+        //   It's important here that we do not
+        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
+        // be wrong.
         let (encrypted_log, note_hash_counter) =
             unsafe { compute_payload_unconstrained(*context, e.note, ovpk, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
