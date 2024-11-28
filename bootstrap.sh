@@ -126,13 +126,17 @@ case "$CMD" in
   "fast")
     export USE_CACHE=1
   ;;
+  "fast-write")
+    # Reads from cache, writes to cache
+    export USE_CACHE=2
+  ;;
   "check")
     check_toolchains
     echo "Toolchains look good! 🎉"
     exit 0
   ;;
   *)
-    echo "usage: $0 <full|fast|check|clean>"
+    echo "usage: $0 <full|fast|fast-write|check|clean>"
     exit 1
   ;;
 esac

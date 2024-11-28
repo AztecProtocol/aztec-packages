@@ -25,7 +25,7 @@ function build {
   echo
   yarn install
 
-  if [ -z "${USE_CACHE:-}" ] || ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+  if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;
@@ -192,9 +192,6 @@ case "$CMD" in
   ;;
   ""|"fast")
     case "${CI:-0}" in
-      -1)
-        build
-      ;;
       0)
         build
       ;;
