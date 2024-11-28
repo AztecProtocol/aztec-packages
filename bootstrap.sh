@@ -19,6 +19,8 @@ RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
+export DENOISE=1
+
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${RESET}"
 }

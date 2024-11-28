@@ -43,11 +43,6 @@ if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
   SKIP_BUILD=1
 fi
 
-# Download ignition transcripts.
-$ci3/github/group "download ignition"
-$ci3/base/denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
-$ci3/github/endgroup
-
 # Pick native toolchain file.
 ARCH=$(uname -m)
 if [ "$OS" == "macos" ]; then
@@ -90,6 +85,12 @@ function build_native {
   if $ci3/base/is_test && $ci3/cache/should_run barretenberg-test-$HASH; then
     cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $PRESET
+
+    # Download ignition transcripts.
+    $ci3/github/group "download ignition"
+    (cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
+    $ci3/github/endgroup
+
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
     $ci3/cache/upload_flag barretenberg-test-$HASH
   fi

@@ -57,6 +57,8 @@ args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' 
 # Run in our build container, cloning commit and running bootstrap.sh.
 $ci3/github/group "Start CI Image"
 ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  # Not interested in shutdown messages.
+  mesg n
   docker run --privileged $args --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
     -v \$HOME/.aws:/root/.aws \
