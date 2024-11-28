@@ -23,7 +23,8 @@ function build {
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  yarn install
+  echo -n "yarn install: "
+  $ci3/base/denoise yarn install
 
   if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in

@@ -50,6 +50,9 @@ $ci3/github/endgroup
 args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
+# Interactive if stdin is connected to terminal.
+[ -t 0 ] && args+=" -i"
+
 # Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails).
 # Run in our build container, cloning commit and running bootstrap.sh.
 $ci3/github/group "Start CI Image"
