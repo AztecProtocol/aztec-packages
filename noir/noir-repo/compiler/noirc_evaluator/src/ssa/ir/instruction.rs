@@ -478,7 +478,6 @@ impl Instruction {
             | ArraySet { .. }
             | MakeArray { .. } => true,
 
-
             Constrain(..)
             | Store { .. }
             | EnableSideEffectsIf { .. }
