@@ -1,0 +1,43 @@
+#!/bin/bash
+set -uo pipefail
+
+# Ensure a command is passed
+if [ "$#" -eq 0 ]; then
+  echo "Usage: $0 <command>"
+  exit 1
+fi
+
+dots_per_line=${LINE_WIDTH:-64}
+dot_count=0
+status=0
+
+# Create a new file descriptor for capturing output
+exec 3>&1
+
+# Execute the command and process the output
+output=$(
+  "$@" 2>&1 | while IFS= read -r -d '' -n 1 char; do
+    if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
+      printf "." >&3
+      ((dot_count++))
+      if [[ "$dots_per_line" -gt 0 && "$dot_count" -ge "$dots_per_line" ]]; then
+        printf "\n" >&3
+        dot_count=0
+      fi
+    fi
+    printf "%s" "$char"  # Send each character to the captured output
+  done;
+)
+
+# Get the exit status of the command
+status=${PIPESTATUS[0]}
+
+# Handle non-zero exit status
+if [ "$status" -ne 0 ]; then
+  echo -e "\nCommand exited with status $status. Dumping output:"
+  echo -e "$output"
+else
+  echo ". done (${SECONDS}s)"
+fi
+
+exit $status

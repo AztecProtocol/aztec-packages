@@ -68,7 +68,7 @@ rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
 HASH=$($ci3/cache/content_hash)
 function build_native {
-  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
     echo "#################################"
     echo "# Building with preset: $PRESET"
     echo "# When running cmake directly, remember to use: --build --preset $PRESET"
@@ -86,8 +86,6 @@ function build_native {
     $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
   fi
   if $ci3/base/is_test && $ci3/cache/should_run barretenberg-test-$HASH; then
-    $ci3/github/endgroup > /dev/tty
-    $ci3/github/group "bb cpp test" > /dev/tty
     cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
@@ -96,7 +94,7 @@ function build_native {
 }
 
 function build_wasm {
-  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
     cmake --preset wasm
     cmake --build --preset wasm
     $ci3/cache/upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
@@ -104,47 +102,18 @@ function build_wasm {
 }
 
 function build_wasm_threads {
-  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
     cmake --preset wasm-threads
     cmake --build --preset wasm-threads
     $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
   fi
+  echo $?
 }
 
-g="\033[32m"  # Green
-b="\033[34m"  # Blue
-p="\033[35m"  # Purple
-r="\033[0m"   # Reset
+export PRESET PIC_PRESET HASH ci3
+export -f build_native build_wasm build_wasm_threads
 
-AVAILABLE_MEMORY=0
-
-case "$(uname)" in
-  Linux*)
-    # Check available memory on Linux
-    AVAILABLE_MEMORY=$(awk '/MemTotal/ { printf $2 }' /proc/meminfo)
-    ;;
-  *)
-    echo "Parallel builds not supported on this operating system"
-    ;;
-esac
-# This value may be too low.
-# If builds fail with an amount of free memory greater than this value then it should be increased.
-MIN_PARALLEL_BUILD_MEMORY=32854492
-
-if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
-  echo "System does not have enough memory for parallel builds, falling back to sequential"
-  build_native
-  build_wasm
-  build_wasm_threads
-else
-  (build_native > >(awk -v g="$g" -v r="$r" '{print g "native: " r $0}')) &
-  (build_wasm > >(awk -v b="$b" -v r="$r" '{print b "wasm: " r $0}')) &
-  (build_wasm_threads > >(awk -v p="$p" -v r="$r" '{print p "wasm_threads: "r $0}')) &
-
-  for job in $(jobs -p); do
-    wait $job || exit 1
-  done
-fi
+parallel --line-buffered -v --tag --memfree 8g $ci3/base/denoise {} ::: build_native build_wasm build_wasm_threads
 
 if [ ! -d ./srs_db/grumpkin ]; then
   # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests

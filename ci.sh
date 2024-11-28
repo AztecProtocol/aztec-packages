@@ -15,6 +15,12 @@ fi
 
 instance_name="${BRANCH//\//_}"
 
+ip=$(aws ec2 describe-instances \
+  --region us-east-2 \
+  --filters "Name=tag:Name,Values=$instance_name" \
+  --query "Reservations[].Instances[].PublicIpAddress" \
+  --output text)
+
 case "$CMD" in
   # Spin up ec2 instance and bootstrap.
   "ec2")
@@ -38,7 +44,7 @@ case "$CMD" in
     echo "Triggering CI workflow for PR: $PR_NUMBER"
     gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow" &> /dev/null
     gh pr edit "$PR_NUMBER" --add-label "trigger-workflow" &> /dev/null
-    sleep 10
+    sleep 5
     gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow" &> /dev/null
     ;&
   "log")
@@ -49,11 +55,6 @@ case "$CMD" in
     if gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json status --jq '.[] | select(.status == "in_progress" or .status == "queued")' | grep -q .; then
       # If we're in progress, tail live logs from launched instance,
       while true; do
-        ip=$(aws ec2 describe-instances \
-          --region us-east-2 \
-          --filters "Name=tag:Name,Values=$instance_name" \
-          --query "Reservations[].Instances[].PublicIpAddress" \
-          --output text)
         if [ -z "$ip" ]; then
           echo "Waiting on instance with name: $instance_name"
           sleep 5
@@ -80,21 +81,18 @@ case "$CMD" in
     fi
     exit 0
     ;;
-  "ssh")
-    ip=$(aws ec2 describe-instances \
-      --region us-east-2 \
-      --filters "Name=tag:Name,Values=$instance_name" \
-      --query "Reservations[].Instances[].PublicIpAddress" \
-      --output text)
+  "shell")
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
       exit 0
     ;;
+  "attach")
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
+      exit 0
+    ;;
   "ssh-host")
-    ip=$(aws ec2 describe-instances \
-      --region us-east-2 \
-      --filters "Name=tag:Name,Values=$instance_name" \
-      --query "Reservations[].Instances[].PublicIpAddress" \
-      --output text)
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip
       exit 0
     ;;

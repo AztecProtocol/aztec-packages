@@ -18,7 +18,7 @@ fi
 # Attempt to just pull artefacts from CI and elide the build on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && SKIP_BUILD=1
 
-if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
   $ci3/github/group "l1-contracts build"
   # Clean
   rm -rf broadcast cache out serve

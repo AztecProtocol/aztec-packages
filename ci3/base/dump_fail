@@ -1,0 +1,19 @@
+#!/bin/bash
+set -uo pipefail
+
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $0 <string> <command> [args...]"
+  exit 1
+fi
+
+echo "$1"
+shift
+
+output=$("$@" 2>&1)
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "$output"
+fi
+
+exit $status
