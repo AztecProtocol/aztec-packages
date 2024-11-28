@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732752853323,
+  "lastUpdate": 1732804034997,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "jose@aztecprotocol.com",
-            "name": "José Pedro Sousa",
-            "username": "signorecello"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fc27eafaaa471e888805c785066f361f0da15298",
-          "message": "feat: naive attempt to bind the honk solidity verifier function to the ts interface (#9432)\n\nAttempts to plumb the honk solidity verifier into the WASM output and\r\nexpose it in the ts API",
-          "timestamp": "2024-11-13T14:20:47+01:00",
-          "tree_id": "ab344098e7e6e7251738f810ffada0fe0c9e7381",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc27eafaaa471e888805c785066f361f0da15298"
-        },
-        "date": 1731506649834,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28818.745078999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26819.430010999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5344.8635560000075,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4970.529963 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85111.584661,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85111586000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15179.080876,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15179081000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3102272849,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3102272849 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142375069,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142375069 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2978,6 +2918,66 @@ window.BENCHMARK_DATA = {
             "value": 140566137,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140566137 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfd9fa68be4147acb3e3feeaf83ed3c9247761be",
+          "message": "feat: Sequential insertion in indexed trees (#10111)\n\n- Adds sequential (no subtree) insertion in indexed trees\r\n- If witnesses are requested, the response includes 2*N witnesses, N for\r\nthe low leaves and N for the insertions\r\n   - If no witness is requested, it directly does sparse_batch_update\r\n   - Updating an item multiple times in the same call is allowed\r\n- Uses sequential insertion with witnesses to avoid doing N batch\r\nupdates of 1 item for the base rollup\r\n- Uses sequential insertion without witnesses for syncing the public\r\ndata tree, to avoid doing 1 batch insertion per TX in the block",
+          "timestamp": "2024-11-28T14:02:54Z",
+          "tree_id": "defc9c4f062e912d3f8eb7ab58ae7482928cce54",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bfd9fa68be4147acb3e3feeaf83ed3c9247761be"
+        },
+        "date": 1732804028018,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28153.127274000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26537.149002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5038.755413000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4631.034165 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84192.29212700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84192293000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15156.366907,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15156368000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3080859077,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3080859077 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139642057,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139642057 ns\nthreads: 1"
           }
         ]
       }
