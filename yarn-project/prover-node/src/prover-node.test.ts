@@ -15,7 +15,7 @@ import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type BootstrapNode,
   InMemoryAttestationPool,

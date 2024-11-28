@@ -1,9 +1,9 @@
 import { type AztecSingleton } from '../interfaces/singleton.js';
 
 /**
- * Stores a single value in JungleDB.
+ * Stores a single value in IndexedDB.
  */
-export class JungleDBAztecSingleton<T> implements AztecSingleton<T> {
+export class IndexedDBAztecSingleton<T> implements AztecSingleton<T> {
   #db: any;
   #slot: string;
 

@@ -2,7 +2,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import JDB from '@nimiq/jungle-db';
 import { mkdirSync } from 'fs';
-import { mkdtemp, rm } from 'fs/promises';
+import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 
@@ -13,16 +13,18 @@ import { AztecMap, AztecMultiMap } from '../interfaces/map.js';
 import { AztecSet } from '../interfaces/set.js';
 import { AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecKVStore } from '../interfaces/store.js';
-import { JungleDBAztecArray } from './array.js';
-import { JungleDBAztecMap } from './map.js';
-import { JungleDBAztecSet } from './set.js';
-import { JungleDBAztecSingleton } from './singleton.js';
+import { IndexedDBAztecArray } from './array.js';
+import { IndexedDBAztecMap } from './map.js';
+import { IndexedDBAztecSet } from './set.js';
+import { IndexedDBAztecSingleton } from './singleton.js';
+
+const { mkdtemp, rm } = fs;
 
 /**
  * A key-value store backed by LMDB.
  */
-export class AztecJungleDBStore implements AztecKVStore {
-  #log = createDebugLogger('aztec:kv-store:jungledb');
+export class AztecIndexedDBStore implements AztecKVStore {
+  #log = createDebugLogger('aztec:kv-store:indexeddb');
   #rootDb: any;
   #data: any;
 
@@ -31,7 +33,7 @@ export class AztecJungleDBStore implements AztecKVStore {
   }
 
   /**
-   * Creates a new AztecKVStore backed by JungleDB. The path to the database is optional. If not provided,
+   * Creates a new AztecKVStore backed by IndexedDB. The path to the database is optional. If not provided,
    * the database will be stored in a temporary location and be deleted when the process exists.
    *
    *
@@ -43,15 +45,15 @@ export class AztecJungleDBStore implements AztecKVStore {
   static async open(
     path?: string,
     ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:jungledb'),
-  ): Promise<AztecJungleDBStore> {
+    log = createDebugLogger('aztec:kv-store:indexeddb'),
+  ): Promise<AztecIndexedDBStore> {
     if (path) {
       mkdirSync(path, { recursive: true });
     }
-    log.debug(`Opening JungleDB database at ${path || 'temporary location'}`);
-    const rootDb = new JDB.JungleDB(path ?? 'tmp', 1);
-    const data = ephemeral ? JDB.JungleDB.createVolatileObjectStore() : rootDb.createObjectStore('data');
-    const kvStore = new AztecJungleDBStore(data, ephemeral, path);
+    log.debug(`Opening IndexedDB database at ${path || 'temporary location'}`);
+    const rootDb = new JDB.IndexedDB(path ?? 'tmp', 1);
+    const data = ephemeral ? JDB.IndexedDB.createVolatileObjectStore() : rootDb.createObjectStore('data');
+    const kvStore = new AztecIndexedDBStore(data, ephemeral, path);
     await rootDb.connect();
     return kvStore;
   }
@@ -67,9 +69,9 @@ export class AztecJungleDBStore implements AztecKVStore {
       (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
     this.#log.verbose(`Forking store to ${forkPath}`);
 
-    const forkedRootDb = new JDB.JungleDB(forkPath ?? 'tmp', 1);
-    const data = this.isEphemeral ? JDB.JungleDB.createVolatileObjectStore() : forkedRootDb.createObjectStore('data');
-    const kvStore = new AztecJungleDBStore(data, this.isEphemeral, forkPath);
+    const forkedRootDb = new JDB.IndexedDB(forkPath ?? 'tmp', 1);
+    const data = this.isEphemeral ? JDB.IndexedDB.createVolatileObjectStore() : forkedRootDb.createObjectStore('data');
+    const kvStore = new AztecIndexedDBStore(data, this.isEphemeral, forkPath);
     await forkedRootDb.connect();
     // Copy old data to new store
     const tx = data.transaction();
@@ -89,7 +91,7 @@ export class AztecJungleDBStore implements AztecKVStore {
    * @returns A new AztecMap
    */
   openMap<K extends Key, V>(name: string): AztecMap<K, V> {
-    return new JungleDBAztecMap(this.#data, name);
+    return new IndexedDBAztecMap(this.#data, name);
   }
 
   /**
@@ -98,7 +100,7 @@ export class AztecJungleDBStore implements AztecKVStore {
    * @returns A new AztecSet
    */
   openSet<K extends Key>(name: string): AztecSet<K> {
-    return new JungleDBAztecSet(this.#data, name);
+    return new IndexedDBAztecSet(this.#data, name);
   }
 
   /**
@@ -107,7 +109,7 @@ export class AztecJungleDBStore implements AztecKVStore {
    * @returns A new AztecMultiMap
    */
   openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> {
-    return new JungleDBAztecMap(this.#data, name);
+    return new IndexedDBAztecMap(this.#data, name);
   }
 
   openCounter<K extends Key | Array<string | number>>(name: string): AztecCounter<K> {
@@ -120,7 +122,7 @@ export class AztecJungleDBStore implements AztecKVStore {
    * @returns A new AztecArray
    */
   openArray<T>(name: string): AztecArray<T> {
-    return new JungleDBAztecArray(this.#data, name);
+    return new IndexedDBAztecArray(this.#data, name);
   }
 
   /**
@@ -129,7 +131,7 @@ export class AztecJungleDBStore implements AztecKVStore {
    * @returns A new AztecSingleton
    */
   openSingleton<T>(name: string): AztecSingleton<T> {
-    return new JungleDBAztecSingleton(this.#data, name);
+    return new IndexedDBAztecSingleton(this.#data, name);
   }
 
   /**

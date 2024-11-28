@@ -3,8 +3,8 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
-import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

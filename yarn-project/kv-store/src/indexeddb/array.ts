@@ -1,19 +1,19 @@
 import JDB from '@nimiq/jungle-db';
 
 import { type AztecArray } from '../interfaces/array.js';
-import { JungleDBAztecSingleton } from './singleton.js';
+import { IndexedDBAztecSingleton } from './singleton.js';
 
 /**
- * An persistent array backed by JungleDB.
+ * An persistent array backed by IndexedDB.
  */
-export class JungleDBAztecArray<T> implements AztecArray<T> {
+export class IndexedDBAztecArray<T> implements AztecArray<T> {
   #db: any;
   #name: string;
-  #length: JungleDBAztecSingleton<number>;
+  #length: IndexedDBAztecSingleton<number>;
 
   constructor(db: any, arrName: string) {
     this.#name = arrName;
-    this.#length = new JungleDBAztecSingleton(db, `${arrName}:meta:length`);
+    this.#length = new IndexedDBAztecSingleton(db, `${arrName}:meta:length`);
     this.#db = db;
   }
 

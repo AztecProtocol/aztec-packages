@@ -14,7 +14,7 @@ import {
   makeRootParityInputs,
 } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { jest } from '@jest/globals';
 

@@ -7,7 +7,7 @@ import {
 import { hashVK } from '@aztec/circuits.js/hash';
 
 import { strict as assert } from 'assert';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import { VK_FIELDS_FILENAME, VK_FILENAME } from '../bb/execute.js';

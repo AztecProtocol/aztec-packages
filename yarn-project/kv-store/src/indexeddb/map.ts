@@ -6,15 +6,16 @@ import { type AztecMultiMap } from '../interfaces/map.js';
 type StoredData<V> = { value: V; key: string; keyCount: number };
 
 /**
- * A map backed by JungleDB.
+ * A map backed by IndexedDB.
  */
-export class JungleDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
+export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
   protected db: any;
   protected name: string;
 
   constructor(rootDb: any, mapName: string) {
     this.name = mapName;
     this.db = rootDb;
+    this.db.createIndex(this.#keyIndexName(), 'key', { multiEntry: true, keyEncoding: JDB.BINARY_ENCODING });
   }
 
   close(): Promise<void> {
@@ -27,7 +28,6 @@ export class JungleDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
   }
 
   async *getValues(key: K): AsyncIterableIterator<V> {
-    const normalizedKey = this.#normalizeKey(key);
     for await (const [_, value] of this.#valueIterator(
       JDB.Query.within(this.#keyCountIndexName(key), 0, Number.MAX_SAFE_INTEGER),
     )) {
@@ -45,9 +45,6 @@ export class JungleDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
         multiEntry: true,
         keyEncoding: JDB.NUMBER_ENCODING,
       });
-    }
-    if (!this.db.index(this.#keyIndexName())) {
-      this.db.createIndex(this.#keyIndexName(), 'key', { multiEntry: true, keyEncoding: JDB.BINARY_ENCODING });
     }
     const count = await this.db
       .index(this.#keyCountIndexName(key))
@@ -98,12 +95,12 @@ export class JungleDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
       const start =
         range.start ??
         this.#denormalizeKey(
-          (Array.from(await this.db.index(this.#keyIndexName()).minValues())[0] as StoredData<V>).key,
+          (Array.from(await this.db.index(this.#keyIndexName()).minValues())?.[0] as StoredData<V>)?.key ?? '',
         );
       const end =
         range.end ??
         this.#denormalizeKey(
-          (Array.from(await this.db.index(this.#keyIndexName()).maxValues())[0] as StoredData<V>).key,
+          (Array.from(await this.db.index(this.#keyIndexName()).maxValues())?.[0] as StoredData<V>)?.key ?? '',
         );
       jdbQuery = JDB.Query.within(this.#keyIndexName(), this.#normalizeKey(start), this.#normalizeKey(end));
     }

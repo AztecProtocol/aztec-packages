@@ -3,7 +3,7 @@ import { type AztecAddress } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type NoteSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 export interface NoteInfo {
   noteHashIndex: number;

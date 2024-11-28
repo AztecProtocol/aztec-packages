@@ -11,7 +11,7 @@ import {
 import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   PublicProcessor,
   PublicTxSimulator,
@@ -24,7 +24,7 @@ import { MerkleTrees } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { jest } from '@jest/globals';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';

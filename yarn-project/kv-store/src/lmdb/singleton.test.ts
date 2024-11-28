@@ -1,6 +1,6 @@
 import { describeAztecSingleton } from '../interfaces/singleton_test_suite.js';
-import { openTmpJungleStore } from '../utils.js';
+import { openTmpStore } from './index.js';
 
 describe('LMDBSingleton', () => {
-  describeAztecSingleton('AztecSingleton', async () => openTmpJungleStore(true));
+  describeAztecSingleton('AztecSingleton', async () => openTmpStore(true));
 });

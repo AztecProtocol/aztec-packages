@@ -1,6 +1,8 @@
 import '@aztec/circuit-types/jest';
 import { toArray } from '@aztec/foundation/iterable';
 
+import { type expect as Expect } from 'chai';
+
 import { Key } from './common.js';
 import { AztecMultiMap } from './map.js';
 import { AztecKVStore } from './store.js';
@@ -39,6 +41,10 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
 
       expect(map.get('foo')).toEqual(undefined);
       expect(map.get('baz')).toEqual('qux');
+    });
+
+    it('should be able to iterate over entries when there are no keys', async () => {
+      expect(await toArray(map.entries())).toEqual([]);
     });
 
     it('should be able to iterate over entries', async () => {

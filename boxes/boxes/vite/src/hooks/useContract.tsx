@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { deployerEnv } from '../config';
+import { useState } from "react";
+import { deployerEnv } from "../config";
 
-import { Contract, Fr } from '@aztec/aztec.js';
-import { BoxReactContract } from '../../artifacts/BoxReact';
-import { toast } from 'react-toastify';
+import { Contract, Fr } from "@aztec/aztec.js";
+import { BoxReactContract } from "../../artifacts/BoxReact";
+import { toast } from "react-toastify";
 
 export function useContract() {
   const [wait, setWait] = useState(false);
@@ -13,6 +13,7 @@ export function useContract() {
     e.preventDefault();
 
     setWait(true);
+    await deployerEnv.init();
     const wallet = await deployerEnv.getWallet();
     const salt = Fr.random();
 
@@ -24,11 +25,11 @@ export function useContract() {
       contractAddressSalt: salt,
     });
     const contract = await toast.promise(tx.deployed(), {
-      pending: 'Deploying contract...',
+      pending: "Deploying contract...",
       success: {
         render: ({ data }) => `Address: ${data.address}`,
       },
-      error: 'Error deploying contract',
+      error: "Error deploying contract",
     });
 
     setContract(contract);

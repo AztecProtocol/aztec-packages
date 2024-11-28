@@ -1,6 +1,6 @@
 import { type AztecNode, L2Block, type L2BlockStream } from '@aztec/circuit-types';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
-import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

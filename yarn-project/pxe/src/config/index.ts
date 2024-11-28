@@ -133,8 +133,8 @@ export function getCliPXEOptions(): CliPXEOptions & PXEServiceConfig {
  * Returns package name and version.
  */
 export function getPackageInfo() {
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
+  // const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
+  // const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
 
-  return { version, name };
+  return { version: '3', name: 'whatever' };
 }

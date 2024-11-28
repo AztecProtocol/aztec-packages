@@ -3,7 +3,7 @@ import { createDebugLogger } from '@aztec/aztec.js';
 import { ArchiverApiSchema } from '@aztec/circuit-types';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 import {
   createAndStartTelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,

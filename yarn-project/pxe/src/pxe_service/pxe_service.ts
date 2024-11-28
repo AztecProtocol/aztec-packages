@@ -64,7 +64,7 @@ import {
   getCanonicalProtocolContract,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';

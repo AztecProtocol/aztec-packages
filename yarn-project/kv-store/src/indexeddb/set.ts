@@ -2,15 +2,15 @@ import { type Database } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
 import { type AztecSet } from '../interfaces/set.js';
-import { JungleDBAztecMap } from './map.js';
+import { IndexedDBAztecMap } from './map.js';
 
 /**
- * A set backed by JungleDB.
+ * A set backed by IndexedDB.
  */
-export class JungleDBAztecSet<K extends Key> implements AztecSet<K> {
-  private map: JungleDBAztecMap<K, boolean>;
+export class IndexedDBAztecSet<K extends Key> implements AztecSet<K> {
+  private map: IndexedDBAztecMap<K, boolean>;
   constructor(rootDb: Database, mapName: string) {
-    this.map = new JungleDBAztecMap(rootDb, mapName);
+    this.map = new IndexedDBAztecMap(rootDb, mapName);
   }
 
   close(): Promise<void> {

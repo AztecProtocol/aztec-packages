@@ -1,7 +1,7 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { mkdirSync } from 'fs';
-import { mkdtemp, rm } from 'fs/promises';
+import { promises as fs } from 'fs';
 import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
@@ -18,6 +18,8 @@ import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap } from './map.js';
 import { LmdbAztecSet } from './set.js';
 import { LmdbAztecSingleton } from './singleton.js';
+
+const { mkdtemp, rm } = fs;
 
 /**
  * A key-value store backed by LMDB.

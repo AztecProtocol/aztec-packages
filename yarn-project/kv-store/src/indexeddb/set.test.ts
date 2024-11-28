@@ -1,6 +1,6 @@
 import { describeAztecSet } from '../interfaces/set_test_suite.js';
 import { openTmpStore } from './index.js';
 
-describe('LMDBSet', () => {
+describe('IndexedDBSet', () => {
   describeAztecSet('AztecSet', async () => openTmpStore(true));
 });

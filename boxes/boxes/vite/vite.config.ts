@@ -32,4 +32,9 @@ export default defineConfig({
     }),
     topLevelAwait(),
   ],
+  resolve: {
+    alias: {
+      "@nimiq/jungle-db": "@nimiq/jungle-db/dist/indexeddb.js",
+    },
+  },
 });

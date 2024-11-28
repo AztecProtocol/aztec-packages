@@ -4,7 +4,7 @@ import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { expect, jest } from '@jest/globals';
 

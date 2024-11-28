@@ -1,7 +1,7 @@
 import { type DebugLogger } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 

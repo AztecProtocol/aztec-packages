@@ -3,7 +3,7 @@ import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type NoteData } from '@aztec/simulator';
+import { type NoteData } from '@aztec/simulator/acvm';
 
 import { type NoteInfo } from '../note_decryption_utils/index.js';
 
