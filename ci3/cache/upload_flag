@@ -15,6 +15,7 @@ function on_exit() {
   # Cleanup the temporary tar.gz file
   rm -f .success
 }
+trap on_exit EXIT
 
 NAME="$1"
 
