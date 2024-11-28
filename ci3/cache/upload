@@ -8,7 +8,7 @@ fi
 
 if [ "${CI:-0}" -lt 1 ] ; then
   # Don't upload if CI is not on.
-  exit 1
+  exit 0
 fi
 
 # Name, intended to have .tar.gz ending
