@@ -1,18 +1,14 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
-if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
-  set -e
-  $@
-  exit 0
-fi
 # Ensure a command is passed
 if [ "$#" -eq 0 ]; then
   echo "Usage: $0 <command>"
   exit 1
 fi
 
-if [ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]; then
+if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
+  set -e
   $@
   exit 0
 fi
