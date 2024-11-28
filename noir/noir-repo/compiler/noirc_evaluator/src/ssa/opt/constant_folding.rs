@@ -379,7 +379,6 @@ impl<'brillig> Context<'brillig> {
             dom: &mut DominatorTree,
             cache: &HashMap<ValueId, SimplificationCache>,
             value_id: ValueId,
-            block: BasicBlockId,
         ) -> ValueId {
             let resolved_id = dfg.resolve(value_id);
             match cache.get(&resolved_id) {
@@ -392,8 +391,6 @@ impl<'brillig> Context<'brillig> {
                 }
                 None => resolved_id,
             }
-
-            resolved_id
         }
 
         // Resolve any inputs to ensure that we're comparing like-for-like instructions.
