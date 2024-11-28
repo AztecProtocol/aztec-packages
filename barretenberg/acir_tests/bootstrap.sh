@@ -2,6 +2,23 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
+if [ "${1:-}" == "clean" ]; then
+  git clean -fdx
+  (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
+  exit 0
+fi
+
+export AZTEC_CACHE_REBUILD_PATTERNS=$(echo \
+  ../../noir/.rebuild_patterns_native \
+  ../../noir/.rebuild_patterns_tests \
+  ../../barretenberg/cpp/.rebuild_patterns \
+  ../../barretenberg/ts/.rebuild_patterns)
+HASH=$($ci3/cache/content_hash)
+
+if ! $ci3/base/is_test || ! $ci3/cache/should_run barretenberg-acir-test-$HASH; then
+  exit 0
+fi
+
 $ci3/github/group "acir_tests updating yarn"
 # Update yarn.lock so it can be committed.
 # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
@@ -58,4 +75,5 @@ function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
 
 export -f f0 f1 f2 f3 f4 f5 f6
 parallel ::: f0 f1 f2 f3 f4 f5 f6
+$ci3/cache/upload_flag barretenberg-acir-test-$HASH
 $ci3/github/endgroup

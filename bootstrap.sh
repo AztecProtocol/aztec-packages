@@ -20,7 +20,7 @@ BOLD="\033[1m"
 RESET="\033[0m"
 
 function encourage_dev_container {
-  echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
+  echo -e "${BOLD}${RED}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${RESET}"
 }
 
 # Checks for required utilities, toolchains and their versions.

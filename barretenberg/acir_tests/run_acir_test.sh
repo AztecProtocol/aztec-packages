@@ -26,7 +26,15 @@ if [ "$COMPILE" -eq 1 ]; then
   export RAYON_NUM_THREADS=4
   rm -rf target
   nargo=../../../target/release/nargo
+  set +e
   compile_output=$($nargo compile --silence-warnings 2>&1 && $nargo execute 2>&1)
+  result=$?
+  set -e
+  if [ "$result" -ne 0 ]; then
+    echo "failed."
+    echo "$compile_output"
+    exit $result
+  fi
   mv ./target/$TEST_NAME.json ./target/program.json
   mv ./target/$TEST_NAME.gz ./target/witness.gz
   if [ "$COMPILE_ONLY" -eq 1 ]; then

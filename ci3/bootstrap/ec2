@@ -64,8 +64,6 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
       [ -n \"$GITHUB_LOG\" ] && echo "::group::Clone Repository"
       set -e
-      # Don't care about shutdown messages.
-      mesg n
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
       touch started
