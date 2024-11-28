@@ -43,15 +43,17 @@ describe('prover/orchestrator/failures', () => {
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
         const globalVariables = makeGlobals(i + 1);
-        const txs = times(3, j =>
-          makeBloatedProcessedTx({
-            db: context.actualDb,
-            globalVariables,
-            vkTreeRoot: getVKTreeRoot(),
-            protocolContractTreeRoot,
-            seed: i * 10 + j + 1,
-            privateOnly: j === 1,
-          }),
+        const txs = await Promise.all(
+          times(3, j =>
+            makeBloatedProcessedTx({
+              db: context.actualDb,
+              globalVariables,
+              vkTreeRoot: getVKTreeRoot(),
+              protocolContractTreeRoot,
+              seed: i * 10 + j + 1,
+              privateOnly: j === 1,
+            }),
+          ),
         );
         const msgs = [new Fr(i + 100)];
         // these operations could fail if the target circuit fails before adding all blocks or txs

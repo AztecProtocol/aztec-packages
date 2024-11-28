@@ -17,7 +17,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx1 = mockTx();
 
     await pool.addTxs([tx1]);
-    const poolTx = pool.getTxByHash(tx1.getTxHash());
+    const poolTx = await pool.getTxByHash(tx1.getTxHash());
     expect(poolTx!.getTxHash()).toEqual(tx1.getTxHash());
     expect(pool.getTxStatus(tx1.getTxHash())).toEqual('pending');
     expect(pool.getPendingTxHashes()).toEqual([tx1.getTxHash()]);

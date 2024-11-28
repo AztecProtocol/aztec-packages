@@ -10,8 +10,8 @@ export class TXEDatabase extends KVPxeDatabase {
     this.#accounts = db.openMap('accounts');
   }
 
-  getAccount(key: AztecAddress) {
-    const completeAddress = this.#accounts.get(key.toString());
+  async getAccount(key: AztecAddress) {
+    const completeAddress = await this.#accounts.get(key.toString());
     if (!completeAddress) {
       throw new Error(`Account not found: ${key.toString()}`);
     }

@@ -162,10 +162,10 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract));
   }
 
-  public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    const contract = this.#contractArtifacts.get(id.toString());
+  public async getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    const contract = await this.#contractArtifacts.get(id.toString());
     // TODO(@spalladino): AztecMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
-    return Promise.resolve(contract && contractArtifactFromBuffer(Buffer.from(contract)));
+    return contract && contractArtifactFromBuffer(Buffer.from(contract));
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
@@ -175,9 +175,9 @@ export class KVPxeDatabase implements PxeDatabase {
     );
   }
 
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const contract = this.#contractInstances.get(address.toString());
-    return Promise.resolve(contract && SerializableContractInstance.fromBuffer(contract).withAddress(address));
+  async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const contract = await this.#contractInstances.get(address.toString());
+    return contract && SerializableContractInstance.fromBuffer(contract).withAddress(address);
   }
 
   async getContractsAddresses(): Promise<AztecAddress[]> {
@@ -192,8 +192,8 @@ export class KVPxeDatabase implements PxeDatabase {
     );
   }
 
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    const witness = this.#authWitnesses.get(messageHash.toString());
+  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+    const witness = await this.#authWitnesses.get(messageHash.toString());
     return Promise.resolve(witness?.map(w => Fr.fromBuffer(w)));
   }
 
@@ -282,18 +282,18 @@ export class KVPxeDatabase implements PxeDatabase {
   public async unnullifyNotesAfter(blockNumber: number): Promise<void> {
     const nullifiersToUndo: string[] = [];
     const currentBlockNumber = blockNumber + 1;
-    const maxBlockNumber = this.getBlockNumber() ?? currentBlockNumber;
+    const maxBlockNumber = (await this.getBlockNumber()) ?? currentBlockNumber;
     for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
       nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValues(i))));
     }
 
-    const notesIndexesToReinsert = await this.db.transaction(() =>
-      nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.get(nullifier)),
+    const notesIndexesToReinsert = await this.db.transaction(async () =>
+      Promise.all(nullifiersToUndo.map(async nullifier => await this.#nullifiedNotesByNullifier.get(nullifier))),
     );
-    const nullifiedNoteBuffers = await this.db.transaction(() => {
-      return notesIndexesToReinsert
-        .filter(noteIndex => noteIndex != undefined)
-        .map(noteIndex => this.#nullifiedNotes.get(noteIndex!));
+    const nullifiedNoteBuffers = await this.db.transaction(async () => {
+      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
+
+      return await Promise.all(notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.get(noteIndex!)));
     });
     const noteDaos = nullifiedNoteBuffers
       .filter(buffer => buffer != undefined)
@@ -388,7 +388,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const result: IncomingNoteDao[] = [];
     for (const { ids, notes } of candidateNoteSources) {
       for (const id of ids) {
-        const serializedNote = notes.get(id);
+        const serializedNote = await notes.get(id);
         if (!serializedNote) {
           continue;
         }
@@ -423,7 +423,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
   async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]> {
     const ovpkM: PublicKey | undefined = filter.owner
-      ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterOutgoingViewingPublicKey
+      ? (await this.#getCompleteAddress(filter.owner))?.publicKeys.masterOutgoingViewingPublicKey
       : undefined;
 
     // Check if ovpkM is truthy
@@ -443,7 +443,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     const notes: OutgoingNoteDao[] = [];
     for await (const id of ids) {
-      const serializedNote = this.#outgoingNotes.get(id);
+      const serializedNote = await this.#outgoingNotes.get(id);
       if (!serializedNote) {
         continue;
       }
@@ -481,12 +481,12 @@ export class KVPxeDatabase implements PxeDatabase {
 
       for (const blockScopedNullifier of nullifiers) {
         const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
-        const noteIndex = this.#nullifierToNoteId.get(nullifier.toString());
+        const noteIndex = await this.#nullifierToNoteId.get(nullifier.toString());
         if (!noteIndex) {
           continue;
         }
 
-        const noteBuffer = noteIndex ? this.#notes.get(noteIndex) : undefined;
+        const noteBuffer = noteIndex ? await this.#notes.get(noteIndex) : undefined;
 
         if (!noteBuffer) {
           // note doesn't exist. Maybe it got nullified already
@@ -547,8 +547,8 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#synchronizedBlock.set(header.toBuffer());
   }
 
-  getBlockNumber(): number | undefined {
-    const headerBuffer = this.#synchronizedBlock.get();
+  async getBlockNumber(): Promise<number | undefined> {
+    const headerBuffer = await this.#synchronizedBlock.get();
     if (!headerBuffer) {
       return undefined;
     }
@@ -556,8 +556,8 @@ export class KVPxeDatabase implements PxeDatabase {
     return Number(Header.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
   }
 
-  getHeader(): Header {
-    const headerBuffer = this.#synchronizedBlock.get();
+  async getHeader(): Promise<Header> {
+    const headerBuffer = await this.#synchronizedBlock.get();
     if (!headerBuffer) {
       throw new Error(`Header not set`);
     }
@@ -568,7 +568,7 @@ export class KVPxeDatabase implements PxeDatabase {
   async #addScope(scope: AztecAddress): Promise<boolean> {
     const scopeString = scope.toString();
 
-    if (this.#scopes.has(scopeString)) {
+    if (await this.#scopes.has(scopeString)) {
       return false;
     }
 
@@ -584,18 +584,18 @@ export class KVPxeDatabase implements PxeDatabase {
   async addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
     await this.#addScope(completeAddress.address);
 
-    return this.#db.transaction(() => {
+    return this.#db.transaction(async () => {
       const addressString = completeAddress.address.toString();
       const buffer = completeAddress.toBuffer();
-      const existing = this.#completeAddressIndex.get(addressString);
+      const existing = await this.#completeAddressIndex.get(addressString);
       if (typeof existing === 'undefined') {
-        const index = this.#completeAddresses.length;
+        const index = await this.#completeAddresses.length();
         void this.#completeAddresses.push(buffer);
         void this.#completeAddressIndex.set(addressString, index);
 
         return true;
       } else {
-        const existingBuffer = this.#completeAddresses.at(existing);
+        const existingBuffer = await this.#completeAddresses.at(existing);
 
         if (existingBuffer?.equals(buffer)) {
           return false;
@@ -608,13 +608,13 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  #getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
-    const index = this.#completeAddressIndex.get(address.toString());
+  async #getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const index = await this.#completeAddressIndex.get(address.toString());
     if (typeof index === 'undefined') {
       return undefined;
     }
 
-    const value = this.#completeAddresses.at(index);
+    const value = await this.#completeAddresses.at(index);
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
@@ -627,7 +627,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async addContactAddress(address: AztecAddress): Promise<boolean> {
-    if (this.#addressBook.has(address.toString())) {
+    if (await this.#addressBook.has(address.toString())) {
       return false;
     }
 
@@ -650,7 +650,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return true;
   }
 
-  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
+  getSynchedBlockNumberForAccount(account: AztecAddress): Promise<number | undefined> {
     return this.#syncedBlockPerPublicKey.get(account.toString());
   }
 
@@ -672,7 +672,7 @@ export class KVPxeDatabase implements PxeDatabase {
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
       0,
     );
-    const addressesSize = this.#completeAddresses.length * CompleteAddress.SIZE_IN_BYTES;
+    const addressesSize = (await this.#completeAddresses.length()) * CompleteAddress.SIZE_IN_BYTES;
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
@@ -702,8 +702,11 @@ export class KVPxeDatabase implements PxeDatabase {
     return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
   }
 
-  #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<number[]> {
-    return this.db.transaction(() => appTaggingSecrets.map(secret => storageMap.get(`${secret.toString()}`) ?? 0));
+  async #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<number[]> {
+    return await this.db.transaction(
+      async () =>
+        await Promise.all(appTaggingSecrets.map(async secret => (await storageMap.get(`${secret.toString()}`)) ?? 0)),
+    );
   }
 
   async resetNoteSyncData(): Promise<void> {

@@ -119,7 +119,7 @@ export interface MerkleTreeReadOperations {
   /**
    * Gets the initial header.
    */
-  getInitialHeader(): Header;
+  getInitialHeader(): Promise<Header>;
 
   /**
    * Gets sibling path for a leaf.

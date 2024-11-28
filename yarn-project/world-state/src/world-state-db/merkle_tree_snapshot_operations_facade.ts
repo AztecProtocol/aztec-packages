@@ -63,7 +63,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
     index: bigint,
   ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
     const snapshot = await this.#getTreeSnapshot(treeId);
-    return snapshot.getLeafValue(BigInt(index)) as MerkleTreeLeafType<typeof treeId> | undefined;
+    return (await snapshot.getLeafValue(BigInt(index))) as MerkleTreeLeafType<typeof treeId> | undefined;
   }
 
   async getPreviousValueIndex(
@@ -132,7 +132,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
     );
   }
 
-  getInitialHeader(): Header {
+  getInitialHeader(): Promise<Header> {
     throw new Error('Getting initial header not supported on snapshot.');
   }
 }

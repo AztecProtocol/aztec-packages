@@ -195,7 +195,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
       // and persist the initial header state reference so we can later load it when requested.
       const initialState = await this.getStateReference(true);
       await this.#saveInitialStateReference(initialState);
-      await this.#updateArchive(this.getInitialHeader());
+      await this.#updateArchive(await this.getInitialHeader());
 
       // And commit anything we did to initialize this set of trees
       await this.#commit();
@@ -249,8 +249,8 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     await this.store.delete();
   }
 
-  public getInitialHeader(): Header {
-    return Header.empty({ state: this.#loadInitialStateReference() });
+  public async getInitialHeader(): Promise<Header> {
+    return Header.empty({ state: await this.#loadInitialStateReference() });
   }
 
   /**
@@ -511,8 +511,8 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     return this.initialStateReference.set(state.toBuffer());
   }
 
-  #loadInitialStateReference(): StateReference {
-    const serialized = this.initialStateReference.get();
+  async #loadInitialStateReference(): Promise<StateReference> {
+    const serialized = await this.initialStateReference.get();
     if (!serialized) {
       throw new Error('Initial state reference not found');
     }

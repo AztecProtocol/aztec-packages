@@ -78,7 +78,7 @@ export class EpochProvingJob {
       // Get the genesis header if the first block of the epoch is the first block of the chain
       let previousHeader =
         this.blocks[0].number === 1
-          ? this.db.getInitialHeader()
+          ? await this.db.getInitialHeader()
           : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
 
       for (const block of this.blocks) {
@@ -105,7 +105,7 @@ export class EpochProvingJob {
         await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
 
         // Process public fns
-        const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
+        const publicProcessor = await this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
         await this.processTxs(publicProcessor, txs, txCount);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,

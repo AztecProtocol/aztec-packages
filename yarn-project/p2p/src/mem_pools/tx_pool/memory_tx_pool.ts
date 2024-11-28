@@ -77,7 +77,7 @@ export class InMemoryTxPool implements TxPool {
     );
   }
 
-  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+  public async getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     const key = txHash.toBigInt();
     if (this.pendingTxs.has(key)) {
       return 'pending';
@@ -93,7 +93,7 @@ export class InMemoryTxPool implements TxPool {
    * @param txHash - The generated tx hash.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  public getTxByHash(txHash: TxHash): Tx | undefined {
+  public async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const result = this.txs.get(txHash.toBigInt());
     return result === undefined ? undefined : Tx.clone(result);
   }

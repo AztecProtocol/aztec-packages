@@ -364,11 +364,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   /**
    * Gets the last L1 block number processed by the archiver
    */
-  getSynchPoint(): Promise<ArchiverL1SynchPoint> {
-    return Promise.resolve({
-      blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
-      messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
-    });
+  async getSynchPoint(): Promise<ArchiverL1SynchPoint> {
+    return {
+      blocksSynchedTo: await this.#blockStore.getSynchedL1BlockNumber(),
+      messagesSynchedTo: await this.#messageStore.getSynchedL1BlockNumber(),
+    };
   }
 
   public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

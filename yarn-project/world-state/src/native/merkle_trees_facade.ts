@@ -40,8 +40,8 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     protected readonly revision: WorldStateRevision,
   ) {}
 
-  getInitialHeader(): Header {
-    return this.initialHeader;
+  getInitialHeader(): Promise<Header> {
+    return Promise.resolve(this.initialHeader);
   }
 
   findLeafIndex(treeId: MerkleTreeId, value: MerkleTreeLeafType<MerkleTreeId>): Promise<bigint | undefined> {

@@ -53,7 +53,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
     for (let i = 0; i < paddingTxCount; i++) {
       await this.addNewTx(
         makeEmptyProcessedTx(
-          this.db.getInitialHeader(),
+          await this.db.getInitialHeader(),
           this.globalVariables!.chainId,
           this.globalVariables!.version,
           getVKTreeRoot(),

@@ -15,7 +15,7 @@ export interface TxPool {
    * @param txHash - The hash of the transaction, used as an ID.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined;
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Marks the set of txs as mined, as opposed to pending.
@@ -65,5 +65,5 @@ export interface TxPool {
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 }

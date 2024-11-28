@@ -189,7 +189,7 @@ describe('L1Publisher integration', () => {
 
     const fork = await worldStateSynchronizer.fork();
 
-    prevHeader = fork.getInitialHeader();
+    prevHeader = await fork.getInitialHeader();
     await fork.close();
 
     // We jump to the next epoch such that the committee can be setup.
@@ -210,7 +210,7 @@ describe('L1Publisher integration', () => {
       protocolContractTreeRoot,
     );
 
-  const makeProcessedTx = (seed = 0x1): ProcessedTx =>
+  const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
@@ -358,12 +358,12 @@ describe('L1Publisher integration', () => {
 
         // Ensure that each transaction has unique (non-intersecting nullifier values)
         const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
-        const txs = [
+        const txs = await Promise.all([
           makeProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NULLIFIERS_PER_TX),
           makeProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NULLIFIERS_PER_TX),
           makeProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NULLIFIERS_PER_TX),
           makeProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
-        ];
+        ]);
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);

@@ -38,7 +38,7 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * Returns the initial header for the chain before the first block.
    * @returns The initial header.
    */
-  getInitialHeader(): Header {
+  getInitialHeader(): Promise<Header> {
     return this.trees.getInitialHeader();
   }
 

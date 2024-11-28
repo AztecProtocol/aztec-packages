@@ -14,8 +14,8 @@ export class ContractArtifactsStore {
     return this.#contractArtifacts.set(address.toString(), contractArtifactToBuffer(contractArtifact));
   }
 
-  getContractArtifact(address: AztecAddress): ContractArtifact | undefined {
-    const contractArtifact = this.#contractArtifacts.get(address.toString());
+  async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    const contractArtifact = await this.#contractArtifacts.get(address.toString());
     // TODO(@spalladino): AztecMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
     return contractArtifact && contractArtifactFromBuffer(Buffer.from(contractArtifact));
   }

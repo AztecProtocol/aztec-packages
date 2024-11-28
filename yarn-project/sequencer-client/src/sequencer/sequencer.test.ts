@@ -155,7 +155,7 @@ describe('sequencer', () => {
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_a, _b) => publicProcessor,
+      create: async (_a, _b) => publicProcessor,
     });
 
     l2BlockSource = mock<L2BlockSource>({

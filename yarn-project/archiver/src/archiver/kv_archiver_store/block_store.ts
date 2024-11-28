@@ -98,7 +98,7 @@ export class BlockStore {
 
       for (let i = 0; i < blocksToUnwind; i++) {
         const blockNumber = from - i;
-        const block = this.getBlock(blockNumber);
+        const block = await this.getBlock(blockNumber);
 
         if (block === undefined) {
           throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
@@ -133,8 +133,8 @@ export class BlockStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
    */
-  getBlock(blockNumber: number): L1Published<L2Block> | undefined {
-    const blockStorage = this.#blocks.get(blockNumber);
+  async getBlock(blockNumber: number): Promise<L1Published<L2Block> | undefined> {
+    const blockStorage = await this.#blocks.get(blockNumber);
     if (!blockStorage || !blockStorage.header) {
       return undefined;
     }
@@ -154,11 +154,11 @@ export class BlockStore {
     }
   }
 
-  private getBlockFromBlockStorage(blockStorage: BlockStorage) {
+  private async getBlockFromBlockStorage(blockStorage: BlockStorage) {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = header.hash().toString();
-    const blockBodyBuffer = this.#blockBodies.get(blockHash);
+    const blockBodyBuffer = await this.#blockBodies.get(blockHash);
     if (blockBodyBuffer === undefined) {
       throw new Error(
         `Could not retrieve body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`,
@@ -175,13 +175,13 @@ export class BlockStore {
    * @param txHash - The txHash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): InBlock<TxEffect> | undefined {
-    const [blockNumber, txIndex] = this.getTxLocation(txHash) ?? [];
+  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+    const [blockNumber, txIndex] = (await this.getTxLocation(txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return undefined;
     }
 
-    const block = this.getBlock(blockNumber);
+    const block = await this.getBlock(blockNumber);
     if (!block) {
       return undefined;
     }
@@ -198,13 +198,13 @@ export class BlockStore {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  getSettledTxReceipt(txHash: TxHash): TxReceipt | undefined {
-    const [blockNumber, txIndex] = this.getTxLocation(txHash) ?? [];
+  async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    const [blockNumber, txIndex] = (await this.getTxLocation(txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return undefined;
     }
 
-    const block = this.getBlock(blockNumber)!;
+    const block = (await this.getBlock(blockNumber))!;
     const tx = block.data.body.txEffects[txIndex];
 
     return new TxReceipt(
@@ -222,7 +222,7 @@ export class BlockStore {
    * @param txHash - The txHash of the tx.
    * @returns The block number and index of the tx.
    */
-  getTxLocation(txHash: TxHash): [blockNumber: number, txIndex: number] | undefined {
+  getTxLocation(txHash: TxHash): Promise<[blockNumber: number, txIndex: number] | undefined> {
     return this.#txIndex.get(txHash.toString());
   }
 
@@ -231,7 +231,7 @@ export class BlockStore {
    * @param contractAddress - The address of the contract to look up.
    * @returns The block number and index of the contract.
    */
-  getContractLocation(contractAddress: AztecAddress): [blockNumber: number, index: number] | undefined {
+  getContractLocation(contractAddress: AztecAddress): Promise<[blockNumber: number, index: number] | undefined> {
     return this.#contractIndex.get(contractAddress.toString());
   }
 
@@ -248,7 +248,7 @@ export class BlockStore {
    * Gets the most recent L1 block processed.
    * @returns The L1 block that published the latest L2 block
    */
-  getSynchedL1BlockNumber(): bigint | undefined {
+  getSynchedL1BlockNumber(): Promise<bigint | undefined> {
     return this.#lastSynchedL1Block.get();
   }
 
@@ -256,15 +256,15 @@ export class BlockStore {
     void this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
-  getProvenL2BlockNumber(): number {
-    return this.#lastProvenL2Block.get() ?? 0;
+  async getProvenL2BlockNumber(): Promise<number> {
+    return (await this.#lastProvenL2Block.get()) ?? 0;
   }
 
   setProvenL2BlockNumber(blockNumber: number) {
     void this.#lastProvenL2Block.set(blockNumber);
   }
 
-  getProvenL2EpochNumber(): number | undefined {
+  getProvenL2EpochNumber(): Promise<number | undefined> {
     return this.#lastProvenL2Epoch.get();
   }
 

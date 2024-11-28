@@ -12,7 +12,7 @@ import { type TreeBase, getTreeMeta } from './tree_base.js';
  * @param name - Name of the tree.
  * @returns The newly created tree.
  */
-export function loadTree<T extends TreeBase<Bufferable>, D extends FromBuffer<Bufferable>>(
+export async function loadTree<T extends TreeBase<Bufferable>, D extends FromBuffer<Bufferable>>(
   c: new (
     store: AztecKVStore,
     hasher: Hasher,
@@ -27,7 +27,7 @@ export function loadTree<T extends TreeBase<Bufferable>, D extends FromBuffer<Bu
   name: string,
   deserializer: D,
 ): Promise<T> {
-  const { root, depth, size } = getTreeMeta(store, name);
+  const { root, depth, size } = await getTreeMeta(store, name);
   const tree = new c(store, hasher, name, depth, size, deserializer, root);
-  return Promise.resolve(tree);
+  return tree;
 }

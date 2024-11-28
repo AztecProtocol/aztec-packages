@@ -35,7 +35,7 @@ describe('prover/orchestrator/public-functions', () => {
           numberOfNonRevertiblePublicCallRequests,
           numberOfRevertiblePublicCallRequests,
         });
-        tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
+        tx.data.constants.historicalHeader = await context.actualDb.getInitialHeader();
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 

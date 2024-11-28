@@ -72,7 +72,7 @@ export interface IndexedTree
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns A copy of the leaf preimage at the given index or undefined if the leaf was not found.
    */
-  getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined;
+  getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): Promise<IndexedTreeLeafPreimage | undefined>;
 
   /**
    * Batch insert multiple leaves into the tree.

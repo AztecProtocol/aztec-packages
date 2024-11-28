@@ -133,7 +133,7 @@ export interface P2P {
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Tx | undefined;
+  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
@@ -147,7 +147,7 @@ export interface P2P {
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 
   /**
    * Starts the p2p client.
@@ -241,17 +241,17 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
-    return Promise.resolve(this.synchedBlockHashes.get(number));
+    return this.synchedBlockHashes.get(number);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
-    const latestBlockNumber = this.getSyncedLatestBlockNum();
+  public async getL2Tips(): Promise<L2Tips> {
+    const latestBlockNumber = await this.getSyncedLatestBlockNum();
     let latestBlockHash: string | undefined;
-    const provenBlockNumber = this.getSyncedProvenBlockNum();
+    const provenBlockNumber = await this.getSyncedProvenBlockNum();
     let provenBlockHash: string | undefined;
 
     if (latestBlockNumber > 0) {
-      latestBlockHash = this.synchedBlockHashes.get(latestBlockNumber);
+      latestBlockHash = await this.synchedBlockHashes.get(latestBlockNumber);
       if (typeof latestBlockHash === 'undefined') {
         this.log.warn(`Block hash for latest block ${latestBlockNumber} not found`);
         throw new Error();
@@ -259,18 +259,18 @@ export class P2PClient extends WithTracer implements P2P {
     }
 
     if (provenBlockNumber > 0) {
-      provenBlockHash = this.synchedBlockHashes.get(provenBlockNumber);
+      provenBlockHash = await this.synchedBlockHashes.get(provenBlockNumber);
       if (typeof provenBlockHash === 'undefined') {
         this.log.warn(`Block hash for proven block ${provenBlockNumber} not found`);
         throw new Error();
       }
     }
 
-    return Promise.resolve({
+    return {
       latest: { hash: latestBlockHash!, number: latestBlockNumber },
       proven: { hash: provenBlockHash!, number: provenBlockNumber },
       finalized: { hash: provenBlockHash!, number: provenBlockNumber },
-    });
+    };
   }
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
@@ -283,7 +283,7 @@ export class P2PClient extends WithTracer implements P2P {
         // TODO (alexg): I think we can prune the block hashes map here
         break;
       case 'chain-proven': {
-        const from = this.getSyncedProvenBlockNum() + 1;
+        const from = (await this.getSyncedProvenBlockNum()) + 1;
         const limit = event.blockNumber - from + 1;
         await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
         break;
@@ -341,8 +341,8 @@ export class P2PClient extends WithTracer implements P2P {
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
     this.provenBlockNumberAtStart = await this.l2BlockSource.getProvenBlockNumber();
 
-    const syncedLatestBlock = this.getSyncedLatestBlockNum() + 1;
-    const syncedProvenBlock = this.getSyncedProvenBlockNum() + 1;
+    const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
+    const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
 
     // if there are blocks to be retrieved, go to a synching state
     if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
@@ -448,10 +448,12 @@ export class P2PClient extends WithTracer implements P2P {
       return this.txPool.getAllTxs();
     } else if (filter === 'mined') {
       const txHashes = await this.txPool.getMinedTxHashes();
-      return txHashes.map(([txHash]) => this.txPool.getTxByHash(txHash)).filter((tx): tx is Tx => !!tx);
+      const txs = await Promise.all(txHashes.map(([txHash]) => this.txPool.getTxByHash(txHash)));
+      return txs.filter((tx): tx is Tx => !!tx);
     } else if (filter === 'pending') {
       const txHashes = await this.txPool.getPendingTxHashes();
-      return txHashes.map(txHash => this.txPool.getTxByHash(txHash)).filter((tx): tx is Tx => !!tx);
+      const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+      return txs.filter((tx): tx is Tx => !!tx);
     } else {
       const _: never = filter;
       throw new Error(`Unknown filter ${filter}`);
@@ -463,7 +465,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Tx | undefined {
+  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined> {
     return this.txPool.getTxByHash(txHash);
   }
 
@@ -497,7 +499,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     return this.txPool.getTxStatus(txHash);
   }
 
@@ -528,16 +530,16 @@ export class P2PClient extends WithTracer implements P2P {
    * Public function to check the latest block number that the P2P client is synced to.
    * @returns Block number of latest L2 Block we've synced with.
    */
-  public getSyncedLatestBlockNum() {
-    return this.synchedLatestBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
+  public async getSyncedLatestBlockNum() {
+    return (await this.synchedLatestBlockNumber.get()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
    * Public function to check the latest proven block number that the P2P client is synced to.
    * @returns Block number of latest proven L2 Block we've synced with.
    */
-  public getSyncedProvenBlockNum() {
-    return this.synchedProvenBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
+  public async getSyncedProvenBlockNum() {
+    return (await this.synchedProvenBlockNumber.get()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
@@ -545,7 +547,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns Information about p2p client status: state & syncedToBlockNum.
    */
   public async getStatus(): Promise<P2PSyncState> {
-    const blockNumber = this.getSyncedLatestBlockNum();
+    const blockNumber = await this.getSyncedLatestBlockNum();
     const blockHash =
       blockNumber == 0
         ? ''
@@ -674,8 +676,8 @@ export class P2PClient extends WithTracer implements P2P {
   private async startServiceIfSynched() {
     if (
       this.currentState === P2PClientState.SYNCHING &&
-      this.getSyncedLatestBlockNum() >= this.latestBlockNumberAtStart &&
-      this.getSyncedProvenBlockNum() >= this.provenBlockNumberAtStart
+      (await this.getSyncedLatestBlockNum()) >= this.latestBlockNumberAtStart &&
+      (await this.getSyncedProvenBlockNum()) >= this.provenBlockNumberAtStart
     ) {
       this.log.debug(`Synched to blocks at start`);
       this.setCurrentState(P2PClientState.RUNNING);

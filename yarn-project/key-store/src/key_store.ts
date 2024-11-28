@@ -107,7 +107,7 @@ export class KeyStore {
     const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
     // Now we find the master public key for the account
-    const pkMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
+    const pkMBuffer = await this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
     if (!pkMBuffer) {
       throw new Error(
         `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
@@ -121,7 +121,7 @@ export class KeyStore {
     }
 
     // Now we find the secret key for the public key
-    const skMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    const skMBuffer = await this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
     if (!skMBuffer) {
       throw new Error(
         `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
@@ -148,7 +148,7 @@ export class KeyStore {
    * @returns The master nullifier public key for the account.
    */
   public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+    const masterNullifierPublicKeyBuffer = await this.#keys.get(`${account.toString()}-npk_m`);
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -164,7 +164,7 @@ export class KeyStore {
    * @returns The master incoming viewing public key for the account.
    */
   public async getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterIncomingViewingPublicKeyBuffer = this.#keys.get(`${account.toString()}-ivpk_m`);
+    const masterIncomingViewingPublicKeyBuffer = await this.#keys.get(`${account.toString()}-ivpk_m`);
     if (!masterIncomingViewingPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -180,7 +180,7 @@ export class KeyStore {
    * @returns A Promise that resolves to the master outgoing viewing key.
    */
   public async getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterOutgoingViewingPublicKeyBuffer = this.#keys.get(`${account.toString()}-ovpk_m`);
+    const masterOutgoingViewingPublicKeyBuffer = await this.#keys.get(`${account.toString()}-ovpk_m`);
     if (!masterOutgoingViewingPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -196,7 +196,7 @@ export class KeyStore {
    * @returns A Promise that resolves to the master tagging key.
    */
   public async getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterTaggingPublicKeyBuffer = this.#keys.get(`${account.toString()}-tpk_m`);
+    const masterTaggingPublicKeyBuffer = await this.#keys.get(`${account.toString()}-tpk_m`);
     if (!masterTaggingPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -212,7 +212,7 @@ export class KeyStore {
    * @returns A Promise that resolves to the master incoming viewing secret key.
    */
   public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
-    const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
+    const masterIncomingViewingSecretKeyBuffer = await this.#keys.get(`${account.toString()}-ivsk_m`);
     if (!masterIncomingViewingSecretKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -231,7 +231,7 @@ export class KeyStore {
    * @returns A Promise that resolves to the application outgoing viewing secret key.
    */
   public async getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
-    const masterOutgoingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ovsk_m`);
+    const masterOutgoingViewingSecretKeyBuffer = await this.#keys.get(`${account.toString()}-ovsk_m`);
     if (!masterOutgoingViewingSecretKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -257,7 +257,7 @@ export class KeyStore {
   public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
     const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
-    const secretKeyBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    const secretKeyBuffer = await this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
     if (!secretKeyBuffer) {
       throw new Error(
         `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,

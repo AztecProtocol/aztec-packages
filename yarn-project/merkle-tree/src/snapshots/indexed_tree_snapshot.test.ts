@@ -101,12 +101,12 @@ describe('IndexedTreeSnapshotBuilder', () => {
       await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const snapshot = await snapshotBuilder.snapshot(1);
-      const historicalPrevValue = tree.findIndexOfPreviousKey(2n, false);
+      const historicalPrevValue = await tree.findIndexOfPreviousKey(2n, false);
 
       await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
 
-      expect(snapshot.findIndexOfPreviousKey(2n)).toEqual(historicalPrevValue);
+      expect(await snapshot.findIndexOfPreviousKey(2n)).toEqual(historicalPrevValue);
     });
   });
 });

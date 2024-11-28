@@ -41,13 +41,13 @@ export class AztecKVTxPool implements TxPool {
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
   }
 
-  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
-    return this.#store.transaction(() => {
+  public async markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
+    return await this.#store.transaction(async () => {
       let deleted = 0;
       for (const hash of txHashes) {
         const key = hash.toString();
-        void this.#minedTxs.set(key, blockNumber);
-        if (this.#pendingTxs.has(key)) {
+        await this.#minedTxs.set(key, blockNumber);
+        if (await this.#pendingTxs.has(key)) {
           deleted++;
           void this.#pendingTxs.delete(key);
         }
@@ -59,22 +59,22 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
-  public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
+  public async markMinedAsPending(txHashes: TxHash[]): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
 
-    return this.#store.transaction(() => {
+    return await this.#store.transaction(async () => {
       let deleted = 0;
       let added = 0;
       for (const hash of txHashes) {
         const key = hash.toString();
-        if (this.#minedTxs.has(key)) {
+        if (await this.#minedTxs.has(key)) {
           deleted++;
           void this.#minedTxs.delete(key);
         }
 
-        if (this.#txs.has(key)) {
+        if (await this.#txs.has(key)) {
           added++;
           void this.#pendingTxs.add(key);
         }
@@ -96,11 +96,11 @@ export class AztecKVTxPool implements TxPool {
     ]);
   }
 
-  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+  public async getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     const key = txHash.toString();
-    if (this.#pendingTxs.has(key)) {
+    if (await this.#pendingTxs.has(key)) {
       return 'pending';
-    } else if (this.#minedTxs.has(key)) {
+    } else if (await this.#minedTxs.has(key)) {
       return 'mined';
     } else {
       return undefined;
@@ -112,8 +112,8 @@ export class AztecKVTxPool implements TxPool {
    * @param txHash - The generated tx hash.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  public getTxByHash(txHash: TxHash): Tx | undefined {
-    const buffer = this.#txs.get(txHash.toString());
+  public async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    const buffer = await this.#txs.get(txHash.toString());
     return buffer ? Tx.fromBuffer(buffer) : undefined;
   }
 
@@ -152,19 +152,19 @@ export class AztecKVTxPool implements TxPool {
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
    * @returns The number of transactions that was deleted from the pool.
    */
-  public deleteTxs(txHashes: TxHash[]): Promise<void> {
-    return this.#store.transaction(() => {
+  public async deleteTxs(txHashes: TxHash[]): Promise<void> {
+    return await this.#store.transaction(async () => {
       let pendingDeleted = 0;
       let minedDeleted = 0;
       for (const hash of txHashes) {
         const key = hash.toString();
         void this.#txs.delete(key);
-        if (this.#pendingTxs.has(key)) {
+        if (await this.#pendingTxs.has(key)) {
           pendingDeleted++;
           void this.#pendingTxs.delete(key);
         }
 
-        if (this.#minedTxs.has(key)) {
+        if (await this.#minedTxs.has(key)) {
           minedDeleted++;
           void this.#minedTxs.delete(key);
         }

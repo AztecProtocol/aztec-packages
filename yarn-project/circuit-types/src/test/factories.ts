@@ -28,7 +28,7 @@ import { mockTx } from '../mocks.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 
 /** Makes a bloated processed tx for testing purposes. */
-export function makeBloatedProcessedTx({
+export async function makeBloatedProcessedTx({
   seed = 1,
   header,
   db,
@@ -55,7 +55,7 @@ export function makeBloatedProcessedTx({
 
   if (!header) {
     if (db) {
-      header = db.getInitialHeader();
+      header = await db.getInitialHeader();
     } else {
       header = makeHeader(seed);
     }

@@ -42,9 +42,9 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
     this.snapshotMetadata = db.openMap(`full_snapshot:${tree.getName()}:metadata`);
   }
 
-  snapshot(block: number): Promise<S> {
-    return this.db.transaction(() => {
-      const snapshotMetadata = this.#getSnapshotMeta(block);
+  async snapshot(block: number): Promise<S> {
+    return await this.db.transaction(async () => {
+      const snapshotMetadata = await this.#getSnapshotMeta(block);
 
       if (snapshotMetadata) {
         return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
@@ -66,7 +66,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
         // if it does, then we know we've seen the whole subtree below it before
         // and we don't have to traverse it anymore
         // we use the left child here, but it could be anything that shows we've stored the node before
-        if (this.nodes.has(nodeKey)) {
+        if (await this.nodes.has(nodeKey)) {
           continue;
         }
 
@@ -77,7 +77,10 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
           continue;
         }
 
-        const [lhs, rhs] = [this.tree.getNode(level + 1, 2n * i), this.tree.getNode(level + 1, 2n * i + 1n)];
+        const [lhs, rhs] = [
+          await this.tree.getNode(level + 1, 2n * i),
+          await this.tree.getNode(level + 1, 2n * i + 1n),
+        ];
 
         // we want the zero hash at the children's level, not the node's level
         const zeroHash = this.tree.getZeroHash(level + 1);
@@ -100,8 +103,8 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
 
   protected handleLeaf(_index: bigint, _node: Buffer): void {}
 
-  getSnapshot(version: number): Promise<S> {
-    const snapshotMetadata = this.#getSnapshotMeta(version);
+  async getSnapshot(version: number): Promise<S> {
+    const snapshotMetadata = await this.#getSnapshotMeta(version);
 
     if (!snapshotMetadata) {
       return Promise.reject(new Error(`Version ${version} does not exist for tree ${this.tree.getName()}`));
@@ -112,7 +115,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
 
   protected abstract openSnapshot(root: Buffer, numLeaves: bigint): S;
 
-  #getSnapshotMeta(block: number): SnapshotMetadata | undefined {
+  #getSnapshotMeta(block: number): Promise<SnapshotMetadata | undefined> {
     return this.snapshotMetadata.get(block);
   }
 }
@@ -129,10 +132,10 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     protected deserializer: FromBuffer<T>,
   ) {}
 
-  getSiblingPath<N extends number>(index: bigint): SiblingPath<N> {
+  async getSiblingPath<N extends number>(index: bigint): Promise<SiblingPath<N>> {
     const siblings: Buffer[] = [];
 
-    for (const [_node, sibling] of this.pathFromRootToLeaf(index)) {
+    for await (const [_node, sibling] of this.pathFromRootToLeaf(index)) {
       siblings.push(sibling);
     }
 
@@ -143,9 +146,9 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     return new SiblingPath<N>(this.tree.getDepth() as N, siblings);
   }
 
-  getLeafValue(index: bigint): T | undefined {
+  async getLeafValue(index: bigint): Promise<T | undefined> {
     let leafNode: Buffer | undefined = undefined;
-    for (const [node, _sibling] of this.pathFromRootToLeaf(index)) {
+    for await (const [node, _sibling] of this.pathFromRootToLeaf(index)) {
       leafNode = node;
     }
 
@@ -164,14 +167,14 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     return this.numLeaves;
   }
 
-  protected *pathFromRootToLeaf(leafIndex: bigint) {
+  protected async *pathFromRootToLeaf(leafIndex: bigint) {
     const root = this.historicRoot;
     const pathFromRoot = this.#getPathFromRoot(leafIndex);
 
     let node: Buffer = root;
     for (let i = 0; i < pathFromRoot.length; i++) {
       // get both children. We'll need both anyway (one to keep track of, the other to walk down to)
-      const children: [Buffer, Buffer] = this.db.get(node.toString('hex')) ?? [
+      const children: [Buffer, Buffer] = (await this.db.get(node.toString('hex'))) ?? [
         this.tree.getZeroHash(i + 1),
         this.tree.getZeroHash(i + 1),
       ];
@@ -204,15 +207,15 @@ export class BaseFullTreeSnapshot<T extends Bufferable> implements TreeSnapshot<
     return path;
   }
 
-  findLeafIndex(value: T): bigint | undefined {
+  findLeafIndex(value: T): Promise<bigint | undefined> {
     return this.findLeafIndexAfter(value, 0n);
   }
 
-  public findLeafIndexAfter(value: T, startIndex: bigint): bigint | undefined {
+  public async findLeafIndexAfter(value: T, startIndex: bigint): Promise<bigint | undefined> {
     const numLeaves = this.getNumLeaves();
     const buffer = serializeToBuffer(value);
     for (let i = startIndex; i < numLeaves; i++) {
-      const currentValue = this.getLeafValue(i);
+      const currentValue = await this.getLeafValue(i);
       if (currentValue && serializeToBuffer(currentValue).equals(buffer)) {
         return i;
       }

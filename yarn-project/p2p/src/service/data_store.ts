@@ -38,18 +38,18 @@ export class AztecDatastore implements Datastore {
     this.maxMemoryItems = maxMemoryItems;
   }
 
-  has(key: Key): boolean {
-    return this.#memoryDatastore.has(key.toString()) || this.#dbDatastore.has(key.toString());
+  has(key: Key): Promise<boolean> {
+    return Promise.resolve(this.#memoryDatastore.has(key.toString())) || this.#dbDatastore.has(key.toString());
   }
 
-  get(key: Key): Uint8Array {
+  async get(key: Key): Promise<Uint8Array> {
     const keyStr = key.toString();
     const memoryItem = this.#memoryDatastore.get(keyStr);
     if (memoryItem) {
       memoryItem.lastAccessedMs = Date.now();
       return memoryItem.data;
     }
-    const dbItem = this.#dbDatastore.get(keyStr);
+    const dbItem = await this.#dbDatastore.get(keyStr);
 
     if (!dbItem) {
       throw new KeyNotFoundError(`Key not found`);
@@ -73,7 +73,7 @@ export class AztecDatastore implements Datastore {
     for await (const key of source) {
       yield {
         key,
-        value: this.get(key),
+        value: await this.get(key),
       };
     }
   }

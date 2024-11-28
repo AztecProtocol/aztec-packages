@@ -36,20 +36,20 @@ export class ContractClassStore {
   }
 
   async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
-    const restoredContractClass = this.#contractClasses.get(contractClass.id.toString());
+    const restoredContractClass = await this.#contractClasses.get(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
       await this.#contractClasses.delete(contractClass.id.toString());
       await this.#bytecodeCommitments.delete(contractClass.id.toString());
     }
   }
 
-  getContractClass(id: Fr): ContractClassPublic | undefined {
-    const contractClass = this.#contractClasses.get(id.toString());
+  async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    const contractClass = await this.#contractClasses.get(id.toString());
     return contractClass && { ...deserializeContractClassPublic(contractClass), id };
   }
 
-  getBytecodeCommitment(id: Fr): Fr | undefined {
-    const value = this.#bytecodeCommitments.get(id.toString());
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    const value = await this.#bytecodeCommitments.get(id.toString());
     return value === undefined ? undefined : Fr.fromBuffer(value);
   }
 
@@ -62,8 +62,8 @@ export class ContractClassStore {
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
     newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    await this.db.transaction(() => {
-      const existingClassBuffer = this.#contractClasses.get(contractClassId.toString());
+    await this.db.transaction(async () => {
+      const existingClassBuffer = await this.#contractClasses.get(contractClassId.toString());
       if (!existingClassBuffer) {
         throw new Error(`Unknown contract class ${contractClassId} when adding private functions to store`);
       }

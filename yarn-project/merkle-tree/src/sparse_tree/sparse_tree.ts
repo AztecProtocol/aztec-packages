@@ -15,14 +15,14 @@ export class SparseTree<T extends Bufferable> extends TreeBase<T> implements Upd
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  public updateLeaf(value: T, index: bigint): Promise<void> {
+  public async updateLeaf(value: T, index: bigint): Promise<void> {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
 
     const leaf = serializeToBuffer(value);
     const insertingZeroElement = leaf.equals(INITIAL_LEAF);
-    const originallyZeroElement = this.getLeafBuffer(index, true)?.equals(INITIAL_LEAF);
+    const originallyZeroElement = (await this.getLeafBuffer(index, true))?.equals(INITIAL_LEAF);
     if (insertingZeroElement && originallyZeroElement) {
       return Promise.resolve();
     }
@@ -46,11 +46,11 @@ export class SparseTree<T extends Bufferable> extends TreeBase<T> implements Upd
     return this.#snapshotBuilder.getSnapshot(block);
   }
 
-  public findLeafIndex(_value: T, _includeUncommitted: boolean): bigint | undefined {
+  public findLeafIndex(_value: T, _includeUncommitted: boolean): Promise<bigint | undefined> {
     throw new Error('Finding leaf index is not supported for sparse trees');
   }
 
-  public findLeafIndexAfter(_value: T, _startIndex: bigint, _includeUncommitted: boolean): bigint | undefined {
+  public findLeafIndexAfter(_value: T, _startIndex: bigint, _includeUncommitted: boolean): Promise<bigint | undefined> {
     throw new Error('Finding leaf index is not supported for sparse trees');
   }
 }

@@ -89,7 +89,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * So this function cannot reliably give the expected leaf value.
    * We cannot add level as an input as its based on the MerkleTree class's function.
    */
-  public getLeafValue(_index: bigint): undefined {
+  public getLeafValue(_index: bigint): Promise<undefined> {
     throw new Error('Unsupported function - cannot get leaf value from an index in an unbalanced tree.');
   }
 
@@ -99,10 +99,10 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * @returns The index of the first leaf found with a given value (undefined if not found).
    * @remark This is NOT the index as inserted, but the index which will be used to calculate path structure.
    */
-  public findLeafIndex(value: T): bigint | undefined {
+  public findLeafIndex(value: T): Promise<bigint | undefined> {
     const key = this.valueCache[serializeToBuffer(value).toString('hex')];
     const [, , index] = key.split(':');
-    return BigInt(index);
+    return Promise.resolve(BigInt(index));
   }
 
   /**
@@ -112,8 +112,8 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * @returns The index of the first leaf found with a given value (undefined if not found).
    * @remark This is not really used for a wonky tree, but required to implement MerkleTree.
    */
-  public findLeafIndexAfter(value: T, startIndex: bigint): bigint | undefined {
-    const index = this.findLeafIndex(value);
+  public async findLeafIndexAfter(value: T, startIndex: bigint): Promise<bigint | undefined> {
+    const index = await this.findLeafIndex(value);
     if (!index || index < startIndex) {
       return undefined;
     }

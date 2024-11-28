@@ -565,7 +565,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
           aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
-            cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
+            cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
             status: await checkTx(client, TxHash.fromString(value), true, log),
           })),
         );
@@ -601,7 +601,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      const txData = db?.retrieveTxData(txHash);
+      const txData = await db?.retrieveTxData(txHash);
 
       if (!txData) {
         throw new Error('Transaction data not found in the database, cannnot reuse nonce');

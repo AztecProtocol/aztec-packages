@@ -103,7 +103,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 2 tx header', async () => {
-    const txs = times(2, makeTx);
+    const txs = await Promise.all(times(2, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -112,7 +112,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 3 tx header', async () => {
-    const txs = times(3, makeTx);
+    const txs = await Promise.all(times(3, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -124,7 +124,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 4 tx header', async () => {
-    const txs = times(4, makeTx);
+    const txs = await Promise.all(times(4, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -138,7 +138,7 @@ describe('LightBlockBuilder', () => {
 
   it('builds a 4 tx header with no l1 to l2 messages', async () => {
     const l1ToL2Messages: Fr[] = [];
-    const txs = times(4, makeTx);
+    const txs = await Promise.all(times(4, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -151,7 +151,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a 5 tx header', async () => {
-    const txs = times(5, makeTx);
+    const txs = await Promise.all(times(5, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages, async rollupOutputs => {
@@ -165,7 +165,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a single tx header', async () => {
-    const txs = times(1, makeTx);
+    const txs = await Promise.all(times(1, makeTx));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -182,9 +182,9 @@ describe('LightBlockBuilder', () => {
     expect(header).toEqual(expectedHeader);
   });
 
-  const makeTx = (i: number) =>
+  const makeTx = async (i: number) =>
     makeBloatedProcessedTx({
-      header: fork.getInitialHeader(),
+      header: await fork.getInitialHeader(),
       globalVariables,
       vkTreeRoot,
       protocolContractTreeRoot,
@@ -216,15 +216,17 @@ describe('LightBlockBuilder', () => {
       // Pad if we don't have enough txs
       txs = [
         ...txs,
-        ...times(2 - txs.length, () =>
-          makeEmptyProcessedTx(
-            expectsFork.getInitialHeader(),
-            globalVariables.chainId,
-            globalVariables.version,
-            vkTreeRoot,
-            protocolContractTreeRoot,
+        ...(await Promise.all(
+          times(2 - txs.length, async () =>
+            makeEmptyProcessedTx(
+              await expectsFork.getInitialHeader(),
+              globalVariables.chainId,
+              globalVariables.version,
+              vkTreeRoot,
+              protocolContractTreeRoot,
+            ),
           ),
-        ),
+        )),
       ];
       // No need to run a merge if there's 0-2 txs
       getTopMerges = rollupOutputs => Promise.resolve([rollupOutputs[0], rollupOutputs[1]]);

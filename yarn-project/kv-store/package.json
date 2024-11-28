@@ -17,7 +17,8 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
+    "start": "DEBUG='aztec:*' && node ./dest/bin/index.js",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "inherits": [
     "../package.common.json"
@@ -30,9 +31,11 @@
   },
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",
+    "@jest/globals": "^29.5.0",
     "@rollup/plugin-commonjs": "18.1.0",
     "@types/chai": "^5.0.1",
     "@types/chai-as-promised": "^8.0.1",
+    "@types/jest": "^29.5.0",
     "@types/mocha": "^10.0.10",
     "@types/mocha-each": "^2.0.4",
     "@types/node": "^18.7.23",
@@ -43,9 +46,10 @@
     "@web/test-runner-playwright": "^0.11.0",
     "chai": "^5.1.2",
     "chai-as-promised": "^8.0.1",
+    "jest": "^29.5.0",
     "mocha": "^10.8.2",
     "mocha-each": "^2.0.1",
-    "ts-node": "^10.9.2",
+    "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },
   "files": [
@@ -55,5 +59,39 @@
   ],
   "engines": {
     "node": ">=18"
+  },
+  "jest": {
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
+    ],
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src"
   }
 }

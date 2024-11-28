@@ -772,9 +772,11 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@jest/globals": ^29.5.0
     "@rollup/plugin-commonjs": 18.1.0
     "@types/chai": ^5.0.1
     "@types/chai-as-promised": ^8.0.1
+    "@types/jest": ^29.5.0
     "@types/mocha": ^10.0.10
     "@types/mocha-each": ^2.0.4
     "@types/node": ^18.7.23
@@ -785,12 +787,11 @@ __metadata:
     "@web/test-runner-playwright": ^0.11.0
     chai: ^5.1.2
     chai-as-promised: ^8.0.1
+    jest: ^29.5.0
     lmdb: ^3.0.6
     mocha: ^10.8.2
     mocha-each: ^2.0.1
-    path: ^0.12.7
-    ts-node: ^10.9.2
-    tty: ^1.0.1
+    ts-node: ^10.9.1
     typescript: ^5.0.4
   languageName: unknown
   linkType: soft
@@ -16107,16 +16108,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"path@npm:^0.12.7":
-  version: 0.12.7
-  resolution: "path@npm:0.12.7"
-  dependencies:
-    process: ^0.11.1
-    util: ^0.10.3
-  checksum: 5dedb71e78fc008fcba797defc0b4e1cf06c1f18e0a631e03ba5bb505136f587ff017afc14f9a3d481cbe77aeedff7dc0c1d2ce4d820c1ebf3c4281ca49423a1
-  languageName: node
-  linkType: hard
-
 "pathval@npm:^2.0.0":
   version: 2.0.0
   resolution: "pathval@npm:2.0.0"
@@ -16436,7 +16427,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"process@npm:^0.11.1, process@npm:^0.11.10, process@npm:~0.11.0":
+"process@npm:^0.11.10, process@npm:~0.11.0":
   version: 0.11.10
   resolution: "process@npm:0.11.10"
   checksum: bfcce49814f7d172a6e6a14d5fa3ac92cc3d0c3b9feb1279774708a719e19acd673995226351a082a9ae99978254e320ccda4240ddc474ba31a76c79491ca7c3
@@ -18912,7 +18903,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-node@npm:^10.9.1, ts-node@npm:^10.9.2":
+"ts-node@npm:^10.9.1":
   version: 10.9.2
   resolution: "ts-node@npm:10.9.2"
   dependencies:
@@ -19028,13 +19019,6 @@ __metadata:
   version: 0.0.1
   resolution: "tty-browserify@npm:0.0.1"
   checksum: 93b745d43fa5a7d2b948fa23be8d313576d1d884b48acd957c07710bac1c0d8ac34c0556ad4c57c73d36e11741763ef66b3fb4fb97b06b7e4d525315a3cd45f5
-  languageName: node
-  linkType: hard
-
-"tty@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "tty@npm:1.0.1"
-  checksum: 6fa781841fa99b9ae407c713fc08ae71e15a73d9702952cddda3e6a7aa204cdfdbf85f5b4a54bb414bfd63eb8d4ba027973c4026b193081c762d4dc002d3e0a9
   languageName: node
   linkType: hard
 
@@ -19527,7 +19511,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"util@npm:^0.10.3, util@npm:^0.10.4":
+"util@npm:^0.10.4":
   version: 0.10.4
   resolution: "util@npm:0.10.4"
   dependencies:

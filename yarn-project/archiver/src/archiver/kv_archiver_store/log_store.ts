@@ -121,8 +121,9 @@ export class LogStore {
         return acc;
       });
     const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
-    const currentTaggedLogs = await this.db.transaction(() =>
-      tagsToUpdate.map(tag => ({ tag, logBuffers: this.#logsByTag.get(tag) })),
+    const currentTaggedLogs = await this.db.transaction(
+      async () =>
+        await Promise.all(tagsToUpdate.map(async tag => ({ tag, logBuffers: await this.#logsByTag.get(tag) }))),
     );
     currentTaggedLogs.forEach(taggedLogBuffer => {
       if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
@@ -151,8 +152,13 @@ export class LogStore {
   }
 
   async deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const tagsToDelete = await this.db.transaction(() => {
-      return blocks.flatMap(block => this.#logTagsByBlock.get(block.number)?.map(tag => tag.toString()) ?? []);
+    const tagsToDelete = await this.db.transaction(async () => {
+      return (
+        (await Promise.all(blocks.map(block => this.#logTagsByBlock.get(block.number))))
+          .flat()
+          .filter(tag => tag !== undefined)
+          .map(tag => tag!.toString()) ?? []
+      );
     });
     return this.db.transaction(() => {
       blocks.forEach(block => {
@@ -216,11 +222,11 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.db.transaction(() =>
-      tags
-        .map(tag => this.#logsByTag.get(tag.toString()))
-        .map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    return await this.db.transaction(async () =>
+      (
+        await Promise.all(tags.map(tag => this.#logsByTag.get(tag.toString())))
+      ).map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
     );
   }
 
@@ -239,17 +245,17 @@ export class LogStore {
     }
   }
 
-  #filterUnencryptedLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+  async #filterUnencryptedLogsOfTx(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
+    const [blockNumber, txIndex] = (await this.blockStore.getTxLocation(filter.txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
 
-    const unencryptedLogsInBlock = this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
+    const unencryptedLogsInBlock = await this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
     const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
 
     const logs: ExtendedUnencryptedL2Log[] = [];
@@ -308,11 +314,11 @@ export class LogStore {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
+    const [blockNumber, txIndex] = (await this.blockStore.getTxLocation(filter.txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
-    const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber);
+    const contractClassLogsBuffer = await this.#contractClassLogsByBlock.get(blockNumber);
     const contractClassLogsInBlock = contractClassLogsBuffer
       ? ContractClass2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
       : new ContractClass2BlockL2Logs([]);
@@ -380,10 +386,10 @@ export class LogStore {
     return maxLogsHit;
   }
 
-  #getBlockLogs<TLogType extends LogType>(
+  async #getBlockLogs<TLogType extends LogType>(
     blockNumber: number,
     logType: TLogType,
-  ): L2BlockL2Logs<FromLogType<TLogType>> {
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>> {
     const logMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
@@ -407,7 +413,7 @@ export class LogStore {
       }
     })();
     const L2BlockL2Logs = logTypeMap;
-    const buffer = logMap.get(blockNumber);
+    const buffer = await logMap.get(blockNumber);
 
     if (!buffer) {
       return new L2BlockL2Logs([]) as L2BlockL2Logs<FromLogType<TLogType>>;

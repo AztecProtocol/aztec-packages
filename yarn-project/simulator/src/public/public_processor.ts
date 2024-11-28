@@ -46,12 +46,12 @@ export class PublicProcessorFactory {
    * @param globalVariables - The global variables for the block being processed.
    * @returns A new instance of a PublicProcessor.
    */
-  public create(
+  public async create(
     merkleTree: MerkleTreeWriteOperations,
     maybeHistoricalHeader: Header | undefined,
     globalVariables: GlobalVariables,
-  ): PublicProcessor {
-    const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
+  ): Promise<PublicProcessor> {
+    const historicalHeader = maybeHistoricalHeader ?? (await merkleTree.getInitialHeader());
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
     const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);

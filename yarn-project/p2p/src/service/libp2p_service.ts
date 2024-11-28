@@ -295,9 +295,9 @@ export class LibP2PService extends WithTracer implements P2PService {
      * @param msg - the tx request message
      * @returns the tx response message
      */
-    const txHandler = (msg: Buffer): Promise<Uint8Array> => {
+    const txHandler = async (msg: Buffer): Promise<Uint8Array> => {
       const txHash = TxHash.fromBuffer(msg);
-      const foundTx = mempools.txPool.getTxByHash(txHash);
+      const foundTx = await mempools.txPool.getTxByHash(txHash);
       const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
       return Promise.resolve(asUint8Array);
     };

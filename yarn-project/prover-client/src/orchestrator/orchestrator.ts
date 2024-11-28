@@ -313,7 +313,7 @@ export class ProvingOrchestrator implements EpochProver {
       // base rollup inputs
       // Then enqueue the proving of all the transactions
       const unprovenPaddingTx = makeEmptyProcessedTx(
-        this.db.getInitialHeader(),
+        await this.db.getInitialHeader(),
         provingState.globalVariables.chainId,
         provingState.globalVariables.version,
         getVKTreeRoot(),

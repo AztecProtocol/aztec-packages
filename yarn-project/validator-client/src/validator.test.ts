@@ -83,7 +83,7 @@ describe('ValidationService', () => {
     const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockImplementation(() => undefined);
+    p2pClient.getTxStatus.mockImplementation(async () => undefined);
     // Mock the p2pClient.requestTxs to return undefined for all transactions
     p2pClient.requestTxs.mockImplementation(() => Promise.resolve([undefined]));
 
@@ -96,7 +96,7 @@ describe('ValidationService', () => {
     const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockImplementation(() => undefined);
+    p2pClient.getTxStatus.mockImplementation(async () => undefined);
 
     const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
     val.registerBlockBuilder(() => {

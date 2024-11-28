@@ -48,7 +48,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
     }
 
     const isUpdate = lowLeafIndex.alreadyPresent;
-    const lowLeafPreimage = this.getLatestLeafPreimageCopy(lowLeafIndex.index, true)!;
+    const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(lowLeafIndex.index, true))!;
     const currentSize = this.getNumLeaves(true);
 
     if (isUpdate) {

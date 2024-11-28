@@ -20,7 +20,7 @@ export class PersistedProvingJobDatabase implements ProvingJobDatabase {
   async *allProvingJobs(): AsyncIterableIterator<[V2ProvingJob, V2ProvingJobResult | undefined]> {
     for await (const jobStr of this.jobs.values()) {
       const job = jsonParseWithSchema(jobStr, V2ProvingJob);
-      const resultStr = this.jobResults.get(job.id);
+      const resultStr = await this.jobResults.get(job.id);
       const result = resultStr ? jsonParseWithSchema(resultStr, V2ProvingJobResult) : undefined;
       yield [job, result];
     }

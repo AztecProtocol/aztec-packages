@@ -22,11 +22,11 @@ describe('prover/orchestrator/multi-block', () => {
   describe('multiple blocks', () => {
     it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
       context.orchestrator.startNewEpoch(1, numBlocks);
-      let header = context.actualDb.getInitialHeader();
+      let header = await context.actualDb.getInitialHeader();
 
       for (let i = 0; i < numBlocks; i++) {
         logger.info(`Creating block ${i + 1000}`);
-        const tx = makeBloatedProcessedTx({
+        const tx = await makeBloatedProcessedTx({
           header,
           vkTreeRoot: getVKTreeRoot(),
           protocolContractTreeRoot,
