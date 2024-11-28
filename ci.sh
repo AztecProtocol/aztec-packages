@@ -22,16 +22,22 @@ ip=$(aws ec2 describe-instances \
   --output text)
 
 case "$CMD" in
-  # Spin up ec2 instance and bootstrap.
   "ec2")
+    # Spin up ec2 instance and bootstrap.
     $ci3/bootstrap/ec2
     ;;
   "local")
+    # Create container with clone of local repo and bootstrap.
     $ci3/bootstrap/local
     ;;
   "run")
+    # Trigger a GA workflow for current branch PR and tail logs.
     $0 trigger
     $0 log
+    ;;
+  "wt")
+    # Runs bootstrap in current working tree.
+    CI=1 ./bootstrap.sh fast
     ;;
   "trigger")
     # Trigger workflow and drop through to start logging.

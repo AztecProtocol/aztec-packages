@@ -21,7 +21,11 @@ fi
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
 HASH=$($ci3/cache/content_hash)
 
+<<<<<<< HEAD
 if [ "${SKIP_BUILD:-0}" -eq 0 ]; then
+=======
+if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
+>>>>>>> origin/cl/ci3
   $ci3/github/group "l1-contracts build"
   # Clean
   rm -rf broadcast cache out serve

@@ -143,7 +143,7 @@ echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
 $ci3/github/group "Pull Submodules"
-git submodule update --init --recursive
+$ci3/base/denoise git submodule update --init --recursive
 $ci3/github/endgroup
 
 check_toolchains
