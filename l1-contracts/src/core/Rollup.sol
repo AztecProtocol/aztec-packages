@@ -17,8 +17,8 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {BlobLib} from "@aztec/core/libraries/BlobLib.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -315,8 +315,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       Errors.Rollup__InvalidEpoch(interimValues.startEpoch, interimValues.epochToProve)
     );
 
-    bytes32[] memory publicInputs =
-      getEpochProofPublicInputs(_args.epochSize, _args.args, _args.fees, _args.aggregationObject);
+    bytes32[] memory publicInputs = getEpochProofPublicInputs(
+      _args.epochSize, _args.args, _args.fees, _args.blobPublicInputs, _args.aggregationObject
+    );
 
     require(epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
@@ -548,7 +549,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (bytes32 blobsHash, bytes32 blobPublicInputsHash) = _validateBlobs(_blobInput);
+    (bytes32 blobsHash, bytes32 blobPublicInputsHash) = BlobLib.validateBlobs(_blobInput, checkBlob);
 
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_args.header);
@@ -569,27 +570,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 blockNumber = ++tips.pendingBlockNumber;
 
     {
-      FeeHeader memory parentFeeHeader = blocks[blockNumber - 1].feeHeader;
-      uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
-        -int256(FeeMath.MANA_TARGET)
-      );
-
-      blocks[blockNumber] = BlockLog({
-        archive: _args.archive,
-        blockHash: _args.blockHash,
-        slotNumber: Slot.wrap(header.globalVariables.slotNumber),
-        feeHeader: FeeHeader({
-          excessMana: excessMana,
-          feeAssetPriceNumerator: parentFeeHeader.feeAssetPriceNumerator.clampedAdd(
-            _args.oracleInput.feeAssetPriceModifier
-          ),
-          manaUsed: header.totalManaUsed,
-          provingCostPerManaNumerator: parentFeeHeader.provingCostPerManaNumerator.clampedAdd(
-            _args.oracleInput.provingCostModifier
-          ),
-          congestionCost: components.congestionCost
-        })
-      });
+      blocks[blockNumber] = _toBlockLog(_args, blockNumber, components.congestionCost);
     }
 
     blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
@@ -709,12 +690,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       -int256(FeeMath.MANA_TARGET)
     );
 
-    L1FeeData memory fees = getCurrentL1Fees();
-    uint256 dataCost =
-      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, fees.blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    // L1FeeData memory fees = ;
+    uint256 dataCost = Math.mulDiv(
+      3 * BLOB_GAS_PER_BLOB, getCurrentL1Fees().blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil
+    );
     uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
       + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
-    uint256 gasCost = Math.mulDiv(gasUsed, fees.baseFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 gasCost =
+      Math.mulDiv(gasUsed, getCurrentL1Fees().baseFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
     uint256 provingCost = FeeMath.provingCostPerMana(
       blocks[tips.pendingBlockNumber].feeHeader.provingCostPerManaNumerator
     );
@@ -790,8 +773,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
       bytes32 expectedEndArchive = blocks[endBlockNumber].archive;
       require(
-        expectedEndArchive == _args[1],
-        Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
+        expectedEndArchive == _args[1], Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
       );
 
       bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
@@ -883,10 +865,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       uint8 blobsInBlock = uint8(_blobPublicInputs[blobOffset++]);
       // asserting here to avoid looping twice in one fn
       {
-        // Blob public inputs are 112 bytes long - see _validateBlobs() for explanation
-        bytes32 calcBlobPublicInputsHash = sha256(
-          abi.encodePacked(_blobPublicInputs[blobOffset:blobOffset + 112 * blobsInBlock])
-        );
+        // Blob public inputs are 112 bytes long - see validateBlobs() for explanation
+        bytes32 calcBlobPublicInputsHash =
+          sha256(abi.encodePacked(_blobPublicInputs[blobOffset:blobOffset + 112 * blobsInBlock]));
         require(
           calcBlobPublicInputsHash == blobPublicInputsHashes[previousBlockNumber + i + 1],
           Errors.Rollup__InvalidBlobPublicInputsHash(
@@ -897,21 +878,18 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
         if (j < blobsInBlock) {
           // z
-          publicInputs[offset++] =
-            bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]);
+          publicInputs[offset++] = bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]);
           // y
           (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
-            _bytes32ToBigNum(bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]));
+            BlobLib.bytes32ToBigNum(bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]));
           // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
           // TODO: The below left pads, possibly inefficiently
           // c[0]
-          publicInputs[offset++] = bytes32(
-            uint256(uint248(bytes31(_blobPublicInputs[blobOffset:blobOffset += 31])))
-          );
+          publicInputs[offset++] =
+            bytes32(uint256(uint248(bytes31(_blobPublicInputs[blobOffset:blobOffset += 31]))));
           // c[1]
-          publicInputs[offset++] = bytes32(
-            uint256(uint136(bytes17(_blobPublicInputs[blobOffset:blobOffset += 17])))
-          );
+          publicInputs[offset++] =
+            bytes32(uint256(uint136(bytes17(_blobPublicInputs[blobOffset:blobOffset += 17]))));
         } else {
           offset += Constants.BLOB_PUBLIC_INPUTS;
         }
@@ -1120,7 +1098,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) internal view {
     uint256 pendingBlockNumber =
       canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
-    _validateHeaderForSubmissionBase(_header, _currentTime, _manaBaseFee, _blobsHash, pendingBlockNumber, _flags);
+    _validateHeaderForSubmissionBase(
+      _header, _currentTime, _manaBaseFee, _blobsHash, pendingBlockNumber, _flags
+    );
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );
@@ -1250,91 +1230,32 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
   }
 
-  /**
-   * @notice  Validate a blob.
-   * Input bytes:
-   * input[:32]     - versioned_hash
-   * input[32:64]   - z
-   * input[64:96]   - y
-   * input[96:144]  - commitment C
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
-   *  - This can be relaxed to happen at the time of `submitProof` instead
-   * @notice Apparently there is no guarantee that the blobs will be processed in the order sent
-   * so the use of blobhash(_blobNumber) may fail in production
-   * @param _blobInput - The above bytes to verify a blob
-   */
-  function _validateBlob(bytes calldata _blobInput, uint256 _blobNumber)
+  // Helper to avoid stack too deep
+  function _toBlockLog(ProposeArgs calldata _args, uint256 _blockNumber, uint256 _congestionCost)
     internal
     view
-    returns (bytes32 blobHash)
+    returns (BlockLog memory)
   {
-    if (!checkBlob) {
-      return bytes32(_blobInput[0:32]);
-    }
-    assembly {
-      blobHash := blobhash(_blobNumber)
-    }
-    require(blobHash == bytes32(_blobInput[0:32]), Errors.Rollup__InvalidBlobHash(blobHash));
-
-    // Staticcall the point eval precompile https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile :
-    (bool success,) = address(0x0a).staticcall(_blobInput);
-    require(success, Errors.Rollup__InvalidBlobProof(blobHash));
-  }
-
-  /**
-   * @notice  Validate an L2 block's blobs and return the hashed blobHashes and public inputs.
-   * Input bytes:
-   * input[:1] - num blobs in block
-   * input[1:] - 192 * num blobs of the above _blobInput
-   * @param _blobsInput - The above bytes to verify a blob
-   */
-  function _validateBlobs(bytes calldata _blobsInput)
-    internal
-    view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
-  {
-    // We cannot input the incorrect number of blobs below, as the blobsHash
-    // and epoch proof verification will fail.
-    uint8 numBlobs = uint8(_blobsInput[0]);
-    bytes32[] memory blobHashes = new bytes32[](numBlobs);
-    bytes memory blobPublicInputs;
-    for (uint256 i = 0; i < numBlobs; i++) {
-      // Add 1 for the numBlobs prefix
-      uint256 blobInputStart = i * 192 + 1;
-      // Since an invalid blob hash here would fail the consensus checks of
-      // the header, the `blobInput` is implicitly accepted by consensus as well.
-      blobHashes[i] = _validateBlob(_blobsInput[blobInputStart:blobInputStart + 192], i);
-      // We want to extract the 112 bytes we use for public inputs:
-      //  * input[32:64]   - z
-      //  * input[64:96]   - y
-      //  * input[96:144]  - commitment C
-      // Out of 192 bytes per blob.
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
-    }
-    // Return the hash of all z, y, and Cs, so we can use them in proof verification later
-    blobPublicInputsHash = sha256(blobPublicInputs);
-    // Hash the EVM blob hashes for the block header
-    blobsHash = Hash.sha256ToField(abi.encodePacked(blobHashes));
-  }
-
-  /**
-   * @notice  Converts a BLS12 field element from bytes32 to a nr BigNum type
-   * The nr bignum type for BLS12 fields is encoded as 3 nr fields - see blob_public_inputs.ts:
-   * firstLimb = last 15 bytes;
-   * secondLimb = bytes 2 -> 17;
-   * thirdLimb = first 2 bytes;
-   * Used when verifying epoch proofs to gather public inputs.
-   * @param _input - The field in bytes32
-   */
-  function _bytes32ToBigNum(bytes32 _input)
-    internal
-    pure
-    returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
-  {
-    firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
-    secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
-    thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
+    FeeHeader memory parentFeeHeader = blocks[_blockNumber - 1].feeHeader;
+    uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
+      -int256(FeeMath.MANA_TARGET)
+    );
+    return BlockLog({
+      archive: _args.archive,
+      blockHash: _args.blockHash,
+      slotNumber: Slot.wrap(uint256(bytes32(_args.header[0x0194:0x01b4]))),
+      feeHeader: FeeHeader({
+        excessMana: excessMana,
+        feeAssetPriceNumerator: parentFeeHeader.feeAssetPriceNumerator.clampedAdd(
+          _args.oracleInput.feeAssetPriceModifier
+        ),
+        manaUsed: uint256(bytes32(_args.header[0x0268:0x0288])),
+        provingCostPerManaNumerator: parentFeeHeader.provingCostPerManaNumerator.clampedAdd(
+          _args.oracleInput.provingCostModifier
+        ),
+        congestionCost: _congestionCost
+      })
+    });
   }
 
   function _fakeBlockNumberAsProven(uint256 _blockNumber) private {

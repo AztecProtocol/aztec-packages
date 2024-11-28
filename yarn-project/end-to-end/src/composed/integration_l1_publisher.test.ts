@@ -331,7 +331,7 @@ describe('L1Publisher integration', () => {
     const tempFork = await worldStateSynchronizer.fork();
     const tempBuilder = new LightweightBlockBuilder(tempFork, new NoopTelemetryClient());
     await tempBuilder.startNewBlock(globalVariables, l1ToL2Messages);
-    await tempBuilder.addTxs(tx);
+    await tempBuilder.addTxs(txs);
     const block = await tempBuilder.setBlockCompleted();
     await tempFork.close();
     return block;

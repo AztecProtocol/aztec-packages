@@ -140,7 +140,10 @@ interface IRollup {
   ) external view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
-    DataStructures.SubmitProofArgs calldata _submitArgs,
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
+    bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
 }

@@ -18,18 +18,18 @@ import {
   TX_START_PREFIX,
   UNENCRYPTED_LOGS_PREFIX,
 } from '@aztec/circuits.js';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
   serializeArrayOfBufferableToVector,
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { schemas } from '@aztec/foundation/schemas';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';

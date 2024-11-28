@@ -21,6 +21,7 @@ import {
   RewardDistributorBytecode,
   RollupAbi,
   RollupBytecode,
+  RollupLinkReferences,
   SampleLibAbi,
   SampleLibBytecode,
   TestERC20Abi,

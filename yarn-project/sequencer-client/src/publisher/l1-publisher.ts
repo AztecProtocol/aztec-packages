@@ -747,7 +747,8 @@ export class L1Publisher {
           epochSize: argsArray[0],
           args: argsArray[1],
           fees: argsArray[2],
-          aggregationObject: argsArray[3],
+          blobPublicInputs: argsArray[3],
+          aggregationObject: argsArray[4],
           proof: proofHex,
         },
       ] as const;
@@ -804,27 +805,25 @@ export class L1Publisher {
     proof: Proof;
   }) {
     return [
-      {
-        epochSize: BigInt(args.toBlock - args.fromBlock + 1),
-        args: [
-          args.publicInputs.previousArchive.root.toString(),
-          args.publicInputs.endArchive.root.toString(),
-          args.publicInputs.previousBlockHash.toString(),
-          args.publicInputs.endBlockHash.toString(),
-          args.publicInputs.endTimestamp.toString(),
-          args.publicInputs.outHash.toString(),
-          args.publicInputs.proverId.toString(),
-        ],
-        fees: makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
-          i % 2 === 0
-            ? args.publicInputs.fees[i / 2].recipient.toField().toString()
-            : args.publicInputs.fees[(i - 1) / 2].value.toString(),
-        ),
-        blobPublicInputs: `0x${args.publicInputs.blobPublicInputs
-          .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
-          .map(b => b.toString())
-          .join(``)}`,
-      },
+      BigInt(args.toBlock - args.fromBlock + 1),
+      [
+        args.publicInputs.previousArchive.root.toString(),
+        args.publicInputs.endArchive.root.toString(),
+        args.publicInputs.previousBlockHash.toString(),
+        args.publicInputs.endBlockHash.toString(),
+        args.publicInputs.endTimestamp.toString(),
+        args.publicInputs.outHash.toString(),
+        args.publicInputs.proverId.toString(),
+      ],
+      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
+        i % 2 === 0
+          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
+          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
+      ),
+      `0x${args.publicInputs.blobPublicInputs
+        .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
+        .map(b => b.toString())
+        .join(``)}`,
       `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
@@ -906,7 +905,7 @@ export class L1Publisher {
     } catch (err) {
       return {
         hash: `0x00`,
-        args,
+        args: [...args, quote.toViemArgs()],
         functionName: 'proposeAndClaim',
         err,
       };

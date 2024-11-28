@@ -163,6 +163,7 @@ contract SpartaTest is DecoderBase {
     bool _invalidProposer
   ) internal {
     DecoderBase.Full memory full = load(_name);
+    bytes memory header = full.block.header;
 
     StructToAvoidDeepStacks memory ree;
 
@@ -184,7 +185,7 @@ contract SpartaTest is DecoderBase {
     }
 
     ProposeArgs memory args = ProposeArgs({
-      header: full.block.header,
+      header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
       oracleInput: OracleInput(0, 0),

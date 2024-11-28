@@ -9,17 +9,12 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  AZTEC_MAX_EPOCH_DURATION,
   type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BlockBlobPublicInputs,
-  BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
-  EthAddress,
   FIELDS_PER_BLOB,
-  FeeRecipient,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,

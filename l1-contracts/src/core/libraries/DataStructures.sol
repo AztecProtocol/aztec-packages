@@ -92,18 +92,4 @@ library DataStructures {
     address bondProvider;
     address proposerClaimant;
   }
-
-  /**
-   * @notice Struct for submitting the Epoch Proof
-   * @param  epochSize - The size of the epoch (to be promoted to a constant)
-   * @param  args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
-   * @param  fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   * @param  blobPublicInputs- The blob PIs for the proof
-   */
-  struct SubmitProofArgs {
-    uint256 epochSize;
-    bytes32[7] args;
-    bytes32[] fees;
-    bytes blobPublicInputs;
-  }
 }

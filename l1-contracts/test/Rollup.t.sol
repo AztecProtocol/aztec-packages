@@ -289,7 +289,7 @@ contract RollupTest is DecoderBase, TimeFns {
       archive: data.archive,
       blockHash: data.blockHash,
       oracleInput: OracleInput(0, 0),
-      txHashes: txHashes
+      txHashes: new bytes32[](0)
     });
     rollup.propose(args, signatures, data.body, data.blobInputs);
 
@@ -462,6 +462,8 @@ contract RollupTest is DecoderBase, TimeFns {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
+    header = _updateHeaderBaseFee(header);
+
     skipBlobCheck(address(rollup));
     ProposeArgs memory args = ProposeArgs({
       header: header,
@@ -472,7 +474,7 @@ contract RollupTest is DecoderBase, TimeFns {
     });
     rollup.propose(args, signatures, body, data.blobInputs);
 
-    BlockLog memory blockLog = rollup.blocks(0);
+    BlockLog memory blockLog = rollup.getBlock(0);
     _submitEpochProof(
       rollup,
       1,
@@ -522,6 +524,7 @@ contract RollupTest is DecoderBase, TimeFns {
       header: header,
       archive: data.archive,
       blockHash: data.blockHash,
+      oracleInput: OracleInput(0, 0),
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
@@ -549,6 +552,7 @@ contract RollupTest is DecoderBase, TimeFns {
       header: header,
       archive: data.archive,
       blockHash: data.blockHash,
+      oracleInput: OracleInput(0, 0),
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
@@ -860,6 +864,8 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes memory aggregationObject = "";
     bytes memory proof = "";
 
+    bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
+
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidEpoch.selector, Epoch.wrap(0), Epoch.wrap(1))
     );
@@ -869,6 +875,7 @@ contract RollupTest is DecoderBase, TimeFns {
         epochSize: 2,
         args: args,
         fees: fees,
+        blobPublicInputs: blobPublicInputs,
         aggregationObject: aggregationObject,
         proof: proof
       })
@@ -974,8 +981,13 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: archive, blockHash: data.blockHash, oracleInput: OracleInput(0, 0), txHashes: txHashes});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      blockHash: data.blockHash,
+      oracleInput: OracleInput(0, 0),
+      txHashes: txHashes
+    });
     rollup.propose(args, signatures, body, data.blobInputs);
   }
 
@@ -991,8 +1003,13 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: archive, blockHash: data.blockHash, oracleInput: OracleInput(0, 0), txHashes: txHashes});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      blockHash: data.blockHash,
+      oracleInput: OracleInput(0, 0),
+      txHashes: txHashes
+    });
     rollup.propose(args, signatures, body, data.blobInputs);
   }
 
@@ -1008,8 +1025,13 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: archive, blockHash: data.blockHash, oracleInput: OracleInput(0, 0), txHashes: txHashes});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      blockHash: data.blockHash,
+      oracleInput: OracleInput(0, 0),
+      txHashes: txHashes
+    });
     rollup.propose(args, signatures, body, data.blobInputs);
   }
 
@@ -1030,8 +1052,13 @@ contract RollupTest is DecoderBase, TimeFns {
     }
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, archive: archive, blockHash: data.blockHash, oracleInput: OracleInput(0, 0), txHashes: txHashes});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      blockHash: data.blockHash,
+      oracleInput: OracleInput(0, 0),
+      txHashes: txHashes
+    });
     rollup.propose(args, signatures, body, new bytes(144));
   }
 
@@ -1092,7 +1119,14 @@ contract RollupTest is DecoderBase, TimeFns {
       abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
     );
     _submitEpochProof(
-      rollup, 1, blockLog.archive, wrongArchive, blockLog.blockHash, data.blockHash, bytes32(0), new bytes(112)
+      rollup,
+      1,
+      blockLog.archive,
+      wrongArchive,
+      blockLog.blockHash,
+      data.blockHash,
+      bytes32(0),
+      new bytes(112)
     );
   }
 
@@ -1109,7 +1143,14 @@ contract RollupTest is DecoderBase, TimeFns {
       )
     );
     _submitEpochProof(
-      rollup, 1, blockLog.archive, data.archive, blockLog.blockHash, wrongBlockHash, bytes32(0), new bytes(112)
+      rollup,
+      1,
+      blockLog.archive,
+      data.archive,
+      blockLog.blockHash,
+      wrongBlockHash,
+      bytes32(0),
+      new bytes(112)
     );
   }
 
@@ -1121,7 +1162,7 @@ contract RollupTest is DecoderBase, TimeFns {
     // mess with the data
     blobPublicInputs[100] = 0x01;
 
-    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+    BlockLog memory blockLog = rollup.getBlock(0);
     bytes32 actualBlobPublicInputsHash =
       rollup.blobPublicInputsHashes(data.decodedHeader.globalVariables.blockNumber);
     bytes32 wrongBlobPublicInputsHash = this.getBlobPublicInputsHash(blobPublicInputs);
@@ -1135,9 +1176,9 @@ contract RollupTest is DecoderBase, TimeFns {
     _submitEpochProof(
       rollup,
       1,
-      preArchive,
+      blockLog.archive,
       data.archive,
-      preBlockHash,
+      blockLog.blockHash,
       data.blockHash,
       bytes32(0),
       blobPublicInputs
@@ -1319,17 +1360,14 @@ contract RollupTest is DecoderBase, TimeFns {
     fees[0] = bytes32(uint256(uint160(_feeRecipient)));
     fees[1] = bytes32(_feeAmount);
 
-    bytes memory aggregationObject = "";
-    bytes memory proof = "";
-
     _rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
         epochSize: _epochSize,
         args: args,
         fees: fees,
-         blobPublicInputs: _blobPublicInputs,
-        aggregationObject: aggregationObject,
-        proof: proof
+        blobPublicInputs: _blobPublicInputs,
+        aggregationObject: "",
+        proof: ""
       })
     );
   }
