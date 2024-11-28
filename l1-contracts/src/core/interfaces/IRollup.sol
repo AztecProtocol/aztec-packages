@@ -7,14 +7,47 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {ManaBaseFeeComponents} from "@aztec/core/libraries/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+
+struct SubmitEpochRootProofArgs {
+  uint256 epochSize;
+  bytes32[7] args;
+  bytes32[] fees;
+  bytes aggregationObject;
+  bytes proof;
+}
+
+struct FeeHeader {
+  uint256 excessMana;
+  uint256 feeAssetPriceNumerator;
+  uint256 manaUsed;
+  uint256 provingCostPerManaNumerator;
+  uint256 congestionCost;
+}
+
+struct BlockLog {
+  FeeHeader feeHeader;
+  bytes32 archive;
+  bytes32 blockHash;
+  Slot slotNumber;
+}
+
+struct L1FeeData {
+  uint256 baseFee;
+  uint256 blobFee;
+}
 
 interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+    external
+    view
+    returns (ManaBaseFeeComponents memory);
 }
 
 interface IRollup {
@@ -30,6 +63,7 @@ interface IRollup {
   );
 
   function prune() external;
+  function updateL1GasFeeOracle() external;
 
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
@@ -46,13 +80,7 @@ interface IRollup {
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
-  function submitEpochRootProof(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
-    bytes calldata _aggregationObject,
-    bytes calldata _proof
-  ) external;
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
   function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
 
@@ -90,6 +118,10 @@ interface IRollup {
     external
     view
     returns (bytes32);
+  function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
+  function getFeeAssetPrice() external view returns (uint256);
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
+  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);

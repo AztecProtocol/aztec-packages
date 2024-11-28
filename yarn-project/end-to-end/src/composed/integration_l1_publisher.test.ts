@@ -3,8 +3,7 @@ import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createDebugLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
-  type BlockBuilder,
-  type MerkleTreeWriteOperations,
+  type L2Tips,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
 } from '@aztec/circuit-types';
@@ -13,6 +12,7 @@ import {
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
+  GasSettings,
   type Header,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -81,14 +81,15 @@ describe('L1Publisher integration', () => {
 
   let publisher: L1Publisher;
 
-  let builder: BlockBuilder;
   let builderDb: MerkleTreeAdminDatabase;
-  let fork: MerkleTreeWriteOperations;
 
   // The header of the last block
   let prevHeader: Header;
 
+  let baseFee: GasFees;
+
   let blockSource: MockProxy<ArchiveSource>;
+  let blocks: L2Block[] = [];
 
   const chainId = createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo.id;
 
@@ -139,17 +140,38 @@ describe('L1Publisher integration', () => {
     });
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
-    blockSource = mock<ArchiveSource>();
-    blockSource.getBlocks.mockResolvedValue([]);
+    blocks = [];
+    blockSource = mock<ArchiveSource>({
+      getBlocks(from, limit, _proven) {
+        return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
+      },
+      getL2Tips(): Promise<L2Tips> {
+        const latestBlock = blocks.at(-1);
+        const res = latestBlock
+          ? { number: latestBlock.number, hash: latestBlock.hash.toString() }
+          : { number: 0, hash: undefined };
+
+        return Promise.resolve({
+          latest: res,
+          proven: res,
+          finalized: res,
+        } as L2Tips);
+      },
+    });
+
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
+      worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(
+      builderDb,
+      blockSource,
+      worldStateConfig,
+      new NoopTelemetryClient(),
+    );
     await worldStateSynchronizer.start();
-    fork = await worldStateSynchronizer.fork();
-    builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
 
     publisher = new L1Publisher(
       {
@@ -168,7 +190,13 @@ describe('L1Publisher integration', () => {
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
+    const fork = await worldStateSynchronizer.fork();
+
     prevHeader = fork.getInitialHeader();
+    await fork.close();
+
+    const ts = (await publicClient.getBlock()).timestamp;
+    baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
 
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = await rollup.read.EPOCH_DURATION();
@@ -176,7 +204,6 @@ describe('L1Publisher integration', () => {
   });
 
   afterEach(async () => {
-    await fork.close();
     await worldStateSynchronizer.stop();
   });
 
@@ -195,6 +222,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(config.version),
       vkTreeRoot: getVKTreeRoot(),
+      gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,
     });
@@ -261,6 +289,8 @@ describe('L1Publisher integration', () => {
               feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
             },
           },
+          totalFees: `0x${block.header.totalFees.toBuffer().toString('hex').padStart(64, '0')}`,
+          totalManaUsed: `0x${block.header.totalManaUsed.toBuffer().toString('hex').padStart(64, '0')}`,
           lastArchive: {
             nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
             root: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
@@ -300,11 +330,16 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    await worldStateSynchronizer.syncImmediate();
+    const tempFork = await worldStateSynchronizer.fork();
+    const tempBuilder = new LightweightBlockBuilder(tempFork, new NoopTelemetryClient());
+    await tempBuilder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
-      await builder.addNewTx(tx);
+      await tempBuilder.addNewTx(tx);
     }
-    return builder.setBlockCompleted();
+    const block = await tempBuilder.setBlockCompleted();
+    await tempFork.close();
+    return block;
   };
 
   describe('block building', () => {
@@ -322,9 +357,6 @@ describe('L1Publisher integration', () => {
       let nextL1ToL2Messages: Fr[] = [];
 
       for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
-        // @note  Make sure that the state is up to date before we start building.
-        await worldStateSynchronizer.syncImmediate();
-
         const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
 
         for (let j = 0; j < l1ToL2Content.length; j++) {
@@ -342,21 +374,25 @@ describe('L1Publisher integration', () => {
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+        const timestamp = await rollup.read.getTimestampForSlot([slot]);
+
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
           new Fr(1 + i),
           new Fr(slot),
-          new Fr(await rollup.read.getTimestampForSlot([slot])),
+          new Fr(timestamp),
           coinbase,
           feeRecipient,
-          GasFees.empty(),
+          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
+        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+        expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
+
         prevHeader = block.header;
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
-        blockSource.getBlocks.mockResolvedValueOnce([block]);
 
         const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
@@ -368,6 +404,7 @@ describe('L1Publisher integration', () => {
         writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
+        blocks.push(block);
 
         const logs = await publicClient.getLogs({
           address: rollupAddress,
@@ -392,6 +429,10 @@ describe('L1Publisher integration', () => {
               header: `0x${block.header.toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              oracleInput: {
+                provingCostModifier: 0n,
+                feeAssetPriceModifier: 0n,
+              },
               txHashes: [],
             },
             [],
@@ -441,32 +482,30 @@ describe('L1Publisher integration', () => {
       const blockNumber = await publicClient.getBlockNumber();
 
       for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
-        // @note  Make sure that the state is up to date before we start building.
-        await worldStateSynchronizer.syncImmediate();
-
         const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
         const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+        const timestamp = await rollup.read.getTimestampForSlot([slot]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
           new Fr(1 + i),
           new Fr(slot),
-          new Fr(await rollup.read.getTimestampForSlot([slot])),
+          new Fr(timestamp),
           coinbase,
           feeRecipient,
-          GasFees.empty(),
+          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
         );
         const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
         prevHeader = block.header;
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
-        blockSource.getBlocks.mockResolvedValueOnce([block]);
 
         writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
+        blocks.push(block);
 
         const logs = await publicClient.getLogs({
           address: rollupAddress,
@@ -491,6 +530,10 @@ describe('L1Publisher integration', () => {
               header: `0x${block.header.toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              oracleInput: {
+                provingCostModifier: 0n,
+                feeAssetPriceModifier: 0n,
+              },
               txHashes: [],
             },
             [],
@@ -511,7 +554,6 @@ describe('L1Publisher integration', () => {
       // REFACTOR: code below is duplicated from "builds blocks of 2 empty txs building on each other"
       const archiveInRollup_ = await rollup.read.archive();
       expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
-      await worldStateSynchronizer.syncImmediate();
 
       // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
       // because the INBOX.consume does not match the header.contentCommitment.inHash and we get
@@ -521,20 +563,20 @@ describe('L1Publisher integration', () => {
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
       const ts = (await publicClient.getBlock()).timestamp;
       const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+      const timestamp = await rollup.read.getTimestampForSlot([slot]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1),
         new Fr(slot),
-        new Fr(await rollup.read.getTimestampForSlot([slot])),
+        new Fr(timestamp),
         coinbase,
         feeRecipient,
-        GasFees.empty(),
+        new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
-      blockSource.getBlocks.mockResolvedValueOnce([block]);
 
       // Inspect logger
       loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');

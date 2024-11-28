@@ -13,7 +13,13 @@ import {
   type Wallet,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { type AztecAddress, type CompleteAddress, Fq, type GasSettings } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  FEE_FUNDING_FOR_TESTER_ACCOUNT,
+  Fq,
+  type GasSettings,
+} from '@aztec/circuits.js';
 import { type TokenContract as BananaCoin, type FPCContract, SchnorrAccountContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -76,17 +82,15 @@ describe('e2e_fees account_init', () => {
     bobsAddress = bobsCompleteAddress.address;
     bobsWallet = await bobsAccountManager.getWallet();
 
-    gasSettings = t.gasSettings;
-
     await bobsAccountManager.register();
     await initBalances();
   });
 
   describe('account pays its own fee', () => {
     it('pays natively in the Fee Juice after Alice bridges funds', async () => {
-      await t.mintAndBridgeFeeJuice(bobsAddress, t.INITIAL_GAS_BALANCE);
+      await t.mintAndBridgeFeeJuice(bobsAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT);
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
-      expect(bobsInitialGas).toEqual(t.INITIAL_GAS_BALANCE);
+      expect(bobsInitialGas).toEqual(FEE_FUNDING_FOR_TESTER_ACCOUNT);
 
       const paymentMethod = new FeeJuicePaymentMethod(bobsAddress);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
@@ -96,16 +100,18 @@ describe('e2e_fees account_init', () => {
     });
 
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
-      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(t.INITIAL_GAS_BALANCE, bobsAddress);
+      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, bobsAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
-      await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([t.INITIAL_GAS_BALANCE - tx.transactionFee!]);
+      await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([
+        FEE_FUNDING_FOR_TESTER_ACCOUNT - tx.transactionFee!,
+      ]);
     });
 
     it('pays privately through an FPC', async () => {
       // Alice mints bananas to Bob
-      const mintedBananas = BigInt(1e12);
+      const mintedBananas = FEE_FUNDING_FOR_TESTER_ACCOUNT;
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       // Bob deploys his account through the private FPC
@@ -133,7 +139,7 @@ describe('e2e_fees account_init', () => {
     });
 
     it('pays publicly through an FPC', async () => {
-      const mintedBananas = BigInt(1e12);
+      const mintedBananas = FEE_FUNDING_FOR_TESTER_ACCOUNT;
       await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send().wait();
 
       const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, bobsWallet);
@@ -161,7 +167,7 @@ describe('e2e_fees account_init', () => {
   describe('another account pays the fee', () => {
     it('pays natively in the Fee Juice', async () => {
       // mint Fee Juice to alice
-      await t.mintAndBridgeFeeJuice(aliceAddress, t.INITIAL_GAS_BALANCE);
+      await t.mintAndBridgeFeeJuice(aliceAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT);
       const [alicesInitialGas] = await t.getGasBalanceFn(aliceAddress);
 
       // bob generates the private keys for his account on his own

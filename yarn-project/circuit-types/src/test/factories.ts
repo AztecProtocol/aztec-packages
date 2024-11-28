@@ -6,6 +6,7 @@ import {
   FIXED_L2_GAS,
   Fr,
   Gas,
+  GasFees,
   GasSettings,
   GlobalVariables,
   type Header,
@@ -18,7 +19,7 @@ import {
   ScopedLogHash,
   TxConstantData,
 } from '@aztec/circuits.js';
-import { makeCombinedAccumulatedData, makeGas, makePrivateToPublicAccumulatedData } from '@aztec/circuits.js/testing';
+import { makeCombinedAccumulatedData, makePrivateToPublicAccumulatedData } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
@@ -34,7 +35,7 @@ export function makeBloatedProcessedTx({
   db,
   chainId = Fr.ZERO,
   version = Fr.ZERO,
-  gasSettings = GasSettings.default(),
+  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   vkTreeRoot = Fr.ZERO,
   protocolContractTreeRoot = Fr.ZERO,
   globalVariables = GlobalVariables.empty(),
@@ -124,8 +125,8 @@ export function makeBloatedProcessedTx({
     );
 
     const gasUsed = {
-      totalGas: makeGas(),
-      teardownGas: makeGas(),
+      totalGas: Gas.empty(),
+      teardownGas: Gas.empty(),
     };
 
     return makeProcessedTxFromTxWithPublicCalls(

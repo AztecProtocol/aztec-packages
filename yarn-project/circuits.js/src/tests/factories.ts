@@ -210,7 +210,7 @@ export function makeTxContext(seed: number = 1): TxContext {
  * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
  */
 export function makeGasSettings() {
-  return GasSettings.default();
+  return GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
 }
 
 /**
@@ -691,6 +691,7 @@ export function makeBaseOrMergeRollupPublicInputs(
     fr(seed + 0x901),
     fr(seed + 0x902),
     fr(seed + 0x903),
+    fr(seed + 0x904),
   );
 }
 
@@ -894,6 +895,7 @@ export function makeHeader(
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
     fr(seed + 0x800),
+    fr(seed + 0x900),
   );
 }
 

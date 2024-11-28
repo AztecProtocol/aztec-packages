@@ -17,7 +17,7 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
  */
 export type DeployAccountOptions = Pick<
   DeployOptions,
-  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'estimateGas' | 'skipInitialization'
+  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'skipInitialization'
 >;
 
 /**
@@ -166,7 +166,6 @@ export class AccountManager {
           skipInitialization: opts?.skipInitialization ?? false,
           universalDeploy: true,
           fee: opts?.fee,
-          estimateGas: opts?.estimateGas,
         }),
       )
       .then(tx => tx.getTxHash());

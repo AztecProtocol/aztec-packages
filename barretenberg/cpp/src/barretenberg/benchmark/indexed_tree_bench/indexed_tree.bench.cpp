@@ -27,24 +27,79 @@ const size_t MAX_BATCH_SIZE = 64;
 template <typename TreeType> void add_values(TreeType& tree, const std::vector<NullifierLeafValue>& values)
 {
     Signal signal(1);
-    typename TreeType::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_level(0); };
-
-    tree.add_or_update_values(values, completion);
-    signal.wait_for_level(0);
-}
-
-template <typename TreeType> void add_values_with_witness(TreeType& tree, const std::vector<NullifierLeafValue>& values)
-{
-    Signal signal(1);
-    typename TreeType::AddCompletionCallbackWithWitness completion = [&](const auto&) -> void {
+    bool success = true;
+    std::string error_message;
+    typename TreeType::AddCompletionCallback completion = [&](const auto& result) -> void {
+        success = result.success;
+        error_message = result.message;
         signal.signal_level(0);
     };
 
     tree.add_or_update_values(values, completion);
     signal.wait_for_level(0);
+    if (!success) {
+        throw std::runtime_error(format("Failed to add values: ", error_message));
+    }
 }
 
-template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) noexcept
+template <typename TreeType> void add_values_with_witness(TreeType& tree, const std::vector<NullifierLeafValue>& values)
+{
+    bool success = true;
+    std::string error_message;
+    Signal signal(1);
+    typename TreeType::AddCompletionCallbackWithWitness completion = [&](const auto& result) -> void {
+        success = result.success;
+        error_message = result.message;
+        signal.signal_level(0);
+    };
+
+    tree.add_or_update_values(values, completion);
+    signal.wait_for_level(0);
+    if (!success) {
+        throw std::runtime_error(format("Failed to add values with witness: ", error_message));
+    }
+}
+
+template <typename TreeType> void add_values_sequentially(TreeType& tree, const std::vector<NullifierLeafValue>& values)
+{
+    bool success = true;
+    std::string error_message;
+    Signal signal(1);
+    typename TreeType::AddCompletionCallback completion = [&](const auto& result) -> void {
+        success = result.success;
+        error_message = result.message;
+        signal.signal_level(0);
+    };
+
+    tree.add_or_update_values_sequentially(values, completion);
+    signal.wait_for_level(0);
+    if (!success) {
+        throw std::runtime_error(format("Failed to add values sequentially: ", error_message));
+    }
+}
+
+template <typename TreeType>
+void add_values_sequentially_with_witness(TreeType& tree, const std::vector<NullifierLeafValue>& values)
+{
+    bool success = true;
+    std::string error_message;
+    Signal signal(1);
+    typename TreeType::AddSequentiallyCompletionCallbackWithWitness completion = [&](const auto& result) -> void {
+        success = result.success;
+        error_message = result.message;
+        signal.signal_level(0);
+    };
+
+    tree.add_or_update_values_sequentially(values, completion);
+    signal.wait_for_level(0);
+    if (!success) {
+        throw std::runtime_error(format("Failed to add values sequentially with witness: ", error_message));
+    }
+}
+
+enum InsertionStrategy { SEQUENTIAL, BATCH };
+
+template <typename TreeType, InsertionStrategy strategy> void multi_thread_indexed_tree_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
@@ -61,10 +116,14 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
 
     const size_t initial_size = 1024 * 16;
     std::vector<NullifierLeafValue> initial_batch(initial_size);
-    for (size_t i = 0; i < batch_size; ++i) {
+    for (size_t i = 0; i < initial_size; ++i) {
         initial_batch[i] = fr(random_engine.get_random_uint256());
     }
-    add_values(tree, initial_batch);
+    if (strategy == SEQUENTIAL) {
+        add_values_sequentially(tree, initial_batch);
+    } else {
+        add_values(tree, initial_batch);
+    }
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -73,11 +132,15 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
             values[i] = fr(random_engine.get_random_uint256());
         }
         state.ResumeTiming();
-        add_values(tree, values);
+        if (strategy == SEQUENTIAL) {
+            add_values_sequentially(tree, values);
+        } else {
+            add_values(tree, values);
+        }
     }
 }
 
-template <typename TreeType> void single_thread_indexed_tree_bench(State& state) noexcept
+template <typename TreeType, InsertionStrategy strategy> void single_thread_indexed_tree_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
@@ -94,10 +157,14 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
 
     const size_t initial_size = 1024 * 16;
     std::vector<NullifierLeafValue> initial_batch(initial_size);
-    for (size_t i = 0; i < batch_size; ++i) {
+    for (size_t i = 0; i < initial_size; ++i) {
         initial_batch[i] = fr(random_engine.get_random_uint256());
     }
-    add_values(tree, initial_batch);
+    if (strategy == SEQUENTIAL) {
+        add_values_sequentially(tree, initial_batch);
+    } else {
+        add_values(tree, initial_batch);
+    }
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -106,11 +173,16 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
             values[i] = fr(random_engine.get_random_uint256());
         }
         state.ResumeTiming();
-        add_values(tree, values);
+        if (strategy == SEQUENTIAL) {
+            add_values_sequentially(tree, values);
+        } else {
+            add_values(tree, values);
+        }
     }
 }
 
-template <typename TreeType> void multi_thread_indexed_tree_with_witness_bench(State& state) noexcept
+template <typename TreeType, InsertionStrategy strategy>
+void multi_thread_indexed_tree_with_witness_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
@@ -127,10 +199,14 @@ template <typename TreeType> void multi_thread_indexed_tree_with_witness_bench(S
 
     const size_t initial_size = 1024 * 16;
     std::vector<NullifierLeafValue> initial_batch(initial_size);
-    for (size_t i = 0; i < batch_size; ++i) {
+    for (size_t i = 0; i < initial_size; ++i) {
         initial_batch[i] = fr(random_engine.get_random_uint256());
     }
-    add_values(tree, initial_batch);
+    if (strategy == SEQUENTIAL) {
+        add_values_sequentially(tree, initial_batch);
+    } else {
+        add_values(tree, initial_batch);
+    }
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -139,11 +215,16 @@ template <typename TreeType> void multi_thread_indexed_tree_with_witness_bench(S
             values[i] = fr(random_engine.get_random_uint256());
         }
         state.ResumeTiming();
-        add_values_with_witness(tree, values);
+        if (strategy == SEQUENTIAL) {
+            add_values_sequentially_with_witness(tree, values);
+        } else {
+            add_values_with_witness(tree, values);
+        }
     }
 }
 
-template <typename TreeType> void single_thread_indexed_tree_with_witness_bench(State& state) noexcept
+template <typename TreeType, InsertionStrategy strategy>
+void single_thread_indexed_tree_with_witness_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
@@ -160,10 +241,14 @@ template <typename TreeType> void single_thread_indexed_tree_with_witness_bench(
 
     const size_t initial_size = 1024 * 16;
     std::vector<NullifierLeafValue> initial_batch(initial_size);
-    for (size_t i = 0; i < batch_size; ++i) {
+    for (size_t i = 0; i < initial_size; ++i) {
         initial_batch[i] = fr(random_engine.get_random_uint256());
     }
-    add_values(tree, initial_batch);
+    if (strategy == SEQUENTIAL) {
+        add_values_sequentially(tree, initial_batch);
+    } else {
+        add_values(tree, initial_batch);
+    }
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -172,53 +257,105 @@ template <typename TreeType> void single_thread_indexed_tree_with_witness_bench(
             values[i] = fr(random_engine.get_random_uint256());
         }
         state.ResumeTiming();
-        add_values_with_witness(tree, values);
+        if (strategy == SEQUENTIAL) {
+            add_values_sequentially_with_witness(tree, values);
+        } else {
+            add_values_with_witness(tree, values);
+        }
     }
 }
 
-BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2>)
+BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
 
-BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2>)
+BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(512, 8192)
     ->Iterations(10);
 
-BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2>)
+BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
 
-BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2>)
+BENCHMARK(single_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(512, 8192)
     ->Iterations(10);
 
-BENCHMARK(single_thread_indexed_tree_bench<Poseidon2>)
+BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
 
-BENCHMARK(single_thread_indexed_tree_bench<Poseidon2>)
+BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, BATCH>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(512, 8192)
     ->Iterations(10);
 
-BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2>)
+BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
 
-BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2>)
+BENCHMARK(multi_thread_indexed_tree_with_witness_bench<Poseidon2, SEQUENTIAL>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, BATCH>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, MAX_BATCH_SIZE)
+    ->Iterations(1000);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, BATCH>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, MAX_BATCH_SIZE)
+    ->Iterations(1000);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
+
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, BATCH>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, MAX_BATCH_SIZE)
+    ->Iterations(1000);
+
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, BATCH>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(100);
+
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, MAX_BATCH_SIZE)
+    ->Iterations(1000);
+
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(512, 8192)

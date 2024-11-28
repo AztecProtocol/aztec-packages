@@ -12,63 +12,66 @@ export class Set extends Instruction {
   public static readonly wireFormat8: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT8, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT8, // const (value)
-    OperandType.UINT8, // dstOffset
   ];
   public static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT16, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormat32: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT32, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormat64: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT64, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormat128: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.UINT128, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
   public static readonly wireFormatFF: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
     OperandType.UINT8, // tag
     OperandType.FF, // const (value)
-    OperandType.UINT16, // dstOffset
   ];
 
   constructor(
     private indirect: number,
+    private dstOffset: number,
     private inTag: number,
     private value: bigint | number,
-    private dstOffset: number,
   ) {
     super();
+    TaggedMemory.checkIsValidTag(inTag);
   }
 
   public async execute(context: AvmContext): Promise<void> {
+    // Constructor ensured that this.inTag is a valid tag
+    const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
+
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
-    const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
     memory.set(dstOffset, res);
 
     memory.assert({ writes: 1, addressing });
@@ -89,13 +92,14 @@ export class Cast extends Instruction {
   static readonly wireFormat16 = [
     OperandType.UINT8,
     OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
     OperandType.UINT8,
-    OperandType.UINT16,
-    OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private dstTag: number, private srcOffset: number, private dstOffset: number) {
+  constructor(private indirect: number, private srcOffset: number, private dstOffset: number, private dstTag: number) {
     super();
+    TaggedMemory.checkIsValidTag(dstTag);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -107,6 +111,7 @@ export class Cast extends Instruction {
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
 
     const a = memory.get(srcOffset);
+    // Constructor ensured that this.dstTag is a valid tag
     const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
 
     memory.set(dstOffset, casted);

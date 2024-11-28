@@ -60,6 +60,7 @@ export enum WorldStateMessageType {
 
   APPEND_LEAVES,
   BATCH_INSERT,
+  SEQUENTIAL_INSERT,
 
   UPDATE_ARCHIVE,
 
@@ -136,8 +137,6 @@ export interface TreeDBStats {
   nodesDBStats: DBStats;
   /** Stats for the 'leaf pre-images' DB */
   leafPreimagesDBStats: DBStats;
-  /** Stats for the 'leaf keys' DB */
-  leafKeysDBStats: DBStats;
   /** Stats for the 'leaf indices' DB */
   leafIndicesDBStats: DBStats;
 }
@@ -271,7 +270,6 @@ export function sanitiseMeta(meta: TreeMeta) {
 export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blocksDBStats = sanitiseDBStats(stats.blocksDBStats);
   stats.leafIndicesDBStats = sanitiseDBStats(stats.leafIndicesDBStats);
-  stats.leafKeysDBStats = sanitiseDBStats(stats.leafKeysDBStats);
   stats.leafPreimagesDBStats = sanitiseDBStats(stats.leafPreimagesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
@@ -378,6 +376,7 @@ interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
 interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
   subtreeDepth: number;
 }
+
 interface BatchInsertResponse {
   low_leaf_witness_data: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
@@ -386,6 +385,21 @@ interface BatchInsertResponse {
   }>;
   sorted_leaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
   subtree_path: Tuple<Buffer, number>;
+}
+
+interface SequentialInsertRequest extends WithTreeId, WithForkId, WithLeaves {}
+
+interface SequentialInsertResponse {
+  low_leaf_witness_data: ReadonlyArray<{
+    leaf: SerializedIndexedLeaf;
+    index: bigint | number;
+    path: Tuple<Buffer, number>;
+  }>;
+  insertion_witness_data: ReadonlyArray<{
+    leaf: SerializedIndexedLeaf;
+    index: bigint | number;
+    path: Tuple<Buffer, number>;
+  }>;
 }
 
 interface UpdateArchiveRequest extends WithForkId {
@@ -400,7 +414,7 @@ interface SyncBlockRequest {
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];
-  batchesOfPublicDataWrites: readonly SerializedLeafValue[][];
+  publicDataWrites: readonly SerializedLeafValue[];
 }
 
 interface CreateForkRequest {
@@ -438,6 +452,7 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertRequest;
+  [WorldStateMessageType.SEQUENTIAL_INSERT]: SequentialInsertRequest;
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: UpdateArchiveRequest;
 
@@ -472,6 +487,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.APPEND_LEAVES]: void;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertResponse;
+  [WorldStateMessageType.SEQUENTIAL_INSERT]: SequentialInsertResponse;
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: void;
 

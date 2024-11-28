@@ -139,12 +139,15 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# Find two free ports between 9000 and 10000
-FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 2)
+# Find 3 free ports between 9000 and 10000
+FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
 
 # Extract the two free ports from the list
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
+METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
+
+GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
@@ -167,9 +170,12 @@ docker run --rm --network=host \
   -e SPARTAN_DIR="/usr/src/spartan" \
   -e NAMESPACE="$NAMESPACE" \
   -e HOST_PXE_PORT=$PXE_PORT \
-  -e CONTAINER_PXE_PORT=8080 \
+  -e CONTAINER_PXE_PORT=8081 \
   -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
   -e CONTAINER_ETHEREUM_PORT=8545 \
+  -e HOST_METRICS_PORT=$METRICS_PORT \
+  -e CONTAINER_METRICS_PORT=80 \
+  -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
   -e DEBUG="aztec:*" \
   -e LOG_JSON=1 \
   -e LOG_LEVEL=debug \

@@ -10,9 +10,9 @@ export function createValidatorClient(config: ValidatorClientConfig, p2pClient: 
   if (config.disableValidator) {
     return undefined;
   }
-  // TODO: should this be exposed via a flag?
   if (config.validatorPrivateKey === undefined || config.validatorPrivateKey === '') {
     config.validatorPrivateKey = generatePrivateKey();
   }
+
   return ValidatorClient.new(config, p2pClient, telemetry);
 }

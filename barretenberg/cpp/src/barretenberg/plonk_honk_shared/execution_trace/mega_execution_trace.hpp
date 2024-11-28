@@ -30,10 +30,17 @@ template <typename T> struct MegaTraceBlockData {
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",     "pub_inputs",         "busread",
-                 "arithmetic", "delta_range",        "elliptic",
-                 "aux",        "poseidon2_external", "poseidon2_internal",
-                 "lookup" };
+        return { "ecc_op",
+                 "pub_inputs",
+                 "busread",
+                 "arithmetic",
+                 "delta_range",
+                 "elliptic",
+                 "aux",
+                 "poseidon2_external",
+                 "poseidon2_internal",
+                 "lookup",
+                 "overflow" };
     }
 
     auto get()
@@ -59,8 +66,15 @@ template <typename T> struct MegaTraceBlockData {
         };
     }
 
-    static uint32_t size() { return 0; }
-    static uint32_t dyadic_size() { return 0; }
+    size_t size() const
+        requires std::same_as<T, uint32_t>
+    {
+        size_t result{ 0 };
+        for (const auto& block_size : get()) {
+            result += block_size;
+        }
+        return static_cast<size_t>(result);
+    }
 
     bool operator==(const MegaTraceBlockData& other) const = default;
 };
@@ -72,6 +86,15 @@ struct TraceSettings {
     // The size of the overflow block. Specified separately because it is allowed to be determined at runtime in the
     // context of VK computation
     uint32_t overflow_capacity = 0;
+
+    size_t size() const { return structure->size() + static_cast<size_t>(overflow_capacity); }
+
+    size_t dyadic_size() const
+    {
+        const size_t total_size = size();
+        const size_t lower_dyadic = 1 << numeric::get_msb(total_size);
+        return total_size > lower_dyadic ? lower_dyadic << 1 : lower_dyadic;
+    }
 };
 
 class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
@@ -174,13 +197,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         this->overflow.fixed_size = settings.overflow_capacity;
     }
 
-    // WORKTODO: use or remove
-    MegaExecutionTraceBlocks(const TraceSettings& settings)
-        : MegaExecutionTraceBlocks()
-    {
-        set_fixed_block_sizes(settings);
-    }
-
     void compute_offsets(bool is_structured)
     {
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
@@ -211,10 +227,10 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         info("");
     }
 
-    size_t get_structured_dyadic_size()
+    size_t get_structured_dyadic_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
-        for (auto block : this->get()) {
+        for (const auto& block : this->get()) {
             total_size += block.get_fixed_size();
         }
 

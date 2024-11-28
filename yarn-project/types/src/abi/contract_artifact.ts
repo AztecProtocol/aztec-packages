@@ -13,6 +13,7 @@ import {
   type StructValue,
   type TypedStructFieldValue,
 } from '@aztec/foundation/abi';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
@@ -29,21 +30,7 @@ import {
  * @returns A buffer.
  */
 export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
-  return Buffer.from(
-    JSON.stringify(artifact, (key, value) => {
-      if (
-        key === 'bytecode' &&
-        value !== null &&
-        typeof value === 'object' &&
-        value.type === 'Buffer' &&
-        Array.isArray(value.data)
-      ) {
-        return Buffer.from(value.data).toString('base64');
-      }
-      return value;
-    }),
-    'utf-8',
-  );
+  return Buffer.from(jsonStringify(artifact), 'utf-8');
 }
 
 /**
@@ -52,7 +39,7 @@ export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
  * @returns Deserialized artifact.
  */
 export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
-  return ContractArtifactSchema.parse(JSON.parse(buffer.toString('utf-8')));
+  return jsonParseWithSchema(buffer.toString('utf-8'), ContractArtifactSchema);
 }
 
 /**

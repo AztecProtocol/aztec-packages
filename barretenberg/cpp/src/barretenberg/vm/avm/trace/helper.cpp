@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include <algorithm>
 #include <cassert>
 
@@ -104,10 +105,18 @@ std::string to_name(AvmError error)
     switch (error) {
     case AvmError::NO_ERROR:
         return "NO ERROR";
-    case AvmError::TAG_ERROR:
-        return "TAG ERROR";
-    case AvmError::ADDR_RES_ERROR:
-        return "ADDRESS RESOLUTION ERROR";
+    case AvmError::INVALID_PROGRAM_COUNTER:
+        return "INVALID PROGRAM COUNTER";
+    case AvmError::INVALID_OPCODE:
+        return "INVALIE OPCODE";
+    case AvmError::INVALID_TAG_VALUE:
+        return "INVALID TAG VALUE";
+    case AvmError::CHECK_TAG_ERROR:
+        return "TAG CHECKING ERROR";
+    case AvmError::ADDR_RES_TAG_ERROR:
+        return "ADDRESS RESOLUTION TAG ERROR";
+    case AvmError::REL_ADDR_OUT_OF_RANGE:
+        return "RELATIVE ADDRESS IS OUT OF RANGE";
     case AvmError::DIV_ZERO:
         return "DIVISION BY ZERO";
     case AvmError::PARSING_ERROR:
@@ -116,10 +125,17 @@ std::string to_name(AvmError error)
         return "ENVIRONMENT VARIABLE UNKNOWN";
     case AvmError::CONTRACT_INST_MEM_UNKNOWN:
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
+    case AvmError::RADIX_OUT_OF_BOUNDS:
+        return "RADIX OUT OF BOUNDS";
     default:
         throw std::runtime_error("Invalid error type");
         break;
     }
+}
+
+bool is_ok(AvmError error)
+{
+    return error == AvmError::NO_ERROR;
 }
 
 /**
@@ -132,19 +148,17 @@ std::string to_name(AvmError error)
  * @param public_inputs Public inputs structure
  * @param trace The execution trace
  */
-void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace)
+void inject_end_gas_values([[maybe_unused]] AvmPublicInputs& public_inputs, std::vector<Row>& trace)
 {
     auto execution_end_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });
     ASSERT(execution_end_row != trace.end());
 
-    trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
-    trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
+    // trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
+    // trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
 
-    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
-        execution_end_row->main_l2_gas_remaining;
-    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
-        execution_end_row->main_da_gas_remaining;
+    // public_inputs.end_gas_used.l2_gas = static_cast<uint32_t>(execution_end_row->main_l2_gas_remaining);
+    // public_inputs.end_gas_used.da_gas = static_cast<uint32_t>(execution_end_row->main_da_gas_remaining);
 }
 
 } // namespace bb::avm_trace

@@ -186,7 +186,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     const TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-    std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
         ClientIVC ivc{ trace_settings };
@@ -204,7 +204,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     }
 
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
-    std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
         ClientIVC ivc{ trace_settings };
 
@@ -213,12 +213,12 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         // Construct kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc);
-        // WORKTODO: this would normally happen in accumulate()
+        // Note that this would normally happen in accumulate()
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);
         MegaProver prover(proving_key);
-        kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
+        kernel_vk = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     }
 
     // PCS verification keys will not match so set to null before comparing
@@ -234,7 +234,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
     const TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
 
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-    std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
         ClientIVC ivc{ trace_settings };
@@ -253,7 +253,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
     }
 
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
-    std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
         ClientIVC ivc{ trace_settings };
 
@@ -273,7 +273,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, ivc.trace_settings);
         MegaProver prover(proving_key);
-        kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
+        kernel_vk = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     }
 
     // PCS verification keys will not match so set to null before comparing
