@@ -59,15 +59,8 @@ if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
   delete_test_cache
 fi
 
-# Paths to the mock should_run scripts in $ci3/tests/
-mock_should_run_CI="$ci3/tests/should_run_mock_CI.sh"
-mock_should_run_CI_false="$ci3/tests/should_run_mock_CI_false.sh"
-
-# Ensure the mock scripts exist
-if [ ! -f "$mock_should_run_CI" ] || [ ! -f "$mock_should_run_CI_false" ]; then
-  echo "Mock should_run scripts not found in $ci3/tests/"
-  exit 1
-fi
+# Backup the original should_run
+cp "$ci3/cache/should_run" "$ci3/cache/should_run.bkup"
 
 # Function to run the bootstrap.sh script
 function run_bootstrap() {
@@ -86,12 +79,7 @@ declare -a should_run_list  # Array to store should_run.list from test_CI_0
 function test_CI_0() {
   echo "Running test_CI_0"
 
-  # Backup the original should_run
-  cp "$ci3/cache/should_run" "$ci3/cache/should_run.bkup"
-
-  # Use the mock should_run script for CI=0
-  cp "$mock_should_run_CI" "$ci3/cache/should_run"
-  chmod +x "$ci3/cache/should_run"
+  cp "$ci3/tests/should_run_everything.sh" "$ci3/cache/should_run"
 
   CI=0 run_bootstrap
 
@@ -115,8 +103,7 @@ function test_CI_1_same_list() {
   echo "Running test_CI_1_same_list"
 
   # Use the mock should_run script for CI=1 same list
-  cp "$mock_should_run_CI" "$ci3/cache/should_run"
-  chmod +x "$ci3/cache/should_run"
+  cp "$ci3/tests/should_run_everything.sh" "$ci3/cache/should_run"
 
   CI=1 run_bootstrap
 
@@ -144,9 +131,8 @@ function test_CI_1_same_list() {
 function test_CI_1_should_run_false() {
   echo "Running test_CI_1_should_run_false"
 
-  # Use the mock should_run script for CI=1 should_run_false
-  cp "$mock_should_run_CI_false" "$ci3/cache/should_run"
-  chmod +x "$ci3/cache/should_run"
+  # Use the mock should_run script for CI=1 same list
+  cp "$ci3/tests/should_run_nothing.sh" "$ci3/cache/should_run"
 
   CI=1 run_bootstrap
 
@@ -159,10 +145,10 @@ function test_CI_1_should_run_false() {
   fi
 
   # Read the new should_run.list into memory
-  mapfile -t should_run_list_CI1_false < "$ci3/cache/should_run.list"
+  mapfile -t should_run_list_CI1 < "$ci3/cache/should_run.list"
 
   # Compare with previous should_run_list
-  if diff -q <(printf "%s\n" "${should_run_list[@]}") <(printf "%s\n" "${should_run_list_CI1_false[@]}") >/dev/null; then
+  if diff -q <(printf "%s\n" "${should_run_list[@]}") <(printf "%s\n" "${should_run_list_CI1[@]}") >/dev/null; then
     echo "test_CI_1_should_run_false completed successfully. Test lists are equal."
   else
     echo "test_CI_1_should_run_false failed. Test lists are different."
