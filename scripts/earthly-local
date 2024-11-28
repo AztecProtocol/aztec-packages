@@ -63,17 +63,6 @@ else
   S3_BUILD_CACHE_DOWNLOAD=false
 fi
 
-# Generate Earthly configuration dynamically
-echo 'global:
-  buildkit_additional_config: |
-    [registry."'$(hostname -I | awk '{print $1}')':5000"]
-      http = true
-    [registry."local-registry.io"]
-      http = true
-      mirrors = ["http://'$(hostname -I | awk '{print $1}')':5000"]' > $earthly_config_tmp
-
-export EARTHLY_CONFIG=$earthly_config_tmp
-
 # Run Earthly with all secrets
 earthly --secret AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
         --secret AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" \
