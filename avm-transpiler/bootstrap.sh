@@ -22,8 +22,6 @@ fi
 
 $ci3/github/group "avm-transpiler build"
 ./scripts/bootstrap_native.sh
-if [ "${CI:-0}" -eq 1 ]; then
-  export AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native .rebuild_patterns"
-  $ci3/cache/upload avm-transpiler-$($ci3/cache/content_hash).tar.gz target
-fi
+export AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native .rebuild_patterns"
+$ci3/cache/upload avm-transpiler-$($ci3/cache/content_hash).tar.gz target
 $ci3/github/endgroup
