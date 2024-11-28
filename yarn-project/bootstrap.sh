@@ -13,6 +13,13 @@ CMD=${1:-}
 
 function build {
   $ci3/github/group "yarn-project build"
+
+  export AZTEC_CACHE_REBUILD_PATTERNS=../avm-transpiler/.rebuild_patterns\
+    ../barretenberg/*/.rebuild_patterns\
+    ../l1-contracts/.rebuild_patterns\
+    ../noir-projects/*/.rebuild_patterns\
+    ../yarn-project/.rebuild_patterns
+  HASH=$($ci3/cache/content_hash)
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
 
@@ -22,18 +29,23 @@ function build {
   echo
   yarn install
 
-  case "${1:-}" in
-    "fast") yarn build::fast;;
-    "full") yarn build;;
-    *)
-      if ! yarn build:fast; then
-        echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}\n"
-        yarn build
-      fi
-  esac
+  if [ -z "${USE_CACHE:-}" ] || ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+    case "${1:-}" in
+      "fast") yarn build:fast;;
+      "full") yarn build;;
+      *)
+        if ! yarn build:fast; then
+          echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}\n"
+          yarn build
+        fi
+    esac
 
-  echo
-  echo -e "${GREEN}Yarn project successfully built!${RESET}"
+    # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
+    FILES_TO_UPLOAD=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
+    $ci3/cache/download yarn-project-$HASH.tar.gz $FILES_TO_UPLOAD
+    echo
+    echo -e "${GREEN}Yarn project successfully built!${RESET}"
+  fi
   $ci3/github/endgroup
 }
 
