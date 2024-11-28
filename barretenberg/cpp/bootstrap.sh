@@ -13,6 +13,8 @@ trap cleanup EXIT
 
 CMD=${1:-}
 
+$ci3/github/group "bb cpp build"
+
 if [ -n "$CMD" ]; then
   if [ "$CMD" = "clean" ]; then
     git clean -ffdx
@@ -63,15 +65,14 @@ rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 
 (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
 
-echo "#################################"
-echo "# Building with preset: $PRESET"
-echo "# When running cmake directly, remember to use: --build --preset $PRESET"
-echo "#################################"
-
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
 HASH=$($ci3/cache/content_hash)
 function build_native {
   if $ci3/base/is_build; then
+    echo "#################################"
+    echo "# Building with preset: $PRESET"
+    echo "# When running cmake directly, remember to use: --build --preset $PRESET"
+    echo "#################################"
     # Build bb with standard preset and world_state_napi with Position Independent code variant
     cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
@@ -84,10 +85,12 @@ function build_native {
     $ci3/cache/upload barretenberg-preset-release-$HASH.tar.gz build/bin
     $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
   fi
-  if $ci3/base/is_test && $ci3/base/download_flag barretenberg-test-$HASH; then
+  if $ci3/base/is_test && $ci3/cache/download_flag barretenberg-test-$HASH; then
+    $ci3/github/endgroup
+    $ci3/github/group "bb cpp test"
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
-    $ci3/base/upload_flag barretenberg-test-$HASH
+    $ci3/cache/upload_flag barretenberg-test-$HASH
   fi
 }
 
@@ -148,3 +151,4 @@ if [ ! -d ./srs_db/grumpkin ]; then
   # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
   cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
 fi
+$ci3/github/endgroup
