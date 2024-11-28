@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732805788852,
+  "lastUpdate": 1732808608905,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ca050b837a46aa870fb8850ed0d8aaaad4e758ee",
-          "message": "chore: Use stack based recursion instead of function recursion (#9947)\n\nThis PR simply changes the world state writing process to use an\r\niterative approach rather than recursive approach to avoid possible\r\nstack overflow issues.",
-          "timestamp": "2024-11-13T19:56:36Z",
-          "tree_id": "c336df0d183306c074f22f14b0c95d4610a44735",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ca050b837a46aa870fb8850ed0d8aaaad4e758ee"
-        },
-        "date": 1731530218565,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28827.431716999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27066.058081 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5351.437112,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5025.352793000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85015.199939,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85015201000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15208.927354999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15208928000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3132336499,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3132336499 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144213471,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144213471 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2978,6 +2918,62 @@ window.BENCHMARK_DATA = {
             "value": 139364858,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139364858 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "34372f13c6083befb1dfd07a2d99ea07b166b398",
+          "message": "chore(master): Release 0.65.2",
+          "timestamp": "2024-11-28T15:22:57Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10258/commits/34372f13c6083befb1dfd07a2d99ea07b166b398"
+        },
+        "date": 1732808602046,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28226.71693699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26671.284782000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5122.234616,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4757.604875999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84324.61404100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84324615000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15235.193823,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15235195000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3096213748,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3096213748 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140131794,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140131794 ns\nthreads: 1"
           }
         ]
       }
