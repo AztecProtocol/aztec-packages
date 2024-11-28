@@ -73,7 +73,7 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       mkdir -p /root/aztec-packages
       cd /root/aztec-packages
       git init &>/dev/null
-      git remote add origin http://github.com/aztecprotocol/aztec-packages
+      git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"

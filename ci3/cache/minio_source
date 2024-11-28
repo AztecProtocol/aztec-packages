@@ -1,0 +1,49 @@
+
+#!/bin/bash
+# Script base for testing with minio.
+source "$(git rev-parse --show-toplevel)/ci3/base/source"
+
+TEST_PORT=
+
+# Configure AWS parameters to use MinIO
+export S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://localhost:12000"
+export AWS_SECRET_ACCESS_KEY="minioadmin"
+export AWS_ACCESS_KEY_ID="minioadmin"
+
+function minio_cleanup() {
+  minio_delete_cache
+}
+trap minio_cleanup EXIT
+
+function minio_delete_cache() {
+  aws --endpoint http://localhost:12000 \
+    s3 rm s3://aztec-ci-artifacts --recursive --include "*" 2>&1 || true
+}
+
+function minio_start() {
+  if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
+    # MinIO is already running.
+    return
+  fi
+  echo "Starting MinIO..."
+  docker run -d --name minio \
+    -p 12000:9000 -p 12001:9001 \
+    -v minio-data:/data \
+    quay.io/minio/minio server /data --console-address ":12001"
+
+  # Wait for MinIO to be ready
+  until nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
+    sleep 1
+  done
+
+  # Create the cache bucket
+  echo "Creating MinIO bucket for cache..."
+  aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
+}
+
+# If MinIO is already running, ensure the cache is deleted
+if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
+  delete_test_cache
+fi
+
+minio_start

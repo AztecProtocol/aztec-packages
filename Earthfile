@@ -47,7 +47,7 @@ bootstrap-test:
     WORKDIR /usr/src
     ARG EARTHLY_GIT_HASH
     RUN git init
-    RUN git remote add origin http://github.com/aztecprotocol/aztec-packages
+    RUN git remote add origin https://github.com/aztecprotocol/aztec-packages
     RUN git fetch --depth 1 origin $EARTHLY_GIT_HASH
     RUN git checkout FETCH_HEAD
-    RUN scripts/tests/bootstrap/bootstrap_test
+    RUN scripts/test/bootstrap/bootstrap_test
