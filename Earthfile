@@ -56,4 +56,4 @@ bootstrap-test:
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
         git fetch --depth 1 origin $EARTHLY_GIT_HASH && git checkout FETCH_HEAD
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
-        scripts/test/bootstrap/bootstrap_test
+        scripts/tests/bootstrap/test
