@@ -37,6 +37,7 @@ fi
 
 # Attempt to just pull artefacts from CI and exit on success.
 if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
+  # This ensures is_build later will no-op
   export USE_BUILD=0
 fi
 
