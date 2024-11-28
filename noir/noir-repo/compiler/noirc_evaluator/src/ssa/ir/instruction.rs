@@ -11,7 +11,7 @@ use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
-use crate::ssa::{ir::function::RuntimeType, opt::flatten_cfg::value_merger::ValueMerger};
+use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
 
 use super::{
     basic_block::BasicBlockId,
