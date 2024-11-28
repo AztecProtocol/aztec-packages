@@ -135,7 +135,15 @@ export class TxProver implements EpochProverManager {
     const prover = await buildServerCircuitProver(this.config, this.telemetry);
     this.agents = times(
       this.config.proverAgentCount,
-      () => new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs),
+      () =>
+        new ProvingAgent(
+          this.agentClient!,
+          proofStore,
+          prover,
+          this.telemetry,
+          [],
+          this.config.proverAgentPollIntervalMs,
+        ),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));
