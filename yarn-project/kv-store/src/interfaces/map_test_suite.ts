@@ -1,8 +1,6 @@
 import '@aztec/circuit-types/jest';
 import { toArray } from '@aztec/foundation/iterable';
 
-import { type expect as Expect } from 'chai';
-
 import { Key } from './common.js';
 import { AztecMultiMap } from './map.js';
 import { AztecKVStore } from './store.js';

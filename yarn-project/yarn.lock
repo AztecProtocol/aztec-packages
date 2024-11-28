@@ -783,7 +783,7 @@ __metadata:
     chai: ^5.1.2
     lmdb: ^3.0.6
     mocha: ^10.8.2
-    ts-node: ^10.9.1
+    ts-node: ^10.9.2
     typescript: ^5.0.4
   languageName: unknown
   linkType: soft
@@ -18850,7 +18850,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-node@npm:^10.9.1":
+"ts-node@npm:^10.9.1, ts-node@npm:^10.9.2":
   version: 10.9.2
   resolution: "ts-node@npm:10.9.2"
   dependencies:
