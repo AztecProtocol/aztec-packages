@@ -20,7 +20,8 @@ type PreimageWitness<T extends IndexedTreeLeafPreimage> = {
 };
 
 /**
- * The result of a getLeaf operation in an indexed merkle tree.
+ * The result of fetching a leaf from an indexed tree. Contains the preimage and wether the leaf was already present
+ * or it's a low leaf.
  */
 type GetLeafResult<T extends IndexedTreeLeafPreimage> = PreimageWitness<T> & {
   alreadyPresent: boolean;
@@ -172,7 +173,7 @@ export class AvmEphemeralForest {
       typeof treeId,
       PublicDataTreeLeafPreimage
     >(treeId, slot);
-    const { preimage, index: lowLeafIndex, alreadyPresent } = leafOrLowLeafInfo;
+    const { preimage, index: lowLeafIndex, alreadyPresent: update } = leafOrLowLeafInfo;
     const siblingPath = await this.getSiblingPath(treeId, lowLeafIndex);
 
     if (pathAbsentInEphemeralTree) {
@@ -180,7 +181,7 @@ export class AvmEphemeralForest {
       this.treeMap.get(treeId)!.insertSiblingPath(lowLeafIndex, siblingPath);
     }
 
-    if (alreadyPresent) {
+    if (update) {
       const updatedPreimage = cloneDeep(preimage);
       const existingPublicDataSiblingPath = siblingPath;
       updatedPreimage.value = newValue;
@@ -263,7 +264,7 @@ export class AvmEphemeralForest {
       typeof treeId,
       NullifierLeafPreimage
     >(treeId, nullifier);
-    const { preimage, index, alreadyPresent: update } = leafOrLowLeafInfo;
+    const { preimage, index, alreadyPresent } = leafOrLowLeafInfo;
     const siblingPath = await this.getSiblingPath(treeId, index);
 
     if (pathAbsentInEphemeralTree) {
@@ -271,7 +272,7 @@ export class AvmEphemeralForest {
       this.treeMap.get(treeId)!.insertSiblingPath(index, siblingPath);
     }
 
-    assert(!update, 'Nullifier already exists in the tree. Cannot update a nullifier!');
+    assert(!alreadyPresent, 'Nullifier already exists in the tree. Cannot update a nullifier!');
 
     // We are writing a new entry
     const insertionIndex = tree.leafCount;
@@ -381,7 +382,7 @@ export class AvmEphemeralForest {
    * @param key - The key for which we are look up the leaf or low leaf for.
    * @param T - The type of the preimage (PublicData or Nullifier)
    * @returns [
-   *     preimageWitness - The leaf or low leaf info (preimage & leaf index),
+   *     getLeafResult - The leaf or low leaf info (preimage & leaf index),
    *     pathAbsentInEphemeralTree - whether its sibling path is absent in the ephemeral tree (useful during insertions)
    * ]
    */
@@ -489,7 +490,7 @@ export class AvmEphemeralForest {
    * @param minIndex - The index of the leaf with the largest key <= the specified key.
    * @param T - The type of the preimage (PublicData or Nullifier)
    * @returns [
-   *     preimageWitness | undefined - The leaf or low leaf info (preimage & leaf index),
+   *     GetLeafResult | undefined - The leaf or low leaf info (preimage & leaf index),
    *     pathAbsentInEphemeralTree - whether its sibling path is absent in the ephemeral tree (useful during insertions)
    * ]
    *

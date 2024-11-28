@@ -86,7 +86,6 @@ const nullifierInsertWorldState = <Tree_Height extends number>(
 
 // Set up some recurring state for the tests
 beforeEach(async () => {
-  // TODO(Alvaro) use the native one
   const worldState = await NativeWorldStateService.tmp();
 
   mainState = await worldState.fork();

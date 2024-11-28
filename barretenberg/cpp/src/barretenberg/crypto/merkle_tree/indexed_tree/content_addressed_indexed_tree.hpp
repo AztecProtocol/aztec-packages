@@ -1560,6 +1560,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
 
             for (size_t i = 0; i < values.size(); ++i) {
                 const LeafValueType& new_payload = values[i];
+                // TODO(Alvaro) - Rethink this. I think it's fine for us to interpret empty values as a regular update
+                // (it'd empty out the payload of the zero leaf)
                 if (new_payload.is_empty()) {
                     continue;
                 }
