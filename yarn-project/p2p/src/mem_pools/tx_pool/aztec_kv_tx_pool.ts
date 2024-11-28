@@ -37,7 +37,7 @@ export class AztecKVTxPool implements TxPool {
 
     this.#store = store;
     this.#log = log;
-    this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
+    this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, () => store.estimateSize());
   }
 
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
@@ -53,8 +53,6 @@ export class AztecKVTxPool implements TxPool {
       }
       this.#metrics.recordRemovedObjects(deleted, 'pending');
       this.#metrics.recordAddedObjects(txHashes.length, 'mined');
-      const storeSizes = this.#store.estimateSize();
-      this.#metrics.recordDBMetrics(storeSizes);
     });
   }
 

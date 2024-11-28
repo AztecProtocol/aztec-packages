@@ -1,6 +1,9 @@
 import {
   type AttributeValue,
+  BatchObservableCallback,
   type MetricOptions,
+  Observable,
+  type BatchObservableResult as OtelBatchObservableResult,
   type Gauge as OtelGauge,
   type Histogram as OtelHistogram,
   type ObservableGauge as OtelObservableGauge,
@@ -33,6 +36,7 @@ export type UpDownCounter = OtelUpDownCounter<Attributes>;
 export type ObservableGauge = OtelObservableGauge<Attributes>;
 export type ObservableUpDownCounter = OtelObservableUpDownCounter<Attributes>;
 export type ObservableResult = OtelObservableResult<Attributes>;
+export type BatchObservableResult = OtelBatchObservableResult<Attributes>;
 
 export { Tracer };
 
@@ -54,6 +58,16 @@ export interface Meter {
    * @param options - The options for the gauge
    */
   createObservableGauge(name: Metrics, options?: MetricOptions): ObservableGauge;
+
+  addBatchObservableCallback(
+    callback: BatchObservableCallback<Attributes>,
+    observables: Observable<Attributes>[],
+  ): void;
+
+  removeBatchObservableCallback(
+    callback: BatchObservableCallback<Attributes>,
+    observables: Observable<Attributes>[],
+  ): void;
 
   /**
    * Creates a new histogram instrument. A histogram is a metric that samples observations (usually things like request durations or response sizes) and counts them in configurable buckets.
