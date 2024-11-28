@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import { getPathToFixture, getTestContractArtifact } from '../tests/fixtures.js';
 import { computeArtifactHash } from './artifact_hash.js';
 
-const TEST_CONTRACT_ARTIFACT_HASH = `"0x0eff182fe5850878f8cb76d478c4cdbf8628f52fc64ed42a22fd715c1b9be719"`;
+const TEST_CONTRACT_ARTIFACT_HASH = `"0x1a96998ffdd0d63ef7236d3d1285f89f5960a4e7490f1e6e23d1eaded6aaee74"`;
 
 describe('ArtifactHash', () => {
   it('calculates the artifact hash', () => {
