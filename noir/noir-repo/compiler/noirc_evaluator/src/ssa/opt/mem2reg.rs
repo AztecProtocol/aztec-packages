@@ -450,13 +450,11 @@ impl<'f> PerFunctionContext<'f> {
                 let address = self.inserter.function.dfg.resolve(*address);
                 let value = self.inserter.function.dfg.resolve(*value);
 
-                // FIXME: This causes errors in the sha256 tests
-                //
                 // If there was another store to this instruction without any (unremoved) loads or
                 // function calls in-between, we can remove the previous store.
-                // if let Some(last_store) = references.last_stores.get(&address) {
-                //     self.instructions_to_remove.insert(*last_store);
-                // }
+                if let Some(last_store) = references.last_stores.get(&address) {
+                    self.instructions_to_remove.insert(*last_store);
+                }
 
                 if self.inserter.function.dfg.value_is_reference(value) {
                     if let Some(expression) = references.expressions.get(&value) {
