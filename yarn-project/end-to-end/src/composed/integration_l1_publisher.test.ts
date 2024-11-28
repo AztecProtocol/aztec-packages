@@ -195,7 +195,8 @@ describe('L1Publisher integration', () => {
     prevHeader = fork.getInitialHeader();
     await fork.close();
 
-    baseFee = new GasFees(0, await rollup.read.getManaBaseFee([true]));
+    const ts = (await publicClient.getBlock()).timestamp;
+    baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
 
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = await rollup.read.EPOCH_DURATION();
