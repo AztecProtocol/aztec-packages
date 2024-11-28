@@ -30,6 +30,9 @@ deps:
     # by initialising the module more than once. So at present I don't see a viable alternative.
     RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN npx playwright install && npx playwright install-deps
+
 build:
     # Prefetch targets to not wait for +deps.
     BUILD ../barretenberg/cpp/+build
@@ -49,9 +52,8 @@ build:
 
     WORKDIR /usr/src/yarn-project
     COPY . .
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
-    RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
+    RUN cd ivc-integration && chmod +x run_browser_tests.sh
 
 
 build-dev:
