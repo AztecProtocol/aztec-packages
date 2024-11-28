@@ -87,6 +87,8 @@ export const PROVING_QUEUE_TIMED_OUT_JOBS = 'aztec.proving_queue.timed_out_jobs'
 export const PROVING_QUEUE_JOB_WAIT = 'aztec.proving_queue.job_wait';
 export const PROVING_QUEUE_JOB_DURATION = 'aztec.proving_queue.job_duration';
 
+export const PROVING_AGENT_IDLE = 'aztec.proving_queue.agent.idle';
+
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
 
 export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
