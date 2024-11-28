@@ -25,7 +25,7 @@ function build {
   echo
   yarn install
 
-  if $ci3/is_build && ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+  if $ci3/base/is_build && ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;
@@ -44,7 +44,7 @@ function build {
   fi
   $ci3/github/endgroup
 
-  if $ci3/is_test; then
+  if $ci3/base/is_test; then
     yarn test
     run_e2e_tests
   fi
