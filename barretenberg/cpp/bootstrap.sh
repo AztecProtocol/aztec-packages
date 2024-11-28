@@ -68,7 +68,7 @@ rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
 HASH=$($ci3/cache/content_hash)
 function build_native {
-  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
     echo "#################################"
     echo "# Building with preset: $PRESET"
     echo "# When running cmake directly, remember to use: --build --preset $PRESET"
@@ -96,7 +96,7 @@ function build_native {
 }
 
 function build_wasm {
-  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
     cmake --preset wasm
     cmake --build --preset wasm
     $ci3/cache/upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
@@ -104,7 +104,7 @@ function build_wasm {
 }
 
 function build_wasm_threads {
-  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
     cmake --preset wasm-threads
     cmake --build --preset wasm-threads
     $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
