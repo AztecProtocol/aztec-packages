@@ -9,15 +9,12 @@ GITHUB_LOG=${GITHUB_LOG:-}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 # Trap function to terminate our running instance when the script exits.
-function terminate_instance {
+function on_exit {
     set +e
-    if [ -n "${ip:-}" ] && [ "$NO_TERMINATE" -eq 0 ]; then
-        echo "Terminating instance: $ip..."
-        ssh ubuntu@$ip sudo halt -p
-        aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir
-    fi
-    if [ -n "${ip:-}" ] && [ "$NO_TERMINATE" -ne 0 ]; then
-      echo "Remote machine not terminated, connect with: ./bootstrap_ci.sh ssh"
+    if [ "$NO_TERMINATE" -eq 0 ]; then
+      $ci3/aws/terminate_instance $ip $sir
+    else
+      echo "Remote machine not terminated, connect with: ./ci.sh attach"
     fi
 }
 
@@ -47,7 +44,7 @@ ip_sir=$($ci3/aws/request_instance $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
-trap terminate_instance EXIT
+trap on_exit EXIT
 $ci3/github/endgroup
 
 args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"

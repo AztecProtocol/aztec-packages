@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/base/source
+
+ip=$1
+sir=${2:-}
+ssh_config_path=${SSH_CONFIG_PATH:-build_instance_ssh_config}
+
+echo "Terminating instance: $ip..."
+$ci3/base/dump_fail ssh -F $ssh_config_path ubuntu@$ip sudo halt -p
+
+if [ -n "$sir" ]; then
+    $ci3/base/dump_fail aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $sir
+fi

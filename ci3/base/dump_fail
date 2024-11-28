@@ -1,0 +1,16 @@
+#!/bin/bash
+set -uo pipefail
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 <command> [args...]"
+  exit 1
+fi
+
+output=$(bash -c "$*" 2>&1)
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "$output"
+fi
+
+exit $status
