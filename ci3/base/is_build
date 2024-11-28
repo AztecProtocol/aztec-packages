@@ -1,0 +1,2 @@
+#!/bin/bash
+[ ${USE_BUILD:-1} -eq 1 ]

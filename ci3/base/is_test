@@ -1,0 +1,5 @@
+#!/bin/bash
+if [ -z "$USE_TESTS" ] && [ "${CI:-0}" -eq 1 ] ; then
+  exit 0
+fi
+[ ${USE_TESTS:-0} -eq 1 ]

@@ -1,5 +1,5 @@
 #!/bin/bash
-# An entrypoint tailored towards barretenberg dev.
+# An entrypoint tailored to run tests on one module.
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
