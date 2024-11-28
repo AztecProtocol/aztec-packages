@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
 cd "$(dirname "$0")"
 
 CMD=${1:-}
@@ -21,4 +20,5 @@ NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 $NARGO compile --silence-warnings --inliner-aggressiveness 0
 
 echo "Transpiling contracts..."
-scripts/transpile.sh
+TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
+ls target/*.json | parallel "$TRANSPILER {} {}"

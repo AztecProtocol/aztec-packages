@@ -18,16 +18,28 @@ instance_name="${BRANCH//\//_}"
 case "$CMD" in
   # Spin up ec2 instance and bootstrap.
   "ec2")
-    ./bootstrap_ci.sh
+    $ci3/bootstrap/ec2
+    ;;
+  "local")
+    $ci3/bootstrap/local
     ;;
   "run")
+    $0 trigger
+    $0 log
+    ;;
+  "trigger")
     # Trigger workflow and drop through to start logging.
     # We use this label trick because triggering the workflow direct doesn't associate with the PR.
     PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow"
-    gh pr edit "$PR_NUMBER" --add-label "trigger-workflow"
+    if [ -z "$PR_NUMBER" ]; then
+      echo "No pull request found for branch $BRANCH."
+      exit 1
+    fi
+    echo "Triggering CI workflow for PR: $PR_NUMBER"
+    gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow" &> /dev/null
+    gh pr edit "$PR_NUMBER" --add-label "trigger-workflow" &> /dev/null
     sleep 10
-    gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow"
+    gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow" &> /dev/null
     ;&
   "log")
     # Get workflow id of most recent CI3 run for this given branch.
@@ -43,16 +55,20 @@ case "$CMD" in
           --query "Reservations[].Instances[].PublicIpAddress" \
           --output text)
         if [ -z "$ip" ]; then
-          echo "No instance found with name: $instance_name"
+          echo "Waiting on instance with name: $instance_name"
           sleep 5
           continue
         fi
         set +e
-        ssh -q -t -o ConnectTimeout=5 ubuntu@$ip docker logs -f aztec_build
+        ssh -q -t -o ConnectTimeout=5 ubuntu@$ip "
+          trap 'exit 130' SIGINT
+          docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 255
+          docker logs -f aztec_build
+        "
         code=$?
         set -e
-        # Exit loop if SSH exited due to success or ctrl-c.
-        [ "$code" -eq 0 ] || [ "$code" -eq 130 ] && break
+        # Exit loop if not an ssh or missing container error.
+        [ "$code" -ne 255 ] && exit $code
         echo "Waiting on aztec_build container..."
         sleep 5
       done
@@ -71,6 +87,15 @@ case "$CMD" in
       --query "Reservations[].Instances[].PublicIpAddress" \
       --output text)
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
+      exit 0
+    ;;
+  "ssh-host")
+    ip=$(aws ec2 describe-instances \
+      --region us-east-2 \
+      --filters "Name=tag:Name,Values=$instance_name" \
+      --query "Reservations[].Instances[].PublicIpAddress" \
+      --output text)
+      ssh -t ubuntu@$ip
       exit 0
     ;;
   "draft")

@@ -14,7 +14,14 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
+<<<<<<< HEAD
 # TODO: For the love of god can we stop bringing in entire node stacks for what can be done in a bash script?
+=======
+# Attempt to just pull artefacts from CI and exit on success.
+[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+
+# TODO: Remove yarn, use bash?
+>>>>>>> origin/cl/ci3
 yarn install
 export AZTEC_CACHE_REBUILD_PATTERNS={../noir,../barretenberg/cpp,noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns
 VKS_HASH=$($ci3/cache/content_hash)
