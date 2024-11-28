@@ -15,7 +15,6 @@
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
-// #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
@@ -56,6 +55,8 @@ class AvmTraceBuilder {
     uint32_t get_pc() const { return pc; }
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
+
+    TreeSnapshots& get_intermediate_tree_snapshots() { return intermediate_tree_snapshots; }
 
     // Compute - Arithmetic
     AvmError op_add(

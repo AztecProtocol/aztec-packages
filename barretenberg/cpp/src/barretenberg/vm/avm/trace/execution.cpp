@@ -152,8 +152,7 @@ Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](Avm
                                                                              ExecutionHints execution_hints,
                                                                              uint32_t side_effect_counter,
                                                                              std::vector<FF> calldata) {
-    return AvmTraceBuilder(
-        std::move(public_inputs), std::move(execution_hints), side_effect_counter, std::move(calldata));
+    return AvmTraceBuilder(public_inputs, std::move(execution_hints), side_effect_counter, std::move(calldata));
 };
 
 /**
@@ -173,17 +172,18 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  *        of the execution of the supplied bytecode.
  *
  * @param bytecode A vector of bytes representing the bytecode to execute.
- * @param calldata expressed as a vector of finite field elements.
  * @throws runtime_error exception when the bytecode is invalid.
  * @return The verifier key and zk proof of the execution.
  */
-std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<FF> const& calldata,
-                                                                   AvmPublicInputs const& public_inputs,
+std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInputs const& public_inputs,
                                                                    ExecutionHints const& execution_hints)
 {
     std::vector<FF> returndata;
-    std::vector<Row> trace =
-        AVM_TRACK_TIME_V("prove/gen_trace", gen_trace(calldata, public_inputs, returndata, execution_hints));
+    std::vector<FF> calldata;
+    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    }
+    std::vector<Row> trace = AVM_TRACK_TIME_V("prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -263,8 +263,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @param public_inputs expressed as a vector of finite field elements.
  * @return The trace as a vector of Row.
  */
-std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
-                                      AvmPublicInputs const& public_inputs,
+std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints)
 
@@ -273,12 +272,12 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
     // VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
-    uint32_t start_side_effect_counter =
-        0; // What to do here???
-           // !public_inputs_vec.empty() ?
-           // static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
-           //                            : 0;
-           //
+    uint32_t start_side_effect_counter = 0;
+    // Temporary until we get proper nested call handling
+    std::vector<FF> calldata;
+    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    }
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
@@ -297,9 +296,6 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
     if (public_inputs.public_teardown_call_request.contract_address != 0) {
         public_call_requests.push_back(public_inputs.public_teardown_call_request);
     }
-
-    // We should use the public input address, but for now we just take the first element in the list
-    // const std::vector<uint8_t>& bytecode = execution_hints.all_contract_bytecode.at(0).bytecode;
 
     // Loop over all the public call requests
     uint8_t call_ctx = 0;

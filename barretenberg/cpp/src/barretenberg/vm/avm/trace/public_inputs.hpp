@@ -155,9 +155,24 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedDataArrayLengths& le
     read(it, lengths.nullifiers);
     read(it, lengths.l2_to_l1_msgs);
 }
+struct L2ToL1Message {
+    FF recipient{}; // This is an eth address so it's actually only 20 bytes
+    FF content{};
+    uint32_t counter = 0;
+};
+
+inline void read(uint8_t const*& it, L2ToL1Message& l2_to_l1_message)
+{
+    using serialize::read;
+    std::array<uint8_t, 20> recipient;
+    read(it, recipient);
+    l2_to_l1_message.recipient = FF::serialize_from_buffer(recipient.data());
+    read(it, l2_to_l1_message.content);
+    read(it, l2_to_l1_message.counter);
+}
 
 struct ScopedL2ToL1Message {
-    FF l2_to_l1_message{};
+    L2ToL1Message l2_to_l1_message{};
     FF contract_address{};
 };
 
@@ -170,27 +185,21 @@ inline void read(uint8_t const*& it, ScopedL2ToL1Message& l2_to_l1_message)
 
 struct PrivateToAvmAccumulatedData {
     std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
-    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers{};
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> l2_to_l1_msgs;
+    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs;
 };
 
 inline void read(uint8_t const*& it, PrivateToAvmAccumulatedData& accumulated_data)
 {
     using serialize::read;
-    for (size_t i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        read(it, accumulated_data.note_hashes[i]);
-    }
-    for (size_t i = 0; i < MAX_NULLIFIERS_PER_CALL; i++) {
-        read(it, accumulated_data.nullifiers[i]);
-    }
-    for (size_t i = 0; i < MAX_L2_TO_L1_MSGS_PER_CALL; i++) {
-        read(it, accumulated_data.l2_to_l1_msgs[i]);
-    }
+    read(it, accumulated_data.note_hashes);
+    read(it, accumulated_data.nullifiers);
+    read(it, accumulated_data.l2_to_l1_msgs);
 }
 
 struct LogHash {
     FF value{};
-    FF counter{};
+    uint32_t counter = 0;
     FF length{};
 };
 
@@ -234,39 +243,30 @@ struct AvmAccumulatedData {
     /**
      * The nullifiers from private combining with those made in the AVM execution.
      */
-    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers{};
+    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
     /**
      * The L2 to L1 messages from private combining with those made in the AVM execution.
      */
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> l2_to_l1_msgs;
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
     /**
      * The unencrypted logs emitted from the AVM execution.
      */
-    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> unencrypted_logs_hashes;
+    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX> unencrypted_logs_hashes{};
     /**
      * The public data writes made in the AVM execution.
      */
-    std::array<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_writes;
+    std::array<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_writes{};
 };
 
 inline void read(uint8_t const*& it, AvmAccumulatedData& accumulated_data)
 {
     using serialize::read;
-    for (size_t i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        read(it, accumulated_data.note_hashes[i]);
-    }
-    for (size_t i = 0; i < MAX_NULLIFIERS_PER_CALL; i++) {
-        read(it, accumulated_data.nullifiers[i]);
-    }
-    for (size_t i = 0; i < MAX_L2_TO_L1_MSGS_PER_CALL; i++) {
-        read(it, accumulated_data.l2_to_l1_msgs[i]);
-    }
-    for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
-        read(it, accumulated_data.unencrypted_logs_hashes[i]);
-    }
-    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        read(it, accumulated_data.public_data_writes[i]);
-    }
+
+    read(it, accumulated_data.note_hashes);
+    read(it, accumulated_data.nullifiers);
+    read(it, accumulated_data.l2_to_l1_msgs);
+    read(it, accumulated_data.unencrypted_logs_hashes);
+    read(it, accumulated_data.public_data_writes);
 };
 
 class AvmPublicInputs {
