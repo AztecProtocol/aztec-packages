@@ -107,7 +107,6 @@ function build_wasm_threads {
     cmake --build --preset wasm-threads
     $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
   fi
-  echo $?
 }
 
 export PRESET PIC_PRESET HASH ci3
