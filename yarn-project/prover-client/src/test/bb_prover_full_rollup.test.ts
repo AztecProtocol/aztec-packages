@@ -17,7 +17,7 @@ describe('prover/bb_prover/full-rollup', () => {
   let prover: BBNativeRollupProver;
   let log: DebugLogger;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
@@ -26,7 +26,7 @@ describe('prover/bb_prover/full-rollup', () => {
     context = await TestContext.new(log, 1, buildProver);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await context.cleanup();
   });
 

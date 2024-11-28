@@ -115,7 +115,7 @@ export class EpochProvingJob {
 
       this.state = 'awaiting-prover';
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
-      this.log.info(`Finalised proof for epoch`, { epochNumber, uuid: this.uuid });
+      this.log.info(`Finalised proof for epoch`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.state = 'publishing-proof';
       const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
