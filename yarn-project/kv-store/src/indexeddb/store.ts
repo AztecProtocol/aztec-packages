@@ -29,7 +29,6 @@ export class AztecIndexedDBStore implements AztecKVStore {
   constructor(rootDB: IDBDatabase, public readonly isEphemeral: boolean, log: Logger, name?: string) {
     this.#rootDB = rootDB;
     this.#log = log;
-    this.#data = rootDB.createObjectStore('data');
     this.#name = name ?? 'tmp';
   }
 
@@ -53,9 +52,11 @@ export class AztecIndexedDBStore implements AztecKVStore {
 
         const objectStore = db.createObjectStore('data', { keyPath: 'slot' });
 
+        objectStore.createIndex('key', 'key', { unique: false, multiEntry: true });
+        objectStore.createIndex('keyCount', 'keyCount', { unique: false });
+
         objectStore.transaction.oncomplete = _ => {
-          objectStore.createIndex('key', 'key', { unique: false, multiEntry: true });
-          objectStore.createIndex('keyCount', 'keyCount', { unique: false });
+          log.debug('IndexedDB database created');
         };
       };
       request.onsuccess = _ => {

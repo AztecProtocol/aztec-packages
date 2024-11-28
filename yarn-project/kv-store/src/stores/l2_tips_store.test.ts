@@ -5,7 +5,6 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { expect } from 'chai';
-import { beforeEach, describe, it } from 'mocha';
 
 import { L2TipsStore } from './l2_tips_store.js';
 

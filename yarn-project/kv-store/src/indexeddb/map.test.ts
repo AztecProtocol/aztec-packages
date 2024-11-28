@@ -1,5 +1,3 @@
-import { describe } from 'mocha';
-
 import { describeAztecMap } from '../interfaces/map_test_suite.js';
 import { AztecIndexedDBStore } from './store.js';
 import { mockLogger } from './utils.js';

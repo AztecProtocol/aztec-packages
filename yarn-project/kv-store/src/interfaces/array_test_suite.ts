@@ -1,7 +1,6 @@
 import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
-import { beforeEach, describe, it } from 'mocha';
 
 import { AztecArray } from './array.js';
 import { type AztecKVStore } from './store.js';

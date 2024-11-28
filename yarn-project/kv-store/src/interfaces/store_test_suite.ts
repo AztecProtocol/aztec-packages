@@ -1,6 +1,5 @@
 import { expect } from 'chai';
 import { promises as fs } from 'fs';
-import { describe, it } from 'mocha';
 import { tmpdir } from 'os';
 import { join } from 'path';
 

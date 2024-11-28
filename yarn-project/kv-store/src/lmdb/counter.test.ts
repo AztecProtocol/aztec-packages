@@ -4,7 +4,6 @@ import { toArray } from '@aztec/foundation/iterable';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { type Database, open } from 'lmdb';
-import { beforeEach, describe, it } from 'mocha';
 import forEach from 'mocha-each';
 
 import { LmdbAztecCounter } from './counter.js';

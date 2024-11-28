@@ -1,5 +1,4 @@
 import { expect } from 'chai';
-import { beforeEach, describe, it } from 'mocha';
 
 import { AztecSingleton } from './singleton.js';
 import { type AztecKVStore } from './store.js';
