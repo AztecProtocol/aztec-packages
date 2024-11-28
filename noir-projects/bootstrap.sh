@@ -31,7 +31,7 @@ fi
 
 if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_vks.sh ; then
   parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_vks.sh
-  $ci3/cache/upload noir-projects-circuits-$VKS_HASH.tar.gz {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/target/keys
+  $ci3/cache/upload noir-projects-circuits-$VKS_HASH.tar.gz noir-contracts/target {noir-protocol-circuits,mock-protocol-circuits}/target/keys
 fi
 $ci3/github/endgroup "noir-projects build"
 
