@@ -823,7 +823,7 @@ impl<'f> Context<'f> {
 
 #[cfg(test)]
 mod test {
-    use acvm::acir::AcirField;
+    use acvm::acir::{FieldElement, AcirField};
 
     use crate::ssa::{
         function_builder::FunctionBuilder,
@@ -1459,7 +1459,7 @@ mod test {
           b2():
             return
           b1():
-            jmp b2()           
+            jmp b2()
         }
         ";
         let merged_ssa = Ssa::from_str(src).unwrap();
