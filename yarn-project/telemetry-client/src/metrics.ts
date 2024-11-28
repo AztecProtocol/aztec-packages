@@ -86,6 +86,9 @@ export const PROVING_QUEUE_RETRIED_JOBS = 'aztec.proving_queue.retried_jobs';
 export const PROVING_QUEUE_TIMED_OUT_JOBS = 'aztec.proving_queue.timed_out_jobs';
 export const PROVING_QUEUE_JOB_WAIT = 'aztec.proving_queue.job_wait';
 export const PROVING_QUEUE_JOB_DURATION = 'aztec.proving_queue.job_duration';
+export const PROVING_QUEUE_DB_NUM_ITEMS = 'aztec.proving_queue.db.num_items';
+export const PROVING_QUEUE_DB_MAP_SIZE = 'aztec.proving_queue.db.map_size';
+export const PROVING_QUEUE_DB_USED_SIZE = 'aztec.proving_queue.db.used_size';
 
 export const PROVING_AGENT_IDLE = 'aztec.proving_queue.agent.idle';
 

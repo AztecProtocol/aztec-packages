@@ -18,7 +18,7 @@ describe.each([
   () => ({ database: new InMemoryBrokerDatabase(), cleanup: undefined }),
   () => {
     const store = openTmpStore(true);
-    const database = new KVBrokerDatabase(store);
+    const database = new KVBrokerDatabase(store, new NoopTelemetryClient());
     const cleanup = () => store.close();
     return { database, cleanup };
   },
