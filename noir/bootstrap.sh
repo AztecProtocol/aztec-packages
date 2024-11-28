@@ -18,7 +18,7 @@ fi
 if [ -n "${USE_CACHE:-}" ]; then
   if ./bootstrap_cache.sh && ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
     # Cause the check below to fail
-    SKIP_BUILD=1
+    export SKIP_BUILD=1
   fi
 fi
 
