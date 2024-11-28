@@ -93,9 +93,6 @@ function test_CI_0() {
   cp "$mock_should_run_CI" "$ci3/cache/should_run"
   chmod +x "$ci3/cache/should_run"
 
-  # Remove .failure and .list before running the test
-  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
-
   CI=0 run_bootstrap
 
   # Check for failures
@@ -112,9 +109,6 @@ function test_CI_0() {
   # Report success
   echo "test_CI_0 completed successfully. Collected test list:"
   printf '%s\n' "${should_run_list[@]}"
-
-  # Remove .failure and .list after the test
-  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
 }
 
 function test_CI_1_same_list() {
@@ -123,9 +117,6 @@ function test_CI_1_same_list() {
   # Use the mock should_run script for CI=1 same list
   cp "$mock_should_run_CI" "$ci3/cache/should_run"
   chmod +x "$ci3/cache/should_run"
-
-  # Remove .failure and .list before running the test
-  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
 
   CI=1 run_bootstrap
 
@@ -148,9 +139,6 @@ function test_CI_1_same_list() {
     all_tests_passed=false
     return 1
   fi
-
-  # Remove .failure and .list after the test
-  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
 }
 
 function test_CI_1_should_run_false() {
@@ -159,9 +147,6 @@ function test_CI_1_should_run_false() {
   # Use the mock should_run script for CI=1 should_run_false
   cp "$mock_should_run_CI_false" "$ci3/cache/should_run"
   chmod +x "$ci3/cache/should_run"
-
-  # Remove .failure and .list before running the test
-  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
 
   CI=1 run_bootstrap
 
@@ -184,18 +169,12 @@ function test_CI_1_should_run_false() {
     all_tests_passed=false
     return 1
   fi
-
-  # Remove .failure and .list after the test
-  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
 }
 
 # Run the tests
 test_CI_0 && echo "test_CI_0 success" || echo "test_CI_0 failure"
 test_CI_1_same_list && echo "test_CI_1_same_list success" || echo "test_CI_1_same_list failure"
 test_CI_1_should_run_false && echo "test_CI_1_should_run_false success" || echo "test_CI_1_should_run_false failure"
-
-# Cleanup
-cleanup
 
 # Check overall test status
 if [ "$all_tests_passed" = true ]; then
