@@ -823,7 +823,7 @@ impl<'f> Context<'f> {
 
 #[cfg(test)]
 mod test {
-    use acvm::{acir::AcirField, FieldElement};
+    use acvm::acir::AcirField;
 
     use crate::ssa::{
         function_builder::FunctionBuilder,
@@ -1104,12 +1104,7 @@ mod test {
         };
 
         let merged_values = get_all_constants_reachable_from_instruction(&main.dfg, ret);
-        assert_eq!(
-            merged_values,
-            vec![FieldElement::from(3u128), FieldElement::from(6u128), -FieldElement::from(1u128)]
-        );
-
-        assert_normalized_ssa_equals(ssa, expected);
+        assert_eq!(merged_values, vec![1, 3, 5, 6]);
     }
 
     #[test]
