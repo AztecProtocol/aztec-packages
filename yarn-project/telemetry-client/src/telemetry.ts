@@ -4,6 +4,7 @@ import {
   type Gauge as OtelGauge,
   type Histogram as OtelHistogram,
   type ObservableGauge as OtelObservableGauge,
+  type ObservableResult as OtelObservableResult,
   type ObservableUpDownCounter as OtelObservableUpDownCounter,
   type UpDownCounter as OtelUpDownCounter,
   type Span,
@@ -31,6 +32,7 @@ export type Histogram = OtelHistogram<Attributes>;
 export type UpDownCounter = OtelUpDownCounter<Attributes>;
 export type ObservableGauge = OtelObservableGauge<Attributes>;
 export type ObservableUpDownCounter = OtelObservableUpDownCounter<Attributes>;
+export type ObservableResult = OtelObservableResult<Attributes>;
 
 export { Tracer };
 
