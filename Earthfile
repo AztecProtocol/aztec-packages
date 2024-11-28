@@ -47,9 +47,13 @@ bootstrap-test:
     WORKDIR /usr/src
     ARG EARTHLY_GIT_HASH
     # Use a cache volume
-    RUN --mount=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
-        git init || true && \
-        git remote add origin https://github.com/aztecprotocol/aztec-packages || true && \
-        git fetch --depth 1 origin $EARTHLY_GIT_HASH && \
-        git checkout FETCH_HEAD && \
+    RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
+        rm -rf * .git
+    RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
+        git init
+    RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
+        git remote add origin https://github.com/aztecprotocol/aztec-packages
+    RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
+        git fetch --depth 1 origin $EARTHLY_GIT_HASH && git checkout FETCH_HEAD
+    RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
         scripts/test/bootstrap/bootstrap_test
