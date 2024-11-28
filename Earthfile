@@ -41,17 +41,8 @@ base-log-uploader:
         rm -rf aws awscliv2.zip
     COPY +scripts/scripts /usr/src/scripts
 
-ensure-build:
-    LOCALLY
-    RUN docker pull aztecprotocol/ci:2.0
-    RUN docker start registry || docker run -d -p 5000:5000 --name registry registry:2
-    RUN docker tag aztecprotocol/ci:2.0 127.0.0.1:5000/aztecprotocol/ci:2.0
-    RUN docker push 127.0.0.1:5000/aztecprotocol/ci:2.0
-
-example:
-    WAIT
-        BUILD +ensure-build
-    END
-    LOCALLY
-    FROM local-registry.io/aztecprotocol/ci:2.0
-    RUN echo works
+bootstrap:
+    # Note: Assumes a fresh clone!
+    FROM ./build-images+from-registry
+    COPY . .
+    RUN TEST=0 CI=1 ./bootstrap.sh

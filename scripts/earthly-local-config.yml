@@ -1,7 +1,0 @@
-global:
-  buildkit_additional_config: |
-    [registry."172.17.0.1:5000"]
-      http = true
-    [registry."local-registry.io"]
-      http = true
-      mirrors = ["http://172.17.0.1:5000"]
