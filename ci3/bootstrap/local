@@ -17,7 +17,7 @@ current_commit=$(git rev-parse HEAD)
 if ! git diff --quiet; then
   echo "There are local changes to tracked files."
   exit 1
-else
+fi
 
 docker run --name aztec_build -ti --rm \
   --privileged \
