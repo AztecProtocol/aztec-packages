@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-
-cd "$(dirname "$0")"
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 $ci3/github/group "mock-protocol-circuits vks"
 export BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
