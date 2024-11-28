@@ -18,6 +18,9 @@ fi
 # Attempt to just pull artefacts from CI and elide the build on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && SKIP_BUILD=1
 
+export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
+HASH=$($ci3/cache/content_hash)
+
 if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
   $ci3/github/group "l1-contracts build"
   # Clean
