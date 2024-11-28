@@ -14,26 +14,29 @@ const EPOCH_DIR_SEPARATOR = '_';
 const EPOCH_HASH_FILENAME = 'epoch_hash.txt';
 
 export class ProverCacheManager {
-  constructor(private cacheDir?: string, private log = createLogger('prover-node:cache-manager')) {}
+  constructor(
+    private dataRootDir?: string,
+    private cacheMapSize?: number,
+    private log = createLogger('aztec:prover-node:cache-manager'),
+  ) {}
 
   public async openCache(epochNumber: bigint, epochHash: Buffer): Promise<ProverCache> {
-    if (!this.cacheDir) {
+    if (!this.dataRootDir) {
       return new InMemoryProverCache();
     }
 
-    const epochDir = EPOCH_DIR_PREFIX + EPOCH_DIR_SEPARATOR + epochNumber;
-    const dataDir = join(this.cacheDir, epochDir);
+    const epochDataDir = join(this.dataRootDir, EPOCH_DIR_PREFIX + EPOCH_DIR_SEPARATOR + epochNumber);
 
-    const storedEpochHash = await readFile(join(dataDir, EPOCH_HASH_FILENAME), 'hex').catch(() => Buffer.alloc(0));
+    const storedEpochHash = await readFile(join(epochDataDir, EPOCH_HASH_FILENAME), 'hex').catch(() => Buffer.alloc(0));
     if (storedEpochHash.toString() !== epochHash.toString()) {
-      await rm(dataDir, { recursive: true, force: true });
+      await rm(epochDataDir, { recursive: true, force: true });
     }
 
-    await mkdir(dataDir, { recursive: true });
-    await writeFile(join(dataDir, EPOCH_HASH_FILENAME), epochHash.toString('hex'));
+    await mkdir(epochDataDir, { recursive: true });
+    await writeFile(join(epochDataDir, EPOCH_HASH_FILENAME), epochHash.toString('hex'));
 
-    const store = AztecLmdbStore.open(dataDir);
-    this.log.debug(`Created new database for epoch ${epochNumber} at ${dataDir}`);
+    const store = AztecLmdbStore.open(epochDataDir, this.cacheMapSize);
+    this.log.debug(`Created new database for epoch ${epochNumber} at ${epochDataDir}`);
     const cleanup = () => store.close();
     return new KVProverCache(store, cleanup);
   }
@@ -43,11 +46,11 @@ export class ProverCacheManager {
    * @param upToAndIncludingEpoch - The epoch number up to which to remove caches
    */
   public async removeStaleCaches(upToAndIncludingEpoch: bigint): Promise<void> {
-    if (!this.cacheDir) {
+    if (!this.dataRootDir) {
       return;
     }
 
-    const entries: Dirent[] = await readdir(this.cacheDir, { withFileTypes: true }).catch(() => []);
+    const entries: Dirent[] = await readdir(this.dataRootDir, { withFileTypes: true }).catch(() => []);
 
     for (const item of entries) {
       if (!item.isDirectory()) {
@@ -61,8 +64,10 @@ export class ProverCacheManager {
 
       const epochNumberInt = BigInt(epochNumber);
       if (epochNumberInt <= upToAndIncludingEpoch) {
-        this.log.info(`Removing old epoch database for epoch ${epochNumberInt} at ${join(this.cacheDir, item.name)}`);
-        await rm(join(this.cacheDir, item.name), { recursive: true });
+        this.log.info(
+          `Removing old epoch database for epoch ${epochNumberInt} at ${join(this.dataRootDir, item.name)}`,
+        );
+        await rm(join(this.dataRootDir, item.name), { recursive: true });
       }
     }
   }

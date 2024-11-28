@@ -24,9 +24,8 @@ export type ProverConfig = ActualProverConfig & {
   nodeUrl?: string;
   /** Identifier of the prover */
   proverId: Fr;
-  /** Where to store temporary data */
-  cacheDir?: string;
-
+  dataDirectory?: string;
+  dataStoreMapSizeKB: number;
   proverAgentCount: number;
 };
 
@@ -35,7 +34,8 @@ export const ProverConfigSchema = z.object({
   realProofs: z.boolean(),
   proverId: schemas.Fr,
   proverTestDelayMs: z.number(),
-  cacheDir: z.string().optional(),
+  dataDirectory: z.string().optional(),
+  dataStoreMapSizeKB: z.number(),
   proverAgentCount: z.number(),
 }) satisfies ZodFor<ProverConfig>;
 
@@ -60,15 +60,19 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
   },
-  cacheDir: {
-    env: 'PROVER_CACHE_DIR',
-    description: 'Where to store cache data generated while proving',
-    defaultValue: '/tmp/aztec-prover',
-  },
   proverAgentCount: {
     env: 'PROVER_AGENT_COUNT',
     description: 'The number of prover agents to start',
     ...numberConfigHelper(1),
+  },
+  dataDirectory: {
+    env: 'DATA_DIRECTORY',
+    description: 'Optional dir to store data. If omitted will store in memory.',
+  },
+  dataStoreMapSizeKB: {
+    env: 'DATA_STORE_MAP_SIZE_KB',
+    description: 'DB mapping size to be applied to all key/value stores',
+    ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB
   },
 };
 

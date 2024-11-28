@@ -78,8 +78,8 @@ export async function createProverNode(
   const walletClient = publisher.getClient();
   const bondManager = await createBondManager(rollupContract, walletClient, config);
 
-  const cacheDir = config.cacheDir ? join(config.cacheDir, `prover_${config.proverId}`) : undefined;
-  const cacheManager = new ProverCacheManager(cacheDir);
+  const cacheDir = config.dataDirectory ? join(config.dataDirectory, `prover_${config.proverId}`) : undefined;
+  const cacheManager = new ProverCacheManager(cacheDir, config.dataStoreMapSizeKB);
 
   return new ProverNode(
     prover,

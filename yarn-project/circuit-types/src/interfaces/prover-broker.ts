@@ -18,7 +18,8 @@ export const ProverBrokerConfig = z.object({
   /** If starting a prover broker locally, the interval the broker checks for timed out jobs */
   proverBrokerPollIntervalMs: z.number(),
   /** If starting a prover broker locally, the directory to store broker data */
-  proverBrokerDataDirectory: z.string().optional(),
+  dataDirectory: z.string().optional(),
+  dataStoreMapSizeKB: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig>;
@@ -39,9 +40,14 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'If starting a prover broker locally, the max number of retries per proving job',
     ...numberConfigHelper(3),
   },
-  proverBrokerDataDirectory: {
-    env: 'PROVER_BROKER_DATA_DIRECTORY',
-    description: 'If starting a prover broker locally, the directory to store broker data',
+  dataDirectory: {
+    env: 'DATA_DIRECTORY',
+    description: 'Optional dir to store data. If omitted will store in memory.',
+  },
+  dataStoreMapSizeKB: {
+    env: 'DATA_STORE_MAP_SIZE_KB',
+    description: 'DB mapping size to be applied to all key/value stores',
+    ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB
   },
 };
 
