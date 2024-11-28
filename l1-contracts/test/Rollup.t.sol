@@ -1011,7 +1011,7 @@ contract RollupTest is DecoderBase, TimeFns {
   }
 
   function _updateHeaderBaseFee(bytes memory _header) internal view returns (bytes memory) {
-    uint256 baseFee = rollup.getManaBaseFee(true);
+    uint256 baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
     assembly {
       mstore(add(_header, add(0x20, 0x0228)), baseFee)
     }
