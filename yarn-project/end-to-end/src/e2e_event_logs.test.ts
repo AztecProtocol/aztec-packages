@@ -85,43 +85,44 @@ describe('Logs', () => {
     });
 
     it('emits multiple events as encrypted logs and decodes them', async () => {
-      const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
+      const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       const txs = await Promise.all(
-        [...new Array(5)].map((_, i) =>
-          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage[i]).send().wait(),
+        preimages.map(preimage =>
+          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
         ),
       );
-      const firstTx = txs[0];
-      const lastTx = txs[txs.length - 1];
+      const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
+      const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
+      const numBlocks = lastBlockNumber - firstBlockNumber + 1;
 
       // We get all the events we can decrypt with either our incoming or outgoing viewing keys
 
       const collectedEvent0s = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
       );
 
       const collectedEvent0sWithIncoming = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         // This function can be called specifying the viewing public keys associated with the encrypted event.
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
       const collectedEvent0sWithOutgoing = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
       );
 
       const collectedEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
@@ -132,8 +133,8 @@ describe('Logs', () => {
 
       const emptyEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
       );
 
@@ -141,13 +142,13 @@ describe('Logs', () => {
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       expect(collectedEvent0sWithIncoming.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage
+        preimages
           .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
           .sort(exampleEvent0Sort),
       );
 
       expect(collectedEvent0sWithOutgoing.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage
+        preimages
           .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
           .sort(exampleEvent0Sort),
       );
@@ -158,7 +159,7 @@ describe('Logs', () => {
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
       expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
-        preimage
+        preimages
           .map(preimage => ({
             value2: new AztecAddress(preimage[2]),
             // We get the last byte here because value3 is of type u8
