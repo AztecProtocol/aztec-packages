@@ -299,8 +299,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(1);
     Epoch nextEpoch = Epoch.wrap(1);
 
-    // We need the fee at the time just before the first slot
-
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       // Predict what the fee will be before we jump in time!
