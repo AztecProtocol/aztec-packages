@@ -1,40 +1,59 @@
-import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
+import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import {
+  type ActualProverConfig,
   type EpochProver,
   type EpochProverManager,
   type MerkleTreeWriteOperations,
-  type ProvingJobSource,
+  type ProverCache,
+  type ProvingJobBroker,
+  type ProvingJobConsumer,
+  type ProvingJobProducer,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
 import { Fr } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
+import { join } from 'path';
+
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
-import { ProverAgent } from '../prover-agent/prover-agent.js';
+import { CachingBrokerFacade } from '../proving_broker/caching_broker_facade.js';
+import { InlineProofStore } from '../proving_broker/proof_store.js';
+import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
+import { ProvingAgent } from '../proving_broker/proving_agent.js';
 
 /**
  * A prover factory.
  * TODO(palla/prover-node): Rename this class
  */
 export class TxProver implements EpochProverManager {
-  private queue: MemoryProvingQueue;
   private running = false;
+  private agents: ProvingAgent[] = [];
+
+  private cacheDir?: string;
 
   private constructor(
     private config: ProverClientConfig,
     private telemetry: TelemetryClient,
-    private agent?: ProverAgent,
+    private orchestratorClient: ProvingJobProducer,
+    private agentClient?: ProvingJobConsumer,
+    private log = createDebugLogger('aztec:prover-client:tx-prover'),
   ) {
     // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
     // so it can be reused across multiple ones and not recomputed every time.
-    this.queue = new MemoryProvingQueue(telemetry, config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
+    this.cacheDir = this.config.cacheDir ? join(this.config.cacheDir, `tx_prover_${this.config.proverId}`) : undefined;
   }
 
-  public createEpochProver(db: MerkleTreeWriteOperations): EpochProver {
-    return new ProvingOrchestrator(db, this.queue, this.telemetry, this.config.proverId);
+  public createEpochProver(db: MerkleTreeWriteOperations, cache: ProverCache = new InMemoryProverCache()): EpochProver {
+    return new ProvingOrchestrator(
+      db,
+      new CachingBrokerFacade(this.orchestratorClient, cache),
+      this.telemetry,
+      this.config.proverId,
+    );
   }
 
   public getProverId(): Fr {
@@ -44,13 +63,12 @@ export class TxProver implements EpochProverManager {
   async updateProverConfig(config: Partial<ProverClientConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
 
-    if (newConfig.realProofs !== this.config.realProofs && this.agent) {
-      const circuitProver = await TxProver.buildCircuitProver(newConfig, this.telemetry);
-      this.agent.setCircuitProver(circuitProver);
-    }
-
-    if (this.config.proverAgentConcurrency !== newConfig.proverAgentConcurrency) {
-      await this.agent?.setMaxConcurrency(newConfig.proverAgentConcurrency);
+    if (
+      newConfig.realProofs !== this.config.realProofs ||
+      newConfig.proverAgentCount !== this.config.proverAgentCount
+    ) {
+      await this.stopAgents();
+      await this.createAndStartAgents();
     }
 
     if (!this.config.realProofs && newConfig.realProofs) {
@@ -63,15 +81,13 @@ export class TxProver implements EpochProverManager {
   /**
    * Starts the prover instance
    */
-  public start() {
+  public async start(): Promise<void> {
     if (this.running) {
       return Promise.resolve();
     }
 
     this.running = true;
-    this.queue.start();
-    this.agent?.start(this.queue);
-    return Promise.resolve();
+    await this.createAndStartAgents();
   }
 
   /**
@@ -82,10 +98,7 @@ export class TxProver implements EpochProverManager {
       return;
     }
     this.running = false;
-
-    // TODO(palla/prover-node): Keep a reference to all proving orchestrators that are alive and stop them?
-    await this.agent?.stop();
-    await this.queue.stop();
+    await this.stopAgents();
   }
 
   /**
@@ -95,36 +108,55 @@ export class TxProver implements EpochProverManager {
    * @param worldStateSynchronizer - An instance of the world state
    * @returns An instance of the prover, constructed and started.
    */
-  public static async new(config: ProverClientConfig, telemetry: TelemetryClient) {
-    const agent = config.proverAgentEnabled
-      ? new ProverAgent(
-          await TxProver.buildCircuitProver(config, telemetry),
-          config.proverAgentConcurrency,
-          config.proverAgentPollInterval,
-        )
-      : undefined;
-
-    const prover = new TxProver(config, telemetry, agent);
+  public static async new(config: ProverClientConfig, broker: ProvingJobBroker, telemetry: TelemetryClient) {
+    const prover = new TxProver(config, telemetry, broker, broker);
     await prover.start();
     return prover;
   }
 
-  private static async buildCircuitProver(
-    config: ProverClientConfig,
-    telemetry: TelemetryClient,
-  ): Promise<ServerCircuitProver> {
-    if (config.realProofs) {
-      return await BBNativeRollupProver.new(config, telemetry);
+  public getProvingJobSource(): ProvingJobConsumer {
+    if (!this.agentClient) {
+      throw new Error('Agent client not provided');
     }
 
-    const simulationProvider = config.acvmBinaryPath
-      ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
-      : undefined;
-
-    return new TestCircuitProver(telemetry, simulationProvider, config);
+    return this.agentClient;
   }
 
-  public getProvingJobSource(): ProvingJobSource {
-    return this.queue;
+  private async createAndStartAgents(): Promise<void> {
+    if (this.agents.length > 0) {
+      throw new Error('Agents already started');
+    }
+
+    if (!this.agentClient) {
+      throw new Error('Agent client not provided');
+    }
+
+    const proofStore = new InlineProofStore();
+    const prover = await buildServerCircuitProver(this.config, this.telemetry);
+    this.agents = times(
+      this.config.proverAgentCount,
+      () => new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs),
+    );
+
+    await Promise.all(this.agents.map(agent => agent.start()));
   }
+
+  private async stopAgents() {
+    await Promise.all(this.agents.map(agent => agent.stop()));
+  }
+}
+
+export function buildServerCircuitProver(
+  config: ActualProverConfig & ACVMConfig & BBConfig,
+  telemetry: TelemetryClient,
+): Promise<ServerCircuitProver> {
+  if (config.realProofs) {
+    return BBNativeRollupProver.new(config, telemetry);
+  }
+
+  const simulationProvider = config.acvmBinaryPath
+    ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
+    : undefined;
+
+  return Promise.resolve(new TestCircuitProver(telemetry, simulationProvider, config));
 }
