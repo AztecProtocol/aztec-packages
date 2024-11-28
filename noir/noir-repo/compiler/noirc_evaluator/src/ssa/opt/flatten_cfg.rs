@@ -1079,22 +1079,36 @@ mod test {
         acir(inline) fn main f0 {
           b0(v0: u1, v1: u1):
             v2 = allocate -> &mut Field
+            store Field 0 at v2
+            store Field 1 at v2
             enable_side_effects v0
-            v3 = mul v0, v1
-            enable_side_effects v3
-            v4 = not v1
-            v5 = mul v0, v4
+            v5 = cast v0 as Field
+            v6 = add Field 1, v5
+            store v6 at v2
+            v7 = mul v0, v1
+            enable_side_effects v7
+            v8 = cast v7 as Field
+            v10 = sub Field 5, v6
+            v11 = mul v8, v10
+            v12 = add v6, v11
+            store v12 at v2
+            v13 = not v1
+            v14 = mul v0, v13
+            enable_side_effects v14
+            v15 = cast v14 as Field
+            v17 = sub Field 6, v12
+            v18 = mul v15, v17
+            v19 = add v12, v18
+            store v19 at v2
             enable_side_effects v0
-            v6 = cast v3 as Field
-            v8 = mul v6, Field -1
-            v10 = add Field 6, v8
-            v11 = not v0
+            v20 = not v0
+            enable_side_effects v20
+            v21 = cast v20 as Field
+            v23 = sub Field 3, v19
+            v24 = mul v21, v23
+            v25 = add v19, v24
             enable_side_effects u1 1
-            v13 = cast v0 as Field
-            v15 = sub v10, Field 3
-            v16 = mul v13, v15
-            v17 = add Field 3, v16
-            return v17
+            return v25
         }";
 
         let main = ssa.main();
@@ -1104,7 +1118,9 @@ mod test {
         };
 
         let merged_values = get_all_constants_reachable_from_instruction(&main.dfg, ret);
-        assert_eq!(merged_values, vec![1, 3, 5, 6]);
+        assert_eq!(merged_values, vec![FieldElement::from(1u128), FieldElement::from(3u128), FieldElement::from(5u128), FieldElement::from(6u128)]);
+
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
