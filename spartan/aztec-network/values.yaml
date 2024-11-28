@@ -176,30 +176,38 @@ bot:
       cpu: "200m"
 
 ethereum:
-  externalHost: ""
-  replicas: 1
-  chainId: 1337
-  blockTime: 12sec
-  # 1 billion gas limit
-  # helps ensure we can deploy public contracts
-  gasLimit: "1000000000"
-  args: ""
-  service:
-    type: ClusterIP
-    port: 8545
-    targetPort: 8545
-    nodePort: ""
-  readinessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 5
-    successThreshold: 1
-    failureThreshold: 3
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
-  storage: "80Gi"
+  # Execution Layer
+  el:
+    externalHost: ""
+    replicas: 1
+    chainId: 1337
+    blockTime: 12sec
+    # 1 billion gas limit
+    # helps ensure we can deploy public contracts
+    gasLimit: "1000000000"
+    args: ""
+    service:
+      type: ClusterIP
+      port: 8545
+      targetPort: 8545
+      nodePort: ""
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+    storage: "80Gi"
+  # Consensus Layer
+  cl:
+    externalHost: ""
+    replicas: 1
+
+  # Validators
 
 proverAgent:
   service:

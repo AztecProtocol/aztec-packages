@@ -1,0 +1,96 @@
+nameOverride: ""
+fullnameOverride: ""
+
+network:
+  # If true, pods will use host networking.
+  # This is to ensure that nodes are individually addressable from the outside.
+  # Under the current configuration, this also means that there must be a unique
+  # physical node in the cluster for each pod that participates in peer-to-peer.
+  # I.e. the sum of the number of validator, boot node, and prover nodes must be
+  # less than the number of physical nodes in the cluster.
+  public: false
+  setupL2Contracts: true
+
+telemetry:
+  enabled: false
+  otelCollectorEndpoint:
+
+images:
+  aztec:
+    image: aztecprotocol/aztec
+    pullPolicy: IfNotPresent
+  curl:
+    image: curlimages/curl:7.81.0
+    pullPolicy: IfNotPresent
+  foundry:
+    image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
+    pullPolicy: IfNotPresent
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:latest
+    pullPolicy: IfNotPresent
+
+ethereum:
+  chainId: 1337
+  # Execution Layer
+  el:
+    externalHost: ""
+    replicas: 1
+    chainId: 1337
+    blockTime: 12sec
+    # 1 billion gas limit
+    # helps ensure we can deploy public contracts
+    gasLimit: "1000000000"
+    args: ""
+    service:
+      type: ClusterIP
+      port: 8545
+      targetPort: 8545
+      nodePort: ""
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+    storage: "80Gi"
+  # Consensus Layer
+  cl:
+    externalHost: ""
+    replicas: 1
+    chainId: 1337
+    service:
+      type: ClusterIP
+      port: 5052
+      targetPort: 5052
+      nodePort: ""
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "2"
+      limits:
+        cpu: "4"
+    storage: "80Gi"
+
+  # Validators
+  vc:
+    replicas: 1
+    chainId: 1337
+    service:
+      type: ClusterIP
+      port: 5052
+      targetPort: 5052
+      nodePort: ""
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+    storage: "80Gi"
+
+

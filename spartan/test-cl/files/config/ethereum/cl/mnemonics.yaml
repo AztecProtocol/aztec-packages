@@ -1,0 +1,2 @@
+- mnemonic: "test test test test test test test test test test test junk"  # a 24 word BIP 39 mnemonic
+  count: 1

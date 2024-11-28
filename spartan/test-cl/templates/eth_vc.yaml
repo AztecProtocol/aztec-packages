@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-ethereum-vc # validator client
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ethereum.vc.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: ethereum-vc
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: ethereum-vc
+    spec:
+      containers:
+        - name: ethereum-vc
+          image: "{{ .Values.images.lighthouse.image }}"
+          imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              lighthouse validator_manager create
+              --mnemonic-path ./genesis/mnemonic.txt
+              --count 1
+              --first-index 0
+              --testnet-dir /genesis/genesis.yaml
+              --datadir /data
+
+              &&
+
+              lighthouse validator_client --http --disable-packet-filter {{ include "helpers.flag" (list "http-address" "0.0.0.0") }}
+              {{- include "helpers.flag" (list "http-port" .Values.ethereum.vc.service.port) }}
+              --testnet-dir /genesis
+              --init-slashing-protection
+              --datadir /data
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /data
+            - name: genesis
+              mountPath: /genesis
+          resources:
+            {{- toYaml .Values.ethereum.vc.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: {{ include "aztec-network.fullname" . }}-vc-pvc
+        - name: genesis
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-lighthouse-genesis
+        - name: validator-keys
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-ethereum-validator-keys
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-lighthouse-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{ .Files.Get "files/config/ethereum/cl/config.yaml" | nindent 4 }}
+  deposit_contract.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/deposit_contract.txt" | nindent 4 }}
+  deposit_contract_block.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/deposit_contract_block.txt" | nindent 4 }}
+  deposit_contract_block_hash.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/deposit_contract_block_hash.txt" | nindent 4 }}
+  genesis_validators_root.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/genesis_validators_root.txt" | nindent 4 }}
+  mnemonic.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/mnemonic.txt" | nindent 4 }}
+---
+{{- if gt (.Values.ethereum.vc.replicas | int) 0 }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-vc-pvc
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.ethereum.vc.storage }}
+{{- end }}
+---

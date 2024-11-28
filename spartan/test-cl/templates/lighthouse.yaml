@@ -1,44 +1,43 @@
-## Maybe run this inside with the reth yaml, as the two will need to run together
-## Maybe look at using kurtosis to run this stuff
-## Apparently it is a very good tool, but i am apprehensive until this stuff is already up and running
-## to add yet anotehr tool
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-ethereum-CL
+  name: {{ include "aztec-network.fullname" . }}-cl
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.ethereum.replicas }}
+  replicas: {{ .Values.ethereum.el.replicas }}
   selector:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
-      app: ethereum-CL
+      app: cl
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
-        app: ethereum-CL
+        app: cl
     spec:
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}
       containers:
-        - name: ethereum-CL
+        - name: cl
           image: "{{ .Values.images.lighthouse.image }}"
           imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
           command: ["/bin/sh", "-c"]
-          # --disable-packet-filter - documentation states it is "useful for testing in smaller networks"
           args:
             - >-
               lighthouse bn --http --disable-packet-filter {{ include "helpers.flag" (list "http-address" "0.0.0.0") }}
               {{- include "helpers.flag" (list "http-port" .Values.ethereum.cl.service.port) }}
-              --testnet-dir /genesis/genesis.yaml
-              --execution-jwt /jwt/jwtsecret
+              --testnet-dir /genesis
+              --debug-level=debug
+              --listen-address 0.0.0.0
+              --execution-endpoint {{ include "aztec-network.elUrl" . }}
+              --execution-jwt-secret-key 0xfc794b06e0f532d2f6a83a1793c43dd81701eaa8dbcc4ed63eb655ae6b61b9c9
               --datadir /data
           ports:
+          # --execution-jwt /jwt/jwtsecret
             - containerPort: {{ .Values.ethereum.cl.service.port }}
-              name: lighthouse
+              name: cl
           volumeMounts:
             - name: shared-volume
               mountPath: /data
@@ -47,30 +46,30 @@ spec:
             - name: jwt
               mountPath: /jwt
           resources:
-            {{- toYaml .Values.ethereum.resources | nindent 12 }}
+            {{- toYaml .Values.ethereum.cl.resources | nindent 12 }}
       volumes:
         - name: shared-volume
           persistentVolumeClaim:
-            claimName: {{ include "aztec-network.fullname" . }}-lighthouse-pvc
+            claimName: {{ include "aztec-network.fullname" . }}-cl-pvc
         - name: genesis
           configMap:
-            name: {{ include "aztec-network.fullname" . }}-lighthouse-genesis
+            name: {{ include "aztec-network.fullname" . }}-cl-genesis
         - name: jwt
           configMap:
-            name: {{ include "aztec-network.fullname" . }}-ethereum-jwt
+            name: {{ include "aztec-network.fullname" . }}-cl-jwt
 {{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-ethereum-CL
+  name: {{ include "aztec-network.fullname" . }}-cl
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.ethereum.cl.service.type }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: ethereum-CL
+    app: ethereum
   ports:
     - protocol: TCP
       port: {{ .Values.ethereum.cl.service.port }}
@@ -83,29 +82,25 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-lighthouse-genesis
+  name: {{ include "aztec-network.fullname" . }}-cl-genesis
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
-  genesis.yaml: |
-    {{ .Files.Get "files/config/ethereum/cl/genesis.yaml" | nindent 4 }}
-  genesis.ssz: |
-    {{ .Files.Get "files/config/ethereum/cl/genesis.ssz" | nindent 4 }}
-  genesis_validators_root.txt: |
-    {{ .Files.Get "files/config/ethereum/cl/genesis_validators_root.txt" | nindent 4 }}
-  deposit_contract_block.txt: |
-    {{ .Files.Get "files/config/ethereum/cl/deposit_contract_block.txt" | nindent 4 }}
-  deposit_contract_blobck_hash.txt: |
-    {{ .Files.Get "files/config/ethereum/cl/deposit_contract_blobck_hash.txt" | nindent 4 }}
+  config.yaml: |
+    {{ .Files.Get "files/config/ethereum/cl/config.yaml" | nindent 4 }}
   deposit_contract.txt: |
     {{ .Files.Get "files/config/ethereum/cl/deposit_contract.txt" | nindent 4 }}
+  deposit_contract_block.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/deposit_contract_block.txt" | nindent 4 }}
+  deposit_contract_block_hash.txt: |
+    {{ .Files.Get "files/config/ethereum/cl/deposit_contract_block_hash.txt" | nindent 4 }}
   genesis_validators_root.txt: |
     {{ .Files.Get "files/config/ethereum/cl/genesis_validators_root.txt" | nindent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-ethereum-jwt
+  name: {{ include "aztec-network.fullname" . }}-cl-jwt
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
@@ -116,7 +111,7 @@ data:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-lighthouse-pvc
+  name: {{ include "aztec-network.fullname" . }}-cl-pvc
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
