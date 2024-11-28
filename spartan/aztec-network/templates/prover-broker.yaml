@@ -1,36 +1,22 @@
-{{- if .Values.proverAgent.enabled }}
+{{- if .Values.proverBroker.enabled }}
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-agent
+  name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.proverAgent.replicas }}
+  replicas: {{ .Values.proverBroker.replicas }}
   selector:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
-      app: prover-agent
+      app: prover-broker
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
-        app: prover-agent
+        app: prover-broker
     spec:
-      {{- if .Values.proverAgent.gke.spotEnabled }}
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: cloud.google.com/gke-spot
-                operator: Exists
-      tolerations:
-      - key: "cloud.google.com/gke-spot"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
-      {{- end }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
@@ -50,11 +36,6 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
-              until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
-                echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
-                sleep 5
-              done
-              echo "Broker is ready!"
               {{- if .Values.telemetry.enabled }}
               until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."
@@ -66,7 +47,7 @@ spec:
             - name: config
               mountPath: /shared/config
       containers:
-        - name: prover-agent
+        - name: prover-broker
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           volumeMounts:
@@ -77,24 +58,24 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-broker
           env:
             - name: AZTEC_PORT
-              value: "{{ .Values.proverAgent.service.nodePort }}"
+              value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
-              value: "{{ .Values.proverAgent.logLevel }}"
+              value: "{{ .Values.proverBroker.logLevel }}"
             - name: LOG_JSON
               value: "1"
             - name: DEBUG
-              value: "{{ .Values.proverAgent.debug }}"
-            - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.proverAgent.realProofs }}"
-            - name: PROVER_AGENT_COUNT
-              value: "1"
-            - name: PROVER_AGENT_POLL_INTERVAL_MS
-              value: "{{ .Values.proverAgent.pollIntervalMs }}"
-            - name: PROVER_AGENT_PROOF_TYPES
-              value: {{ join "," .Values.proverAgent.proofTypes | quote }}
+              value: "{{ .Values.proverBroker.debug }}"
+            - name: PROVER_BROKER_POLL_INTERVAL_MS
+              value: "{{ .Values.proverBroker.pollIntervalMs }}"
+            - name: PROVER_BROKER_JOB_TIMEOUT_MS
+              value: "{{ .Values.proverBroker.jobTimeoutMs }}"
+            - name: PROVER_BROKER_JOB_MAX_RETRIES
+              value: "{{ .Values.proverBroker.jobMaxRetries }}"
+            - name: PROVER_BROKER_DATA_DIRECTORY
+              value: "{{ .Values.proverBroker.dataDirectory }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
@@ -104,5 +85,20 @@ spec:
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
           resources:
-            {{- toYaml .Values.proverAgent.resources | nindent 12 }}
-{{- end }}
+            {{- toYaml .Values.proverBroker.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-broker
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-broker
+  ports:
+    - port: {{ .Values.proverBroker.service.nodePort }}
+      name: node
+{{ end }}
