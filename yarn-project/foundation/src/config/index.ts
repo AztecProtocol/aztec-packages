@@ -46,7 +46,7 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
  * @param keysToFilter - The keys to filter out
  * @returns The filtered config mappings
  */
-export function filterConfigMappings<T, K extends keyof T>(
+export function omitConfigMappings<T, K extends keyof T>(
   configMappings: ConfigMappingsType<T>,
   keysToFilter: K[],
 ): ConfigMappingsType<Omit<T, K>> {
