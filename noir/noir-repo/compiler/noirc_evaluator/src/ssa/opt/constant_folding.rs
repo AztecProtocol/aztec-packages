@@ -6,7 +6,7 @@
 //!   by the [`DataFlowGraph`] automatically as new instructions are pushed.
 //! - Check whether any input values have been constrained to be equal to a value of a simpler form
 //!   by a [constrain instruction][Instruction::Constrain]. If so, replace the input value with the simpler form.
-//! - Check whether the instruction [can_be_deduplicated][Instruction::can_be_deduplicated()]
+//! - Check whether the instruction [can_be_replaced][Instruction::can_be_replaced()]
 //!   by duplicate instruction earlier in the same block.
 //!
 //! These operations are done in parallel so that they can each benefit from each other
@@ -21,13 +21,7 @@
 //! different blocks are merged, i.e. after the [`flatten_cfg`][super::flatten_cfg] pass.
 use std::collections::{HashSet, VecDeque};
 
-use acvm::{
-    acir::AcirField,
-    brillig_vm::{MemoryValue, VMStatus, VM},
-    FieldElement,
-};
-use bn254_blackbox_solver::Bn254BlackBoxSolver;
-use im::Vector;
+use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 
 use crate::ssa::{
@@ -40,20 +34,18 @@ use crate::ssa::{
         types::Type,
         value::{Value, ValueId},
     },
+    ssa_gen::Ssa,
 };
 use fxhash::FxHashMap as HashMap;
 
 impl Ssa {
     /// Performs constant folding on each instruction.
     ///
-    /// It will not look at constraints to inform simplifications
-    /// based on the stated equivalence of two instructions.
-    ///
     /// See [`constant_folding`][self] module for more information.
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn fold_constants(mut self) -> Ssa {
         for function in self.functions.values_mut() {
-            function.constant_fold(false, None);
+            function.constant_fold(false);
         }
         self
     }
@@ -66,69 +58,8 @@ impl Ssa {
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn fold_constants_using_constraints(mut self) -> Ssa {
         for function in self.functions.values_mut() {
-            function.constant_fold(true, None);
+            function.constant_fold(true);
         }
-        self
-    }
-
-    /// Performs constant folding on each instruction while also replacing calls to brillig functions
-    /// with all constant arguments by trying to evaluate those calls.
-    #[tracing::instrument(level = "trace", skip(self, brillig))]
-    pub(crate) fn fold_constants_with_brillig(mut self, brillig: &Brillig) -> Ssa {
-        // Collect all brillig functions so that later we can find them when processing a call instruction
-        let mut brillig_functions: BTreeMap<FunctionId, Function> = BTreeMap::new();
-        for (func_id, func) in &self.functions {
-            if let RuntimeType::Brillig(..) = func.runtime() {
-                let cloned_function = Function::clone_with_id(*func_id, func);
-                brillig_functions.insert(*func_id, cloned_function);
-            };
-        }
-
-        let brillig_info = Some(BrilligInfo { brillig, brillig_functions: &brillig_functions });
-
-        for function in self.functions.values_mut() {
-            function.constant_fold(false, brillig_info);
-        }
-
-        // It could happen that we inlined all calls to a given brillig function.
-        // In that case it's unused so we can remove it. This is what we check next.
-        self.remove_unused_brillig_functions(brillig_functions)
-    }
-
-    fn remove_unused_brillig_functions(
-        mut self,
-        mut brillig_functions: BTreeMap<FunctionId, Function>,
-    ) -> Ssa {
-        // Remove from the above map functions that are called
-        for function in self.functions.values() {
-            for block_id in function.reachable_blocks() {
-                for instruction_id in function.dfg[block_id].instructions() {
-                    let instruction = &function.dfg[*instruction_id];
-                    let Instruction::Call { func: func_id, arguments: _ } = instruction else {
-                        continue;
-                    };
-
-                    let func_value = &function.dfg[*func_id];
-                    let Value::Function(func_id) = func_value else { continue };
-
-                    brillig_functions.remove(func_id);
-                }
-            }
-        }
-
-        // The ones that remain are never called: let's remove them.
-        for func_id in brillig_functions.keys() {
-            // We never want to remove the main function (it could be `unconstrained` or it
-            // could have been turned into brillig if `--force-brillig` was given).
-            // We also don't want to remove entry points.
-            if self.main_id == *func_id || self.entry_point_to_generated_index.contains_key(func_id)
-            {
-                continue;
-            }
-
-            self.functions.remove(func_id);
-        }
-
         self
     }
 }
@@ -153,7 +84,6 @@ impl Function {
 
 struct Context {
     use_constraint_info: bool,
-    brillig_info: Option<BrilligInfo<'a>>,
     /// Maps pre-folded ValueIds to the new ValueIds obtained by re-inserting the instruction.
     visited_blocks: HashSet<BasicBlockId>,
     block_queue: VecDeque<BasicBlockId>,
@@ -225,7 +155,7 @@ impl Context {
     fn fold_constants_into_instruction(
         &mut self,
         dfg: &mut DataFlowGraph,
-        mut block: BasicBlockId,
+        block: BasicBlockId,
         id: InstructionId,
         side_effects_enabled_var: &mut ValueId,
     ) {
@@ -244,40 +174,12 @@ impl Context {
         if let Some(cached_results) =
             self.get_cached(dfg, &instruction, *side_effects_enabled_var, block)
         {
-            match cache_result {
-                CacheResult::Cached(cached) => {
-                    Self::replace_result_ids(dfg, &old_results, cached);
-                    return;
-                }
-                CacheResult::NeedToHoistToCommonBlock(dominator, _cached) => {
-                    // Just change the block to insert in the common dominator instead.
-                    // This will only move the current instance of the instruction right now.
-                    // When constant folding is run a second time later on, it'll catch
-                    // that the previous instance can be deduplicated to this instance.
-                    block = dominator;
-                }
-            }
+            Self::replace_result_ids(dfg, &old_results, cached_results);
+            return;
         }
 
-        let new_results =
-        // First try to inline a call to a brillig function with all constant arguments.
-        Self::try_inline_brillig_call_with_all_constants(
-            &instruction,
-            &old_results,
-            block,
-            dfg,
-            self.brillig_info,
-        )
-        .unwrap_or_else(|| {
-            // Otherwise, try inserting the instruction again to apply any optimizations using the newly resolved inputs.
-            Self::push_instruction(
-                id,
-                instruction.clone(),
-                &old_results,
-                block,
-                dfg,
-            )
-        });
+        // Otherwise, try inserting the instruction again to apply any optimizations using the newly resolved inputs.
+        let new_results = Self::push_instruction(id, instruction.clone(), &old_results, block, dfg);
 
         Self::replace_result_ids(dfg, &old_results, &new_results);
 
@@ -393,7 +295,6 @@ impl Context {
 
         // If the instruction doesn't have side-effects and if it won't interact with enable_side_effects during acir_gen,
         // we cache the results so we can reuse them if the same instruction appears again later in the block.
-        // Others have side effects representing failure, which are implicit in the ACIR code and can also be deduplicated.
         if instruction.can_be_deduplicated(dfg, self.use_constraint_info) {
             let use_predicate =
                 self.use_constraint_info && instruction.requires_acir_gen_predicate(dfg);
@@ -481,138 +382,6 @@ fn simplify(dfg: &DataFlowGraph, lhs: ValueId, rhs: ValueId) -> Option<(ValueId,
         (Value::Instruction { .. }, Value::Param { .. }) => Some((lhs, rhs)),
         (_, _) => None,
     }
-
-    /// Creates a new value inside this function by reading it from `memory_values` starting at
-    /// `memory_index` depending on the given Type: if it's an array multiple values will be read
-    /// and a new `make_array` instruction will be created.
-    fn new_value_for_type_and_memory_values(
-        typ: Type,
-        block_id: BasicBlockId,
-        memory_values: &[MemoryValue<FieldElement>],
-        memory_index: &mut usize,
-        dfg: &mut DataFlowGraph,
-    ) -> ValueId {
-        match typ {
-            Type::Numeric(_) => {
-                let memory = memory_values[*memory_index];
-                *memory_index += 1;
-
-                let field_value = match memory {
-                    MemoryValue::Field(field_value) => field_value,
-                    MemoryValue::Integer(u128_value, _) => u128_value.into(),
-                };
-                dfg.make_constant(field_value, typ)
-            }
-            Type::Array(types, length) => {
-                let mut new_array_values = Vector::new();
-                for _ in 0..length {
-                    for typ in types.iter() {
-                        let new_value = Self::new_value_for_type_and_memory_values(
-                            typ.clone(),
-                            block_id,
-                            memory_values,
-                            memory_index,
-                            dfg,
-                        );
-                        new_array_values.push_back(new_value);
-                    }
-                }
-
-                let instruction = Instruction::MakeArray {
-                    elements: new_array_values,
-                    typ: Type::Array(types, length),
-                };
-                let instruction_id = dfg.make_instruction(instruction, None);
-                dfg[block_id].instructions_mut().push(instruction_id);
-                *dfg.instruction_results(instruction_id).first().unwrap()
-            }
-            Type::Reference(_) => {
-                panic!("Unexpected reference type in brillig function result")
-            }
-            Type::Slice(_) => {
-                panic!("Unexpected slice type in brillig function result")
-            }
-            Type::Function => {
-                panic!("Unexpected function type in brillig function result")
-            }
-        }
-    }
-}
-
-impl ResultCache {
-    /// Records that an `Instruction` in block `block` produced the result values `results`.
-    fn cache(&mut self, block: BasicBlockId, results: Vec<ValueId>) {
-        if self.result.is_none() {
-            self.result = Some((block, results));
-        }
-    }
-
-    /// Returns a set of [`ValueId`]s produced from a copy of this [`Instruction`] which sits
-    /// within a block which dominates `block`.
-    ///
-    /// We require that the cached instruction's block dominates `block` in order to avoid
-    /// cycles causing issues (e.g. two instructions being replaced with the results of each other
-    /// such that neither instruction exists anymore.)
-    fn get(&self, block: BasicBlockId, dom: &mut DominatorTree) -> Option<CacheResult> {
-        self.result.as_ref().map(|(origin_block, results)| {
-            if dom.dominates(*origin_block, block) {
-                CacheResult::Cached(results)
-            } else {
-                // Insert a copy of this instruction in the common dominator
-                let dominator = dom.common_dominator(*origin_block, block);
-                CacheResult::NeedToHoistToCommonBlock(dominator, results)
-            }
-        })
-    }
-}
-
-enum CacheResult<'a> {
-    Cached(&'a [ValueId]),
-    NeedToHoistToCommonBlock(BasicBlockId, &'a [ValueId]),
-}
-
-/// Result of trying to evaluate an instruction (any instruction) in this pass.
-enum EvaluationResult {
-    /// Nothing was done because the instruction wasn't a call to a brillig function,
-    /// or some arguments to it were not constants.
-    NotABrilligCall,
-    /// The instruction was a call to a brillig function, but we couldn't evaluate it.
-    /// This can occur in the situation where the brillig function reaches a "trap" or a foreign call opcode.
-    CannotEvaluate(FunctionId),
-    /// The instruction was a call to a brillig function and we were able to evaluate it,
-    /// returning evaluation memory values.
-    Evaluated(Vec<MemoryValue<FieldElement>>),
-}
-
-/// Similar to FunctionContext::ssa_type_to_parameter but never panics and disallows reference types.
-pub(crate) fn type_to_brillig_parameter(typ: &Type) -> Option<BrilligParameter> {
-    match typ {
-        Type::Numeric(_) => Some(BrilligParameter::SingleAddr(get_bit_size_from_ssa_type(typ))),
-        Type::Array(item_type, size) => {
-            let mut parameters = Vec::with_capacity(item_type.len());
-            for item_typ in item_type.iter() {
-                parameters.push(type_to_brillig_parameter(item_typ)?);
-            }
-            Some(BrilligParameter::Array(parameters, *size))
-        }
-        _ => None,
-    }
-}
-
-fn value_id_to_calldata(value_id: ValueId, dfg: &DataFlowGraph, calldata: &mut Vec<FieldElement>) {
-    if let Some(value) = dfg.get_numeric_constant(value_id) {
-        calldata.push(value);
-        return;
-    }
-
-    if let Some((values, _type)) = dfg.get_array_constant(value_id) {
-        for value in values {
-            value_id_to_calldata(value, dfg, calldata);
-        }
-        return;
-    }
-
-    panic!("Expected ValueId to be numeric constant or array constant");
 }
 
 #[cfg(test)]
@@ -851,32 +620,22 @@ mod test {
     // Regression for #4600
     #[test]
     fn array_get_regression() {
-        // fn main f0 {
-        //   b0(v0: u1, v1: u64):
-        //     enable_side_effects_if v0
-        //     v2 = make_array [Field 0, Field 1]
-        //     v3 = array_get v2, index v1
-        //     v4 = not v0
-        //     enable_side_effects_if v4
-        //     v5 = array_get v2, index v1
-        // }
-        //
         // We want to make sure after constant folding both array_gets remain since they are
         // under different enable_side_effects_if contexts and thus one may be disabled while
         // the other is not. If one is removed, it is possible e.g. v4 is replaced with v2 which
         // is disabled (only gets from index 0) and thus returns the wrong result.
         let src = "
-            acir(inline) fn main f0 {
-              b0(v0: u1, v1: u64):
-                enable_side_effects v0
-                v4 = make_array [Field 0, Field 1] : [Field; 2]
-                v5 = array_get v4, index v1 -> Field
-                v6 = not v0
-                enable_side_effects v6
-                v7 = array_get v4, index v1 -> Field
-                return
-            }
-            ";
+             acir(inline) fn main f0 {
+               b0(v0: u1, v1: u64):
+                 enable_side_effects v0
+                 v4 = make_array [Field 0, Field 1] : [Field; 2]
+                 v5 = array_get v4, index v1 -> Field
+                 v6 = not v0
+                 enable_side_effects v6
+                 v7 = array_get v4, index v1 -> Field
+                 return
+             }
+             ";
         let ssa = Ssa::from_str(src).unwrap();
 
         // Expected output is unchanged
@@ -934,14 +693,14 @@ mod test {
         assert_normalized_ssa_equals(ssa, expected);
     }
 
+    // This test currently fails. It being fixed will address the issue https://github.com/noir-lang/noir/issues/5756
     #[test]
+    #[should_panic]
     fn constant_array_deduplication() {
         // fn main f0 {
         //   b0(v0: u64):
-        //     v1 = make_array [v0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0]
-        //     v2 = make_array [v0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0]
-        //     v5 = call keccakf1600(v1)
-        //     v6 = call keccakf1600(v2)
+        //     v5 = call keccakf1600([v0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0])
+        //     v6 = call keccakf1600([v0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0])
         // }
         //
         // Here we're checking a situation where two identical arrays are being initialized twice and being assigned separate `ValueId`s.
@@ -961,13 +720,12 @@ mod test {
         let array1 = builder.insert_make_array(array_contents.clone(), typ.clone());
         let array2 = builder.insert_make_array(array_contents, typ.clone());
 
-        assert_ne!(array1, array2, "arrays were not assigned different value ids");
+        assert_eq!(array1, array2, "arrays were assigned different value ids");
 
         let keccakf1600 =
             builder.import_intrinsic("keccakf1600").expect("keccakf1600 intrinsic should exist");
         let _v10 = builder.insert_call(keccakf1600, vec![array1], vec![typ.clone()]);
         let _v11 = builder.insert_call(keccakf1600, vec![array2], vec![typ.clone()]);
-        builder.terminate_with_return(Vec::new());
 
         let mut ssa = builder.finish();
         ssa.normalize_ids();
@@ -977,13 +735,8 @@ mod test {
         let main = ssa.main();
         let instructions = main.dfg[main.entry_block()].instructions();
         let starting_instruction_count = instructions.len();
-        assert_eq!(starting_instruction_count, 4);
+        assert_eq!(starting_instruction_count, 2);
 
-        // fn main f0 {
-        //   b0(v0: u64):
-        //     v1 = make_array [v0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0]
-        //     v5 = call keccakf1600(v1)
-        // }
         let ssa = ssa.fold_constants();
 
         println!("{ssa}");
@@ -991,322 +744,7 @@ mod test {
         let main = ssa.main();
         let instructions = main.dfg[main.entry_block()].instructions();
         let ending_instruction_count = instructions.len();
-        assert_eq!(ending_instruction_count, 2);
-    }
-
-    #[test]
-    fn deduplicate_across_blocks() {
-        // fn main f0 {
-        //   b0(v0: u1):
-        //     v1 = not v0
-        //     jmp b1()
-        //   b1():
-        //     v2 = not v0
-        //     return v2
-        // }
-        let main_id = Id::test_new(0);
-
-        // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-        let b1 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        let _v1 = builder.insert_not(v0);
-        builder.terminate_with_jmp(b1, Vec::new());
-
-        builder.switch_to_block(b1);
-        let v2 = builder.insert_not(v0);
-        builder.terminate_with_return(vec![v2]);
-
-        let ssa = builder.finish();
-        let main = ssa.main();
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
-        assert_eq!(main.dfg[b1].instructions().len(), 1);
-
-        // Expected output:
-        //
-        // fn main f0 {
-        //   b0(v0: u1):
-        //     v1 = not v0
-        //     jmp b1()
-        //   b1():
-        //     return v1
-        // }
-        let ssa = ssa.fold_constants_using_constraints();
-        let main = ssa.main();
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
-        assert_eq!(main.dfg[b1].instructions().len(), 0);
-    }
-
-    #[test]
-    fn deduplicate_across_non_dominated_blocks() {
-        let src = "
-            brillig(inline) fn main f0 {
-              b0(v0: u32):
-                v2 = lt u32 1000, v0
-                jmpif v2 then: b1, else: b2
-              b1():
-                v4 = add v0, u32 1
-                v5 = lt v0, v4
-                constrain v5 == u1 1
-                jmp b2()
-              b2():
-                v7 = lt u32 1000, v0
-                jmpif v7 then: b3, else: b4
-              b3():
-                v8 = add v0, u32 1
-                v9 = lt v0, v8
-                constrain v9 == u1 1
-                jmp b4()
-              b4():
-                return
-            }
-        ";
-        let ssa = Ssa::from_str(src).unwrap();
-
-        // v4 has been hoisted, although:
-        // - v5 has not yet been removed since it was encountered earlier in the program
-        // - v8 hasn't been recognized as a duplicate of v6 yet since they still reference v4 and
-        //   v5 respectively
-        let expected = "
-            brillig(inline) fn main f0 {
-              b0(v0: u32):
-                v2 = lt u32 1000, v0
-                v4 = add v0, u32 1
-                jmpif v2 then: b1, else: b2
-              b1():
-                v5 = add v0, u32 1
-                v6 = lt v0, v5
-                constrain v6 == u1 1
-                jmp b2()
-              b2():
-                jmpif v2 then: b3, else: b4
-              b3():
-                v8 = lt v0, v4
-                constrain v8 == u1 1
-                jmp b4()
-              b4():
-                return
-            }
-        ";
-
-        let ssa = ssa.fold_constants_using_constraints();
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn inlines_brillig_call_without_arguments() {
-        let src = "
-            acir(inline) fn main f0 {
-              b0():
-                v0 = call f1() -> Field
-                return v0
-            }
-
-            brillig(inline) fn one f1 {
-              b0():
-                v0 = add Field 2, Field 3
-                return v0
-            }
-            ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let brillig = ssa.to_brillig(false);
-
-        let expected = "
-            acir(inline) fn main f0 {
-              b0():
-                return Field 5
-            }
-            ";
-        let ssa = ssa.fold_constants_with_brillig(&brillig);
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn inlines_brillig_call_with_two_field_arguments() {
-        let src = "
-            acir(inline) fn main f0 {
-              b0():
-                v0 = call f1(Field 2, Field 3) -> Field
-                return v0
-            }
-
-            brillig(inline) fn one f1 {
-              b0(v0: Field, v1: Field):
-                v2 = add v0, v1
-                return v2
-            }
-            ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let brillig = ssa.to_brillig(false);
-
-        let expected = "
-            acir(inline) fn main f0 {
-              b0():
-                return Field 5
-            }
-            ";
-        let ssa = ssa.fold_constants_with_brillig(&brillig);
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn inlines_brillig_call_with_two_i32_arguments() {
-        let src = "
-            acir(inline) fn main f0 {
-              b0():
-                v0 = call f1(i32 2, i32 3) -> i32
-                return v0
-            }
-
-            brillig(inline) fn one f1 {
-              b0(v0: i32, v1: i32):
-                v2 = add v0, v1
-                return v2
-            }
-            ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let brillig = ssa.to_brillig(false);
-
-        let expected = "
-            acir(inline) fn main f0 {
-              b0():
-                return i32 5
-            }
-            ";
-        let ssa = ssa.fold_constants_with_brillig(&brillig);
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn inlines_brillig_call_with_array_return() {
-        let src = "
-            acir(inline) fn main f0 {
-              b0():
-                v0 = call f1(Field 2, Field 3, Field 4) -> [Field; 3]
-                return v0
-            }
-
-            brillig(inline) fn one f1 {
-              b0(v0: Field, v1: Field, v2: Field):
-                v3 = make_array [v0, v1, v2] : [Field; 3]
-                return v3
-            }
-            ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let brillig = ssa.to_brillig(false);
-
-        let expected = "
-            acir(inline) fn main f0 {
-              b0():
-                v3 = make_array [Field 2, Field 3, Field 4] : [Field; 3]
-                return v3
-            }
-            ";
-        let ssa = ssa.fold_constants_with_brillig(&brillig);
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn inlines_brillig_call_with_composite_array_return() {
-        let src = "
-            acir(inline) fn main f0 {
-              b0():
-                v0 = call f1(Field 2, i32 3, Field 4, i32 5) -> [(Field, i32); 2]
-                return v0
-            }
-
-            brillig(inline) fn one f1 {
-              b0(v0: Field, v1: i32, v2: i32, v3: Field):
-                v4 = make_array [v0, v1, v2, v3] : [(Field, i32); 2]
-                return v4
-            }
-            ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let brillig = ssa.to_brillig(false);
-
-        let expected = "
-            acir(inline) fn main f0 {
-              b0():
-                v4 = make_array [Field 2, i32 3, Field 4, i32 5] : [(Field, i32); 2]
-                return v4
-            }
-            ";
-        let ssa = ssa.fold_constants_with_brillig(&brillig);
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn inlines_brillig_call_with_array_arguments() {
-        let src = "
-            acir(inline) fn main f0 {
-              b0():
-                v0 = make_array [Field 2, Field 3] : [Field; 2]
-                v1 = call f1(v0) -> Field
-                return v1
-            }
-
-            brillig(inline) fn one f1 {
-              b0(v0: [Field; 2]):
-                inc_rc v0
-                v2 = array_get v0, index u32 0 -> Field
-                v4 = array_get v0, index u32 1 -> Field
-                v5 = add v2, v4
-                dec_rc v0
-                return v5
-            }
-            ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let brillig = ssa.to_brillig(false);
-
-        let expected = "
-            acir(inline) fn main f0 {
-              b0():
-                v2 = make_array [Field 2, Field 3] : [Field; 2]
-                return Field 5
-            }
-            ";
-        let ssa = ssa.fold_constants_with_brillig(&brillig);
-        assert_normalized_ssa_equals(ssa, expected);
-    }
-
-    #[test]
-    fn deduplicates_side_effecting_intrinsics() {
-        let src = "
-        // After EnableSideEffectsIf removal:
-        acir(inline) fn main f0 {
-          b0(v0: Field, v1: Field, v2: u1):
-            v4 = call is_unconstrained() -> u1
-            v7 = call to_be_radix(v0, u32 256) -> [u8; 1]    // `a.to_be_radix(256)`;
-            inc_rc v7
-            v8 = call to_be_radix(v0, u32 256) -> [u8; 1]    // duplicate load of `a`
-            inc_rc v8
-            v9 = cast v2 as Field                            // `if c { a.to_be_radix(256) }`
-            v10 = mul v0, v9                                 // attaching `c` to `a`
-            v11 = call to_be_radix(v10, u32 256) -> [u8; 1]  // calling `to_radix(c * a)`
-            inc_rc v11
-            enable_side_effects v2                           // side effect var for `c` shifted down by removal
-            return
-        }
-        ";
-        let ssa = Ssa::from_str(src).unwrap();
-        let expected = "
-        acir(inline) fn main f0 {
-          b0(v0: Field, v1: Field, v2: u1):
-            v4 = call is_unconstrained() -> u1
-            v7 = call to_be_radix(v0, u32 256) -> [u8; 1]
-            inc_rc v7
-            inc_rc v7
-            v8 = cast v2 as Field
-            v9 = mul v0, v8
-            v10 = call to_be_radix(v9, u32 256) -> [u8; 1]
-            inc_rc v10
-            enable_side_effects v2
-            return
-        }
-        ";
-        let ssa = ssa.fold_constants_using_constraints();
-        assert_normalized_ssa_equals(ssa, expected);
+        assert_eq!(ending_instruction_count, 1);
     }
 
     #[test]
