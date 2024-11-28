@@ -10,19 +10,19 @@ set -eu
 # definitions
 FILE="$prefix-$(cat .content-hash).tar.gz"
 function s3_download() {
-  if [ "${S3_BUILD_CACHE_DOWNLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
+  if [ "${S3_BUILD_CACHE_DOWNLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ]; then
     return 1 # require a rebuild
   fi
   /usr/src/ci3/cache/download "$FILE"
 }
 function s3_upload() {
-  if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
+  if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ]; then
     return 0 # exit silently
   fi
   /usr/src/ci3/cache/upload "$FILE" $build_artifacts || echo "WARNING: S3 upload failed!" >&2
 }
 function minio_download() {
-  if [ -z "$S3_BUILD_CACHE_MINIO_URL" ] ; then
+  if [ -z "$S3_BUILD_CACHE_MINIO_URL" ]; then
     return 1 # require rebuild
   fi
   # minio is S3-compatible
@@ -30,7 +30,7 @@ function minio_download() {
     /usr/src/ci3/cache/download "$FILE"
 }
 function minio_upload() {
-  if [ -z "$S3_BUILD_CACHE_MINIO_URL" ] ; then
+  if [ -z "$S3_BUILD_CACHE_MINIO_URL" ]; then
     return 0 # exit silently
   fi
   # minio is S3-compatible

@@ -119,7 +119,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]]; then
             echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
           fi

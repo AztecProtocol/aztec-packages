@@ -34,7 +34,7 @@ fi
 echo "Cleaning up lingering runner registrations."
 for RUNNER_DIR in ~/*-ec2-* ; do
   pushd $RUNNER_DIR
-  while [ -f .runner ] ; do
+  while [ -f .runner ]; do
     ./config.sh remove --token "$(cat $RUNNER_DIR/.runner-token)" || true
     sleep 1
   done

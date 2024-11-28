@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn format_array_in_global_with_line_comments() {
         let src = "global x = [ // hello
-        1 , 2 ] ;";
+        1 , 2 ];";
         let expected = "global x = [
     // hello
     1, 2,
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn format_array_in_global_with_line_comments_2() {
         let src = "global x = [ // hello
-         [ 1 , 2 ]  ] ;";
+         [ 1 , 2 ]  ];";
         let expected = "global x = [
     // hello
     [1, 2],
@@ -266,9 +266,9 @@ mod tests {
     #[test]
     fn format_array_in_global_with_line_comments_3() {
         let src = "global x =
-    [ 
+    [
         // hello
-        [1, 2],  
+        [1, 2],
     ];
 ";
         let expected = "global x = [
@@ -283,7 +283,7 @@ mod tests {
     fn format_array_in_global_with_line_comments_4() {
         let src = "global x =
     [
-        1, // world 
+        1, // world
         2, 3,
     ];
 ";
@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn format_array_in_global_with_block_comments() {
         let src = "global x = [ /* hello */
-        1 , 2 ] ;";
+        1 , 2 ];";
         let expected = "global x = [
     /* hello */ 1,
     2,
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn format_if_with_comment_after_condition() {
-        let src = "global x = if  123  // some comment  
+        let src = "global x = if  123  // some comment
         {   456   }  ;";
         let expected = "global x = if 123 // some comment
 {
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn format_if_with_comment_after_else() {
-        let src = "global x = if  123  {   456   } else  // some comment 
+        let src = "global x = if  123  {   456   } else  // some comment
         { 789 };";
         let expected = "global x = if 123 {
     456
@@ -379,7 +379,7 @@ mod tests {
     #[test]
     fn format_function_with_comment_after_parameters() {
         let src = "fn main()
-        // hello 
+        // hello
     {}";
         let expected = "fn main()
 // hello
@@ -424,8 +424,8 @@ unit: ()
 
     #[test]
     fn format_function_with_body_and_block_comment() {
-        let src = "fn main() { 
-        /* foo */ 
+        let src = "fn main() {
+        /* foo */
         1 }";
         let expected = "fn main() {
     /* foo */
@@ -525,8 +525,8 @@ unit: ()
 
     #[test]
     fn format_module_declaration_with_inline_comments() {
-        let src = "  mod // a  
- foo // b 
+        let src = "  mod // a
+ foo // b
   ; ";
         let expected = "mod // a
 foo // b
@@ -537,10 +537,10 @@ foo // b
 
     #[test]
     fn format_submodule_with_line_comments_in_separate_line() {
-        let src = " #[foo] pub  mod foo { 
+        let src = " #[foo] pub  mod foo {
 // one
 #[hello]
-mod bar; 
+mod bar;
 // two
 }";
         let expected = "#[foo]
@@ -557,7 +557,7 @@ pub mod foo {
     #[test]
     fn format_submodule_with_line_comment_in_same_line() {
         let src = " #[foo] pub  mod foo {  // one
-mod bar; 
+mod bar;
 }";
         let expected = "#[foo]
 pub mod foo { // one
@@ -571,7 +571,7 @@ pub mod foo { // one
     fn format_submodule_with_block_comment() {
         let src = " #[foo] pub  mod foo {  /* one */
 /* two */
-mod bar; 
+mod bar;
 }";
         let expected = "#[foo]
 pub mod foo { /* one */
@@ -596,7 +596,7 @@ pub mod foo { /* one */
 
     #[test]
     fn keeps_spaces_between_comments() {
-        let src = "  mod  foo { 
+        let src = "  mod  foo {
 
 // hello
 
@@ -710,7 +710,7 @@ mod foo;
 
     #[test]
     fn format_line_comment_in_parenthesized() {
-        let src = "global x = ( // hello 
+        let src = "global x = ( // hello
         1 );";
         let expected = "global x = (
     // hello
@@ -797,8 +797,8 @@ mod foo;
 
     #[test]
     fn format_comment_after_impl_function() {
-        let src = "impl Foo { fn foo() {} 
-        // bar 
+        let src = "impl Foo { fn foo() {}
+        // bar
         }";
         let expected = "impl Foo {
     fn foo() {}
@@ -810,8 +810,8 @@ mod foo;
 
     #[test]
     fn format_comment_after_trait_impl_function() {
-        let src = "impl Foo for Bar { fn foo() {} 
-        // bar 
+        let src = "impl Foo for Bar { fn foo() {}
+        // bar
         }";
         let expected = "impl Foo for Bar {
     fn foo() {}
@@ -823,8 +823,8 @@ mod foo;
 
     #[test]
     fn format_comment_after_trait_function() {
-        let src = "trait Foo { fn foo() {} 
-        // bar 
+        let src = "trait Foo { fn foo() {}
+        // bar
         }";
         let expected = "trait Foo {
     fn foo() {}
@@ -847,7 +847,7 @@ global x = 1;
     #[test]
     fn keeps_newlines_after_comment_at_the_beginning_2() {
         let src = "
-        
+
         // foo
 
 global x = 1;

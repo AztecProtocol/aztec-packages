@@ -18,7 +18,7 @@ fi
 # we only have this issue in master, and the file should only be edited
 # generally by subrepo commands.
 SUBREPO_PATH="${2:-}"
-if [ -d "$SUBREPO_PATH" ] ; then
+if [ -d "$SUBREPO_PATH" ]; then
     # Read parent commit from .gitrepo file
     parent_commit=$(awk -F'= ' '/parent =/{print $2}' $SUBREPO_PATH/.gitrepo)
     # Check if the parent commit exists in this branch

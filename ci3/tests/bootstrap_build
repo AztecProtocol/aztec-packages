@@ -1,54 +1,69 @@
 #!/bin/bash
-# Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+# Use the minio script base. We ensure minio is running and wipe it.
+source "$(git rev-parse --show-toplevel)/cache/test_source"
+set -o pipefail
+# Tests the various modes of bootstrap test usage.
+# We wrap and mock ci3/cache/should_run to detect when a test tries to run.
+# We never return true, as we don't actually want to run tests here.
+# - First, with CI=0, we assert that should_run returns true to each test.
+# - Then, with CI=1, we assert that should_run returns true to each test, as it is a first pass.
+# - Next, with CI=1, we assert that should_run returns false to each test, as it is a second pass.
+# We mock ci3/cache/should_run for this purpose.
 
-# Tests the various modes of bootstrap build usage:
-# - CI=1 or CI=0
-# - bootstrap.sh full or bootstrap.sh fast
-# - Use TEST=0
+function run_bootstrap() {
+  set +e
+  cp $ci3/cache/should_run $ci3/cache/should_run.bkup
+  cp $1 $ci3/cache/should_run
+  rm -f $ci3/cache/should_run.failure
 
-function delete_test_cache() {
-  AWS_SECRET_ACCESS_KEY=minioadmin AWS_ACCESS_KEY_ID=minioadmin \
-    aws --endpoint http://localhost:12000 \
-      s3 rm s3://aztec-ci-artifacts --recursive --exclude "*" --include "build-cache/barretenberg-test-cache-*.tar.gz" 2>&1 || true
-}
-
-function start_minio() {
-  if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
-    # MinIO is already running.
-    return
+  $(git rev-parse --show-toplevel)/bootstrap.sh fast
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" != 0 ]; then
+    echo "Bootstrap had a bad exit code $EXIT_CODE."
+    all_tests_passed=false
   fi
-  echo "Starting MinIO..."
-  docker run -d --name minio \
-    -p 12000:9000 -p 12001:9001 \
-    -v minio-data:/data \
-    quay.io/minio/minio server /data --console-address ":12001"
-
-  # Wait for MinIO to be ready
-  while ! nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
-    sleep 1
-  done
-
-  # Create the cache bucket
-  echo "Creating MinIO bucket for cache..."
-  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" \
-    aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
+  rm -f "$ci3/cache/should_run.bkup"
+  git checkout -- "$ci3/cache/should_run"
+  exit $EXIT_CODE
 }
-export S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://localhost:12000"
-export AWS_SECRET_ACCESS_KEY=minioadmin
-export AWS_ACCESS_KEY_ID=minioadmin
 
-start_minio
-# if we have minio already running make sure the cache is deleted
-# otherwise it will be run by next earthly local command
-nc -z 127.0.0.1 12000 2>/dev/null >/dev/null && delete_test_cache
-# Our assertions (thanks to -e flag):
-# expect file to not exist at first
-if minio_cache_only ../../barretenberg/cpp/+test-cache-read 2>/dev/null ; then
-  echo "Cache read without write should fail!"
+function check_for_bad_should_run() {
+  if [ -s "$ci3/cache/should_run.failure" ]; then
+    echo "Failures detected:"
+    cat "$ci3/cache/should_run.failure"
+    all_tests_passed=false
+    return 1
+  fi
+}
+
+# Initialize the overall test status
+all_tests_passed=true
+
+function test_CI_0() {
+  CI=0 run_bootstrap $ci3/tests/should_run_first_pass.sh
+  check_for_bad_should_run
+}
+
+function test_CI_1_first_pass() {
+  CI=1 run_bootstrap $ci3/tests/should_run_first_pass.sh
+  check_for_bad_should_run
+}
+
+function test_CI_1_second_pass() {
+  CI=1 run_bootstrap $ci3/tests/should_run_second_pass.sh
+  check_for_bad_should_run
+}
+
+# Run the tests
+test_CI_0 | sed 's/^/test_CI_0: /' && echo "test_CI_0 success" || echo "test_CI_0 failure"
+test_CI_1_first_pass | sed 's/^/test_CI_1 pass 1: /' && echo "test_CI_1_first_pass success" || echo "test_CI_1_first_pass failure"
+test_CI_1_second_pass | sed 's/^/test_CI_0 pass 2: /' && echo "test_CI_1_second_pass success" || echo "test_CI_1_second_pass failure"
+
+# Check overall test status
+if [ "$all_tests_passed" = true ]; then
+  echo "All tests passed successfully."
+  exit 0
+else
+  echo "Some tests failed."
   exit 1
 fi
-minio_cache_only ../../barretenberg/cpp/+test-cache-write 2>/dev/null
-[ -d ~/.minio/data/*/*/barretenberg-test-cache*.tar.gz ] # minio cache files should be written
-minio_cache_only ../../barretenberg/cpp/+test-cache-read 2>/dev/null # we should be able to read now
-echo "Success!"

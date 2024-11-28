@@ -28,7 +28,7 @@ NATIVE_HASH=$($ci3/cache/content_hash)
 export AZTEC_CACHE_REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
 PACKAGES_HASH=$($ci3/cache/content_hash)
 
-if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
+if [ "${SKIP_BUILD:-0}" -eq 0 ]; then
   $ci3/github/group "noir build"
   # Continue with native bootstrapping if the cache was not used or nargo verification failed.
   ./scripts/bootstrap_native.sh

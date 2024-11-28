@@ -17,7 +17,7 @@ EXISTING_VOLUME=$(aws ec2 describe-volumes \
   --output text)
 
 # Check if someone else is doing this
-if [ -f ~/.ebs-cache-mounted ] ; then
+if [ -f ~/.ebs-cache-mounted ]; then
   MAX_WAIT_TIME=300 # Maximum wait time in seconds
   WAIT_INTERVAL=10  # Interval between checks in seconds
   elapsed_time=0
@@ -51,7 +51,7 @@ if [ -f ~/.ebs-cache-mounted ] ; then
     sleep 1
     echo "Waiting for other mount to finish."
   done
-  if [ -f ~/.setup-complete ] ; then
+  if [ -f ~/.setup-complete ]; then
     echo "Failed to find mount! Taking mount lock and trying..."
     rm -f ~/.ebs-cache-mounted
   else

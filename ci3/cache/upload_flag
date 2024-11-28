@@ -6,7 +6,7 @@ if [ "$#" -lt 1 ]; then
   exit 1
 fi
 
-if [ "${CI:-0}" -lt 1 ] ; then
+if [ "${CI:-0}" -lt 1 ]; then
   # Don't upload if CI isn't set. No need to muddle with dev runs.
   exit 0
 fi

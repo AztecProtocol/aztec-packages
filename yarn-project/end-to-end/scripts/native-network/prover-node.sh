@@ -14,7 +14,7 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do
   sleep 1
 done
 echo "Waiting for Aztec Node..."

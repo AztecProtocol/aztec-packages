@@ -26,7 +26,7 @@ if ! command -v node &> /dev/null; then
 fi
 
 NODE_VERSION=$(node --version | grep -oP 'v\K[0-9]+')
-if ! [ "$NODE_VERSION" = 18 ] ; then
+if ! [ "$NODE_VERSION" = 18 ]; then
     echo "Expected node.js version at 18.x.x. You have version $(node --version)."
     exit 1
 fi
@@ -35,7 +35,7 @@ cd "$REPO"/yarn-project/end-to-end/scripts/native-network
 rm -f state/*.env logs/*.log state/*.json
 
 function run_parallel() {
-  if [ "${INTERLEAVED:-false}" = "false" ] ; then
+  if [ "${INTERLEAVED:-false}" = "false" ]; then
     command -v tmux >/dev/null || (echo "We need 'tmux' installed to be able to manage terminal sessions" && exit 1)
     # Run in tmux for local debugging
     "$REPO"/ci3/tmux/split native_network_test_session "$@"

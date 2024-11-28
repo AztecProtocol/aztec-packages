@@ -707,7 +707,7 @@ mod tests {
 
     #[test]
     fn recovers_on_unknown_statement_followed_by_semicolon() {
-        let src = " ] ;";
+        let src = " ];";
         let mut parser = Parser::for_str(src);
         let statement = parser.parse_statement();
         assert!(statement.is_none());

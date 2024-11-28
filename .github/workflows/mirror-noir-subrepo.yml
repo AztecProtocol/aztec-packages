@@ -40,7 +40,7 @@ jobs:
           function compute_commit_message() {
             # Detect our last sync commit (written by this action before pushing) with a fallback for the first time we ever do this
             AZTEC_SYNC_COMMIT=$(curl https://raw.githubusercontent.com/noir-lang/noir/master/.aztec-sync-commit)
-            if [ "$AZTEC_SYNC_COMMIT" = "404: Not Found" ] ; then
+            if [ "$AZTEC_SYNC_COMMIT" = "404: Not Found" ]; then
               AZTEC_SYNC_COMMIT="a7889f8d21684099306b72a87e0fb57b3bba0cb4"
             fi
             # Create a filtered git log for release-please changelog / metadata

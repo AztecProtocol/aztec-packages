@@ -13,7 +13,7 @@ if ! git diff-index --quiet HEAD --; then
   S3_BUILD_CACHE_DOWNLOAD=false
   S3_BUILD_CACHE_MINIO_URL=""A
   exit 1
-elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
+elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ]; then
   S3_BUILD_CACHE_DOWNLOAD=true
 elif [ -f ~/.aws/credentials ]; then
   # Retrieve credentials if available in AWS config
@@ -74,6 +74,6 @@ DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f Dockerfile.fast --progr
   --secret id=s3_build_cache_download,src=$TMP/s3_build_cache_download.txt \
   "$TMP"
 
-if [ $MAKE_END_TO_END != "false" ] ; then
+if [ $MAKE_END_TO_END != "false" ]; then
   DOCKER_BUILDKIT=1 docker build -t aztecprotocol/end-to-end -f Dockerfile.end-to-end.fast --progress=plain "$TMP"
 fi

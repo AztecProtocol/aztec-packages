@@ -8,7 +8,7 @@ elapsed_time=0
 exec &> >(tee -a ~/.maybe-exit-log)
 
 # we have this in a minutely crontab for simplicity, but we only want one to run
-if [ -f ~/.maybe-exit-spot-lock ] ; then
+if [ -f ~/.maybe-exit-spot-lock ]; then
   echo "Already running maybe_exit_spot.sh"
   exit
 fi

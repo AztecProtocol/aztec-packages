@@ -7,7 +7,7 @@ TARGET="${2:-barretenberg.wasm}"
 # Move above script dir.
 cd $(dirname $0)/..
 
-if ! [ -d ~/ClangBuildAnalyzer ] ; then
+if ! [ -d ~/ClangBuildAnalyzer ]; then
   git clone https://github.com/aras-p/ClangBuildAnalyzer ~/ClangBuildAnalyzer
   pushd ~/ClangBuildAnalyzer
   mkdir -p build && cd build && cmake .. && make -j

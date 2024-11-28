@@ -15,7 +15,7 @@ P2P_PORT="$2"
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do
   sleep 1
 done
 
