@@ -22,6 +22,7 @@ mod resolve_is_unconstrained;
 mod runtime_separation;
 mod simplify_cfg;
 mod unrolling;
+mod loop_invariant;
 
 /// Asserts that the given SSA, after normalizing its IDs and printing it,
 /// is equal to the expected strings. Normalization is done so the IDs don't
