@@ -54,17 +54,17 @@ function check_for_bad_asserts() {
 all_tests_passed=true
 
 function test_CI_0() {
-  CI=0 run_bootstrap $1 $root/scripts/tests/should_run_first_pass.sh $root/scripts/tests/download_first_pass.sh
+  CI=0 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_first_pass.sh $root/scripts/tests/bootstrap/download_first_pass.sh
   check_for_bad_asserts
 }
 
 function test_CI_1_first_pass() {
-  CI=1 run_bootstrap $1 $root/scripts/tests/should_run_first_pass.sh $root/scripts/tests/download_first_pass.sh
+  CI=1 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_first_pass.sh $root/scripts/tests/bootstrap/download_first_pass.sh
   check_for_bad_asserts
 }
 
 function test_CI_1_second_pass() {
-  CI=1 run_bootstrap $1 $root/scripts/tests/should_run_second_pass.sh $root/scripts/tests/download_second_pass.sh
+  CI=1 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_second_pass.sh $root/scripts/tests/bootstrap/download_second_pass.sh
   check_for_bad_asserts
 }
 

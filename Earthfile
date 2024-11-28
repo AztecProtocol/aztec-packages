@@ -43,9 +43,12 @@ base-log-uploader:
 
 bootstrap-test:
     # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
-    FROM ./build-images+from-registry
+    FROM ./build-images+ci-registry
     WORKDIR /usr/src
     ARG EARTHLY_GIT_HASH
+    # Use a cache volume
+    RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
+        /usr/local/share/docker-init.sh &> /dev/null
     # Use a cache volume
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
         rm -rf * .git
@@ -54,6 +57,12 @@ bootstrap-test:
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
         git remote add origin https://github.com/aztecprotocol/aztec-packages
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
-        git fetch --depth 1 origin $EARTHLY_GIT_HASH && git checkout FETCH_HEAD
+        git fetch --depth 1 origin $EARTHLY_GIT_HASH && git reset --hard FETCH_HEAD
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
         scripts/tests/bootstrap/test
+
+hello:
+    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    WITH DOCKER --pull hello-world
+        RUN docker run hello-world
+    END
