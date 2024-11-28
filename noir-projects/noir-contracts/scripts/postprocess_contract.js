@@ -2,8 +2,6 @@ const fs = require("fs/promises");
 const path = require("path");
 const {
   BB_BIN_PATH,
-  readVKFromS3,
-  writeVKToS3,
   generateArtifactHash,
   getBarretenbergHash,
 } = require("../../scripts/verification_keys");
@@ -83,13 +81,7 @@ async function main() {
     ) {
       console.log("Reusing on disk VK for", artifactName);
     } else {
-      let vk = await readVKFromS3(artifactName, artifactHash, false);
-      if (!vk) {
-        vk = await generateVkForFunction(functionArtifact, tempFolder);
-        await writeVKToS3(artifactName, artifactHash, vk);
-      } else {
-        console.log("Using VK from remote cache for", artifactName);
-      }
+      const vk = await generateVkForFunction(functionArtifact, tempFolder);
       functionArtifact.verification_key = vk.toString("base64");
       functionArtifact.artifact_hash = artifactHash;
     }

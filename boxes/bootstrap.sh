@@ -1,7 +1,6 @@
 #!/bin/bash
-set -eu
-
-cd $(dirname $0)
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 export TRANSPILER=$PWD/../avm-transpiler/target/release/avm-transpiler
 export BB=$PWD/../barretenberg/cpp/build/bin/bb
@@ -11,7 +10,7 @@ export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
 # yarn build
 
-if [ "${CI:-0}" -eq 1 ]; then
+if $ci3/base/is_test; then
   parallel --timeout 5m --verbose \
       BOX={} docker compose -p {} up --exit-code-from=boxes --force-recreate ::: vanilla react
 fi

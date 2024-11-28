@@ -1,6 +1,6 @@
 # Build System
 
-The Aztec build system is agnostic to its underlying platform, with support for detecting Github Actions environment and setting group dividers (implemented in github folder). The cache system supports a remote cache that is S3 API compatible, e.g. AWS S3 or minio.
+The Aztec build system is agnostic to its underlying platform. The cache system supports a remote cache that is S3 API compatible, e.g. AWS S3 or minio.
 
 ## Requirements
 

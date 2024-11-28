@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eu
 
-[ -n "${GITHUB_LOG:-}" ] && echo "::endgroup::" || true
+[ -n "${GITHUB_LOG:-}" ] && echo "::endgroup::" || echo "------"

@@ -15,24 +15,28 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-# Attempt to just pull artefacts from CI and exit on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+# Attempt to just pull artefacts from CI and elide the build on success.
+[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && SKIP_BUILD=1
 
-$ci3/github/group "l1-contracts build"
-# Clean
-rm -rf broadcast cache out serve
+if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+  $ci3/github/group "l1-contracts build"
+  # Clean
+  rm -rf broadcast cache out serve
 
-# Install
-forge install --no-commit
+  # Install
+  forge install --no-commit
 
-# Ensure libraries are at the correct version
-git submodule update --init --recursive ./lib
+  # Ensure libraries are at the correct version
+  git submodule update --init --recursive ./lib
 
-# Compile contracts
-forge build
-$ci3/github/endgroup
+  # Compile contracts
+  forge build
 
-if [ "${CI:-0}" -eq 1 ]; then
+  $ci3/cache/upload l1-contracts-$HASH.tar.gz out
+  $ci3/github/endgroup
+fi
+
+if $ci3/base/is_test; then
   $ci3/github/group "l1-contracts build"
   forge test --no-match-contract UniswapPortalTest
   $ci3/github/endgroup

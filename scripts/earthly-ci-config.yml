@@ -1,0 +1,10 @@
+global:
+    cache_size_pct: 50
+    buildkit_max_parallelism: 10
+    container_frontend: docker-shell
+    buildkit_additional_config: |
+        [registry."172.17.0.1:5000"]
+        http = true
+        [registry."docker.io"]
+        mirrors = ["http://localhost:5000"]
+buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]

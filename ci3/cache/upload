@@ -6,6 +6,11 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
+if [ "${CI:-0}" -lt 1 ] ; then
+  # Don't upload if CI is not on.
+  exit 1
+fi
+
 # Name, intended to have .tar.gz ending
 NAME="$1"
 
@@ -25,3 +30,4 @@ trap on_exit EXIT
 tar -czf "$TAR_FILE" $@
 
 aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" --quiet --no-progress
+echo "Cache upload of $NAME complete."

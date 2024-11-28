@@ -13,6 +13,8 @@ trap cleanup EXIT
 
 CMD=${1:-}
 
+$ci3/github/group "bb cpp build"
+
 if [ -n "$CMD" ]; then
   if [ "$CMD" = "clean" ]; then
     git clean -ffdx
@@ -36,7 +38,10 @@ else
 fi
 
 # Attempt to just pull artefacts from CI and exit on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
+  # This ensures is_build later will no-op
+  SKIP_BUILD=1
+fi
 
 # Download ignition transcripts.
 (cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
@@ -60,41 +65,50 @@ rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 
 (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
 
-echo "#################################"
-echo "# Building with preset: $PRESET"
-echo "# When running cmake directly, remember to use: --build --preset $PRESET"
-echo "#################################"
-
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
+HASH=$($ci3/cache/content_hash)
 function build_native {
-  # Build bb with standard preset and world_state_napi with Position Independent code variant
-  cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  if [ "${CI:-0}" -eq 1 ]; then
+  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+    echo "#################################"
+    echo "# Building with preset: $PRESET"
+    echo "# When running cmake directly, remember to use: --build --preset $PRESET"
+    echo "#################################"
+    # Build bb with standard preset and world_state_napi with Position Independent code variant
+    cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --build --preset $PRESET --target bb
+    cmake --build --preset $PIC_PRESET --target world_state_napi
+    # copy the world_state_napi build artifact over to the world state in yarn-project
+    mkdir -p ../../yarn-project/world-state/build/
+    cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
+
+    $ci3/cache/upload barretenberg-preset-release-$HASH.tar.gz build/bin
+    $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
+  fi
+  if $ci3/base/is_test && $ci3/cache/should_run barretenberg-test-$HASH; then
+    $ci3/github/endgroup > /dev/tty
+    $ci3/github/group "bb cpp test" > /dev/tty
+    cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
-  else
-    cmake --build --preset $PRESET --target bb
+    $ci3/cache/upload_flag barretenberg-test-$HASH
   fi
-  cmake --build --preset $PIC_PRESET --target world_state_napi
-  # copy the world_state_napi build artifact over to the world state in yarn-project
-  mkdir -p ../../yarn-project/world-state/build/
-  cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
-
-  $ci3/cache/upload barretenberg-preset-release-$($ci3/cache/content_hash).tar.gz build/bin
-  $ci3/cache/upload barretenberg-preset-release-world-state-$($ci3/cache/content_hash).tar.gz build-pic/lib
 }
 
 function build_wasm {
-  cmake --preset wasm
-  cmake --build --preset wasm
-  $ci3/cache/upload barretenberg-preset-wasm-$($ci3/cache/content_hash).tar.gz build-wasm/bin
+  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+    cmake --preset wasm
+    cmake --build --preset wasm
+    $ci3/cache/upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
+  fi
 }
 
 function build_wasm_threads {
-  cmake --preset wasm-threads
-  cmake --build --preset wasm-threads
-  $ci3/cache/upload barretenberg-preset-wasm-threads-$($ci3/cache/content_hash).tar.gz build-wasm-threads/bin
+  if [ "${SKIP_BUILD:-0}" -eq 1 ] ; then
+    cmake --preset wasm-threads
+    cmake --build --preset wasm-threads
+    $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
+  fi
 }
 
 g="\033[32m"  # Green
@@ -138,3 +152,4 @@ if [ ! -d ./srs_db/grumpkin ]; then
   # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
   cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
 fi
+$ci3/github/endgroup

@@ -2,8 +2,13 @@
 set -eu
 
 if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
-    exit 1
+  echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
+  exit 1
+fi
+
+if [ "${USE_CACHE:-0}" -lt 1 ] ; then
+  # Only download if USE_CACHE is 1
+  exit 1
 fi
 
 # Get the tar.gz file name from the argument
