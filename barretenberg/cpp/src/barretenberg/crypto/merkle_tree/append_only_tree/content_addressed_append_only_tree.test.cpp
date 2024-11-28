@@ -1484,9 +1484,18 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_th
         second[i] = fr::zero();
     }
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, second);
-    // Now we add a number of regular blocks and unwind
+
+    // now we add 2 block of zero leaves in the middle and the other blocks non-zero leaves and unwind them all
     std::vector<fr> third = create_values(1024);
+    size_t offset = block_size * 2;
+    for (size_t i = 0; i < block_size * 2; i++) {
+        third[i + offset] = fr::zero();
+    }
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, third);
+
+    // Now we add a number of regular blocks and unwind
+    std::vector<fr> fourth = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, fourth);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
