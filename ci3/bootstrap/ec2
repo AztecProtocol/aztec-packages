@@ -43,7 +43,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(./build-system/scripts/request_spot $instance_name 128 x86_64)
+ip_sir=$($ci3/aws/request_instance $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"

@@ -17,7 +17,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-# TODO: For the love of god can we stop bringing in entire node stacks for what can be done in a bash script?
+# TODO: Remove yarn, use bash?
 yarn install
 
 $ci3/github/group "noir-projects build"
@@ -25,7 +25,7 @@ parallel --line-buffer --tag {} ::: \
   ./noir-contracts/bootstrap.sh \
   ./noir-protocol-circuits/bootstrap.sh \
   ./mock-protocol-circuits/bootstrap.sh
-$ci3/github/endgroup "noir-projects build"
+$ci3/github/endgroup
 
 if [ "${CI:-0}" -eq 1 ]; then
   $ci3/github/group "noir-projects test"
@@ -35,5 +35,5 @@ if [ "${CI:-0}" -eq 1 ]; then
   (cd ./noir-contracts && $NARGO fmt --check)
   (cd ./aztec-nr && $NARGO fmt --check)
   # Testing aztec.nr/contracts requires TXE, so must be pushed to after the final yarn project build.
-  $ci3/github/endgroup "noir-projects build"
+  $ci3/github/endgroup
 fi

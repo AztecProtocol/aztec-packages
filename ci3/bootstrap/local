@@ -10,20 +10,19 @@
 # TODO: The docker flows need to pull images. Kinda sucks as they're right on the host (and maybe more up-to-date).
 # Preload them in?
 # The docker volume makes the image partly stateful.
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 current_commit=$(git rev-parse HEAD)
 
-# Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]] ; then
-  echo "Commit $current_commit is not pushed, exiting."
+if ! git diff --quiet; then
+  echo "There are local changes to tracked files."
   exit 1
-fi
+else
 
 docker run --name aztec_build -ti --rm \
   --privileged \
   -v boostrap_ci_local_docker:/var/lib/docker \
-  -v $PWD:/aztec-packages-host:ro \
+  -v $root:/aztec-packages-host:ro \
   -v $HOME/.aws:/root/.aws \
   aztecprotocol/ci:2.0 bash -c "
   /usr/local/share/docker-init.sh &> /dev/null

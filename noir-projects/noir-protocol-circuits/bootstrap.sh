@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-# Use ci3 script base.
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
 cd $(dirname $0)
 
 CMD=${1:-}
@@ -19,7 +18,7 @@ fi
 yarn
 node ./scripts/generate_variants.js
 
-export RAYON_NUM_THREADS=16
+export RAYON_NUM_THREADS=32
 export HARDWARE_CONCURRENCY=16
 
 echo "Compiling noir-protocol-circuits with $RAYON_NUM_THREADS threads..."

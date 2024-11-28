@@ -18,7 +18,10 @@ instance_name="${BRANCH//\//_}"
 case "$CMD" in
   # Spin up ec2 instance and bootstrap.
   "ec2")
-    ./bootstrap_ci.sh
+    $ci3/bootstrap/ec2
+    ;;
+  "local")
+    $ci3/bootstrap/local
     ;;
   "run")
     $0 trigger
@@ -59,13 +62,13 @@ case "$CMD" in
         set +e
         ssh -q -t -o ConnectTimeout=5 ubuntu@$ip "
           trap 'exit 130' SIGINT
-          docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 1
+          docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 255
           docker logs -f aztec_build
         "
         code=$?
         set -e
-        # Exit loop if SSH exited due to success or ctrl-c.
-        [ "$code" -eq 0 ] || [ "$code" -eq 130 ] && exit $code
+        # Exit loop if not an ssh or missing container error.
+        [ "$code" -ne 255 ] && exit $code
         echo "Waiting on aztec_build container..."
         sleep 5
       done
