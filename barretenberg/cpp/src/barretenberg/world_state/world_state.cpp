@@ -469,13 +469,12 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-WorldStateStatusFull WorldState::sync_block(
-    const StateReference& block_state_ref,
-    const bb::fr& block_header_hash,
-    const std::vector<bb::fr>& notes,
-    const std::vector<bb::fr>& l1_to_l2_messages,
-    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
+WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_ref,
+                                            const bb::fr& block_header_hash,
+                                            const std::vector<bb::fr>& notes,
+                                            const std::vector<bb::fr>& l1_to_l2_messages,
+                                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes)
 {
     validate_trees_are_equally_synched();
     WorldStateStatusFull status;
@@ -525,30 +524,13 @@ WorldStateStatusFull WorldState::sync_block(
         wrapper.tree->add_value(block_header_hash, decr);
     }
 
-    // finally insert the public writes and wait for all the operations to end
     {
-        // insert public writes in batches so that we can have different transactions modifying the same slot in the
-        // same L2 block
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        std::atomic_uint64_t current_batch = 0;
-        PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
-            current_batch++;
-            if (current_batch == public_writes.size()) {
-                decr(resp);
-            } else {
-                wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
-            }
-        };
-
-        if (public_writes.empty()) {
-            signal.signal_decrement();
-        } else {
-            wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
-        }
-
-        // block inside this scope in order to keep current_batch/completion alive until the end of all operations
-        signal.wait_for_level();
+        PublicDataTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        wrapper.tree->add_or_update_values_sequentially(public_writes, completion);
     }
+
+    signal.wait_for_level();
 
     if (!success) {
         throw std::runtime_error("Failed to sync block: " + err_message);

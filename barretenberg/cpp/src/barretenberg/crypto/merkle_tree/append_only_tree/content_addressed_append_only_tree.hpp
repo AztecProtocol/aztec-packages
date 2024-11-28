@@ -489,6 +489,16 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
 
         if (!child.has_value()) {
             // std::cout << "No child" << std::endl;
+            // We still need to update the cache with the sibling. The fact that under us there is an empty subtree
+            // doesn't mean that same is happening with our sibling.
+            if (updateNodesByIndexCache) {
+                child_index_at_level = is_right ? (child_index_at_level * 2) + 1 : (child_index_at_level * 2);
+                std::optional<fr> sibling = is_right ? nodePayload.left : nodePayload.right;
+                index_t sibling_index_at_level = is_right ? child_index_at_level - 1 : child_index_at_level + 1;
+                if (sibling.has_value()) {
+                    store_->put_cached_node_by_index(i + 1, sibling_index_at_level, sibling.value(), false);
+                }
+            }
             return std::nullopt;
         }
         // std::cout << "Found child " << child.value() << std::endl;
