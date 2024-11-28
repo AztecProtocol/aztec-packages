@@ -51,9 +51,9 @@ contract AMM {
 
     /// Amount of liquidity which gets locked when liquidity is provided for the first time. Its purpose is to prevent
     /// the pool from ever emptying which could lead to undefined behavior.
-    global MINIMUM_LIQUIDITY = U128::from_integer(1000);
+    global MINIMUM_LIQUIDITY: U128 = U128::from_integer(1000);
     /// We set it to 99 times the minimum liquidity. That way the first LP gets 99% of the value of their deposit.
-    global INITIAL_LIQUIDITY = U128::from_integer(99000);
+    global INITIAL_LIQUIDITY: U128 = U128::from_integer(99000);
 
     // TODO(#9480): Either deploy the liquidity contract in the constructor or verify it that it corresponds to what
     // this contract expects (i.e. that the AMM has permission to mint and burn).
