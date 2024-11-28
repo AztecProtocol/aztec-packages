@@ -11,6 +11,7 @@ import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   EthAddress,
+  GasFees,
   type NodeInfo,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
@@ -153,6 +154,7 @@ describe('Contract Class', () => {
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
+    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {
