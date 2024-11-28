@@ -28,13 +28,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import {
-  type EthAddress,
-  FEE_JUICE_INITIAL_MINT,
-  Fr,
-  GasSettings,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
   NULL_KEY,
@@ -642,7 +636,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
   try {
     await feeJuice.methods
       .initialize(feeJuicePortalAddress, FEE_JUICE_INITIAL_MINT)
-      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
+      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: { teardownGasLimits: Gas.empty() } } })
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
   } catch (error) {

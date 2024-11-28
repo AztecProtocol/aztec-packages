@@ -12,6 +12,7 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
+  GasFees,
   GasSettings,
   GeneratorIndex,
   type GrumpkinScalar,
@@ -107,7 +108,7 @@ describe('Private Execution test suite', () => {
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
     version: new Fr(20),
-    gasSettings: GasSettings.default(),
+    gasSettings: GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   };
 
   const runSimulator = ({

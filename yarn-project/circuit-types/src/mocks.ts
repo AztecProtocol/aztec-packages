@@ -4,6 +4,7 @@ import {
   ClientIvcProof,
   type ContractInstanceWithAddress,
   EthAddress,
+  GasFees,
   GasSettings,
   MAX_ENQUEUED_CALLS_PER_TX,
   Nullifier,
@@ -100,7 +101,7 @@ export const mockTx = (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  data.constants.txContext.gasSettings = GasSettings.default();
+  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
   data.feePayer = feePayer;
 
   let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
