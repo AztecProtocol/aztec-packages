@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.65.0...barretenberg-v0.65.1) (2024-11-27)
+
+
+### Features
+
+* Add total mana used to header ([#9868](https://github.com/AztecProtocol/aztec-packages/issues/9868)) ([2478d19](https://github.com/AztecProtocol/aztec-packages/commit/2478d1909db2d79cc0cdd3063dc2ac4e1eaedce3))
+* Configure world state block history ([#10216](https://github.com/AztecProtocol/aztec-packages/issues/10216)) ([01eb392](https://github.com/AztecProtocol/aztec-packages/commit/01eb392f15995f344e40aa8f8e41a28f6f5b825d))
+* Full IPA Recursive Verifier ([#10189](https://github.com/AztecProtocol/aztec-packages/issues/10189)) ([b5783d3](https://github.com/AztecProtocol/aztec-packages/commit/b5783d3945959056d24aa3d988e9ca9efd3ec224))
+* Speed up transaction execution ([#10172](https://github.com/AztecProtocol/aztec-packages/issues/10172)) ([da265b6](https://github.com/AztecProtocol/aztec-packages/commit/da265b6b7d61a0d991fa23bd044f711513a0e86c))
+
+
+### Bug Fixes
+
+* **avm:** Execution test ordering ([#10226](https://github.com/AztecProtocol/aztec-packages/issues/10226)) ([49b4a6c](https://github.com/AztecProtocol/aztec-packages/commit/49b4a6c07f39711ad2a0477e1fad11e11b8ee23c))
+
+
+### Miscellaneous
+
+* **avm:** Handle parsing error ([#10203](https://github.com/AztecProtocol/aztec-packages/issues/10203)) ([3c623fc](https://github.com/AztecProtocol/aztec-packages/commit/3c623fc2d857d6792b557dc7d1ccb929274046bb)), closes [#9770](https://github.com/AztecProtocol/aztec-packages/issues/9770)
+* **avm:** Zero initialization in avm public inputs and execution test fixes ([#10238](https://github.com/AztecProtocol/aztec-packages/issues/10238)) ([0c7c4c9](https://github.com/AztecProtocol/aztec-packages/commit/0c7c4c9bb0c01067abe57ccd06962d71c7279aa0))
+* CIVC VK ([#10223](https://github.com/AztecProtocol/aztec-packages/issues/10223)) ([089c34c](https://github.com/AztecProtocol/aztec-packages/commit/089c34cc3e9fb5cb493096246525c2205e646204))
+* Pull out some sync changes ([#10245](https://github.com/AztecProtocol/aztec-packages/issues/10245)) ([1bfc15e](https://github.com/AztecProtocol/aztec-packages/commit/1bfc15e08873a1f0f3743e259f418b70426b3f25))
+
 ## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.64.0...barretenberg-v0.65.0) (2024-11-26)
 
 
