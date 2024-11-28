@@ -10,6 +10,7 @@ describe('prover/orchestrator/multi-block', () => {
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
+    context.orchestrator.isVerifyBuiltBlockAgainstSyncedStateEnabled = true;
   });
 
   afterEach(async () => {

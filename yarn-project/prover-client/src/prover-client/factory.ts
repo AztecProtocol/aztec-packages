@@ -1,4 +1,4 @@
-import { type ForkMerkleTreeWriteOperations, type ProvingJobBroker } from '@aztec/circuit-types';
+import { type ForkMerkleTreeOperations, type ProvingJobBroker } from '@aztec/circuit-types';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -7,7 +7,7 @@ import { ProverClient } from './prover-client.js';
 
 export function createProverClient(
   config: ProverClientConfig,
-  worldState: ForkMerkleTreeWriteOperations,
+  worldState: ForkMerkleTreeOperations,
   broker: ProvingJobBroker,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
 ) {

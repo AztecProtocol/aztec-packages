@@ -1,5 +1,6 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
+  type L2Block,
   type ProcessedTx,
   type ProcessedTxHandler,
   type PublicExecutionRequest,
@@ -8,7 +9,7 @@ import {
   type TxValidator,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
@@ -49,7 +50,7 @@ export class TestContext {
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
-    public orchestrator: ProvingOrchestrator,
+    public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
     public logger: DebugLogger,
@@ -112,7 +113,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
+    const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -254,5 +255,21 @@ export class TestContext {
       simulateInternal.mockImplementation(executorMock);
     }
     return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
+  }
+}
+
+class TestProvingOrchestrator extends ProvingOrchestrator {
+  public isVerifyBuiltBlockAgainstSyncedStateEnabled = false;
+
+  // Disable this check by default, since it requires seeding world state with the block being built
+  // This is only enabled in some tests with multiple blocks that populate the pending chain via makePendingBlock
+  protected override verifyBuiltBlockAgainstSyncedState(
+    l2Block: L2Block,
+    newArchive: AppendOnlyTreeSnapshot,
+  ): Promise<void> {
+    if (this.isVerifyBuiltBlockAgainstSyncedStateEnabled) {
+      return super.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
+    }
+    return Promise.resolve();
   }
 }

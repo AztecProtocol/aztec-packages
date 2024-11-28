@@ -7,7 +7,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   type EpochProver,
-  type ForkMerkleTreeWriteOperations,
+  type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
   type ProofAndVerificationKey,
 } from '@aztec/circuit-types/interfaces';
@@ -15,6 +15,7 @@ import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupHints,
@@ -102,7 +103,7 @@ export class ProvingOrchestrator implements EpochProver {
   private dbs: Map<number, MerkleTreeWriteOperations> = new Map();
 
   constructor(
-    private dbProvider: ForkMerkleTreeWriteOperations,
+    private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,
@@ -439,8 +440,22 @@ export class ProvingOrchestrator implements EpochProver {
       );
     }
 
+    await this.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
+
     logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
     provingState.block = l2Block;
+  }
+
+  // Flagged as protected to disable in certain unit tests
+  protected async verifyBuiltBlockAgainstSyncedState(l2Block: L2Block, newArchive: AppendOnlyTreeSnapshot) {
+    const syncedArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.dbProvider.getSnapshot(l2Block.number));
+    if (!syncedArchive.equals(newArchive)) {
+      throw new Error(
+        `Archive tree mismatch for block ${l2Block.number}: world state synced to ${inspect(
+          syncedArchive,
+        )} but built ${inspect(newArchive)}`,
+      );
+    }
   }
 
   // Enqueues the proving of the required padding transactions

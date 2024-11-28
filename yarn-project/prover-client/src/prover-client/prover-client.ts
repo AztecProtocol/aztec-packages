@@ -3,7 +3,7 @@ import {
   type ActualProverConfig,
   type EpochProver,
   type EpochProverManager,
-  type ForkMerkleTreeWriteOperations,
+  type ForkMerkleTreeOperations,
   type ProverCache,
   type ProvingJobBroker,
   type ProvingJobConsumer,
@@ -34,7 +34,7 @@ export class ProverClient implements EpochProverManager {
 
   private constructor(
     private config: ProverClientConfig,
-    private worldState: ForkMerkleTreeWriteOperations,
+    private worldState: ForkMerkleTreeOperations,
     private telemetry: TelemetryClient,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
@@ -107,7 +107,7 @@ export class ProverClient implements EpochProverManager {
    */
   public static async new(
     config: ProverClientConfig,
-    worldState: ForkMerkleTreeWriteOperations,
+    worldState: ForkMerkleTreeOperations,
     broker: ProvingJobBroker,
     telemetry: TelemetryClient,
   ) {

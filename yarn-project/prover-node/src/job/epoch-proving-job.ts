@@ -2,7 +2,7 @@ import {
   EmptyTxValidator,
   type EpochProver,
   type EpochProvingJobState,
-  type ForkMerkleTreeWriteOperations,
+  type ForkMerkleTreeOperations,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
@@ -35,7 +35,7 @@ export class EpochProvingJob {
   private runPromise: Promise<void> | undefined;
 
   constructor(
-    private dbProvider: ForkMerkleTreeWriteOperations,
+    private dbProvider: ForkMerkleTreeOperations,
     private epochNumber: bigint,
     private blocks: L2Block[],
     private prover: EpochProver,
