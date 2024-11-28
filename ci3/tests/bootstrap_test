@@ -1,13 +1,16 @@
 #!/bin/bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source "$(git rev-parse --show-toplevel)/ci3/base/source"
 
-# Tests the various modes of bootstrap test usage. We wrap and mock ci3/cache/should_run to be able to detect when a test tries to run.
+# Tests the various modes of bootstrap test usage.
+# We wrap and mock ci3/cache/should_run to detect when a test tries to run.
 # We never return true, as we don't actually want to run tests here.
-# - First do CI=0. Append tests ran from mocked ci3/cache/should_run in ci3/cache/should_run.list. Exit 1 if ci3/cache/should_run.bkup returns false.
-# - Read the should_run.list into memory to compare later.
-# - Next do CI=1. Delete ci3/cache/should_run.list, but otherwise keep logic. Ensure that should_run.list is equal to the previous result.
-# - Next do CI=1. Use a mocked ci3/cache/should_run that collects should_run.list for comparison, but exits 1 if ci3/cache/should_run.bkup returns *true*.
+# - First, with CI=0, we append tests run from mocked ci3/cache/should_run into ci3/cache/should_run.list.
+#   We log failures if ci3/cache/should_run.bkup returns false.
+# - Next, with CI=1, we delete ci3/cache/should_run.list, keep the logic, and ensure that should_run.list
+#   is equal to the previous result.
+# - Finally, with CI=1, we use a different mocked ci3/cache/should_run that collects should_run.list for comparison,
+#   but logs failures if ci3/cache/should_run.bkup returns true.
 
 function delete_test_cache() {
   AWS_SECRET_ACCESS_KEY=minioadmin AWS_ACCESS_KEY_ID=minioadmin \
@@ -16,9 +19,9 @@ function delete_test_cache() {
 }
 
 function cleanup() {
-  rm -f $ci3/cache/should_run.bkup
-  git checkout $ci3/cache/should_run
-  rm -f $ci3/cache/should_run.list
+  rm -f "$ci3/cache/should_run.bkup"
+  git checkout -- "$ci3/cache/should_run"
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
   delete_test_cache
 }
 trap cleanup EXIT
@@ -35,7 +38,7 @@ function start_minio() {
     quay.io/minio/minio server /data --console-address ":12001"
 
   # Wait for MinIO to be ready
-  while ! nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
+  until nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
     sleep 1
   done
 
@@ -45,12 +48,160 @@ function start_minio() {
     aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
 }
 
-# Make the cache/download and cache/upload scripts use minio
+# Configure AWS parameters to use MinIO
 export S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://localhost:12000"
-export AWS_SECRET_ACCESS_KEY=minioadmin
-export AWS_ACCESS_KEY_ID=minioadmin
+export AWS_SECRET_ACCESS_KEY="minioadmin"
+export AWS_ACCESS_KEY_ID="minioadmin"
 
 start_minio
-# if we have minio already running make sure the cache is deleted
-# otherwise it will be run by next earthly local command
-nc -z 127.0.0.1 12000 2>/dev/null >/dev/null && delete_test_cache
+# If MinIO is already running, ensure the cache is deleted
+if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
+  delete_test_cache
+fi
+
+# Paths to the mock should_run scripts in $ci3/tests/
+mock_should_run_CI="$ci3/tests/should_run_mock_CI.sh"
+mock_should_run_CI_false="$ci3/tests/should_run_mock_CI_false.sh"
+
+# Ensure the mock scripts exist
+if [ ! -f "$mock_should_run_CI" ] || [ ! -f "$mock_should_run_CI_false" ]; then
+  echo "Mock should_run scripts not found in $ci3/tests/"
+  exit 1
+fi
+
+# Function to run the bootstrap.sh script
+function run_bootstrap() {
+  # Remove any existing should_run.list and should_run.failure
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+
+  # Call ../../../bootstrap.sh
+  (cd ../../../ && ./bootstrap.sh)
+}
+
+# Initialize the overall test status
+all_tests_passed=true
+
+declare -a should_run_list  # Array to store should_run.list from test_CI_0
+
+function test_CI_0() {
+  echo "Running test_CI_0"
+
+  # Backup the original should_run
+  cp "$ci3/cache/should_run" "$ci3/cache/should_run.bkup"
+
+  # Use the mock should_run script for CI=0
+  cp "$mock_should_run_CI" "$ci3/cache/should_run"
+  chmod +x "$ci3/cache/should_run"
+
+  # Remove .failure and .list before running the test
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+
+  CI=0 run_bootstrap
+
+  # Check for failures
+  if [ -s "$ci3/cache/should_run.failure" ]; then
+    echo "Failures detected in test_CI_0:"
+    cat "$ci3/cache/should_run.failure"
+    all_tests_passed=false
+    return 1
+  fi
+
+  # Read the should_run.list into memory
+  mapfile -t should_run_list < "$ci3/cache/should_run.list"
+
+  # Report success
+  echo "test_CI_0 completed successfully. Collected test list:"
+  printf '%s\n' "${should_run_list[@]}"
+
+  # Remove .failure and .list after the test
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+}
+
+function test_CI_1_same_list() {
+  echo "Running test_CI_1_same_list"
+
+  # Use the mock should_run script for CI=1 same list
+  cp "$mock_should_run_CI" "$ci3/cache/should_run"
+  chmod +x "$ci3/cache/should_run"
+
+  # Remove .failure and .list before running the test
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+
+  CI=1 run_bootstrap
+
+  # Check for failures
+  if [ -s "$ci3/cache/should_run.failure" ]; then
+    echo "Failures detected in test_CI_1_same_list:"
+    cat "$ci3/cache/should_run.failure"
+    all_tests_passed=false
+    return 1
+  fi
+
+  # Read the new should_run.list into memory
+  mapfile -t should_run_list_CI1 < "$ci3/cache/should_run.list"
+
+  # Compare with previous should_run_list
+  if diff -q <(printf "%s\n" "${should_run_list[@]}") <(printf "%s\n" "${should_run_list_CI1[@]}") >/dev/null; then
+    echo "test_CI_1_same_list completed successfully. Test lists are equal."
+  else
+    echo "test_CI_1_same_list failed. Test lists are different."
+    all_tests_passed=false
+    return 1
+  fi
+
+  # Remove .failure and .list after the test
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+}
+
+function test_CI_1_should_run_false() {
+  echo "Running test_CI_1_should_run_false"
+
+  # Use the mock should_run script for CI=1 should_run_false
+  cp "$mock_should_run_CI_false" "$ci3/cache/should_run"
+  chmod +x "$ci3/cache/should_run"
+
+  # Remove .failure and .list before running the test
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+
+  CI=1 run_bootstrap
+
+  # Check for failures
+  if [ -s "$ci3/cache/should_run.failure" ]; then
+    echo "Failures detected in test_CI_1_should_run_false:"
+    cat "$ci3/cache/should_run.failure"
+    all_tests_passed=false
+    return 1
+  fi
+
+  # Read the new should_run.list into memory
+  mapfile -t should_run_list_CI1_false < "$ci3/cache/should_run.list"
+
+  # Compare with previous should_run_list
+  if diff -q <(printf "%s\n" "${should_run_list[@]}") <(printf "%s\n" "${should_run_list_CI1_false[@]}") >/dev/null; then
+    echo "test_CI_1_should_run_false completed successfully. Test lists are equal."
+  else
+    echo "test_CI_1_should_run_false failed. Test lists are different."
+    all_tests_passed=false
+    return 1
+  fi
+
+  # Remove .failure and .list after the test
+  rm -f "$ci3/cache/should_run.list" "$ci3/cache/should_run.failure"
+}
+
+# Run the tests
+test_CI_0 && echo "test_CI_0 success" || echo "test_CI_0 failure"
+test_CI_1_same_list && echo "test_CI_1_same_list success" || echo "test_CI_1_same_list failure"
+test_CI_1_should_run_false && echo "test_CI_1_should_run_false success" || echo "test_CI_1_should_run_false failure"
+
+# Cleanup
+cleanup
+
+# Check overall test status
+if [ "$all_tests_passed" = true ]; then
+  echo "All tests passed successfully."
+  exit 0
+else
+  echo "Some tests failed."
+  exit 1
+fi
