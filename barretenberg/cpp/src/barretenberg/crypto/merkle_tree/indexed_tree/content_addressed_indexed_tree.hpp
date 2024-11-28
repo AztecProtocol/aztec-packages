@@ -252,20 +252,20 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                              const InsertionGenerationCallback& completion);
 
     struct InsertionUpdates {
-        // On insertion, we always update a low leaf. If it's a new leaf, we update the pointer of the low leaf.
-        // If it's an update, we update the 'low' leaf itself.
+        // On insertion, we always update a low leaf. If it's creating a new leaf, we need to update the pointer to
+        // point to the new one, if it's an update to an existing leaf, we need to change its payload.
         LeafUpdate low_leaf_update;
-        // If it's not an update, we also create a new leaf.
+        // We don't create new leaves on update
         std::optional<std::pair<IndexedLeafValueType, index_t>> new_leaf;
     };
 
     struct SequentialInsertionGenerationResponse {
-        std::shared_ptr<std::vector<InsertionUpdates>> updates_to_perform;
+        std::vector<InsertionUpdates> updates_to_perform;
         index_t highest_index;
     };
 
     using SequentialInsertionGenerationCallback =
-        std::function<void(const TypedResponse<SequentialInsertionGenerationResponse>&)>;
+        std::function<void(TypedResponse<SequentialInsertionGenerationResponse>&)>;
     void generate_sequential_insertions(const std::vector<LeafValueType>& values,
                                         const SequentialInsertionGenerationCallback& completion);
 
@@ -1427,10 +1427,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
 
     // This struct is used to collect some state from the asynchronous operations we are about to perform
     struct IntermediateResults {
-        std::shared_ptr<std::vector<InsertionUpdates>> updates_to_perform;
+        std::vector<InsertionUpdates> updates_to_perform;
         size_t appended_leaves = 0;
     };
-    std::shared_ptr<IntermediateResults> results = std::make_shared<IntermediateResults>();
+    auto results = std::make_shared<IntermediateResults>();
 
     auto on_error = [=](const std::string& message) {
         try {
@@ -1464,19 +1464,19 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
                 // Split results->update_witnesses between low_leaf_witness_data and insertion_witness_data
                 response.inner.insertion_witness_data =
                     std::make_shared<std::vector<LeafUpdateWitnessData<LeafValueType>>>();
-                response.inner.insertion_witness_data->reserve(results->updates_to_perform->size());
+                response.inner.insertion_witness_data->reserve(results->updates_to_perform.size());
 
                 response.inner.low_leaf_witness_data =
                     std::make_shared<std::vector<LeafUpdateWitnessData<LeafValueType>>>();
-                response.inner.low_leaf_witness_data->reserve(results->updates_to_perform->size());
+                response.inner.low_leaf_witness_data->reserve(results->updates_to_perform.size());
 
                 size_t current_witness_index = 0;
-                for (size_t i = 0; i < results->updates_to_perform->size(); ++i) {
+                for (size_t i = 0; i < results->updates_to_perform.size(); ++i) {
                     LeafUpdateWitnessData<LeafValueType> low_leaf_witness =
                         updates_completion_response.inner.update_witnesses->at(current_witness_index++);
                     response.inner.low_leaf_witness_data->push_back(low_leaf_witness);
 
-                    InsertionUpdates& insertion_update = results->updates_to_perform->at(i);
+                    InsertionUpdates& insertion_update = results->updates_to_perform.at(i);
 
                     if (insertion_update.new_leaf.has_value()) {
                         LeafUpdateWitnessData<LeafValueType> insertion_witness =
@@ -1497,17 +1497,17 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
     // This signals the completion of the insertion data generation
     // Here we'll perform all updates to the tree
     SequentialInsertionGenerationCallback insertion_generation_completed =
-        [=, this](const TypedResponse<SequentialInsertionGenerationResponse>& insertion_response) {
+        [=, this](TypedResponse<SequentialInsertionGenerationResponse>& insertion_response) {
             if (!insertion_response.success) {
                 on_error(insertion_response.message);
                 return;
             }
 
             std::shared_ptr<std::vector<LeafUpdate>> flat_updates = std::make_shared<std::vector<LeafUpdate>>();
-            flat_updates->reserve(insertion_response.inner.updates_to_perform->size() * 2);
+            flat_updates->reserve(insertion_response.inner.updates_to_perform.size() * 2);
 
-            for (size_t i = 0; i < insertion_response.inner.updates_to_perform->size(); ++i) {
-                InsertionUpdates& insertion_update = insertion_response.inner.updates_to_perform->at(i);
+            for (size_t i = 0; i < insertion_response.inner.updates_to_perform.size(); ++i) {
+                InsertionUpdates& insertion_update = insertion_response.inner.updates_to_perform.at(i);
                 flat_updates->push_back(insertion_update.low_leaf_update);
                 if (insertion_update.new_leaf.has_value()) {
                     results->appended_leaves++;
@@ -1522,7 +1522,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
                 }
             }
             results->updates_to_perform = std::move(insertion_response.inner.updates_to_perform);
-
+            assert(insertion_response.inner.updates_to_perform.size() == 0);
             if (capture_witness) {
                 perform_updates(flat_updates->size(), flat_updates, final_completion);
                 return;
@@ -1540,8 +1540,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
 {
     execute_and_report<SequentialInsertionGenerationResponse>(
         [=, this](TypedResponse<SequentialInsertionGenerationResponse>& response) {
-            response.inner.updates_to_perform = std::make_shared<std::vector<InsertionUpdates>>();
-
             TreeMeta meta;
             ReadTransactionPtr tx = store_->create_read_transaction();
             store_->get_meta(meta, *tx, true);
@@ -1647,7 +1645,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                                                     " is already present"));
                 }
 
-                response.inner.updates_to_perform->push_back(insertion_update);
+                response.inner.updates_to_perform.push_back(insertion_update);
             }
 
             //  Ensure that the tree is not going to be overfilled
