@@ -86,8 +86,8 @@ function build_native {
     $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
   fi
   if $ci3/base/is_test && $ci3/cache/should_run barretenberg-test-$HASH; then
-    $ci3/github/endgroup
-    $ci3/github/group "bb cpp test"
+    $ci3/github/endgroup > /dev/tty
+    $ci3/github/group "bb cpp test" > /dev/tty
     cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $PRESET
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
