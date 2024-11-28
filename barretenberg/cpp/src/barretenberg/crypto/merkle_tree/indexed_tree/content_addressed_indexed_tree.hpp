@@ -1476,14 +1476,13 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
                         updates_completion_response.inner.update_witnesses->at(current_witness_index++);
                     response.inner.low_leaf_witness_data->push_back(low_leaf_witness);
 
-                    InsertionUpdates& insertion_update = results->updates_to_perform.at(i);
-
-                    if (insertion_update.new_leaf.has_value()) {
+                    // If this update has an insertion, append the real witness
+                    if (results->updates_to_perform.at(i).new_leaf.has_value()) {
                         LeafUpdateWitnessData<LeafValueType> insertion_witness =
                             updates_completion_response.inner.update_witnesses->at(current_witness_index++);
                         response.inner.insertion_witness_data->push_back(insertion_witness);
                     } else {
-                        // Append an empty insertion witness
+                        // If it's an update, append an empty witness
                         response.inner.insertion_witness_data->push_back(LeafUpdateWitnessData<LeafValueType>{
                             .leaf = IndexedLeafValueType::empty(), .index = 0, .path = std::vector<fr>(depth_) });
                     }
@@ -1521,6 +1520,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
                     });
                 }
             }
+            // We won't use anymore updates_to_perform
             results->updates_to_perform = std::move(insertion_response.inner.updates_to_perform);
             assert(insertion_response.inner.updates_to_perform.size() == 0);
             if (capture_witness) {
