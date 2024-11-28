@@ -39,10 +39,12 @@ if $ci3/base/is_build; then
   $ci3/github/endgroup
 fi
 
-if $ci3/base/is_test && $ci3/cache/should_run noir-test-$NATIVE_HASH-$PACKAGES_HASH  ; then
-  $ci3/github/group "noir test"
+if $ci3/base/is_test && $ci3/cache/should_run noir-test-$NATIVE_HASH-$PACKAGES_HASH; then
+  $ci3/github/group "noir test native"
   export PATH="$PWD/noir-repo/target/release/:$PATH"
   ./scripts/test_native.sh
+  $ci3/github/endgroup
+  $ci3/github/group "noir test packages"
   ./scripts/test_js_packages.sh
   $ci3/cache/upload_flag noir-test-$NATIVE_HASH-$PACKAGES_HASH
   $ci3/github/endgroup
