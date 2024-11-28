@@ -447,6 +447,8 @@ contract Token {
     /// Returns a hiding point slot.
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> Field {
+        // TODO(#9887): ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret
+        // with `to`.
         _prepare_private_balance_increase(from, to, &mut context, storage)
     }
     // docs:end:prepare_private_balance_increase

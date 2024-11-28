@@ -99,6 +99,7 @@ contract AMM {
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
         // maximum amounts here, and prepare partial notes that return the change to the sender (if any).
+        // TODO(#10286): consider merging these two calls
         token0.transfer_to_public(sender, context.this_address(), amount0_max, nonce).call(
             &mut context,
         );
@@ -254,6 +255,7 @@ contract AMM {
         // Liquidity tokens are burned when liquidity is removed in order to reduce the total supply. However, we lack
         // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and them have
         // the AMM publicly burn its own tokens.
+        // TODO(#10287): consider adding a private burn
         liquidity_token.transfer_to_public(sender, context.this_address(), liquidity, nonce).call(
             &mut context,
         );
@@ -351,6 +353,7 @@ contract AMM {
 
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
+        // TODO(#10286): consider merging these two calls
         Token::at(token_in)
             .transfer_to_public(sender, context.this_address(), amount_in, nonce)
             .call(&mut context);
@@ -430,6 +433,7 @@ contract AMM {
         // Technically the token out note does not need to be partial, since we do know the amount out, but we do want
         // to wait until the swap has been completed before commiting the note to the tree to avoid it being spent too
         // early.
+        // TODO(#10286): consider merging these two calls
         Token::at(token_in)
             .transfer_to_public(sender, context.this_address(), amount_in_max, nonce)
             .call(&mut context);
