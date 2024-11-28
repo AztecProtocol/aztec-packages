@@ -4,10 +4,14 @@ set -eu
 
 cd "$(dirname "$0")"
 
-$ci3/github/group "noir-protocol-circuits vks"
+export RAYON_NUM_THREADS=16
+export HARDWARE_CONCURRENCY=16
+
+NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+$NARGO compile --silence-warnings
+
 export BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo Using BB hash $BB_HASH
 mkdir -p "./target/keys"
 
 parallel --line-buffer --tag node ../scripts/generate_vk_json.js {} "./target/keys" ::: ./target/*.json
-$ci3/github/endgroup
