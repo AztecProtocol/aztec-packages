@@ -184,6 +184,9 @@ case "$CMD" in
   ;;
   ""|"fast")
     case "${CI:-0}" in
+      -1)
+        build
+      ;;
       0)
         build
       ;;
