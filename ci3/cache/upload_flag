@@ -8,7 +8,7 @@ fi
 
 if [ "${CI:-0}" -lt 1 ] ; then
   # Don't upload if CI isn't set. No need to muddle with dev runs.
-  exit 1
+  exit 0
 fi
 
 function on_exit() {
