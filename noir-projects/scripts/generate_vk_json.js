@@ -5,8 +5,6 @@ const crypto = require("crypto");
 
 const megaHonkPatterns = require("../mega_honk_circuits.json");
 const {
-  readVKFromS3,
-  writeVKToS3,
   getBarretenbergHash,
   generateArtifactHash,
   BB_BIN_PATH,
@@ -85,20 +83,14 @@ async function processArtifact(artifactPath, artifactName, outputFolder) {
     return;
   }
 
-  let vkData = await readVKFromS3(artifactName, artifactHash);
-  if (!vkData) {
-    vkData = await generateVKData(
-      artifactName,
-      outputFolder,
-      artifactPath,
-      artifactHash,
-      isMegaHonk,
-      isRecursive
-    );
-    await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
-  } else {
-    console.log("Using VK from remote cache for", artifactName);
-  }
+  const vkData = await generateVKData(
+    artifactName,
+    outputFolder,
+    artifactPath,
+    artifactHash,
+    isMegaHonk,
+    isRecursive
+  );
 
   await fs.writeFile(vkDataPath, JSON.stringify(vkData, null, 2));
 }
