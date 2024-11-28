@@ -8,14 +8,14 @@ export interface AztecMap<K extends Key, V> {
    * Gets the value at the given key.
    * @param key - The key to get the value from
    */
-  get(key: K): V | undefined;
+  get(key: K): Promise<V | undefined>;
 
   /**
    * Checks if a key exists in the map.
    * @param key - The key to check
    * @returns True if the key exists, false otherwise
    */
-  has(key: K): boolean;
+  has(key: K): Promise<boolean>;
 
   /**
    * Sets the value at the given key.

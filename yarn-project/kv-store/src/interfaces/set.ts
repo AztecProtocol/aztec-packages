@@ -9,7 +9,7 @@ export interface AztecSet<K extends Key> {
    * @param key - The key to check
    * @returns True if the key exists, false otherwise
    */
-  has(key: K): boolean;
+  has(key: K): Promise<boolean>;
 
   /**
    * Adds the given value.

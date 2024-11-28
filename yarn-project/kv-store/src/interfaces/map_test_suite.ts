@@ -1,5 +1,6 @@
-import '@aztec/circuit-types/jest';
 import { toArray } from '@aztec/foundation/iterable';
+
+import { expect } from 'chai';
 
 import { Key } from './common.js';
 import { AztecMultiMap } from './map.js';
@@ -19,16 +20,16 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(map.get('foo')).toEqual('bar');
-      expect(map.get('baz')).toEqual('qux');
-      expect(map.get('quux')).toEqual(undefined);
+      expect(await map.get('foo')).to.equal('bar');
+      expect(await map.get('baz')).to.equal('qux');
+      expect(await map.get('quux')).to.equal(undefined);
     });
 
     it('should be able to set values if they do not exist', async () => {
-      expect(await map.setIfNotExists('foo', 'bar')).toEqual(true);
-      expect(await map.setIfNotExists('foo', 'baz')).toEqual(false);
+      expect(await map.setIfNotExists('foo', 'bar')).to.equal(true);
+      expect(await map.setIfNotExists('foo', 'baz')).to.equal(false);
 
-      expect(map.get('foo')).toEqual('bar');
+      expect(await map.get('foo')).to.equal('bar');
     });
 
     it('should be able to delete values', async () => {
@@ -37,19 +38,19 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
 
       await map.delete('foo');
 
-      expect(map.get('foo')).toEqual(undefined);
-      expect(map.get('baz')).toEqual('qux');
+      expect(await map.get('foo')).to.equal(undefined);
+      expect(await map.get('baz')).to.equal('qux');
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
-      expect(await toArray(map.entries())).toEqual([]);
+      expect(await toArray(map.entries())).to.deep.equal([]);
     });
 
     it('should be able to iterate over entries', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await toArray(map.entries())).toEqual([
+      expect(await toArray(map.entries())).to.deep.equal([
         ['baz', 'qux'],
         ['foo', 'bar'],
       ]);
@@ -59,21 +60,21 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await map.set('foo', 'bar');
       await map.set('baz', 'quux');
 
-      expect(await toArray(map.values())).toEqual(['quux', 'bar']);
+      expect(await toArray(map.values())).to.deep.equal(['quux', 'bar']);
     });
 
     it('should be able to iterate over keys', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await toArray(map.keys())).toEqual(['baz', 'foo']);
+      expect(await toArray(map.keys())).to.deep.equal(['baz', 'foo']);
     });
 
     it('should be able to get multiple values for a single key', async () => {
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
 
-      expect(await toArray(map.getValues('foo'))).toEqual(['bar', 'baz']);
+      expect(await toArray(await map.getValues('foo'))).to.deep.equal(['bar', 'baz']);
     });
 
     it('should be able to delete individual values for a single key', async () => {
@@ -82,7 +83,7 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
 
       await map.deleteValue('foo', 'bar');
 
-      expect(await toArray(map.getValues('foo'))).toEqual(['baz']);
+      expect(await toArray(await map.getValues('foo'))).to.deep.equal(['baz']);
     });
 
     it('supports tuple keys', async () => {
@@ -92,12 +93,12 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await tupleMap.set([5, 'bar'], 'val');
       await tupleMap.set([0, 'foo'], 'val');
 
-      expect(await toArray(tupleMap.keys())).toEqual([
+      expect(await toArray(tupleMap.keys())).to.deep.equal([
         [0, 'foo'],
         [5, 'bar'],
       ]);
 
-      expect(tupleMap.get([5, 'bar'])).toEqual('val');
+      expect(await tupleMap.get([5, 'bar'])).to.equal('val');
     });
 
     it('supports range queries', async () => {
@@ -106,13 +107,13 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await map.set('c', 'c');
       await map.set('d', 'd');
 
-      expect(await toArray(map.keys({ start: 'b', end: 'c' }))).toEqual(['b']);
-      expect(await toArray(map.keys({ start: 'b' }))).toEqual(['b', 'c', 'd']);
-      expect(await toArray(map.keys({ end: 'c' }))).toEqual(['a', 'b']);
-      expect(await toArray(map.keys({ start: 'b', end: 'c', reverse: true }))).toEqual(['c']);
-      expect(await toArray(map.keys({ start: 'b', limit: 1 }))).toEqual(['b']);
-      expect(await toArray(map.keys({ start: 'b', reverse: true }))).toEqual(['d', 'c']);
-      expect(await toArray(map.keys({ end: 'b', reverse: true }))).toEqual(['b', 'a']);
+      expect(await toArray(map.keys({ start: 'b', end: 'c' }))).to.deep.equal(['b']);
+      expect(await toArray(map.keys({ start: 'b' }))).to.deep.equal(['b', 'c', 'd']);
+      expect(await toArray(map.keys({ end: 'c' }))).to.deep.equal(['a', 'b']);
+      expect(await toArray(map.keys({ start: 'b', end: 'c', reverse: true }))).to.deep.equal(['c']);
+      expect(await toArray(map.keys({ start: 'b', limit: 1 }))).to.deep.equal(['b']);
+      expect(await toArray(map.keys({ start: 'b', reverse: true }))).to.deep.equal(['d', 'c']);
+      expect(await toArray(map.keys({ end: 'b', reverse: true }))).to.deep.equal(['b', 'a']);
     });
   });
 }

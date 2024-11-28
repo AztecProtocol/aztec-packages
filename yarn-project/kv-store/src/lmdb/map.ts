@@ -31,8 +31,8 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     return this.db.close();
   }
 
-  get(key: K): V | undefined {
-    return this.db.get(this.#slot(key))?.[1];
+  async get(key: K): Promise<V | undefined> {
+    return Promise.resolve(this.db.get(this.#slot(key))?.[1]);
   }
 
   async *getValues(key: K): AsyncIterableIterator<V> {
@@ -42,7 +42,7 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     }
   }
 
-  has(key: K): boolean {
+  async has(key: K): Promise<boolean> {
     return this.db.doesExist(this.#slot(key));
   }
 

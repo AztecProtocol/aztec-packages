@@ -20,7 +20,7 @@ export async function initStoreForRollup<T extends AztecKVStore>(
   }
   const rollupAddressValue = store.openSingleton<ReturnType<EthAddress['toString']>>('rollupAddress');
   const rollupAddressString = rollupAddress.toString();
-  const storedRollupAddressString = rollupAddressValue.get();
+  const storedRollupAddressString = await rollupAddressValue.get();
 
   if (typeof storedRollupAddressString !== 'undefined' && storedRollupAddressString !== rollupAddressString) {
     log?.warn(`Rollup address mismatch. Clearing entire database...`, {

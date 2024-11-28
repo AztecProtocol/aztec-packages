@@ -1,6 +1,4 @@
-import { Logger, createDebugLogger } from '@aztec/foundation/log';
-
-import { join } from 'path';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import { DataStoreConfig } from '../config.js';
 import { initStoreForRollup } from '../utils.js';
@@ -15,7 +13,7 @@ export async function createStore(
 ) {
   let { dataDirectory } = config;
   if (typeof dataDirectory !== 'undefined') {
-    dataDirectory = join(dataDirectory, name);
+    dataDirectory = `${dataDirectory}/${name}`;
   }
 
   log.info(
@@ -23,9 +21,13 @@ export async function createStore(
       ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
       : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
-  return initStoreForRollup(await AztecIndexedDBStore.open(dataDirectory, true), config.l1Contracts.rollupAddress, log);
+  return initStoreForRollup(
+    await AztecIndexedDBStore.open(dataDirectory ?? '', createDebugLogger('aztec:kv-store:indexeddb'), true),
+    config.l1Contracts.rollupAddress,
+    log,
+  );
 }
 
 export async function openTmpStore(ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
-  return AztecIndexedDBStore.open(undefined, ephemeral);
+  return AztecIndexedDBStore.open('', createDebugLogger('aztec:kv-store:indexeddb'), ephemeral);
 }

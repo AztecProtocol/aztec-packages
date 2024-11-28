@@ -17,8 +17,8 @@ export class LmdbAztecSingleton<T> implements AztecSingleton<T> {
     this.#slot = ['singleton', name, 'value'];
   }
 
-  get(): T | undefined {
-    return this.#db.get(this.#slot);
+  get(): Promise<T | undefined> {
+    return Promise.resolve(this.#db.get(this.#slot));
   }
 
   set(val: T): Promise<boolean> {

@@ -1,5 +1,3 @@
-import { type Database } from 'lmdb';
-
 import { type Key, type Range } from '../interfaces/common.js';
 import { type AztecSet } from '../interfaces/set.js';
 import { IndexedDBAztecMap } from './map.js';
@@ -9,15 +7,16 @@ import { IndexedDBAztecMap } from './map.js';
  */
 export class IndexedDBAztecSet<K extends Key> implements AztecSet<K> {
   private map: IndexedDBAztecMap<K, boolean>;
-  constructor(rootDb: Database, mapName: string) {
+
+  constructor(rootDb: IDBDatabase, mapName: string) {
     this.map = new IndexedDBAztecMap(rootDb, mapName);
   }
 
-  close(): Promise<void> {
-    return this.map.close();
+  set db(db: IDBObjectStore) {
+    this.map.db = db;
   }
 
-  has(key: K): boolean {
+  has(key: K): Promise<boolean> {
     return this.map.has(key);
   }
 

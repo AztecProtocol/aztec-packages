@@ -20,13 +20,13 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     this.#db = db as Database<T, ArrayIndexSlot>;
   }
 
-  get length(): number {
-    return this.#length.get() ?? 0;
+  async length(): Promise<number> {
+    return (await this.#length.get()) ?? 0;
   }
 
-  push(...vals: T[]): Promise<number> {
-    return this.#db.childTransaction(() => {
-      let length = this.length;
+  async push(...vals: T[]): Promise<number> {
+    return await this.#db.childTransaction(async () => {
+      let length = await this.length();
       for (const val of vals) {
         void this.#db.put(this.#slot(length), val);
         length += 1;
@@ -38,9 +38,9 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     });
   }
 
-  pop(): Promise<T | undefined> {
-    return this.#db.childTransaction(() => {
-      const length = this.length;
+  async pop(): Promise<T | undefined> {
+    return await this.#db.childTransaction(async () => {
+      const length = await this.length();
       if (length === 0) {
         return undefined;
       }
@@ -55,26 +55,29 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     });
   }
 
-  at(index: number): T | undefined {
+  async at(index: number): Promise<T | undefined> {
+    const length = await this.length();
     if (index < 0) {
-      index = this.length + index;
+      index = length + index;
     }
 
     // the Array API only accepts indexes in the range [-this.length, this.length)
     // so if after normalizing the index is still out of range, return undefined
-    if (index < 0 || index >= this.length) {
+    if (index < 0 || index >= length) {
       return undefined;
     }
 
     return this.#db.get(this.#slot(index));
   }
 
-  setAt(index: number, val: T): Promise<boolean> {
+  async setAt(index: number, val: T): Promise<boolean> {
+    const length = await this.length();
+
     if (index < 0) {
-      index = this.length + index;
+      index = length + index;
     }
 
-    if (index < 0 || index >= this.length) {
+    if (index < 0 || index >= length) {
       return Promise.resolve(false);
     }
 
@@ -82,9 +85,10 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
   }
 
   async *entries(): AsyncIterableIterator<[number, T]> {
+    const length = await this.length();
     const values = this.#db.getRange({
       start: this.#slot(0),
-      limit: this.length,
+      limit: length,
     });
 
     for (const { key, value } of values) {

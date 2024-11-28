@@ -17,7 +17,7 @@ export class LmdbAztecSet<K extends Key> implements AztecSet<K> {
     return this.map.close();
   }
 
-  has(key: K): boolean {
+  has(key: K): Promise<boolean> {
     return this.map.has(key);
   }
 

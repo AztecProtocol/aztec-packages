@@ -16,7 +16,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
-    "test:browser": "web-test-runner",
+    "test:browser": "wtr --config ./web-test-runner.config.mjs",
     "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
   },
   "inherits": [
@@ -26,20 +26,25 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@nimiq/jungle-db": "^0.11.1",
     "lmdb": "^3.0.6"
   },
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",
-    "@esm-bundle/chai": "^4.3.4-fix.0",
+    "@rollup/plugin-commonjs": "18.1.0",
     "@types/chai": "^5.0.1",
+    "@types/chai-as-promised": "^8.0.1",
     "@types/mocha": "^10.0.10",
+    "@types/mocha-each": "^2.0.4",
     "@types/node": "^18.7.23",
     "@web/dev-server-esbuild": "^1.0.3",
+    "@web/dev-server-import-maps": "^0.2.1",
+    "@web/dev-server-rollup": "^0.6.4",
     "@web/test-runner": "^0.19.0",
     "@web/test-runner-playwright": "^0.11.0",
     "chai": "^5.1.2",
+    "chai-as-promised": "^8.0.1",
     "mocha": "^10.8.2",
+    "mocha-each": "^2.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.4"
   },

@@ -1,26 +1,38 @@
 import { type AztecSingleton } from '../interfaces/singleton.js';
+import { promisifyRequest } from './utils.js';
 
 /**
  * Stores a single value in IndexedDB.
  */
 export class IndexedDBAztecSingleton<T> implements AztecSingleton<T> {
-  #db: any;
+  #_db!: IDBObjectStore;
+  #rootDB: IDBDatabase;
   #slot: string;
 
-  constructor(db: any, name: string) {
-    this.#db = db;
+  constructor(rootDB: IDBDatabase, name: string) {
+    this.#rootDB = rootDB;
     this.#slot = `singleton:${name}:value`;
   }
 
-  get(): T | undefined {
-    return this.#db.getSync(this.#slot);
+  set db(db: IDBObjectStore) {
+    this.#_db = db;
   }
 
-  set(val: T): Promise<boolean> {
-    return this.#db.put(this.#slot, val);
+  get db(): IDBObjectStore {
+    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').objectStore('data');
   }
 
-  delete(): Promise<boolean> {
-    return this.#db.remove(this.#slot);
+  async get(): Promise<T | undefined> {
+    return await promisifyRequest(this.db.get(this.#slot));
+  }
+
+  async set(val: T): Promise<boolean> {
+    const result = await promisifyRequest(this.db.add({ slot: this.#slot, value: val }));
+    return result !== undefined;
+  }
+
+  async delete(): Promise<boolean> {
+    await promisifyRequest(this.db.delete(this.#slot));
+    return true;
   }
 }

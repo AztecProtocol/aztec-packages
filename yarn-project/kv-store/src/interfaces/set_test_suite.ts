@@ -1,5 +1,8 @@
 import { toArray } from '@aztec/foundation/iterable';
 
+import { expect } from 'chai';
+import { beforeEach, describe, it } from 'mocha';
+
 import { AztecSet } from './set.js';
 import { AztecKVStore } from './store.js';
 
@@ -17,9 +20,9 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
       await set.add('foo');
       await set.add('baz');
 
-      expect(set.has('foo')).toEqual(true);
-      expect(set.has('baz')).toEqual(true);
-      expect(set.has('bar')).toEqual(false);
+      expect(await set.has('foo')).to.equal(true);
+      expect(await set.has('baz')).to.equal(true);
+      expect(await set.has('bar')).to.equal(false);
     });
 
     it('should be able to delete values', async () => {
@@ -28,15 +31,15 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
 
       await set.delete('foo');
 
-      expect(set.has('foo')).toEqual(false);
-      expect(set.has('baz')).toEqual(true);
+      expect(await set.has('foo')).to.equal(false);
+      expect(await set.has('baz')).to.equal(true);
     });
 
     it('should be able to iterate over entries', async () => {
       await set.add('baz');
       await set.add('foo');
 
-      expect(await toArray(set.entries())).toEqual(['baz', 'foo']);
+      expect(await toArray(set.entries())).to.deep.equal(['baz', 'foo']);
     });
 
     it('supports range queries', async () => {
@@ -45,13 +48,13 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
       await set.add('c');
       await set.add('d');
 
-      expect(await toArray(set.entries({ start: 'b', end: 'c' }))).toEqual(['b']);
-      expect(await toArray(set.entries({ start: 'b' }))).toEqual(['b', 'c', 'd']);
-      expect(await toArray(set.entries({ end: 'c' }))).toEqual(['a', 'b']);
-      expect(await toArray(set.entries({ start: 'b', end: 'c', reverse: true }))).toEqual(['c']);
-      expect(await toArray(set.entries({ start: 'b', limit: 1 }))).toEqual(['b']);
-      expect(await toArray(set.entries({ start: 'b', reverse: true }))).toEqual(['d', 'c']);
-      expect(await toArray(set.entries({ end: 'b', reverse: true }))).toEqual(['b', 'a']);
+      expect(await toArray(set.entries({ start: 'b', end: 'c' }))).to.deep.equal(['b']);
+      expect(await toArray(set.entries({ start: 'b' }))).to.deep.equal(['b', 'c', 'd']);
+      expect(await toArray(set.entries({ end: 'c' }))).to.deep.equal(['a', 'b']);
+      expect(await toArray(set.entries({ start: 'b', end: 'c', reverse: true }))).to.deep.equal(['c']);
+      expect(await toArray(set.entries({ start: 'b', limit: 1 }))).to.deep.equal(['b']);
+      expect(await toArray(set.entries({ start: 'b', reverse: true }))).to.deep.equal(['d', 'c']);
+      expect(await toArray(set.entries({ end: 'b', reverse: true }))).to.deep.equal(['b', 'a']);
     });
   });
 }

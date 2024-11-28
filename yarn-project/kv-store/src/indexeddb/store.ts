@@ -1,10 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
-
-import JDB from '@nimiq/jungle-db';
-import { mkdirSync } from 'fs';
-import { promises as fs } from 'fs';
-import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { type Logger } from '@aztec/foundation/log';
 
 import { AztecArray } from '../interfaces/array.js';
 import { Key } from '../interfaces/common.js';
@@ -13,23 +7,30 @@ import { AztecMap, AztecMultiMap } from '../interfaces/map.js';
 import { AztecSet } from '../interfaces/set.js';
 import { AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecKVStore } from '../interfaces/store.js';
-import { IndexedDBAztecArray } from './array.js';
+import { type IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
 import { IndexedDBAztecSet } from './set.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
-
-const { mkdtemp, rm } = fs;
+import { promisifyRequest } from './utils.js';
 
 /**
- * A key-value store backed by LMDB.
+ * A key-value store backed by IndexedDB.
  */
 export class AztecIndexedDBStore implements AztecKVStore {
-  #log = createDebugLogger('aztec:kv-store:indexeddb');
-  #rootDb: any;
-  #data: any;
+  #log: Logger;
+  #rootDB: IDBDatabase;
+  #data: IDBObjectStore;
+  #name: string;
 
-  constructor(public data: any, public readonly isEphemeral: boolean, private path?: string) {
-    this.#data = data;
+  #containers = new Set<
+    IndexedDBAztecArray<any> | IndexedDBAztecMap<any, any> | IndexedDBAztecSet<any> | IndexedDBAztecSingleton<any>
+  >();
+
+  constructor(rootDB: IDBDatabase, public readonly isEphemeral: boolean, log: Logger, name?: string) {
+    this.#rootDB = rootDB;
+    this.#log = log;
+    this.#data = rootDB.createObjectStore('data');
+    this.#name = name ?? 'tmp';
   }
 
   /**
@@ -42,47 +43,60 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @param log - A logger to use. Optional
    * @returns The store
    */
-  static async open(
-    path?: string,
-    ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:indexeddb'),
-  ): Promise<AztecIndexedDBStore> {
-    if (path) {
-      mkdirSync(path, { recursive: true });
-    }
-    log.debug(`Opening IndexedDB database at ${path || 'temporary location'}`);
-    const rootDb = new JDB.IndexedDB(path ?? 'tmp', 1);
-    const data = ephemeral ? JDB.IndexedDB.createVolatileObjectStore() : rootDb.createObjectStore('data');
-    const kvStore = new AztecIndexedDBStore(data, ephemeral, path);
-    await rootDb.connect();
+  static async open(name: string, log: Logger, ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
+    log.debug(`Opening IndexedDB database with name ${name}`);
+    const request = window.indexedDB.open(name ?? 'tmp', 1);
+
+    const rootDB = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onupgradeneeded = event => {
+        const db = (event.target as any).result as IDBDatabase;
+
+        const objectStore = db.createObjectStore('data', { keyPath: 'slot' });
+
+        objectStore.transaction.oncomplete = _ => {
+          objectStore.createIndex('key', 'key', { unique: false, multiEntry: true });
+          objectStore.createIndex('keyCount', 'keyCount', { unique: false });
+        };
+      };
+      request.onsuccess = _ => {
+        resolve(request.result);
+      };
+      request.onerror = _ => {
+        log.error('IndexedDB request failed', request.error);
+        reject(request.error);
+      };
+    });
+
+    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, log, name);
     return kvStore;
   }
 
   /**
    * Forks the current DB into a new DB by backing it up to a temporary location and opening a new jungleDB db.
-   * @returns A new AztecLmdbStore.
+   * @returns A new AztecIndexedDBStore.
    */
-  async fork() {
-    const baseDir = this.path ? dirname(this.path) : tmpdir();
-    this.#log.debug(`Forking store with basedir ${baseDir}`);
-    const forkPath =
-      (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
-    this.#log.verbose(`Forking store to ${forkPath}`);
+  async fork(): Promise<AztecKVStore> {
+    throw new Error('Method not implemented');
+    // const baseDir = this.path ? dirname(this.path) : tmpdir();
+    // this.#log.debug(`Forking store with basedir ${baseDir}`);
+    // const forkPath =
+    //   (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+    // this.#log.verbose(`Forking store to ${forkPath}`);
 
-    const forkedRootDb = new JDB.IndexedDB(forkPath ?? 'tmp', 1);
-    const data = this.isEphemeral ? JDB.IndexedDB.createVolatileObjectStore() : forkedRootDb.createObjectStore('data');
-    const kvStore = new AztecIndexedDBStore(data, this.isEphemeral, forkPath);
-    await forkedRootDb.connect();
-    // Copy old data to new store
-    const tx = data.transaction();
-    await this.#data.valueStream((value: any, key: any) => {
-      tx.putSync(key, value);
-      return true;
-    });
-    await tx.commit();
+    // const forkedRootDb = new JDB.IndexedDB(forkPath ?? 'tmp', 1);
+    // const data = this.isEphemeral ? JDB.IndexedDB.createVolatileObjectStore() : forkedRootDb.createObjectStore('data');
+    // const kvStore = new AztecIndexedDBStore(data, this.isEphemeral, forkPath);
+    // await forkedRootDb.connect();
+    // // Copy old data to new store
+    // const tx = data.transaction();
+    // await this.#data.valueStream((value: any, key: any) => {
+    //   tx.putSync(key, value);
+    //   return true;
+    // });
+    // await tx.commit();
 
-    this.#log.debug(`Forked store at ${forkPath} opened successfully`);
-    return kvStore;
+    // this.#log.debug(`Forked store at ${forkPath} opened successfully`);
+    // return kvStore;
   }
 
   /**
@@ -91,7 +105,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecMap
    */
   openMap<K extends Key, V>(name: string): AztecMap<K, V> {
-    return new IndexedDBAztecMap(this.#data, name);
+    return new IndexedDBAztecMap(this.#rootDB, name);
   }
 
   /**
@@ -100,7 +114,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecSet
    */
   openSet<K extends Key>(name: string): AztecSet<K> {
-    return new IndexedDBAztecSet(this.#data, name);
+    return new IndexedDBAztecSet(this.#rootDB, name);
   }
 
   /**
@@ -109,7 +123,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecMultiMap
    */
   openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> {
-    return new IndexedDBAztecMap(this.#data, name);
+    return new IndexedDBAztecMap(this.#rootDB, name);
   }
 
   openCounter<K extends Key | Array<string | number>>(name: string): AztecCounter<K> {
@@ -122,7 +136,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecArray
    */
   openArray<T>(name: string): AztecArray<T> {
-    return new IndexedDBAztecArray(this.#data, name);
+    throw new Error('Method not implemented.');
   }
 
   /**
@@ -131,7 +145,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecSingleton
    */
   openSingleton<T>(name: string): AztecSingleton<T> {
-    return new IndexedDBAztecSingleton(this.#data, name);
+    throw new Error('Method not implemented.');
   }
 
   /**
@@ -139,40 +153,27 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @param callback - Function to execute in a transaction
    * @returns A promise that resolves to the return value of the callback
    */
-  transaction<T>(callback: () => T): Promise<T> {
-    throw new Error('Method not implemented.');
+  async transaction<T>(callback: () => T): Promise<T> {
+    for (const container of this.#containers) {
+      container.db = this.#rootDB.transaction('data', 'readwrite').objectStore('data');
+    }
+    const result = await callback();
+    for (const container of this.#containers) {
+      container.db = undefined;
+    }
+    return result;
   }
 
   /**
    * Clears all entries in the store & sub DBs.
    */
   async clear() {
-    await this.#data.truncate();
+    await promisifyRequest(this.#data.clear());
   }
 
-  /**
-   * Drops the database & sub DBs.
-   */
-  async drop() {
-    await this.#rootDb.destroy();
-  }
-
-  /**
-   * Close the database. Note, once this is closed we can no longer interact with the DB.
-   */
-  async close() {
-    await this.#data.close();
-    await this.#rootDb.close();
-  }
-
-  /** Deletes this store and removes the database files from disk */
+  /** Deletes this store and removes the database */
   async delete() {
-    await this.drop();
-    await this.close();
-    if (this.path) {
-      await rm(this.path, { recursive: true, force: true });
-      this.#log.verbose(`Deleted database files at ${this.path}`);
-    }
+    this.#rootDB.deleteObjectStore(this.#name);
   }
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

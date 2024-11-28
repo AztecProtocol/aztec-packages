@@ -21,23 +21,23 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
-    return Promise.resolve(this.l2BlockHashesStore.get(number));
+    return this.l2BlockHashesStore.get(number);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
-    return Promise.resolve({
-      latest: this.getL2Tip('latest'),
-      finalized: this.getL2Tip('finalized'),
-      proven: this.getL2Tip('proven'),
-    });
+  public async getL2Tips(): Promise<L2Tips> {
+    return {
+      latest: await this.getL2Tip('latest'),
+      finalized: await this.getL2Tip('finalized'),
+      proven: await this.getL2Tip('proven'),
+    };
   }
 
-  private getL2Tip(tag: L2BlockTag): L2BlockId {
-    const blockNumber = this.l2TipsStore.get(tag);
+  private async getL2Tip(tag: L2BlockTag): Promise<L2BlockId> {
+    const blockNumber = await this.l2TipsStore.get(tag);
     if (blockNumber === undefined || blockNumber === 0) {
       return { number: 0, hash: undefined };
     }
-    const blockHash = this.l2BlockHashesStore.get(blockNumber);
+    const blockHash = await this.l2BlockHashesStore.get(blockNumber);
     if (!blockHash) {
       throw new Error(`Block hash not found for block number ${blockNumber}`);
     }

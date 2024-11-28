@@ -27,7 +27,7 @@ export interface AztecCounter<K extends Key = Key> {
    * Gets the current count.
    * @param key - The key to get the count of
    */
-  get(key: K): number;
+  get(key: K): Promise<number>;
 
   /**
    * Returns keys in the map in sorted order. Only returns keys that have been seen at least once.

@@ -1,55 +1,48 @@
-import JDB from '@nimiq/jungle-db';
-
 import { type Key, type Range } from '../interfaces/common.js';
 import { type AztecMultiMap } from '../interfaces/map.js';
+import { promisifyRequest } from './utils.js';
 
-type StoredData<V> = { value: V; key: string; keyCount: number };
+type StoredData<V> = { value: V; key: string; keyCount: number; slot: string };
 
 /**
  * A map backed by IndexedDB.
  */
 export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
-  protected db: any;
   protected name: string;
 
-  constructor(rootDb: any, mapName: string) {
+  #_db?: IDBObjectStore;
+  #rootDB: IDBDatabase;
+
+  constructor(rootDB: IDBDatabase, mapName: string) {
     this.name = mapName;
-    this.db = rootDb;
-    this.db.createIndex(this.#keyIndexName(), 'key', { multiEntry: true, keyEncoding: JDB.BINARY_ENCODING });
+    this.#rootDB = rootDB;
   }
 
-  close(): Promise<void> {
-    return this.db.close();
+  set db(db: IDBObjectStore | undefined) {
+    this.#_db = db;
   }
 
-  get(key: K): V | undefined {
-    const data = this.db.getSync(this.#slot(key));
+  get db(): IDBObjectStore {
+    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').objectStore('data');
+  }
+
+  async get(key: K): Promise<V | undefined> {
+    const data = await promisifyRequest(this.db.get(this.#slot(key)));
     return data?.value;
   }
 
   async *getValues(key: K): AsyncIterableIterator<V> {
-    for await (const [_, value] of this.#valueIterator(
-      JDB.Query.within(this.#keyCountIndexName(key), 0, Number.MAX_SAFE_INTEGER),
-    )) {
-      yield value;
-    }
+    throw new Error('Not implemented');
   }
 
-  has(key: K): boolean {
-    return this.db.getSync(this.#slot(key)) !== undefined;
+  async has(key: K): Promise<boolean> {
+    return (await this.get(key)) !== undefined;
   }
 
   async set(key: K, val: V): Promise<void> {
-    if (!this.db.index(this.#keyCountIndexName(key))) {
-      this.db.createIndex(this.#keyCountIndexName(key), 'keyCount', {
-        multiEntry: true,
-        keyEncoding: JDB.NUMBER_ENCODING,
-      });
-    }
-    const count = await this.db
-      .index(this.#keyCountIndexName(key))
-      .count(JDB.Query.within(this.#keyCountIndexName(key), 0, Number.MAX_SAFE_INTEGER));
-    await this.db.put(this.#slot(key, count), { value: val, key: this.#normalizeKey(key), keyCount: count });
+    const count = await promisifyRequest(this.db.index('key').count(this.#normalizeKey(key)));
+    console.log('count', count);
+    await this.db.put({ value: val, key: this.#normalizeKey(key), keyCount: count, slot: this.#slot(key, count) });
   }
 
   swap(key: K, fn: (val: V | undefined) => V): Promise<void> {
@@ -65,53 +58,19 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> 
   }
 
   async delete(key: K): Promise<void> {
-    await this.db.remove(this.#slot(key));
-    this.db.deleteIndex(this.#normalizeKey(key));
+    await promisifyRequest(this.db.delete(this.#slot(key)));
   }
 
   async deleteValue(key: K, val: V): Promise<void> {
-    const values = await this.db.values(JDB.Query.within(this.#keyCountIndexName(key), 0, Number.MAX_SAFE_INTEGER));
-    // TODO: Improve this comparison
-    const keyCount = values.find((data: StoredData<V>) => JSON.stringify(data.value) === JSON.stringify(val))?.keyCount;
-    await this.db.remove(this.#slot(key, keyCount));
+    throw new Error('Method not implemented.');
   }
 
-  async *#valueIterator(query: typeof JDB.Query, reverse: boolean = false, omitLast: boolean = false, limit?: number) {
-    const values = await this.db.values(query, limit);
-
-    let result = values.map((data: StoredData<V>) => [data.key, data.value]);
-
-    result = reverse ? result.reverse() : result;
-    result = omitLast ? result.slice(0, -1) : result;
-
-    for (const value of result) {
-      yield value;
-    }
+  async *#valueIterator(query: any, reverse: boolean = false, omitLast: boolean = false, limit?: number) {
+    throw new Error('Method not implemented.');
   }
 
   async *entries(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
-    let jdbQuery = undefined;
-    if (range) {
-      const start =
-        range.start ??
-        this.#denormalizeKey(
-          (Array.from(await this.db.index(this.#keyIndexName()).minValues())?.[0] as StoredData<V>)?.key ?? '',
-        );
-      const end =
-        range.end ??
-        this.#denormalizeKey(
-          (Array.from(await this.db.index(this.#keyIndexName()).maxValues())?.[0] as StoredData<V>)?.key ?? '',
-        );
-      jdbQuery = JDB.Query.within(this.#keyIndexName(), this.#normalizeKey(start), this.#normalizeKey(end));
-    }
-
-    yield* this.#valueIterator(
-      jdbQuery,
-      !!range.reverse,
-      // JDB Queries do not support reversing or exclusive ranges, so we need to do it manually
-      (!!range.end && !range.reverse) || (!!range.start && !!range.reverse),
-      range.limit,
-    );
+    throw new Error('Method not implemented.');
   }
 
   async *values(range: Range<K> = {}): AsyncIterableIterator<V> {
@@ -134,14 +93,6 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> 
   #normalizeKey(key: K): K {
     const arrayKey = Array.isArray(key) ? key : [key];
     return arrayKey.join(',') as K;
-  }
-
-  #keyIndexName() {
-    return `map:${this.name}:index:key`;
-  }
-
-  #keyCountIndexName(key: K): string {
-    return `map:${this.name}:index:key:${this.#normalizeKey(key)}`;
   }
 
   #slot(key: K, index: number = 0): string {

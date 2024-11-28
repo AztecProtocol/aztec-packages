@@ -1,5 +1,6 @@
-import { mkdtemp } from 'fs/promises';
-import { get } from 'http';
+import { expect } from 'chai';
+import { promises as fs } from 'fs';
+import { describe, it } from 'mocha';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -18,16 +19,16 @@ export function describeAztecStore(
 
       const forkedStore = await store.fork();
       const forkedSingleton = forkedStore.openSingleton('singleton');
-      expect(forkedSingleton.get()).toEqual('foo');
+      expect(await forkedSingleton.get()).to.equal('foo');
       await forkedSingleton.set('bar');
-      expect(singleton.get()).toEqual('foo');
-      expect(forkedSingleton.get()).toEqual('bar');
+      expect(await singleton.get()).to.equal('foo');
+      expect(await forkedSingleton.get()).to.equal('bar');
       await forkedSingleton.delete();
-      expect(singleton.get()).toEqual('foo');
+      expect(await singleton.get()).to.equal('foo');
     };
 
     it('forks a persistent store', async () => {
-      const path = await mkdtemp(join(tmpdir(), 'aztec-store-test-'));
+      const path = await fs.mkdtemp(join(tmpdir(), 'aztec-store-test-'));
       const store = await getPersistentStore(path);
       await itForks(store);
     });
