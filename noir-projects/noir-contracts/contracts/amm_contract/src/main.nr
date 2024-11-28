@@ -503,7 +503,12 @@ contract AMM {
         amount_in: Field,
     ) -> Field {
         // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
-        get_amount_out(U128::from_integer(amount_in), U128::from_integer(balance_in), U128::from_integer(balance_out)).to_integer()
+        get_amount_out(
+            U128::from_integer(amount_in),
+            U128::from_integer(balance_in),
+            U128::from_integer(balance_out),
+        )
+            .to_integer()
     }
 
     unconstrained fn get_amount_in_for_exact_out(
@@ -512,6 +517,11 @@ contract AMM {
         amount_out: Field,
     ) -> Field {
         // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
-        get_amount_in(U128::from_integer(amount_out), U128::from_integer(balance_in), U128::from_integer(balance_out)).to_integer()
+        get_amount_in(
+            U128::from_integer(amount_out),
+            U128::from_integer(balance_in),
+            U128::from_integer(balance_out),
+        )
+            .to_integer()
     }
 }

@@ -13,7 +13,6 @@ pub fn get_amount_out(amount_in: U128, balance_in: U128, balance_out: U128) -> U
     let numerator = amount_in_with_fee * balance_out;
     let denominator = balance_in * U128::from_integer(1000) + amount_in_with_fee;
     numerator / denominator
-
 }
 
 /// Given an output amount of an asset and pair balances, returns a required input amount of the other asset.
