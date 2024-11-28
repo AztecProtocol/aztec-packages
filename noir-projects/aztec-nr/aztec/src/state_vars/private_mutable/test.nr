@@ -5,7 +5,7 @@ use crate::{
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use std::test::OracleMock;
 
-global storage_slot = 17;
+global storage_slot: Field = 17;
 
 unconstrained fn setup() -> TestEnvironment {
     let mut env = TestEnvironment::new();

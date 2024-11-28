@@ -9,6 +9,7 @@ import {
   type InBlock,
   type InboxLeaf,
   type L2Block,
+  L2BlockHash,
   type L2BlockL2Logs,
   type LogFilter,
   LogId,
@@ -32,7 +33,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -78,6 +79,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractClasses: Map<string, ContractClassPublicWithBlockNumber> = new Map();
 
+  private bytecodeCommitments: Map<string, Fr> = new Map();
+
   private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
 
   private unconstrainedFunctions: Map<string, UnconstrainedFunctionWithMembershipProof[]> = new Map();
@@ -116,6 +119,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.contractInstances.get(address.toString()));
   }
 
+  public getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(this.bytecodeCommitments.get(contractClassId.toString()));
+  }
+
   public addFunctions(
     contractClassId: Fr,
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
@@ -138,13 +145,21 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
-  public addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
-    for (const contractClass of data) {
+  public addContractClasses(
+    data: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    for (let i = 0; i < data.length; i++) {
+      const contractClass = data[i];
       if (!this.contractClasses.has(contractClass.id.toString())) {
         this.contractClasses.set(contractClass.id.toString(), {
           ...contractClass,
           l2BlockNumber: blockNumber,
         });
+      }
+      if (!this.bytecodeCommitments.has(contractClass.id.toString())) {
+        this.bytecodeCommitments.set(contractClass.id.toString(), bytecodeCommitments[i]);
       }
     }
     return Promise.resolve(true);
@@ -155,6 +170,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const restored = this.contractClasses.get(contractClass.id.toString());
       if (restored && restored.l2BlockNumber >= blockNumber) {
         this.contractClasses.delete(contractClass.id.toString());
+        this.bytecodeCommitments.delete(contractClass.id.toString());
       }
     }
     return Promise.resolve(true);
@@ -435,7 +451,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
               TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
-              block.data.hash().toBuffer(),
+              L2BlockHash.fromField(block.data.hash()),
               block.data.number,
             ),
           );
@@ -735,6 +751,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return Promise.resolve(this.contractArtifacts.get(address.toString()));
+  }
+
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const artifact = await this.getContractArtifact(address);
+
+    if (!artifact) {
+      return undefined;
+    }
+
+    const func = artifact.functions.find(f =>
+      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+    );
+    return Promise.resolve(func?.name);
   }
 
   public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

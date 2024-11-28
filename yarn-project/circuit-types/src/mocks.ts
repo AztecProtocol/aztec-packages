@@ -4,6 +4,7 @@ import {
   ClientIvcProof,
   type ContractInstanceWithAddress,
   EthAddress,
+  GasFees,
   GasSettings,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
@@ -126,7 +127,7 @@ export const mockTx = (
   const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const contractClassLog = hasLogs ? ContractClassTxL2Logs.random(1, 1) : ContractClassTxL2Logs.empty();
-  data.constants.txContext.gasSettings = GasSettings.default();
+  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
   data.feePayer = feePayer;
 
   let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];

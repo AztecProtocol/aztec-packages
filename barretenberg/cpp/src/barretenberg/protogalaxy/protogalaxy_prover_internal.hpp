@@ -135,7 +135,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
+        trace_usage_tracker.construct_thread_ranges(
+            num_threads, polynomial_size, /*use_prev_accumulator_tracker=*/true);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
@@ -143,7 +144,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
             for (size_t idx = start; idx < end; idx++) {
                 // The contribution is only non-trivial at a given row if the accumulator is active at that row
-                if (trace_usage_tracker.check_is_active(idx, /*use_prev_accumulator=*/true)) {
+                if (trace_usage_tracker.check_is_active(idx, true)) {
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =
@@ -343,7 +344,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
         // Determine the number of threads over which to distribute the work
-        const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
+        // The polynomial size is given by the virtual size since the computation includes
+        // the incoming key which could have nontrivial values on the larger domain in case of overflow.
+        const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that

@@ -47,6 +47,7 @@ describe('world-state integration', () => {
       worldStateProvenBlocksOnly: false,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,
+      worldStateBlockHistory: 0,
     };
 
     archiver = new MockPrefilledArchiver(blocks, messages);
@@ -54,14 +55,14 @@ describe('world-state integration', () => {
     db = (await createWorldState(config)) as NativeWorldStateService;
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
     log.info(`Created synchronizer`);
-  });
+  }, 30_000);
 
   afterEach(async () => {
     await synchronizer.stop();
     await db.close();
   });
 
-  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 2000) => {
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 5000) => {
     const startTime = Date.now();
     let sleepTime = 0;
     let tips = await synchronizer.getL2Tips();
