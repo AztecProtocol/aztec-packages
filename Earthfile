@@ -44,3 +44,4 @@ base-log-uploader:
 bootstrap:
     # Note: Assumes a fresh clone!
     FROM build-images+from-registry
+
