@@ -17,8 +17,8 @@ fi
 # Attempt to pull artifacts from CI if USE_CACHE is set and verify nargo usability.
 if [ -n "${USE_CACHE:-}" ]; then
   if ./bootstrap_cache.sh && ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
-    # Cause the is_build checks below to fail
-    export USE_BUILD=0
+    # Cause the check below to fail
+    SKIP_BUILD=1
   fi
 fi
 
@@ -28,7 +28,7 @@ NATIVE_HASH=$($ci3/cache/content_hash)
 export AZTEC_CACHE_REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
 PACKAGES_HASH=$($ci3/cache/content_hash)
 
-if $ci3/base/is_build; then
+if [ -"${SKIP_BUILD:-}" -eq 1 ] ; then
   $ci3/github/group "noir build"
   # Continue with native bootstrapping if the cache was not used or nargo verification failed.
   ./scripts/bootstrap_native.sh

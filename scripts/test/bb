@@ -3,4 +3,4 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
-USE_CACHE=1 USE_TESTS=1 ../../barretenberg/bootstrap.sh
+USE_CACHE=1 TEST=1 ../../barretenberg/bootstrap.sh

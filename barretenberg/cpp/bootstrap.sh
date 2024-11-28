@@ -40,7 +40,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
   # This ensures is_build later will no-op
-  export USE_BUILD=0
+  SKIP_BUILD=1
 fi
 
 # Download ignition transcripts.
@@ -68,7 +68,7 @@ rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
 HASH=$($ci3/cache/content_hash)
 function build_native {
-  if $ci3/base/is_build; then
+  if [ -"${SKIP_BUILD:-}" -eq 1 ] ; then
     echo "#################################"
     echo "# Building with preset: $PRESET"
     echo "# When running cmake directly, remember to use: --build --preset $PRESET"
@@ -96,7 +96,7 @@ function build_native {
 }
 
 function build_wasm {
-  if $ci3/base/is_build; then
+  if [ -"${SKIP_BUILD:-}" -eq 1 ] ; then
     cmake --preset wasm
     cmake --build --preset wasm
     $ci3/cache/upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
@@ -104,7 +104,7 @@ function build_wasm {
 }
 
 function build_wasm_threads {
-  if $ci3/base/is_build; then
+  if [ -"${SKIP_BUILD:-}" -eq 1 ] ; then
     cmake --preset wasm-threads
     cmake --build --preset wasm-threads
     $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin

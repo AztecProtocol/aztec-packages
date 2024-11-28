@@ -25,20 +25,18 @@ VKS_HASH=$($ci3/cache/content_hash)
 export AZTEC_CACHE_REBUILD_PATTERNS={../noir,noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns
 CIRCUITS_HASH=$($ci3/cache/content_hash)
 
-if $ci3/base/is_build; then
-  $ci3/github/group "noir-projects build"
-  # Attempt to just pull artefacts from CI first.
-  if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_circuits.sh ; then
-    parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_circuits.sh
-    $ci3/cache/upload noir-projects-circuits-$CIRCUITS_HASH.tar.gz {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/target
-  fi
-
-  if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_vks.sh ; then
-    parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_vks.sh
-    $ci3/cache/upload noir-projects-vks-$VKS_HASH.tar.gz noir-contracts/target {noir-protocol-circuits,mock-protocol-circuits}/target/keys
-  fi
-  $ci3/github/endgroup
+$ci3/github/group "noir-projects build"
+# Attempt to just pull artefacts from CI first.
+if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_circuits.sh ; then
+  parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_circuits.sh
+  $ci3/cache/upload noir-projects-circuits-$CIRCUITS_HASH.tar.gz {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/target
 fi
+
+if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_vks.sh ; then
+  parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_vks.sh
+  $ci3/cache/upload noir-projects-vks-$VKS_HASH.tar.gz noir-contracts/target {noir-protocol-circuits,mock-protocol-circuits}/target/keys
+fi
+$ci3/github/endgroup
 
 if $ci3/base/is_test && $ci3/cache/should_run noir-projects-tests-$CIRCUITS_HASH; then
   $ci3/github/group "noir-projects test"
