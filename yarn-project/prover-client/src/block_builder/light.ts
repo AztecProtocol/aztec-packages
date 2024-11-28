@@ -1,4 +1,3 @@
-import { createDebugLogger } from '@aztec/aztec.js';
 import {
   type BlockBuilder,
   L2Block,
@@ -9,13 +8,19 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { buildBaseRollupHints, buildHeaderAndBodyFromTxs, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { inspect } from 'util';
+
+import {
+  buildBaseRollupHints,
+  buildHeaderAndBodyFromTxs,
+  getTreeSnapshot,
+} from '../orchestrator/block-building-helpers.js';
 
 /**
  * Builds a block and its header from a set of processed tx without running any circuits.
