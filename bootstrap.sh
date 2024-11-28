@@ -132,7 +132,7 @@ case "$CMD" in
     exit 0
   ;;
   *)
-    echo "usage: $0 <full|fast|fast-with-upload|check|clean>"
+    echo "usage: $0 <full|fast|check|clean>"
     exit 1
   ;;
 esac
