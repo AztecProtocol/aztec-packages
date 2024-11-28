@@ -13,11 +13,9 @@ if [ -n "$CMD" ]; then
     exit 1
   fi
 fi
-
-$ci3/github/group "noir-projects yarn"
+$ci3/github/group "noir-projects build"
 # TODO: Remove yarn, use bash?
 yarn install
-$ci3/github/endgroup
 
 export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../noir/.rebuild_patterns_native {noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns)
 VKS_HASH=$($ci3/cache/content_hash)
@@ -25,7 +23,6 @@ VKS_HASH=$($ci3/cache/content_hash)
 export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../noir/.rebuild_patterns_native {../barretenberg/cpp,noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns)
 CIRCUITS_HASH=$($ci3/cache/content_hash)
 
-$ci3/github/group "noir-projects build"
 # Attempt to just pull artefacts from CI first.
 if [ -z "${USE_CACHE:-}" ] || ! ./bootstrap_cache_circuits.sh ; then
   parallel --line-buffer --tag {} ::: {noir-contracts,noir-protocol-circuits,mock-protocol-circuits}/bootstrap_circuits.sh
