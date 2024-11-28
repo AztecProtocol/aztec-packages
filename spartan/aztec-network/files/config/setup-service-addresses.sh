@@ -59,6 +59,8 @@ elif [ "${NETWORK_PUBLIC}" = "true" ]; then
     ETHEREUM_ADDR=$(get_service_address "ethereum" "${ETHEREUM_PORT}")
 else
     ETHEREUM_ADDR="http://${SERVICE_NAME}-ethereum.${NAMESPACE}:${ETHEREUM_PORT}"
+elif [ "${ETHEREUM__NAMESPACE}" != "" ]; then
+    ETHEREUM_ADDR="http://${ETHEREUM_EL_SERVICE_NAME}-ethereum.${ETHEREUM__NAMESPACE}:${ETHEREUM_PORT}"
 fi
 
 # Configure Boot Node address

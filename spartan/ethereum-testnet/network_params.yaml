@@ -5,9 +5,6 @@ participants:
     cl_image: sigp/lighthouse:latest
     cl_min_cpu: 2
     cl_max_cpu: 4
-    cl_extra_params: [
-      "--http-port=5052"
-    ]
 network_params:
   network_id: "1337"
   seconds_per_slot: 12
