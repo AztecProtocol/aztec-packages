@@ -36,7 +36,9 @@ else
 fi
 
 # Attempt to just pull artefacts from CI and exit on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
+  export USE_BUILD=0
+fi
 
 # Download ignition transcripts.
 (cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
