@@ -1,0 +1,56 @@
+#!/bin/bash
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/base/source
+
+# Tests the various modes of bootstrap test usage. We wrap and mock ci3/cache/should_run to be able to detect when a test tries to run.
+# We never return true, as we don't actually want to run tests here.
+# - First do CI=0. Append tests ran from mocked ci3/cache/should_run in ci3/cache/should_run.list. Exit 1 if ci3/cache/should_run.bkup returns false.
+# - Read the should_run.list into memory to compare later.
+# - Next do CI=1. Delete ci3/cache/should_run.list, but otherwise keep logic. Ensure that should_run.list is equal to the previous result.
+# - Next do CI=1. Use a mocked ci3/cache/should_run that collects should_run.list for comparison, but exits 1 if ci3/cache/should_run.bkup returns *true*.
+
+function delete_test_cache() {
+  AWS_SECRET_ACCESS_KEY=minioadmin AWS_ACCESS_KEY_ID=minioadmin \
+    aws --endpoint http://localhost:12000 \
+      s3 rm s3://aztec-ci-artifacts --recursive --exclude "*" --include "build-cache/barretenberg-test-cache-*.tar.gz" 2>&1 || true
+}
+
+function cleanup() {
+  rm -f $ci3/cache/should_run.bkup
+  git checkout $ci3/cache/should_run
+  rm -f $ci3/cache/should_run.list
+  delete_test_cache
+}
+trap cleanup EXIT
+
+function start_minio() {
+  if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
+    # MinIO is already running.
+    return
+  fi
+  echo "Starting MinIO..."
+  docker run -d --name minio \
+    -p 12000:9000 -p 12001:9001 \
+    -v minio-data:/data \
+    quay.io/minio/minio server /data --console-address ":12001"
+
+  # Wait for MinIO to be ready
+  while ! nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
+    sleep 1
+  done
+
+  # Create the cache bucket
+  echo "Creating MinIO bucket for cache..."
+  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" \
+    aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
+}
+
+# Make the cache/download and cache/upload scripts use minio
+export S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://localhost:12000"
+export AWS_SECRET_ACCESS_KEY=minioadmin
+export AWS_ACCESS_KEY_ID=minioadmin
+
+start_minio
+# if we have minio already running make sure the cache is deleted
+# otherwise it will be run by next earthly local command
+nc -z 127.0.0.1 12000 2>/dev/null >/dev/null && delete_test_cache
