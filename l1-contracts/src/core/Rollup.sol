@@ -38,7 +38,6 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 struct ChainTips {
   uint256 pendingBlockNumber;
@@ -64,6 +63,7 @@ struct SubmitEpochRootProofInterimValues {
  * @author Aztec Labs
  * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
+ * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
  */
 contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
@@ -181,7 +181,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     });
     l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: _getBlobBaseFee()}),
+      post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee(VM_ADDRESS)}),
       slotOfChange: LIFETIME
     });
     for (uint256 i = 0; i < _validators.length; i++) {
@@ -474,9 +474,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
-    uint256 manaBaseFee = getManaBaseFeeAt(_currentTime, true);
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
-    _validateHeader(header, _signatures, _digest, _currentTime, manaBaseFee, _blobsHash, _flags);
+    _validateHeader(
+      HeaderLib.decode(_header),
+      _signatures,
+      _digest,
+      _currentTime,
+      getManaBaseFeeAt(_currentTime, true),
+      _blobsHash,
+      _flags
+    );
   }
 
   /**
@@ -588,8 +594,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
     // Min size = smallest path of the rollup tree + 1
     (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    uint256 l2ToL1TreeMinHeight = min + 1;
-    OUTBOX.insert(blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight);
+    OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
 
     emit L2BlockProposed(blockNumber, _args.archive);
 
@@ -628,7 +633,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
 
     l1GasOracleValues.pre = l1GasOracleValues.post;
-    l1GasOracleValues.post = L1FeeData({baseFee: block.basefee, blobFee: _getBlobBaseFee()});
+    l1GasOracleValues.post =
+      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee(VM_ADDRESS)});
     l1GasOracleValues.slotOfChange = slot + LAG;
   }
 
@@ -649,11 +655,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     override(IRollup)
     returns (L1FeeData memory)
   {
-    Slot slot = getSlotAt(_timestamp);
-    if (slot < l1GasOracleValues.slotOfChange) {
-      return l1GasOracleValues.pre;
-    }
-    return l1GasOracleValues.post;
+    return getSlotAt(_timestamp) < l1GasOracleValues.slotOfChange
+      ? l1GasOracleValues.pre
+      : l1GasOracleValues.post;
   }
 
   /**
@@ -699,8 +703,12 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       -int256(FeeMath.MANA_TARGET)
     );
 
-    uint256 dataCost =
-      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, getL1FeesAt(_timestamp).blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 dataCost = Math.mulDiv(
+      3 * BLOB_GAS_PER_BLOB,
+      getL1FeesAt(_timestamp).blobFee,
+      FeeMath.MANA_TARGET,
+      Math.Rounding.Ceil
+    );
     uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
       + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
     uint256 gasCost =
@@ -1029,10 +1037,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @return bytes32 - The archive root of the block
    */
   function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
-    if (_blockNumber <= tips.pendingBlockNumber) {
-      return blocks[_blockNumber].archive;
-    }
-    return bytes32(0);
+    return _blockNumber <= tips.pendingBlockNumber ? blocks[_blockNumber].archive : bytes32(0);
   }
 
   function canPrune() public view override(IRollup) returns (bool) {
@@ -1244,15 +1249,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     returns (BlockLog memory)
   {
     FeeHeader memory parentFeeHeader = blocks[_blockNumber - 1].feeHeader;
-    uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
-      -int256(FeeMath.MANA_TARGET)
-    );
     return BlockLog({
       archive: _args.archive,
       blockHash: _args.blockHash,
       slotNumber: Slot.wrap(uint256(bytes32(_args.header[0x0194:0x01b4]))),
       feeHeader: FeeHeader({
-        excessMana: excessMana,
+        excessMana: (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
+          -int256(FeeMath.MANA_TARGET)
+        ),
         feeAssetPriceNumerator: parentFeeHeader.feeAssetPriceNumerator.clampedAdd(
           _args.oracleInput.feeAssetPriceModifier
         ),
@@ -1282,20 +1286,5 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
         });
       }
     }
-  }
-
-  /**
-   * @notice  Get the blob base fee
-   *
-   * @dev     If we are in a foundry test, we use the cheatcode to get the blob base fee.
-   *          Otherwise, we use the `block.blobbasefee`
-   *
-   * @return uint256 - The blob base fee
-   */
-  function _getBlobBaseFee() private view returns (uint256) {
-    if (IS_FOUNDRY_TEST) {
-      return Vm(VM_ADDRESS).getBlobBaseFee();
-    }
-    return block.blobbasefee;
   }
 }

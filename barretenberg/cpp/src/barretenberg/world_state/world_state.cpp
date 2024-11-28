@@ -807,7 +807,7 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
                               // last archive - which, at genesis, is all 0s
                               0,
                               0,
-                              // content commitment - at genesis all 0s
+                              // content commitment - all 0s
                               0,
                               0,
                               0,

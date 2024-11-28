@@ -22,7 +22,6 @@ export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; 
         anvilBinary,
         port: ethereumHostPort,
         blockTime: l1BlockTime,
-        codeSizeLimit: 0x7000,
       });
       await anvil.start();
       return anvil;

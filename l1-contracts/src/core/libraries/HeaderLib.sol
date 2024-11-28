@@ -110,10 +110,11 @@ library HeaderLib {
 
   /**
    * @notice Decodes the header
+   * @dev Marked as public to reduce Rollup.sol contract size
    * @param _header - The header calldata
    * @return The decoded header
    */
-  function decode(bytes calldata _header) internal pure returns (Header memory) {
+  function decode(bytes calldata _header) public pure returns (Header memory) {
     require(
       _header.length == HEADER_LENGTH,
       Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length)
