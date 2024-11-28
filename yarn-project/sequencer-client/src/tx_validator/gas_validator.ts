@@ -1,5 +1,5 @@
 import { type Tx, TxExecutionPhase, type TxValidator } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator';
 
@@ -13,7 +13,12 @@ export class GasTxValidator implements TxValidator<Tx> {
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
 
-  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, public enforceFees: boolean) {
+  constructor(
+    publicDataSource: PublicStateSource,
+    feeJuiceAddress: AztecAddress,
+    private enforceFees: boolean,
+    private gasFees: GasFees,
+  ) {
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
   }
@@ -48,8 +53,20 @@ export class GasTxValidator implements TxValidator<Tx> {
       }
     }
 
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+
+    // Check that the user is willing to pay enough fee per gas.
+    const maxFeesPerGas = gasSettings.maxFeesPerGas;
+    if (
+      maxFeesPerGas.feePerDaGas.lt(this.gasFees.feePerDaGas) ||
+      maxFeesPerGas.feePerL2Gas.lt(this.gasFees.feePerL2Gas)
+    ) {
+      this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to insufficient fee per gas`);
+      return false;
+    }
+
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
-    const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();
+    const feeLimit = gasSettings.getFeeLimit();
 
     // Read current balance of the feePayer
     const initialBalance = await this.#publicDataSource.storageRead(
