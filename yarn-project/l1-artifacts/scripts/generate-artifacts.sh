@@ -29,6 +29,9 @@ CONTRACTS=(
   "l1-contracts:Governance"
   "l1-contracts:NewGovernanceProposerPayload"
   "l1-contracts:SampleLib"
+  "l1-contracts:BlobLib"
+  "l1-contracts:HeaderLib"
+  "l1-contracts:MerkleLib"
 )
 
 

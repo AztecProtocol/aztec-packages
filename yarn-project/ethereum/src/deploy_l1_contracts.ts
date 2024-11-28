@@ -3,6 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import {
+  BlobLibAbi,
+  BlobLibBytecode,
   CoinIssuerAbi,
   CoinIssuerBytecode,
   FeeJuicePortalAbi,
@@ -11,8 +13,12 @@ import {
   GovernanceBytecode,
   GovernanceProposerAbi,
   GovernanceProposerBytecode,
+  HeaderLibAbi,
+  HeaderLibBytecode,
   InboxAbi,
   InboxBytecode,
+  MerkleLibAbi,
+  MerkleLibBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -172,6 +178,18 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
         SampleLib: {
           contractAbi: SampleLibAbi,
           contractBytecode: SampleLibBytecode,
+        },
+        BlobLib: {
+          contractAbi: BlobLibAbi,
+          contractBytecode: BlobLibBytecode,
+        },
+        HeaderLib: {
+          contractAbi: HeaderLibAbi,
+          contractBytecode: HeaderLibBytecode,
+        },
+        MerkleLib: {
+          contractAbi: MerkleLibAbi,
+          contractBytecode: MerkleLibBytecode,
         },
       },
     },

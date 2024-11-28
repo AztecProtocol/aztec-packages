@@ -47,11 +47,12 @@ import {
 } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
+export { RevertCodeEnum } from '@aztec/circuits.js';
+
 // These are helper constants to decode tx effects from blob encoded fields
 const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
 // 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
 const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
-export { RevertCodeEnum } from '@aztec/circuits.js';
 
 export class TxEffect {
   constructor(
@@ -527,10 +528,6 @@ export class TxEffect {
         );
       }
     });
-  }
-
-  toJSON() {
-    return this.toString();
   }
 
   static from(fields: Omit<FieldsOf<TxEffect>, 'txHash'>) {

@@ -13,10 +13,10 @@ export class ContentCommitment {
   constructor(public numTxs: Fr, public blobsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
     // NB: we do not calculate blobHash in the circuit, but we still truncate it so it fits in a field
     if (blobsHash.length !== NUM_BYTES_PER_SHA256) {
-      throw new Error(`blobHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
+      throw new Error(`blobsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
     }
     if (blobsHash[0] !== 0) {
-      throw new Error(`blobHash buffer should be truncated and left padded`);
+      throw new Error(`blobsHash buffer should be truncated and left padded`);
     }
     if (inHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`inHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
