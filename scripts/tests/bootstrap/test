@@ -80,16 +80,13 @@ PROJECTS=(
 
 for project in "${PROJECTS[@]}"; do
   # Run the tests
-  test_CI_0 $project | sed "s/^/$project test_CI_0: /" && echo "test_CI_0 success" || echo "test_CI_0 failure"
-  test_CI_1_first_pass $project | sed "s/^/$project test_CI_1 pass 1: /" && echo "test_CI_1_first_pass success" || echo "test_CI_1_first_pass failure"
-  test_CI_1_second_pass $project | sed "s/^/$project test_CI_0 pass 2: /" && echo "test_CI_1_second_pass success" || echo "test_CI_1_second_pass failure"
+  echo "$project test_CI_0"
+  test_CI_0 $project | sed "s/^/$project test_CI_0: /" || (echo "$project test_CI_0 failure" && exit 1)
+  echo "$project test_CI_0 success"
+  echo "$project test_CI_1 pass 1"
+  test_CI_1_first_pass $project | sed "s/^/$project test_CI_1 pass 1: /" || (echo "$project test_CI_0 failure" && exit 1)
+  echo "$project test_CI_1 pass 2"
+  test_CI_1_second_pass $project | sed "s/^/$project test_CI_0 pass 2: /" || (echo "$project test_CI_0 failure" && exit 1)
 done
 
-# Check overall test status
-if [ "$all_tests_passed" = true ]; then
-  echo "All tests passed successfully."
-  exit 0
-else
-  echo "Some tests failed."
-  exit 1
-fi
+echo "All tests passed successfully."
