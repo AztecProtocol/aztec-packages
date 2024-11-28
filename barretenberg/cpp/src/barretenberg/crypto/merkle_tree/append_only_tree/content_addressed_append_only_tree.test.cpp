@@ -786,6 +786,57 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
 }
 
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr> to_add(32, fr::zero());
+    to_add[0] = VALUES[0];
+
+    for (size_t i = 0; i < 32; ++i) {
+        memdb.update_element(i, to_add[i]);
+    }
+    add_values(tree, to_add);
+    check_size(tree, 32);
+    check_root(tree, memdb.root());
+
+    commit_tree(tree, true);
+
+    check_size(tree, 32);
+    check_root(tree, memdb.root());
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_retrieve_zero_leaf_indices)
+{
+    constexpr size_t depth = 8;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr> to_add(32, fr::zero());
+    to_add[0] = VALUES[0];
+
+    for (size_t i = 0; i < 32; ++i) {
+        memdb.update_element(i, VALUES[i]);
+    }
+    add_values(tree, to_add);
+    commit_tree(tree);
+    fr leaf = fr::zero();
+    check_find_leaf_index(tree, leaf, 0, false);
+    check_find_historic_leaf_index(tree, 1, leaf, 0, false);
+    check_find_leaf_index_from(tree, leaf, 0, 0, false);
+    check_find_historic_leaf_index_from(tree, 1, leaf, 0, 0, false);
+}
+
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
 {
     constexpr size_t depth = 10;
@@ -1354,7 +1405,12 @@ void test_unwind(std::string directory,
         // attempting to unwind a block that is not the tip should fail
         unwind_block(tree, blockNumber + 1, false);
         unwind_block(tree, blockNumber);
-        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+
+        // the root should now only exist if there are other blocks with same root
+        const auto last = roots.begin() + long(blockNumber - 1);
+        const auto it =
+            std::find_if(roots.begin(), last, [=](const fr& r) -> bool { return r == roots[blockNumber - 1]; });
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false, it != last);
 
         const index_t previousValidBlock = blockNumber - 1;
         index_t deletedBlockStartIndex = previousValidBlock * batchSize;
@@ -1384,9 +1440,19 @@ void test_unwind(std::string directory,
 
             const index_t leafIndex = 1;
             check_historic_leaf(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
-            check_find_historic_leaf_index(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
-            check_find_historic_leaf_index_from(
-                tree, historicBlockNumber, values[leafIndex], 0, leafIndex, expectedSuccess);
+
+            // find historic leaves, provided they are not zero leaves
+            check_find_historic_leaf_index(tree,
+                                           historicBlockNumber,
+                                           values[leafIndex],
+                                           leafIndex,
+                                           expectedSuccess && values[leafIndex] != fr::zero());
+            check_find_historic_leaf_index_from(tree,
+                                                historicBlockNumber,
+                                                values[leafIndex],
+                                                0,
+                                                leafIndex,
+                                                expectedSuccess && values[leafIndex] != fr::zero());
         }
     }
 }
@@ -1403,6 +1469,33 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_all_blocks)
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, first);
     std::vector<fr> second = create_values(1024);
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, second);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_that_are_empty)
+{
+    const size_t block_size = 16;
+    // First we add 16 blocks worth pf zero leaves and unwind them all
+    std::vector<fr> first(1024, fr::zero());
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, first);
+    // now we add 1 block of zero leaves and the other blocks non-zero leaves and unwind them all
+    std::vector<fr> second = create_values(1024);
+    // set the first 16 values to be zeros
+    for (size_t i = 0; i < block_size; i++) {
+        second[i] = fr::zero();
+    }
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, second);
+
+    // now we add 2 block of zero leaves in the middle and the other blocks non-zero leaves and unwind them all
+    std::vector<fr> third = create_values(1024);
+    size_t offset = block_size * 2;
+    for (size_t i = 0; i < block_size * 2; i++) {
+        third[i + offset] = fr::zero();
+    }
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, third);
+
+    // Now we add a number of regular blocks and unwind
+    std::vector<fr> fourth = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, fourth);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
