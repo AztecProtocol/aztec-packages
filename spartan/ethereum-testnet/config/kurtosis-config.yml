@@ -1,0 +1,11 @@
+config-version: 2
+should-send-metrics: false
+kurtosis-clusters:
+  docker:
+    type: "docker"
+  kind:
+    type: "kubernetes"
+    config:
+      kubernetes-cluster-name: "kind-kind"
+      storage-class: "standard"
+      enclave-size-in-megabytes: 10
