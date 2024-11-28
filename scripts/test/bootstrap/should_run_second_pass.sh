@@ -1,8 +1,8 @@
 #!/bin/bash
-# Mocked should_run script for CI=1_should_run_false
-echo "$@" >> "$ci3/cache/should_run.list"
-if "$ci3/cache/should_run.bkup" "$@"; then
-  echo "Should not want to run $@" >> "$ci3/cache/should_run.failure"
+# Use ci3 script base.
+source "$(git rev-parse --show-toplevel)/ci3/base/source"
+if $ci3/cache/should_run.bkup "$@"; then
+  echo "Should not want to run $@" >> "$ci3/cache/.test_faillures"
 fi
 # We never return true, as we don't want to run tests
 exit 1

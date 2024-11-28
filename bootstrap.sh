@@ -11,6 +11,8 @@ if [ "$(uname)" == "Darwin" ]; then
   shopt -s expand_aliases
   alias clang++-16="clang++"
 fi
+# Enable abbreviated output.
+export DENOISE=1
 
 CMD=${1:-}
 

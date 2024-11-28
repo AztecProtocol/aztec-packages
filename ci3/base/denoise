@@ -7,11 +7,7 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
-<<<<<<< HEAD
-if [ -n "${BUILD_SYSTEM_DEBUG:-}" ]; then
-=======
-if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] ; then
->>>>>>> origin/cl/ci3
+if [ -n "${BUILD_SYSTEM_DEBUG:-}" ] || [ "${DENOISE:-0}" = 0 ]; then
   set -e
   $@
   exit 0
