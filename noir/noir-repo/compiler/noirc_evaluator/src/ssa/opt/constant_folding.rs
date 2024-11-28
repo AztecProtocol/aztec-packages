@@ -314,8 +314,10 @@ impl<'brillig> Context<'brillig> {
     /// Fetches an [`Instruction`] by its [`InstructionId`] and fully resolves its inputs.
     fn resolve_instruction(
         instruction_id: InstructionId,
+        block: BasicBlockId,
         dfg: &DataFlowGraph,
-        constraint_simplification_mapping: &HashMap<ValueId, ValueId>,
+        dom: &mut DominatorTree,
+        constraint_simplification_mapping: Option<&HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
     ) -> Instruction {
         let instruction = dfg[instruction_id].clone();
 
@@ -326,19 +328,30 @@ impl<'brillig> Context<'brillig> {
         // constraints to the cache.
         fn resolve_cache(
             dfg: &DataFlowGraph,
-            cache: &HashMap<ValueId, ValueId>,
+            dom: &mut DominatorTree,
+            cache: Option<&HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
             value_id: ValueId,
+            block: BasicBlockId,
         ) -> ValueId {
             let resolved_id = dfg.resolve(value_id);
-            match cache.get(&resolved_id) {
-                Some(cached_value) => resolve_cache(dfg, cache, *cached_value),
-                None => resolved_id,
+            let Some(cached_values) = cache.and_then(|cache| cache.get(&resolved_id)) else {
+                return resolved_id;
+            };
+
+            for (cached_block, cached_value) in cached_values {
+                // We can only use the simplified value if it was simplified in a block that dominates the current one
+                if dom.dominates(*cached_block, block) {
+                    return resolve_cache(dfg, dom, cache, *cached_value, block);
+                }
             }
+
+            resolved_id
         }
 
         // Resolve any inputs to ensure that we're comparing like-for-like instructions.
-        instruction
-            .map_values(|value_id| resolve_cache(dfg, constraint_simplification_mapping, value_id))
+        instruction.map_values(|value_id| {
+            resolve_cache(dfg, dom, constraint_simplification_mapping, value_id, block)
+        })
     }
 
     /// Pushes a new [`Instruction`] into the [`DataFlowGraph`] which applies any optimizations
@@ -373,10 +386,12 @@ impl<'brillig> Context<'brillig> {
 
     fn cache_instruction(
         &mut self,
+        &mut self,
         instruction: Instruction,
         instruction_results: Vec<ValueId>,
         dfg: &DataFlowGraph,
         side_effects_enabled_var: ValueId,
+        block: BasicBlockId,
         block: BasicBlockId,
     ) {
         if self.use_constraint_info {
@@ -384,26 +399,11 @@ impl<'brillig> Context<'brillig> {
             // to map from the more complex to the simpler value.
             if let Instruction::Constrain(lhs, rhs, _) = instruction {
                 // These `ValueId`s should be fully resolved now.
-                match (&dfg[lhs], &dfg[rhs]) {
-                    // Ignore trivial constraints
-                    (Value::NumericConstant { .. }, Value::NumericConstant { .. }) => (),
-
-                    // Prefer replacing with constants where possible.
-                    (Value::NumericConstant { .. }, _) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(rhs, lhs);
-                    }
-                    (_, Value::NumericConstant { .. }) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(lhs, rhs);
-                    }
-                    // Otherwise prefer block parameters over instruction results.
-                    // This is as block parameters are more likely to be a single witness rather than a full expression.
-                    (Value::Param { .. }, Value::Instruction { .. }) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(rhs, lhs);
-                    }
-                    (Value::Instruction { .. }, Value::Param { .. }) => {
-                        self.get_constraint_map(side_effects_enabled_var).insert(lhs, rhs);
-                    }
-                    (_, _) => (),
+                if let Some((complex, simple)) = simplify(dfg, lhs, rhs) {
+                    self.get_constraint_map(side_effects_enabled_var)
+                        .entry(complex)
+                        .or_default()
+                        .push((block, simple));
                 }
             }
         }
