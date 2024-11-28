@@ -53,7 +53,6 @@ build:
     WORKDIR /usr/src/yarn-project
     COPY . .
     RUN ./bootstrap.sh full
-    RUN cd ivc-integration && chmod +x run_browser_tests.sh
 
 
 build-dev:
