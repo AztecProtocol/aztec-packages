@@ -46,7 +46,7 @@ bootstrap-test:
     FROM ./build-images+from-registry
     WORKDIR /usr/src
     ARG EARTHLY_BUILD_SHA
-    RUN git init  &&\
+    RUN git init &>/dev/null &&\
       git remote add origin http://github.com/aztecprotocol/aztec-packages &&\
       git fetch --depth 1 origin $EARTHLY_BUILD_SHA &&\
       git checkout FETCH_HEAD >/dev/null
