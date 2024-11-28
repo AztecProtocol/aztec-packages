@@ -102,10 +102,10 @@ class TranslatorFlavor {
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED,
                                 NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_WITNESSES,
-                                NUM_SHIFTED_WITNESSES,
+                                0,
                                 TO_BE_CONCATENATED_START,
                                 CONCATENATED_START,
-                                NUM_CONCATENATED);
+                                0);
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
@@ -790,7 +790,7 @@ class TranslatorFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to

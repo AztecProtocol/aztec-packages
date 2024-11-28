@@ -132,20 +132,50 @@ namespace bb {
  * is equal to \f$ 1-  u_2 \cdots u_{d-1} \f$ otherwise.
  */
 
-template <typename FF> struct RowDisablingPolynomial {
-    // initialized as a constant linear polynomial = 1
-    FF eval_at_0{ 1 };
-    FF eval_at_1{ 1 };
+template <typename Flavor> struct RowDisablingPolynomial {
+    using FF = typename Flavor::FF;
 
-    RowDisablingPolynomial() = default;
+    // initialized as a constant linear polynomial = 1
+    FF eval_at_0;
+    FF eval_at_1{ 1 };
+    FF one = FF{ 1 };
+    FF zero = FF{ 0 };
+
+    RowDisablingPolynomial()
+    {
+        if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
+            // Initialize for TranslatorFlavor
+            eval_at_0 = zero;
+        } else {
+            // Initialize for other Flavors
+            eval_at_0 = one;
+        }
+    }
 
     void update_evaluations(FF round_challenge, size_t round_idx)
     {
-        if (round_idx == 1) {
-            eval_at_0 = FF{ 0 };
-        }
-        if (round_idx >= 2) {
-            eval_at_1 *= round_challenge;
+        if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
+            if (round_idx == 0) {
+                eval_at_0 = round_challenge;
+                eval_at_1 = one;
+            };
+
+            if (round_idx == 1) {
+                eval_at_0 = eval_at_0 * (one - round_challenge) + round_challenge;
+                eval_at_1 = zero;
+            };
+
+            if (round_idx > 1) {
+                eval_at_0 = eval_at_0 * (one - round_challenge);
+                eval_at_1 = zero;
+            }
+        } else {
+            if (round_idx == 1) {
+                eval_at_0 = FF{ 0 };
+            }
+            if (round_idx >= 2) {
+                eval_at_1 *= round_challenge;
+            }
         }
     }
 
@@ -153,8 +183,18 @@ template <typename FF> struct RowDisablingPolynomial {
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
-        for (size_t idx = 2; idx < log_circuit_size; idx++) {
-            evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
+        if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
+            evaluation_at_multivariate_challenge =
+                (multivariate_challenge[0] * (FF{ 1 } - multivariate_challenge[1]) + multivariate_challenge[1]);
+
+            for (size_t idx = 2; idx < log_circuit_size; idx++) {
+                evaluation_at_multivariate_challenge *= (FF{ 1 } - multivariate_challenge[idx]);
+            }
+
+        } else {
+            for (size_t idx = 2; idx < log_circuit_size; idx++) {
+                evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
+            }
         }
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;

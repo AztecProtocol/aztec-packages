@@ -46,7 +46,7 @@ void ECCVMProver::execute_wire_commitments_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
-    for (auto poly : key->polynomials.get_wires()) {
+    for (auto& poly : key->polynomials.get_wires()) {
         for (size_t i = 1; i < 4; i++) {
             poly.at(circuit_size - i) = FF::random_element();
         }

@@ -113,6 +113,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
+    info("SUMCHECK verified?", sumcheck_verified.value());
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;

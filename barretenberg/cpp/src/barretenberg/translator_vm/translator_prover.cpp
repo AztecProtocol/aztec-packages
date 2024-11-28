@@ -3,7 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+// #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -87,17 +87,15 @@ void TranslatorProver::execute_preamble_round()
  */
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    size_t idx = 0;
+    // const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
     // Commit to all wire polynomials and ordered range constraint polynomials
-    for (auto poly : key->polynomials.get_wires_and_ordered_range_constraints()) {
-        for (size_t i = 1; i < 4; i++) {
-            poly.at(circuit_size - i) = FF::random_element();
+    for (auto& poly : key->polynomials.get_wires_and_ordered_range_constraints()) {
+        for (size_t i = 2; i < 3; i++) {
+            poly.at(i) = FF::random_element();
         }
-        idx++;
     }
 
-    info("number random commitments ", idx);
+    // info("number random commitments ", idx);
     auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
     auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
@@ -160,11 +158,7 @@ void TranslatorProver::execute_grand_product_computation_round()
     info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 7));
     info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 6));
 
-    for (size_t i = 1; i < 4; i++) {
-        info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - i - 1));
-        key->polynomials.z_perm.at(circuit_size - i) = FF::random_element();
-        info("oink oink ", key->polynomials.z_perm.at(circuit_size - i));
-    }
+    info("z_perm size ", key->polynomials.z_perm.size());
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }

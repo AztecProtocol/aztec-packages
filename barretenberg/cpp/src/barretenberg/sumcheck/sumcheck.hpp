@@ -193,16 +193,23 @@ template <typename Flavor> class SumcheckProver {
     {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
-        for (size_t i = 1; i < 4; i++) {
-            info("sum sum ", full_polynomials.z_perm.at(multivariate_n - i));
+        size_t idx = 0;
+        for (auto poly : full_polynomials.get_all()) {
+            for (size_t j = poly.size() - 1; j > 0; j--) {
+                if (poly.at(j) != FF(0)) {
+                    info("idx ", idx, " last coeff ", j);
+                    break;
+                }
+            }
+            idx++;
         }
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
-        auto row_disabling_polynomial = RowDisablingPolynomial<FF>();
+        auto row_disabling_polynomial = RowDisablingPolynomial<Flavor>();
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
-        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
-        // compute_univariate also takes into account the zk_sumcheck_data.
+        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has
+        // ZK, compute_univariate also takes into account the zk_sumcheck_data.
         auto round_univariate = round.compute_univariate(round_idx,
                                                          full_polynomials,
                                                          relation_parameters,
@@ -277,8 +284,8 @@ template <typename Flavor> class SumcheckProver {
             }
         };
 
-        // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
-        // evaluations of all witnesses are masked.
+        // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK,
+        // the evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations;
         multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
@@ -298,13 +305,13 @@ template <typename Flavor> class SumcheckProver {
      @brief Evaluate Honk polynomials at the round challenge and prepare class for next round.
      @details At initialization, \ref ProverPolynomials "Prover Polynomials"
      are submitted by reference into \p full_polynomials, which is a two-dimensional array defined as \f{align}{
-    \texttt{full_polynomials}_{i,j} = P_j(\vec i). \f} Here, \f$ \vec i \in \{0,1\}^d \f$ is identified with the binary
-    representation of the integer \f$ 0 \leq i \leq 2^d-1 \f$.
+    \texttt{full_polynomials}_{i,j} = P_j(\vec i). \f} Here, \f$ \vec i \in \{0,1\}^d \f$ is identified with the
+    binary representation of the integer \f$ 0 \leq i \leq 2^d-1 \f$.
 
-     * When the first challenge \f$ u_0 \f$ is computed, the method \ref partially_evaluate "partially evaluate" takes
-    as input \p full_polynomials and populates  \ref partially_evaluated_polynomials "a new book-keeping table" denoted
-    \f$\texttt{partially_evaluated_polynomials}\f$. Its \f$ n/2 = 2^{d-1} \f$ rows represent the evaluations  \f$
-    P_i(u_0, X_1, ..., X_{d-1}) \f$, which are multilinear polynomials in \f$ d-1 \f$ variables.
+     * When the first challenge \f$ u_0 \f$ is computed, the method \ref partially_evaluate "partially evaluate"
+    takes as input \p full_polynomials and populates  \ref partially_evaluated_polynomials "a new book-keeping
+    table" denoted \f$\texttt{partially_evaluated_polynomials}\f$. Its \f$ n/2 = 2^{d-1} \f$ rows represent the
+    evaluations  \f$ P_i(u_0, X_1, ..., X_{d-1}) \f$, which are multilinear polynomials in \f$ d-1 \f$ variables.
      * More precisely, it is a table  \f$ 2^{d-1} \f$ rows and \f$ N \f$ columns, such that
     \f{align}{ \texttt{partially_evaluated_polynomials}_{i,j} = &\ P_j(0, i_1,\ldots, i_{d-1}) + u_0 \cdot (P_j(1,
     i_1,\ldots, i_{d-1})) - P_j(0, i_1,\ldots, i_{d-1})) \\ = &\ \texttt{full_polynomials}_{2 i,j} + u_0 \cdot
@@ -312,16 +319,18 @@ template <typename Flavor> class SumcheckProver {
      * We elude copying all of the polynomial-defining data by only populating \ref partially_evaluated_polynomials
     after the first round.
 
-     * In Round \f$0<i\leq d-1\f$, this method takes the challenge \f$ u_{i} \f$ and rewrites the first \f$ 2^{d-i-1}
-    \f$ rows in the \f$ \texttt{partially_evaluated_polynomials} \f$ table with the values
+     * In Round \f$0<i\leq d-1\f$, this method takes the challenge \f$ u_{i} \f$ and rewrites the first \f$
+    2^{d-i-1} \f$ rows in the \f$ \texttt{partially_evaluated_polynomials} \f$ table with the values
      * \f{align}{
         \texttt{partially_evaluated_polynomials}_{\ell,j} \gets &\
          P_j\left(u_0,\ldots, u_{i}, \vec \ell \right)    \\
-       = &\ P_j\left(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right) + u_{i} \cdot \left( P_j\left(u_0, \ldots, u_{i-1}, 1,
-    \vec \ell ) - P_j(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right)\right)  \\ =
-    &\ \texttt{partially_evaluated_polynomials}_{2 \ell,j}  + u_{i} \cdot (\texttt{partially_evaluated_polynomials}_{2
-    \ell+1,j} - \texttt{partially_evaluated_polynomials}_{2\ell,j}) \f} where \f$\vec \ell \in \{0,1\}^{d-1-i}\f$.
-     * After the final update, i.e. when \f$ i = d-1 \f$, the upper row of the table contains the evaluations of Honk
+       = &\ P_j\left(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right) + u_{i} \cdot \left( P_j\left(u_0, \ldots, u_{i-1},
+    1, \vec \ell ) - P_j(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right)\right)  \\ =
+    &\ \texttt{partially_evaluated_polynomials}_{2 \ell,j}  + u_{i} \cdot
+    (\texttt{partially_evaluated_polynomials}_{2 \ell+1,j} - \texttt{partially_evaluated_polynomials}_{2\ell,j}) \f}
+    where \f$\vec \ell \in \{0,1\}^{d-1-i}\f$.
+     * After the final update, i.e. when \f$ i = d-1 \f$, the upper row of the table contains the evaluations of
+    Honk
      * polynomials at the challenge point \f$ (u_0,\ldots, u_{d-1}) \f$.
      * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
      * @param round_size \f$2^{d-i}\f$
@@ -356,12 +365,13 @@ template <typename Flavor> class SumcheckProver {
     };
 
     /**
-    * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a
+    * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates
+a
     * vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$.
     * For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
-and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$
-masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all non-witness
-polynomials that are sent in clear.
+and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1}
+)\f$ masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all
+non-witness polynomials that are sent in clear.
     *
     * @param partially_evaluated_polynomials
     * @param multivariate_evaluations
@@ -381,7 +391,8 @@ polynomials that are sent in clear.
 
         -  update the table of Libra univariates by multiplying every term by \f$1/2\f$.
         -  computes the value \f$2^{d-i - 2} \cdot \texttt{libra_challenge} \cdot g_0(u_0)\f$ applying \ref
-        bb::Univariate::evaluate "evaluate" method to the first univariate in the table \f$\texttt{libra_univariates}\f$
+        bb::Univariate::evaluate "evaluate" method to the first univariate in the table
+     \f$\texttt{libra_univariates}\f$
         -  places the value \f$ g_0(u_0)\f$ to the vector \f$ \texttt{libra_evaluations}\f$
         -  update the running sum
         \f{align}{
@@ -443,17 +454,18 @@ polynomials that are sent in clear.
  *
  * For \f$ i = 0,\ldots, d-1\f$:
  * - Extract Round Univariate's \f$\tilde{F}\f$ evaluations at \f$0,\ldots, D \f$ from the transcript using \ref
- bb::BaseTranscript::receive_from_prover "receive_from_prover" method from \ref bb::BaseTranscript< TranscriptParams >
- "Base Transcript Class".
+ bb::BaseTranscript::receive_from_prover "receive_from_prover" method from \ref bb::BaseTranscript< TranscriptParams
+ > "Base Transcript Class".
  * - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
  i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$
- * - Compute the challenge \f$u_i\f$ from the transcript using \ref bb::BaseTranscript::get_challenge "get_challenge"
- method.
- * - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target sum" :\f$ \quad \sigma_{i+1}
- \gets \tilde{S}^i(u_i) \f$
+ * - Compute the challenge \f$u_i\f$ from the transcript using \ref bb::BaseTranscript::get_challenge
+ "get_challenge" method.
+ * - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target sum" :\f$ \quad
+ \sigma_{i+1} \gets \tilde{S}^i(u_i) \f$
  * ### Verifier's Data before Final Step
- * Entering the final round, the Verifier has already checked that \f$\quad \sigma_{ d-1 } = \tilde{S}^{d-2}(u_{d-2})
- \stackrel{?}{=}  \tilde{S}^{d-1}(0) + \tilde{S}^{d-1}(1)  \f$ and computed \f$\sigma_d = \tilde{S}^{d-1}(u_{d-1})\f$.
+ * Entering the final round, the Verifier has already checked that \f$\quad \sigma_{ d-1 } =
+ \tilde{S}^{d-2}(u_{d-2}) \stackrel{?}{=}  \tilde{S}^{d-1}(0) + \tilde{S}^{d-1}(1)  \f$ and computed \f$\sigma_d =
+ \tilde{S}^{d-1}(u_{d-1})\f$.
  * ### Final Verification Step
  * - Extract \ref ClaimedEvaluations of prover polynomials \f$P_1,\ldots, P_N\f$ at the challenge point \f$
  (u_0,\ldots,u_{d-1}) \f$ from the transcript and \ref bb::SumcheckVerifierRound< Flavor
@@ -479,8 +491,8 @@ template <typename Flavor> class SumcheckVerifier {
      *
      */
     using ClaimedEvaluations = typename Flavor::AllValues;
-    // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses them to
-    // compute full_honk_relation_purported_value
+    // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses
+    // them to compute full_honk_relation_purported_value
     using ClaimedLibraEvaluations = typename std::vector<FF>;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -528,8 +540,8 @@ template <typename Flavor> class SumcheckVerifier {
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of
-        // a field_t link multivariate_d.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the
+        // log of a field_t link multivariate_d.
         if (multivariate_d == 0) {
             throw_or_abort("Number of variables in multivariate is 0.");
         }
@@ -575,6 +587,7 @@ template <typename Flavor> class SumcheckVerifier {
                 if (round_idx < multivariate_d) {
                     bool checked = round.check_sum(round_univariate);
                     verified = verified && checked;
+                    info("sumcheck round ", round_idx, " ", verified);
                     multivariate_challenge.emplace_back(round_challenge);
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     gate_separators.partially_evaluate(round_challenge);
@@ -604,12 +617,12 @@ template <typename Flavor> class SumcheckVerifier {
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         FF correcting_factor{ 1 };
         if constexpr (Flavor::HasZK) {
-            RowDisablingPolynomial<FF> row_disabler = RowDisablingPolynomial<FF>();
+            RowDisablingPolynomial<Flavor> row_disabler = RowDisablingPolynomial<Flavor>();
             correcting_factor = row_disabler.evaluate_at_challenge(multivariate_challenge, multivariate_d);
         }
 
-        // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
-        // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
+        // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover
+        // polynomials. In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(purported_evaluations,
                                                                                    relation_parameters,
                                                                                    gate_separators,
