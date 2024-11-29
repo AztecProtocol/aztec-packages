@@ -206,6 +206,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void advance_finalised_block(const index_t& blockNumber);
 
+    std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
+
   private:
     std::string name_;
     uint32_t depth_;
@@ -258,6 +260,10 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void extract_db_stats(TreeDBStats& stats);
 
+    void persist_block_for_index(const block_number_t& blockNumber, const index_t& index, WriteTransaction& tx);
+
+    void delete_block_for_index(const block_number_t& blockNumber, const index_t& index, WriteTransaction& tx);
+
     index_t constrain_tree_size(const RequestContext& requestContext, ReadTransaction& tx) const;
 
     WriteTransactionPtr create_write_transaction() const { return dataStore_->create_write_transaction(); }
@@ -302,6 +308,31 @@ index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size(cons
         }
     }
     return sizeLimit;
+}
+
+template <typename LeafValueType>
+std::optional<block_number_t> ContentAddressedCachedTreeStore<LeafValueType>::find_block_for_index(
+    const index_t& index, ReadTransaction& tx) const
+{
+    block_number_t blockNumber = 0;
+    bool success = dataStore_->find_block_for_index(index, blockNumber, tx);
+    return success ? std::make_optional(blockNumber) : std::nullopt;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::persist_block_for_index(const block_number_t& blockNumber,
+                                                                             const index_t& index,
+                                                                             WriteTransaction& tx)
+{
+    dataStore_->write_block_index_data(blockNumber, index, tx);
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::delete_block_for_index(const block_number_t& blockNumber,
+                                                                            const index_t& index,
+                                                                            WriteTransaction& tx)
+{
+    dataStore_->delete_block_index(index, blockNumber, tx);
 }
 
 template <typename LeafValueType>
@@ -649,6 +680,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
                                     .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
                                     .root = uncommittedMeta.root };
                 dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
+                dataStore_->write_block_index_data(block.blockNumber, block.size, *tx);
             }
 
             uncommittedMeta.committedSize = uncommittedMeta.size;
@@ -894,6 +926,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
         // remove the block from the block data table
         dataStore_->delete_block_data(blockNumber, *writeTx);
+        dataStore_->delete_block_index(blockData.size, blockData.blockNumber, *writeTx);
         uncommittedMeta.unfinalisedBlockHeight = previousBlockData.blockNumber;
         uncommittedMeta.size = previousBlockData.size;
         uncommittedMeta.committedSize = previousBlockData.size;

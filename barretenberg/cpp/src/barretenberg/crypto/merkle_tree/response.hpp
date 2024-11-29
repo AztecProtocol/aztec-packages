@@ -48,6 +48,10 @@ template <typename LeafValueType> struct AddIndexedDataSequentiallyResponse {
     std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> insertion_witness_data;
 };
 
+struct BlockForIndexResponse {
+    std::vector<std::optional<block_number_t>> blockNumbers;
+};
+
 struct FindLeafIndexResponse {
     index_t leaf_index;
 };

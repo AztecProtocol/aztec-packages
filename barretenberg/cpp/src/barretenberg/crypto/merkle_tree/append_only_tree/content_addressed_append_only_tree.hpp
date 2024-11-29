@@ -49,6 +49,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
     using FinaliseBlockCallback = std::function<void(const Response&)>;
+    using GetBlockForIndexCallback = std::function<void(const TypedResponse<BlockForIndexResponse>&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -184,6 +185,19 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                               const index_t& blockNumber,
                               bool includeUncommitted,
                               const FindLeafCallback& on_completion) const;
+
+    /**
+     * @brief Returns the block numbers that correspond to the given indices values
+     */
+    void find_block_numbers(const std::vector<index_t>& indices, const GetBlockForIndexCallback& on_completion) const;
+
+    /**
+     * @brief Returns the block numbers that correspond to the given indices values, from the perspective of a
+     * historical block number
+     */
+    void find_block_numbers(const std::vector<index_t>& indices,
+                            const block_number_t& blockNumber,
+                            const GetBlockForIndexCallback& on_completion) const;
 
     /**
      * @brief Commit the tree to the backing store
@@ -387,6 +401,62 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
                 requestContext.root = blockData.root;
                 OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(index, 0, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_block_numbers(
+    const std::vector<index_t>& indices, const GetBlockForIndexCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<BlockForIndexResponse>(
+            [=, this](TypedResponse<BlockForIndexResponse>& response) {
+                response.inner.blockNumbers.reserve(indices.size());
+                TreeMeta meta;
+                ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(meta, *tx, true);
+                index_t maxIndex = meta.committedSize;
+                for (index_t index : indices) {
+                    bool outOfRange = index >= maxIndex;
+                    std::optional<block_number_t> block =
+                        outOfRange ? std::nullopt : store_->find_block_for_index(index, *tx);
+                    response.inner.blockNumbers.emplace_back(block);
+                }
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_block_numbers(
+    const std::vector<index_t>& indices,
+    const block_number_t& blockNumber,
+    const GetBlockForIndexCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<BlockForIndexResponse>(
+            [=, this](TypedResponse<BlockForIndexResponse>& response) {
+                response.inner.blockNumbers.reserve(indices.size());
+                TreeMeta meta;
+                BlockPayload blockPayload;
+                ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(meta, *tx, true);
+                if (!store_->get_block_data(blockNumber, blockPayload, *tx)) {
+                    throw std::runtime_error(format("Unable to find block numbers for indices for block ",
+                                                    blockNumber,
+                                                    ", failed to get block data."));
+                }
+                index_t maxIndex = std::min(meta.committedSize, blockPayload.size);
+                for (index_t index : indices) {
+                    bool outOfRange = index >= maxIndex;
+                    std::optional<block_number_t> block =
+                        outOfRange ? std::nullopt : store_->find_block_for_index(index, *tx);
+                    response.inner.blockNumbers.emplace_back(block);
+                }
             },
             on_completion);
     };

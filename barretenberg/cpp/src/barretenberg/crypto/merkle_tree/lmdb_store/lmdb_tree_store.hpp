@@ -55,6 +55,21 @@ struct NodePayload {
         return left == other.left && right == other.right && ref == other.ref;
     }
 };
+
+struct BlockIndexPayload {
+    std::vector<block_number_t> blockNumbers;
+
+    MSGPACK_FIELDS(blockNumbers)
+
+    bool operator==(const BlockIndexPayload& other) const { return blockNumbers == other.blockNumbers; }
+
+    void sort() { std::sort(blockNumbers.begin(), blockNumbers.end()); }
+
+    bool contains(const block_number_t& blockNumber)
+    {
+        return std::find(blockNumbers.begin(), blockNumbers.end(), blockNumber) != blockNumbers.end();
+    }
+};
 /**
  * Creates an abstraction against a collection of LMDB databases within a single environment used to store merkle tree
  * data
@@ -78,11 +93,18 @@ class LMDBTreeStore {
 
     void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
-    void write_block_data(uint64_t blockNumber, const BlockPayload& blockData, WriteTransaction& tx);
+    void write_block_data(block_number_t blockNumber, const BlockPayload& blockData, WriteTransaction& tx);
 
-    bool read_block_data(uint64_t blockNumber, BlockPayload& blockData, ReadTransaction& tx);
+    bool read_block_data(block_number_t blockNumber, BlockPayload& blockData, ReadTransaction& tx);
 
-    void delete_block_data(uint64_t blockNumber, WriteTransaction& tx);
+    void delete_block_data(block_number_t blockNumber, WriteTransaction& tx);
+
+    void write_block_index_data(block_number_t blockNumber, const index_t& blockSize, WriteTransaction& tx);
+
+    // index here is 0 based
+    bool find_block_for_index(const index_t& index, block_number_t& blockNumber, ReadTransaction& tx);
+
+    void delete_block_index(const index_t& blockSize, const block_number_t& blockNumber, WriteTransaction& tx);
 
     void write_meta_data(const TreeMeta& metaData, WriteTransaction& tx);
 
@@ -136,6 +158,7 @@ class LMDBTreeStore {
     LMDBDatabase::Ptr _nodeDatabase;
     LMDBDatabase::Ptr _leafKeyToIndexDatabase;
     LMDBDatabase::Ptr _leafHashToPreImageDatabase;
+    LMDBDatabase::Ptr _indexToBlockDatabase;
 
     template <typename TxType> bool get_node_data(const fr& nodeHash, NodePayload& nodeData, TxType& tx);
 };
