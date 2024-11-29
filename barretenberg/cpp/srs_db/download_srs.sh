@@ -42,7 +42,7 @@ download() {
 
 for TRANSCRIPT in $(seq 0 $NUM); do
   NUM=$(printf %02d $TRANSCRIPT)
-  if [ -f checksums  ] && [ -z "$RANGE_START" ] && [ -z "$RANGE_END" ]; then
+  if [ -f checksums  ] && [ -z "$RANGE_START" ] && [ -z "$RANGE_END" ] ; then
     checksum $NUM && continue
     download $NUM
     checksum $NUM || exit 1

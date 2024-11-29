@@ -43,7 +43,7 @@ jobs:
           LATEST_COMMIT_SHA=$(gh api repos/${{ github.repository }}/commits/$BRANCH_NAME --jq .sha)
 
           # Compare the SHAs
-          if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]] && [[ "$BRANCH_NAME" != "master" && "$BRANCH_NAME" != "main" ]]; then
+          if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]] && [[ "$BRANCH_NAME" != "master" && "$BRANCH_NAME" != "main" ]] ; then
             echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA) and the branch is not master/main. Skipping rerun."
           else
             echo "Commit $COMMIT_SHA is the latest on branch $BRANCH_NAME. Proceeding with rerun."

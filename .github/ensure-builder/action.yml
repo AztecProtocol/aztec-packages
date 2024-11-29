@@ -110,13 +110,13 @@ runs:
       with:
         run: |
           # One-time config
-          if ! [ -f ~/maybe_exit_spot.sh ]; then
+          if ! [ -f ~/maybe_exit_spot.sh ] ; then
             cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
             cp scripts/ci/spot_runner_graceful_exit.sh ~/spot_runner_graceful_exit.sh
             # Get the used space on /dev/nvme1n1 in bytes
             used_space=$(df /var/lib/docker | awk 'NR==2 {print $3}')
             # Compare and conditionally prune
-            if [[ "$used_space" -gt 192000000 ]]; then
+            if [[ "$used_space" -gt 192000000 ]] ; then
               echo "Used space is greater than 192GB. Running 'docker system prune'."
               docker system prune -f -a || true
               echo "Pruned docker images."
