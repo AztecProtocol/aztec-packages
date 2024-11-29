@@ -259,12 +259,12 @@ class WorldState {
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
-    Fork::SharedPtr create_new_fork(const index_t& blockNumber);
-    void remove_forks_for_block(const index_t& blockNumber);
+    Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
+    void remove_forks_for_block(const block_number_t& blockNumber);
 
-    bool unwind_block(const index_t& blockNumber, WorldStateStatusFull& status);
-    bool remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status);
-    bool set_finalised_block(const index_t& blockNumber);
+    bool unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
+    bool remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
+    bool set_finalised_block(const block_number_t& blockNumber);
 
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
 
@@ -304,7 +304,7 @@ class WorldState {
                      std::atomic_bool& success,
                      std::string& message,
                      TreeMeta& meta,
-                     const index_t& blockNumber);
+                     const block_number_t& blockNumber);
 
     template <typename TreeType>
     void remove_historic_block_for_tree(TreeDBStats& dbStats,
@@ -313,7 +313,7 @@ class WorldState {
                                         std::atomic_bool& success,
                                         std::string& message,
                                         TreeMeta& meta,
-                                        const index_t& blockNumber);
+                                        const block_number_t& blockNumber);
 };
 
 template <typename TreeType>
@@ -342,7 +342,7 @@ void WorldState::unwind_tree(TreeDBStats& dbStats,
                              std::atomic_bool& success,
                              std::string& message,
                              TreeMeta& meta,
-                             const index_t& blockNumber)
+                             const block_number_t& blockNumber)
 {
     tree.unwind_block(blockNumber, [&](TypedResponse<UnwindResponse>& response) {
         bool expected = true;
@@ -362,7 +362,7 @@ void WorldState::remove_historic_block_for_tree(TreeDBStats& dbStats,
                                                 std::atomic_bool& success,
                                                 std::string& message,
                                                 TreeMeta& meta,
-                                                const index_t& blockNumber)
+                                                const block_number_t& blockNumber)
 {
     tree.remove_historic_block(blockNumber, [&](TypedResponse<RemoveHistoricResponse>& response) {
         bool expected = true;

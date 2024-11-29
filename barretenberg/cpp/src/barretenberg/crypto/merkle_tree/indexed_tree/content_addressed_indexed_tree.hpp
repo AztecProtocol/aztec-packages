@@ -151,7 +151,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     void find_low_leaf(const fr& leaf_key, bool includeUncommitted, const FindLowLeafCallback& on_completion) const;
 
     void get_leaf(const index_t& index,
-                  const index_t& blockNumber,
+                  const block_number_t& blockNumber,
                   bool includeUncommitted,
                   const LeafCallback& completion) const;
 
@@ -160,7 +160,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      */
     void find_leaf_index(
         const LeafValueType& leaf,
-        const index_t& blockNumber,
+        const block_number_t& blockNumber,
         bool includeUncommitted,
         const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
@@ -169,7 +169,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      */
     void find_leaf_index_from(
         const LeafValueType& leaf,
-        const index_t& blockNumber,
+        const block_number_t& blockNumber,
         const index_t& start_index,
         bool includeUncommitted,
         const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
@@ -178,7 +178,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      * @brief Find the leaf with the value immediately lower then the value provided
      */
     void find_low_leaf(const fr& leaf_key,
-                       const index_t& blockNumber,
+                       const block_number_t& blockNumber,
                        bool includeUncommitted,
                        const FindLowLeafCallback& on_completion) const;
 
@@ -402,7 +402,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
-                                                                 const index_t& blockNumber,
+                                                                 const block_number_t& blockNumber,
                                                                  bool includeUncommitted,
                                                                  const LeafCallback& completion) const
 {
@@ -458,7 +458,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
     const LeafValueType& leaf,
-    const index_t& blockNumber,
+    const block_number_t& blockNumber,
     bool includeUncommitted,
     const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
@@ -496,7 +496,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     const LeafValueType& leaf,
-    const index_t& blockNumber,
+    const block_number_t& blockNumber,
     const index_t& start_index,
     bool includeUncommitted,
     const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
@@ -559,7 +559,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
-                                                                      const index_t& blockNumber,
+                                                                      const block_number_t& blockNumber,
                                                                       bool includeUncommitted,
                                                                       const FindLowLeafCallback& on_completion) const
 {

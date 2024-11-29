@@ -25,7 +25,7 @@ namespace bb::crypto::merkle_tree {
 struct BlockPayload {
 
     index_t size;
-    index_t blockNumber;
+    block_number_t blockNumber;
     fr root;
 
     MSGPACK_FIELDS(size, blockNumber, root)

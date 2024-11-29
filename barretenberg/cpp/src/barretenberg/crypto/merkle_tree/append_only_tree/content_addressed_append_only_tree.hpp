@@ -91,7 +91,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param includeUncommitted Whether to include uncommitted changes
      */
     void get_sibling_path(const index_t& index,
-                          const index_t& blockNumber,
+                          const block_number_t& blockNumber,
                           const HashPathCallback& on_completion,
                           bool includeUncommitted) const;
 
@@ -132,7 +132,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param includeUncommitted Whether to include uncommitted changes
      * @param on_completion Callback to be called on completion
      */
-    void get_meta_data(const index_t& blockNumber,
+    void get_meta_data(const block_number_t& blockNumber,
                        bool includeUncommitted,
                        const MetaDataCallback& on_completion) const;
 
@@ -152,7 +152,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param on_completion Callback to be called on completion
      */
     void get_leaf(const index_t& index,
-                  const index_t& blockNumber,
+                  const block_number_t& blockNumber,
                   bool includeUncommitted,
                   const GetLeafCallback& completion) const;
 
@@ -165,7 +165,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @brief Returns the index of the provided leaf in the tree
      */
     void find_leaf_index(const fr& leaf,
-                         const index_t& blockNumber,
+                         const block_number_t& blockNumber,
                          bool includeUncommitted,
                          const FindLeafCallback& on_completion) const;
 
@@ -182,7 +182,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      */
     void find_leaf_index_from(const fr& leaf,
                               const index_t& start_index,
-                              const index_t& blockNumber,
+                              const block_number_t& blockNumber,
                               bool includeUncommitted,
                               const FindLeafCallback& on_completion) const;
 
@@ -214,11 +214,11 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      */
     uint32_t depth() const { return depth_; }
 
-    void remove_historic_block(const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion);
+    void remove_historic_block(const block_number_t& blockNumber, const RemoveHistoricBlockCallback& on_completion);
 
-    void unwind_block(const index_t& blockNumber, const UnwindBlockCallback& on_completion);
+    void unwind_block(const block_number_t& blockNumber, const UnwindBlockCallback& on_completion);
 
-    void finalise_block(const index_t& blockNumber, const FinaliseBlockCallback& on_completion);
+    void finalise_block(const block_number_t& blockNumber, const FinaliseBlockCallback& on_completion);
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -340,7 +340,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool in
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(const index_t& blockNumber,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(const block_number_t& blockNumber,
                                                                          bool includeUncommitted,
                                                                          const MetaDataCallback& on_completion) const
 {
@@ -375,7 +375,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
-                                                                            const index_t& blockNumber,
+                                                                            const block_number_t& blockNumber,
                                                                             const HashPathCallback& on_completion,
                                                                             bool includeUncommitted) const
 {
@@ -671,7 +671,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& leaf_index,
-                                                                    const index_t& blockNumber,
+                                                                    const block_number_t& blockNumber,
                                                                     bool includeUncommitted,
                                                                     const GetLeafCallback& on_completion) const
 {
@@ -727,7 +727,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
-                                                                           const index_t& blockNumber,
+                                                                           const block_number_t& blockNumber,
                                                                            bool includeUncommitted,
                                                                            const FindLeafCallback& on_completion) const
 {
@@ -766,7 +766,7 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
     const fr& leaf,
     const index_t& start_index,
-    const index_t& blockNumber,
+    const block_number_t& blockNumber,
     bool includeUncommitted,
     const FindLeafCallback& on_completion) const
 {
@@ -858,7 +858,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block(
-    const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
+    const block_number_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
 {
     auto job = [=, this]() {
         execute_and_report<RemoveHistoricResponse>(
@@ -874,7 +874,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(const index_t& blockNumber,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(const block_number_t& blockNumber,
                                                                         const UnwindBlockCallback& on_completion)
 {
     auto job = [=, this]() {
@@ -891,7 +891,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(const in
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalise_block(const index_t& blockNumber,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalise_block(const block_number_t& blockNumber,
                                                                           const FinaliseBlockCallback& on_completion)
 {
     auto job = [=, this]() {

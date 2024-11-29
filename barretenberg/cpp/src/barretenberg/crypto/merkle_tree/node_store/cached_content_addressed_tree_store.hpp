@@ -147,7 +147,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Reads the tree meta data, including uncommitted data if requested
      */
-    bool get_block_data(const index_t& blockNumber, BlockPayload& blockData, ReadTransaction& tx) const;
+    bool get_block_data(const block_number_t& blockNumber, BlockPayload& blockData, ReadTransaction& tx) const;
 
     /**
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
@@ -198,13 +198,13 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const;
 
-    void remove_historical_block(const index_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
+    void remove_historical_block(const block_number_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
 
-    void unwind_block(const index_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
+    void unwind_block(const block_number_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
 
     std::optional<index_t> get_fork_block() const;
 
-    void advance_finalised_block(const index_t& blockNumber);
+    void advance_finalised_block(const block_number_t& blockNumber);
 
     std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
 
@@ -235,7 +235,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void initialise();
 
-    void initialise_from_block(const index_t& blockNumber);
+    void initialise_from_block(const block_number_t& blockNumber);
 
     bool read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const;
 
@@ -584,7 +584,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::get_meta(TreeMeta& m,
 }
 
 template <typename LeafValueType>
-bool ContentAddressedCachedTreeStore<LeafValueType>::get_block_data(const index_t& blockNumber,
+bool ContentAddressedCachedTreeStore<LeafValueType>::get_block_data(const block_number_t& blockNumber,
                                                                     BlockPayload& blockData,
                                                                     ReadTransaction& tx) const
 {
@@ -799,7 +799,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_meta(TreeMeta& m, W
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(const index_t& blockNumber)
+void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(const block_number_t& blockNumber)
 {
     TreeMeta committedMeta;
     TreeMeta uncommittedMeta;
@@ -859,7 +859,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t& blockNumber,
+void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_number_t& blockNumber,
                                                                   TreeMeta& finalMeta,
                                                                   TreeDBStats& dbStats)
 {
@@ -949,7 +949,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(const index_t& blockNumber,
+void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(const block_number_t& blockNumber,
                                                                              TreeMeta& finalMeta,
                                                                              TreeDBStats& dbStats)
 {
@@ -1140,7 +1140,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const index_t& blockNumber)
+void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const block_number_t& blockNumber)
 {
     // Read the persisted meta data, if the name or depth of the tree is not consistent with what was provided during
     // construction then we throw

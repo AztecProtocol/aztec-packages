@@ -142,7 +142,7 @@ Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
 }
 uint64_t WorldState::create_fork(const std::optional<index_t>& blockNumber)
 {
-    index_t blockNumberForFork = 0;
+    block_number_t blockNumberForFork = 0;
     if (!blockNumber.has_value()) {
         // we are forking at latest
         WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
@@ -159,7 +159,7 @@ uint64_t WorldState::create_fork(const std::optional<index_t>& blockNumber)
     return forkId;
 }
 
-void WorldState::remove_forks_for_block(const index_t& blockNumber)
+void WorldState::remove_forks_for_block(const block_number_t& blockNumber)
 {
     // capture the shared pointers outside of the lock scope so we are not under the lock when the objects are destroyed
     std::vector<Fork::SharedPtr> forks;
@@ -191,7 +191,7 @@ void WorldState::delete_fork(const uint64_t& forkId)
     }
 }
 
-Fork::SharedPtr WorldState::create_new_fork(const index_t& blockNumber)
+Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
     fork->_blockNumber = blockNumber;
@@ -616,7 +616,8 @@ WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
         throw std::runtime_error("Unable to unwind block, block not found");
     }
     WorldStateStatusFull status;
-    for (index_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber; blockNumber--) {
+    for (block_number_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber;
+         blockNumber--) {
         if (!unwind_block(blockNumber, status)) {
             throw std::runtime_error("Failed to unwind block");
         }
@@ -635,7 +636,8 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
                                         archive_state.meta.oldestHistoricBlock));
     }
     WorldStateStatusFull status;
-    for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
+    for (block_number_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber;
+         blockNumber++) {
         if (!remove_historical_block(blockNumber, status)) {
             throw std::runtime_error(format(
                 "Failed to remove historical block ", blockNumber, " when removing blocks up to ", toBlockNumber));
@@ -645,7 +647,7 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
     return status;
 }
 
-bool WorldState::set_finalised_block(const index_t& blockNumber)
+bool WorldState::set_finalised_block(const block_number_t& blockNumber)
 {
     std::atomic_bool success = true;
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
@@ -663,7 +665,7 @@ bool WorldState::set_finalised_block(const index_t& blockNumber)
     signal.wait_for_level();
     return success;
 }
-bool WorldState::unwind_block(const index_t& blockNumber, WorldStateStatusFull& status)
+bool WorldState::unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status)
 {
     std::atomic_bool success = true;
     std::string message;
@@ -726,7 +728,7 @@ bool WorldState::unwind_block(const index_t& blockNumber, WorldStateStatusFull& 
     remove_forks_for_block(blockNumber);
     return success;
 }
-bool WorldState::remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status)
+bool WorldState::remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status)
 {
     std::atomic_bool success = true;
     std::string message;
@@ -887,7 +889,7 @@ void WorldState::validate_trees_are_equally_synched()
 
 bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaResponses)
 {
-    index_t blockNumber = metaResponses[0].unfinalisedBlockHeight;
+    block_number_t blockNumber = metaResponses[0].unfinalisedBlockHeight;
     for (size_t i = 1; i < metaResponses.size(); i++) {
         if (blockNumber != metaResponses[i].unfinalisedBlockHeight) {
             return false;

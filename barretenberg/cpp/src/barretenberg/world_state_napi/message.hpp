@@ -54,7 +54,7 @@ struct TreeIdOnlyRequest {
 
 struct CreateForkRequest {
     bool latest;
-    index_t blockNumber;
+    block_number_t blockNumber;
     MSGPACK_FIELDS(latest, blockNumber);
 };
 

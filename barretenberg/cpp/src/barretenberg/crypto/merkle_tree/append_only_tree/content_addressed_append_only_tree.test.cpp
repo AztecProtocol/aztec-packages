@@ -123,7 +123,7 @@ void check_sibling_path(TreeType& tree,
 void check_historic_sibling_path(TreeType& tree,
                                  index_t index,
                                  fr_sibling_path expected_sibling_path,
-                                 index_t blockNumber,
+                                 block_number_t blockNumber,
                                  bool expected_success = true)
 {
     Signal signal;
@@ -160,7 +160,7 @@ void rollback_tree(TreeType& tree)
     signal.wait_for_level();
 }
 
-void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void remove_historic_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
@@ -171,7 +171,7 @@ void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expe
     signal.wait_for_level();
 }
 
-void unwind_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void unwind_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
@@ -206,7 +206,7 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     signal.wait_for_level();
 }
 
-void finalise_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void finalise_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -312,7 +312,7 @@ void check_leaf(
 }
 
 void check_historic_leaf(TreeType& tree,
-                         const index_t& blockNumber,
+                         const block_number_t& blockNumber,
                          const fr& leaf,
                          index_t leaf_index,
                          bool expected_success,
@@ -1309,7 +1309,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             // retrieving historic data should fail if the block is outside of the window
-            const index_t blockNumber = i + 1;
+            const block_number_t blockNumber = i + 1;
             const bool expectedSuccess =
                 expectedBlockHeight <= windowSize || blockNumber > (expectedBlockHeight - windowSize);
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], blockNumber, expectedSuccess);
@@ -1424,7 +1424,7 @@ void test_unwind(std::string directory,
 
     const uint32_t blocksToRemove = numBlocksToUnwind;
     for (uint32_t i = 0; i < blocksToRemove; i++) {
-        const index_t blockNumber = numBlocks - i;
+        const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
         // attempting to unwind a block that is not the tip should fail
