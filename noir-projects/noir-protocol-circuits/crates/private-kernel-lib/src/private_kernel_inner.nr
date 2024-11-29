@@ -131,11 +131,11 @@ mod tests {
         builder.private_call.append_note_hash_read_requests(2);
         let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
 
-        // encrypted_logs_hashes
-        builder.previous_kernel.append_encrypted_log_hashes(2);
-        let prev_encrypted_log_hashes = builder.previous_kernel.encrypted_logs_hashes.storage;
-        builder.private_call.append_encrypted_log_hashes(1);
-        let curr_encrypted_log_hashes = builder.private_call.encrypted_logs_hashes.storage;
+        // private_logs
+        builder.previous_kernel.append_private_logs(2);
+        let prev_private_logs = builder.previous_kernel.private_logs.storage();
+        builder.private_call.append_private_logs(1);
+        let curr_private_logs = builder.private_call.private_logs.storage();
 
         let public_inputs = builder.execute();
         assert_array_eq(
@@ -147,12 +147,8 @@ mod tests {
             ],
         );
         assert_array_eq(
-            public_inputs.end.encrypted_logs_hashes,
-            [
-                prev_encrypted_log_hashes[0],
-                prev_encrypted_log_hashes[1],
-                curr_encrypted_log_hashes[0],
-            ],
+            public_inputs.end.private_logs,
+            [prev_private_logs[0], prev_private_logs[1], curr_private_logs[0]],
         );
     }
 
