@@ -71,8 +71,10 @@ void validate_trace(std::vector<Row>&& trace,
 
         AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
-        std::vector<std::vector<FF>> public_inputs_as_vec{};
-        // TODO: Copy public inputs
+        // At the current development stage (new public inputs for whole tx), we are not handling public related inputs
+        // except calldata and returndata.
+        std::vector<std::vector<FF>> public_inputs_as_vec{ {}, {}, {}, {}, calldata, returndata };
+        // TODO: Copy all public inputs
         // bb::avm_trace::copy_public_inputs_columns(public_inputs_with_end_gas, calldata, returndata);
 
         bool verified = verifier.verify_proof(proof, { public_inputs_as_vec });
