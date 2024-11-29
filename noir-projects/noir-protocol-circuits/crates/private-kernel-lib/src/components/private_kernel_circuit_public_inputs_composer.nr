@@ -73,9 +73,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.end.note_hashes = array_to_bounded_vec(start.note_hashes);
         public_inputs.end.nullifiers = array_to_bounded_vec(start.nullifiers);
         public_inputs.end.l2_to_l1_msgs = array_to_bounded_vec(start.l2_to_l1_msgs);
-        public_inputs.end.note_encrypted_logs_hashes =
-            array_to_bounded_vec(start.note_encrypted_logs_hashes);
-        public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
+        public_inputs.end.private_logs = array_to_bounded_vec(start.private_logs);
         public_inputs.end.contract_class_logs_hashes =
             array_to_bounded_vec(start.contract_class_logs_hashes);
         public_inputs.end.public_call_requests = array_to_bounded_vec(start.public_call_requests);
@@ -99,7 +97,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     pub unconstrained fn sort_ordered_values(&mut self) {
-        // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
+        // Note hashes, nullifiers, and private logs are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage =
             sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
         self.public_inputs.end.contract_class_logs_hashes.storage =
@@ -227,11 +225,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_logs(&mut self, private_call: PrivateCircuitPublicInputs) {
-        let encrypted_logs = private_call.encrypted_logs_hashes;
-        for i in 0..encrypted_logs.len() {
-            let log = encrypted_logs[i];
+        let private_logs = private_call.private_logs;
+        for i in 0..private_logs.len() {
+            let log = private_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.encrypted_logs_hashes.push(log.scope(
+                self.public_inputs.end.private_logs.push(log.scope(
                     private_call.call_context.contract_address,
                 ));
             }
@@ -244,13 +242,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 self.public_inputs.end.contract_class_logs_hashes.push(log.scope(
                     private_call.call_context.contract_address,
                 ));
-            }
-        }
-
-        let note_logs = private_call.note_encrypted_logs_hashes;
-        for i in 0..note_logs.len() {
-            if !is_empty(note_logs[i]) {
-                self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }
         }
     }

@@ -48,7 +48,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
     });
 
     it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
-      const txs = times(totalCount, (i: number) => makeBloatedProcessedTxWithVKRoot(context.actualDb, i));
+      const txs = times(totalCount, (i: number) => makeBloatedProcessedTxWithVKRoot(context.actualDb, i + 1));
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
