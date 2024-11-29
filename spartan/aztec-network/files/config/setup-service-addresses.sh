@@ -90,13 +90,7 @@ fi
 # Configure OTEL_COLLECTOR_ENDPOINT if not set in values file
 if [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ]; then
     OTEL_COLLECTOR_PORT=${OTEL_COLLECTOR_PORT:-4318}
-    if [ "${OTEL_COLLECTOR_EXTERNAL_HOST}" != "" ]; then
-        OTEL_COLLECTOR_ENDPOINT="${OTEL_COLLECTOR_EXTERNAL_HOST}"
-    elif [ "${NETWORK_PUBLIC}" = "true" ]; then
-        OTEL_COLLECTOR_ENDPOINT=$(NAMESPACE=metrics get_service_address "metrics-opentelemetry-collector" $OTEL_COLLECTOR_PORT)
-    else
-        OTEL_COLLECTOR_ENDPOINT="http://metrics-opentelemetry-collector.metrics:$OTEL_COLLECTOR_PORT"
-    fi
+    OTEL_COLLECTOR_ENDPOINT="http://metrics-opentelemetry-collector.metrics:$OTEL_COLLECTOR_PORT"
 fi
 
 # Write addresses to file for sourcing
