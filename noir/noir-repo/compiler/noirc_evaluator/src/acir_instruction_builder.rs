@@ -3,7 +3,7 @@ use acvm::{
     acir::{
         circuit::{
             Circuit, ExpressionWidth,
-            Program as AcirProgram, PublicInputs
+            Program as AcirProgram
         },
         native_types::Witness,
     },
@@ -35,9 +35,31 @@ pub struct InstructionArtifacts {
     pub serialized_acir: Vec<u8>,
 }
 
+pub enum VariableType {
+    Field, 
+    Unsigned,
+    Signed
+}
+
+pub struct Variable {
+    pub variable_type: VariableType,
+    // ignored on Field type
+    pub variable_size: u32
+}
+
 impl InstructionArtifacts {
-    fn new_binary(op: BinaryOp, instruction_name: String) -> Self {
-        let ssa = binary_function(op);
+    fn get_type(variable: &Variable) -> Type {
+        match variable.variable_type {
+            VariableType::Field => Type::field(),
+            VariableType::Signed => Type::signed(variable.variable_size),
+            VariableType::Unsigned => Type::unsigned(variable.variable_size)
+        }
+    }
+
+    fn new_binary(op: BinaryOp, instruction_name: String, first_variable: &Variable, second_variable: &Variable) -> Self {
+        let first_variable_type = Self::get_type(first_variable);
+        let second_variable_type = Self::get_type(second_variable);
+        let ssa = binary_function(op, first_variable_type, second_variable_type);
         let serialized_ssa = &serde_json::to_string(&ssa).unwrap();
         let formatted_ssa = format!("{}", ssa);
 
@@ -52,8 +74,9 @@ impl InstructionArtifacts {
         }
     }
 
-    fn new_by_func(ssa_generate_function: fn() -> Ssa, instruction_name: String) -> Self {
-        let ssa = ssa_generate_function();
+    fn new_by_func(ssa_generate_function: fn(Type) -> Ssa, instruction_name: String, variable: &Variable) -> Self {
+        let variable_type = Self::get_type(variable);
+        let ssa = ssa_generate_function(variable_type);
         let serialized_ssa = &serde_json::to_string(&ssa).unwrap();
         let formatted_ssa = format!("{}", ssa);
 
@@ -69,20 +92,68 @@ impl InstructionArtifacts {
 
     }
 
-    fn new_constrain() -> Self {
-        return Self::new_by_func(constrain_function, "Constrain".into())
+    pub fn new_constrain(variable: &Variable) -> Self {
+        return Self::new_by_func(constrain_function, "Constrain".into(), variable)
     }
 
-    fn new_not() -> Self {
-        return Self::new_by_func(not_function, "Not".into())
+    pub fn new_not(variable: &Variable) -> Self {
+        return Self::new_by_func(not_function, "Not".into(), variable)
     }
 
-    fn new_range_check() -> Self {
-        return Self::new_by_func(range_check_function, "RangeCheck".into())
+    pub fn new_range_check(variable: &Variable) -> Self {
+        return Self::new_by_func(range_check_function, "RangeCheck".into(), variable)
     }
 
-    fn new_truncate() -> Self {
-        return Self::new_by_func(truncate_function, "Truncate".into())
+    pub fn new_truncate(variable: &Variable) -> Self {
+        return Self::new_by_func(truncate_function, "Truncate".into(), variable)
+    }
+
+    pub fn new_add(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Add, "Binary::Add".into(), first_variable, second_variable);
+    }
+
+    pub fn new_sub(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Sub, "Binary::Sub".into(), first_variable, second_variable);
+    }
+
+    pub fn new_xor(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Xor, "Binary::Xor".into(), first_variable, second_variable);
+    }
+
+    pub fn new_and(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::And, "Binary::And".into(), first_variable, second_variable);
+    }
+
+    pub fn new_or(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Or, "Binary::Or".into(), first_variable, second_variable);
+    }
+
+    pub fn new_lt(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Lt, "Binary::Lt".into(), first_variable, second_variable);
+    }
+
+    pub fn new_eq(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Eq, "Binary::Eq".into(), first_variable, second_variable);
+    }
+
+    pub fn new_mod(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Mod, "Binary::Mod".into(), first_variable, second_variable);
+    }
+
+    pub fn new_mul(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Mul, "Binary::Mul".into(), first_variable, second_variable);
+    }
+
+    pub fn new_div(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Div, "Binary::Div".into(), first_variable, second_variable);
+    }
+
+    pub fn new_shl(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Shl, "Binary::Shl".into(), first_variable, second_variable);
+    }
+
+    pub fn new_shr(first_variable: &Variable, second_variable: &Variable) -> Self {
+        return Self::new_binary(BinaryOp::Shl, "Binary::Shl".into(), first_variable, second_variable);
     }
 }
 
@@ -93,146 +164,82 @@ fn ssa_to_acir_program(ssa: Ssa) -> AcirProgram<FieldElement> {
         .expect("Should compile manually written SSA into ACIR");
 
     let mut functions: Vec<Circuit<FieldElement>> = Vec::new();
-    // TODO refactor this...
-    let public_vars: bool = true;
 
     for acir_func in acir_functions.iter() {
         let mut private_params: BTreeSet<Witness> = acir_func.input_witnesses.clone().into_iter().collect();
         let ret_values: BTreeSet<Witness> = acir_func.return_witnesses.clone().into_iter().collect();
         let circuit: Circuit<FieldElement>;
-        if public_vars {
-            circuit = Circuit {
-                current_witness_index: acir_func.current_witness_index().witness_index(),
-                opcodes: acir_func.opcodes().to_vec(),
-                public_parameters: PublicInputs(private_params.clone()),
-                return_values: PublicInputs(ret_values.clone()),
-                ..Circuit::<FieldElement>::default()
-            };
-        } else {
-            circuit = Circuit {
-                current_witness_index: acir_func.current_witness_index().witness_index(),
-                opcodes: acir_func.opcodes().to_vec(),
-                private_parameters: private_params.clone(),
-                ..Circuit::<FieldElement>::default()
-            };
-        }
         private_params.extend(ret_values.iter().cloned());
+        circuit = Circuit {
+            current_witness_index: acir_func.current_witness_index().witness_index(),
+            opcodes: acir_func.opcodes().to_vec(),
+            private_parameters: private_params.clone(),
+            ..Circuit::<FieldElement>::default()
+        };
         functions.push(circuit);
     }
     return AcirProgram { functions: functions, unconstrained_functions: brillig };
 }
 
-fn binary_function(op: BinaryOp) -> Ssa {
+fn binary_function(op: BinaryOp, first_variable_type: Type, second_variable_type: Type) -> Ssa {
     // returns v0 op v1
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
-    let v0 = builder.add_parameter(Type::unsigned(16));
-
-    // bit size of v1 differs, because shl shr max second argument 8 bit;
-    let v1;
-    // let three = builder.numeric_constant(3u128, Type::unsigned(8));
-
-    if op == BinaryOp::Shl || op == BinaryOp::Shr {
-        v1 = builder.add_parameter(Type::unsigned(8));
-    } else {
-        v1 = builder.add_parameter(Type::unsigned(16));
-    }
-
+    let v0 = builder.add_parameter(first_variable_type);
+    let v1 = builder.add_parameter(second_variable_type);
     let v2 = builder.insert_binary(v0, op, v1);
     builder.terminate_with_return(vec![v2]);
 
     let func = builder.finish();
-    // it doesnt remove bit shifts, it replaces it with something smart
+    // remove_bit_shifts doesnt remove bit shifts, it replaces it with something smart
     let cleared_func = func.remove_bit_shifts();
     return cleared_func;
 }
 
-fn constrain_function() -> Ssa {
+fn constrain_function(variable_type: Type) -> Ssa {
     // constrains v0 == v1, returns v1
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-    let v0 = builder.add_parameter(Type::field());
-    let v1 = builder.add_parameter(Type::field());
+    let v0 = builder.add_parameter(variable_type.clone());
+    let v1 = builder.add_parameter(variable_type);
     builder.insert_constrain(v0, v1, None);
     builder.terminate_with_return(vec![v1]);
 
-    return builder.finish()
+    return builder.finish();
 }
 
-fn not_function() -> Ssa {
-    // returns not v0
+fn range_check_function(variable_type: Type) -> Ssa {
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-    let v0 = builder.add_parameter(Type::unsigned(64));
-    let v1 = builder.insert_not(v0);
-    builder.terminate_with_return(vec![v1]);
-
-    return builder.finish()
-}
-
-fn range_check_function() -> Ssa {
-    // check v0: u64 limited by 64 bits ?..
-    let main_id = Id::new(0);
-    let mut builder = FunctionBuilder::new("main".into(), main_id);
-
-    let v0 = builder.add_parameter(Type::field());
+    let v0 = builder.add_parameter(variable_type);
     builder.insert_range_check(v0, 64, Some("Range Check failed".to_string()));
     builder.terminate_with_return(vec![v0]);
 
     return builder.finish()
 }
 
-fn truncate_function() -> Ssa {
+fn truncate_function(variable_type: Type) -> Ssa {
     // truncate v0: field 10, 20?..
     let main_id = Id::new(0);
     let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-    let v0 = builder.add_parameter(Type::field());
+    let v0 = builder.add_parameter(variable_type);
     let v1 = builder.insert_truncate(v0, 10, 20);
     builder.terminate_with_return(vec![v1]);
 
-    return builder.finish()
+    return builder.finish();
 }
 
-pub fn all_instructions() -> Vec<InstructionArtifacts> {
-    let mut artifacts: Vec<InstructionArtifacts> = Vec::new();
+fn not_function(variable_type: Type) -> Ssa {
+    // returns not v0
+    let main_id = Id::new(0);
+    let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Add, "Binary::Add".into()));
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Sub, "Binary::Sub".into()));
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Mul, "Binary::Mul".into()));
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Div, "Binary::Div".into()));
+    let v0 = builder.add_parameter(variable_type);
+    let v1 = builder.insert_not(v0);
+    builder.terminate_with_return(vec![v1]);
 
-    // with field panic
-    // panic on Mod Should compile manually written SSA into ACIR: InvalidRangeConstraint
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Mod, "Binary::Mod".into()));
-
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Eq, "Binary::Eq".into()));
-
-    // with field panic
-    // thread 'main' panicked at /home/defkit/work/noir/compiler/noirc_evaluator/src/ssa/acir_gen/acir_ir/acir_variable.rs:1225:9:
-    // assertion failed: max_bits + 1 < F::max_num_bits()
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Lt, "Binary::Lt".into()));
-
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::And, "Binary::And".into()));
-
-    // with field
-    // attempt to shift left with overflow
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Or, "Binary::Or".into()));
-
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Xor, "Binary::Xor".into()));
-
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Shl, "Binary::Shl".into()));
-    artifacts.push(InstructionArtifacts::new_binary(BinaryOp::Shr, "Binary::Shr".into()));
-
-    // with field
-    // attempt to shift left with overflow
-    artifacts.push(InstructionArtifacts::new_not());
-
-    artifacts.push(InstructionArtifacts::new_constrain());
-    artifacts.push(InstructionArtifacts::new_range_check());
-    artifacts.push(InstructionArtifacts::new_truncate());
-
-    return artifacts;
+    return builder.finish()
 }

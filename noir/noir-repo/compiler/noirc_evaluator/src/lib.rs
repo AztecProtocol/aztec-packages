@@ -13,7 +13,7 @@ pub use ssa::create_program;
 pub use ssa::ir::instruction::ErrorType;
 pub mod acir_instruction_builder;
 pub use acir_instruction_builder::{
-    all_instructions, InstructionArtifacts
+    InstructionArtifacts, VariableType, Variable
 };
 
 /// Trims leading whitespace from each line of the input string, according to
