@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732889939069,
+  "lastUpdate": 1732900916629,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e07cac7fee501a752d98ebf749f6cf31a3ff74af",
-          "message": "feat: removed redundant scalar muls from the verifiers using shplemini (#9392)\n\n* Reduced the number of scalar multiplications to be performed by the\r\nnative and recursive verifiers running shplemini\r\n* Slightly re-shuffled the entities in Translator and ECCVM, so that\r\nentitied to be shifted and their shifts form contiguous ranges\r\n* This is useful for amortizing the verification costs in the case of ZK\r\nsumcheck\r\n* The Translator recursive verifier circuit is now around 820K gates as\r\nopposed to 1700K. For other Flavors, the numbers are not as dramatic,\r\nbut there's still around -10% in scalar muls and the sizes of recursive\r\nverifiers.",
-          "timestamp": "2024-11-14T17:45:51Z",
-          "tree_id": "88d95ab9112c5bd711011c3a33009c7926db3dfe",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e07cac7fee501a752d98ebf749f6cf31a3ff74af"
-        },
-        "date": 1731609326434,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29040.74306000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27278.916879 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5395.3953219999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5050.462557999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85026.08741200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85026088000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15187.008895,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15187008000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3097128097,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3097128097 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145080746,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145080746 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2974,6 +2914,66 @@ window.BENCHMARK_DATA = {
             "value": 136304615,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 136304615 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a04ca880ae2a0f285b6a5a110286ba10bc4a6c3",
+          "message": "feat: Avoid inserting an empty leaf in indexed trees on update (#10281)\n\nPreviously, we were always appending an empty leaf when we encountered\r\nan update in the public data tree. After this PR public data tree\r\ninsertions don't add an empty leaf when the write is an update.",
+          "timestamp": "2024-11-29T17:45:39+01:00",
+          "tree_id": "2f47d10fb913d917be8d1325613d967cc661325a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a04ca880ae2a0f285b6a5a110286ba10bc4a6c3"
+        },
+        "date": 1732900908817,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27109.017248000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25232.662169 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4595.447338,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4294.366223999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91516.73673100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91516736000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16542.535683000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16542537000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3038863907,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3038863907 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133489523,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133489523 ns\nthreads: 1"
           }
         ]
       }
