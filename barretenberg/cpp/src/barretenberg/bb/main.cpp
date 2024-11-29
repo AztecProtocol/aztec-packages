@@ -1007,7 +1007,7 @@ int main(int argc, char* argv[])
 
         const std::string command = args[0];
         vinfo("bb command is: ", command);
-        const std::string proof_system = get_option(args, "--scheme", "client_ivc");
+        const std::string proof_system = get_option(args, "--scheme", "");
         const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         const std::string proof_path = get_option(args, "-p", "./proofs/proof");
