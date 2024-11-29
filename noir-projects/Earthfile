@@ -24,11 +24,9 @@ source:
 
 build-contracts:
   ARG RAYON_NUM_THREADS
-  ARG EARTHLY_CI
 
   FROM +source
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
-  ENV CI=$EARTHLY_CI
 
   # Install transpiler
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
@@ -46,11 +44,14 @@ build-contracts:
 
 build-protocol-circuits:
   ARG RAYON_NUM_THREADS
+  ARG EARTHLY_CI
+
   LOCALLY
   FROM +source
 
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
   ENV PARALLEL_VK=false
+  ENV CI=$EARTHLY_CI
 
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
 
