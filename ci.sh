@@ -6,6 +6,27 @@ CMD=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
+if [ -z "$CMD" ]; then
+  echo "usage: $0 <cmd>"
+  echo
+  echo "The following commands all set CI=1 before bootstrapping."
+  echo
+  echo "      ec2: Launch an ec2 instance and bootstrap on it."
+  echo "           Exactly what Github action does, but doesn't touch GA."
+  echo "    local: Clone your last commit into the ci container and bootstrap on local hardware."
+  echo "  trigger: Trigger the GA workflow on the PR associated with the current branch."
+  echo "           Effectively the same as ec2, only the results will be tracked on your PR."
+  echo "      log: Will tail the logs of the current GA run, or dump log if already completed."
+  echo "      run: Same as calling trigger, then log."
+  echo "       wt: Runs bootstrap in current working tree on local hardware."
+  echo "    shell: Jump into a new shell on the current running build."
+  echo "   attach: Attach to terminal of the current running build."
+  echo " ssh-host: Connect to host instance of the current running build."
+  echo "    draft: Mark current PR as draft (no automatic CI runs when pushing)."
+  echo "    ready: Mark current PR as ready (enable automatic CI runs when pushing)."
+  exit 0
+fi
+
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
 if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]] ; then

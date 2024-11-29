@@ -7,11 +7,6 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
-if [ "$(uname)" == "Darwin" ]; then
-  shopt -s expand_aliases
-  alias clang++-16="clang++"
-fi
-
 CMD=${1:-}
 
 YELLOW="\033[93m"
@@ -45,7 +40,7 @@ function check_toolchains {
     exit 1
   fi
   # Check clang version.
-  if ! clang++-16 --version > /dev/null; then
+  if ! clang++-16 --version | grep "clang version 16." > /dev/null; then
     encourage_dev_container
     echo "clang 16 not installed."
     echo "Installation: sudo apt install clang-16"
