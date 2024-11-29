@@ -98,6 +98,7 @@ echo "export ETHEREUM_HOST=${ETHEREUM_ADDR}" >> /shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >> /shared/config/service-addresses
+echo "export OTEL_COLLECTOR_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT" >> /shared/config/service-addresses
 echo "export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/logs" >> /shared/config/service-addresses
 echo "export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/metrics" >> /shared/config/service-addresses
 echo "export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/traces" >> /shared/config/service-addresses

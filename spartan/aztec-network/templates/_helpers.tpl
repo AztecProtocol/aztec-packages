@@ -130,7 +130,7 @@ Service Address Setup Container
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
     - name: OTEL_COLLECTOR_ENDPOINT
-      values: {{- .Values.telemetry.otelCollectorEndpoint -}}
+      value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
       value: "{{ .Values.ethereum.externalHost }}"
     - name: ETHEREUM_PORT
