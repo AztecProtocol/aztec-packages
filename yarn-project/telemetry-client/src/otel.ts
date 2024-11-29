@@ -75,7 +75,16 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async stop() {
-    await Promise.all([this.meterProvider.shutdown(), this.loggerProvider.shutdown()]);
+    const flushAndShutdown = async (provider: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
+      await provider.forceFlush();
+      await provider.shutdown();
+    };
+
+    await Promise.all([
+      flushAndShutdown(this.meterProvider),
+      flushAndShutdown(this.loggerProvider),
+      this.traceProvider instanceof NodeTracerProvider ? flushAndShutdown(this.traceProvider) : Promise.resolve(),
+    ]);
   }
 
   public static async createAndStart(config: TelemetryClientConfig, log: DebugLogger): Promise<OpenTelemetryClient> {
