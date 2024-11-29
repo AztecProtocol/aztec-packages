@@ -97,7 +97,7 @@ class ClientIVCAPI : public API {
         }
 
         // WORKTODO: avoid reallocation / std::move / use pointers
-        if (input_type == "compiletime-stack") {
+        if (input_type == "compiletime_stack") {
             auto program_stack =
                 acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/false);
             // Accumulate the entire program stack into the IVC
@@ -108,8 +108,8 @@ class ClientIVCAPI : public API {
             }
         }
 
-        // single-circuit and runtime-stack cases
-        if (input_type == "runtime-stack") {
+        // single-circuit and runtime_stack cases
+        if (input_type == "runtime_stack") {
             std::vector<std::string> gzipped_bincodes;
             std::vector<std::string> witness_data;
             gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
@@ -181,8 +181,8 @@ class ClientIVCAPI : public API {
             throw_or_abort("No output_type or output_type not supported");
         }
 
-        if (!flags.input_type || !(*flags.input_type == "single-circuit" || *flags.input_type == "compiletime-stack" ||
-                                   *flags.input_type == "runtime-stack")) {
+        if (!flags.input_type || !(*flags.input_type == "single-circuit" || *flags.input_type == "compiletime_stack" ||
+                                   *flags.input_type == "runtime_stack")) {
             throw_or_abort("No input_type or input_type not supported");
         }
 

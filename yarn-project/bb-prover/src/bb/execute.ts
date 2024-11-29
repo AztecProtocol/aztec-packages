@@ -236,7 +236,7 @@ export async function executeBbClientIvcProof(
       '--scheme',
       'client_ivc',
       '--input_type',
-      'runtime-stack',
+      'runtime_stack',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {

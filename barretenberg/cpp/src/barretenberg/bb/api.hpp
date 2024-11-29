@@ -7,7 +7,7 @@ class API {
   public:
     struct Flags {
         std::optional<std::string> output_type; // bytes, fields, bytes-and-fields, fields-msgpack
-        std::optional<std::string> input_type;  // single-circuit, runtime-stack, compiletime-stack
+        std::optional<std::string> input_type;  // single-circuit, runtime_stack, compiletime_stack
     };
 
     virtual void prove(const Flags& flags,
