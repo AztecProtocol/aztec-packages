@@ -28,6 +28,7 @@ build-contracts:
 
   FROM +source
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
+  ENV CI=$EARTHLY_CI
 
   # Install transpiler
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
@@ -37,7 +38,7 @@ build-contracts:
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-projects-noir-contracts" \
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../avm-transpiler/.rebuild_patterns ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
-    --command="CI=$EARTHLY_CI ./bootstrap.sh" \
+    --command="./bootstrap.sh" \
     --build_artifacts="target"
 
   WORKDIR /usr/src/noir-projects

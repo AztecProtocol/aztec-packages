@@ -23,7 +23,7 @@ yarn
 node ./scripts/generate_variants.js
 
 # Check if Nargo.toml is different from Nargo.toml.old, and fail if we are running on CI
-diff ./Nargo.toml ./Nargo.toml.old || (test -n "$CI" && echo "Nargo.toml changed, please commit an updated version" && exit 1)
+diff ./Nargo.toml ./Nargo.toml.old || (test -n "${CI:-}" && echo "Nargo.toml changed, please commit an updated version" && exit 1)
 rm ./Nargo.toml.old
 
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
