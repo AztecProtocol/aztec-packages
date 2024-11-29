@@ -15,15 +15,22 @@ fi
 
 dots_per_line=${LINE_WIDTH:-64}
 dot_count=0
-status=0
+command_status=0
 
 # Create a new file descriptor for capturing output
 exec 3>&1
 
+function evaluate() {
+  eval $@
+  echo $? > /dev/tty
+  # Save the exit status of the command
+  command_status=$?
+}
+
 # Execute the command and process the output
 echo -n "0 "
 output=$(
-  eval "$@" 2>&1 | while IFS= read -r -d '' -n 1 char; do
+  evaluate 2>&1 | while IFS= read -r -d '' -n 1 char; do
     if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
       printf "." >&3
       ((dot_count++))
@@ -34,16 +41,14 @@ output=$(
     printf "%s" "$char"  # Send each character to the captured output
   done;
 )
-
-# Get the exit status of the command
-status=${PIPESTATUS[0]}
+echo $command_status > /dev/tty
 
 # Handle non-zero exit status
-if [ "$status" -ne 0 ]; then
-  echo -e "\nCommand exited with status $status. Dumping output:"
-  echo -e "$output"
+if [ "$command_status" -ne 0 ]; then
+  echo -e "\nCommand exited with status $command_status. Dumping output:"
+  echo -e "$command_status"
 else
   echo ". done (${SECONDS}s)"
 fi
 
-exit $status
+exit $command_status
