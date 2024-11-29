@@ -177,102 +177,6 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const bool recur
     return true;
 }
 
-bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
-{
-    using Flavor = MegaFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
-
-    init_bn254_crs(1 << 22);
-    init_grumpkin_crs(1 << 16);
-
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
-
-    auto program_stack = acir_format::get_acir_program_stack(
-        bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
-                                           // assumes that folding is never done with ultrahonk.
-
-    // Accumulate the entire program stack into the IVC
-    bool is_kernel = false;
-    while (!program_stack.empty()) {
-        auto stack_item = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
-                                                            /*recursive=*/true,
-                                                            0,
-                                                            stack_item.witness,
-                                                            /*honk_recursion=*/false,
-                                                            ivc.goblin.op_queue);
-
-        // Set the internal is_kernel flag to trigger automatic appending of kernel logic if true
-        builder.databus_propagation_data.is_kernel = is_kernel;
-
-        ivc.accumulate(builder);
-
-        program_stack.pop_back();
-        is_kernel = !is_kernel; // toggle the kernel indicator flag on/off
-    }
-    return ivc.prove_and_verify();
-}
-
-/**
- * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
- *
- * @param bytecodePath Path to the serialised circuit
- * @param witnessPath Path to witness data
- * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
- * going to be specified when bb main is called, i.e. as the working directory in typescript).
- */
-void client_ivc_prove_output_all(const std::string& bytecodePath,
-                                 const std::string& witnessPath,
-                                 const std::string& outputPath)
-{
-    using Flavor = MegaFlavor;
-    using Builder = Flavor::CircuitBuilder;
-    using ECCVMVK = ECCVMFlavor::VerificationKey;
-    using TranslatorVK = TranslatorFlavor::VerificationKey;
-
-    init_bn254_crs(1 << 22);
-    init_grumpkin_crs(1 << 16);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
-
-    auto program_stack = acir_format::get_acir_program_stack(
-        bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
-                                           // assumes that folding is never done with ultrahonk.
-
-    // Accumulate the entire program stack into the IVC
-    bool is_kernel = false;
-    while (!program_stack.empty()) {
-        auto stack_item = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, true, 0, stack_item.witness, false, ivc.goblin.op_queue);
-        circuit.databus_propagation_data.is_kernel = is_kernel;
-        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
-
-        ivc.accumulate(circuit);
-
-        program_stack.pop_back();
-    }
-
-    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
-    // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/client_ivc_vk";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-
-    auto proof = ivc.prove();
-    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-    vinfo("ensure valid proof: ", ivc.verify(proof));
-
-    vinfo("write proof and vk data to files..");
-    write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
-}
-
 /**
  * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
  *
@@ -1097,15 +1001,13 @@ int main(int argc, char* argv[])
         }
 
         const API::Flags flags = [&args]() {
-            return API::Flags{
-                .output_type = get_option(args, "--output_type", "bytes"),
-                .decode_msgpack = flag_present(args, "--decode-msgpack"),
-            };
+            return API::Flags{ .output_type = get_option(args, "--output_type", "fields-msgpack"),
+                               .input_type = get_option(args, "--input_type", "single-circuit") };
         }();
 
         const std::string command = args[0];
         vinfo("bb command is: ", command);
-        const std::string proof_system = get_option(args, "-s", "");
+        const std::string proof_system = get_option(args, "--scheme", "client_ivc");
         const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         const std::string proof_path = get_option(args, "-p", "./proofs/proof");
@@ -1117,6 +1019,8 @@ int main(int argc, char* argv[])
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
+            flags.input_type.has_value() ? info(flags.input_type) : info("no input type provided");
+            flags.output_type.has_value() ? info(flags.output_type) : info("no output type provided");
             if (command == "prove") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 // TODO(#7371): remove this (msgpack version...)
@@ -1134,12 +1038,6 @@ int main(int argc, char* argv[])
 
             if (command == "prove_and_verify") {
                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
-            }
-
-            if (command == "client_ivc_prove_output_all") {
-                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                client_ivc_prove_output_all(bytecode_path, witness_path, output_dir);
-                return 0;
             }
 
             throw_or_abort("Invalid command passed to execute_command in bb");
@@ -1165,8 +1063,6 @@ int main(int argc, char* argv[])
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "fold_and_verify_program") {
-            return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
         } else if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path, recursive);

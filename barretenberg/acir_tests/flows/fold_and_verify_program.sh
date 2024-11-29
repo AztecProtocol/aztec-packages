@@ -3,4 +3,4 @@ set -eu
 
 VFLAG=${VERBOSE:+-v}
 
-$BIN fold_and_verify_program $VFLAG -c $CRS_PATH -b ./target/program.json
+$BIN prove_and_verify --scheme client_ivc --input_type compiletime-stack $VFLAG -c $CRS_PATH -b ./target/program.json

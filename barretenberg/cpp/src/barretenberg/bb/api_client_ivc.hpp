@@ -82,7 +82,7 @@ std::vector<uint8_t> decompress(uint8_t* bytes, size_t size)
 }
 
 class ClientIVCAPI : public API {
-    static std::vector<acir_format::AcirProgram> _build_folding_stack(const bool decode_msgpack,
+    static std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
                                                                       const std::filesystem::path& bytecode_path,
                                                                       const std::filesystem::path& witness_path)
     {
@@ -90,7 +90,26 @@ class ClientIVCAPI : public API {
 
         std::vector<AcirProgram> folding_stack;
 
-        if (decode_msgpack) {
+        if (input_type == "single-circuit") {
+            AcirFormat constraints = get_constraint_system(bytecode_path, /*honk_recursion=*/false);
+            WitnessVector witness = get_witness(witness_path);
+            folding_stack.push_back(AcirProgram{ constraints, witness });
+        }
+
+        // WORKTODO: avoid reallocation / std::move / use pointers
+        if (input_type == "compiletime-stack") {
+            auto program_stack =
+                acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/false);
+            // Accumulate the entire program stack into the IVC
+            while (!program_stack.empty()) {
+                auto stack_item = program_stack.back();
+                folding_stack.push_back(AcirProgram{ stack_item.constraints, stack_item.witness });
+                program_stack.pop_back();
+            }
+        }
+
+        // single-circuit and runtime-stack cases
+        if (input_type == "runtime-stack") {
             std::vector<std::string> gzipped_bincodes;
             std::vector<std::string> witness_data;
             gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
@@ -108,10 +127,6 @@ class ClientIVCAPI : public API {
 
                 folding_stack.push_back(AcirProgram{ constraints, witness });
             }
-        } else {
-            AcirFormat constraints = get_constraint_system(bytecode_path, /*honk_recursion=*/false);
-            WitnessVector witness = get_witness(witness_path);
-            folding_stack.push_back(AcirProgram{ constraints, witness });
         }
 
         return folding_stack;
@@ -162,15 +177,18 @@ class ClientIVCAPI : public API {
                const std::filesystem::path& output_dir) override
     {
         // WORKTODO: move and systematize validation logic
-        if (!flags.output_type || *flags.output_type != "msgpack") {
+        if (!flags.output_type || *flags.output_type != "fields-msgpack") {
             throw_or_abort("No output_type or output_type not supported");
         }
-        if (!flags.decode_msgpack) {
-            throw_or_abort("decode_msgpack not supplied");
+
+        if (!flags.input_type || !(*flags.input_type == "single-circuit" || *flags.input_type == "compiletime-stack" ||
+                                   *flags.input_type == "runtime-stack")) {
+            throw_or_abort("No input_type or input_type not supported");
         }
 
+        // LEFTOFFHERE: whoops, need to determine stack type at runtime
         std::vector<acir_format::AcirProgram> folding_stack =
-            _build_folding_stack(*flags.decode_msgpack, bytecode_path, witness_path);
+            _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
         ClientIVC ivc = _accumulate(folding_stack);
         ClientIVC::Proof proof = ivc.prove();
 
@@ -222,11 +240,11 @@ class ClientIVCAPI : public API {
                           const std::filesystem::path& bytecode_path,
                           const std::filesystem::path& witness_path) override
     {
-        if (!flags.decode_msgpack) {
-            throw_or_abort("decode_msgpack flag not supplied to prove_and_verify");
+        if (!flags.input_type) {
+            throw_or_abort("input_type not supplied");
         }
         std::vector<acir_format::AcirProgram> folding_stack =
-            _build_folding_stack(*flags.decode_msgpack, bytecode_path, witness_path);
+            _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
         ClientIVC ivc = _accumulate(folding_stack);
         const bool verified = ivc.prove_and_verify();
         return verified;

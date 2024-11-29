@@ -3,7 +3,7 @@ set -eu
 
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
-FLAGS="-s client_ivc -c $CRS_PATH $VFLAG"
+FLAGS="--scheme client_ivc -c $CRS_PATH $VFLAG --input_type compiletime-stack  --output_type fields-msgpack"
 
-$BIN client_ivc_prove_output_all $FLAGS $BFLAG
+$BIN prove $FLAGS $BFLAG
 $BIN verify $FLAGS
