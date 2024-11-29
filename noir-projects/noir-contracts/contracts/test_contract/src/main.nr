@@ -70,6 +70,8 @@ contract Test {
         value4: Field,
     }
 
+    // TODO(#10321): ideally we'd use `derive` here, but cannot since that causes for the storage macros to not find the
+    // derived impl.
     impl Serialize<5> for ExampleStruct {
         fn serialize(self) -> [Field; 5] {
             [self.value0, self.value1, self.value2, self.value3, self.value4]
