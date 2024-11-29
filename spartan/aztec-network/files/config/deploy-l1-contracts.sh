@@ -18,9 +18,9 @@ for attempt in $(seq 1 $MAX_RETRIES); do
   else
     output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --l1-chain-id "$CHAIN_ID") && break
   fi
-  echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..." >&2
+  echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
   sleep "$RETRY_DELAY"
-done || { echo "All l1 contract deploy attempts failed." >&2; exit 1; }
+done || { echo "All l1 contract deploy attempts failed."; exit 1; }
 
 echo "$output"
 
