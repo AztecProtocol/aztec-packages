@@ -198,6 +198,6 @@ http://{{ include "aztec-network.fullname" . }}-ethereum.{{ .Release.Namespace }
 {{- end -}}
 
 {{- define "aztec-network.clUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-cl.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.lighthouse.cl.service.port }}
+http://{{ include "aztec-network.fullname" . }}-cl.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.cl.service.port }}
 {{- end -}}
 

@@ -16,6 +16,29 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: ethereum-vc
     spec:
+      # Wait for both the execution layer and consensus layer to come online before
+      initContainers:
+        - name: wait-for-el
+          image: {{ .Values.images.aztec.image }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.elUrl" . }} | grep -q reth; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+
+              # until curl -s -X POST -H 'Content-Type: application/json' \
+              #   -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+              #   {{ include "aztec-network.clUrl" . }} | grep -q lighthouse; do
+              #   echo "Waiting for Lighthouse node..."
+              #   sleep 5
+              # done
+              # echo "Lighthouse node is ready!"
       containers:
         - name: ethereum-vc
           image: "{{ .Values.images.lighthouse.image }}"
@@ -23,19 +46,14 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - >-
-              lighthouse validator_manager create
-              --mnemonic-path ./genesis/mnemonic.txt
-              --count 1
-              --first-index 0
-              --testnet-dir /genesis/genesis.yaml
-              --datadir /data
-
-              &&
-
-              lighthouse validator_client --http --disable-packet-filter {{ include "helpers.flag" (list "http-address" "0.0.0.0") }}
+              lighthouse validator_client
+              --http
+              --http-address "0.0.0.0"
+              --beacon-nodes {{ include "aztec-network.clUrl" . }}
+              --init-slashing-protection
+              --disable-packet-filter
               {{- include "helpers.flag" (list "http-port" .Values.ethereum.vc.service.port) }}
               --testnet-dir /genesis
-              --init-slashing-protection
               --datadir /data
           volumeMounts:
             - name: shared-volume

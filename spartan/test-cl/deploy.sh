@@ -1,3 +1,4 @@
+#!/bin/bash
 
 REPO=$(git rev-parse --show-toplevel)
 

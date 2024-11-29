@@ -24,16 +24,17 @@ spec:
           image: "{{ .Values.images.reth.image }}"
           imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
           command: ["/bin/sh", "-c"]
+              # --http.corsdomain="*"
           args:
             - >-
-              reth node {{ include "helpers.flag" (list "http.addr" "0.0.0.0") }}
-              {{- include "helpers.flag" (list "http.port" .Values.ethereum.el.service.port) }}
+              reth node
+              --datadir /data
+              --chain /genesis/genesis.json
+              --authrpc.jwtsecret /jwt/jwtsecret.txt
+              --http.addr 0.0.0.0
+              {{ include "helpers.flag" (list "http.port" .Values.ethereum.el.service.port) }}
               {{- include "helpers.flag" (list "builder.gaslimit" .Values.ethereum.el.gasLimit) }}
               {{- include "helpers.flag" (list "txpool.gas-limit" .Values.ethereum.el.gasLimit) }}
-              --chain /genesis/genesis.json
-              --authrpc.jwtsecret /jwt/jwtsecret
-              --datadir /data
-              --dev
           ports:
             - containerPort: {{ .Values.ethereum.el.service.port }}
               name: reth
@@ -95,8 +96,8 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
-  jwtsecret: |
-    {{ .Files.Get "files/config/ethereum/jwtsecret" | nindent 4 }}
+  jwtsecret.txt: |
+    {{ .Files.Get "files/config/ethereum/jwtsecret.txt" | nindent 4 }}
 ---
 {{- if gt (.Values.ethereum.el.replicas | int) 0 }}
 apiVersion: v1

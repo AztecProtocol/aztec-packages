@@ -59,7 +59,7 @@ ethereum:
       requests:
         memory: "2Gi"
         cpu: "200m"
-    storage: "80Gi"
+    storage: "20Gi"
   # Consensus Layer
   cl:
     externalHost: ""
@@ -76,7 +76,7 @@ ethereum:
         cpu: "2"
       limits:
         cpu: "4"
-    storage: "80Gi"
+    storage: "20Gi"
 
   # Validators
   vc:
@@ -91,6 +91,6 @@ ethereum:
       requests:
         memory: "2Gi"
         cpu: "200m"
-    storage: "80Gi"
+    storage: "20Gi"
 
 

@@ -19,6 +19,20 @@ spec:
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}
+      initContainers:
+        - name: wait-for-el
+          image: {{ .Values.images.aztec.image }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.elUrl" . }} | grep -q reth; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
       containers:
         - name: cl
           image: "{{ .Values.images.lighthouse.image }}"
@@ -26,14 +40,25 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - >-
-              lighthouse bn --http --disable-packet-filter {{ include "helpers.flag" (list "http-address" "0.0.0.0") }}
-              {{- include "helpers.flag" (list "http-port" .Values.ethereum.cl.service.port) }}
-              --testnet-dir /genesis
-              --debug-level=debug
-              --listen-address 0.0.0.0
-              --execution-endpoint {{ include "aztec-network.elUrl" . }}
-              --execution-jwt-secret-key 0xfc794b06e0f532d2f6a83a1793c43dd81701eaa8dbcc4ed63eb655ae6b61b9c9
+              lighthouse bn
               --datadir /data
+              --disable-packet-filter
+              --http
+              --http-address "0.0.0.0"
+              {{ include "helpers.flag" (list "http-port" .Values.ethereum.cl.service.port) }}
+              --disable-peer-scoring
+              --enable-private-discovery
+              --staking
+              --validator-monitor-auto
+              --http-allow-origin "*"
+              --listen-address 0.0.0.0
+              --port 9000
+              --target-peers 0
+              --testnet-dir /genesis
+              --execution-endpoint {{ include "aztec-network.elUrl" . }}
+              --execution-jwt /jwt/jwtsecret.txt
+              --allow-insecure-genesis-sync
+              --debug-level=debug
           ports:
           # --execution-jwt /jwt/jwtsecret
             - containerPort: {{ .Values.ethereum.cl.service.port }}
@@ -104,8 +129,8 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
-  jwtsecret: |
-    {{ .Files.Get "files/config/ethereum/jwtsecret" | nindent 4 }}
+  jwtsecret.txt: |
+    {{ .Files.Get "files/config/ethereum/jwtsecret.txt" | nindent 4 }}
 ---
 {{- if gt (.Values.ethereum.cl.replicas | int) 0 }}
 apiVersion: v1
