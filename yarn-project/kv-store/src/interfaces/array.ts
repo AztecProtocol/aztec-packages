@@ -5,7 +5,7 @@ export interface AztecArray<T> {
   /**
    * The size of the array
    */
-  length(): Promise<number>;
+  length: number;
 
   /**
    * Pushes values to the end of the array
@@ -27,7 +27,7 @@ export interface AztecArray<T> {
    * @param index - The index to get the value from
    * @returns The value at the given index or undefined if the index is out of bounds
    */
-  at(index: number): Promise<T | undefined>;
+  at(index: number): T | undefined;
 
   /**
    * Updates the value at the given index. Index can be in the range [-length, length - 1).
@@ -40,15 +40,15 @@ export interface AztecArray<T> {
   /**
    * Iterates over the array with indexes.
    */
-  entries(): AsyncIterableIterator<[number, T]>;
+  entries(): IterableIterator<[number, T]>;
 
   /**
    * Iterates over the array.
    */
-  values(): AsyncIterableIterator<T>;
+  values(): IterableIterator<T>;
 
   /**
    * Iterates over the array.
    */
-  [Symbol.asyncIterator](): AsyncIterableIterator<T>;
+  [Symbol.iterator](): IterableIterator<T>;
 }

@@ -9,7 +9,7 @@ export interface AztecSet<K extends Key> {
    * @param key - The key to check
    * @returns True if the key exists, false otherwise
    */
-  has(key: K): Promise<boolean>;
+  has(key: K): boolean;
 
   /**
    * Adds the given value.
@@ -27,5 +27,5 @@ export interface AztecSet<K extends Key> {
    * Iterates over the sets's keys entries in the key's natural order
    * @param range - The range of keys to iterate over
    */
-  entries(range?: Range<K>): AsyncIterableIterator<K>;
+  entries(range?: Range<K>): IterableIterator<K>;
 }
