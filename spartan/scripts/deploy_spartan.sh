@@ -5,11 +5,6 @@ set -o pipefail
 TAG=$1
 VALUES=$2
 NAMESPACE=${3:-spartan}
-PROD=${4:-true}
-PROD_ARGS=""
-if [ "$PROD" = "true" ] ; then
-  PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
-fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "$TAG" ]; then
@@ -51,13 +46,13 @@ function upgrade() {
     helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
+          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
           --set images.aztec.image="$IMAGE"
   else
     helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
+          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
           --set images.aztec.image="$IMAGE" \
           --wait \
           --wait-for-jobs=true \
