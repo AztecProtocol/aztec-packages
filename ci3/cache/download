@@ -26,7 +26,7 @@ trap on_exit EXIT
 if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
   # Extract URL from S3_BUILD_CACHE_AWS_PARAMS (assumes the format "--endpoint-url <URL>")
   # TODO stop passing with endpoint url
-  S3_ENDPOINT=$(echo "$S3_BUILD_CACHE_AWS_PARAMS" | sed -n 's/--endpoint-url \([^ ]*\)/\1/p')
+  S3_ENDPOINT=$(echo "$S3_BUILD_CACHE_AWS_PARAMS" | sed -n 's/--endpoint-url \([^ ]*\)/\1/p')/aztec-ci-artifacts
 else
   # Default to AWS S3 URL if no custom endpoint is set
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"

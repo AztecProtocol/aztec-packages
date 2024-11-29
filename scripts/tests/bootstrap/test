@@ -27,6 +27,7 @@ function run_bootstrap() {
   project=$1
   cp $ci3/cache/should_run $ci3/cache/should_run.bkup
   cp $ci3/cache/download $ci3/cache/download.bkup
+  # Install our mocks
   cp $2 $ci3/cache/should_run
   cp $3 $ci3/cache/download
   rm -f $ci3/cache/.test_faillures
@@ -70,7 +71,7 @@ function test_CI_1_second_pass() {
 }
 
 PROJECTS=(
-  # noir
+  noir
   barretenberg
   # l1-contracts
   # avm-transpiler
@@ -81,13 +82,13 @@ PROJECTS=(
 
 for project in "${PROJECTS[@]}"; do
   # Run the tests
-  echo "$project 1/3: CI=0 and all tests try to run"
+  echo "$project 1/3: CI=0 should_run should be true"
   test_CI_0 $project | sed "s/^/$project 1\/3: /" || (echo "$project 1/3 failure" && exit 1)
-  echo "$project 1/3"
-  echo "$project 2/3: CI=1 and all tests try to run, downloads fail"
+  echo "$project 1/3 success"
+  echo "$project 2/3: CI=1 should_run should be true, download should be false"
   test_CI_1_first_pass $project | sed "s/^/$project 2\/3: /" || (echo "$project 2/3 failure" && exit 1)
   echo "$project 2/3 success"
-  echo "$project 3/3: CI=1 and all tests do not run, downloads work"
+  echo "$project 3/3: CI=1 should_run should be false, download should be true"
   test_CI_1_second_pass $project | sed "s/^/$project 3\/3: /" || (echo "$project 3/3 failure" && exit 1)
   echo "$project 3/3 success"
 done
