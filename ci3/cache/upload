@@ -1,4 +1,5 @@
 #!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
 set -eu
 
 if [ "$#" -lt 2 ]; then
@@ -29,5 +30,5 @@ trap on_exit EXIT
 # Rest of args are our binary paths
 tar -czf "$TAR_FILE" $@
 
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" --only-show-errors --no-progress || true
+aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" --quiet --no-progress || true
 echo "Cache upload of $NAME complete."

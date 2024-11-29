@@ -1,4 +1,5 @@
 #!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
 set -eu
 
 if [ "$#" -lt 1 ]; then
