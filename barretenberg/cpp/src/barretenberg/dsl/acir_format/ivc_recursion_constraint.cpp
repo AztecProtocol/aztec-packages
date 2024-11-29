@@ -21,7 +21,8 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
 
     for (const auto& constraint : constraints) {
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
-            mock_ivc_oink_accumulation(ivc, constraint.public_inputs.size());
+            ASSERT(constraint.public_inputs.size() == 0); // Apps are assumed to have no public inputs
+            mock_ivc_oink_accumulation(ivc);
         } else if (static_cast<uint32_t>(PROOF_TYPE::PG) == constraint.proof_type) {
             // perform equivalent mocking for PG accumulation
         }
@@ -38,10 +39,9 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
  * @param ivc
  * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
  */
-void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app)
+void mock_ivc_oink_accumulation(ClientIVC& ivc)
 {
-    ClientIVC::VerifierInputs oink_entry =
-        acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings, num_public_inputs_app);
+    ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings);
     ivc.verification_queue.emplace_back(oink_entry);
     ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc.initialized = true;
@@ -51,8 +51,7 @@ void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app)
  * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
  *
  */
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
-                                                           const size_t num_public_inputs = 0)
+ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings)
 {
     using Flavor = MegaFlavor;
     using FF = bb::fr;
@@ -72,7 +71,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
 
     // Set proof preamble (metadata plus public inputs)
-    size_t total_num_public_inputs = num_public_inputs + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    size_t total_num_public_inputs = bb::PAIRING_POINT_ACCUMULATOR_SIZE;
     verifier_inputs.proof.emplace_back(structured_dyadic_size);
     verifier_inputs.proof.emplace_back(total_num_public_inputs);
     verifier_inputs.proof.emplace_back(pub_inputs_offset);

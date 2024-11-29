@@ -13,10 +13,9 @@ using namespace bb;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints);
 
-void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app = 0);
+void mock_ivc_oink_accumulation(ClientIVC& ivc);
 
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
-                                                           const size_t num_public_inputs);
+ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings);
 
 ClientIVC::MergeProof create_dummy_merge_proof();
 
