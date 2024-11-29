@@ -73,13 +73,13 @@ function test_CI_1_second_pass() {
 }
 
 PROJECTS=(
-  # noir
-  # barretenberg
-  # l1-contracts
-  # avm-transpiler
+  noir
+  barretenberg
+  l1-contracts
+  avm-transpiler
   noir-projects
-  # yarn-project
-  # boxes
+  yarn-project
+  boxes
 )
 
 for project in "${PROJECTS[@]}"; do

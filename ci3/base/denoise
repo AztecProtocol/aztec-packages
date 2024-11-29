@@ -34,10 +34,8 @@ output=$(
     printf "%s" "$char"  # Send each character to the captured output
   done;
 )
-echo hi
 # Get the exit status of the command
 status=${PIPESTATUS[0]}
-echo $status > /dev/tty
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
