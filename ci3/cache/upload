@@ -30,5 +30,6 @@ trap on_exit EXIT
 # Rest of args are our binary paths
 tar -czf "$TAR_FILE" $@
 
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" >&2 || true
-echo "Cache upload of $NAME complete." >&2
+if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" >&2 ; then
+  echo "Cache upload of $NAME complete." >&2
+fi

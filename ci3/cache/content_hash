@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Ensure AZTEC_CACHE_REBUILD_PATTERNS is set
-if [[ -z "${REBUILD_PATTERNS:-}" && -z "${AZTEC_CACHE_REBUILD_PATTERNS:-}" ]]; then
-    echo "Error: REBUILD_PATTERNS and AZTEC_CACHE_REBUILD_PATTERNS environment variable is not set."
+if [[ -z "${REBUILD_PATTERNS:-}" && -z "${AZTEC_CACHE_REBUILD_PATTERNS:-}" && "$#" = 0 ]]; then
+    echo "Error: REBUILD_PATTERNS and AZTEC_CACHE_REBUILD_PATTERNS environment variable is not set, and no args."
     exit 1
 fi
 
