@@ -1,17 +1,22 @@
 import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
 import { createAccounts } from '@aztec/accounts/testing';
-import { type AztecAddress, type AztecNode, type DebugLogger, type ExtendedNote, Fr, type PXE, type Wallet, retryUntil, sleep } from '@aztec/aztec.js';
+import {
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
+  type ExtendedNote,
+  Fr,
+  type PXE,
+  type Wallet,
+  retryUntil,
+  sleep,
+} from '@aztec/aztec.js';
 import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
-
-
 
 import { expect, jest } from '@jest/globals';
 
-
-
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup, setupPXEService } from './fixtures/utils.js';
-
 
 const TIMEOUT = 120_000;
 
@@ -52,8 +57,7 @@ describe('e2e_2_pxes', () => {
     await teardownA();
   });
 
-  // TODO #10296
-  it.skip('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
+  it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
