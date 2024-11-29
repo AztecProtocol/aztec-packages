@@ -379,6 +379,9 @@ export class AvmPersistableStateManager {
         // Cache pending nullifiers for later access
         await this.nullifiers.append(siloedNullifier);
         // We append the new nullifier
+        this.log.debug(
+          `Nullifier tree root before insertion ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
+        );
         const appendResult = await this.merkleTrees.appendNullifier(siloedNullifier);
         this.log.debug(
           `Nullifier tree root after insertion ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
@@ -387,6 +390,12 @@ export class AvmPersistableStateManager {
         const lowLeafIndex = appendResult.lowWitness.index;
         const lowLeafPath = appendResult.lowWitness.siblingPath;
         const insertionPath = appendResult.insertionPath;
+        this.log.debug(`J:lowLeafPreimage.nullifier: ${lowLeafPreimage.nullifier}`);
+        this.log.debug(`J:lowLeafPreimage.nextNullifier: ${lowLeafPreimage.nextNullifier}`);
+        this.log.debug(`J:lowLeafPreimage.nextIndex: ${lowLeafPreimage.nextIndex}`);
+        this.log.debug(`J:lowLeafIndex: ${lowLeafIndex}`);
+        this.log.debug(`J:lowLeafPath: ${JSON.stringify(lowLeafPath)}}`);
+        this.log.debug(`J:insertionPath: ${JSON.stringify(insertionPath)}}`);
         this.trace.traceNewNullifier(
           siloedNullifier,
           lowLeafPreimage,

@@ -13,6 +13,7 @@ import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 export class AvmEnqueuedCallHint {
   public readonly contractAddress: AztecAddress;
@@ -520,6 +521,12 @@ export class AvmNullifierWriteTreeHint {
    * */
   constructor(public lowLeafRead: AvmNullifierReadTreeHint, public _insertionPath: Fr[]) {
     this.insertionPath = new Vector(_insertionPath);
+    console.log(`constr:david:lowLeafPreimage.nullifier: ${this.lowLeafRead.lowLeafPreimage.nullifier}`);
+    console.log(`constr:david:lowLeafPreimage.nextNullifier: ${this.lowLeafRead.lowLeafPreimage.nextNullifier}`);
+    console.log(`constr:david:lowLeafPreimage.nextIndex: ${this.lowLeafRead.lowLeafPreimage.nextIndex}`);
+    console.log(`constr:david:lowLeafIndex: ${this.lowLeafRead.lowLeafIndex}`);
+    console.log(`constr:david:lowLeafPath: ${JSON.stringify(this.lowLeafRead.lowLeafSiblingPath.items)}}`);
+    console.log(`constr:david:insertionPath: ${JSON.stringify(this.insertionPath)}}`);
   }
 
   /**
@@ -561,6 +568,12 @@ export class AvmNullifierWriteTreeHint {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmNullifierWriteTreeHint>) {
+    console.log(`david:lowLeafPreimage.nullifier: ${fields.lowLeafRead.lowLeafPreimage.nullifier}`);
+    console.log(`david:lowLeafPreimage.nextNullifier: ${fields.lowLeafRead.lowLeafPreimage.nextNullifier}`);
+    console.log(`david:lowLeafPreimage.nextIndex: ${fields.lowLeafRead.lowLeafPreimage.nextIndex}`);
+    console.log(`david:lowLeafIndex: ${fields.lowLeafRead.lowLeafIndex}`);
+    console.log(`david:lowLeafPath: ${JSON.stringify(fields.lowLeafRead.lowLeafSiblingPath.items)}}`);
+    console.log(`david:insertionPath: ${JSON.stringify(fields.insertionPath)}}`);
     return [...AvmNullifierReadTreeHint.getFields(fields.lowLeafRead), fields.insertionPath] as const;
   }
 
@@ -851,13 +864,13 @@ export class AvmExecutionHints {
   public readonly contractInstances: Vector<AvmContractInstanceHint>;
   public readonly contractBytecodeHints: Vector<AvmContractBytecodeHints>;
 
-  public readonly storageReadRequest: Vector<AvmPublicDataReadTreeHint>;
-  public readonly storageUpdateRequest: Vector<AvmPublicDataWriteTreeHint>;
-  public readonly nullifierReadRequest: Vector<AvmNullifierReadTreeHint>;
-  public readonly nullifierWriteHints: Vector<AvmNullifierWriteTreeHint>;
-  public readonly noteHashReadRequest: Vector<AvmAppendTreeHint>;
-  public readonly noteHashWriteRequest: Vector<AvmAppendTreeHint>;
-  public readonly l1ToL2MessageReadRequest: Vector<AvmAppendTreeHint>;
+  public readonly publicDataReads: Vector<AvmPublicDataReadTreeHint>;
+  public readonly publicDataWrites: Vector<AvmPublicDataWriteTreeHint>;
+  public readonly nullifierReads: Vector<AvmNullifierReadTreeHint>;
+  public readonly nullifierWrites: Vector<AvmNullifierWriteTreeHint>;
+  public readonly noteHashReads: Vector<AvmAppendTreeHint>;
+  public readonly noteHashWrites: Vector<AvmAppendTreeHint>;
+  public readonly l1ToL2MessageReads: Vector<AvmAppendTreeHint>;
 
   constructor(
     enqueuedCalls: AvmEnqueuedCallHint[],
@@ -868,13 +881,13 @@ export class AvmExecutionHints {
     externalCalls: AvmExternalCallHint[],
     contractInstances: AvmContractInstanceHint[],
     contractBytecodeHints: AvmContractBytecodeHints[],
-    storageReadRequest: AvmPublicDataReadTreeHint[],
-    storageUpdateRequest: AvmPublicDataWriteTreeHint[],
-    nullifierReadRequest: AvmNullifierReadTreeHint[],
-    nullifierWriteHints: AvmNullifierWriteTreeHint[],
-    noteHashReadRequest: AvmAppendTreeHint[],
-    noteHashWriteRequest: AvmAppendTreeHint[],
-    l1ToL2MessageReadRequest: AvmAppendTreeHint[],
+    publicDataReads: AvmPublicDataReadTreeHint[],
+    publicDataWrites: AvmPublicDataWriteTreeHint[],
+    nullifierReads: AvmNullifierReadTreeHint[],
+    nullifierWrites: AvmNullifierWriteTreeHint[],
+    noteHashReads: AvmAppendTreeHint[],
+    noteHashWrites: AvmAppendTreeHint[],
+    l1ToL2MessageReads: AvmAppendTreeHint[],
   ) {
     this.enqueuedCalls = new Vector(enqueuedCalls);
     this.storageValues = new Vector(storageValues);
@@ -884,14 +897,13 @@ export class AvmExecutionHints {
     this.externalCalls = new Vector(externalCalls);
     this.contractInstances = new Vector(contractInstances);
     this.contractBytecodeHints = new Vector(contractBytecodeHints);
-    this.storageReadRequest = new Vector(storageReadRequest);
-    this.storageUpdateRequest = new Vector(storageUpdateRequest);
-    this.noteHashReadRequest = new Vector(noteHashReadRequest);
-    this.nullifierReadRequest = new Vector(nullifierReadRequest);
-    this.nullifierWriteHints = new Vector(nullifierWriteHints);
-    this.noteHashReadRequest = new Vector(noteHashReadRequest);
-    this.noteHashWriteRequest = new Vector(noteHashWriteRequest);
-    this.l1ToL2MessageReadRequest = new Vector(l1ToL2MessageReadRequest);
+    this.publicDataReads = new Vector(publicDataReads);
+    this.publicDataWrites = new Vector(publicDataWrites);
+    this.nullifierReads = new Vector(nullifierReads);
+    this.nullifierWrites = new Vector(nullifierWrites);
+    this.noteHashReads = new Vector(noteHashReads);
+    this.noteHashWrites = new Vector(noteHashWrites);
+    this.l1ToL2MessageReads = new Vector(l1ToL2MessageReads);
   }
 
   /**
@@ -932,13 +944,13 @@ export class AvmExecutionHints {
       this.externalCalls.items.length == 0 &&
       this.contractInstances.items.length == 0 &&
       this.contractBytecodeHints.items.length == 0 &&
-      this.storageReadRequest.items.length == 0 &&
-      this.storageUpdateRequest.items.length == 0 &&
-      this.nullifierReadRequest.items.length == 0 &&
-      this.nullifierWriteHints.items.length == 0 &&
-      this.noteHashReadRequest.items.length == 0 &&
-      this.noteHashWriteRequest.items.length == 0 &&
-      this.l1ToL2MessageReadRequest.items.length == 0
+      this.publicDataReads.items.length == 0 &&
+      this.publicDataWrites.items.length == 0 &&
+      this.nullifierReads.items.length == 0 &&
+      this.nullifierWrites.items.length == 0 &&
+      this.noteHashReads.items.length == 0 &&
+      this.noteHashWrites.items.length == 0 &&
+      this.l1ToL2MessageReads.items.length == 0
     );
   }
 
@@ -958,13 +970,13 @@ export class AvmExecutionHints {
       fields.externalCalls.items,
       fields.contractInstances.items,
       fields.contractBytecodeHints.items,
-      fields.storageReadRequest.items,
-      fields.storageUpdateRequest.items,
-      fields.nullifierReadRequest.items,
-      fields.nullifierWriteHints.items,
-      fields.noteHashReadRequest.items,
-      fields.noteHashWriteRequest.items,
-      fields.l1ToL2MessageReadRequest.items,
+      fields.publicDataReads.items,
+      fields.publicDataWrites.items,
+      fields.nullifierReads.items,
+      fields.nullifierWrites.items,
+      fields.noteHashReads.items,
+      fields.noteHashWrites.items,
+      fields.l1ToL2MessageReads.items,
     );
   }
 
@@ -984,13 +996,13 @@ export class AvmExecutionHints {
       fields.externalCalls,
       fields.contractInstances,
       fields.contractBytecodeHints,
-      fields.storageReadRequest,
-      fields.storageUpdateRequest,
-      fields.nullifierReadRequest,
-      fields.nullifierWriteHints,
-      fields.noteHashReadRequest,
-      fields.noteHashWriteRequest,
-      fields.l1ToL2MessageReadRequest,
+      fields.publicDataReads,
+      fields.publicDataWrites,
+      fields.nullifierReads,
+      fields.nullifierWrites,
+      fields.noteHashReads,
+      fields.noteHashWrites,
+      fields.l1ToL2MessageReads,
     ] as const;
   }
 

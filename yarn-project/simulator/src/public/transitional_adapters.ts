@@ -19,7 +19,6 @@ import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-  MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -42,6 +41,8 @@ import {
   TreeSnapshots,
   countAccumulatedItems,
   mergeAccumulatedData,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeUniqueNoteHash, computeVarArgsHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -257,19 +258,19 @@ function getPublicCircuitPublicInputs(
     proverAddress: AztecAddress.ZERO,
     argsHash: computeVarArgsHash(result.executionRequest.args),
     noteHashes: padArrayEnd(
-      result.noteHashes,
+      [],
       NoteHash.empty(),
       MAX_NOTE_HASHES_PER_CALL,
       `Too many note hashes. Got ${result.noteHashes.length} with max being ${MAX_NOTE_HASHES_PER_CALL}`,
     ),
     nullifiers: padArrayEnd(
-      result.nullifiers,
+      [],
       Nullifier.empty(),
       MAX_NULLIFIERS_PER_CALL,
-      `Too many nullifiers. Got ${result.nullifiers.length} with max being ${MAX_NULLIFIERS_PER_CALL}`,
+      `Too many nullifiers. Got ${result.nullifiers.length} with max being ${MAX_NULLIFIERS_PER_TX}`,
     ),
     l2ToL1Msgs: padArrayEnd(
-      result.l2ToL1Messages,
+      [],
       L2ToL1Message.empty(),
       MAX_L2_TO_L1_MSGS_PER_CALL,
       `Too many L2 to L1 messages. Got ${result.l2ToL1Messages.length} with max being ${MAX_L2_TO_L1_MSGS_PER_CALL}`,
@@ -308,7 +309,7 @@ function getPublicCircuitPublicInputs(
       `Too many public data reads. Got ${result.contractStorageReads.length} with max being ${MAX_PUBLIC_DATA_READS_PER_CALL}`,
     ),
     contractStorageUpdateRequests: padArrayEnd(
-      result.contractStorageUpdateRequests,
+      [],
       ContractStorageUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       `Too many public data update requests. Got ${result.contractStorageUpdateRequests.length} with max being ${MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL}`,
@@ -320,7 +321,7 @@ function getPublicCircuitPublicInputs(
       `Too many public call requests. Got ${result.publicCallRequests.length} with max being ${MAX_ENQUEUED_CALLS_PER_CALL}`,
     ),
     unencryptedLogsHashes: padArrayEnd(
-      result.unencryptedLogsHashes,
+      [],
       LogHash.empty(),
       MAX_UNENCRYPTED_LOGS_PER_CALL,
       `Too many unencrypted logs. Got ${result.unencryptedLogsHashes.length} with max being ${MAX_UNENCRYPTED_LOGS_PER_CALL}`,

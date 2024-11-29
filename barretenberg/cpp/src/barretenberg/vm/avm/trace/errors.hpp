@@ -18,6 +18,7 @@ enum class AvmError : uint32_t {
     CONTRACT_INST_MEM_UNKNOWN,
     RADIX_OUT_OF_BOUNDS,
     DUPLICATE_NULLIFIER,
+    SIDE_EFFECT_LIMIT_REACHED,
 };
 
 } // namespace bb::avm_trace

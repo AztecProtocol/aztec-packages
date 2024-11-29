@@ -58,6 +58,7 @@ bool AvmMerkleTreeTraceBuilder::unconstrained_check_membership(const FF& leaf_va
                                                                const FF& root)
 {
     FF computed_root = unconstrained_compute_root_from_path(leaf_value, leaf_index, path);
+    info("computed root: ", computed_root);
     // If the computed root is the same as the expected then the leaf is a member
     return computed_root == root;
 }

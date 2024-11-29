@@ -127,6 +127,10 @@ std::string to_name(AvmError error)
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
     case AvmError::RADIX_OUT_OF_BOUNDS:
         return "RADIX OUT OF BOUNDS";
+    case AvmError::DUPLICATE_NULLIFIER:
+        return "DUPLICATE NULLIFIER";
+    case AvmError::SIDE_EFFECT_LIMIT_REACHED:
+        return "SIDE EFFECT LIMIT REACHED";
     default:
         throw std::runtime_error("Invalid error type");
         break;

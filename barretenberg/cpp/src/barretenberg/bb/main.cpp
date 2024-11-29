@@ -940,13 +940,23 @@ void avm_prove(const std::filesystem::path& calldata_path,
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
     vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
     vinfo("calldata size: ", calldata.size());
+
     vinfo("hints.storage_value_hints size: ", avm_hints.storage_value_hints.size());
     vinfo("hints.note_hash_exists_hints size: ", avm_hints.note_hash_exists_hints.size());
     vinfo("hints.nullifier_exists_hints size: ", avm_hints.nullifier_exists_hints.size());
     vinfo("hints.l1_to_l2_message_exists_hints size: ", avm_hints.l1_to_l2_message_exists_hints.size());
+
     vinfo("hints.externalcall_hints size: ", avm_hints.externalcall_hints.size());
     vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
     vinfo("hints.contract_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
+
+    vinfo("hints.storage_read_hints size: ", avm_hints.storage_read_hints.size());
+    vinfo("hints.storage_write_hints size: ", avm_hints.storage_write_hints.size());
+    vinfo("hints.nullifier_read_hints size: ", avm_hints.nullifier_read_hints.size());
+    vinfo("hints.nullifier_write_hints size: ", avm_hints.nullifier_write_hints.size());
+    vinfo("hints.note_hash_read_hints size: ", avm_hints.note_hash_read_hints.size());
+    vinfo("hints.note_hash_write_hints size: ", avm_hints.note_hash_write_hints.size());
+    vinfo("hints.l1_to_l2_message_read_hints size: ", avm_hints.l1_to_l2_message_read_hints.size());
 
     vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
     init_bn254_crs(avm_trace::Execution::SRS_SIZE);

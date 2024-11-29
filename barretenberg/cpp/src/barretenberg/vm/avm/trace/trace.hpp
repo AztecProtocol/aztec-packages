@@ -269,8 +269,10 @@ class AvmTraceBuilder {
     uint32_t nullifier_read_counter = 0;
     uint32_t nullifier_write_counter = 0;
     uint32_t l1_to_l2_msg_read_counter = 0;
+    uint32_t l2_to_l1_msg_write_counter = 0;
     uint32_t storage_read_counter = 0;
     uint32_t storage_write_counter = 0;
+    uint32_t unencrypted_log_write_counter = 0;
 
     // These exist due to testing only.
     bool range_check_required = true;

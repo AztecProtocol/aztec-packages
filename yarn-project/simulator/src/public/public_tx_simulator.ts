@@ -387,7 +387,7 @@ export class PublicTxSimulator {
   public async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+      //await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
@@ -406,7 +406,7 @@ export class PublicTxSimulator {
     context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+      //await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
