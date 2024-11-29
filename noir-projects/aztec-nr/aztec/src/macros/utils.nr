@@ -225,7 +225,10 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
     // We create a type variable for the storage size. We can't simply read the value used in the implementation because
     // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
     let storage_size = std::meta::typ::fresh_type_variable();
-    assert(typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()), f"Attempted to fetch storage size, but {typ} does not implement the Storage trait");
+    assert(
+        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+    );
 
     storage_size.as_constant().unwrap()
 }

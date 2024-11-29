@@ -13,14 +13,14 @@ contract Test {
         event::encode_and_encrypt_event_unconstrained, note::encode_and_encrypt_note,
     };
     use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions, Map,
+        AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
         PrivateImmutable, PrivateSet,
     };
 
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
-        traits::{Serialize, Deserialize},
+        traits::{Deserialize, Serialize},
         utils::arrays::array_concat,
     };
 
@@ -72,14 +72,19 @@ contract Test {
 
     impl Serialize<5> for ExampleStruct {
         fn serialize(self) -> [Field; 5] {
-            [ self.value0, self.value1, self.value2, self.value3, self.value4 ]
+            [self.value0, self.value1, self.value2, self.value3, self.value4]
         }
     }
 
-
     impl Deserialize<5> for ExampleStruct {
         fn deserialize(value: [Field; 5]) -> Self {
-            Self { value0: value[0], value1: value[1], value2: value[2], value3: value[3], value4: value[4] }
+            Self {
+                value0: value[0],
+                value1: value[1],
+                value2: value[2],
+                value3: value[3],
+                value4: value[4],
+            }
         }
     }
 
