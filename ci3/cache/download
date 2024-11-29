@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
+  echo "Usage: $0 <tar.gz_file_to_download_and_extract>" >&2
   exit 1
 fi
 
@@ -32,10 +32,10 @@ else
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
 fi
 # Attempt to download the cache file
-curl -s -f -O "${S3_ENDPOINT}/build-cache/$TAR_FILE" || (echo "Cache download of $TAR_FILE failed." && exit 1)
+curl -s -f -O "${S3_ENDPOINT}/build-cache/$TAR_FILE" || (echo "Cache download of $TAR_FILE failed." >&2 && exit 1)
 
 # Extract the cache file
 mkdir -p "$OUT_DIR"
 tar -xzf "$TAR_FILE" -C "$OUT_DIR"
 
-echo "Cache download and extraction of $TAR_FILE complete."
+echo "Cache download and extraction of $TAR_FILE complete." >&2
