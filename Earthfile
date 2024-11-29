@@ -61,8 +61,9 @@ bootstrap-test:
     RUN --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
         scripts/tests/bootstrap/test
 
-hello:
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
-    WITH DOCKER --pull hello-world
-        RUN docker run hello-world
-    END
+bootstrap:
+    # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
+    FROM ./build-images+ci-registry
+    WORKDIR /usr/src
+    ARG EARTHLY_GIT_HASH
+    RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY CI=1 TEST=0 ./bootstrap.sh fast
