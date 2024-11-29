@@ -31,21 +31,22 @@ PACKAGES_HASH=$($ci3/cache/content_hash)
 if [ "${SKIP_BUILD:-0}" -eq 0 ]; then
   $ci3/github/group "noir build"
   # Continue with native bootstrapping if the cache was not used or nargo verification failed.
-  ./scripts/bootstrap_native.sh
-  $ci3/cache/upload noir-nargo-$NATIVE_HASH.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
-
-  ./scripts/bootstrap_packages.sh
-  $ci3/cache/upload noir-packages-$PACKAGES_HASH.tar.gz packages
+  if ! $ci3/cache/download noir-nargo-$NATIVE_HASH.tar.gz ; then
+    $ci3/cache/denoise ./scripts/bootstrap_native.sh
+    $ci3/cache/upload noir-nargo-$NATIVE_HASH.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
+  fi
+  if ! $ci3/cache/download noir-nargo-$PACKAGES_HASH.tar.gz ; then
+    $ci3/cache/denoise ./scripts/bootstrap_packages.sh
+    $ci3/cache/upload noir-packages-$PACKAGES_HASH.tar.gz packages
+  fi
   $ci3/github/endgroup
 fi
 
 if $ci3/base/is_test && $ci3/cache/should_run noir-test-$NATIVE_HASH-$PACKAGES_HASH; then
-  $ci3/github/group "noir test native"
+  $ci3/github/group "noir test"
   export PATH="$PWD/noir-repo/target/release/:$PATH"
-  ./scripts/test_native.sh
-  $ci3/github/endgroup
-  $ci3/github/group "noir test packages"
-  ./scripts/test_js_packages.sh
+  $ci3/cache/denoise ./scripts/test_native.sh
+  $ci3/cache/denoise ./scripts/test_js_packages.sh
   $ci3/cache/upload_flag noir-test-$NATIVE_HASH-$PACKAGES_HASH
   $ci3/github/endgroup
 fi
