@@ -5,7 +5,7 @@
 # Any calls to cache folder functions work with hitting local minio instead of S3.
 source "$(git rev-parse --show-toplevel)/ci3/base/source"
 
-TEST_PORT=9337
+TEST_PORT=9338
 
 # Configure AWS parameters to use MinIO
 # S3_BUILD_CACHE_AWS_PARAMS: Used by cache/download and cache/upload
@@ -25,7 +25,7 @@ function minio_delete_cache() {
 
 function minio_start() {
   echo "Starting MinIO..."
-  docker start minio-test &>/dev/null || docker run -d --name minio-test \
+  docker start minio-test-db &>/dev/null || docker run -d --name minio-test-db \
     -p $TEST_PORT:9000 \
     -v minio-data:/data \
     quay.io/minio/minio server /data

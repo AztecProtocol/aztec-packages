@@ -2,6 +2,8 @@
 # Use the minio script base. We ensure minio is running and wipe it.
 source $(git rev-parse --show-toplevel)/ci3/cache/test_source
 
+set -o pipefail
+
 export DENOISE=${DENOISE:-1}
 # Tests the various modes of bootstrap test usage.
 # We wrap and mock ci3/cache/should_run to detect when a test tries to run.
