@@ -49,7 +49,7 @@ get_service_address() {
     # Get the node's external IP
     NODE_IP=$(kubectl get node ${NODE_NAME} -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}')
     echo "Node IP: ${NODE_IP}" >&2
-    echo "http://${NODE_IP}:${PORT}"
+    echo "http://${NODE_IP}:8080"
 }
 
 # Configure Ethereum address
