@@ -40,9 +40,9 @@ function run_bootstrap() {
   if [ "$exit_code" != 0 ]; then
     echo "Bootstrap had a bad exit code $exit_code."
     all_tests_passed=false
+    return 1
   fi
   run_cleanup
-  return $exit_code
 }
 
 function check_for_bad_asserts() {
@@ -73,9 +73,9 @@ function test_CI_1_second_pass() {
 }
 
 PROJECTS=(
-  noir
-  barretenberg
-  # l1-contracts
+  # noir
+  # barretenberg
+  l1-contracts
   # avm-transpiler
   # noir-projects
   # yarn-project
