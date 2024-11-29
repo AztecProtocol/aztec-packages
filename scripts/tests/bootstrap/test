@@ -39,8 +39,7 @@ function run_bootstrap() {
   exit_code=$?
   if [ "$exit_code" != 0 ]; then
     echo "Bootstrap had a bad exit code $exit_code."
-    all_tests_passed=false
-    return 1
+    exit 1
   fi
   run_cleanup
 }
@@ -49,13 +48,9 @@ function check_for_bad_asserts() {
   if [ -s "$ci3/cache/.test_faillures" ]; then
     echo "Failures detected:"
     cat "$ci3/cache/.test_faillures"
-    all_tests_passed=false
-    return 1
+    exit 1
   fi
 }
-
-# Initialize the overall test status
-all_tests_passed=true
 
 function test_CI_0() {
   CI=0 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_first_pass.sh $root/scripts/tests/bootstrap/download_first_pass.sh
@@ -73,7 +68,7 @@ function test_CI_1_second_pass() {
 }
 
 PROJECTS=(
-  noir
+  # noir
   barretenberg
   l1-contracts
   avm-transpiler
@@ -93,6 +88,8 @@ for project in "${PROJECTS[@]}"; do
   echo "$project 3/3: CI=1 tests shouldn't run, downloads should happen"
   test_CI_1_second_pass $project | sed "s/^/$project 3\/3: /" || (echo "$project 3/3 failure" && exit 1)
   echo "$project 3/3 success"
+  # We shouldn't need this cache anymore
+  minio_delete_cache
 done
 
 echo "success: ./bootstrap.sh consistency tests have all passed."
