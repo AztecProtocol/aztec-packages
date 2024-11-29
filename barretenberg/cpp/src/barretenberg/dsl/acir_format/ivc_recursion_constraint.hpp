@@ -14,6 +14,15 @@ using namespace bb;
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints);
 
 void mock_ivc_oink_accumulation(ClientIVC& ivc);
+void mock_ivc_pg_accumulation(ClientIVC& ivc);
+
+std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
+                                                  const size_t num_public_inputs,
+                                                  const size_t pub_inputs_offset);
+
+std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t dyadic_size,
+                                                                    const size_t num_public_inputs,
+                                                                    const size_t pub_inputs_offset);
 
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings);
 
