@@ -50,14 +50,16 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
                 echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
                 sleep 5
               done
               echo "Broker is ready!"
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
-                echo "Waiting for OpenTelemetry collector..."
+              OTEL_COLLECTOR="{{ include "aztec-network.otelCollectorMetricsEndpoint" . }}"
+              until curl --head --silent $OTEL_COLLECTOR > /dev/null; do
+                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR..."
                 sleep 5
               done
               echo "OpenTelemetry collector is ready!"

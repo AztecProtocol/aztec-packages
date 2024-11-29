@@ -44,6 +44,7 @@ spec:
               chmod +x /tmp/setup-service-addresses.sh
               /tmp/setup-service-addresses.sh
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
 
               until curl -s -X GET "$BOOT_NODE_HOST/status"; do
                 echo "Waiting for Aztec node $BOOT_NODE_HOST..."

@@ -33,6 +33,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               # First check ethereum node
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
@@ -43,8 +44,9 @@ spec:
               echo "Ethereum node is ready!"
 
               {{- if .Values.telemetry.enabled }}
+              OTEL_COLLECTOR="{{ include "aztec-network.otelCollectorMetricsEndpoint" . }}"
               until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
-                echo "Waiting for OpenTelemetry collector..."
+                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR..."
                 sleep 5
               done
               echo "OpenTelemetry collector is ready!"
