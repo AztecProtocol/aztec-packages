@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <execution>
 #include <typeinfo>

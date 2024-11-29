@@ -130,14 +130,20 @@ namespace bb {
  *
  * The verifier needs to evaluate \f$ 1 - L(u_0, \ldots, u_{d-1}) \f$, which is equal to \f$ 0 \f$ if \f$ d < 2 \f$, and
  * is equal to \f$ 1-  u_2 \cdots u_{d-1} \f$ otherwise.
+
  */
 
 template <typename Flavor> struct RowDisablingPolynomial {
     using FF = typename Flavor::FF;
 
-    // initialized as a constant linear polynomial = 1
-    FF eval_at_0;
+    // disabling the last rows; 128 in Translator, 4 elsewhere
+    FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
+
+    // disabling the first 8 rows in Translator
+    FF eval_at_0_aux;
+    FF eval_at_1_aux;
+
     FF one = FF{ 1 };
     FF zero = FF{ 0 };
 
@@ -145,29 +151,29 @@ template <typename Flavor> struct RowDisablingPolynomial {
     {
         if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
             // Initialize for TranslatorFlavor
-            eval_at_0 = zero;
-        } else {
-            // Initialize for other Flavors
-            eval_at_0 = one;
+            eval_at_0_aux = FF{ 1 };
+            eval_at_1_aux = FF{ 1 };
         }
     }
 
-    void update_evaluations(FF round_challenge, size_t round_idx)
+    void update_evaluations(const FF round_challenge, const size_t round_idx)
     {
         if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
-            if (round_idx == 0) {
-                eval_at_0 = round_challenge;
-                eval_at_1 = one;
+
+            if (round_idx == 2) {
+                eval_at_1_aux = zero;
             };
 
-            if (round_idx == 1) {
-                eval_at_0 = eval_at_0 * (one - round_challenge) + round_challenge;
-                eval_at_1 = zero;
+            if (round_idx > 2) {
+                eval_at_0_aux = eval_at_0_aux * (one - round_challenge);
             };
 
-            if (round_idx > 1) {
-                eval_at_0 = eval_at_0 * (one - round_challenge);
-                eval_at_1 = zero;
+            if (round_idx == 6) {
+                eval_at_0 = zero;
+            }
+
+            if (round_idx > 6) {
+                eval_at_1 = eval_at_1 * round_challenge;
             }
         } else {
             if (round_idx == 1) {
@@ -179,23 +185,25 @@ template <typename Flavor> struct RowDisablingPolynomial {
         }
     }
 
-    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+    static FF evaluate_at_challenge(const std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
     {
         FF evaluation_at_multivariate_challenge{ 1 };
+        FF aux_eval{ 1 };
 
         if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
-            evaluation_at_multivariate_challenge =
-                (multivariate_challenge[0] * (FF{ 1 } - multivariate_challenge[1]) + multivariate_challenge[1]);
-
-            for (size_t idx = 2; idx < log_circuit_size; idx++) {
-                evaluation_at_multivariate_challenge *= (FF{ 1 } - multivariate_challenge[idx]);
+            for (size_t idx = 7; idx < log_circuit_size; idx++) {
+                evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
             }
 
+            for (size_t idx = 3; idx < log_circuit_size; idx++) {
+                aux_eval *= (FF{ 1 } - multivariate_challenge[idx]);
+            }
+            evaluation_at_multivariate_challenge += aux_eval;
         } else {
             for (size_t idx = 2; idx < log_circuit_size; idx++) {
                 evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
             }
-        }
+        };
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }

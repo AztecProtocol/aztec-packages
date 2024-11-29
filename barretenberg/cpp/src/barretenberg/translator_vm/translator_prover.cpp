@@ -89,15 +89,20 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     // const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
     // Commit to all wire polynomials and ordered range constraint polynomials
+
+    // info("number random commitments ", idx);
+
+    auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
+    auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
+
     for (auto& poly : key->polynomials.get_wires_and_ordered_range_constraints()) {
-        for (size_t i = 2; i < 3; i++) {
-            poly.at(i) = FF::random_element();
+        for (size_t idx = 1; idx < 8; idx++) {
+            if (poly.at(idx) != FF(0)) {
+                info(labels[idx]);
+            }
         }
     }
 
-    // info("number random commitments ", idx);
-    auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
-    auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
 
         transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
@@ -111,7 +116,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 void TranslatorProver::execute_grand_product_computation_round()
 {
 
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
+    // const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
     // Compute and store parameters required by relations in Sumcheck
     FF gamma = transcript->template get_challenge<FF>("gamma");
@@ -153,12 +158,10 @@ void TranslatorProver::execute_grand_product_computation_round()
     }
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
-    info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 8));
 
-    info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 7));
-    info("z perm n - i-1", key->polynomials.z_perm.at(circuit_size - 6));
-
-    info("z_perm size ", key->polynomials.z_perm.size());
+    for (size_t idx = 2; idx < 6; idx++) {
+        key->polynomials.z_perm.at(idx) = FF::random_element();
+    }
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
