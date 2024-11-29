@@ -21,7 +21,7 @@ fi
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
 $ci3/github/group "bb.js build"
-yarn installA
+$ci3/base/denoise yarn install
 find . -exec touch -d "@0" {} + 2>/dev/null || true
 
 echo "Building with command 'yarn $BUILD_CMD'..."
