@@ -814,7 +814,7 @@ export class L1Publisher {
       return undefined;
     }
     try {
-      const { args, gas } = this.prepareProposeTx(encodedData);
+      const { args, gas } = await this.prepareProposeTx(encodedData);
       const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
@@ -852,7 +852,7 @@ export class L1Publisher {
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      const { args, gas } = this.prepareProposeTx(encodedData);
+      const { args, gas } = await this.prepareProposeTx(encodedData);
       const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
