@@ -9,6 +9,4 @@ echo Using BB hash $BB_HASH
 tempDir="./target/tmp"
 mkdir -p $tempDir
 
-for artifactPath in "./target"/*.json; do
-    BB_HASH=$BB_HASH node ./scripts/postprocess_contract.js "$artifactPath" "$tempDir"
-done
+parallel -v --line-buffer --tag --halt now,fail=1 BB_HASH=$BB_HASH node ./scripts/postprocess_contract.js {} $tempDir ::: ./target/*.json
