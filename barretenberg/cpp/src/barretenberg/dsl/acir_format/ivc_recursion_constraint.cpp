@@ -16,15 +16,28 @@ using namespace bb;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
+    // WORKTODO: the settings here will just be set based on the one and only default trace structuring
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-    for (const auto& constraint : constraints) {
-        if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
-            ASSERT(constraint.public_inputs.size() == 0); // Apps are assumed to have no public inputs
-            mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK);
-        } else if (static_cast<uint32_t>(PROOF_TYPE::PG) == constraint.proof_type) {
-            mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG);
-        }
+    uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
+    uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
+
+    // There are only three valid combinations of IVC recursion constraints: (1) a single Oink recursive verification
+    // for an app circuit (init kernel), (2) a single PG recursive verification for a kernel circuit (reset kernel, tail
+    // kernel), or (3) two PG recursive verifications for a kernel and an app in that order (inner kernel).
+    if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+    } else if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
+        ivc.verifier_accumulator = create_mock_decider_vk();
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+    } else if (constraints.size() == 2) {
+        ASSERT(constraints[0].proof_type == pg_type && constraints[1].proof_type == pg_type);
+        ivc.verifier_accumulator = create_mock_decider_vk();
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
+    } else {
+        info("WARNING: Invalid set of IVC recursion constraints!");
+        ASSERT(false);
     }
 
     return ivc;
@@ -37,9 +50,10 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
  * @param ivc
  * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
  */
-void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type)
+void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel)
 {
-    ClientIVC::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, ivc.trace_settings);
+    ClientIVC::VerifierInputs entry =
+        acir_format::create_mock_verification_queue_entry(type, ivc.trace_settings, is_kernel);
     ivc.verification_queue.emplace_back(entry);
     ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc.initialized = true;
@@ -49,20 +63,26 @@ void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type)
  * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
  *
  */
-ClientIVC::VerifierInputs create_mock_verification_queue_entry(ClientIVC::QUEUE_TYPE type,
-                                                               const TraceSettings& trace_settings)
+ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::QUEUE_TYPE verification_type,
+                                                               const TraceSettings& trace_settings,
+                                                               const bool is_kernel)
 {
     MegaExecutionTraceBlocks blocks;
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
-    size_t num_public_inputs = bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    size_t num_public_inputs =
+        bb::PAIRING_POINT_ACCUMULATOR_SIZE + static_cast<uint32_t>(is_kernel) * bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
 
     ClientIVC::VerifierInputs verifier_inputs{};
 
-    verifier_inputs.type = type;
-    verifier_inputs.proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+    verifier_inputs.type = verification_type;
+    if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
+        verifier_inputs.proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+    } else { // ClientIVC::QUEUE_TYPE::PG)
+        verifier_inputs.proof = create_mock_pg_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+    }
     verifier_inputs.honk_verification_key = create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
 
     return verifier_inputs;
@@ -81,16 +101,17 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
 
     std::vector<FF> proof;
 
-    // Set proof preamble (metadata plus public inputs)
-    // WORKTODO: num pub inputs depends on app vs kernel; kernel has +16 from DB
+    // Populate proof metadata
     proof.emplace_back(dyadic_size);
     proof.emplace_back(num_public_inputs);
     proof.emplace_back(pub_inputs_offset);
+
+    // Populate mock public inputs
     for (size_t i = 0; i < num_public_inputs; ++i) {
         proof.emplace_back(0);
     }
 
-    // Witness polynomial commitments
+    // Populate mock witness polynomial commitments
     auto mock_commitment = curve::BN254::AffineElement::one();
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; ++i) {
@@ -103,7 +124,7 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
 }
 
 /**
- * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
+ * @brief Create a mock PG proof and VK that have the correct structure but are not necessarily valid
  *
  */
 std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
@@ -112,11 +133,20 @@ std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
 {
     // using Flavor = ClientIVC::Flavor;
     using FF = ClientIVC::FF;
+    using DeciderProvingKeys = ClientIVC::DeciderProvingKeys;
 
-    // WORKTODO: num pub inputs depends on app vs kernel; kernel has +16 from DB
+    // The first part of a PG proof is an Oink proof
     std::vector<FF> proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
 
-    // WORKTODO: mock pg stuff here
+    // Populate mock perturbator coefficients
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        proof.emplace_back(0);
+    }
+
+    // Populate mock combiner quotient coefficients
+    for (size_t idx = DeciderProvingKeys::NUM; idx < DeciderProvingKeys::BATCHED_EXTENDED_LENGTH; idx++) {
+        proof.emplace_back(0);
+    }
 
     return proof;
 }
@@ -144,13 +174,31 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
 }
 
 /**
+ * @brief
+ *
+ */
+std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
+{
+    // Set relevant VK metadata and commitments
+    auto decider_verification_key = std::make_shared<ClientIVC::DeciderVerificationKey>();
+    decider_verification_key->verification_key = create_mock_honk_vk(0, 0, 0);
+    decider_verification_key->is_accumulator = true;
+
+    for (auto& commitment : decider_verification_key->witness_commitments.get_all()) {
+        commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
+    }
+
+    return decider_verification_key;
+}
+
+/**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *
  * @return ClientIVC::MergeProof
  */
 ClientIVC::MergeProof create_dummy_merge_proof()
 {
-    using FF = bb::fr;
+    using FF = ClientIVC::FF;
 
     std::vector<FF> proof;
 
@@ -191,8 +239,7 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
                                      std::vector<uint32_t>& key_witness_indices)
 {
-    using Flavor = MegaFlavor;
-    using FF = Flavor::FF;
+    using FF = ClientIVC::FF;
 
     // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
