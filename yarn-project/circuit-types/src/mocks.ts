@@ -6,16 +6,12 @@ import {
   EthAddress,
   GasFees,
   GasSettings,
-  LogHash,
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedDataBuilder,
-  ScopedLogHash,
   SerializableContractInstance,
   computeContractAddressFromInstance,
   computeContractClassId,
@@ -24,20 +20,14 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 
-import {
-  ContractClassTxL2Logs,
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  Note,
-  UnencryptedTxL2Logs,
-} from './logs/index.js';
+import { ContractClassTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
-import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
+import { CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
@@ -48,7 +38,6 @@ export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
 export const mockPrivateExecutionResult = (
   seed = 1,
-  hasLogs = false,
   numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
   numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
   hasPublicTeardownCallRequest = false,
@@ -88,29 +77,17 @@ export const mockPrivateExecutionResult = (
     enqueuedPublicFunctionCalls.map((call, index) => new CountedPublicExecutionRequest(call, index)),
     publicTeardownFunctionCall,
     [],
-    hasLogs
-      ? EncryptedTxL2Logs.random(2, 3)
-          .unrollLogs()
-          .map((log, index) => new CountedLog(log, index))
-      : [],
-    hasLogs
-      ? ContractClassTxL2Logs.random(1, 1)
-          .unrollLogs()
-          .map((log, index) => new CountedLog(log, index))
-      : [],
   );
 };
 
 export const mockTx = (
   seed = 1,
   {
-    hasLogs = false,
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     hasPublicTeardownCallRequest = false,
     feePayer = AztecAddress.ZERO,
   }: {
-    hasLogs?: boolean;
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
     hasPublicTeardownCallRequest?: boolean;
@@ -124,15 +101,14 @@ export const mockTx = (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
-  const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
-  const contractClassLog = hasLogs ? ContractClassTxL2Logs.random(1, 1) : ContractClassTxL2Logs.empty();
   data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
   data.feePayer = feePayer;
 
   let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
   let publicTeardownFunctionCall = PublicExecutionRequest.empty();
-  if (isForPublic) {
+  if (!isForPublic) {
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
+  } else {
     data.forRollup = undefined;
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
@@ -162,79 +138,13 @@ export const mockTx = (
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
       .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
-
-    if (hasLogs) {
-      let i = 1; // 0 used in first nullifier
-      let nonRevertibleIndex = 0;
-      let revertibleIndex = 0;
-      let functionCount = 0;
-      encryptedLogs.functionLogs.forEach(functionLog => {
-        functionLog.logs.forEach(log => {
-          // ts complains if we dont check .forPublic here, even though it is defined ^
-          if (data.forPublic) {
-            const hash = new ScopedLogHash(
-              new LogHash(
-                Fr.fromBuffer(log.hash()),
-                i++,
-                // +4 for encoding the length of the buffer
-                new Fr(log.length + 4),
-              ),
-              new AztecAddress(log.maskedContractAddress),
-            );
-            // make the first log non-revertible
-            if (functionCount === 0) {
-              data.forPublic.nonRevertibleAccumulatedData.encryptedLogsHashes[nonRevertibleIndex++] = hash;
-            } else {
-              data.forPublic.revertibleAccumulatedData.encryptedLogsHashes[revertibleIndex++] = hash;
-            }
-          }
-        });
-        functionCount++;
-      });
-      // We have a single contract class log
-      const contractClassUnencryptedLog = contractClassLog.functionLogs[0].logs[0];
-      if (data.forPublic) {
-        const hash = new ScopedLogHash(
-          new LogHash(
-            Fr.fromBuffer(contractClassUnencryptedLog.hash()),
-            i++,
-            // +4 for encoding the length of the buffer
-            new Fr(contractClassUnencryptedLog.length + 4),
-          ),
-          contractClassUnencryptedLog.contractAddress,
-        );
-        data.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = hash;
-      }
-    }
-  } else {
-    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
-    data.forRollup!.end.noteEncryptedLogsHashes = padArrayEnd(
-      noteEncryptedLogs.unrollLogs().map(log => new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length))),
-      LogHash.empty(),
-      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    );
-    data.forRollup!.end.encryptedLogsHashes = padArrayEnd(
-      encryptedLogs
-        .unrollLogs()
-        .map(
-          log =>
-            new ScopedLogHash(
-              new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
-              new AztecAddress(log.maskedContractAddress),
-            ),
-        ),
-      ScopedLogHash.empty(),
-      MAX_ENCRYPTED_LOGS_PER_TX,
-    );
   }
 
   const tx = new Tx(
     data,
     ClientIvcProof.empty(),
-    noteEncryptedLogs,
-    encryptedLogs,
     UnencryptedTxL2Logs.empty(),
-    contractClassLog,
+    ContractClassTxL2Logs.empty(),
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
   );
@@ -242,12 +152,12 @@ export const mockTx = (
   return tx;
 };
 
-export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boolean } = {}) =>
-  mockTx(seed, { hasLogs, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+export const mockTxForRollup = (seed = 1) =>
+  mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
-export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
-  const privateExecutionResult = mockPrivateExecutionResult(seed, hasLogs);
-  const tx = mockTx(seed, { hasLogs });
+export const mockSimulatedTx = (seed = 1) => {
+  const privateExecutionResult = mockPrivateExecutionResult(seed);
+  const tx = mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
     makeCombinedConstantData(),

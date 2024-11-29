@@ -1,13 +1,8 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { EncryptedFunctionL2Logs, EncryptedNoteFunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
+import { UnencryptedFunctionL2Logs } from './function_l2_logs.js';
 
-function shouldBehaveLikeFunctionL2Logs(
-  FunctionL2Logs:
-    | typeof UnencryptedFunctionL2Logs
-    | typeof EncryptedNoteFunctionL2Logs
-    | typeof EncryptedFunctionL2Logs,
-) {
+function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFunctionL2Logs) {
   describe(FunctionL2Logs.name, () => {
     it('can encode L2Logs to buffer and back', () => {
       const l2Logs = FunctionL2Logs.random(3);
@@ -51,6 +46,4 @@ function shouldBehaveLikeFunctionL2Logs(
   });
 }
 
-shouldBehaveLikeFunctionL2Logs(EncryptedNoteFunctionL2Logs);
 shouldBehaveLikeFunctionL2Logs(UnencryptedFunctionL2Logs);
-shouldBehaveLikeFunctionL2Logs(EncryptedFunctionL2Logs);
