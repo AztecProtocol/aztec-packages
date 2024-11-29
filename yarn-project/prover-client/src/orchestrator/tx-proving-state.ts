@@ -34,6 +34,7 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
 export class TxProvingState {
   private tube?: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
   private avm?: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
+  private proofCount = 0;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -43,6 +44,14 @@ export class TxProvingState {
 
   get requireAvmProof() {
     return !!this.processedTx.avmProvingRequest;
+  }
+
+  getProofCount() {
+    let count = 1; // tube proof
+    if (this.requireAvmProof) {
+      count += 1;
+    }
+    return count;
   }
 
   public ready() {
@@ -105,10 +114,12 @@ export class TxProvingState {
   }
 
   public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) {
+    this.proofCount += 1;
     this.tube = tubeProofAndVk;
   }
 
   public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>) {
+    this.proofCount += 1;
     this.avm = avmProofAndVk;
   }
 

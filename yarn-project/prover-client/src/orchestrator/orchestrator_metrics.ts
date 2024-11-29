@@ -1,4 +1,5 @@
 import {
+  Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -11,6 +12,7 @@ export class ProvingOrchestratorMetrics {
   public readonly tracer: Tracer;
 
   private baseRollupInputsDuration: Histogram;
+  private epochProofCount: Gauge;
 
   constructor(client: TelemetryClient, name = 'ProvingOrchestrator') {
     this.tracer = client.getTracer(name);
@@ -24,9 +26,18 @@ export class ProvingOrchestratorMetrics {
         explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
       },
     });
+
+    this.epochProofCount = meter.createGauge(Metrics.PROVING_ORCHESTRATOR_EPOCH_PROOF_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of total proofs that were required for an epoch',
+    });
   }
 
   recordBaseRollupInputs(durationMs: number) {
     this.baseRollupInputsDuration.record(Math.ceil(durationMs));
+  }
+
+  recordEpochProofCount(count: number) {
+    this.epochProofCount.record(count);
   }
 }

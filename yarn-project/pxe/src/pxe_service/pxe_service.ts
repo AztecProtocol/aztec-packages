@@ -187,6 +187,8 @@ export class PXEService implements PXE {
       return address;
     }
 
+    this.resetNoteSyncData
+
     const wasAdded = await this.db.addContactAddress(address);
 
     if (wasAdded) {

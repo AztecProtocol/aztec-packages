@@ -70,6 +70,15 @@ export class EpochProvingState {
     return BigInt(Math.ceil(Math.log2(totalLeaves)) - 1);
   }
 
+  public getProofCount() {
+    const blockProofs = this.blocks.reduce((sum, state) => sum + state.getProofCount(), 0);
+    return (
+      blockProofs +
+      this.mergeRollupInputs.reduce((count, inputs) => (inputs ? count + 1 : count), 0) +
+      /* root rollup */ 1
+    );
+  }
+
   // Calculates the index and level of the parent rollup circuit
   // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
   // REFACTOR: This is repeated from the block orchestrator

@@ -46,6 +46,7 @@ export class BlockProvingState {
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
+  private proofCount = 0;
 
   constructor(
     public readonly index: number,
@@ -70,6 +71,18 @@ export class BlockProvingState {
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
     return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
+  }
+
+  public getProofCount() {
+    const txProofCount = this.txs.reduce((sum, state) => sum + state.getProofCount(), 0);
+    return (
+      txProofCount + // count of tube + avm proofs
+      this.txs.length + // number of base rollups
+      this.mergeRollupInputs.reduce((count, m) => (m ? count + 1 : count), 0) + // count of merge rollups - takes wonky rollups into account
+      1 + // one block root rollup
+      this.rootParityInputs.length + // number of base parity inputs
+      1
+    ); // one root parity
   }
 
   // Calculates the index and level of the parent rollup circuit
@@ -166,6 +179,7 @@ export class BlockProvingState {
     mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
     mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
     mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
+    this.proofCount += 1;
     return true;
   }
 

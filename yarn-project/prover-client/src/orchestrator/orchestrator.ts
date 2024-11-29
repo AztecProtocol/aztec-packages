@@ -578,6 +578,8 @@ export class ProvingOrchestrator implements EpochProver {
       publicInputs: this.provingState.rootRollupPublicInputs.toString(),
     });
 
+    const totalCount = this.provingState.getProofCount();
+    this.metrics.recordEpochProofCount(totalCount);
     return { proof: this.provingState.finalProof, publicInputs: this.provingState.rootRollupPublicInputs };
   }
 
