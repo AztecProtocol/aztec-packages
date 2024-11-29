@@ -9,7 +9,7 @@ fi
 
 REBUILD_PATTERNS=${REBUILD_PATTERNS:-}
 [ -n "${AZTEC_CACHE_REBUILD_PATTERNS:-}" ] && REBUILD_PATTERNS+=$'\n'$(cat $AZTEC_CACHE_REBUILD_PATTERNS)
-REBUILD_PATTERNS+=$'\n'$(cat $AZTEC_CACHE_REBUILD_PATTERNS)
+REBUILD_PATTERNS+=$'\n'$(cat "$@")
 
 # Concatenate patterns with '|' and double escape backslashes for AWK
 AWK_PATTERN=$(echo "$REBUILD_PATTERNS" | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
