@@ -45,7 +45,7 @@ if ! $ci3/cache/download noir-projects-vks-$VKS_HASH.tar.gz; then
 fi
 $ci3/github/endgroup
 
-if $ci3/base/is_test && $ci3/cache/has_flag noir-projects-tests-$CIRCUITS_HASH; then
+if $ci3/base/is_test && $ci3/cache/should_run noir-projects-tests-$CIRCUITS_HASH; then
   $ci3/github/group "noir-projects test"
   NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 
