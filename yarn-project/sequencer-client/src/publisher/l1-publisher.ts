@@ -741,7 +741,23 @@ export class L1Publisher {
     }
   }
 
-  private prepareProposeTx(encodedData: L1ProcessArgs) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs) {
+    const computeTxsEffectsHashGas = await this.l1TxUtils.estimateGas(this.account, {
+      to: this.rollupContract.address,
+      data: encodeFunctionData({
+        abi: this.rollupContract.abi,
+        functionName: 'computeTxsEffectsHash',
+        args: [`0x${encodedData.body.toString('hex')}`],
+      }),
+    });
+
+    // @note  We perform this guesstimate instead of the usual `gasEstimate` since
+    //        viem will use the current state to simulate against, which means that
+    //        we will fail estimation in the case where we are simulating for the
+    //        first ethereum block within our slot (as current time is not in the
+    //        slot yet).
+    const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS;
+
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -762,7 +778,7 @@ export class L1Publisher {
       `0x${encodedData.body.toString('hex')}`,
     ] as const;
 
-    return args;
+    return { args, gas: gasGuesstimate };
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -798,7 +814,7 @@ export class L1Publisher {
       return undefined;
     }
     try {
-      const args = this.prepareProposeTx(encodedData);
+      const { args, gas } = this.prepareProposeTx(encodedData);
       const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
@@ -809,7 +825,7 @@ export class L1Publisher {
           }),
         },
         {
-          bufferFixed: L1Publisher.PROPOSE_GAS_GUESS,
+          fixedGas: gas,
         },
       );
       return {
@@ -836,15 +852,18 @@ export class L1Publisher {
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      const args = this.prepareProposeTx(encodedData);
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction({
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'proposeAndClaim',
-          args: [...args, quote.toViemArgs()],
-        }),
-      });
+      const { args, gas } = this.prepareProposeTx(encodedData);
+      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: this.rollupContract.address,
+          data: encodeFunctionData({
+            abi: this.rollupContract.abi,
+            functionName: 'proposeAndClaim',
+            args: [...args, quote.toViemArgs()],
+          }),
+        },
+        { fixedGas: gas },
+      );
 
       return {
         receipt,

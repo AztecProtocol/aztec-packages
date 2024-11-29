@@ -2,8 +2,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type Anvil, createAnvil } from '@viem/anvil';
-import getPort from 'get-port';
+import { type Anvil } from '@viem/anvil';
 import {
   type Account,
   type Chain,
@@ -18,22 +17,12 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { L1TxUtils } from './l1_tx_utils.js';
+import { startAnvil } from './test/start_anvil.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
 // Simple contract that just returns 42
 const SIMPLE_CONTRACT_BYTECODE = '0x69602a60005260206000f3600052600a6016f3';
-
-const startAnvil = async (l1BlockTime?: number) => {
-  const ethereumHostPort = await getPort();
-  const rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-  const anvil = createAnvil({
-    port: ethereumHostPort,
-    blockTime: l1BlockTime,
-  });
-  await anvil.start();
-  return { anvil, rpcUrl };
-};
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtils;
@@ -66,7 +55,7 @@ describe('GasUtils', () => {
     });
 
     gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      bufferPercentage: 20n,
+      gasLimitBufferPercentage: 20n,
       maxGwei: 500n,
       minGwei: 1n,
       maxAttempts: 3,
@@ -74,6 +63,7 @@ describe('GasUtils', () => {
       stallTimeMs: 1000,
     });
   });
+
   afterEach(async () => {
     // Reset base fee
     await publicClient.transport.request({
@@ -129,11 +119,14 @@ describe('GasUtils', () => {
 
     const estimatedGas = await publicClient.estimateGas(request);
 
+    const originalMaxFeePerGas = WEI_CONST * 10n;
+    const originalMaxPriorityFeePerGas = WEI_CONST;
+
     const txHash = await walletClient.sendTransaction({
       ...request,
       gas: estimatedGas,
-      maxFeePerGas: WEI_CONST * 10n,
-      maxPriorityFeePerGas: WEI_CONST,
+      maxFeePerGas: originalMaxFeePerGas,
+      maxPriorityFeePerGas: originalMaxPriorityFeePerGas,
     });
 
     const rawTx = await publicClient.transport.request({
@@ -179,6 +172,12 @@ describe('GasUtils', () => {
     expect(receipt.status).toBe('success');
     // Verify that a replacement transaction was created
     expect(receipt.transactionHash).not.toBe(txHash);
+
+    // Get details of replacement tx to verify higher gas price
+    const replacementTx = await publicClient.getTransaction({ hash: receipt.transactionHash });
+
+    expect(replacementTx.maxFeePerGas!).toBeGreaterThan(originalMaxFeePerGas);
+    expect(replacementTx.maxPriorityFeePerGas!).toBeGreaterThan(originalMaxPriorityFeePerGas);
   }, 20_000);
 
   it('respects max gas price limits during spikes', async () => {
@@ -207,11 +206,21 @@ describe('GasUtils', () => {
   }, 60_000);
 
   it('adds appropriate buffer to gas estimation', async () => {
+    const stableBaseFee = WEI_CONST * 10n;
+    await publicClient.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [stableBaseFee.toString()],
+    });
+    await publicClient.transport.request({
+      method: 'evm_mine',
+      params: [],
+    });
+
     // First deploy without any buffer
     const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      bufferPercentage: 0n,
+      gasLimitBufferPercentage: 0n,
       maxGwei: 500n,
-      minGwei: 1n,
+      minGwei: 10n, // Increased minimum gas price
       maxAttempts: 5,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -229,7 +238,7 @@ describe('GasUtils', () => {
 
     // Now deploy with 20% buffer
     const bufferedGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      bufferPercentage: 20n,
+      gasLimitBufferPercentage: 20n,
       maxGwei: 500n,
       minGwei: 1n,
       maxAttempts: 3,

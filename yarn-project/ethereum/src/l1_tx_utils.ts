@@ -31,15 +31,14 @@ const WEI_CONST = 1_000_000_000n;
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
 const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10n;
 
+// Avg ethereum block time is ~12s
+const BLOCK_TIME_MS = 12_000;
+
 export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
    */
-  bufferPercentage?: bigint;
-  /**
-   * Fixed buffer to add to gas price
-   */
-  bufferFixed?: bigint;
+  gasLimitBufferPercentage?: bigint;
   /**
    * Maximum gas price in gwei
    */
@@ -49,9 +48,13 @@ export interface L1TxUtilsConfig {
    */
   minGwei?: bigint;
   /**
-   * How much to increase priority fee by each attempt (percentage)
+   * Priority fee bump percentage
    */
   priorityFeeBumpPercentage?: bigint;
+  /**
+   * How much to increase priority fee by each attempt (percentage)
+   */
+  priorityFeeRetryBumpPercentage?: bigint;
   /**
    * Maximum number of speed-up attempts
    */
@@ -71,15 +74,10 @@ export interface L1TxUtilsConfig {
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
-  bufferPercentage: {
+  gasLimitBufferPercentage: {
     description: 'How much to increase gas price by each attempt (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
     ...bigintConfigHelper(20n),
-  },
-  bufferFixed: {
-    description: 'Fixed buffer to add to gas price',
-    env: 'L1_GAS_LIMIT_BUFFER_FIXED',
-    ...bigintConfigHelper(),
   },
   minGwei: {
     description: 'Minimum gas price in gwei',
@@ -95,6 +93,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'How much to increase priority fee by each attempt (percentage)',
     env: 'L1_PRIORITY_FEE_BUMP_PERCENTAGE',
     ...bigintConfigHelper(20n),
+  },
+  priorityFeeRetryBumpPercentage: {
+    description: 'How much to increase priority fee by each retry attempt (percentage)',
+    env: 'L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE',
+    ...bigintConfigHelper(50n),
   },
   maxAttempts: {
     description: 'Maximum number of speed-up attempts',
@@ -154,12 +157,18 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig>,
+    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
+    let gasLimit: bigint;
 
-    const gasLimit = await this.estimateGas(account, request);
+    if (gasConfig.fixedGas) {
+      gasLimit = gasConfig.fixedGas;
+    } else {
+      gasLimit = await this.estimateGas(account, request);
+    }
+
     const gasPrice = await this.getGasPrice(gasConfig);
 
     const txHash = await this.walletClient.sendTransaction({
@@ -209,8 +218,8 @@ export class L1TxUtils {
     const txHashes = new Set<Hex>([initialTxHash]);
     let currentTxHash = initialTxHash;
     let attempts = 0;
-    let lastSeen = Date.now();
-    const initialTxTime = lastSeen;
+    let lastAttemptSent = Date.now();
+    const initialTxTime = lastAttemptSent;
     let txTimedOut = false;
 
     while (!txTimedOut) {
@@ -236,17 +245,32 @@ export class L1TxUtils {
         }
 
         const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
-        const timePassed = Date.now() - lastSeen;
+        const timePassed = Date.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
           this.logger?.debug(`L1 Transaction ${currentTxHash} pending. Time passed: ${timePassed}ms`);
+
+          // Check timeout before continuing
+          if (gasConfig.txTimeoutMs) {
+            txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs;
+            if (txTimedOut) {
+              break;
+            }
+          }
+
           await sleep(gasConfig.checkIntervalMs!);
           continue;
         }
 
         if (timePassed > gasConfig.stallTimeMs! && attempts < gasConfig.maxAttempts!) {
           attempts++;
-          const newGasPrice = await this.getGasPrice(gasConfig, attempts);
+          const newGasPrice = await this.getGasPrice(
+            gasConfig,
+            attempts,
+            tx.maxFeePerGas && tx.maxPriorityFeePerGas
+              ? { maxFeePerGas: tx.maxFeePerGas, maxPriorityFeePerGas: tx.maxPriorityFeePerGas }
+              : undefined,
+          );
 
           this.logger?.debug(
             `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
@@ -262,7 +286,7 @@ export class L1TxUtils {
           });
 
           txHashes.add(currentTxHash);
-          lastSeen = Date.now();
+          lastAttemptSent = Date.now();
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
@@ -288,7 +312,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig>,
+    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
   ): Promise<TransactionReceipt> {
     const { txHash, gasLimit } = await this.sendTransaction(request, gasConfig);
     return this.monitorTransaction(request, txHash, { gasLimit }, gasConfig);
@@ -297,28 +321,47 @@ export class L1TxUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(_gasConfig?: L1TxUtilsConfig, attempt: number = 0): Promise<GasPrice> {
+  private async getGasPrice(
+    _gasConfig?: L1TxUtilsConfig,
+    attempt: number = 0,
+    previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
+  ): Promise<GasPrice> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
     // Get initial priority fee from the network
     let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
-    let maxFeePerGas = gasConfig.maxGwei! * WEI_CONST;
+    let maxFeePerGas = baseFee; // gasConfig.maxGwei! * WEI_CONST;
+
+    // Bump base fee so it's valid for next blocks if it stalls
+    const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
+    for (let i = 0; i < numBlocks; i++) {
+      // each block can go up 12.5% from previous baseFee
+      maxFeePerGas = (maxFeePerGas * (1_000n + 125n)) / 1_000n;
+    }
 
     if (attempt > 0) {
-      // Ensure minimum 10% bump for replacement transactions
-      const bumpPercentage = BigInt(
-        Math.max(
-          Number(gasConfig.priorityFeeBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeBumpPercentage!),
-          Number(MIN_REPLACEMENT_BUMP_PERCENTAGE),
-        ),
-      );
+      const configBump =
+        gasConfig.priorityFeeRetryBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeRetryBumpPercentage!;
+      const bumpPercentage =
+        configBump > MIN_REPLACEMENT_BUMP_PERCENTAGE ? configBump : MIN_REPLACEMENT_BUMP_PERCENTAGE;
 
-      // Bump both priority fee and max fee by at least 10%
-      priorityFee = (priorityFee * (100n + bumpPercentage * BigInt(attempt))) / 100n;
-      maxFeePerGas = (maxFeePerGas * (100n + bumpPercentage * BigInt(attempt))) / 100n;
+      // Calculate minimum required fees based on previous attempt
+      const minPriorityFee = (previousGasPrice!.maxPriorityFeePerGas * (100n + bumpPercentage)) / 100n;
+      const minMaxFee = (previousGasPrice!.maxFeePerGas * (100n + bumpPercentage)) / 100n;
+
+      // Use maximum between current network values and minimum required values
+      priorityFee = priorityFee > minPriorityFee ? priorityFee : minPriorityFee;
+      maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
+    } else {
+      // first attempt, just bump priority fee
+      priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
     }
+
+    // Ensure we don't exceed maxGwei
+    const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
+    maxFeePerGas = maxFeePerGas > maxGweiInWei ? maxGweiInWei : maxFeePerGas;
 
     const maxPriorityFeePerGas = priorityFee;
 
@@ -333,14 +376,12 @@ export class L1TxUtils {
   /**
    * Estimates gas and adds buffer
    */
-  private async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: L1TxUtilsConfig): Promise<bigint> {
+  public async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: L1TxUtilsConfig): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const initialEstimate = await this.publicClient.estimateGas({ account, ...request });
 
     // Add buffer based on either fixed amount or percentage
-    const withBuffer = gasConfig.bufferFixed
-      ? initialEstimate + gasConfig.bufferFixed
-      : initialEstimate + (initialEstimate * (gasConfig.bufferPercentage ?? 0n)) / 100n;
+    const withBuffer = initialEstimate + (initialEstimate * (gasConfig.gasLimitBufferPercentage ?? 0n)) / 100n;
 
     return withBuffer;
   }
