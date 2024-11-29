@@ -47,7 +47,9 @@ function build {
 
   if $ci3/base/is_test; then
     yarn test
-    run_e2e_tests
+    export ci3 YELLOW BLUE GREEN BOLD RESET CMD
+    export -f run_e2e_tests
+    $ci3/base/denoise run_e2e_tests
   fi
 }
 
