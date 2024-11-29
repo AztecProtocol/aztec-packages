@@ -1,3 +1,4 @@
+# Are we able to download from S3 a file with the flag name?
 #!/bin/bash
 RUN_FLAG=$1
 ! $(dirname $0)/download_flag "$RUN_FLAG"

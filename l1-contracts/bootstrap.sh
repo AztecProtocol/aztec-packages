@@ -37,7 +37,7 @@ if ! $ci3/cache/download $ARTIFACT; then
   $ci3/github/endgroup
 fi
 
-if $ci3/base/is_test || $ci3/cache/should_run $TEST_FLAG; then
+if $ci3/base/is_test || $ci3/cache/has_flag $TEST_FLAG; then
   $ci3/github/group "l1-contracts test"
   forge test --no-match-contract UniswapPortalTest
   $ci3/cache/upload_flag $TEST_FLAG
