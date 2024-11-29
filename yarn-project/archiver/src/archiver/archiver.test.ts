@@ -1,5 +1,12 @@
-import { InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { GENESIS_ARCHIVE_ROOT, PrivateLog } from '@aztec/circuits.js';
+import {
+  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  InboxLeaf,
+  L2Block,
+  LogType,
+  UnencryptedL2BlockL2Logs,
+} from '@aztec/circuit-types';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -37,14 +44,6 @@ describe('Archiver', () => {
   const inboxAddress = EthAddress.ZERO;
   const registryAddress = EthAddress.ZERO;
   const blockNumbers = [1, 2, 3];
-  const txsPerBlock = 4;
-
-  const getNumPrivateLogsForTx = (blockNumber: number, txIndex: number) => txIndex + blockNumber;
-  const getNumPrivateLogsForBlock = (blockNumber: number) =>
-    Array(txsPerBlock)
-      .fill(0)
-      .map((_, i) => getNumPrivateLogsForTx(i, blockNumber))
-      .reduce((accum, num) => accum + num, 0);
 
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
@@ -79,14 +78,7 @@ describe('Archiver', () => {
       instrumentation,
     );
 
-    blocks = blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2));
-    blocks.forEach(block => {
-      block.body.txEffects.forEach((txEffect, i) => {
-        txEffect.privateLogs = Array(getNumPrivateLogsForTx(block.number, i))
-          .fill(0)
-          .map(() => PrivateLog.random());
-      });
-    });
+    blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
 
     rollupRead = mock<MockRollupContractRead>();
     rollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
@@ -182,17 +174,32 @@ describe('Archiver', () => {
     }
 
     // Expect logs to correspond to what is set by L2Block.random(...)
-    for (let i = 0; i < blockNumbers.length; i++) {
-      const blockNumber = blockNumbers[i];
+    const noteEncryptedLogs = await archiver.getLogs(1, 100, LogType.NOTEENCRYPTED);
+    expect(noteEncryptedLogs.length).toEqual(blockNumbers.length);
 
-      const privateLogs = await archiver.getPrivateLogs(blockNumber, 1);
-      expect(privateLogs.length).toBe(getNumPrivateLogsForBlock(blockNumber));
-
-      const unencryptedLogs = (await archiver.getUnencryptedLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 }))
-        .logs;
-      const expectedTotalNumUnencryptedLogs = 4 * (blockNumber + 1) * 2;
-      expect(unencryptedLogs.length).toEqual(expectedTotalNumUnencryptedLogs);
+    for (const [index, x] of blockNumbers.entries()) {
+      const expectedTotalNumEncryptedLogs = 4 * x * 2;
+      const totalNumEncryptedLogs = EncryptedNoteL2BlockL2Logs.unrollLogs([noteEncryptedLogs[index]]).length;
+      expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
+
+    const encryptedLogs = await archiver.getLogs(1, 100, LogType.ENCRYPTED);
+    expect(encryptedLogs.length).toEqual(blockNumbers.length);
+
+    for (const [index, x] of blockNumbers.entries()) {
+      const expectedTotalNumEncryptedLogs = 4 * x * 2;
+      const totalNumEncryptedLogs = EncryptedL2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
+      expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
+    }
+
+    const unencryptedLogs = await archiver.getLogs(1, 100, LogType.UNENCRYPTED);
+    expect(unencryptedLogs.length).toEqual(blockNumbers.length);
+
+    blockNumbers.forEach((x, index) => {
+      const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * 2;
+      const totalNumUnencryptedLogs = UnencryptedL2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
+      expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
+    });
 
     blockNumbers.forEach(async x => {
       const expectedTotalNumContractClassLogs = 4;
@@ -374,9 +381,11 @@ describe('Archiver', () => {
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
     expect(await archiver.getBlock(2)).resolves.toBeUndefined;
 
-    expect(await archiver.getPrivateLogs(2, 1)).toEqual([]);
-    expect((await archiver.getUnencryptedLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
-    expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
+    [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
+      expect(await archiver.getLogs(2, 1, t)).toEqual([]);
+    });
+
+    // The random blocks don't include contract instances nor classes we we cannot look for those here.
   }, 10_000);
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune

@@ -9,16 +9,16 @@ import { inspect } from 'util';
 
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { ScopedLogHash } from '../log_hash.js';
-import { PrivateLog } from '../private_log.js';
+import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { PublicDataWrite } from '../public_data_write.js';
 
 /**
@@ -39,9 +39,13 @@ export class CombinedAccumulatedData {
      */
     public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
-     * All the logs created emitted from the private functions in this transaction.
+     * Accumulated note logs hashes from all the previous kernel iterations.
      */
-    public privateLogs: Tuple<PrivateLog, typeof MAX_PRIVATE_LOGS_PER_TX>,
+    public noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    /**
+     * Accumulated encrypted logs hashes from all the previous kernel iterations.
+     */
+    public encryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -52,6 +56,14 @@ export class CombinedAccumulatedData {
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    /**
+     * Total accumulated length of the encrypted note log preimages emitted in all the previous kernel iterations
+     */
+    public noteEncryptedLogPreimagesLength: Fr,
+    /**
+     * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
+     */
+    public encryptedLogPreimagesLength: Fr,
     /**
      * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
      */
@@ -71,9 +83,12 @@ export class CombinedAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteHashes) +
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
-      arraySerializedSizeOfNonEmpty(this.privateLogs) +
+      arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes) +
+      this.noteEncryptedLogPreimagesLength.size +
+      this.encryptedLogPreimagesLength.size +
       this.unencryptedLogPreimagesLength.size +
       this.contractClassLogPreimagesLength.size +
       arraySerializedSizeOfNonEmpty(this.publicDataWrites)
@@ -85,9 +100,12 @@ export class CombinedAccumulatedData {
       fields.noteHashes,
       fields.nullifiers,
       fields.l2ToL1Msgs,
-      fields.privateLogs,
+      fields.noteEncryptedLogsHashes,
+      fields.encryptedLogsHashes,
       fields.unencryptedLogsHashes,
       fields.contractClassLogsHashes,
+      fields.noteEncryptedLogPreimagesLength,
+      fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
       fields.contractClassLogPreimagesLength,
       fields.publicDataWrites,
@@ -125,9 +143,12 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
@@ -148,9 +169,12 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      makeTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog.empty),
+      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
+      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
+      Fr.zero(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
@@ -171,7 +195,11 @@ export class CombinedAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
-      privateLogs:  [${this.privateLogs
+      noteEncryptedLogsHash:  [${this.noteEncryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}]
+      encryptedLogsHash: [${this.encryptedLogsHashes
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}]
@@ -183,6 +211,8 @@ export class CombinedAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
+      noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
+      encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
       unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
       contractClassLogPreimagesLength: ${this.contractClassLogPreimagesLength.toString()},
       publicDataWrites: [${this.publicDataWrites

@@ -15,8 +15,7 @@ use crate::{
             KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
             PrivateToPublicKernelCircuitPublicInputs,
         },
-        log::Log,
-        log_hash::{LogHash, ScopedLogHash},
+        log_hash::{EncryptedLogHash, LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
         max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -24,11 +23,10 @@ use crate::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         private_kernel_data::PrivateKernelData,
-        private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
         public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::Counted,
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
@@ -39,18 +37,17 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
+        MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH, PROTOCOL_CONTRACT_TREE_HEIGHT,
         PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
     hash::{
-        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        silo_note_hash,
+        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_tx_logs_hash,
+        mask_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash,
     },
     header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
@@ -109,9 +106,15 @@ pub struct FixtureBuilder {
     pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
-    pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    pub encrypted_logs_hashes: BoundedVec<ScopedEncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
     pub unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub note_encrypted_logs_hash: Field,
+    pub encrypted_logs_hash: Field,
+    pub unencrypted_logs_hash: Field,
+    pub note_encrypted_log_preimages_length: Field,
+    pub encrypted_log_preimages_length: Field,
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -348,9 +351,10 @@ impl FixtureBuilder {
             })),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.inner
-            })),
+            note_encrypted_logs_hashes: subarray(self.note_encrypted_logs_hashes.storage()),
+            encrypted_logs_hashes: subarray(self.encrypted_logs_hashes.storage().map(
+                |l: ScopedEncryptedLogHash| l.log_hash,
+            )),
             contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.log_hash,
             )),
@@ -379,7 +383,8 @@ impl FixtureBuilder {
             note_hashes: self.note_hashes,
             nullifiers: self.nullifiers,
             l2_to_l1_msgs: self.l2_to_l1_msgs,
-            private_logs: self.private_logs,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes,
+            encrypted_logs_hashes: self.encrypted_logs_hashes,
             contract_class_logs_hashes: self.contract_class_logs_hashes,
             public_call_requests: self.public_call_requests,
             private_call_stack: vec_reverse(self.private_call_requests),
@@ -407,7 +412,12 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage().map(
+                |l: NoteLogHash| l.expose_to_public(),
+            ),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage().map(
+                |l: ScopedEncryptedLogHash| l.expose_to_public(),
+            ),
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
@@ -424,13 +434,20 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage().map(
+                |l: NoteLogHash| l.expose_to_public(),
+            ),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage().map(
+                |l: ScopedEncryptedLogHash| l.expose_to_public(),
+            ),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
                 l.expose_to_public()
             }),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage.map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
+            note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             contract_class_log_preimages_length: self.contract_class_log_preimages_length,
             public_data_writes: self.public_data_writes.storage(),
@@ -566,7 +583,8 @@ impl FixtureBuilder {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_new_note_hash(value);
-                self.append_private_logs_for_note(1, self.counter - 1);
+                let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
+                self.add_note_encrypted_log_hash(log_hash, length, self.counter - 1);
             }
         }
     }
@@ -742,57 +760,55 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_private_log(
+    pub fn add_note_encrypted_log_hash(
         &mut self,
-        fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        value: Field,
+        length: Field,
         note_hash_counter: u32,
     ) {
-        let log = Log { fields };
-        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
-            self.contract_address,
-        );
-        self.private_logs.push(logData);
+        let log_hash =
+            NoteLogHash { value, counter: self.next_counter(), length, note_hash_counter };
+        self.note_encrypted_logs_hashes.push(log_hash);
+        self.encrypted_log_preimages_length += length;
     }
 
-    pub fn append_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
-        let index_offset = self.private_logs.len();
-        for i in 0..self.private_logs.max_len() {
-            if i < num_logs {
-                let fields = self.mock_private_log_fields(index_offset + i);
-                self.add_private_log(fields, note_hash_counter);
+    pub fn append_note_encrypted_log_hashes(&mut self, num: u32) {
+        let index_offset = self.note_encrypted_logs_hashes.len();
+        for i in 0..self.note_encrypted_logs_hashes.max_len() {
+            if i < num {
+                let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
+                self.add_note_encrypted_log_hash(log_hash, length, 0);
             }
         }
     }
 
-    pub fn append_private_logs(&mut self, num_logs: u32) {
-        let index_offset = self.private_logs.len();
-        for i in 0..self.private_logs.max_len() {
-            if i < num_logs {
-                let fields = self.mock_private_log_fields(index_offset + i);
-                self.add_private_log(fields, 0 /* note_hash_counter */);
-            }
+    pub fn add_encrypted_log_hash(&mut self, hash: Field, length: Field) {
+        let log_hash =
+            EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 };
+        self.encrypted_logs_hashes.push(log_hash.scope(self.contract_address));
+        self.encrypted_log_preimages_length += length;
+    }
+
+    pub fn add_masked_encrypted_log_hash(&mut self, hash: Field, length: Field) {
+        let mut log_hash = EncryptedLogHash {
+            value: hash,
+            counter: self.next_counter(),
+            length,
+            randomness: 2,
         }
+            .scope(self.contract_address);
+        log_hash.contract_address = mask_encrypted_log_hash(log_hash);
+        log_hash.log_hash.randomness = 0;
+        self.encrypted_logs_hashes.push(log_hash);
+        self.encrypted_log_preimages_length += length;
     }
 
-    pub fn add_siloed_private_log(
-        &mut self,
-        fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
-        note_hash_counter: u32,
-    ) {
-        let log = Log { fields };
-        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
-            AztecAddress::zero(),
-        );
-        self.private_logs.push(logData);
-    }
-
-    pub fn append_siloed_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
-        let index_offset = self.private_logs.len();
-        for i in 0..self.private_logs.max_len() {
-            if i < num_logs {
-                let mut fields = self.mock_private_log_fields(index_offset + i);
-                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
-                self.add_siloed_private_log(fields, note_hash_counter);
+    pub fn append_encrypted_log_hashes(&mut self, num: u32) {
+        let index_offset = self.encrypted_logs_hashes.len();
+        for i in 0..self.encrypted_logs_hashes.max_len() {
+            if i < num {
+                let (log_hash, length) = self.mock_encrypted_log(index_offset + i);
+                self.add_encrypted_log_hash(log_hash, length);
             }
         }
     }
@@ -813,10 +829,32 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn hash_unencrypted_log_hashes(&mut self) {
+        let mut log_hashes =
+            self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| l.inner());
+        for i in 0..self.unencrypted_logs_hashes.max_len() {
+            let log_hash = self.unencrypted_logs_hashes.get_unchecked(i);
+            if !log_hash.contract_address.is_zero() {
+                log_hashes[i].value = silo_unencrypted_log_hash(log_hash);
+            }
+        }
+        self.unencrypted_logs_hash = compute_tx_logs_hash(log_hashes);
+    }
+
     pub fn add_contract_class_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
         self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
         self.contract_class_log_preimages_length += length;
+    }
+
+    pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
+        self.encrypted_logs_hash = hash;
+        self.encrypted_log_preimages_length = preimages_length;
+    }
+
+    pub fn set_unencrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
+        self.unencrypted_logs_hash = hash;
+        self.unencrypted_log_preimages_length = preimages_length;
     }
 
     pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
@@ -949,18 +987,10 @@ impl FixtureBuilder {
         (value_offset, EthAddress::from_field(1 + value_offset))
     }
 
-    fn mock_private_log_fields(self, index: u32) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
-        let value_offset =
-            328732 + self.value_offset + (index * PRIVATE_LOG_SIZE_IN_FIELDS) as Field;
-        let mut fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
-        for i in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-            fields[i] = value_offset + i as Field;
-        }
-        fields
-    }
-
-    fn mock_private_log_randomness(self, index: u32) -> Field {
-        579579 + self.value_offset + index as Field
+    fn mock_note_encrypted_log(self, index: u32) -> (Field, Field) {
+        let log_hash = 282828 + self.value_offset + index as Field;
+        let length = 5 + index as Field;
+        (log_hash, length)
     }
 
     fn mock_encrypted_log(self, index: u32) -> (Field, Field) {
@@ -1065,9 +1095,15 @@ impl Empty for FixtureBuilder {
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
-            private_logs: BoundedVec::new(),
+            note_encrypted_logs_hashes: BoundedVec::new(),
+            encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
+            note_encrypted_logs_hash: 0,
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            note_encrypted_log_preimages_length: 0,
+            encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             contract_class_log_preimages_length: 0,
             public_data_writes: BoundedVec::new(),

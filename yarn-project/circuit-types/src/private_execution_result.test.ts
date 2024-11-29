@@ -23,6 +23,8 @@ function emptyExecutionResult(): PrivateExecutionResult {
     [],
     PublicExecutionRequest.empty(),
     [],
+    [],
+    [],
   );
 }
 
