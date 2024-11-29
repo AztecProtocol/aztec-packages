@@ -44,8 +44,8 @@ spec:
               echo "Ethereum node is ready!"
 
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR..."
+              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
+                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
                 sleep 5
               done
               echo "OpenTelemetry collector is ready!"
