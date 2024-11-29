@@ -25,7 +25,7 @@ yarn installA
 find . -exec touch -d "@0" {} + 2>/dev/null || true
 
 echo "Building with command 'yarn $BUILD_CMD'..."
-$ci3/base/denoise arn $BUILD_CMD
+$ci3/base/denoise yarn $BUILD_CMD
 export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
 HASH=$($ci3/cache/content_hash)
 $ci3/cache/upload bb.js-$HASH.tar.gz dest
