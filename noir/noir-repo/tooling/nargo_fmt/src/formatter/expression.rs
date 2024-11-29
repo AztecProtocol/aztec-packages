@@ -1293,28 +1293,28 @@ mod tests {
 
     #[test]
     fn format_standard_array() {
-        let src = "global x = [ 1 , 2 , 3 , ];";
+        let src = "global x = [ 1 , 2 , 3 , ] ;";
         let expected = "global x = [1, 2, 3];\n";
         assert_format(src, expected);
     }
 
     #[test]
     fn format_standard_slice() {
-        let src = "global x = & [ 1 , 2 , 3 , ];";
+        let src = "global x = & [ 1 , 2 , 3 , ] ;";
         let expected = "global x = &[1, 2, 3];\n";
         assert_format(src, expected);
     }
 
     #[test]
     fn format_repeated_array() {
-        let src = "global x = [ 1 ; 3 ];";
+        let src = "global x = [ 1 ; 3 ] ;";
         let expected = "global x = [1; 3];\n";
         assert_format(src, expected);
     }
 
     #[test]
     fn format_long_array_in_global() {
-        let src = "global x = [ 1 , 2 , 3 , 4, 5, ];";
+        let src = "global x = [ 1 , 2 , 3 , 4, 5, ] ;";
         let expected = "global x =
     [1, 2, 3, 4, 5];
 ";
@@ -1323,7 +1323,7 @@ mod tests {
 
     #[test]
     fn format_long_array_in_global_in_mod() {
-        let src = "mod moo { mod bar { global x = [ 1 , 2 , 3 , 4, 5, ]; } }";
+        let src = "mod moo { mod bar { global x = [ 1 , 2 , 3 , 4, 5, ] ; } }";
         let expected = "mod moo {
     mod bar {
         global x = [
@@ -1338,7 +1338,7 @@ mod tests {
 
     #[test]
     fn format_long_array_in_global_2() {
-        let src = "global x = [ 1 , 2 , 3 , 4, 5, ];
+        let src = "global x = [ 1 , 2 , 3 , 4, 5, ] ;
 
 global y = 1;
         ";
@@ -1352,7 +1352,7 @@ global y = 1;
 
     #[test]
     fn format_very_long_array_in_global() {
-        let src = "global x = [ 1 , 2 , 3 , 4, 5, 6, 789, 123, 234, 345];";
+        let src = "global x = [ 1 , 2 , 3 , 4, 5, 6, 789, 123, 234, 345] ;";
         let expected = "global x = [
     1, 2, 3, 4, 5, 6,
     789, 123, 234, 345,
@@ -1363,7 +1363,7 @@ global y = 1;
 
     #[test]
     fn format_long_array_element() {
-        let src = "global x = [ 123, 1234, 12345, 123, 1234, 12345, 123456, 123];";
+        let src = "global x = [ 123, 1234, 12345, 123, 1234, 12345, 123456, 123] ;";
         let expected = "global x = [
     123,
     1234,
@@ -1383,7 +1383,7 @@ global y = 1;
 
     #[test]
     fn format_short_array_with_block_comment_before_elements() {
-        let src = "global x = [ /* one */ 1, /* two */ 2 ];";
+        let src = "global x = [ /* one */ 1, /* two */ 2 ] ;";
         let expected = "global x = [/* one */ 1, /* two */ 2];\n";
 
         assert_format(src, expected);
@@ -1391,7 +1391,7 @@ global y = 1;
 
     #[test]
     fn format_long_array_with_block_comment_before_elements() {
-        let src = "global x = [ /* one */ 1, /* two */ 123456789012345, 3, 4 ];";
+        let src = "global x = [ /* one */ 1, /* two */ 123456789012345, 3, 4 ] ;";
         let expected = "global x = [
     /* one */ 1,
     /* two */ 123456789012345,
@@ -1468,14 +1468,14 @@ global y = 1;
 
     #[test]
     fn format_index() {
-        let src = "global x = foo [ bar ];";
+        let src = "global x = foo [ bar ] ;";
         let expected = "global x = foo[bar];\n";
         assert_format(src, expected);
     }
 
     #[test]
     fn format_long_index() {
-        let src = "global x = foo [ bar [ baz [ qux [ one [ two ]]]] ]; global y = 1;";
+        let src = "global x = foo [ bar [ baz [ qux [ one [ two ]]]] ] ; global y = 1;";
         let expected = "global x = foo[bar[baz[
     qux[one[two]]]]];
 global y = 1;
@@ -1485,7 +1485,7 @@ global y = 1;
 
     #[test]
     fn format_long_index_2() {
-        let src = "global x = foo [ bar ] [ baz ] [ qux ] [ one ] [ two ]; global y = 1;";
+        let src = "global x = foo [ bar ] [ baz ] [ qux ] [ one ] [ two ] ; global y = 1;";
         let expected = "global x = foo[bar][baz]
     [qux][one][two];
 global y = 1;

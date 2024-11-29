@@ -30,7 +30,7 @@ export VALIDATOR_PRIVATE_KEY="0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
   sleep 1
 done
 echo "Done waiting."

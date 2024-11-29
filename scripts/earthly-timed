@@ -47,7 +47,7 @@ for arg in "$@"; do
         break
     fi
 done
-if [ $INTERACTIVE = true ]; then
+if [ $INTERACTIVE = true ] ; then
   earthly $@
 else
   earthly $@ 2>&1 | add_timestamps >&2
