@@ -51,7 +51,7 @@ spec:
               fi
 
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+              until curl --head --silent $OTEL_COLLECTOR > /dev/null; do
                 echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR..."
                 sleep 5
               done
