@@ -43,8 +43,9 @@ if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
   $ci3/github/endgroup
 fi
 
-if $ci3/base/is_test; then
-  $ci3/github/group "l1-contracts build"
+if $ci3/base/is_test || $ci3/cache/should_run l1-contracts-test-$HASH; then
+  $ci3/github/group "l1-contracts test"
   forge test --no-match-contract UniswapPortalTest
+  $ci3/cache/upload_flag l1-contracts-test-$HASH
   $ci3/github/endgroup
 fi
