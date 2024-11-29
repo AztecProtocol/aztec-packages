@@ -139,6 +139,8 @@ export interface TreeDBStats {
   leafPreimagesDBStats: DBStats;
   /** Stats for the 'leaf indices' DB */
   leafIndicesDBStats: DBStats;
+  /** Stats for the 'block indices' DB */
+  blockIndicesDBStats: DBStats;
 }
 
 export interface WorldStateMeta {
@@ -189,6 +191,7 @@ export function buildEmptyTreeDBStats() {
     leafIndicesDBStats: buildEmptyDBStats(),
     leafKeysDBStats: buildEmptyDBStats(),
     leafPreimagesDBStats: buildEmptyDBStats(),
+    blockIndicesDBStats: buildEmptyDBStats(),
   } as TreeDBStats;
 }
 
@@ -271,6 +274,7 @@ export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blocksDBStats = sanitiseDBStats(stats.blocksDBStats);
   stats.leafIndicesDBStats = sanitiseDBStats(stats.leafIndicesDBStats);
   stats.leafPreimagesDBStats = sanitiseDBStats(stats.leafPreimagesDBStats);
+  stats.blockIndicesDBStats = sanitiseDBStats(stats.blockIndicesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
   return stats;
