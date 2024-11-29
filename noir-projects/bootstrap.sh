@@ -17,6 +17,13 @@ $ci3/github/group "noir-projects build"
 # TODO: Remove yarn, use bash?
 yarn install
 
+# Use fmt as a trick to download dependencies.
+# Otherise parallel runs of nargo will trip over each other trying to download dependencies.
+(cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
+for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits; do
+  (cd $dir && ../../noir/noir-repo/target/release/nargo fmt)
+done
+
 CIRCUITS_HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns_native {noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns)
 VKS_HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns_native {../barretenberg/cpp,noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns)
 
