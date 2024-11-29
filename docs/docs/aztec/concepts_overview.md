@@ -25,11 +25,11 @@ Private functions and public functions are executed in different environments.
 
 ### Private Execution Environment (PXE)
 
-Private functions are executed first on the user's device in the Private Execution Environment (PXE, pronounced 'pixie'). It is a client-side library for the execution of private operations. It holds keys, notes, and generates proofs. It is a TypeScript library and can be run within Node, such as when you run the sandbox.
+Private functions are executed first on the user's device in the Private Execution Environment (PXE, pronounced 'pixie'). It is a client-side library for the execution of private operations. It holds keys, notes, and generates proofs. It is included in aztec.js, a TypeScript library, and can be run within Node or the browser.
 
 ### Aztec VM
 
-Public functions are executed by the Aztec Virtual Machine (AVM), which is very similar to the Ethereum Virtual Machine (EVM). To learn more about how it works and its instruction set, go to the [protocol specs](../protocol-specs/public-vm/intro.md).
+Public functions are executed by the Aztec Virtual Machine (AVM), which is conceptually similar to the Ethereum Virtual Machine (EVM). To learn more about how it works and its instruction set, go to the [protocol specs](../protocol-specs/public-vm/intro.md).
 
 The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. They are completely separate execution environments. This means:
 
@@ -38,19 +38,19 @@ The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. Th
 
 ## Private and public state
 
-Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](./concepts/storage/trees/index.md), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](./concepts/storage/trees/index.md).
+Private state works with UTXOs, which are chunks of data that we call notes. To keep things private, notes are stored in an [append-only UTXO tree](./concepts/storage/trees/index.md), and a nullifier is created when notes are invalidated (aka deleted). Nullifiers are stored in their own [nullifier tree](./concepts/storage/trees/index.md).
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a [public data tree](./concepts/storage/trees/index.md#public-state-tree).
 
 ![Public vs private state](../../static/img/public-and-private-state-diagram.png)
 
-Aztec [smart contract](./smart_contracts_overview.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
+Aztec [smart contract](./smart_contracts_overview.md) developers should keep in mind that different data types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
 
 ## Accounts and keys
 
 ### Account abstraction
 
-Every account in Aztec is a smart contract (account abstraction). This allows implementing different schemes for transaction signing, nonce management, and fee payments.
+Every account in Aztec is a smart contract (account abstraction). This allows implementing different schemes for authorizing transactions, nonce management, and fee payments. 
 
 Developers can write their own account contract to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed.
 
@@ -61,7 +61,7 @@ Learn more about account contracts [here](./concepts/accounts/index.md).
 Each account in Aztec is backed by 3 key pairs:
 
 - A **nullifier key pair** used for note nullifier computation
-- A **incoming viewing key pair** used to encrypt a note for the recipientt
+- A **incoming viewing key pair** used to encrypt a note for the recipient
 - A **outgoing viewing key pair** used to encrypt a note for the sender
 
 As Aztec has native account abstraction, accounts do not automatically have a signing key pair to authenticate transactions. This is up to the account contract developer to implement.
