@@ -1,7 +1,7 @@
 # Are we able to download from S3 a file with the flag name?
 #!/bin/bash
 # if CI=0 with no explicit TEST, don't run this
-if [ "${CI:-0}" -eq 0 ] && [ "${TEST:-0}" -eq 0 ]; then
+if ([ "${CI:-0}" -eq 0 ] || [ "${TEST:-0}" -eq 0 ]) && [ "${TEST:-0}" -lt 1 ]; then
   exit 1
 fi
 # if we download the test s3 flag, don't run this
