@@ -73,10 +73,7 @@ class AvmMerkleTreeTraceBuilder {
                                 const FF& leaf_index,
                                 const std::vector<FF>& path) const;
 
-    FF perform_note_hash_append(uint32_t clk,
-                                const FF& note_hash,
-                                const FF& insertion_index,
-                                const std::vector<FF>& insertion_path);
+    FF perform_note_hash_append(uint32_t clk, const FF& note_hash, const std::vector<FF>& insertion_path);
 
     // L1 to L2 Message Tree
     bool perform_l1_to_l2_message_read(uint32_t clk,

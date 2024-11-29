@@ -194,10 +194,9 @@ bool AvmMerkleTreeTraceBuilder::perform_note_hash_read([[maybe_unused]] uint32_t
 
 FF AvmMerkleTreeTraceBuilder::perform_note_hash_append([[maybe_unused]] uint32_t clk,
                                                        const FF& note_hash,
-                                                       const FF& insertion_index,
                                                        const std::vector<FF>& insertion_path)
 {
-    auto index = static_cast<uint64_t>(insertion_index);
+    auto index = static_cast<uint64_t>(tree_snapshots.note_hash_tree.size);
     bool zero_leaf_member =
         unconstrained_check_membership(FF::zero(), index, insertion_path, tree_snapshots.note_hash_tree.root);
     ASSERT(zero_leaf_member);

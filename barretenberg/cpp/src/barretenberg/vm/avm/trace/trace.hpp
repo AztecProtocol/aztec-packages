@@ -41,7 +41,7 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(AvmPublicInputs new_public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
@@ -251,7 +251,7 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
 
     std::vector<FF> calldata;
-    AvmPublicInputs new_public_inputs;
+    AvmPublicInputs public_inputs;
     PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
 

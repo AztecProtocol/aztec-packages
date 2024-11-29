@@ -932,7 +932,7 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
                const std::filesystem::path& output_path)
 {
 
-    auto const avm_new_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
+    auto const avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
@@ -953,7 +953,7 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
 
     // Prove execution and return vk
     auto const [verification_key, proof] =
-        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(avm_new_public_inputs, avm_hints));
+        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(avm_public_inputs, avm_hints));
 
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 

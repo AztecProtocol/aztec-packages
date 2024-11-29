@@ -10,6 +10,7 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   type AvmCircuitPublicInputs,
   Fr,
@@ -21,6 +22,7 @@ import {
   PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
+  TreeSnapshots,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -300,11 +302,24 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    // TODO(dbanks12): use the state roots from ephemeral trees
-    endStateReference.partial.nullifierTree.root = this.state
-      .getActiveStateManager()
-      .merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!
-      .getRoot();
+    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees.treeMap;
+
+    const getAppendSnaphot = (id: MerkleTreeId) => {
+      const tree = ephemeralTrees.get(id)!;
+      return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
+    };
+
+    const noteHashTree = getAppendSnaphot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
+
+    const endTreeSnapshots = new TreeSnapshots(
+      endStateReference.l1ToL2MessageTree,
+      noteHashTree,
+      nullifierTree,
+      publicDataTree,
+    );
+
     return generateAvmCircuitPublicInputs(
       this.trace,
       this.globalVariables,
@@ -316,7 +331,7 @@ export class PublicTxContext {
       this.teardownCallRequests,
       this.nonRevertibleAccumulatedDataFromPrivate,
       this.revertibleAccumulatedDataFromPrivate,
-      endStateReference,
+      endTreeSnapshots,
       /*endGasUsed=*/ this.gasUsed,
       this.getTransactionFeeUnsafe(),
       this.revertCode,

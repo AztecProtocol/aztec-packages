@@ -321,17 +321,16 @@ AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
                                  std::vector<FF> calldata)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : calldata(std::move(calldata))
-    , new_public_inputs(public_inputs)
+    , public_inputs(public_inputs)
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
     , merkle_tree_trace_builder(public_inputs.start_tree_snapshots)
 {
     // TODO: think about cast
-    gas_trace_builder.set_initial_gas(static_cast<uint32_t>(new_public_inputs.gas_settings.gas_limits.l2_gas -
-                                                            new_public_inputs.start_gas_used.l2_gas),
-                                      static_cast<uint32_t>(new_public_inputs.gas_settings.gas_limits.da_gas -
-                                                            new_public_inputs.start_gas_used.da_gas));
+    gas_trace_builder.set_initial_gas(
+        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas),
+        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.da_gas - public_inputs.start_gas_used.da_gas));
 }
 
 /**************************************************************************************************
@@ -1641,7 +1640,7 @@ AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_of
 
 AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.transaction_fee;
+    FF ia_value = public_inputs.transaction_fee;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_transaction_fee = FF(1);
 
@@ -1671,7 +1670,7 @@ AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.chain_id;
+    FF ia_value = public_inputs.global_variables.chain_id;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_chain_id = FF(1);
 
@@ -1684,7 +1683,7 @@ AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.version;
+    FF ia_value = public_inputs.global_variables.version;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_version = FF(1);
 
@@ -1697,7 +1696,7 @@ AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.block_number;
+    FF ia_value = public_inputs.global_variables.block_number;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_block_number = FF(1);
 
@@ -1710,7 +1709,7 @@ AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.timestamp;
+    FF ia_value = public_inputs.global_variables.timestamp;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U64);
     row.main_sel_op_timestamp = FF(1);
 
@@ -1723,7 +1722,7 @@ AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.gas_fees.fee_per_l2_gas;
+    FF ia_value = public_inputs.global_variables.gas_fees.fee_per_l2_gas;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
@@ -1736,7 +1735,7 @@ AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.gas_fees.fee_per_da_gas;
+    FF ia_value = public_inputs.global_variables.gas_fees.fee_per_da_gas;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_da_gas = FF(1);
 
@@ -2794,6 +2793,8 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     row.main_sel_op_emit_note_hash = FF(1);
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
+    auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
+        current_public_call_request.contract_address, row.main_ia);
     ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
     // We first check that the index is currently empty
     bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
@@ -2801,8 +2802,7 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     ASSERT(insert_index_is_empty);
 
     // Update the root with the new leaf that is appended
-    merkle_tree_trace_builder.perform_note_hash_append(
-        clk, row.main_ia, note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
+    merkle_tree_trace_builder.perform_note_hash_append(clk, siloed_note_hash, note_hash_write_hint.sibling_path);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
@@ -4329,6 +4329,11 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
  */
 std::vector<Row> AvmTraceBuilder::finalize()
 {
+    // Some sanity checks
+    // Check that the final merkle tree lines up with the public inputs
+    TreeSnapshots tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
+    ASSERT(tree_snapshots == public_inputs.end_tree_snapshots);
+
     vinfo("range_check_required: ", range_check_required);
     vinfo("full_precomputed_tables: ", full_precomputed_tables);
 
@@ -4349,7 +4354,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
-    // size_t kernel_trace_size = kernel_trace_builder.size();
 
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
@@ -4591,6 +4595,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     gas_trace_builder.finalize(main_trace);
+
+    // Sanity check that the amount of gas consumed matches what we expect from the public inputs
+    auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
+    auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
+    ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
+    auto last_da_gas_remaining = main_trace.back().main_da_gas_remaining;
+    auto expected_end_gas_da = public_inputs.gas_settings.gas_limits.da_gas - public_inputs.end_gas_used.da_gas;
+    ASSERT(last_da_gas_remaining == expected_end_gas_da);
 
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION
