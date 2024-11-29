@@ -86,8 +86,10 @@ for project in "${PROJECTS[@]}"; do
   echo "$project test_CI_0 success"
   echo "$project test_CI_1 pass 1"
   test_CI_1_first_pass $project | sed "s/^/$project test_CI_1 pass 1: /" || (echo "$project test_CI_0 failure" && exit 1)
+  echo "$project test_CI_1 pass 1 success"
   echo "$project test_CI_1 pass 2"
   test_CI_1_second_pass $project | sed "s/^/$project test_CI_0 pass 2: /" || (echo "$project test_CI_0 failure" && exit 1)
+  echo "$project test_CI_1 pass 2 success"
 done
 
 echo "All tests passed successfully."

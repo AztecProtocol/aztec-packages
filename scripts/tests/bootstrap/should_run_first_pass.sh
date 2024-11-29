@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "HELL YA"
 # Use ci3 script base.
 source "$(git rev-parse --show-toplevel)/ci3/base/source"
 if ! $ci3/cache/should_run.bkup "$@"; then
