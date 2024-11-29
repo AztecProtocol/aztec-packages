@@ -17,10 +17,10 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     await this.jobs.set(job.id, jsonStringify(job));
   }
 
-  *allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
-    for (const jobStr of this.jobs.values()) {
+  async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
+    for await (const jobStr of this.jobs.values()) {
       const job = jsonParseWithSchema(jobStr, ProvingJob);
-      const resultStr = this.jobResults.get(job.id);
+      const resultStr = await this.jobResults.get(job.id);
       const result = resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
       yield [job, result];
     }
