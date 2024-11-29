@@ -1,4 +1,12 @@
 # Are we able to download from S3 a file with the flag name?
 #!/bin/bash
-RUN_FLAG=$1
-! $(dirname $0)/download_flag "$RUN_FLAG"
+# if CI=0 with no explicit TEST, don't run this
+if [ "${CI:-0}" -eq 0 ] && [ "${TEST:-0}" -eq 0 ]; then
+  exit 1
+fi
+# if we download the test s3 flag, don't run this
+if $(dirname $0)/download_flag "$1" ; then
+  exit 1
+fi
+# otherwise CI=1 or TEST=1 and we have not found our flag in S3, run
+exit 0

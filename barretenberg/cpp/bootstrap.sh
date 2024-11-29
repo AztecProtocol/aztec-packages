@@ -82,7 +82,7 @@ function build_native {
     $ci3/cache/upload barretenberg-preset-release-$HASH.tar.gz build/bin
     $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
   fi
-  if $ci3/base/is_test && $ci3/cache/should_run barretenberg-test-$HASH; then
+  if $ci3/cache/should_run barretenberg-test-$HASH; then
     cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $PRESET
 

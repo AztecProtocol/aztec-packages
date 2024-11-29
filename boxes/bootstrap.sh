@@ -10,7 +10,7 @@ export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
 # yarn build
 
-if $ci3/base/is_test; then
+if [ "${CI:-0}" -eq 1 ] || [ "${TEST:-0}" -eq 1 ]; then
   parallel --timeout 5m --verbose \
       BOX={} docker compose -p {} up --exit-code-from=boxes --force-recreate ::: vanilla react
 fi

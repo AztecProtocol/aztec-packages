@@ -32,7 +32,7 @@ $ci3/cache/upload bb.js-$HASH.tar.gz dest
 echo "Barretenberg ts build successful"
 $ci3/github/endgroup
 
-if $ci3/base/is_test && $ci3/cache/should_run bb.js-$HASH; then
+if $ci3/cache/should_run bb.js-$HASH; then
   $ci3/github/group "bb.js test"
   yarn test
   $ci3/cache/upload_flag bb.js-$HASH
