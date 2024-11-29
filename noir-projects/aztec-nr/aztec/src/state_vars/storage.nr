@@ -1,10 +1,9 @@
-use dep::protocol_types::traits::Packable;
-
-pub trait Storage<T, let N: u32>
-where
-    T: Packable<N>,
-{
-    fn get_storage_slot(self) -> Field;
+/// State variables must implement this trait in order to placed in the storage struct (i.e. the one marked with the
+/// #[storage] attribute). The `N` value determines how many storage slots will be reserved for the state variable.
+pub trait Storage<let N: u32> {
+    pub fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
 }
 
 // Struct representing an exportable storage variable in the contract
