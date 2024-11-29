@@ -65,7 +65,7 @@ import {
   getCanonicalProtocolContract,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -902,7 +902,7 @@ export class PXEService implements PXE {
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
-        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
           const registeredAccount = await this.getRegisteredAccount(account);

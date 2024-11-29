@@ -31,18 +31,18 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     return this.db.close();
   }
 
-  get(key: K): V | undefined {
-    return this.db.get(this.#slot(key))?.[1];
+  async get(key: K): Promise<V | undefined> {
+    return Promise.resolve(this.db.get(this.#slot(key))?.[1]);
   }
 
-  *getValues(key: K): IterableIterator<V> {
+  async *getValues(key: K): AsyncIterableIterator<V> {
     const values = this.db.getValues(this.#slot(key));
     for (const value of values) {
       yield value?.[1];
     }
   }
 
-  has(key: K): boolean {
+  async has(key: K): Promise<boolean> {
     return this.db.doesExist(this.#slot(key));
   }
 
@@ -73,7 +73,7 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     await this.db.remove(this.#slot(key), [key, val]);
   }
 
-  *entries(range: Range<K> = {}): IterableIterator<[K, V]> {
+  async *entries(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
     const { reverse = false, limit } = range;
     // LMDB has a quirk where it expects start > end when reverse=true
     // in that case, we need to swap the start and end sentinels
@@ -109,14 +109,14 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     }
   }
 
-  *values(range: Range<K> = {}): IterableIterator<V> {
-    for (const [_, value] of this.entries(range)) {
+  async *values(range: Range<K> = {}): AsyncIterableIterator<V> {
+    for await (const [_, value] of this.entries(range)) {
       yield value;
     }
   }
 
-  *keys(range: Range<K> = {}): IterableIterator<K> {
-    for (const [key, _] of this.entries(range)) {
+  async *keys(range: Range<K> = {}): AsyncIterableIterator<K> {
+    for await (const [key, _] of this.entries(range)) {
       yield key;
     }
   }

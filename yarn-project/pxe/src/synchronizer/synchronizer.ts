@@ -106,8 +106,8 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.blockStream.sync();
   }
 
-  private getSynchedBlockNumber() {
-    return this.db.getBlockNumber() ?? this.initialSyncBlockNumber;
+  private async getSynchedBlockNumber() {
+    return (await this.db.getBlockNumber()) ?? this.initialSyncBlockNumber;
   }
 
   /**
@@ -118,15 +118,15 @@ export class Synchronizer implements L2BlockStreamEventHandler {
    */
   public async isGlobalStateSynchronized() {
     const latest = await this.node.getBlockNumber();
-    return latest <= this.getSynchedBlockNumber();
+    return latest <= (await this.getSynchedBlockNumber());
   }
 
   /**
    * Returns the latest block that has been synchronized by the synchronizer and each account.
    * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
    */
-  public getSyncStatus() {
-    const lastBlockNumber = this.getSynchedBlockNumber();
+  public async getSyncStatus() {
+    const lastBlockNumber = await this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
     };

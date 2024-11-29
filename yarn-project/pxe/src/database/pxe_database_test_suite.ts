@@ -380,11 +380,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const header = makeHeader(randomInt(1000), INITIAL_L2_BLOCK_NUM, 0 /** slot number */);
 
         await database.setHeader(header);
-        expect(database.getHeader()).toEqual(header);
+        await expect(database.getHeader()).resolves.toEqual(header);
       });
 
-      it('rejects getting header if no block set', () => {
-        expect(() => database.getHeader()).toThrow();
+      it('rejects getting header if no block set', async () => {
+        await expect(() => database.getHeader()).rejects.toThrow();
       });
     });
 

@@ -2,7 +2,12 @@
   "name": "@aztec/pxe",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./service": "./dest/pxe_service/index.js",
+    "./config": "./dest/config/index.js",
+    "./database": "./dest/database/index.js"
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [

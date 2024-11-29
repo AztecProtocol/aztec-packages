@@ -6,7 +6,7 @@ export interface AztecSingleton<T> {
   /**
    * Gets the value.
    */
-  get(): T | undefined;
+  get(): Promise<T | undefined>;
 
   /**
    * Sets the value.
