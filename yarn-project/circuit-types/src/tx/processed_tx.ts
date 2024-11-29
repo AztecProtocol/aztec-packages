@@ -138,9 +138,12 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
-    data.end.privateLogs.filter(l => !l.isEmpty()),
+    data.end.noteEncryptedLogPreimagesLength,
+    data.end.encryptedLogPreimagesLength,
     data.end.unencryptedLogPreimagesLength,
     data.end.contractClassLogPreimagesLength,
+    tx.noteEncryptedLogs,
+    tx.encryptedLogs,
     tx.unencryptedLogs,
     tx.contractClassLogs,
   );
@@ -185,11 +188,8 @@ export function makeProcessedTxFromTxWithPublicCalls(
     }
   }
 
-  const privateLogs = [
-    ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,
-    ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
-  ].filter(l => !l.isEmpty());
-
+  const noteEncryptedLogPreimagesLength = tx.noteEncryptedLogs.getKernelLength();
+  const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
   // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
   const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
   const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
@@ -203,9 +203,12 @@ export function makeProcessedTxFromTxWithPublicCalls(
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
-    privateLogs,
+    new Fr(noteEncryptedLogPreimagesLength),
+    new Fr(encryptedLogPreimagesLength),
     new Fr(unencryptedLogPreimagesLength),
     new Fr(contractClassLogPreimagesLength),
+    tx.noteEncryptedLogs,
+    tx.encryptedLogs,
     tx.unencryptedLogs,
     tx.contractClassLogs,
   );

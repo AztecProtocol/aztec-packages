@@ -34,6 +34,7 @@ import {
   ConstantRollupData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  EncryptedLogHash,
   Fr,
   FunctionData,
   FunctionSelector,
@@ -45,11 +46,15 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENCRYPTED_LOGS_PER_CALL,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -57,8 +62,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PRIVATE_LOGS_PER_CALL,
-  MAX_PRIVATE_LOGS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -73,9 +76,9 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   NoteHash,
+  NoteLogHash,
   Nullifier,
   NullifierLeafPreimage,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
   PartialPrivateTailPublicInputsForPublic,
@@ -138,8 +141,6 @@ import {
   PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateBaseStateDiffHints,
-  PrivateLog,
-  PrivateLogData,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicAccumulatedData,
@@ -175,6 +176,14 @@ function makeLogHash(seed: number) {
   return new LogHash(fr(seed), seed + 1, fr(seed + 2));
 }
 
+function makeEncryptedLogHash(seed: number) {
+  return new EncryptedLogHash(fr(seed), seed + 1, fr(seed + 2), fr(seed + 3));
+}
+
+function makeNoteLogHash(seed: number) {
+  return new NoteLogHash(fr(seed + 3), seed + 1, fr(seed + 2), seed);
+}
+
 function makeScopedLogHash(seed: number) {
   return new ScopedLogHash(makeLogHash(seed), makeAztecAddress(seed + 3));
 }
@@ -185,14 +194,6 @@ function makeNoteHash(seed: number) {
 
 function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
-}
-
-function makePrivateLog(seed: number) {
-  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed));
-}
-
-function makePrivateLogData(seed: number) {
-  return new PrivateLogData(makePrivateLog(seed + 0x100), seed, seed + 1);
 }
 
 /**
@@ -312,9 +313,12 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
-    tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
+    tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty),
+    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800, ScopedLogHash.empty),
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
+    fr(seed + 0xb00), // note_encrypted_log_preimages_length
+    fr(seed + 0xc00), // encrypted_log_preimages_length
     fr(seed + 0xd00), // unencrypted_log_preimages_length
     fr(seed + 0xe00), // contract_class_log_preimages_length
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0xd00, PublicDataWrite.empty),
@@ -326,7 +330,8 @@ export function makePrivateToPublicAccumulatedData(seed = 1) {
     makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
-    makeTuple(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700),
+    makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700),
+    makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800),
     makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0x900),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500),
   );
@@ -566,10 +571,11 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     publicCallRequests: makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
     l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
-    privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
+    noteEncryptedLogsHashes: makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, makeNoteLogHash, seed + 0x875),
+    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeEncryptedLogHash, seed + 0x900),
+    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeLogHash, seed + 0xa00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,

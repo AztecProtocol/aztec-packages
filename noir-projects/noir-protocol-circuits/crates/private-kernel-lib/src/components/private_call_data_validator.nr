@@ -9,6 +9,7 @@ use crate::components::private_call_data_validator::{
 };
 use dep::types::{
     abis::{
+        call_context::CallContext,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::ScopedNoteHash,
         private_call_request::PrivateCallRequest,
@@ -101,7 +102,7 @@ impl PrivateCallDataValidator {
         self.validate_private_call_requests();
         self.validate_public_call_requests();
         self.validate_counters();
-        self.validate_logs(accumulated_note_hashes);
+        self.validate_note_logs(accumulated_note_hashes);
     }
 
     pub fn validate_as_first_call(self) {
@@ -207,9 +208,14 @@ impl PrivateCallDataValidator {
                 "l2_to_l1_msgs must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.private_logs,
+                self.array_lengths.note_encrypted_logs_hashes,
                 0,
-                "private_logs must be empty for static calls",
+                "note_encrypted_logs_hashes must be empty for static calls",
+            );
+            assert_eq(
+                self.array_lengths.encrypted_logs_hashes,
+                0,
+                "encrypted_logs_hashes must be empty for static calls",
             );
             assert_eq(
                 self.array_lengths.contract_class_logs_hashes,
@@ -346,8 +352,8 @@ impl PrivateCallDataValidator {
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            public_inputs.private_logs,
-            self.array_lengths.private_logs,
+            public_inputs.encrypted_logs_hashes,
+            self.array_lengths.encrypted_logs_hashes,
         );
         validate_incrementing_counters_within_range(
             counter_start,
@@ -371,28 +377,31 @@ impl PrivateCallDataValidator {
         );
     }
 
-    fn validate_logs<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
-        let logs = self.data.public_inputs.private_logs;
+    fn validate_note_logs<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
+        let note_logs = self.data.public_inputs.note_encrypted_logs_hashes;
+        let num_logs = self.array_lengths.note_encrypted_logs_hashes;
         let contract_address = self.data.public_inputs.call_context.contract_address;
-        for i in 0..logs.len() {
-            let log = logs[i];
-            if log.note_hash_counter != 0 {
+        let mut should_check = true;
+        for i in 0..note_logs.len() {
+            should_check &= i != num_logs;
+            if should_check {
+                let note_log = note_logs[i];
                 let note_index = unsafe {
                     find_index_hint(
                         accumulated_note_hashes,
-                        |n: ScopedNoteHash| n.counter() == log.note_hash_counter,
+                        |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter,
                     )
                 };
                 assert(note_index != N, "could not find note hash linked to note log");
-                let note_hash = accumulated_note_hashes[note_index];
                 assert_eq(
-                    log.note_hash_counter,
-                    note_hash.counter(),
+                    note_log.note_hash_counter,
+                    accumulated_note_hashes[note_index].counter(),
                     "could not find note hash linked to note log",
                 );
+                // If the note_index points to an empty note hash, the following check will fail.
                 assert_eq(
+                    accumulated_note_hashes[note_index].contract_address,
                     contract_address,
-                    note_hash.contract_address,
                     "could not link a note log to a note hash in another contract",
                 );
             }

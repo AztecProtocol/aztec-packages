@@ -1,4 +1,4 @@
-use crate::{abis::side_effect::Ordered, traits::{Deserialize, Empty, Serialize}};
+use crate::{abis::side_effect::Ordered, traits::Empty};
 
 pub(crate) struct TestValue {
     pub(crate) value: Field,
@@ -20,18 +20,6 @@ impl Eq for TestValue {
 impl Ordered for TestValue {
     fn counter(self) -> u32 {
         self.counter
-    }
-}
-
-impl Serialize<2> for TestValue {
-    fn serialize(self) -> [Field; 2] {
-        [self.value, self.counter as Field]
-    }
-}
-
-impl Deserialize<2> for TestValue {
-    fn deserialize(fields: [Field; 2]) -> Self {
-        Self { value: fields[0], counter: fields[1] as u32 }
     }
 }
 
