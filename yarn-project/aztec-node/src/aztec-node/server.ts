@@ -4,14 +4,17 @@ import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
+  type FromLogType,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockL2Logs,
   type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
+  LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
@@ -47,7 +50,6 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateLog,
   type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
@@ -93,7 +95,8 @@ export class AztecNodeService implements AztecNode {
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
     protected readonly blockSource: L2BlockSource & Partial<Service>,
-    protected readonly logsSource: L2LogsSource,
+    protected readonly encryptedLogsSource: L2LogsSource,
+    protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly nullifierSource: NullifierWithBlockSource,
@@ -189,6 +192,7 @@ export class AztecNodeService implements AztecNode {
     return new AztecNodeService(
       config,
       p2pClient,
+      archiver,
       archiver,
       archiver,
       archiver,
@@ -309,13 +313,19 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
+   * Gets up to `limit` amount of logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
+   * @param limit - The maximum number of logs to return.
+   * @param logType - Specifies whether to return encrypted or unencrypted logs.
+   * @returns The requested logs.
    */
-  public getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
-    return this.logsSource.getPrivateLogs(from, limit);
+  public getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: LogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
+    const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
+    return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
   }
 
   /**
@@ -325,7 +335,7 @@ export class AztecNodeService implements AztecNode {
    * that tag.
    */
   public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getLogsByTags(tags);
+    return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
   /**
@@ -334,7 +344,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.logsSource.getUnencryptedLogs(filter);
+    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
   }
 
   /**
@@ -343,7 +353,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.logsSource.getContractClassLogs(filter);
+    return this.unencryptedLogsSource.getContractClassLogs(filter);
   }
 
   /**

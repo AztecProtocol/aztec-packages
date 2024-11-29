@@ -1,18 +1,18 @@
 mod tail_output_hints;
 
-use crate::components::tail_output_composer::meter_gas_used;
+use crate::components::{
+    tail_output_composer::meter_gas_used::meter_gas_used,
+    tail_output_validator::tail_output_hints::{generate_tail_output_hints, TailOutputHints},
+};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
-        log_hash::ScopedLogHash,
-        private_log::PrivateLogData,
-        side_effect::scoped::Scoped,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
-use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 
 pub struct TailOutputValidator {
     output: KernelCircuitPublicInputs,
@@ -92,11 +92,22 @@ impl TailOutputValidator {
             assert_eq(nullifiers[i].value(), self.output.end.nullifiers[i], "mismatch nullifiers");
         }
 
-        // private_logs
+        // note_encrypted_logs_hashes
         assert_eq(
-            self.previous_kernel.end.private_logs.map(|l: Scoped<PrivateLogData>| l.inner.log),
-            self.output.end.private_logs,
-            "mismatch private_logs",
+            self.previous_kernel.end.note_encrypted_logs_hashes.map(|log: NoteLogHash| {
+                log.expose_to_public()
+            }),
+            self.output.end.note_encrypted_logs_hashes,
+            "mismatch note_encrypted_logs_hashes",
+        );
+
+        // encrypted_logs_hashes
+        assert_eq(
+            self.previous_kernel.end.encrypted_logs_hashes.map(|log: ScopedEncryptedLogHash| {
+                log.expose_to_public()
+            }),
+            self.output.end.encrypted_logs_hashes,
+            "mismatch encrypted_logs_hashes",
         );
     }
 

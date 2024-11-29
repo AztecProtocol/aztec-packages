@@ -16,7 +16,7 @@ contract TxsDecoderHelper {
     pure
     returns (bytes32, uint256, uint256)
   {
-    return TxsDecoder.computeKernelUnencryptedLogsHash(0, _kernelLogs, false);
+    return TxsDecoder.computeKernelEncryptedLogsHash(0, _kernelLogs);
   }
 
   function computeTxOutHash(bytes calldata _kernelMsgs) external pure returns (bytes32) {

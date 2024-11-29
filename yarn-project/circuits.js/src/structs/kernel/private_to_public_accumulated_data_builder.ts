@@ -3,15 +3,15 @@ import { Fr } from '@aztec/foundation/fields';
 
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { ScopedLogHash } from '../log_hash.js';
-import { PrivateLog } from '../private_log.js';
+import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 
@@ -25,7 +25,8 @@ export class PrivateToPublicAccumulatedDataBuilder {
   private noteHashes: Fr[] = [];
   private nullifiers: Fr[] = [];
   private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
-  private privateLogs: PrivateLog[] = [];
+  private noteEncryptedLogsHashes: LogHash[] = [];
+  private encryptedLogsHashes: ScopedLogHash[] = [];
   private contractClassLogsHashes: ScopedLogHash[] = [];
   private publicCallRequests: PublicCallRequest[] = [];
 
@@ -59,13 +60,23 @@ export class PrivateToPublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushPrivateLog(privateLog: PrivateLog) {
-    this.privateLogs.push(privateLog);
+  pushNoteEncryptedLogsHash(noteEncryptedLogsHash: LogHash) {
+    this.noteEncryptedLogsHashes.push(noteEncryptedLogsHash);
     return this;
   }
 
-  withPrivateLogs(privateLogs: PrivateLog[]) {
-    this.privateLogs = privateLogs;
+  withNoteEncryptedLogsHashes(noteEncryptedLogsHashes: LogHash[]) {
+    this.noteEncryptedLogsHashes = noteEncryptedLogsHashes;
+    return this;
+  }
+
+  pushEncryptedLogsHash(encryptedLogsHash: ScopedLogHash) {
+    this.encryptedLogsHashes.push(encryptedLogsHash);
+    return this;
+  }
+
+  withEncryptedLogsHashes(encryptedLogsHashes: ScopedLogHash[]) {
+    this.encryptedLogsHashes = encryptedLogsHashes;
     return this;
   }
 
@@ -94,7 +105,8 @@ export class PrivateToPublicAccumulatedDataBuilder {
       padArrayEnd(this.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(this.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-      padArrayEnd(this.privateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
+      padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
+      padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
       padArrayEnd(this.publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
