@@ -1,18 +1,20 @@
-import {
-  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
-  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
-  type UnconstrainedFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
-import { REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
+import {
+  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
+  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
+} from '../../constants.gen.js';
+import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '../interfaces/index.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class UnconstrainedFunctionBroadcastedEvent {
@@ -26,10 +28,23 @@ export class UnconstrainedFunctionBroadcastedEvent {
   ) {}
 
   static isUnconstrainedFunctionBroadcastedEvent(log: Buffer) {
-    return log.subarray(0, 32).equals(REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG.toBuffer());
+    return toBigIntBE(log.subarray(0, 32)) == REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE;
   }
 
-  static fromLog(log: Buffer) {
+  static fromLogs(logs: { contractAddress: AztecAddress; data: Buffer }[], registererContractAddress: AztecAddress) {
+    return logs
+      .filter(log => UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log.data))
+      .filter(log => log.contractAddress.equals(registererContractAddress))
+      .map(log => this.fromLogData(log.data));
+  }
+
+  static fromLogData(log: Buffer) {
+    if (!this.isUnconstrainedFunctionBroadcastedEvent(log)) {
+      throw new Error(
+        `Log data for UnconstrainedFunctionBroadcastedEvent is not prefixed with magic value 0x${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}`,
+      );
+    }
+
     const expectedLength =
       32 *
       (MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS +

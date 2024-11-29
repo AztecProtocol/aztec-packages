@@ -1,14 +1,18 @@
 import {
+  type EncryptedL2Log,
+  type FromLogType,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockId,
+  type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
   type L2Tips,
   type LogFilter,
+  type LogType,
   type NullifierWithBlockSource,
   type TxEffect,
   type TxHash,
@@ -18,13 +22,16 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
+  ContractClassRegisteredEvent,
   type ContractDataSource,
+  ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
-  type PrivateLog,
+  PrivateFunctionBroadcastedEvent,
   type PublicFunction,
+  UnconstrainedFunctionBroadcastedEvent,
   type UnconstrainedFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
@@ -40,12 +47,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import {
-  ContractClassRegisteredEvent,
-  ContractInstanceDeployedEvent,
-  PrivateFunctionBroadcastedEvent,
-  UnconstrainedFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
@@ -627,13 +629,18 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
+   * Gets up to `limit` amount of logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
+   * @param limit - The number of logs to return.
+   * @param logType - Specifies whether to return encrypted or unencrypted logs.
+   * @returns The requested logs.
    */
-  public getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
-    return this.store.getPrivateLogs(from, limit);
+  public getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
+    return this.store.getLogs(from, limit, logType);
   }
 
   /**
@@ -823,10 +830,10 @@ class ArchiverStoreHelper
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
-    const contractClasses = allLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data))
-      .map(e => e.toContractClassPublic());
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    ).map(e => e.toContractClassPublic());
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
@@ -847,11 +854,8 @@ class ArchiverStoreHelper
    * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
-    const contractInstances = allLogs
-      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
-      .map(log => ContractInstanceDeployedEvent.fromLog(log))
-      .map(e => e.toContractInstance());
+  async #updateDeployedContractInstances(allLogs: EncryptedL2Log[], blockNum: number, operation: Operation) {
+    const contractInstances = ContractInstanceDeployedEvent.fromLogs(allLogs).map(e => e.toContractInstance());
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
         this.#log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
@@ -877,12 +881,14 @@ class ArchiverStoreHelper
    */
   async #storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
     // Filter out private and unconstrained function broadcast events
-    const privateFnEvents = allLogs
-      .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log.data))
-      .map(log => PrivateFunctionBroadcastedEvent.fromLog(log.data));
-    const unconstrainedFnEvents = allLogs
-      .filter(log => UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log.data))
-      .map(log => UnconstrainedFunctionBroadcastedEvent.fromLog(log.data));
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(
@@ -930,12 +936,14 @@ class ArchiverStoreHelper
           const contractClassLogs = block.data.body.txEffects
             .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
             .flatMap(txLog => txLog.unrollLogs());
-          // ContractInstanceDeployed event logs are broadcast in privateLogs.
-          const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+          // ContractInstanceDeployed event logs are now broadcast in .encryptedLogs
+          const allEncryptedLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.encryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
           return (
             await Promise.all([
               this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
-              this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
+              this.#updateDeployedContractInstances(allEncryptedLogs, block.data.number, Operation.Store),
               this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
             ])
           ).every(Boolean);
@@ -962,10 +970,12 @@ class ArchiverStoreHelper
           const contractClassLogs = block.data.body.txEffects
             .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
             .flatMap(txLog => txLog.unrollLogs());
-          // ContractInstanceDeployed event logs are broadcast in privateLogs.
-          const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+          // ContractInstanceDeployed event logs are now broadcast in .encryptedLogs
+          const allEncryptedLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.encryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
           await this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete);
-          await this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete);
+          await this.#updateDeployedContractInstances(allEncryptedLogs, block.data.number, Operation.Delete);
         }),
       )),
       this.store.deleteLogs(blocks.map(b => b.data)),
@@ -994,8 +1004,12 @@ class ArchiverStoreHelper
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
-    return this.store.getPrivateLogs(from, limit);
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
+    return this.store.getLogs(from, limit, logType);
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
