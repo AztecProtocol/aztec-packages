@@ -27,7 +27,7 @@ if [ "${SKIP_BUILD:-0}" -eq 0 ]; then
     $ci3/base/denoise ./scripts/bootstrap_native.sh
     $ci3/cache/upload noir-nargo-$NATIVE_HASH.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
   fi
-  if ! $ci3/cache/download noir-nargo-$PACKAGES_HASH.tar.gz ; then
+  if ! $ci3/cache/download noir-packages-$PACKAGES_HASH.tar.gz ; then
     $ci3/base/denoise ./scripts/bootstrap_packages.sh
     $ci3/cache/upload noir-packages-$PACKAGES_HASH.tar.gz packages
   fi
