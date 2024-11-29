@@ -1,14 +1,14 @@
 import { IDBPDatabase, IDBPObjectStore } from 'idb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecSet } from '../interfaces/set.js';
+import { AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
 import { IndexedDBAztecMap } from './map.js';
 import { AztecIDBSchema } from './store.js';
 
 /**
  * A set backed by IndexedDB.
  */
-export class IndexedDBAztecSet<K extends Key> implements AztecSet<K> {
+export class IndexedDBAztecSet<K extends Key> implements AztecAsyncSet<K> {
   private map: IndexedDBAztecMap<K, boolean>;
 
   constructor(rootDb: IDBPDatabase<AztecIDBSchema>, mapName: string) {

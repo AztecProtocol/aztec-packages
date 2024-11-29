@@ -17,7 +17,7 @@ export class LmdbAztecSet<K extends Key> implements AztecSet<K> {
     return this.map.close();
   }
 
-  has(key: K): Promise<boolean> {
+  has(key: K): boolean {
     return this.map.has(key);
   }
 
@@ -29,7 +29,7 @@ export class LmdbAztecSet<K extends Key> implements AztecSet<K> {
     return this.map.delete(key);
   }
 
-  async *entries(range: Range<K> = {}): AsyncIterableIterator<K> {
-    yield* this.map.keys(range);
+  entries(range: Range<K> = {}): IterableIterator<K> {
+    return this.map.keys(range);
   }
 }

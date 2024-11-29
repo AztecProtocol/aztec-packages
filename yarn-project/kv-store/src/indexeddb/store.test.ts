@@ -1,6 +1,6 @@
 import { describeAztecStore } from '../interfaces/store_test_suite.js';
+import { mockLogger } from '../interfaces/utils.js';
 import { AztecIndexedDBStore } from './store.js';
-import { mockLogger } from './utils.js';
 
 describe('AztecIndexedDBStore', () => {
   describeAztecStore(

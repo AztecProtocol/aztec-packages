@@ -1,7 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { mkdirSync } from 'fs';
-import { promises as fs } from 'fs';
+import { promises as fs, mkdirSync } from 'fs';
 import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
@@ -19,12 +18,12 @@ import { LmdbAztecMap } from './map.js';
 import { LmdbAztecSet } from './set.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
-const { mkdtemp, rm } = fs;
-
 /**
  * A key-value store backed by LMDB.
  */
 export class AztecLmdbStore implements AztecKVStore {
+  // This is the only way of doing branding the browser seems to like
+  __branding: 'AztecKVStore' = 'AztecKVStore';
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
@@ -82,7 +81,7 @@ export class AztecLmdbStore implements AztecKVStore {
     const baseDir = this.path ? dirname(this.path) : tmpdir();
     this.#log.debug(`Forking store with basedir ${baseDir}`);
     const forkPath =
-      (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+      (await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
     this.#log.verbose(`Forking store to ${forkPath}`);
     await this.#rootDb.backup(forkPath, false);
     const forkDb = open(forkPath, { noSync: this.isEphemeral });
@@ -117,7 +116,7 @@ export class AztecLmdbStore implements AztecKVStore {
     return new LmdbAztecMap(this.#multiMapData, name);
   }
 
-  openCounter<K extends Key | Array<string | number>>(name: string): AztecCounter<K> {
+  openCounter<K extends Key>(name: string): AztecCounter<K> {
     return new LmdbAztecCounter(this.#data, name);
   }
 
@@ -180,7 +179,7 @@ export class AztecLmdbStore implements AztecKVStore {
     await this.drop();
     await this.close();
     if (this.path) {
-      await rm(this.path, { recursive: true, force: true });
+      await fs.rm(this.path, { recursive: true, force: true });
       this.#log.verbose(`Deleted database files at ${this.path}`);
     }
   }

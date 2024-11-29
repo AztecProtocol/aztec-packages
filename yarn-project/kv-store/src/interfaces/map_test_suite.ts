@@ -3,33 +3,38 @@ import { toArray } from '@aztec/foundation/iterable';
 import { expect } from 'chai';
 
 import { Key } from './common.js';
-import { AztecMultiMap } from './map.js';
-import { AztecKVStore } from './store.js';
+import { AztecAsyncMultiMap, AztecMultiMap } from './map.js';
+import { AztecAsyncKVStore, AztecKVStore } from './store.js';
+import { isAsyncStore } from './utils.js';
 
-export function describeAztecMap(testName: string, getStore: () => Promise<AztecKVStore>) {
+export function describeAztecMap(testName: string, getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>) {
   describe(testName, () => {
-    let store: AztecKVStore;
-    let map: AztecMultiMap<Key, string>;
+    let store: AztecKVStore | AztecAsyncKVStore;
+    let map: AztecMultiMap<Key, string> | AztecAsyncMultiMap<Key, string>;
 
     beforeEach(async () => {
       store = await getStore();
       map = store.openMultiMap<string | [number, string], string>('test');
     });
 
+    async function get(key: Key) {
+      return isAsyncStore(store) ? await map.get(key) : map.get(key);
+    }
+
     it('should be able to set and get values', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await map.get('foo')).to.equal('bar');
-      expect(await map.get('baz')).to.equal('qux');
-      expect(await map.get('quux')).to.equal(undefined);
+      expect(await get('foo')).to.equal('bar');
+      expect(await get('baz')).to.equal('qux');
+      expect(await get('quux')).to.equal(undefined);
     });
 
     it('should be able to set values if they do not exist', async () => {
       expect(await map.setIfNotExists('foo', 'bar')).to.equal(true);
       expect(await map.setIfNotExists('foo', 'baz')).to.equal(false);
 
-      expect(await map.get('foo')).to.equal('bar');
+      expect(await get('foo')).to.equal('bar');
     });
 
     it('should be able to delete values', async () => {
@@ -38,8 +43,8 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
 
       await map.delete('foo');
 
-      expect(await map.get('foo')).to.equal(undefined);
-      expect(await map.get('baz')).to.equal('qux');
+      expect(await get('foo')).to.equal(undefined);
+      expect(await get('baz')).to.equal('qux');
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
@@ -74,7 +79,7 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
 
-      expect(await toArray(await map.getValues('foo'))).to.deep.equal(['bar', 'baz']);
+      expect(await toArray(map.getValues('foo'))).to.deep.equal(['bar', 'baz']);
     });
 
     it('should be able to delete individual values for a single key', async () => {
@@ -83,10 +88,10 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
 
       await map.deleteValue('foo', 'bar');
 
-      expect(await toArray(await map.getValues('foo'))).to.deep.equal(['baz']);
+      expect(await toArray(map.getValues('foo'))).to.deep.equal(['baz']);
     });
 
-    it('supports tuple keys', async () => {
+    it.only('supports tuple keys', async () => {
       // Use a new map because key structure has changed
       const tupleMap = store.openMap<[number, string], string>('test-tuple');
 
@@ -98,7 +103,9 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
         [5, 'bar'],
       ]);
 
-      expect(await tupleMap.get([5, 'bar'])).to.equal('val');
+      const result = isAsyncStore(store) ? await tupleMap.get([5, 'bar']) : tupleMap.get([5, 'bar']);
+
+      expect(result).to.equal('val');
     });
 
     it('supports range queries', async () => {

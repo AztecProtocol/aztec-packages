@@ -1,26 +1,35 @@
 import { expect } from 'chai';
 
-import { AztecKVStore } from './store.js';
+import { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
+import { AztecAsyncKVStore, AztecKVStore } from './store.js';
+import { isAsyncStore } from './utils.js';
 
 export function describeAztecStore(
   testName: string,
-  getPersistentStore: () => Promise<AztecKVStore>,
-  getPersistentNoPathStore: () => Promise<AztecKVStore>,
-  getEphemeralStore: () => Promise<AztecKVStore>,
+  getPersistentStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  getPersistentNoPathStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  getEphemeralStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
 ) {
   describe(testName, () => {
-    const itForks = async (store: AztecKVStore) => {
-      const singleton = store.openSingleton('singleton');
+    async function get(
+      store: AztecKVStore | AztecAsyncKVStore,
+      singleton: AztecSingleton<string> | AztecAsyncSingleton<string>,
+    ) {
+      return isAsyncStore(store) ? await singleton.get() : singleton.get();
+    }
+
+    const itForks = async (store: AztecKVStore | AztecAsyncKVStore) => {
+      const singleton = store.openSingleton<string>('singleton');
       await singleton.set('foo');
 
       const forkedStore = await store.fork();
-      const forkedSingleton = forkedStore.openSingleton('singleton');
-      expect(await forkedSingleton.get()).to.equal('foo');
+      const forkedSingleton = forkedStore.openSingleton<string>('singleton');
+      expect(await get(store, singleton)).to.equal('foo');
       await forkedSingleton.set('bar');
-      expect(await singleton.get()).to.equal('foo');
-      expect(await forkedSingleton.get()).to.equal('bar');
+      expect(await get(store, singleton)).to.equal('foo');
+      expect(await get(forkedStore, forkedSingleton)).to.equal('bar');
       await forkedSingleton.delete();
-      expect(await singleton.get()).to.equal('foo');
+      expect(await get(store, singleton)).to.equal('foo');
     };
 
     it('forks a persistent store', async () => {

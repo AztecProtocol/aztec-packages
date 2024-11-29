@@ -20,71 +20,71 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     this.#db = db as Database<T, ArrayIndexSlot>;
   }
 
-  async length(): Promise<number> {
-    return (await this.#length.get()) ?? 0;
+  get length(): number {
+    return this.#length.get() ?? 0;
   }
 
-  async push(...vals: T[]): Promise<number> {
-    let length = await this.length();
-    for (const val of vals) {
-      await this.#db.put(this.#slot(length), val);
-      length += 1;
-    }
+  push(...vals: T[]): Promise<number> {
+    return this.#db.childTransaction(() => {
+      let length = this.length;
+      for (const val of vals) {
+        void this.#db.put(this.#slot(length), val);
+        length += 1;
+      }
 
-    await this.#length.set(length);
+      void this.#length.set(length);
 
-    return length;
+      return length;
+    });
   }
 
-  async pop(): Promise<T | undefined> {
-    const length = await this.length();
-    if (length === 0) {
-      return undefined;
-    }
+  pop(): Promise<T | undefined> {
+    return this.#db.childTransaction(() => {
+      const length = this.length;
+      if (length === 0) {
+        return undefined;
+      }
 
-    const slot = this.#slot(length - 1);
-    const val = this.#db.get(slot) as T;
+      const slot = this.#slot(length - 1);
+      const val = this.#db.get(slot) as T;
 
-    await this.#db.remove(slot);
-    await this.#length.set(length - 1);
+      void this.#db.remove(slot);
+      void this.#length.set(length - 1);
 
-    return val;
+      return val;
+    });
   }
 
-  async at(index: number): Promise<T | undefined> {
-    const length = await this.length();
+  at(index: number): T | undefined {
     if (index < 0) {
-      index = length + index;
+      index = this.length + index;
     }
 
     // the Array API only accepts indexes in the range [-this.length, this.length)
     // so if after normalizing the index is still out of range, return undefined
-    if (index < 0 || index >= length) {
+    if (index < 0 || index >= this.length) {
       return undefined;
     }
 
     return this.#db.get(this.#slot(index));
   }
 
-  async setAt(index: number, val: T): Promise<boolean> {
-    const length = await this.length();
-
+  setAt(index: number, val: T): Promise<boolean> {
     if (index < 0) {
-      index = length + index;
+      index = this.length + index;
     }
 
-    if (index < 0 || index >= length) {
+    if (index < 0 || index >= this.length) {
       return Promise.resolve(false);
     }
 
     return this.#db.put(this.#slot(index), val);
   }
 
-  async *entries(): AsyncIterableIterator<[number, T]> {
-    const length = await this.length();
+  *entries(): IterableIterator<[number, T]> {
     const values = this.#db.getRange({
       start: this.#slot(0),
-      limit: length,
+      limit: this.length,
     });
 
     for (const { key, value } of values) {
@@ -93,13 +93,13 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     }
   }
 
-  async *values(): AsyncIterableIterator<T> {
-    for await (const [_, value] of this.entries()) {
+  *values(): IterableIterator<T> {
+    for (const [_, value] of this.entries()) {
       yield value;
     }
   }
 
-  [Symbol.asyncIterator](): AsyncIterableIterator<T> {
+  [Symbol.iterator](): IterableIterator<T> {
     return this.values();
   }
 

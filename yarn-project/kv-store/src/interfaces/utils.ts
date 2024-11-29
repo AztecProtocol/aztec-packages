@@ -1,3 +1,5 @@
+import { AztecAsyncKVStore, AztecKVStore } from './store.js';
+
 export const mockLogger = {
   debug: (msg: string, data: any) => console.log(msg, data),
   info: (msg: string, data: any) => console.log(msg, data),
@@ -6,3 +8,7 @@ export const mockLogger = {
   silent: (msg: string, data: any) => console.log(msg, data),
   verbose: (msg: string, data: any) => console.log(msg, data),
 };
+
+export function isAsyncStore(store: AztecKVStore | AztecAsyncKVStore): store is AztecAsyncKVStore {
+  return store.__branding === 'AztecAsyncKVStore';
+}

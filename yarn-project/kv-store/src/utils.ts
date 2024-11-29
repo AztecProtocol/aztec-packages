@@ -1,7 +1,7 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger } from '@aztec/foundation/log';
 
-import { type AztecKVStore } from './interfaces/store.js';
+import { AztecAsyncKVStore, type AztecKVStore } from './interfaces/store.js';
 
 /**
  * Clears the store if the rollup address does not match the one stored in the database.
@@ -10,7 +10,7 @@ import { type AztecKVStore } from './interfaces/store.js';
  * @param rollupAddress - The ETH address of the rollup contract
  * @returns A promise that resolves when the store is cleared, or rejects if the rollup address does not match
  */
-export async function initStoreForRollup<T extends AztecKVStore>(
+export async function initStoreForRollup<T extends AztecKVStore | AztecAsyncKVStore>(
   store: T,
   rollupAddress: EthAddress,
   log?: Logger,

@@ -22,9 +22,9 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
     await this.#map.set(key, value);
   }
 
-  async update(key: K, delta = 1): Promise<void> {
-    return this.#db.childTransaction(async () => {
-      const current = (await this.#map.get(key)) ?? 0;
+  update(key: K, delta = 1): Promise<void> {
+    return this.#db.childTransaction(() => {
+      const current = this.#map.get(key) ?? 0;
       const next = current + delta;
 
       if (next < 0) {
@@ -41,15 +41,15 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
     });
   }
 
-  async get(key: K): Promise<number> {
-    return (await this.#map.get(key)) ?? 0;
+  get(key: K): number {
+    return this.#map.get(key) ?? 0;
   }
 
-  entries(range: Range<K> = {}): AsyncIterableIterator<[K, number]> {
+  entries(range: Range<K> = {}): IterableIterator<[K, number]> {
     return this.#map.entries(range);
   }
 
-  keys(range: Range<K> = {}): AsyncIterableIterator<K> {
+  keys(range: Range<K> = {}): IterableIterator<K> {
     return this.#map.keys(range);
   }
 }

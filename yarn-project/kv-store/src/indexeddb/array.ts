@@ -1,14 +1,12 @@
-import JDB from '@nimiq/jungle-db';
 import { IDBPDatabase, IDBPObjectStore } from 'idb';
 
-import { type AztecArray } from '../interfaces/array.js';
-import { IndexedDBAztecSingleton } from './singleton.js';
+import { type AztecAsyncArray } from '../interfaces/array.js';
 import { AztecIDBSchema } from './store.js';
 
 /**
  * An persistent array backed by IndexedDB.
  */
-export class IndexedDBAztecArray<T> implements AztecArray<T> {
+export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
   #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #container: string;

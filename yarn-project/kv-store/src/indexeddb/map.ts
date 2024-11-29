@@ -1,14 +1,13 @@
-import { reverse } from 'dns';
 import { IDBPDatabase, IDBPObjectStore } from 'idb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecAsyncMultiMap } from '../interfaces/map.js';
 import { AztecIDBSchema } from './store.js';
 
 /**
  * A map backed by IndexedDB.
  */
-export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
+export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K, V> {
   protected name: string;
   #container: string;
 

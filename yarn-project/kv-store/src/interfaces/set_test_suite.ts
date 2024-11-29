@@ -2,26 +2,31 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
-import { AztecSet } from './set.js';
-import { AztecKVStore } from './store.js';
+import { AztecAsyncSet, AztecSet } from './set.js';
+import { AztecAsyncKVStore, AztecKVStore } from './store.js';
+import { isAsyncStore } from './utils.js';
 
-export function describeAztecSet(testName: string, getStore: () => Promise<AztecKVStore>) {
+export function describeAztecSet(testName: string, getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>) {
   describe(testName, () => {
-    let store: AztecKVStore;
-    let set: AztecSet<string>;
+    let store: AztecKVStore | AztecAsyncKVStore;
+    let set: AztecSet<string> | AztecAsyncSet<string>;
 
     beforeEach(async () => {
       store = await getStore();
       set = store.openSet<string>('test');
     });
 
+    async function has(key: string) {
+      return isAsyncStore(store) ? await set.has(key) : set.has(key);
+    }
+
     it('should be able to set and get values', async () => {
       await set.add('foo');
       await set.add('baz');
 
-      expect(await set.has('foo')).to.equal(true);
-      expect(await set.has('baz')).to.equal(true);
-      expect(await set.has('bar')).to.equal(false);
+      expect(await has('foo')).to.equal(true);
+      expect(await has('baz')).to.equal(true);
+      expect(await has('bar')).to.equal(false);
     });
 
     it('should be able to delete values', async () => {
@@ -30,8 +35,8 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
 
       await set.delete('foo');
 
-      expect(await set.has('foo')).to.equal(false);
-      expect(await set.has('baz')).to.equal(true);
+      expect(await has('foo')).to.equal(false);
+      expect(await has('baz')).to.equal(true);
     });
 
     it('should be able to iterate over entries', async () => {
