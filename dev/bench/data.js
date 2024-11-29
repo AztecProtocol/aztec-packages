@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732808752357,
+  "lastUpdate": 1732888876545,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7e587d6d43cc28174d807c255f5270212a0b1c98",
-          "message": "feat: Mega memory benchmarks (#9858)\n\nIt would be better to actually use Google Bench's memory manager\r\nfunctionality and count allocations. We already have something similar\r\nimplemented for Tracy. After striking out with that approach for a bit I\r\nreverted to just manually counting the size of the biggest vectors.\r\n\r\nThe PR uncovered this issue: some trace structures have unusable\r\ncapacity, not just due to using fewer than a dyadic number of gates, but\r\nalso because of coupling of certain gate types\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1149\r\n\r\nSee https://github.com/AztecProtocol/aztec-packages/pull/9858 for logs of benchmarks.",
-          "timestamp": "2024-11-14T12:55:05-05:00",
-          "tree_id": "01db0a68ecaf92f9c73639b8affcdb42b719c94d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e587d6d43cc28174d807c255f5270212a0b1c98"
-        },
-        "date": 1731608966181,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28809.260913000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27054.207663 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5348.5002859999895,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5004.099722 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85480.902133,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85480904000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15155.120836,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15155121000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3100063179,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3100063179 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143841826,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143841826 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2974,6 +2914,66 @@ window.BENCHMARK_DATA = {
             "value": 140326283,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140326283 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0311bf333acb2def3be1373b36514b99b132623a",
+          "message": "chore: Public inputs in unit tests with proving were incorrectly set (#10300)",
+          "timestamp": "2024-11-29T13:19:48Z",
+          "tree_id": "819212f2a4a91c49009daf55447970a26ad28fb5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0311bf333acb2def3be1373b36514b99b132623a"
+        },
+        "date": 1732888868492,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27269.089281000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25231.633902999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4584.776615999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4298.010478 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87862.19409100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87862194000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16499.810913,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16499812000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3040071696,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3040071696 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134229535,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134229535 ns\nthreads: 1"
           }
         ]
       }
