@@ -1,6 +1,7 @@
 #!/bin/bash
 # Use ci3 script base.
 source "$(git rev-parse --show-toplevel)/ci3/base/source"
+$ci3/cache/upload_flag $@
 if $ci3/cache/should_run.bkup "$@"; then
   echo "Should not want to run $@" >> "$ci3/cache/.test_faillures"
 fi
