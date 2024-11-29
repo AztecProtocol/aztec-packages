@@ -5,7 +5,7 @@ import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   DEFAULT_GAS_LIMIT,
-  type FunctionSelector,
+  FunctionSelector,
   Gas,
   GasFees,
   GasSettings,
@@ -23,15 +23,16 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 import { PublicTxSimulator, WorldStateDB } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
-import { getAvmTestContractBytecode, getAvmTestContractFunctionSelector } from '../../avm/fixtures/index.js';
+import { strict as assert } from 'assert';
 
 /**
  * If assertionErrString is set, we expect a (non exceptional halting) revert due to a failing assertion and
@@ -209,4 +210,25 @@ class MockedAvmTestContractDataSource {
   addContractArtifact(_address: AztecAddress, _contract: ContractArtifact): Promise<void> {
     return Promise.resolve();
   }
+}
+
+function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
+  const params = artifact.parameters;
+  return FunctionSelector.fromNameAndParameters(artifact.name, params);
+}
+
+function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact;
+}
+
+function getAvmTestContractBytecode(functionName: string): Buffer {
+  const artifact = getAvmTestContractArtifact(functionName);
+  return artifact.bytecode;
 }

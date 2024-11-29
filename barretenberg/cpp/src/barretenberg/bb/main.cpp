@@ -136,7 +136,7 @@ std::string honk_vk_to_json(std::vector<bb::fr>& data)
 }
 
 /**
- * @brief Proves and Verifies an ACIR circuit
+ * @brief Proves and verifies an ACIR circuit
  *
  * Communication:
  * - proc_exit: A boolean value is returned indicating whether the proof is valid.

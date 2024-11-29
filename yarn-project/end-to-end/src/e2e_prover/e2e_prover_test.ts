@@ -266,7 +266,7 @@ export class FullProverTest {
       dataDirectory: undefined,
       proverId: new Fr(81),
       realProofs: this.realProofs,
-      proverAgentConcurrency: 2,
+      proverAgentCount: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
       proverNodePollingIntervalMs: 100,
