@@ -215,7 +215,7 @@ class ClientIVCAPI : public API {
      * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
      * @return true (resp., false) if the proof is valid (resp., invalid).
      */
-    bool verify(const API::Flags& flags,
+    bool verify([[maybe_unused]] const API::Flags& flags,
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {

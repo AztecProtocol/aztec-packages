@@ -648,9 +648,9 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['-o', targetPath];
+    const args = ['-o', targetPath, '--scheme', 'client_ivc'];
     const timer = new Timer();
-    const command = 'verify_client_ivc';
+    const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
