@@ -532,7 +532,7 @@ namespace main(256);
     pol commit sel_slice_gadget; // Selector to activate a slice gadget operation in the gadget (#[PERM_MAIN_SLICE]).
 
     // Activate only if op_err is disabled or retsize (ib) is non-zero
-    ib * (1 - op_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
+    // ib * (1 - op_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
 
     //====== Inter-table Constraints ============================================
 
@@ -592,10 +592,10 @@ namespace main(256);
     //is
     //keccakf1600.sel_keccakf1600 {keccakf1600.clk, keccakf1600.input, keccakf1600.output};
 
-    #[PERM_MAIN_SLICE]
-    sel_slice_gadget {clk, space_id, ia, ib, mem_addr_c, sel_op_calldata_copy, sel_op_external_return}
-    is
-    slice.sel_start {slice.clk, slice.space_id, slice.col_offset, slice.cnt, slice.addr, slice.sel_cd_cpy, slice.sel_return};
+    //#[PERM_MAIN_SLICE]
+    //sel_slice_gadget {clk, space_id, ia, ib, mem_addr_c, sel_op_calldata_copy, sel_op_external_return}
+    //is
+    //slice.sel_start {slice.clk, slice.space_id, slice.col_offset, slice.cnt, slice.addr, slice.sel_cd_cpy, slice.sel_return};
 
     #[PERM_MAIN_MEM_A]
     sel_mem_op_a {clk, space_id, mem_addr_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_ia_to_ic}

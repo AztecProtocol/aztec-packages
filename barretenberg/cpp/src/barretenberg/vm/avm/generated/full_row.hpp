@@ -714,7 +714,6 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_conv_inv{};
     FF perm_main_sha256_inv{};
     FF perm_main_pos2_perm_inv{};
-    FF perm_main_slice_inv{};
     FF perm_main_mem_a_inv{};
     FF perm_main_mem_b_inv{};
     FF perm_main_mem_c_inv{};

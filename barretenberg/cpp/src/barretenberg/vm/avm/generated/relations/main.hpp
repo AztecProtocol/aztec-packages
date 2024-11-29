@@ -13,8 +13,13 @@ template <typename FF_> class mainImpl {
     static constexpr std::array<size_t, 112> SUBRELATION_PARTIAL_LENGTHS = {
         2, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+<<<<<<< HEAD
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 4,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 2, 3
+=======
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3,
+        4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3
+>>>>>>> c8d4add49d (feat: nested call handling)
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>

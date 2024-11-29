@@ -386,11 +386,9 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
  */
 AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
                                  ExecutionHints execution_hints_,
-                                 uint32_t side_effect_counter,
-                                 std::vector<FF> calldata)
+                                 uint32_t side_effect_counter)
     // NOTE: we initialise the environment builder here as it requires public inputs
-    : calldata(std::move(calldata))
-    , public_inputs(public_inputs)
+    : public_inputs(public_inputs)
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
@@ -1667,7 +1665,8 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint32_t dst_offset, 
 
 AvmError AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = this->current_public_call_request.contract_address;
+    FF ia_value = this->current_ext_call_ctx.contract_address;
+
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_address = FF(1);
 
@@ -1847,10 +1846,15 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
+    auto calldata = current_ext_call_ctx.calldata;
     if (is_ok(error)) {
-        slice_trace_builder.create_calldata_copy_slice(
-            calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
-        mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+        if (current_ext_call_ctx.context_id == 0) {
+            slice_trace_builder.create_calldata_copy_slice(
+                calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+            mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+        } else {
+            write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, calldata);
+        }
     }
 
     // Constrain gas cost
@@ -1866,8 +1870,8 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
         .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        .main_sel_op_calldata_copy = 1,
-        .main_sel_slice_gadget = static_cast<uint32_t>(is_ok(error)),
+        .main_sel_op_calldata_copy = FF(1),
+        .main_sel_slice_gadget = current_ext_call_ctx.context_id == 0 && static_cast<uint32_t>(is_ok(error)),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
@@ -1893,7 +1897,7 @@ AvmError AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offs
         error = AvmError::CHECK_TAG_ERROR;
     }
 
-    FF returndata_size = tag_match ? FF(nested_returndata.size()) : FF(0);
+    FF returndata_size = tag_match ? FF(current_ext_call_ctx.nested_returndata.size()) : FF(0);
     // TODO: constrain
     write_to_memory(resolved_dst_offset, returndata_size, AvmMemoryTag::U32);
 
@@ -1957,8 +1961,8 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     if (is_ok(error)) {
         // Write the return data to memory
         // TODO: validate bounds
-        auto returndata_slice =
-            std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
+        auto returndata_slice = std::vector(current_ext_call_ctx.nested_returndata.begin() + rd_offset,
+                                            current_ext_call_ctx.nested_returndata.begin() + rd_offset + copy_size);
 
         pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
 
@@ -2626,8 +2630,8 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
 
     // Compute the tree slot
-    FF computed_tree_slot = merkle_tree_trace_builder.compute_public_tree_leaf_slot(
-        clk, current_public_call_request.contract_address, read_slot);
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, current_ext_call_ctx.contract_address, read_slot);
     // Sanity check that the computed slot using the value read from slot_offset should match the read hint
     ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
 
@@ -2877,8 +2881,8 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
-    auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
-        current_public_call_request.contract_address, row.main_ia);
+    auto siloed_note_hash =
+        AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(current_ext_call_ctx.contract_address, row.main_ia);
     ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
     // We first check that the index is currently empty
     bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
@@ -3046,8 +3050,8 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
 
     // Do merkle check
     FF nullifier_value = row.main_ia;
-    FF siloed_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
-        current_public_call_request.contract_address, nullifier_value);
+    FF siloed_nullifier =
+        AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(current_ext_call_ctx.contract_address, nullifier_value);
 
     NullifierWriteTreeHint nullifier_write_hint = execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
     bool is_update = siloed_nullifier == nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_nullifier;
@@ -3559,11 +3563,19 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     auto args_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
 
+    // Get the remaining values after consuming CALL
+    auto [l2_gas_cost, da_gas_cost] = AvmGasTraceBuilder::unconstrained_compute_gas(opcode, args_size);
+    uint32_t l2_gas_after_call = gas_trace_builder.get_l2_gas_left() - l2_gas_cost;
+    [[maybe_unused]] uint32_t allocated_l2_gas = std::min(l2_gas_after_call, static_cast<uint32_t>(read_gas_l2.val));
+
+    uint32_t da_gas_after_call = gas_trace_builder.get_da_gas_left() - da_gas_cost;
+    [[maybe_unused]] uint32_t allocated_da_gas = std::min(da_gas_after_call, static_cast<uint32_t>(read_gas_da.val));
+    vinfo("Allocated L2 gas: ", allocated_l2_gas, " Allocated DA gas: ", allocated_da_gas);
+
+    // We need to consume the the gas cost of call, and then handle the amount allocated to the call
     gas_trace_builder.constrain_gas(clk,
                                     opcode,
-                                    /*dyn_gas_multiplier=*/args_size,
-                                    static_cast<uint32_t>(hint.l2_gas_used),
-                                    static_cast<uint32_t>(hint.da_gas_used));
+                                    /*dyn_gas_multiplier=*/args_size);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3599,16 +3611,38 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
     // Write the success flag to memory
-    write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
-    external_call_counter++;
+    // write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
+    // external_call_counter++;
 
     // Save return data for later.
-    nested_returndata = hint.return_data;
+    // nested_returndata = hint.return_data;
 
     // Adjust the side_effect_counter to the value at the end of the external call but not static call.
     if (opcode == OpCode::CALL) {
         side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
     }
+
+    // Ext Ctx setup
+    std::vector<FF> calldata;
+    read_slice_from_memory(resolved_args_offset, args_size, calldata);
+
+    // We push the current ext call ctx onto the stack and initialize a new one
+    current_ext_call_ctx.last_pc = pc;
+    current_ext_call_ctx.success_offset = resolved_success_offset,
+    external_call_ctx_stack.emplace(current_ext_call_ctx);
+
+    current_ext_call_ctx = ExtCallCtx{
+        .context_id = clk,
+        .parent_id = current_ext_call_ctx.context_id,
+        .contract_address = read_addr.val,
+        .calldata = calldata,
+        .nested_returndata = {},
+        .last_pc = 0,
+        .success_offset = 0,
+        .l2_gas = static_cast<uint32_t>(read_gas_l2.val),
+        .da_gas = static_cast<uint32_t>(read_gas_da.val),
+    };
+
     return error;
 }
 
@@ -3677,6 +3711,7 @@ AvmError AvmTraceBuilder::op_static_call(uint16_t indirect,
  */
 ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
+
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -3692,6 +3727,16 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset))) {
         error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    bool is_top_level = true;
+    // Is it ok to write success here?
+    if (current_ext_call_ctx.context_id != 0) {
+        is_top_level = false;
+        current_ext_call_ctx = external_call_ctx_stack.top();
+        external_call_ctx_stack.pop();
+        set_call_ptr(uint8_t(current_ext_call_ctx.context_id));
+        write_to_memory(current_ext_call_ctx.success_offset, FF::one(), AvmMemoryTag::U1);
     }
 
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
@@ -3714,6 +3759,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         return ReturnDataError{
             .return_data = {},
             .error = error,
+            .is_top_level = is_top_level,
         };
     }
 
@@ -3721,9 +3767,10 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     // direct destination offset stored in main_mem_addr_c.
     // All the other memory operations are triggered by the slice gadget.
 
-    if (tag_match) {
+    if (tag_match && is_top_level) {
         returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
         slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+        all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
     }
 
     main_trace.push_back(Row{
@@ -3736,16 +3783,18 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_external_return = 1,
-        .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
+        .main_sel_slice_gadget = current_ext_call_ctx.context_id == 0 && static_cast<uint32_t>(tag_match),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
 
     pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    auto return_data = current_ext_call_ctx.context_id == 0 ? returndata : current_ext_call_ctx.nested_returndata;
 
     return ReturnDataError{
-        .return_data = returndata,
+        .return_data = return_data,
         .error = error,
+        .is_top_level = is_top_level,
     };
 }
 
@@ -3766,6 +3815,15 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, ret_size_offset))) {
         error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    bool is_top_level = true;
+    // Is it ok to write failure here?
+    if (current_ext_call_ctx.context_id != 0) {
+        is_top_level = false;
+        current_ext_call_ctx = external_call_ctx_stack.top();
+        external_call_ctx_stack.pop();
+        write_to_memory(current_ext_call_ctx.success_offset, FF::zero(), AvmMemoryTag::U1);
     }
 
     const auto ret_size =
@@ -3789,15 +3847,17 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
         return ReturnDataError{
             .return_data = {},
             .error = error,
+            .is_top_level = is_top_level,
         };
     }
 
     // The only memory operation performed from the main trace is a possible indirect load for resolving the
     // direct destination offset stored in main_mem_addr_c.
     // All the other memory operations are triggered by the slice gadget.
-    if (tag_match) {
+    if (tag_match && is_top_level) {
         returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
         slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+        all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
     }
 
     // TODO: fix and set sel_op_revert
@@ -3817,6 +3877,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     });
 
     pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    auto return_data = current_ext_call_ctx.context_id == 0 ? returndata : current_ext_call_ctx.nested_returndata;
 
     if (is_ok(error)) {
         error = AvmError::REVERT_OPCODE;
@@ -3824,8 +3885,9 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
     // op_valid == true otherwise, ret_size == 0 and we would have returned above.
     return ReturnDataError{
-        .return_data = returndata,
+        .return_data = return_data,
         .error = error,
+        .is_top_level = is_top_level,
     };
 }
 
@@ -4582,7 +4644,7 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
                                         KERNEL_OUTPUTS_LENGTH,
                                         /*kernel_trace_size,*/ fixed_gas_table.size(),
                                         slice_trace_size,
-                                        calldata.size() };
+                                        current_ext_call_ctx.calldata.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // Before making any changes to the main trace, mark the real rows.
@@ -4953,8 +5015,8 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
     // kernel_trace_builder.finalize_columns(main_trace);
 
     // calldata column inclusion and selector
-    for (size_t i = 0; i < calldata.size(); i++) {
-        main_trace.at(i).main_calldata = calldata.at(i);
+    for (size_t i = 0; i < all_calldata.size(); i++) {
+        main_trace.at(i).main_calldata = all_calldata.at(i);
         main_trace.at(i).main_sel_calldata = 1;
     }
 
@@ -4964,8 +5026,8 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
     }
 
     // returndata column inclusion and selector
-    for (size_t i = 0; i < returndata.size(); i++) {
-        main_trace.at(i).main_returndata = returndata.at(i);
+    for (size_t i = 0; i < all_returndata.size(); i++) {
+        main_trace.at(i).main_returndata = all_returndata.at(i);
         main_trace.at(i).main_sel_returndata = 1;
     }
 
@@ -5025,7 +5087,7 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
           "\n\tKERNEL_OUTPUTS_LENGTH: ",
           KERNEL_OUTPUTS_LENGTH,
           "\n\tcalldata_size: ",
-          calldata.size());
+          current_ext_call_ctx.calldata.size());
     reset();
 
     return trace;

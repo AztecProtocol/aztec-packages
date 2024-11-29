@@ -4,7 +4,6 @@
 #include "gtest/gtest.h"
 #include <cstddef>
 #include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
 #include <ranges>
 
@@ -28,9 +27,8 @@ class AvmSliceTests : public ::testing::Test {
 
     void gen_trace_builder(std::vector<FF> const& calldata)
     {
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                            .set_full_precomputed_tables(false)
-                            .set_range_check_required(false);
+        trace_builder =
+            AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
         this->calldata = calldata;
     }
 

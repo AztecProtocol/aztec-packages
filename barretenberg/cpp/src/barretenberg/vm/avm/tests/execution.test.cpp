@@ -35,14 +35,12 @@ class AvmExecutionTests : public ::testing::Test {
     AvmExecutionTests()
         : public_inputs(generate_base_public_inputs())
     {
-        Execution::set_trace_builder_constructor([](AvmPublicInputs public_inputs,
-                                                    ExecutionHints execution_hints,
-                                                    uint32_t side_effect_counter,
-                                                    std::vector<FF> calldata) {
-            return AvmTraceBuilder(public_inputs, std::move(execution_hints), side_effect_counter, std::move(calldata))
-                .set_full_precomputed_tables(false)
-                .set_range_check_required(false);
-        });
+        Execution::set_trace_builder_constructor(
+            [](AvmPublicInputs public_inputs, ExecutionHints execution_hints, uint32_t side_effect_counter) {
+                return AvmTraceBuilder(public_inputs, std::move(execution_hints), side_effect_counter)
+                    .set_full_precomputed_tables(false)
+                    .set_range_check_required(false);
+            });
     };
 
   protected:

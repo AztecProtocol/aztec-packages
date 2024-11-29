@@ -215,11 +215,10 @@ class AvmArithmeticTests : public ::testing::Test {
     AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 
-    void gen_trace_builder(std::vector<FF> const& calldata)
+    void gen_trace_builder([[maybe_unused]] std::vector<FF> const& calldata)
     {
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                            .set_full_precomputed_tables(false)
-                            .set_range_check_required(false);
+        trace_builder =
+            AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     }
 
     // Generate a trace with an EQ opcode operation.

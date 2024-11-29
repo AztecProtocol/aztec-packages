@@ -19,6 +19,7 @@
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
+#include <stack>
 
 namespace bb::avm_trace {
 
@@ -27,6 +28,7 @@ using Row = bb::AvmFullRow<bb::fr>;
 struct ReturnDataError {
     std::vector<FF> return_data;
     AvmError error;
+    bool is_top_level = false;
 };
 
 struct RowWithError {
@@ -41,11 +43,12 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(AvmPublicInputs public_inputs,
+    AvmTraceBuilder(AvmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
-                    uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {});
+                    uint32_t side_effect_counter = 0);
 
+    void set_all_calldata(const std::vector<FF>& all_calldata) { this->all_calldata = all_calldata; }
+    std::vector<FF> get_all_returndata() { return this->all_returndata; }
     void set_public_call_request(PublicCallRequest const& public_call_request)
     {
         this->current_public_call_request = public_call_request;
@@ -53,8 +56,10 @@ class AvmTraceBuilder {
     void set_call_ptr(uint8_t call_ptr) { this->call_ptr = call_ptr; }
 
     uint32_t get_pc() const { return pc; }
+    void set_pc(uint32_t new_pc) { pc = new_pc; }
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
+    uint32_t get_clk() const { return static_cast<uint32_t>(main_trace.size()); }
 
     // Compute - Arithmetic
     AvmError op_add(
@@ -249,16 +254,29 @@ class AvmTraceBuilder {
         FF val;
     };
 
+    struct ExtCallCtx {
+        uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
+        uint32_t parent_id;
+        FF contract_address{};
+        std::vector<FF> calldata;
+        std::vector<FF> nested_returndata;
+        uint32_t last_pc;
+        uint32_t success_offset;
+        uint32_t l2_gas;
+        uint32_t da_gas;
+    };
+
+    ExtCallCtx current_ext_call_ctx{};
+    std::stack<ExtCallCtx> external_call_ctx_stack;
+
   private:
     std::vector<Row> main_trace;
 
-    std::vector<FF> calldata;
     AvmPublicInputs public_inputs;
     PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
-
-    // Return/revert data of the last nested call.
-    std::vector<FF> nested_returndata;
+    std::vector<FF> all_calldata;
+    std::vector<FF> all_returndata;
 
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
