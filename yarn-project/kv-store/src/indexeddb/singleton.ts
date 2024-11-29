@@ -1,38 +1,49 @@
+import { IDBPDatabase, IDBPObjectStore } from 'idb';
+
 import { type AztecSingleton } from '../interfaces/singleton.js';
-import { promisifyRequest } from './utils.js';
+import { AztecIDBSchema } from './store.js';
 
 /**
  * Stores a single value in IndexedDB.
  */
 export class IndexedDBAztecSingleton<T> implements AztecSingleton<T> {
-  #_db!: IDBObjectStore;
-  #rootDB: IDBDatabase;
+  #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
+  #rootDB: IDBPDatabase<AztecIDBSchema>;
+  #container: string;
   #slot: string;
 
-  constructor(rootDB: IDBDatabase, name: string) {
+  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, name: string) {
     this.#rootDB = rootDB;
+    this.#container = `singleton:${name}`;
     this.#slot = `singleton:${name}:value`;
   }
 
-  set db(db: IDBObjectStore) {
+  set db(db: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> | undefined) {
     this.#_db = db;
   }
 
-  get db(): IDBObjectStore {
-    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').objectStore('data');
+  get db(): IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> {
+    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').store;
   }
 
   async get(): Promise<T | undefined> {
-    return await promisifyRequest(this.db.get(this.#slot));
+    const data = await this.db.get(this.#slot);
+    return data?.value as T;
   }
 
   async set(val: T): Promise<boolean> {
-    const result = await promisifyRequest(this.db.add({ slot: this.#slot, value: val }));
+    const result = await this.db.put({
+      container: this.#container,
+      slot: this.#slot,
+      key: this.#slot,
+      keyCount: 1,
+      value: val,
+    });
     return result !== undefined;
   }
 
   async delete(): Promise<boolean> {
-    await promisifyRequest(this.db.delete(this.#slot));
+    await this.db.delete(this.#slot);
     return true;
   }
 }

@@ -22,12 +22,12 @@ export async function createStore(
       : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
   return initStoreForRollup(
-    await AztecIndexedDBStore.open(dataDirectory ?? '', createDebugLogger('aztec:kv-store:indexeddb'), true),
+    await AztecIndexedDBStore.open(createDebugLogger('aztec:kv-store:indexeddb'), dataDirectory ?? '', true),
     config.l1Contracts.rollupAddress,
     log,
   );
 }
 
 export async function openTmpStore(ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
-  return AztecIndexedDBStore.open('', createDebugLogger('aztec:kv-store:indexeddb'), ephemeral);
+  return AztecIndexedDBStore.open(createDebugLogger('aztec:kv-store:indexeddb'), undefined, ephemeral);
 }

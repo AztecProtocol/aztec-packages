@@ -1,5 +1,7 @@
 import { type Logger } from '@aztec/foundation/log';
 
+import { DBSchema, IDBPDatabase, openDB } from 'idb';
+
 import { AztecArray } from '../interfaces/array.js';
 import { Key } from '../interfaces/common.js';
 import { AztecCounter } from '../interfaces/counter.js';
@@ -7,29 +9,37 @@ import { AztecMap, AztecMultiMap } from '../interfaces/map.js';
 import { AztecSet } from '../interfaces/set.js';
 import { AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecKVStore } from '../interfaces/store.js';
-import { type IndexedDBAztecArray } from './array.js';
+import { IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
 import { IndexedDBAztecSet } from './set.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
-import { promisifyRequest } from './utils.js';
+
+export type StoredData<V> = { value: V; container: string; key: string; keyCount: number; slot: string };
+
+export interface AztecIDBSchema extends DBSchema {
+  data: {
+    value: StoredData<any>;
+    key: string;
+    indexes: { container: string; key: string; keyCount: number };
+  };
+}
 
 /**
  * A key-value store backed by IndexedDB.
  */
 export class AztecIndexedDBStore implements AztecKVStore {
   #log: Logger;
-  #rootDB: IDBDatabase;
-  #data: IDBObjectStore;
+  #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
 
   #containers = new Set<
     IndexedDBAztecArray<any> | IndexedDBAztecMap<any, any> | IndexedDBAztecSet<any> | IndexedDBAztecSingleton<any>
   >();
 
-  constructor(rootDB: IDBDatabase, public readonly isEphemeral: boolean, log: Logger, name?: string) {
+  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
     this.#rootDB = rootDB;
     this.#log = log;
-    this.#name = name ?? 'tmp';
+    this.#name = name;
   }
 
   /**
@@ -42,30 +52,16 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @param log - A logger to use. Optional
    * @returns The store
    */
-  static async open(name: string, log: Logger, ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
-    log.debug(`Opening IndexedDB database with name ${name}`);
-    const request = window.indexedDB.open(name ?? 'tmp', 1);
-
-    const rootDB = await new Promise<IDBDatabase>((resolve, reject) => {
-      request.onupgradeneeded = event => {
-        const db = (event.target as any).result as IDBDatabase;
-
+  static async open(log: Logger, name?: string, ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
+    name = name && !ephemeral ? name : self.crypto.getRandomValues(new Uint8Array(16)).join('');
+    log.debug(`Opening IndexedDB ${ephemeral ? 'temp ' : ''}database with name ${name}`);
+    const rootDB = await openDB<AztecIDBSchema>(name, 1, {
+      upgrade(db) {
         const objectStore = db.createObjectStore('data', { keyPath: 'slot' });
 
-        objectStore.createIndex('key', 'key', { unique: false, multiEntry: true });
-        objectStore.createIndex('keyCount', 'keyCount', { unique: false });
-
-        objectStore.transaction.oncomplete = _ => {
-          log.debug('IndexedDB database created');
-        };
-      };
-      request.onsuccess = _ => {
-        resolve(request.result);
-      };
-      request.onerror = _ => {
-        log.error('IndexedDB request failed', request.error);
-        reject(request.error);
-      };
+        objectStore.createIndex('key', ['container', 'key'], { unique: false });
+        objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: false });
+      },
     });
 
     const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, log, name);
@@ -137,7 +133,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecArray
    */
   openArray<T>(name: string): AztecArray<T> {
-    throw new Error('Method not implemented.');
+    return new IndexedDBAztecArray(this.#rootDB, name);
   }
 
   /**
@@ -146,7 +142,7 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecSingleton
    */
   openSingleton<T>(name: string): AztecSingleton<T> {
-    throw new Error('Method not implemented.');
+    return new IndexedDBAztecSingleton(this.#rootDB, name);
   }
 
   /**
@@ -169,12 +165,12 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * Clears all entries in the store & sub DBs.
    */
   async clear() {
-    await promisifyRequest(this.#data.clear());
+    await this.#rootDB.transaction('data', 'readwrite').store.clear();
   }
 
   /** Deletes this store and removes the database */
   async delete() {
-    this.#rootDB.deleteObjectStore(this.#name);
+    this.#rootDB.deleteObjectStore('data');
   }
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

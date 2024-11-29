@@ -5,8 +5,8 @@ import { mockLogger } from './utils.js';
 describe('AztecIndexedDBStore', () => {
   describeAztecStore(
     'AztecStore',
-    async path => AztecIndexedDBStore.open(path, mockLogger, false),
-    async () => AztecIndexedDBStore.open('', mockLogger, false),
-    async () => AztecIndexedDBStore.open('', mockLogger, true),
+    async path => AztecIndexedDBStore.open(mockLogger, path, false),
+    async () => AztecIndexedDBStore.open(mockLogger, undefined, false),
+    async () => AztecIndexedDBStore.open(mockLogger, undefined, true),
   );
 });

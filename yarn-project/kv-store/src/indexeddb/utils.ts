@@ -1,14 +1,3 @@
-export async function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onerror = _ => {
-      reject(request.error);
-    };
-    request.onsuccess = _ => {
-      resolve(request.result);
-    };
-  });
-}
-
 export const mockLogger = {
   debug: (msg: string, data: any) => console.log(msg, data),
   info: (msg: string, data: any) => console.log(msg, data),

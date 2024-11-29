@@ -1,6 +1,9 @@
+import { IDBPDatabase, IDBPObjectStore } from 'idb';
+
 import { type Key, type Range } from '../interfaces/common.js';
 import { type AztecSet } from '../interfaces/set.js';
 import { IndexedDBAztecMap } from './map.js';
+import { AztecIDBSchema } from './store.js';
 
 /**
  * A set backed by IndexedDB.
@@ -8,11 +11,11 @@ import { IndexedDBAztecMap } from './map.js';
 export class IndexedDBAztecSet<K extends Key> implements AztecSet<K> {
   private map: IndexedDBAztecMap<K, boolean>;
 
-  constructor(rootDb: IDBDatabase, mapName: string) {
+  constructor(rootDb: IDBPDatabase<AztecIDBSchema>, mapName: string) {
     this.map = new IndexedDBAztecMap(rootDb, mapName);
   }
 
-  set db(db: IDBObjectStore) {
+  set db(db: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> | undefined) {
     this.map.db = db;
   }
 

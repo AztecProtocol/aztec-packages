@@ -787,6 +787,7 @@ __metadata:
     "@web/test-runner-playwright": ^0.11.0
     chai: ^5.1.2
     chai-as-promised: ^8.0.1
+    idb: ^8.0.0
     jest: ^29.5.0
     lmdb: ^3.0.6
     mocha: ^10.8.2
@@ -12056,6 +12057,13 @@ __metadata:
   dependencies:
     safer-buffer: ">= 2.1.2 < 3.0.0"
   checksum: 3f60d47a5c8fc3313317edfd29a00a692cc87a19cac0159e2ce711d0ebc9019064108323b5e493625e25594f11c6236647d8e256fbe7a58f4a3b33b89e6d30bf
+  languageName: node
+  linkType: hard
+
+"idb@npm:^8.0.0":
+  version: 8.0.0
+  resolution: "idb@npm:8.0.0"
+  checksum: a9c6176c176dc1a73520ae906d33fcda8a6f6068cf64027e196763d4ad70b088b7141650ed68f3604e0f0ccd1a123f6b8a435ba5e4514f42ada3460c23b6747a
   languageName: node
   linkType: hard
 

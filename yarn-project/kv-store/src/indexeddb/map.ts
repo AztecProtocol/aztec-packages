@@ -1,48 +1,68 @@
+import { reverse } from 'dns';
+import { IDBPDatabase, IDBPObjectStore } from 'idb';
+
 import { type Key, type Range } from '../interfaces/common.js';
 import { type AztecMultiMap } from '../interfaces/map.js';
-import { promisifyRequest } from './utils.js';
-
-type StoredData<V> = { value: V; key: string; keyCount: number; slot: string };
+import { AztecIDBSchema } from './store.js';
 
 /**
  * A map backed by IndexedDB.
  */
 export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
   protected name: string;
+  #container: string;
 
-  #_db?: IDBObjectStore;
-  #rootDB: IDBDatabase;
+  #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
+  #rootDB: IDBPDatabase<AztecIDBSchema>;
 
-  constructor(rootDB: IDBDatabase, mapName: string) {
+  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, mapName: string) {
     this.name = mapName;
+    this.#container = `map:${mapName}`;
     this.#rootDB = rootDB;
   }
 
-  set db(db: IDBObjectStore | undefined) {
+  set db(db: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> | undefined) {
     this.#_db = db;
   }
 
-  get db(): IDBObjectStore {
-    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').objectStore('data');
+  get db(): IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> {
+    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').store;
   }
 
   async get(key: K): Promise<V | undefined> {
-    const data = await promisifyRequest(this.db.get(this.#slot(key)));
-    return data?.value;
+    const data = await this.db.get(this.#slot(key));
+    return data?.value as V;
   }
 
   async *getValues(key: K): AsyncIterableIterator<V> {
-    throw new Error('Not implemented');
+    const index = this.db.index('keyCount');
+    const rangeQuery = IDBKeyRange.bound(
+      [this.#container, this.#normalizeKey(key), 0],
+      [this.#container, this.#normalizeKey(key), Number.MAX_SAFE_INTEGER],
+      false,
+      false,
+    );
+    for await (const cursor of index.iterate(rangeQuery)) {
+      yield cursor.value.value as V;
+    }
   }
 
   async has(key: K): Promise<boolean> {
-    return (await this.get(key)) !== undefined;
+    const result = (await this.get(key)) !== undefined;
+    return result;
   }
 
   async set(key: K, val: V): Promise<void> {
-    const count = await promisifyRequest(this.db.index('key').count(this.#normalizeKey(key)));
-    console.log('count', count);
-    await this.db.put({ value: val, key: this.#normalizeKey(key), keyCount: count, slot: this.#slot(key, count) });
+    const count = await this.db
+      .index('key')
+      .count(IDBKeyRange.bound([this.#container, this.#normalizeKey(key)], [this.#container, this.#normalizeKey(key)]));
+    await this.db.put({
+      value: val,
+      container: this.#container,
+      key: this.#normalizeKey(key),
+      keyCount: count + 1,
+      slot: this.#slot(key, count),
+    });
   }
 
   swap(key: K, fn: (val: V | undefined) => V): Promise<void> {
@@ -50,7 +70,7 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> 
   }
 
   async setIfNotExists(key: K, val: V): Promise<boolean> {
-    if (!this.has(key)) {
+    if (!(await this.has(key))) {
       await this.set(key, val);
       return true;
     }
@@ -58,19 +78,41 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> 
   }
 
   async delete(key: K): Promise<void> {
-    await promisifyRequest(this.db.delete(this.#slot(key)));
+    await this.db.delete(this.#slot(key));
   }
 
   async deleteValue(key: K, val: V): Promise<void> {
-    throw new Error('Method not implemented.');
-  }
-
-  async *#valueIterator(query: any, reverse: boolean = false, omitLast: boolean = false, limit?: number) {
-    throw new Error('Method not implemented.');
+    const index = this.db.index('keyCount');
+    const rangeQuery = IDBKeyRange.bound(
+      [this.#container, this.#normalizeKey(key), 0],
+      [this.#container, this.#normalizeKey(key), Number.MAX_SAFE_INTEGER],
+      false,
+      false,
+    );
+    for await (const cursor of index.iterate(rangeQuery)) {
+      if (JSON.stringify(cursor.value.value) === JSON.stringify(val)) {
+        await cursor.delete();
+        return;
+      }
+    }
   }
 
   async *entries(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
-    throw new Error('Method not implemented.');
+    const index = this.db.index('key');
+    const rangeQuery = IDBKeyRange.bound(
+      [this.#container, range.start ?? ''],
+      [this.#container, range.end ?? '\uffff'],
+      !!range.reverse,
+      !range.reverse,
+    );
+    let count = 0;
+    for await (const cursor of index.iterate(rangeQuery, range.reverse ? 'prev' : 'next')) {
+      if (range.limit && count >= range.limit) {
+        return;
+      }
+      yield [cursor.value.key, cursor.value.value] as [K, V];
+      count++;
+    }
   }
 
   async *values(range: Range<K> = {}): AsyncIterableIterator<V> {
@@ -90,9 +132,9 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecMultiMap<K, V> 
     return (denormalizedKey.length > 1 ? denormalizedKey : key) as K;
   }
 
-  #normalizeKey(key: K): K {
+  #normalizeKey(key: K): string {
     const arrayKey = Array.isArray(key) ? key : [key];
-    return arrayKey.join(',') as K;
+    return arrayKey.join(',');
   }
 
   #slot(key: K, index: number = 0): string {

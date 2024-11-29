@@ -1,54 +1,107 @@
 import JDB from '@nimiq/jungle-db';
+import { IDBPDatabase, IDBPObjectStore } from 'idb';
 
 import { type AztecArray } from '../interfaces/array.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
+import { AztecIDBSchema } from './store.js';
 
 /**
  * An persistent array backed by IndexedDB.
  */
 export class IndexedDBAztecArray<T> implements AztecArray<T> {
-  #_db!: IDBObjectStore;
-  #rootDB: IDBDatabase;
+  #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
+  #rootDB: IDBPDatabase<AztecIDBSchema>;
+  #container: string;
   #name: string;
-  #length: IndexedDBAztecSingleton<number>;
 
-  constructor(rootDB: IDBDatabase, arrName: string) {
-    this.#name = arrName;
-    this.#length = new IndexedDBAztecSingleton(rootDB, `${arrName}:meta:length`);
+  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, name: string) {
     this.#rootDB = rootDB;
+    this.#name = name;
+    this.#container = `array:${this.#name}`;
   }
 
-  set db(db: IDBObjectStore) {
+  set db(db: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> | undefined) {
     this.#_db = db;
-    this.#length.db = db;
   }
 
-  get db(): IDBObjectStore {
-    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').objectStore('data');
+  get db(): IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'> {
+    return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').store;
   }
 
   async length(): Promise<number> {
-    throw new Error('Not implemented');
+    return (
+      (await this.db
+        .index('key')
+        .count(IDBKeyRange.bound([this.#container, this.#name], [this.#container, this.#name]))) ?? 0
+    );
   }
 
   async push(...vals: T[]): Promise<number> {
-    throw new Error('Not implemented');
+    let length = await this.length();
+    for (const val of vals) {
+      await this.db.put({
+        value: val,
+        container: this.#container,
+        key: this.#name,
+        keyCount: length + 1,
+        slot: this.#slot(length),
+      });
+      length += 1;
+    }
+    return length;
   }
 
   async pop(): Promise<T | undefined> {
-    throw new Error('Not implemented');
+    const length = await this.length();
+    if (length === 0) {
+      return undefined;
+    }
+
+    const slot = this.#slot(length - 1);
+    const data = await this.db.get(slot);
+    await this.db.delete(slot);
+
+    return data?.value;
   }
 
-  at(index: number): Promise<T | undefined> {
-    throw new Error('Not implemented');
+  async at(index: number): Promise<T | undefined> {
+    const length = await this.length();
+
+    if (index < 0) {
+      index = length + index;
+    }
+
+    const data = await this.db.get(this.#slot(index));
+    return data?.value;
   }
 
-  setAt(index: number, val: T): Promise<boolean> {
-    throw new Error('Not implemented');
+  async setAt(index: number, val: T): Promise<boolean> {
+    const length = await this.length();
+
+    if (index < 0) {
+      index = length + index;
+    }
+
+    if (index < 0 || index >= length) {
+      return Promise.resolve(false);
+    }
+
+    await this.db.put({
+      value: val,
+      container: this.#container,
+      key: this.#name,
+      keyCount: index + 1,
+      slot: this.#slot(index),
+    });
+    return true;
   }
 
   async *entries(): AsyncIterableIterator<[number, T]> {
-    throw new Error('Not implemented');
+    const index = this.db.index('key');
+    const rangeQuery = IDBKeyRange.bound([this.#container, this.#name], [this.#container, this.#name]);
+    for await (const cursor of index.iterate(rangeQuery)) {
+      yield [cursor.value.keyCount - 1, cursor.value.value] as [number, T];
+    }
   }
 
   async *values(): AsyncIterableIterator<T> {
@@ -59,10 +112,6 @@ export class IndexedDBAztecArray<T> implements AztecArray<T> {
 
   [Symbol.asyncIterator](): AsyncIterableIterator<T> {
     return this.values();
-  }
-
-  #indexName(): string {
-    return `array:${this.#name}:index`;
   }
 
   #slot(index: number): string {
