@@ -23,7 +23,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 const {

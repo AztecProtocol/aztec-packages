@@ -45,7 +45,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 import { encode } from '@msgpack/msgpack';
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 import {

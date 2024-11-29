@@ -2,7 +2,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
 
 import { Command } from 'commander';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 import { generateContractForCircuit, generateKeyForNoirCircuit } from './execute.js';
 

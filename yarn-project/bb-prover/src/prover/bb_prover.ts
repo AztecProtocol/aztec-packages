@@ -76,7 +76,7 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 import crypto from 'crypto';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import {
