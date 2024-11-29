@@ -59,8 +59,6 @@ export async function executePrivateFunction(
     appCircuitName: functionName,
   } satisfies CircuitWitnessGenerationStats);
 
-  const noteEncryptedLogs = context.getNoteEncryptedLogs();
-  const encryptedLogs = context.getEncryptedLogs();
   const contractClassLogs = context.getContractClassLogs();
 
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
@@ -86,8 +84,6 @@ export async function executePrivateFunction(
     nestedExecutions,
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
-    noteEncryptedLogs,
-    encryptedLogs,
     contractClassLogs,
   );
 }

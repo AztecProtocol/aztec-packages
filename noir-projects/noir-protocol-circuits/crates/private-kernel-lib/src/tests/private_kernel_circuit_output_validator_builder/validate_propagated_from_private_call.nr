@@ -307,63 +307,39 @@ fn validate_propagated_from_private_call_l2_to_l1_msgs_output_one_more_fails() {
 }
 
 /**
- * note_encrypted_log_hashes
+ * private_logs
  */
 #[test]
-fn validate_propagated_from_private_call_note_encrypted_log_hashes_succeeds() {
+fn validate_propagated_from_private_call_private_logs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_note_encrypted_log_hashes(2);
-    builder.output.append_note_encrypted_log_hashes(2);
+    builder.private_call.append_private_logs(2);
+    builder.output.append_private_logs(2);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_encrypted_log_hashes_output_one_more_fails() {
+fn validate_propagated_from_private_call_private_logs_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_note_encrypted_log_hashes(2);
+    builder.private_call.append_private_logs(2);
     // Propagate 1 more item to the output.
-    builder.output.append_note_encrypted_log_hashes(3);
+    builder.output.append_private_logs(3);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with = "number of total items exceeds limit")]
-fn validate_propagated_from_private_call_note_encrypted_log_hashes_with_previous_output_exceeds_max_fails() {
+fn validate_propagated_from_private_call_private_logs_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     // Make the previous array to be full, therefore no more items can be added.
-    let max_len = builder.previous_kernel.note_encrypted_logs_hashes.max_len();
-    builder.previous_kernel.append_note_encrypted_log_hashes(max_len);
-    builder.output.append_note_encrypted_log_hashes(max_len);
+    let max_len = builder.previous_kernel.private_logs.max_len();
+    builder.previous_kernel.append_private_logs(max_len);
+    builder.output.append_private_logs(max_len);
     // Add 1 item to the current call.
-    builder.private_call.append_note_encrypted_log_hashes(1);
-
-    builder.validate_as_inner_call();
-}
-
-/**
- * encrypted_log_hashes
- */
-#[test]
-fn validate_propagated_from_private_call_encrypted_log_hashes_succeeds() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.private_call.append_encrypted_log_hashes(2);
-    builder.output.append_encrypted_log_hashes(2);
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_encrypted_log_hashes_output_one_more_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.private_call.append_encrypted_log_hashes(2);
-    // Propagate 1 more item to the output.
-    builder.output.append_encrypted_log_hashes(3);
+    builder.private_call.append_private_logs(1);
 
     builder.validate_as_inner_call();
 }
