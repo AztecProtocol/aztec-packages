@@ -87,11 +87,26 @@ else
     PROVER_BROKER_ADDR="http://${SERVICE_NAME}-prover-broker.${NAMESPACE}:${PROVER_BROKER_PORT}"
 fi
 
+# Configure OTEL_COLLECTOR_ENDPOINT if not set in values file
+if [ "${OTEL_COLLECTOR_ENDPOINT}" != "" ]; then
+    OTEL_COLLECTOR_PORT=${OTEL_COLLECTOR_PORT:-4318}
+    if [ "${OTEL_COLLECTOR_EXTERNAL_HOST}" != "" ]; then
+        OTEL_COLLECTOR_ENDPOINT="${OTEL_COLLECTOR_EXTERNAL_HOST}"
+    elif [ "${NETWORK_PUBLIC}" = "true" ]; then
+        OTEL_COLLECTOR_ENDPOINT=$(NAMESPACE=metrics get_service_address "metrics-opentelemetry-collector" $OTEL_COLLECTOR_PORT)
+    else
+        OTEL_COLLECTOR_ENDPOINT="http://metrics-opentelemetry-collector.metrics:$OTEL_COLLECTOR_PORT"
+    fi
+fi
 
 # Write addresses to file for sourcing
 echo "export ETHEREUM_HOST=${ETHEREUM_ADDR}" >> /shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >> /shared/config/service-addresses
+echo "export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/logs" >> /shared/config/service-addresses
+echo "export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/metrics" >> /shared/config/service-addresses
+echo "export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/traces" >> /shared/config/service-addresses
+
 echo "Addresses configured:"
 cat /shared/config/service-addresses

@@ -57,7 +57,6 @@ spec:
               done
               echo "Broker is ready!"
               {{- if .Values.telemetry.enabled }}
-              OTEL_COLLECTOR="{{ include "aztec-network.otelCollectorMetricsEndpoint" . }}"
               until curl --head --silent $OTEL_COLLECTOR > /dev/null; do
                 echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR..."
                 sleep 5
@@ -99,12 +98,6 @@ spec:
               value: {{ join "," .Values.proverAgent.proofTypes | quote }}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}
