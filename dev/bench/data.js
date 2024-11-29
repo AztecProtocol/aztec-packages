@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732900916629,
+  "lastUpdate": 1732912395465,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e74cd09a8b65c3903c91197d599e722518ab315",
-          "message": "feat: IPA Accumulator in Builder (#9846)\n\nAdds IPA claim to builder, pk, vk, so that the verifier knows where to\r\nlook to extract the IPA claim from. Modifies the UltraRecursiveVerifier\r\nto extract out the IPA claim from the public inputs and return it.\r\n\r\nAlso modifies native verifier to check the IPA claim and proof.",
-          "timestamp": "2024-11-19T05:21:43Z",
-          "tree_id": "e7f5c30fb7982b0176e56d3af079d2894c4638dd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8e74cd09a8b65c3903c91197d599e722518ab315"
-        },
-        "date": 1731995201827,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28695.85884200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26850.989653000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5329.152937999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4984.073034 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85104.049495,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85104050000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15234.621532999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15234621000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3122458267,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3122458267 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142403142,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142403142 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2974,6 +2914,66 @@ window.BENCHMARK_DATA = {
             "value": 133489523,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133489523 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "887c01103255ea4cbbb6cb33c8771d47123b3bff",
+          "message": "fix: Revert \"feat: Avoid inserting an empty leaf in indexed trees on update\" (#10319)\n\nBroke kind tests. Reverts AztecProtocol/aztec-packages#10281",
+          "timestamp": "2024-11-29T14:49:44-05:00",
+          "tree_id": "78051fac3fcc61be957804da1d2efd108f6cc97a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/887c01103255ea4cbbb6cb33c8771d47123b3bff"
+        },
+        "date": 1732912388360,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 27083.93215999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 25000.168543999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4583.430852999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4313.663856 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92685.02027400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92685021000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16496.052567,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16496053000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3032242338,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3032242338 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133738848,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133738848 ns\nthreads: 1"
           }
         ]
       }
