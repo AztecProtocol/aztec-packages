@@ -66,8 +66,8 @@ bootstrap:
     FROM ./build-images+ci-registry
     WORKDIR /usr/src
     ARG EARTHLY_GIT_HASH
-    RUN git init
-    RUN git remote add origin https://github.com/aztecprotocol/aztec-packages
-    RUN git fetch --depth 1 origin $EARTHLY_GIT_HASH
-    RUN git checkout FETCH_HEAD
+    RUN git init 2>/dev/null
+    RUN git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null
+    RUN git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null
+    RUN git checkout FETCH_HEAD 2>/dev/null
     RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY CI=1 TEST=0 ./bootstrap.sh fast
