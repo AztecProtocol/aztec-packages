@@ -91,6 +91,13 @@ function build_native {
     (cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
     $ci3/github/endgroup
 
+    if [ ! -d ./srs_db/grumpkin ]; then
+      # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
+      # If tests require more points, the parameter can be increased here. Note: IPA requires
+      # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
+      cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
+    fi
+
     (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
     $ci3/cache/upload_flag barretenberg-test-$HASH
   fi
@@ -117,10 +124,4 @@ export -f build_native build_wasm build_wasm_threads
 
 parallel --line-buffered -v --tag --memfree 8g $ci3/base/denoise {} ::: build_native build_wasm build_wasm_threads
 
-if [ ! -d ./srs_db/grumpkin ]; then
-  # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
-  # If tests require more points, the parameter can be increased here. Note: IPA requires
-  # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
-  cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
-fi
 $ci3/github/endgroup
