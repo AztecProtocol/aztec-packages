@@ -59,7 +59,8 @@ async function generateVkForFunction(functionArtifact, outputFolder) {
 }
 
 async function main() {
-  let [artifactPath, tempFolder] = process.argv.slice(2);
+  let [artifactPath, tempFolderRoot] = process.argv.slice(2);
+  let tempFolder = await fs.mkdtemp(`${tempFolderRoot}/`);
   const artifact = JSON.parse(await fs.readFile(artifactPath, "utf8"));
   const barretenbergHash = await getBarretenbergHash();
   for (const functionArtifact of artifact.functions.filter(
@@ -88,6 +89,7 @@ async function main() {
   }
 
   await fs.writeFile(artifactPath, JSON.stringify(artifact, null, 2));
+  await fs.rm(tempFolder, { recursive: true, force: true });
 }
 
 main().catch((err) => {

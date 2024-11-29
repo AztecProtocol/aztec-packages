@@ -3,7 +3,7 @@
 set -eu
 
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>"
+  echo "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>" >&2
   exit 1
 fi
 
@@ -30,5 +30,10 @@ trap on_exit EXIT
 # Rest of args are our binary paths
 tar -czf "$TAR_FILE" $@
 
+<<<<<<< HEAD
 aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" --quiet --no-progress || true
 echo "Cache upload of $NAME complete."
+=======
+aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" >&2
+echo "Cache upload of $NAME complete." >&2
+>>>>>>> origin/cl/ci3
