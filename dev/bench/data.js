@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732888876545,
+  "lastUpdate": 1732889939069,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "37d7cd784bc6dfe366d1eabc2b7be8cca4359f7b",
-          "message": "feat: split up eccvm proof into two proofs (#9914)\n\nSplits the IPA proof from the rest of the ECCVM proof.\r\n\r\nWe want the IPA proof to be separate from the rest of the ECCVM proof so\r\nwe don't have to run IPA accumulation in the tube and base rollup\r\ncircuits.",
-          "timestamp": "2024-11-14T17:40:27Z",
-          "tree_id": "1fdc1dc6b32ee8e4032cf419348e57dd4d8447b8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/37d7cd784bc6dfe366d1eabc2b7be8cca4359f7b"
-        },
-        "date": 1731609029749,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28836.814621,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27081.803125000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5359.435134999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4922.5056079999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84297.451539,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84297452000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15125.039399,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15125041000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3115200669,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3115200669 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143619617,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143619617 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2974,6 +2914,66 @@ window.BENCHMARK_DATA = {
             "value": 134229535,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134229535 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ba335bdff645398d20241ce7baab02f63b20f55c",
+          "message": "chore: Parallelise construction of perturbator coefficients at each level (#10304)\n\nWhen constructing the perturbator via the tree technique we can\r\nparallelise the construction of the coefficients at each level which is\r\none of the culprits of performance degrading when using an ambient trace\r\nof size 2^20. We see a ~1s improvement in performance doing this.\r\n\r\n2^20 trace (`EXAMPLE_20`) in master for `ClientIVCBench/Full/6` was\r\n`38114 ms` and is now `37310 ms`. For the defacto\r\n`CLIENT_IVC_BENCH_STRUCTURE` which gives 2^19 finalised circuits we go\r\nfrom `29496ms` to `29188 ms` so not as impactful but also the\r\nperformance doesn't degrade.\r\n\r\nI have also benchmarked the actual computation of coefficients and it is\r\nneglegible regardless of the ambient trace size (2^20 vs 2^19) .",
+          "timestamp": "2024-11-29T13:31:09Z",
+          "tree_id": "1610bbe9ced2c2d5867cb228187bec0aefc3960f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ba335bdff645398d20241ce7baab02f63b20f55c"
+        },
+        "date": 1732889932004,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28024.471804,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26021.440359 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4687.344296999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4385.659062000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 95384.399199,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 95384400000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16740.872949,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16740873000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3091390860,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3091390860 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136304615,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136304615 ns\nthreads: 1"
           }
         ]
       }
