@@ -13,7 +13,6 @@
 namespace acir_format {
 
 using namespace bb;
-using field_ct = stdlib::field_t<Builder>;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
@@ -22,29 +21,13 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
     for (const auto& constraint : constraints) {
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
             ASSERT(constraint.public_inputs.size() == 0); // Apps are assumed to have no public inputs
-            mock_ivc_oink_accumulation(ivc);
+            mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK);
         } else if (static_cast<uint32_t>(PROOF_TYPE::PG) == constraint.proof_type) {
-            mock_ivc_pg_accumulation(ivc);
+            mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG);
         }
     }
 
     return ivc;
-}
-
-/**
- * @brief Populate an IVC instance with data that mimics the state after accumulating the first app (which runs the oink
- * prover)
- * @details Mock state consists a mock verification queue entry of type OINK (proof, VK) and a mocked merge proof
- *
- * @param ivc
- * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
- */
-void mock_ivc_oink_accumulation(ClientIVC& ivc)
-{
-    ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings);
-    ivc.verification_queue.emplace_back(oink_entry);
-    ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
-    ivc.initialized = true;
 }
 
 /**
@@ -54,9 +37,9 @@ void mock_ivc_oink_accumulation(ClientIVC& ivc)
  * @param ivc
  * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
  */
-void mock_ivc_pg_accumulation(ClientIVC& ivc)
+void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type)
 {
-    ClientIVC::VerifierInputs entry = acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings);
+    ClientIVC::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, ivc.trace_settings);
     ivc.verification_queue.emplace_back(entry);
     ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc.initialized = true;
@@ -66,7 +49,8 @@ void mock_ivc_pg_accumulation(ClientIVC& ivc)
  * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
  *
  */
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings)
+ClientIVC::VerifierInputs create_mock_verification_queue_entry(ClientIVC::QUEUE_TYPE type,
+                                                               const TraceSettings& trace_settings)
 {
     MegaExecutionTraceBlocks blocks;
     blocks.set_fixed_block_sizes(trace_settings);
@@ -77,7 +61,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& 
 
     ClientIVC::VerifierInputs verifier_inputs{};
 
-    verifier_inputs.type = ClientIVC::QUEUE_TYPE::OINK;
+    verifier_inputs.type = type;
     verifier_inputs.proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
     verifier_inputs.honk_verification_key = create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
 
@@ -114,6 +98,25 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
             proof.emplace_back(val);
         }
     }
+
+    return proof;
+}
+
+/**
+ * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
+ *
+ */
+std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
+                                                const size_t num_public_inputs,
+                                                const size_t pub_inputs_offset)
+{
+    // using Flavor = ClientIVC::Flavor;
+    using FF = ClientIVC::FF;
+
+    // WORKTODO: num pub inputs depends on app vs kernel; kernel has +16 from DB
+    std::vector<FF> proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+
+    // WORKTODO: mock pg stuff here
 
     return proof;
 }

@@ -192,7 +192,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     {
         ClientIVC ivc{ trace_settings };
 
-        acir_format::mock_ivc_oink_accumulation(ivc);
+        acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK);
 
         // Construct kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue);
@@ -240,7 +240,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
         ClientIVC ivc{ trace_settings };
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_ivc_oink_accumulation(ivc);
+        acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK);
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue);
         program.witness = {}; // erase witness to mimic VK construction context
 
