@@ -47,25 +47,23 @@ export class MessageStore {
    * @returns True if the operation is successful.
    */
   async addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
-    return await this.db.transaction(async () => {
-      const lastL1BlockNumber = (await this.#lastSynchedL1Block.get()) ?? 0n;
-      if (lastL1BlockNumber >= messages.lastProcessedL1BlockNumber) {
-        return false;
-      }
+    const lastL1BlockNumber = (await this.#lastSynchedL1Block.get()) ?? 0n;
+    if (lastL1BlockNumber >= messages.lastProcessedL1BlockNumber) {
+      return false;
+    }
 
-      void this.#lastSynchedL1Block.set(messages.lastProcessedL1BlockNumber);
+    await this.#lastSynchedL1Block.set(messages.lastProcessedL1BlockNumber);
 
-      for (const message of messages.retrievedData) {
-        const key = `${message.index}`;
-        void this.#l1ToL2Messages.set(key, message.leaf.toBuffer());
-        void this.#l1ToL2MessageIndices.set(message.leaf.toString(), message.index);
-      }
+    for (const message of messages.retrievedData) {
+      const key = `${message.index}`;
+      await this.#l1ToL2Messages.set(key, message.leaf.toBuffer());
+      await this.#l1ToL2MessageIndices.set(message.leaf.toString(), message.index);
+    }
 
-      const lastTotalMessageCount = await this.getTotalL1ToL2MessageCount();
-      void this.#totalMessageCount.set(lastTotalMessageCount + BigInt(messages.retrievedData.length));
+    const lastTotalMessageCount = await this.getTotalL1ToL2MessageCount();
+    await this.#totalMessageCount.set(lastTotalMessageCount + BigInt(messages.retrievedData.length));
 
-      return true;
-    });
+    return true;
   }
 
   /**

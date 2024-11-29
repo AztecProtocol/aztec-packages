@@ -62,31 +62,30 @@ export class ContractClassStore {
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
     newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    await this.db.transaction(async () => {
-      const existingClassBuffer = await this.#contractClasses.get(contractClassId.toString());
-      if (!existingClassBuffer) {
-        throw new Error(`Unknown contract class ${contractClassId} when adding private functions to store`);
-      }
+    const existingClassBuffer = await this.#contractClasses.get(contractClassId.toString());
+    if (!existingClassBuffer) {
+      throw new Error(`Unknown contract class ${contractClassId} when adding private functions to store`);
+    }
 
-      const existingClass = deserializeContractClassPublic(existingClassBuffer);
-      const { privateFunctions: existingPrivateFns, unconstrainedFunctions: existingUnconstrainedFns } = existingClass;
+    const existingClass = deserializeContractClassPublic(existingClassBuffer);
+    const { privateFunctions: existingPrivateFns, unconstrainedFunctions: existingUnconstrainedFns } = existingClass;
 
-      const updatedClass: Omit<ContractClassPublicWithBlockNumber, 'id'> = {
-        ...existingClass,
-        privateFunctions: [
-          ...existingPrivateFns,
-          ...newPrivateFunctions.filter(newFn => !existingPrivateFns.some(f => f.selector.equals(newFn.selector))),
-        ],
-        unconstrainedFunctions: [
-          ...existingUnconstrainedFns,
-          ...newUnconstrainedFunctions.filter(
-            newFn => !existingUnconstrainedFns.some(f => f.selector.equals(newFn.selector)),
-          ),
-        ],
-      };
-      void this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
-    });
-    return Promise.resolve(true);
+    const updatedClass: Omit<ContractClassPublicWithBlockNumber, 'id'> = {
+      ...existingClass,
+      privateFunctions: [
+        ...existingPrivateFns,
+        ...newPrivateFunctions.filter(newFn => !existingPrivateFns.some(f => f.selector.equals(newFn.selector))),
+      ],
+      unconstrainedFunctions: [
+        ...existingUnconstrainedFns,
+        ...newUnconstrainedFunctions.filter(
+          newFn => !existingUnconstrainedFns.some(f => f.selector.equals(newFn.selector)),
+        ),
+      ],
+    };
+    await this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
+
+    return true;
   }
 }
 

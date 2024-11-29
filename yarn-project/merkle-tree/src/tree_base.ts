@@ -145,19 +145,17 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * Commits the changes to the database.
    * @returns Empty promise.
    */
-  public commit(): Promise<void> {
-    return this.store.transaction(() => {
-      const keys = Object.getOwnPropertyNames(this.cache);
-      for (const key of keys) {
-        void this.nodes.set(key, this.cache[key]);
-      }
-      this.size = this.getNumLeaves(true);
-      this.root = this.getRoot(true);
+  public async commit(): Promise<void> {
+    const keys = Object.getOwnPropertyNames(this.cache);
+    for (const key of keys) {
+      await this.nodes.set(key, this.cache[key]);
+    }
+    this.size = this.getNumLeaves(true);
+    this.root = this.getRoot(true);
 
-      this.clearCache();
+    this.clearCache();
 
-      void this.writeMeta();
-    });
+    await this.writeMeta();
   }
 
   /**

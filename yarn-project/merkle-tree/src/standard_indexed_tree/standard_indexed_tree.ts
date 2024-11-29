@@ -288,17 +288,15 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
   /**
    * Commits all the leaves to the database and removes them from a cache.
    */
-  private commitLeaves(): Promise<void> {
-    return this.store.transaction(() => {
-      const keys = Object.getOwnPropertyNames(this.cachedLeafPreimages);
-      for (const key of keys) {
-        const leaf = this.cachedLeafPreimages[key];
-        const index = BigInt(key);
-        void this.leaves.set(buildDbKeyForPreimage(this.getName(), index), leaf.toBuffer());
-        void this.leafIndex.set(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()), index);
-      }
-      this.clearCachedLeaves();
-    });
+  private async commitLeaves(): Promise<void> {
+    const keys = Object.getOwnPropertyNames(this.cachedLeafPreimages);
+    for (const key of keys) {
+      const leaf = this.cachedLeafPreimages[key];
+      const index = BigInt(key);
+      await this.leaves.set(buildDbKeyForPreimage(this.getName(), index), leaf.toBuffer());
+      await this.leafIndex.set(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()), index);
+    }
+    this.clearCachedLeaves();
   }
 
   /**

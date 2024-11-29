@@ -43,62 +43,57 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
   }
 
   async snapshot(block: number): Promise<S> {
-    return await this.db.transaction(async () => {
-      const snapshotMetadata = await this.#getSnapshotMeta(block);
+    const snapshotMetadata = await this.#getSnapshotMeta(block);
 
-      if (snapshotMetadata) {
-        return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
+    if (snapshotMetadata) {
+      return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
+    }
+
+    const root = this.tree.getRoot(false);
+    const numLeaves = this.tree.getNumLeaves(false);
+    const depth = this.tree.getDepth();
+    const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
+
+    // walk the tree breadth-first and store each of its nodes in the database
+    // for each node we save two keys
+    //   <node hash>:0 -> <left child's hash>
+    //   <node hash>:1 -> <right child's hash>
+    while (queue.length > 0) {
+      const [node, level, i] = queue.shift()!;
+      const nodeKey = node.toString('hex');
+      // check if the database already has a child for this tree
+      // if it does, then we know we've seen the whole subtree below it before
+      // and we don't have to traverse it anymore
+      // we use the left child here, but it could be anything that shows we've stored the node before
+      if (await this.nodes.has(nodeKey)) {
+        continue;
       }
 
-      const root = this.tree.getRoot(false);
-      const numLeaves = this.tree.getNumLeaves(false);
-      const depth = this.tree.getDepth();
-      const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
-
-      // walk the tree breadth-first and store each of its nodes in the database
-      // for each node we save two keys
-      //   <node hash>:0 -> <left child's hash>
-      //   <node hash>:1 -> <right child's hash>
-      while (queue.length > 0) {
-        const [node, level, i] = queue.shift()!;
-        const nodeKey = node.toString('hex');
-        // check if the database already has a child for this tree
-        // if it does, then we know we've seen the whole subtree below it before
-        // and we don't have to traverse it anymore
-        // we use the left child here, but it could be anything that shows we've stored the node before
-        if (await this.nodes.has(nodeKey)) {
-          continue;
-        }
-
-        if (level + 1 > depth) {
-          // short circuit if we've reached the leaf level
-          // otherwise getNode might throw if we ask for the children of a leaf
-          this.handleLeaf(i, node);
-          continue;
-        }
-
-        const [lhs, rhs] = [
-          await this.tree.getNode(level + 1, 2n * i),
-          await this.tree.getNode(level + 1, 2n * i + 1n),
-        ];
-
-        // we want the zero hash at the children's level, not the node's level
-        const zeroHash = this.tree.getZeroHash(level + 1);
-
-        void this.nodes.set(nodeKey, [lhs ?? zeroHash, rhs ?? zeroHash]);
-        // enqueue the children only if they're not zero hashes
-        if (lhs) {
-          queue.push([lhs, level + 1, 2n * i]);
-        }
-
-        if (rhs) {
-          queue.push([rhs, level + 1, 2n * i + 1n]);
-        }
+      if (level + 1 > depth) {
+        // short circuit if we've reached the leaf level
+        // otherwise getNode might throw if we ask for the children of a leaf
+        this.handleLeaf(i, node);
+        continue;
       }
 
-      void this.snapshotMetadata.set(block, { root, numLeaves });
-      return this.openSnapshot(root, numLeaves);
-    });
+      const [lhs, rhs] = [await this.tree.getNode(level + 1, 2n * i), await this.tree.getNode(level + 1, 2n * i + 1n)];
+
+      // we want the zero hash at the children's level, not the node's level
+      const zeroHash = this.tree.getZeroHash(level + 1);
+
+      await this.nodes.set(nodeKey, [lhs ?? zeroHash, rhs ?? zeroHash]);
+      // enqueue the children only if they're not zero hashes
+      if (lhs) {
+        queue.push([lhs, level + 1, 2n * i]);
+      }
+
+      if (rhs) {
+        queue.push([rhs, level + 1, 2n * i + 1n]);
+      }
+    }
+
+    void this.snapshotMetadata.set(block, { root, numLeaves });
+    return this.openSnapshot(root, numLeaves);
   }
 
   protected handleLeaf(_index: bigint, _node: Buffer): void {}
@@ -107,10 +102,10 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
     const snapshotMetadata = await this.#getSnapshotMeta(version);
 
     if (!snapshotMetadata) {
-      return Promise.reject(new Error(`Version ${version} does not exist for tree ${this.tree.getName()}`));
+      throw new Error(`Version ${version} does not exist for tree ${this.tree.getName()}`);
     }
 
-    return Promise.resolve(this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves));
+    return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
   }
 
   protected abstract openSnapshot(root: Buffer, numLeaves: bigint): S;

@@ -126,10 +126,10 @@ export class KVPxeDatabase implements PxeDatabase {
   public static async create(db: AztecKVStore): Promise<KVPxeDatabase> {
     const pxeDB = new KVPxeDatabase(db);
     for await (const scope of pxeDB.#scopes.entries()) {
-      pxeDB.#notesByContractAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_contract`));
-      pxeDB.#notesByStorageSlotAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_storage_slot`));
-      pxeDB.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
-      pxeDB.#notesByAddressPointAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_address_point`));
+      await pxeDB.#notesByContractAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_contract`));
+      await pxeDB.#notesByStorageSlotAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_storage_slot`));
+      await pxeDB.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
+      await pxeDB.#notesByAddressPointAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_address_point`));
     }
     return pxeDB;
   }
@@ -215,68 +215,72 @@ export class KVPxeDatabase implements PxeDatabase {
     outgoingNotes: OutgoingNoteDao[],
     scope: AztecAddress = AztecAddress.ZERO,
   ): Promise<void> {
-    if (!this.#scopes.has(scope.toString())) {
+    if (!(await this.#scopes.has(scope.toString()))) {
       await this.#addScope(scope);
     }
 
-    return this.db.transaction(() => {
-      for (const dao of incomingNotes) {
-        // store notes by their index in the notes hash tree
-        // this provides the uniqueness we need to store individual notes
-        // and should also return notes in the order that they were created.
-        // Had we stored them by their nullifier, they would be returned in random order
-        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
-        void this.#notes.set(noteIndex, dao.toBuffer());
-        void this.#notesToScope.set(noteIndex, scope.toString());
-        void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
+    for (const dao of incomingNotes) {
+      // store notes by their index in the notes hash tree
+      // this provides the uniqueness we need to store individual notes
+      // and should also return notes in the order that they were created.
+      // Had we stored them by their nullifier, they would be returned in random order
+      const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+      await this.#notes.set(noteIndex, dao.toBuffer());
+      await this.#notesToScope.set(noteIndex, scope.toString());
+      await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        void this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
-        void this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
-        void this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
-        void this.#notesByAddressPointAndScope.get(scope.toString())!.set(dao.addressPoint.toString(), noteIndex);
-      }
+      const notesByContract = await this.#notesByContractAndScope.get(scope.toString())!;
+      await notesByContract.set(dao.contractAddress.toString(), noteIndex);
+      const notesByStorageSlot = await this.#notesByStorageSlotAndScope.get(scope.toString())!;
+      await notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
+      const notesByTxHash = await this.#notesByTxHashAndScope.get(scope.toString())!;
+      await notesByTxHash.set(dao.txHash.toString(), noteIndex);
+      const notesByAddressPoint = await this.#notesByAddressPointAndScope.get(scope.toString())!;
+      await notesByAddressPoint.set(dao.addressPoint.toString(), noteIndex);
+    }
 
-      for (const dao of outgoingNotes) {
-        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
-        void this.#outgoingNotes.set(noteIndex, dao.toBuffer());
-        void this.#outgoingNotesByContract.set(dao.contractAddress.toString(), noteIndex);
-        void this.#outgoingNotesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
-        void this.#outgoingNotesByTxHash.set(dao.txHash.toString(), noteIndex);
-        void this.#outgoingNotesByOvpkM.set(dao.ovpkM.toString(), noteIndex);
-      }
-    });
+    for (const dao of outgoingNotes) {
+      const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+      await this.#outgoingNotes.set(noteIndex, dao.toBuffer());
+      await this.#outgoingNotesByContract.set(dao.contractAddress.toString(), noteIndex);
+      await this.#outgoingNotesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
+      await this.#outgoingNotesByTxHash.set(dao.txHash.toString(), noteIndex);
+      await this.#outgoingNotesByOvpkM.set(dao.ovpkM.toString(), noteIndex);
+    }
   }
 
   public async removeNotesAfter(blockNumber: number): Promise<void> {
-    return this.db.transaction(async () => {
-      for await (const note of this.#notes.values()) {
-        const noteDao = IncomingNoteDao.fromBuffer(note);
-        if (noteDao.l2BlockNumber > blockNumber) {
-          const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
-          void this.#notes.delete(noteIndex);
-          void this.#notesToScope.delete(noteIndex);
-          void this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
-          for await (const scope of this.#scopes.entries()) {
-            void this.#notesByAddressPointAndScope.get(scope)!.deleteValue(noteDao.addressPoint.toString(), noteIndex);
-            void this.#notesByTxHashAndScope.get(scope)!.deleteValue(noteDao.txHash.toString(), noteIndex);
-            void this.#notesByContractAndScope.get(scope)!.deleteValue(noteDao.contractAddress.toString(), noteIndex);
-            void this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(noteDao.storageSlot.toString(), noteIndex);
-          }
+    for await (const note of this.#notes.values()) {
+      const noteDao = IncomingNoteDao.fromBuffer(note);
+      if (noteDao.l2BlockNumber > blockNumber) {
+        const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
+        await this.#notes.delete(noteIndex);
+        await this.#notesToScope.delete(noteIndex);
+        await this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
+        for await (const scope of this.#scopes.entries()) {
+          const notesByAddressPoint = await this.#notesByAddressPointAndScope.get(scope)!;
+          await notesByAddressPoint.deleteValue(noteDao.addressPoint.toString(), noteIndex);
+          const notesByTxHash = await this.#notesByTxHashAndScope.get(scope)!;
+          await notesByTxHash.deleteValue(noteDao.txHash.toString(), noteIndex);
+          const notesByContract = await this.#notesByContractAndScope.get(scope)!;
+          await notesByContract.deleteValue(noteDao.contractAddress.toString(), noteIndex);
+          const notesByStorageSlot = await this.#notesByStorageSlotAndScope.get(scope)!;
+          await notesByStorageSlot.deleteValue(noteDao.storageSlot.toString(), noteIndex);
         }
       }
+    }
 
-      for await (const note of this.#outgoingNotes.values()) {
-        const noteDao = OutgoingNoteDao.fromBuffer(note);
-        if (noteDao.l2BlockNumber > blockNumber) {
-          const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
-          void this.#outgoingNotes.delete(noteIndex);
-          void this.#outgoingNotesByContract.deleteValue(noteDao.contractAddress.toString(), noteIndex);
-          void this.#outgoingNotesByStorageSlot.deleteValue(noteDao.storageSlot.toString(), noteIndex);
-          void this.#outgoingNotesByTxHash.deleteValue(noteDao.txHash.toString(), noteIndex);
-          void this.#outgoingNotesByOvpkM.deleteValue(noteDao.ovpkM.toString(), noteIndex);
-        }
+    for await (const note of this.#outgoingNotes.values()) {
+      const noteDao = OutgoingNoteDao.fromBuffer(note);
+      if (noteDao.l2BlockNumber > blockNumber) {
+        const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
+        await this.#outgoingNotes.delete(noteIndex);
+        await this.#outgoingNotesByContract.deleteValue(noteDao.contractAddress.toString(), noteIndex);
+        await this.#outgoingNotesByStorageSlot.deleteValue(noteDao.storageSlot.toString(), noteIndex);
+        await this.#outgoingNotesByTxHash.deleteValue(noteDao.txHash.toString(), noteIndex);
+        await this.#outgoingNotesByOvpkM.deleteValue(noteDao.ovpkM.toString(), noteIndex);
       }
-    });
+    }
   }
 
   public async unnullifyNotesAfter(blockNumber: number): Promise<void> {
@@ -287,48 +291,49 @@ export class KVPxeDatabase implements PxeDatabase {
       nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValues(i))));
     }
 
-    const notesIndexesToReinsert = await this.db.transaction(async () =>
-      Promise.all(nullifiersToUndo.map(async nullifier => await this.#nullifiedNotesByNullifier.get(nullifier))),
+    const notesIndexesToReinsert = await Promise.all(
+      nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.get(nullifier)),
     );
-    const nullifiedNoteBuffers = await this.db.transaction(async () => {
-      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
-
-      return await Promise.all(notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.get(noteIndex!)));
-    });
+    const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
+    const nullifiedNoteBuffers = await Promise.all(
+      notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.get(noteIndex!)),
+    );
     const noteDaos = nullifiedNoteBuffers
       .filter(buffer => buffer != undefined)
       .map(buffer => IncomingNoteDao.fromBuffer(buffer!));
 
-    await this.db.transaction(async () => {
-      for (const dao of noteDaos) {
-        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
-        void this.#notes.set(noteIndex, dao.toBuffer());
-        void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
+    for (const dao of noteDaos) {
+      const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+      await this.#notes.set(noteIndex, dao.toBuffer());
+      await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        let scopes = (await toArray(this.#nullifiedNotesToScope.getValues(noteIndex))) ?? [];
+      let scopes = (await toArray(this.#nullifiedNotesToScope.getValues(noteIndex))) ?? [];
 
-        if (scopes.length === 0) {
-          scopes = [new AztecAddress(dao.addressPoint.x).toString()];
-        }
-
-        for (const scope of scopes) {
-          void this.#notesByContractAndScope.get(scope)!.set(dao.contractAddress.toString(), noteIndex);
-          void this.#notesByStorageSlotAndScope.get(scope)!.set(dao.storageSlot.toString(), noteIndex);
-          void this.#notesByTxHashAndScope.get(scope)!.set(dao.txHash.toString(), noteIndex);
-          void this.#notesByAddressPointAndScope.get(scope)!.set(dao.addressPoint.toString(), noteIndex);
-          void this.#notesToScope.set(noteIndex, scope);
-        }
-
-        void this.#nullifiedNotes.delete(noteIndex);
-        void this.#nullifiedNotesToScope.delete(noteIndex);
-        void this.#nullifiersByBlockNumber.deleteValue(dao.l2BlockNumber, dao.siloedNullifier.toString());
-        void this.#nullifiedNotesByContract.deleteValue(dao.contractAddress.toString(), noteIndex);
-        void this.#nullifiedNotesByStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
-        void this.#nullifiedNotesByTxHash.deleteValue(dao.txHash.toString(), noteIndex);
-        void this.#nullifiedNotesByAddressPoint.deleteValue(dao.addressPoint.toString(), noteIndex);
-        void this.#nullifiedNotesByNullifier.delete(dao.siloedNullifier.toString());
+      if (scopes.length === 0) {
+        scopes = [new AztecAddress(dao.addressPoint.x).toString()];
       }
-    });
+
+      for (const scope of scopes) {
+        const notesByContract = await this.#notesByContractAndScope.get(scope.toString())!;
+        await notesByContract.set(dao.contractAddress.toString(), noteIndex);
+        const notesByStorageSlot = await this.#notesByStorageSlotAndScope.get(scope.toString())!;
+        await notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
+        const notesByTxHash = await this.#notesByTxHashAndScope.get(scope.toString())!;
+        await notesByTxHash.set(dao.txHash.toString(), noteIndex);
+        const notesByAddressPoint = await this.#notesByAddressPointAndScope.get(scope.toString())!;
+        await notesByAddressPoint.set(dao.addressPoint.toString(), noteIndex);
+        await this.#notesToScope.set(noteIndex, scope);
+      }
+
+      await this.#nullifiedNotes.delete(noteIndex);
+      await this.#nullifiedNotesToScope.delete(noteIndex);
+      await this.#nullifiersByBlockNumber.deleteValue(dao.l2BlockNumber, dao.siloedNullifier.toString());
+      await this.#nullifiedNotesByContract.deleteValue(dao.contractAddress.toString(), noteIndex);
+      await this.#nullifiedNotesByStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
+      await this.#nullifiedNotesByTxHash.deleteValue(dao.txHash.toString(), noteIndex);
+      await this.#nullifiedNotesByAddressPoint.deleteValue(dao.addressPoint.toString(), noteIndex);
+      await this.#nullifiedNotesByNullifier.delete(dao.siloedNullifier.toString());
+    }
   }
 
   async getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
@@ -476,59 +481,61 @@ export class KVPxeDatabase implements PxeDatabase {
       return Promise.resolve([]);
     }
 
-    return await this.#db.transaction(async () => {
-      const nullifiedNotes: IncomingNoteDao[] = [];
+    const nullifiedNotes: IncomingNoteDao[] = [];
 
-      for (const blockScopedNullifier of nullifiers) {
-        const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
-        const noteIndex = await this.#nullifierToNoteId.get(nullifier.toString());
-        if (!noteIndex) {
-          continue;
-        }
-
-        const noteBuffer = noteIndex ? await this.#notes.get(noteIndex) : undefined;
-
-        if (!noteBuffer) {
-          // note doesn't exist. Maybe it got nullified already
-          continue;
-        }
-        const noteScopes = this.#notesToScope.getValues(noteIndex) ?? [];
-        const note = IncomingNoteDao.fromBuffer(noteBuffer);
-        if (!note.addressPoint.equals(accountAddressPoint)) {
-          // tried to nullify someone else's note
-          continue;
-        }
-
-        nullifiedNotes.push(note);
-
-        void this.#notes.delete(noteIndex);
-        void this.#notesToScope.delete(noteIndex);
-
-        for await (const scope of this.#scopes.entries()) {
-          void this.#notesByAddressPointAndScope.get(scope)!.deleteValue(accountAddressPoint.toString(), noteIndex);
-          void this.#notesByTxHashAndScope.get(scope)!.deleteValue(note.txHash.toString(), noteIndex);
-          void this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
-          void this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
-        }
-
-        if (noteScopes !== undefined) {
-          for await (const scope of noteScopes) {
-            void this.#nullifiedNotesToScope.set(noteIndex, scope);
-          }
-        }
-        void this.#nullifiedNotes.set(noteIndex, note.toBuffer());
-        void this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
-        void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
-        void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
-        void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
-        void this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
-        void this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
-
-        void this.#nullifierToNoteId.delete(nullifier.toString());
+    for (const blockScopedNullifier of nullifiers) {
+      const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
+      const noteIndex = await this.#nullifierToNoteId.get(nullifier.toString());
+      if (!noteIndex) {
+        continue;
       }
 
-      return nullifiedNotes;
-    });
+      const noteBuffer = noteIndex ? await this.#notes.get(noteIndex) : undefined;
+
+      if (!noteBuffer) {
+        // note doesn't exist. Maybe it got nullified already
+        continue;
+      }
+      const noteScopes = this.#notesToScope.getValues(noteIndex) ?? [];
+      const note = IncomingNoteDao.fromBuffer(noteBuffer);
+      if (!note.addressPoint.equals(accountAddressPoint)) {
+        // tried to nullify someone else's note
+        continue;
+      }
+
+      nullifiedNotes.push(note);
+
+      await this.#notes.delete(noteIndex);
+      await this.#notesToScope.delete(noteIndex);
+
+      for await (const scope of this.#scopes.entries()) {
+        const notesByAddressPoint = await this.#notesByAddressPointAndScope.get(scope)!;
+        await notesByAddressPoint.deleteValue(accountAddressPoint.toString(), noteIndex);
+        const notesByTxHash = await this.#notesByTxHashAndScope.get(scope)!;
+        await notesByTxHash.deleteValue(note.txHash.toString(), noteIndex);
+        const notesByContract = await this.#notesByContractAndScope.get(scope)!;
+        await notesByContract.deleteValue(note.contractAddress.toString(), noteIndex);
+        const notesByStorageSlot = await this.#notesByStorageSlotAndScope.get(scope)!;
+        await notesByStorageSlot.deleteValue(note.storageSlot.toString(), noteIndex);
+      }
+
+      if (noteScopes !== undefined) {
+        for await (const scope of noteScopes) {
+          await this.#nullifiedNotesToScope.set(noteIndex, scope);
+        }
+      }
+      await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
+      await this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
+      await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
+      await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
+      await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
+      await this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
+      await this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
+
+      await this.#nullifierToNoteId.delete(nullifier.toString());
+    }
+
+    return nullifiedNotes;
   }
 
   async addNullifiedNote(note: IncomingNoteDao): Promise<void> {
@@ -573,10 +580,16 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     await this.#scopes.add(scopeString);
-    this.#notesByContractAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_contract`));
-    this.#notesByStorageSlotAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_storage_slot`));
-    this.#notesByTxHashAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_tx_hash`));
-    this.#notesByAddressPointAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_address_point`));
+    await this.#notesByContractAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_contract`));
+    await this.#notesByStorageSlotAndScope.set(
+      scopeString,
+      this.#db.openMultiMap(`${scopeString}:notes_by_storage_slot`),
+    );
+    await this.#notesByTxHashAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_tx_hash`));
+    await this.#notesByAddressPointAndScope.set(
+      scopeString,
+      this.#db.openMultiMap(`${scopeString}:notes_by_address_point`),
+    );
 
     return true;
   }
@@ -584,28 +597,26 @@ export class KVPxeDatabase implements PxeDatabase {
   async addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
     await this.#addScope(completeAddress.address);
 
-    return this.#db.transaction(async () => {
-      const addressString = completeAddress.address.toString();
-      const buffer = completeAddress.toBuffer();
-      const existing = await this.#completeAddressIndex.get(addressString);
-      if (typeof existing === 'undefined') {
-        const index = await this.#completeAddresses.length();
-        void this.#completeAddresses.push(buffer);
-        void this.#completeAddressIndex.set(addressString, index);
+    const addressString = completeAddress.address.toString();
+    const buffer = completeAddress.toBuffer();
+    const existing = await this.#completeAddressIndex.get(addressString);
+    if (typeof existing === 'undefined') {
+      const index = await this.#completeAddresses.length();
+      await this.#completeAddresses.push(buffer);
+      await this.#completeAddressIndex.set(addressString, index);
 
-        return true;
-      } else {
-        const existingBuffer = await this.#completeAddresses.at(existing);
+      return true;
+    } else {
+      const existingBuffer = await this.#completeAddresses.at(existing);
 
-        if (existingBuffer?.equals(buffer)) {
-          return false;
-        }
-
-        throw new Error(
-          `Complete address with aztec address ${addressString} but different public key or partial key already exists in memory database`,
-        );
+      if (existingBuffer?.equals(buffer)) {
+        return false;
       }
-    });
+
+      throw new Error(
+        `Complete address with aztec address ${addressString} but different public key or partial key already exists in memory database`,
+      );
+    }
   }
 
   async #getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
@@ -686,12 +697,10 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients);
   }
 
-  #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecMap<string, number>) {
-    return this.db.transaction(() => {
-      indexedSecrets.forEach(
-        indexedSecret => void storageMap.set(indexedSecret.secret.toString(), indexedSecret.index),
-      );
-    });
+  async #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecMap<string, number>) {
+    await Promise.all(
+      indexedSecrets.map(indexedSecret => storageMap.set(indexedSecret.secret.toString(), indexedSecret.index)),
+    );
   }
 
   async getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]) {
@@ -703,20 +712,15 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<number[]> {
-    return await this.db.transaction(
-      async () =>
-        await Promise.all(appTaggingSecrets.map(async secret => (await storageMap.get(`${secret.toString()}`)) ?? 0)),
-    );
+    return Promise.all(appTaggingSecrets.map(async secret => (await storageMap.get(`${secret.toString()}`)) ?? 0));
   }
 
   async resetNoteSyncData(): Promise<void> {
-    await this.db.transaction(async () => {
-      for await (const recipient of this.#taggingSecretIndexesForRecipients.keys()) {
-        void this.#taggingSecretIndexesForRecipients.delete(recipient);
-      }
-      for await (const sender of this.#taggingSecretIndexesForSenders.keys()) {
-        void this.#taggingSecretIndexesForSenders.delete(sender);
-      }
-    });
+    for await (const recipient of this.#taggingSecretIndexesForRecipients.keys()) {
+      await this.#taggingSecretIndexesForRecipients.delete(recipient);
+    }
+    for await (const sender of this.#taggingSecretIndexesForSenders.keys()) {
+      await this.#taggingSecretIndexesForSenders.delete(sender);
+    }
   }
 }

@@ -25,34 +25,30 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
   }
 
   async push(...vals: T[]): Promise<number> {
-    return await this.#db.childTransaction(async () => {
-      let length = await this.length();
-      for (const val of vals) {
-        void this.#db.put(this.#slot(length), val);
-        length += 1;
-      }
+    let length = await this.length();
+    for (const val of vals) {
+      await this.#db.put(this.#slot(length), val);
+      length += 1;
+    }
 
-      void this.#length.set(length);
+    await this.#length.set(length);
 
-      return length;
-    });
+    return length;
   }
 
   async pop(): Promise<T | undefined> {
-    return await this.#db.childTransaction(async () => {
-      const length = await this.length();
-      if (length === 0) {
-        return undefined;
-      }
+    const length = await this.length();
+    if (length === 0) {
+      return undefined;
+    }
 
-      const slot = this.#slot(length - 1);
-      const val = this.#db.get(slot) as T;
+    const slot = this.#slot(length - 1);
+    const val = this.#db.get(slot) as T;
 
-      void this.#db.remove(slot);
-      void this.#length.set(length - 1);
+    await this.#db.remove(slot);
+    await this.#length.set(length - 1);
 
-      return val;
-    });
+    return val;
   }
 
   async at(index: number): Promise<T | undefined> {

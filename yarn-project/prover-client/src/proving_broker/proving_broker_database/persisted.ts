@@ -26,11 +26,9 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  deleteProvingJobAndResult(id: ProvingJobId): Promise<void> {
-    return this.store.transaction(() => {
-      void this.jobs.delete(id);
-      void this.jobResults.delete(id);
-    });
+  async deleteProvingJobAndResult(id: ProvingJobId): Promise<void> {
+    await this.jobs.delete(id);
+    await this.jobResults.delete(id);
   }
 
   async setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {

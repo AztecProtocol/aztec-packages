@@ -124,9 +124,8 @@ export class LogStore {
         return acc;
       });
     const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
-    const currentTaggedLogs = await this.db.transaction(
-      async () =>
-        await Promise.all(tagsToUpdate.map(async tag => ({ tag, logBuffers: await this.#logsByTag.get(tag) }))),
+    const currentTaggedLogs = await Promise.all(
+      tagsToUpdate.map(async tag => ({ tag, logBuffers: await this.#logsByTag.get(tag) })),
     );
     currentTaggedLogs.forEach(taggedLogBuffer => {
       if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
@@ -136,51 +135,47 @@ export class LogStore {
         );
       }
     });
-    return this.db.transaction(() => {
-      blocks.forEach(block => {
+    await Promise.all(
+      blocks.map(async block => {
         const tagsInBlock = [];
         for (const [tag, logs] of taggedLogsToAdd.entries()) {
-          void this.#logsByTag.set(tag, logs);
+          await this.#logsByTag.set(tag, logs);
           tagsInBlock.push(tag);
         }
-        void this.#logTagsByBlock.set(block.number, tagsInBlock);
+        await this.#logTagsByBlock.set(block.number, tagsInBlock);
 
         const privateLogsInBlock = block.body.txEffects
           .map(txEffect => txEffect.privateLogs)
           .flat()
           .map(log => log.toBuffer());
-        void this.#privateLogsByBlock.set(block.number, Buffer.concat(privateLogsInBlock));
+        await this.#privateLogsByBlock.set(block.number, Buffer.concat(privateLogsInBlock));
 
-        void this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
-        void this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
-      });
+        await this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
+        await this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
+      }),
+    );
 
-      return true;
-    });
+    return true;
   }
 
   async deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const tagsToDelete = await this.db.transaction(async () => {
-      return (
-        (await Promise.all(blocks.map(block => this.#logTagsByBlock.get(block.number))))
-          .flat()
-          .filter(tag => tag !== undefined)
-          .map(tag => tag!.toString()) ?? []
-      );
-    });
-    return this.db.transaction(() => {
-      blocks.forEach(block => {
-        void this.#privateLogsByBlock.delete(block.number);
-        void this.#unencryptedLogsByBlock.delete(block.number);
-        void this.#logTagsByBlock.delete(block.number);
-      });
+    const tagsToDelete =
+      (await Promise.all(blocks.map(block => this.#logTagsByBlock.get(block.number))))
+        .flat()
+        .filter(tag => tag !== undefined)
+        .map(tag => tag!.toString()) ?? [];
 
-      tagsToDelete.forEach(tag => {
-        void this.#logsByTag.delete(tag.toString());
-      });
+    await Promise.all(
+      blocks.map(async block => {
+        await this.#privateLogsByBlock.delete(block.number);
+        await this.#unencryptedLogsByBlock.delete(block.number);
+        await this.#logTagsByBlock.delete(block.number);
+      }),
+    );
 
-      return true;
-    });
+    await Promise.all(tagsToDelete.map(tag => this.#logsByTag.delete(tag.toString())));
+
+    return true;
   }
 
   /**
@@ -207,10 +202,8 @@ export class LogStore {
    * that tag.
    */
   async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return await this.db.transaction(async () =>
-      (
-        await Promise.all(tags.map(tag => this.#logsByTag.get(tag.toString())))
-      ).map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
+    return (await Promise.all(tags.map(tag => this.#logsByTag.get(tag.toString())))).map(
+      noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? [],
     );
   }
 

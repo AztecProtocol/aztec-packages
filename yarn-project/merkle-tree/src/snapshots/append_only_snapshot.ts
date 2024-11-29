@@ -75,79 +75,77 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
   }
 
   async snapshot(block: number): Promise<TreeSnapshot<T>> {
-    return await this.db.transaction(async () => {
-      const meta = await this.#getSnapshotMeta(block);
-      if (typeof meta !== 'undefined') {
-        // no-op, we already have a snapshot
-        return new AppendOnlySnapshot(
-          this.#nodeValue,
-          this.#nodeLastModifiedByBlock,
-          block,
-          meta.numLeaves,
-          meta.root,
-          this.tree,
-          this.hasher,
-          this.deserializer,
-        );
-      }
-
-      const root = this.tree.getRoot(false);
-      const depth = this.tree.getDepth();
-      const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
-
-      // walk the tree in BF and store latest nodes
-      while (queue.length > 0) {
-        const [node, level, index] = queue.shift()!;
-
-        const historicalValue = await this.#nodeValue.get(historicalNodeKey(level, index));
-        if (!historicalValue || !node.equals(historicalValue)) {
-          // we've never seen this node before or it's different than before
-          // update the historical tree and tag it with the block that modified it
-          void this.#nodeLastModifiedByBlock.set(nodeModifiedAtBlockKey(level, index), block);
-          void this.#nodeValue.set(historicalNodeKey(level, index), node);
-        } else {
-          // if this node hasn't changed, that means, nothing below it has changed either
-          continue;
-        }
-
-        if (level + 1 > depth) {
-          // short circuit if we've reached the leaf level
-          // otherwise getNode might throw if we ask for the children of a leaf
-          continue;
-        }
-
-        // these could be undefined because zero hashes aren't stored in the tree
-        const [lhs, rhs] = [
-          await this.tree.getNode(level + 1, 2n * index),
-          await this.tree.getNode(level + 1, 2n * index + 1n),
-        ];
-
-        if (lhs) {
-          queue.push([lhs, level + 1, 2n * index]);
-        }
-
-        if (rhs) {
-          queue.push([rhs, level + 1, 2n * index + 1n]);
-        }
-      }
-
-      const numLeaves = this.tree.getNumLeaves(false);
-      void this.#snapshotMetadata.set(block, {
-        numLeaves,
-        root,
-      });
-
+    const meta = await this.#getSnapshotMeta(block);
+    if (typeof meta !== 'undefined') {
+      // no-op, we already have a snapshot
       return new AppendOnlySnapshot(
         this.#nodeValue,
         this.#nodeLastModifiedByBlock,
         block,
-        numLeaves,
-        root,
+        meta.numLeaves,
+        meta.root,
         this.tree,
         this.hasher,
         this.deserializer,
       );
+    }
+
+    const root = this.tree.getRoot(false);
+    const depth = this.tree.getDepth();
+    const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
+
+    // walk the tree in BF and store latest nodes
+    while (queue.length > 0) {
+      const [node, level, index] = queue.shift()!;
+
+      const historicalValue = await this.#nodeValue.get(historicalNodeKey(level, index));
+      if (!historicalValue || !node.equals(historicalValue)) {
+        // we've never seen this node before or it's different than before
+        // update the historical tree and tag it with the block that modified it
+        await this.#nodeLastModifiedByBlock.set(nodeModifiedAtBlockKey(level, index), block);
+        await this.#nodeValue.set(historicalNodeKey(level, index), node);
+      } else {
+        // if this node hasn't changed, that means, nothing below it has changed either
+        continue;
+      }
+
+      if (level + 1 > depth) {
+        // short circuit if we've reached the leaf level
+        // otherwise getNode might throw if we ask for the children of a leaf
+        continue;
+      }
+
+      // these could be undefined because zero hashes aren't stored in the tree
+      const [lhs, rhs] = [
+        await this.tree.getNode(level + 1, 2n * index),
+        await this.tree.getNode(level + 1, 2n * index + 1n),
+      ];
+
+      if (lhs) {
+        queue.push([lhs, level + 1, 2n * index]);
+      }
+
+      if (rhs) {
+        queue.push([rhs, level + 1, 2n * index + 1n]);
+      }
+    }
+
+    const numLeaves = this.tree.getNumLeaves(false);
+    await this.#snapshotMetadata.set(block, {
+      numLeaves,
+      root,
     });
+
+    return new AppendOnlySnapshot(
+      this.#nodeValue,
+      this.#nodeLastModifiedByBlock,
+      block,
+      numLeaves,
+      root,
+      this.tree,
+      this.hasher,
+      this.deserializer,
+    );
   }
 
   #getSnapshotMeta(block: number): Promise<SnapshotMetadata | undefined> {

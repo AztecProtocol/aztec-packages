@@ -73,22 +73,23 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   async addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
     await this.#contractArtifactStore.addContractArtifact(address, contract);
     // Building tup this map of selectors to function names save expensive re-hydration of contract artifacts later
-    contract.functions.forEach(f => {
-      this.functionNames.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
-    });
+    await Promise.all(
+      contract.functions.map(f =>
+        this.functionNames.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name),
+      ),
+    );
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return Promise.resolve(this.#contractClassStore.getContractClass(id));
+    return this.#contractClassStore.getContractClass(id);
   }
 
   getContractClassIds(): Promise<Fr[]> {
-    return Promise.resolve(this.#contractClassStore.getContractClassIds());
+    return this.#contractClassStore.getContractClassIds();
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const contract = this.#contractInstanceStore.getContractInstance(address);
-    return Promise.resolve(contract);
+    return this.#contractInstanceStore.getContractInstance(address);
   }
 
   async addContractClasses(
@@ -110,7 +111,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
-    return Promise.resolve(this.#contractClassStore.getBytecodeCommitment(contractClassId));
+    return this.#contractClassStore.getBytecodeCommitment(contractClassId);
   }
 
   addFunctions(
@@ -256,12 +257,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    try {
-      return Promise.resolve(this.#messageStore.getL1ToL2Messages(blockNumber));
-    } catch (err) {
-      return Promise.reject(err);
-    }
+  async getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+    return this.#messageStore.getL1ToL2Messages(blockNumber);
   }
 
   /**
@@ -271,11 +268,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns An array of private logs from the specified range of blocks.
    */
   async getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
-    try {
-      return this.#logStore.getPrivateLogs(from, limit);
-    } catch (err) {
-      return Promise.reject(err);
-    }
+    return this.#logStore.getPrivateLogs(from, limit);
   }
 
   /**
@@ -285,11 +278,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * that tag.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    try {
-      return this.#logStore.getLogsByTags(tags);
-    } catch (err) {
-      return Promise.reject(err);
-    }
+    return this.#logStore.getLogsByTags(tags);
   }
 
   /**
@@ -298,11 +287,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    try {
-      return Promise.resolve(this.#logStore.getUnencryptedLogs(filter));
-    } catch (err) {
-      return Promise.reject(err);
-    }
+    return this.#logStore.getUnencryptedLogs(filter);
   }
 
   /**
@@ -311,11 +296,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns The requested logs.
    */
   getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    try {
-      return Promise.resolve(this.#logStore.getContractClassLogs(filter));
-    } catch (err) {
-      return Promise.reject(err);
-    }
+    return this.#logStore.getContractClassLogs(filter);
   }
 
   /**
@@ -323,35 +304,31 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns The number of the latest L2 block processed.
    */
   getSynchedL2BlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockStore.getSynchedL2BlockNumber());
+    return this.#blockStore.getSynchedL2BlockNumber();
   }
 
   getProvenL2BlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockStore.getProvenL2BlockNumber());
+    return this.#blockStore.getProvenL2BlockNumber();
   }
 
   getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.#blockStore.getProvenL2EpochNumber());
+    return this.#blockStore.getProvenL2EpochNumber();
   }
 
-  setProvenL2BlockNumber(blockNumber: number) {
-    this.#blockStore.setProvenL2BlockNumber(blockNumber);
-    return Promise.resolve();
+  async setProvenL2BlockNumber(blockNumber: number) {
+    await this.#blockStore.setProvenL2BlockNumber(blockNumber);
   }
 
-  setProvenL2EpochNumber(epochNumber: number) {
-    this.#blockStore.setProvenL2EpochNumber(epochNumber);
-    return Promise.resolve();
+  async setProvenL2EpochNumber(epochNumber: number) {
+    await this.#blockStore.setProvenL2EpochNumber(epochNumber);
   }
 
-  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
-    this.#blockStore.setSynchedL1BlockNumber(l1BlockNumber);
-    return Promise.resolve();
+  async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    await this.#blockStore.setSynchedL1BlockNumber(l1BlockNumber);
   }
 
-  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
-    this.#messageStore.setSynchedL1BlockNumber(l1BlockNumber);
-    return Promise.resolve();
+  async setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    await this.#messageStore.setSynchedL1BlockNumber(l1BlockNumber);
   }
 
   /**

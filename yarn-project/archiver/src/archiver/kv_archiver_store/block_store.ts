@@ -56,30 +56,28 @@ export class BlockStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+  async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
     if (blocks.length === 0) {
       return Promise.resolve(true);
     }
 
-    return this.db.transaction(() => {
-      for (const block of blocks) {
-        void this.#blocks.set(block.data.number, {
-          header: block.data.header.toBuffer(),
-          archive: block.data.archive.toBuffer(),
-          l1: block.l1,
-        });
+    for (const block of blocks) {
+      await this.#blocks.set(block.data.number, {
+        header: block.data.header.toBuffer(),
+        archive: block.data.archive.toBuffer(),
+        l1: block.l1,
+      });
 
-        block.data.body.txEffects.forEach((tx, i) => {
-          void this.#txIndex.set(tx.txHash.toString(), [block.data.number, i]);
-        });
+      await Promise.all(
+        block.data.body.txEffects.map((tx, i) => this.#txIndex.set(tx.txHash.toString(), [block.data.number, i])),
+      );
 
-        void this.#blockBodies.set(block.data.hash().toString(), block.data.body.toBuffer());
-      }
+      await this.#blockBodies.set(block.data.hash().toString(), block.data.body.toBuffer());
+    }
 
-      void this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
+    await this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
 
-      return true;
-    });
+    return true;
   }
 
   /**
@@ -90,30 +88,26 @@ export class BlockStore {
    * @returns True if the operation is successful
    */
   async unwindBlocks(from: number, blocksToUnwind: number) {
-    return await this.db.transaction(async () => {
-      const last = await this.getSynchedL2BlockNumber();
-      if (from != last) {
-        throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
+    const last = await this.getSynchedL2BlockNumber();
+    if (from != last) {
+      throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
+    }
+
+    for (let i = 0; i < blocksToUnwind; i++) {
+      const blockNumber = from - i;
+      const block = await this.getBlock(blockNumber);
+
+      if (block === undefined) {
+        throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
       }
+      await this.#blocks.delete(block.data.number);
+      await Promise.all(block.data.body.txEffects.map(tx => this.#txIndex.delete(tx.txHash.toString())));
+      const blockHash = block.data.hash().toString();
+      await this.#blockBodies.delete(blockHash);
+      this.#log.debug(`Unwound block ${blockNumber} ${blockHash}`);
+    }
 
-      for (let i = 0; i < blocksToUnwind; i++) {
-        const blockNumber = from - i;
-        const block = await this.getBlock(blockNumber);
-
-        if (block === undefined) {
-          throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
-        }
-        void this.#blocks.delete(block.data.number);
-        block.data.body.txEffects.forEach(tx => {
-          void this.#txIndex.delete(tx.txHash.toString());
-        });
-        const blockHash = block.data.hash().toString();
-        void this.#blockBodies.delete(blockHash);
-        this.#log.debug(`Unwound block ${blockNumber} ${blockHash}`);
-      }
-
-      return true;
-    });
+    return true;
   }
 
   /**
@@ -252,24 +246,24 @@ export class BlockStore {
     return this.#lastSynchedL1Block.get();
   }
 
-  setSynchedL1BlockNumber(l1BlockNumber: bigint) {
-    void this.#lastSynchedL1Block.set(l1BlockNumber);
+  async setSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    await this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
   async getProvenL2BlockNumber(): Promise<number> {
     return (await this.#lastProvenL2Block.get()) ?? 0;
   }
 
-  setProvenL2BlockNumber(blockNumber: number) {
-    void this.#lastProvenL2Block.set(blockNumber);
+  async setProvenL2BlockNumber(blockNumber: number) {
+    await this.#lastProvenL2Block.set(blockNumber);
   }
 
   getProvenL2EpochNumber(): Promise<number | undefined> {
     return this.#lastProvenL2Epoch.get();
   }
 
-  setProvenL2EpochNumber(epochNumber: number) {
-    void this.#lastProvenL2Epoch.set(epochNumber);
+  async setProvenL2EpochNumber(epochNumber: number) {
+    await this.#lastProvenL2Epoch.set(epochNumber);
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
