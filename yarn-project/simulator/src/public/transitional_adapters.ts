@@ -64,7 +64,7 @@ export function generateAvmCircuitPublicInputs(
   teardownCallRequests: PublicCallRequest[],
   nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
   revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
-  endStateReference: StateReference,
+  endTreeSnapshots: TreeSnapshots,
   endGasUsed: Gas,
   transactionFee: Fr,
   revertCode: RevertCode,
@@ -74,12 +74,6 @@ export function generateAvmCircuitPublicInputs(
     startStateReference.partial.noteHashTree,
     startStateReference.partial.nullifierTree,
     startStateReference.partial.publicDataTree,
-  );
-  const endTreeSnapshots = new TreeSnapshots(
-    endStateReference.l1ToL2MessageTree,
-    endStateReference.partial.noteHashTree,
-    endStateReference.partial.nullifierTree,
-    endStateReference.partial.publicDataTree,
   );
 
   const avmCircuitPublicInputs = trace.toAvmCircuitPublicInputs(

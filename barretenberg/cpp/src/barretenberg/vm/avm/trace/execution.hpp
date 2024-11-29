@@ -29,7 +29,7 @@ class Execution {
 
     // Bytecode is currently the bytecode of the top-level function call
     // Eventually this will be the bytecode of the dispatch function of top-level contract
-    static std::vector<Row> gen_trace(AvmPublicInputs const& new_public_inputs,
+    static std::vector<Row> gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints);
 

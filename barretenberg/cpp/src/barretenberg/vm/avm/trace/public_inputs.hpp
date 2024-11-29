@@ -18,8 +18,8 @@ struct Gas {
 inline void read(uint8_t const*& it, Gas& gas)
 {
     using serialize::read;
-    read(it, gas.l2_gas);
     read(it, gas.da_gas);
+    read(it, gas.l2_gas);
 }
 
 struct GasFees {
@@ -87,6 +87,7 @@ inline void read(uint8_t const*& it, GlobalVariables& global_variables)
 struct AppendOnlyTreeSnapshot {
     FF root{};
     uint32_t size = 0;
+    inline bool operator==(const AppendOnlyTreeSnapshot& rhs) const { return root == rhs.root && size == rhs.size; }
 };
 
 inline void read(uint8_t const*& it, AppendOnlyTreeSnapshot& tree_snapshot)
@@ -101,6 +102,11 @@ struct TreeSnapshots {
     AppendOnlyTreeSnapshot note_hash_tree;
     AppendOnlyTreeSnapshot nullifier_tree;
     AppendOnlyTreeSnapshot public_data_tree;
+    inline bool operator==(const TreeSnapshots& rhs) const
+    {
+        return l1_to_l2_message_tree == rhs.l1_to_l2_message_tree && note_hash_tree == rhs.note_hash_tree &&
+               nullifier_tree == rhs.nullifier_tree && public_data_tree == rhs.public_data_tree;
+    }
 };
 
 inline void read(uint8_t const*& it, TreeSnapshots& tree_snapshots)
