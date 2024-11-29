@@ -1,4 +1,4 @@
-use crate::{merkle_tree::leaf_preimage::IndexedTreeLeafValue, traits::Empty};
+use crate::traits::Empty;
 
 pub struct PublicDataTreeLeaf {
     pub slot: Field,
@@ -14,12 +14,6 @@ impl Eq for PublicDataTreeLeaf {
 impl Empty for PublicDataTreeLeaf {
     fn empty() -> Self {
         Self { slot: 0, value: 0 }
-    }
-}
-
-impl IndexedTreeLeafValue for PublicDataTreeLeaf {
-    fn get_key(self) -> Field {
-        self.slot
     }
 }
 

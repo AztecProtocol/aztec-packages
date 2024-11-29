@@ -93,18 +93,11 @@ mod tests {
         },
         tests::merkle_tree_utils::NonEmptyMerkleTree,
     };
-    use crate::traits::Empty;
     use std::hash::pedersen_hash;
 
     struct TestLeafPreimage {
         value: Field,
         next_value: Field,
-    }
-
-    impl Empty for TestLeafPreimage {
-        fn empty() -> Self {
-            TestLeafPreimage { value: 0, next_value: 0 }
-        }
     }
 
     impl LeafPreimage for TestLeafPreimage {
