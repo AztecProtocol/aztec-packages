@@ -76,8 +76,8 @@ PROJECTS=(
   # noir
   # barretenberg
   # l1-contracts
-  avm-transpiler
-  # noir-projects
+  # avm-transpiler
+  noir-projects
   # yarn-project
   # boxes
 )
@@ -95,4 +95,4 @@ for project in "${PROJECTS[@]}"; do
   echo "$project 3/3 success"
 done
 
-echo "All tests passed successfully."
+echo "success: ./bootstrap.sh consistency tests have all passed."
