@@ -73,27 +73,22 @@ export class AztecIndexedDBStore implements AztecKVStore {
    * @returns A new AztecIndexedDBStore.
    */
   async fork(): Promise<AztecKVStore> {
-    throw new Error('Method not implemented');
-    // const baseDir = this.path ? dirname(this.path) : tmpdir();
-    // this.#log.debug(`Forking store with basedir ${baseDir}`);
-    // const forkPath =
-    //   (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
-    // this.#log.verbose(`Forking store to ${forkPath}`);
+    const forkedStore = await AztecIndexedDBStore.open(this.#log, undefined, true);
+    this.#log.verbose(`Forking store to ${forkedStore.#name}`);
 
-    // const forkedRootDb = new JDB.IndexedDB(forkPath ?? 'tmp', 1);
-    // const data = this.isEphemeral ? JDB.IndexedDB.createVolatileObjectStore() : forkedRootDb.createObjectStore('data');
-    // const kvStore = new AztecIndexedDBStore(data, this.isEphemeral, forkPath);
-    // await forkedRootDb.connect();
-    // // Copy old data to new store
-    // const tx = data.transaction();
-    // await this.#data.valueStream((value: any, key: any) => {
-    //   tx.putSync(key, value);
-    //   return true;
-    // });
-    // await tx.commit();
+    // Copy old data to new store
+    const oldData = this.#rootDB.transaction('data').store;
+    const dataToWrite = [];
+    for await (const cursor of oldData.iterate()) {
+      dataToWrite.push(cursor.value);
+    }
+    const tx = forkedStore.#rootDB.transaction('data', 'readwrite').store;
+    for (const data of dataToWrite) {
+      await tx.add(data);
+    }
 
-    // this.#log.debug(`Forked store at ${forkPath} opened successfully`);
-    // return kvStore;
+    this.#log.debug(`Forked store at ${forkedStore.#name} opened successfully`);
+    return forkedStore;
   }
 
   /**

@@ -1,13 +1,10 @@
 import { expect } from 'chai';
-import { promises as fs } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 import { AztecKVStore } from './store.js';
 
 export function describeAztecStore(
   testName: string,
-  getPersistentStore: (path: string) => Promise<AztecKVStore>,
+  getPersistentStore: () => Promise<AztecKVStore>,
   getPersistentNoPathStore: () => Promise<AztecKVStore>,
   getEphemeralStore: () => Promise<AztecKVStore>,
 ) {
@@ -27,8 +24,7 @@ export function describeAztecStore(
     };
 
     it('forks a persistent store', async () => {
-      const path = await fs.mkdtemp(join(tmpdir(), 'aztec-store-test-'));
-      const store = await getPersistentStore(path);
+      const store = await getPersistentStore();
       await itForks(store);
     });
 
