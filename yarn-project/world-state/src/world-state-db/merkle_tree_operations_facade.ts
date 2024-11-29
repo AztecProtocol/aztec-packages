@@ -3,6 +3,7 @@ import {
   type IndexedTreeId,
   type MerkleTreeLeafType,
   type MerkleTreeWriteOperations,
+  type SequentialInsertionResult,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
 import { type Header, type StateReference } from '@aztec/circuits.js';
@@ -165,6 +166,19 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
+  }
+
+  /**
+   * Sequentially inserts multiple leaves into the tree.
+   * @param treeId - The ID of the tree.
+   * @param leaves - Leaves to insert into the tree.
+   * @returns Witnesses for the operations performed.
+   */
+  public sequentialInsert<TreeHeight extends number>(
+    _treeId: IndexedTreeId,
+    _leaves: Buffer[],
+  ): Promise<SequentialInsertionResult<TreeHeight>> {
+    throw new Error('Method not implemented in legacy merkle tree');
   }
 
   close(): Promise<void> {

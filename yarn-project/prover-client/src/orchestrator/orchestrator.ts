@@ -602,13 +602,6 @@ export class ProvingOrchestrator implements EpochProver {
     provingState: BlockProvingState,
   ) {
     const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
-
-    const rejectReason = txProvingState.verifyStateOrReject();
-    if (rejectReason) {
-      provingState.reject(rejectReason);
-      return;
-    }
-
     const txIndex = provingState.addNewTx(txProvingState);
     this.enqueueTube(provingState, txIndex);
     if (txProvingState.requireAvmProof) {

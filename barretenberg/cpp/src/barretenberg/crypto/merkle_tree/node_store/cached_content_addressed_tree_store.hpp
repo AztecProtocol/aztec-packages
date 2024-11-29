@@ -512,7 +512,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_node_by_index(ui
             return;
         }
     }
-
     nodes_by_index_[level][index] = data;
 }
 
@@ -695,7 +694,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_pre_image(cons
     if (leafPreImageIter == leaves_.end()) {
         return;
     }
-    // std::cout << "Persisting leaf preimage " << leafPreImageIter->second << std::endl;
     dataStore_->write_leaf_by_hash(hash, leafPreImageIter->second, tx);
 }
 

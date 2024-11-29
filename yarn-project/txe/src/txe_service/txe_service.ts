@@ -459,30 +459,6 @@ export class TXEService {
     return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
   }
 
-  emitEncryptedLog(
-    _contractAddress: ForeignCallSingle,
-    _randomness: ForeignCallSingle,
-    _encryptedLog: ForeignCallSingle,
-    _counter: ForeignCallSingle,
-  ) {
-    // TODO(#8811): Implement
-    return toForeignCallResult([]);
-  }
-
-  emitEncryptedNoteLog(
-    _noteHashCounter: ForeignCallSingle,
-    _encryptedNote: ForeignCallArray,
-    _counter: ForeignCallSingle,
-  ) {
-    // TODO(#8811): Implement
-    return toForeignCallResult([]);
-  }
-
-  emitEncryptedEventLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedEvent: Buffer, _counter: number) {
-    // TODO(#8811): Implement
-    return toForeignCallResult([]);
-  }
-
   async callPrivateFunction(
     targetContractAddress: ForeignCallSingle,
     functionSelector: ForeignCallSingle,
@@ -593,11 +569,6 @@ export class TXEService {
       );
     }
     return toForeignCallResult([toArray(witness)]);
-  }
-
-  emitUnencryptedLog(_contractAddress: ForeignCallSingle, _message: ForeignCallArray, _counter: ForeignCallSingle) {
-    // TODO(#8811): Implement
-    return toForeignCallResult([]);
   }
 
   async getAppTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {

@@ -23,6 +23,7 @@ import {
   type SiblingPath,
   SimulationError,
   type Tx,
+  type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   TxProvingResult,
@@ -621,7 +622,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash) {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.node.getTxEffect(txHash);
   }
 
@@ -895,9 +896,7 @@ export class PXEService implements PXE {
     const blocks = await this.node.getBlocks(from, limit);
 
     const txEffects = blocks.flatMap(block => block.body.txEffects);
-    const encryptedTxLogs = txEffects.flatMap(txEffect => txEffect.encryptedLogs);
-
-    const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
+    const privateLogs = txEffects.flatMap(txEffect => txEffect.privateLogs);
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
@@ -918,10 +917,11 @@ export class PXEService implements PXE {
       }),
     );
 
-    const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
+    const visibleEvents = privateLogs.flatMap(log => {
       for (const sk of vsks) {
-        const decryptedEvent =
-          L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
+        // TODO: Verify that the first field of the log is the tag siloed with contract address.
+        // Or use tags to query logs, like we do with notes.
+        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk) ?? L1EventPayload.decryptAsOutgoing(log, sk);
         if (decryptedEvent !== undefined) {
           return [decryptedEvent];
         }
