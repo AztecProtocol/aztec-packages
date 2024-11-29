@@ -27,6 +27,9 @@ build-contracts:
 
   FROM +source
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
+  # Back up Nargo.toml to see if it changes on build
+  RUN test -f ./Nargo.toml || touch ./Nargo.toml
+  RUN mv ./Nargo.toml ./Nargo.toml.old
 
   # Install transpiler
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
@@ -38,6 +41,10 @@ build-contracts:
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../avm-transpiler/.rebuild_patterns ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
     --command="./bootstrap.sh" \
     --build_artifacts="target"
+
+  # Check if Nargo.toml is different from Nargo.toml.old
+  RUN diff ./Nargo.toml ./Nargo.toml.old || (echo "Nargo.toml changed, please commit an updated version" && exit 1)
+  RUN rm ./Nargo.toml.old
 
   WORKDIR /usr/src/noir-projects
   SAVE ARTIFACT noir-contracts
