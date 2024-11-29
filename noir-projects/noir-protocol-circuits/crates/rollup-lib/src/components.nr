@@ -13,16 +13,17 @@ use dep::types::{
     },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX,
-        L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
-        UNENCRYPTED_LOGS_PREFIX,
+        UNENCRYPTED_LOGS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     hash::{
         accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
     },
+    hash::{accumulate_sha256, compute_tx_logs_hash, silo_unencrypted_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
@@ -241,19 +242,6 @@ fn silo_and_hash_unencrypted_logs<let N: u32>(
     compute_tx_logs_hash(siloed_logs)
 }
 
-fn silo_and_hash_encrypted_logs(
-    encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-) -> Field {
-    let siloed_encrypted_logs = encrypted_logs_hashes.map(|log: ScopedLogHash| {
-        LogHash {
-            value: silo_encrypted_log_hash(log),
-            counter: log.log_hash.counter,
-            length: log.log_hash.length,
-        }
-    });
-    compute_tx_logs_hash(siloed_encrypted_logs)
-}
-
 /**
  * Asserts that the first sponge blob was empty to begin with.
  * This prevents injecting unchecked tx effects in the first base of a rollup.
@@ -274,8 +262,7 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
 // MAX_L2_TO_L1_MSGS_PER_TX for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
 // TODO(#8954): When logs are refactored into fields, we will append the values here, for now appending the log hashes:
-// MAX_NOTE_ENCRYPTED_LOGS_PER_TX fields for note encrypted logs
-// MAX_ENCRYPTED_LOGS_PER_TX fields for encrypted logs
+// MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
 // MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
 // 8 fields for prefixes for each of the above categories
@@ -285,8 +272,7 @@ global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_NULLIFIERS_PER_TX
     + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
-    + MAX_ENCRYPTED_LOGS_PER_TX
+    + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
     + MAX_UNENCRYPTED_LOGS_PER_TX
     + MAX_CONTRACT_CLASS_LOGS_PER_TX
     + 8;
@@ -392,6 +378,12 @@ pub fn append_tx_effects_for_blob(
         offset += array_len * 2;
     }
 
+    // TODO(MIRANDA): replace below
+    //     // PRIVATE_LOGS
+    // for j in 0..MAX_PRIVATE_LOGS_PER_TX {
+    //     tx_effects_hash_input.extend_from_array(combined.private_logs[j].fields);
+    // }
+
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution
     // NOTE ENCRYPTED LOGS
@@ -490,4 +482,3 @@ fn get_all_update_requests_for_tx_effects(
     }
     all_update_requests.storage()
 }
-

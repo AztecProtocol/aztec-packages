@@ -12,9 +12,7 @@ import {
   type ContractMethod,
   type DebugLogger,
   type DeployL1Contracts,
-  EncryptedNoteL2BlockL2Logs,
   EthCheatCodes,
-  LogType,
   NoFeePaymentMethod,
   type PXE,
   type SentTx,
@@ -550,26 +548,6 @@ export function getLogger() {
   }
   return createDebugLogger('aztec:' + describeBlockName);
 }
-
-/**
- * Checks the number of encrypted logs in the last block is as expected.
- * @param aztecNode - The instance of aztec node for retrieving the logs.
- * @param numEncryptedLogs - The number of expected logs.
- */
-export const expectsNumOfNoteEncryptedLogsInTheLastBlockToBe = async (
-  aztecNode: AztecNode | undefined,
-  numEncryptedLogs: number,
-) => {
-  if (!aztecNode) {
-    // An api for retrieving encrypted logs does not exist on the PXE Service so we have to use the node
-    // This means we can't perform this check if there is no node
-    return;
-  }
-  const l2BlockNum = await aztecNode.getBlockNumber();
-  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.NOTEENCRYPTED);
-  const unrolledLogs = EncryptedNoteL2BlockL2Logs.unrollLogs(encryptedLogs);
-  expect(unrolledLogs.length).toBe(numEncryptedLogs);
-};
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.

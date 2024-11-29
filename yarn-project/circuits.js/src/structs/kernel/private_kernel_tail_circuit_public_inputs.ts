@@ -240,14 +240,14 @@ export class PrivateKernelTailCircuitPublicInputs {
     return nullifiers.filter(n => !n.isZero());
   }
 
-  getNonEmptyL2toL1Msgs() {
-    const msgs = this.forPublic
+  getNonEmptyPrivateLogs() {
+    const privateLogs = this.forPublic
       ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs,
-          this.forPublic.revertibleAccumulatedData.l2ToL1Msgs,
+          this.forPublic.nonRevertibleAccumulatedData.privateLogs,
+          this.forPublic.revertibleAccumulatedData.privateLogs,
         )
-      : this.forRollup!.end.l2ToL1Msgs;
-    return msgs.filter(n => !n.isEmpty());
+      : this.forRollup!.end.privateLogs;
+    return privateLogs.filter(n => !n.isEmpty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

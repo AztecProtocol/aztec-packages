@@ -18,8 +18,6 @@
 //!
 //! When unrolling ACIR code, we remove reference count instructions because they are
 //! only used by Brillig bytecode.
-use std::collections::HashSet;
-
 use acvm::{acir::AcirField, FieldElement};
 
 use crate::{
@@ -39,7 +37,7 @@ use crate::{
         ssa_gen::Ssa,
     },
 };
-use fxhash::FxHashMap as HashMap;
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 impl Ssa {
     /// Loop unrolling can return errors, since ACIR functions need to be fully unrolled.
@@ -163,9 +161,9 @@ impl Loops {
         loops.sort_by_key(|loop_| loop_.blocks.len());
 
         Self {
-            failed_to_unroll: HashSet::new(),
+            failed_to_unroll: HashSet::default(),
             yet_to_unroll: loops,
-            modified_blocks: HashSet::new(),
+            modified_blocks: HashSet::default(),
             cfg,
         }
     }
@@ -209,7 +207,7 @@ impl Loop {
         back_edge_start: BasicBlockId,
         cfg: &ControlFlowGraph,
     ) -> Self {
-        let mut blocks = HashSet::new();
+        let mut blocks = HashSet::default();
         blocks.insert(header);
 
         let mut insert = |block, stack: &mut Vec<BasicBlockId>| {

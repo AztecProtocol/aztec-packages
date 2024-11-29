@@ -99,7 +99,7 @@
           },
           "nullifierTree": {
             "nextAvailableLeafIndex": 640,
-            "root": "0x2ed5c359f01d6a1cacfa324bc48b7fcc6fe75a95ad66bdb1a6e32d6907550957"
+            "root": "0x137a2b2aa3dc64677f9670d964242d8fbf9fbabaa6b05e2c910eb0cb0f7cc3be"
           },
           "publicDataTree": {
             "nextAvailableLeafIndex": 632,

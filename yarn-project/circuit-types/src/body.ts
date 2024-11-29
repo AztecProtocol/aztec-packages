@@ -5,12 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import {
-  ContractClass2BlockL2Logs,
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  UnencryptedL2BlockL2Logs,
-} from './logs/index.js';
+import { ContractClass2BlockL2Logs, UnencryptedL2BlockL2Logs } from './logs/index.js';
 import { TxEffect } from './tx_effect.js';
 
 export class Body {
@@ -140,15 +135,9 @@ export class Body {
     return numTxEffects;
   }
 
-  static random(
-    txsPerBlock = 4,
-    numPrivateCallsPerTx = 2,
-    numPublicCallsPerTx = 3,
-    numEncryptedLogsPerCall = 2,
-    numUnencryptedLogsPerCall = 1,
-  ) {
+  static random(txsPerBlock = 4, numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1) {
     const txEffects = [...new Array(txsPerBlock)].map(_ =>
-      TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+      TxEffect.random(numPublicCallsPerTx, numUnencryptedLogsPerCall),
     );
 
     return new Body(txEffects);

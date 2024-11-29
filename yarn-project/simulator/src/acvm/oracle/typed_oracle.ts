@@ -195,23 +195,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _encryptedEvent: Buffer,
-    _counter: number,
-  ): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitUnencryptedLog');
-  }
-
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
