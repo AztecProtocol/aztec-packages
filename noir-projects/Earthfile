@@ -24,6 +24,7 @@ source:
 
 build-contracts:
   ARG RAYON_NUM_THREADS
+  ARG EARTHLY_CI
 
   FROM +source
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
@@ -42,8 +43,8 @@ build-contracts:
     --command="./bootstrap.sh" \
     --build_artifacts="target"
 
-  # Check if Nargo.toml is different from Nargo.toml.old
-  RUN diff ./Nargo.toml ./Nargo.toml.old || (echo "Nargo.toml changed, please commit an updated version" && exit 1)
+  # Check if Nargo.toml is different from Nargo.toml.old, and fail if we are running on CI
+  RUN diff ./Nargo.toml ./Nargo.toml.old || (test -n "$EARTHLY_CI" && echo "Nargo.toml changed, please commit an updated version" && exit 1)
   RUN rm ./Nargo.toml.old
 
   WORKDIR /usr/src/noir-projects
