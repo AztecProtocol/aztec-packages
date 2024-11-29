@@ -162,19 +162,30 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         return aggregated_relation_evaluations;
     }
 
+    /**
+     * @brief Initialise the data structured storing a set of nodes at a given level, in parallel if the width is
+     * sufficiently big
+     *
+     * @param level_width determines the number of nodes for the given level
+     * @param degree determines the degree of the polynomial stored in each node, the number of elements will be
+     * degree+1
+     *
+     * @return std::vector<std::vector<FF>>
+     */
     static std::vector<std::vector<FF>> initialise_coefficient_tree_level(const size_t level_width, const size_t degree)
     {
         PROFILE_THIS_NAME("initialise coefficient tree level");
         std::vector<std::vector<FF>> level_coeffs(level_width);
-        size_t num_threads = calculate_num_threads(level_width);
-        size_t range_per_thread = level_width / num_threads;
-        size_t leftovers = level_width - (range_per_thread * num_threads);
+        const size_t num_threads = calculate_num_threads(level_width);
+        const size_t range_per_thread = level_width / num_threads;
+        const size_t leftovers = level_width - (range_per_thread * num_threads);
         parallel_for(num_threads, [&](size_t j) {
-            size_t offset = j * range_per_thread;
-            size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
+            const size_t offset = j * range_per_thread;
+            const size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
             ASSERT(offset < level_width || level_width == 0);
             ASSERT((offset + range) <= level_width);
             for (size_t idx = offset; idx < offset + range; idx++) {
+                // Representing a polynomial of a certain degree requires degree + 1 coefficients
                 level_coeffs[idx].resize(degree + 1);
             }
         });
@@ -232,27 +243,12 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         const size_t width = full_honk_evaluations.size() / 2;
         std::vector<std::vector<FF>> first_level_coeffs = initialise_coefficient_tree_level(width, 1);
-        // {
-        //     PROFILE_THIS_NAME("first level coefficients allocation");
-        //     size_t num_threads = calculate_num_threads(width);
-        //     size_t range_per_thread = width / num_threads;
-        //     size_t leftovers = width - (range_per_thread * num_threads);
-        //     parallel_for(num_threads, [&](size_t j) {
-        //         size_t offset = j * range_per_thread;
-        //         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-        //         ASSERT(offset < width || width == 0);
-        //         ASSERT((offset + range) <= width);
-        //         for (size_t idx = offset; idx < offset + range; idx++) {
-        //             first_level_coeffs[idx].resize(2);
-        //         }
-        //     });
-        // }
         {
             PROFILE_THIS_NAME("perturbator coefficients first level computation");
             parallel_for_heuristic(
                 width,
                 [&](size_t parent) {
-                    size_t node = parent * 2;
+                    const size_t node = parent * 2;
                     first_level_coeffs[parent][0] =
                         full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
                     first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];

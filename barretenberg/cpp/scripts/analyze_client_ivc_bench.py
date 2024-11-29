@@ -16,17 +16,13 @@ PREFIX = args.prefix
 # Single out an independent set of functions accounting for most of BENCHMARK's real_time
 to_keep = [
     "construct_circuits(t)",
-    # "DeciderProvingKey(Circuit&)(t)",
+    "DeciderProvingKey(Circuit&)(t)",
     "ProtogalaxyProver::prove(t)",
-    "initialise coefficient tree level(t)",
-    "ProtogalaxyProver_::compute_row_evaluations(t)",
-    "ProtogalaxyProver_::construct_perturbator_coefficients(t)",
-    "ProtogalaxyProver_::construct_coefficients_tree(t)",
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",
     "ECCVMProver::construct_proof(t)",
     "TranslatorProver::construct_proof(t)",
-    # "Goblin::merge(t)"
+    "Goblin::merge(t)"
 ]
 
 with open(PREFIX / IVC_BENCH_JSON, "r") as read_file:
