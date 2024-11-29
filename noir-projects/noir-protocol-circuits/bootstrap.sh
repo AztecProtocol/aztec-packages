@@ -22,6 +22,8 @@ mv ./Nargo.toml ./Nargo.toml.old
 yarn
 node ./scripts/generate_variants.js
 
+echo CI ENV VAR IS ${CI:=}
+
 # Check if Nargo.toml is different from Nargo.toml.old, and fail only if we are running on CI
 if [ -n "${CI:=}" ] && ! diff ./Nargo.toml ./Nargo.toml.old; then
   echo "Nargo.toml changed, please commit an updated version"
