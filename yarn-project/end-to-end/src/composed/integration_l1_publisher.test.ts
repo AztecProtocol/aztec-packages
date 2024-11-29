@@ -12,6 +12,7 @@ import {
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
+  GasSettings,
   type Header,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -84,6 +85,8 @@ describe('L1Publisher integration', () => {
 
   // The header of the last block
   let prevHeader: Header;
+
+  let baseFee: GasFees;
 
   let blockSource: MockProxy<ArchiveSource>;
   let blocks: L2Block[] = [];
@@ -192,6 +195,9 @@ describe('L1Publisher integration', () => {
     prevHeader = fork.getInitialHeader();
     await fork.close();
 
+    const ts = (await publicClient.getBlock()).timestamp;
+    baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
+
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = await rollup.read.EPOCH_DURATION();
     await progressTimeBySlot(timeToJump);
@@ -216,6 +222,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(config.version),
       vkTreeRoot: getVKTreeRoot(),
+      gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,
     });
@@ -367,16 +374,17 @@ describe('L1Publisher integration', () => {
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+        const timestamp = await rollup.read.getTimestampForSlot([slot]);
 
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
           new Fr(1 + i),
           new Fr(slot),
-          new Fr(await rollup.read.getTimestampForSlot([slot])),
+          new Fr(timestamp),
           coinbase,
           feeRecipient,
-          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFee([true]))),
+          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
@@ -479,15 +487,16 @@ describe('L1Publisher integration', () => {
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+        const timestamp = await rollup.read.getTimestampForSlot([slot]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
           new Fr(1 + i),
           new Fr(slot),
-          new Fr(await rollup.read.getTimestampForSlot([slot])),
+          new Fr(timestamp),
           coinbase,
           feeRecipient,
-          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFee([true]))),
+          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
         );
         const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
         prevHeader = block.header;
@@ -554,15 +563,16 @@ describe('L1Publisher integration', () => {
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
       const ts = (await publicClient.getBlock()).timestamp;
       const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
+      const timestamp = await rollup.read.getTimestampForSlot([slot]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1),
         new Fr(slot),
-        new Fr(await rollup.read.getTimestampForSlot([slot])),
+        new Fr(timestamp),
         coinbase,
         feeRecipient,
-        new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFee([true]))),
+        new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
