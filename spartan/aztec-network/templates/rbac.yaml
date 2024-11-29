@@ -56,3 +56,6 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "aztec-network.fullname" . }}-node
   namespace: {{ .Release.Namespace }}
+- kind: ServiceAccount
+  name: {{ include "aztec-network.fullname" . }}-node
+  namespace: metrics

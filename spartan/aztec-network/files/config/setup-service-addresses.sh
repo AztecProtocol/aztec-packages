@@ -88,7 +88,7 @@ else
 fi
 
 # Configure OTEL_COLLECTOR_ENDPOINT if not set in values file
-if [ "${OTEL_COLLECTOR_ENDPOINT}" != "" ]; then
+if [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ]; then
     OTEL_COLLECTOR_PORT=${OTEL_COLLECTOR_PORT:-4318}
     if [ "${OTEL_COLLECTOR_EXTERNAL_HOST}" != "" ]; then
         OTEL_COLLECTOR_ENDPOINT="${OTEL_COLLECTOR_EXTERNAL_HOST}"
