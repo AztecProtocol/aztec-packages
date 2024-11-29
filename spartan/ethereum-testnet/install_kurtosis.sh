@@ -2,6 +2,11 @@
 
 REPO=$(git rev-parse --show-toplevel)
 
+if command -v kurtosis &> /dev/null; then
+  echo "Kurtosis CLI already installed"
+  exit 0
+fi
+
 echo "Installing Kurtosis CLI"
 
 # Installed from a their custom apt source

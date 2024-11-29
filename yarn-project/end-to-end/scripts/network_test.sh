@@ -45,6 +45,16 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
   exit 1
 fi
 
+# Setup kurtosis ethereum testnet
+function setup_kurtosis_ethereum_testnet() {
+  echo "Setting up kurtosis ethereum testnet..."
+  $REPO/spartan/ethereum-testnet/deploy.sh
+}
+
+# Start ethereum testnet setup in background and save its PID
+setup_kurtosis_ethereum_testnet &
+ETHEREUM_SETUP_PID=$!
+
 # Load the Docker images into kind
 kind load docker-image aztecprotocol/aztec:$AZTEC_DOCKER_TAG
 
@@ -129,6 +139,14 @@ if [ -z "${CHAOS_VALUES:-}" ]; then
   kubectl delete networkchaos --all --all-namespaces
 fi
 
+# Wait for ethereum testnet setup to complete before deploying chart
+echo "Waiting for ethereum testnet setup to complete..."
+wait $ETHEREUM_SETUP_PID
+if [ $? -ne 0 ]; then
+  echo "Ethereum testnet setup failed"
+  exit 1
+fi
+
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
@@ -165,6 +183,8 @@ if ! handle_network_shaping; then
   fi
 fi
 
+
+# Now run the docker command
 docker run --rm --network=host \
   -v ~/.kube:/root/.kube \
   -e K8S=local \

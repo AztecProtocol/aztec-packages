@@ -192,6 +192,7 @@ ethereum:
   namespace: "kt-ethereum-testnet"
   elServiceName: el-1-reth-lighthouse
   clServiceName: cl-1-lighthouse-reth
+  elPort: 8545
 
 proverAgent:
   service:

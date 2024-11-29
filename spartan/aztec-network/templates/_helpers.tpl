@@ -150,7 +150,7 @@ Service Address Setup Container
     - name: ETHEREUM_CL_SERVICE_NAME
       value: "{{ .Values.ethereum.clServiceName }}"
     - name: ETHEREUM_PORT
-      value: "{{ .Values.ethereum.service.port }}"
+      value: "{{ .Values.ethereum.elPort }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT
