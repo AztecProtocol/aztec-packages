@@ -354,17 +354,21 @@ export class KVPxeDatabase implements PxeDatabase {
       if (!this.#scopes.has(formattedScopeString)) {
         throw new Error('Trying to get incoming notes of an scope that is not in the PXE database');
       }
+      const notesByAddressPoint = await this.#notesByAddressPointAndScope.get(formattedScopeString)!;
+      const notesByTxHash = await this.#notesByTxHashAndScope.get(formattedScopeString)!;
+      const notesByContract = await this.#notesByContractAndScope.get(formattedScopeString)!;
+      const notesByStorageSlot = await this.#notesByStorageSlotAndScope.get(formattedScopeString)!;
 
       activeNoteIdsPerScope.push(
         publicKey
-          ? this.#notesByAddressPointAndScope.get(formattedScopeString)!.getValues(publicKey.toString())
+          ? await notesByAddressPoint.getValues(publicKey.toString())
           : filter.txHash
-          ? this.#notesByTxHashAndScope.get(formattedScopeString)!.getValues(filter.txHash.toString())
+          ? await notesByTxHash!.getValues(filter.txHash.toString())
           : filter.contractAddress
-          ? this.#notesByContractAndScope.get(formattedScopeString)!.getValues(filter.contractAddress.toString())
+          ? await notesByContract.getValues(filter.contractAddress.toString())
           : filter.storageSlot
-          ? this.#notesByStorageSlotAndScope.get(formattedScopeString)!.getValues(filter.storageSlot.toString())
-          : this.#notesByAddressPointAndScope.get(formattedScopeString)!.values(),
+          ? await notesByStorageSlot.getValues(filter.storageSlot.toString())
+          : await notesByAddressPoint.values(),
       );
     }
 

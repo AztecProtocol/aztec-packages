@@ -17,14 +17,22 @@ export function describeAztecArray(testName: string, getStore: () => Promise<Azt
     });
 
     async function length() {
-      return isAsyncStore(store) ? await (arr as AztecAsyncArray<number>).length() : arr.length;
+      return isAsyncStore(store) ? await arr.lengthAsync() : (arr as AztecArray<number>).length;
     }
 
     async function at(index: number) {
-      return isAsyncStore(store) ? await arr.at(index) : arr.at(index);
+      return isAsyncStore(store) ? await arr.atAsync(index) : (arr as AztecArray<number>).at(index);
     }
 
-    it.only('should be able to push and pop values', async () => {
+    async function entries() {
+      return isAsyncStore(store) ? await toArray(arr.entriesAsync()) : (arr as AztecArray<number>).entries();
+    }
+
+    async function values() {
+      return isAsyncStore(store) ? await toArray(arr.valuesAsync()) : (arr as AztecArray<number>).values();
+    }
+
+    it('should be able to push and pop values', async () => {
       await arr.push(1);
       await arr.push(2);
       await arr.push(3);
@@ -85,8 +93,8 @@ export function describeAztecArray(testName: string, getStore: () => Promise<Azt
       await arr.push(2);
       await arr.push(3);
 
-      expect(await toArray(arr.values())).to.deep.equal([1, 2, 3]);
-      expect(await toArray(arr.entries())).to.deep.equal([
+      expect(await values()).to.deep.equal([1, 2, 3]);
+      expect(await entries()).to.deep.equal([
         [0, 1],
         [1, 2],
         [2, 3],
@@ -98,9 +106,11 @@ export function describeAztecArray(testName: string, getStore: () => Promise<Azt
       await arr.push(2);
       await arr.push(3);
 
-      const arr2 = store.openArray('test');
-      expect(arr2.length).to.equal(3);
-      expect(await toArray(arr2.values())).to.deep.equal(await toArray(arr.values()));
+      const arr2 = store.openArray<number>('test');
+      const length2 = isAsyncStore(store) ? await arr2.lengthAsync() : (arr2 as AztecArray<number>).length;
+      expect(length2).to.equal(3);
+      const values2 = isAsyncStore(store) ? await toArray(arr2.valuesAsync()) : (arr2 as AztecArray<number>).values();
+      expect(values2).to.deep.equal(await values());
     });
   });
 }

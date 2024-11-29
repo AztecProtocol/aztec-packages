@@ -24,6 +24,10 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     return this.#length.get() ?? 0;
   }
 
+  async lengthAsync(): Promise<number> {
+    return Promise.resolve(this.length);
+  }
+
   push(...vals: T[]): Promise<number> {
     return this.#db.childTransaction(() => {
       let length = this.length;
@@ -69,6 +73,10 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     return this.#db.get(this.#slot(index));
   }
 
+  atAsync(index: number): Promise<T | undefined> {
+    return Promise.resolve(this.at(index));
+  }
+
   setAt(index: number, val: T): Promise<boolean> {
     if (index < 0) {
       index = this.length + index;
@@ -93,14 +101,26 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     }
   }
 
+  async *entriesAsync(): AsyncIterableIterator<[number, T]> {
+    return this.entries();
+  }
+
   *values(): IterableIterator<T> {
     for (const [_, value] of this.entries()) {
       yield value;
     }
   }
 
+  async *valuesAsync(): AsyncIterableIterator<T> {
+    return this.values();
+  }
+
   [Symbol.iterator](): IterableIterator<T> {
     return this.values();
+  }
+
+  [Symbol.asyncIterator](): AsyncIterableIterator<T> {
+    return this.valuesAsync();
   }
 
   #slot(index: number): ArrayIndexSlot {

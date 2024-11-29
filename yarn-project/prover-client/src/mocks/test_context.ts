@@ -11,7 +11,7 @@ import {
 import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   PublicProcessor,
   PublicTxSimulator,

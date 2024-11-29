@@ -24,7 +24,41 @@ interface BaseAztecArray<T> {
   setAt(index: number, val: T): Promise<boolean>;
 }
 
-export interface AztecArray<T> extends BaseAztecArray<T> {
+/**
+ * An array backed by a persistent store. Can not have any holes in it.
+ */
+export interface AztecAsyncArray<T> extends BaseAztecArray<T> {
+  /**
+   * The size of the array
+   */
+  lengthAsync(): Promise<number>;
+
+  /**
+   * Gets the value at the given index. Index can be in the range [-length, length - 1).
+   * If the index is negative, it will be treated as an offset from the end of the array.
+   *
+   * @param index - The index to get the value from
+   * @returns The value at the given index or undefined if the index is out of bounds
+   */
+  atAsync(index: number): Promise<T | undefined>;
+
+  /**
+   * Iterates over the array with indexes.
+   */
+  entriesAsync(): AsyncIterableIterator<[number, T]>;
+
+  /**
+   * Iterates over the array.
+   */
+  valuesAsync(): AsyncIterableIterator<T>;
+
+  /**
+   * Iterates over the array.
+   */
+  [Symbol.asyncIterator](): AsyncIterableIterator<T>;
+}
+
+export interface AztecArray<T> extends BaseAztecArray<T>, AztecAsyncArray<T> {
   /**
    * The size of the array
    */
@@ -53,45 +87,4 @@ export interface AztecArray<T> extends BaseAztecArray<T> {
    * Iterates over the array.
    */
   [Symbol.iterator](): IterableIterator<T>;
-}
-
-/**
- * An array backed by a persistent store. Can not have any holes in it.
- */
-export interface AztecAsyncArray<T> extends BaseAztecArray<T> {
-  /**
-   * The size of the array
-   */
-  length(): Promise<number>;
-
-  /**
-   * Pushes values to the end of the array
-   * @param vals - The values to push to the end of the array
-   * @returns The new length of the array
-   */
-  push(...vals: T[]): Promise<number>;
-
-  /**
-   * Gets the value at the given index. Index can be in the range [-length, length - 1).
-   * If the index is negative, it will be treated as an offset from the end of the array.
-   *
-   * @param index - The index to get the value from
-   * @returns The value at the given index or undefined if the index is out of bounds
-   */
-  at(index: number): Promise<T | undefined>;
-
-  /**
-   * Iterates over the array with indexes.
-   */
-  entries(): AsyncIterableIterator<[number, T]>;
-
-  /**
-   * Iterates over the array.
-   */
-  values(): AsyncIterableIterator<T>;
-
-  /**
-   * Iterates over the array.
-   */
-  [Symbol.asyncIterator](): AsyncIterableIterator<T>;
 }

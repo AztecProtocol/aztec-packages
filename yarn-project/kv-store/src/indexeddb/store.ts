@@ -148,7 +148,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param callback - Function to execute in a transaction
    * @returns A promise that resolves to the return value of the callback
    */
-  async transaction<T>(callback: () => Promise<T>): Promise<T> {
+  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
     for (const container of this.#containers) {
       container.db = this.#rootDB.transaction('data', 'readwrite').objectStore('data');
     }

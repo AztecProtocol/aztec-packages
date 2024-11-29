@@ -26,7 +26,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
     return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').store;
   }
 
-  async length(): Promise<number> {
+  async lengthAsync(): Promise<number> {
     return (
       (await this.db
         .index('key')
@@ -35,7 +35,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
   }
 
   async push(...vals: T[]): Promise<number> {
-    let length = await this.length();
+    let length = await this.lengthAsync();
     for (const val of vals) {
       await this.db.put({
         value: val,
@@ -50,7 +50,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
   }
 
   async pop(): Promise<T | undefined> {
-    const length = await this.length();
+    const length = await this.lengthAsync();
     if (length === 0) {
       return undefined;
     }
@@ -62,8 +62,8 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
     return data?.value;
   }
 
-  async at(index: number): Promise<T | undefined> {
-    const length = await this.length();
+  async atAsync(index: number): Promise<T | undefined> {
+    const length = await this.lengthAsync();
 
     if (index < 0) {
       index = length + index;
@@ -74,7 +74,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
   }
 
   async setAt(index: number, val: T): Promise<boolean> {
-    const length = await this.length();
+    const length = await this.lengthAsync();
 
     if (index < 0) {
       index = length + index;
@@ -94,7 +94,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
     return true;
   }
 
-  async *entries(): AsyncIterableIterator<[number, T]> {
+  async *entriesAsync(): AsyncIterableIterator<[number, T]> {
     const index = this.db.index('key');
     const rangeQuery = IDBKeyRange.bound([this.#container, this.#name], [this.#container, this.#name]);
     for await (const cursor of index.iterate(rangeQuery)) {
@@ -102,14 +102,14 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
     }
   }
 
-  async *values(): AsyncIterableIterator<T> {
-    for await (const [_, value] of this.entries()) {
+  async *valuesAsync(): AsyncIterableIterator<T> {
+    for await (const [_, value] of this.entriesAsync()) {
       yield value;
     }
   }
 
   [Symbol.asyncIterator](): AsyncIterableIterator<T> {
-    return this.values();
+    return this.valuesAsync();
   }
 
   #slot(index: number): string {

@@ -36,7 +36,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type AppendOnlyTree,
   type IndexedTree,

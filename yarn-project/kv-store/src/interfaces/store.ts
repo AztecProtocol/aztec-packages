@@ -123,7 +123,7 @@ export interface AztecAsyncKVStore {
    * Starts a transaction. All calls to read/write data while in a transaction are queued and executed atomically.
    * @param callback - The callback to execute in a transaction
    */
-  transaction<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
+  transactionAsync<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
 
   /**
    * Clears all entries in the store

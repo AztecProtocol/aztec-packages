@@ -91,7 +91,7 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       expect(await toArray(map.getValues('foo'))).to.deep.equal(['baz']);
     });
 
-    it.only('supports tuple keys', async () => {
+    it('supports tuple keys', async () => {
       // Use a new map because key structure has changed
       const tupleMap = store.openMap<[number, string], string>('test-tuple');
 

@@ -3,7 +3,7 @@ import { randomBigInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_LEAF, newTree } from '../index.js';
