@@ -186,7 +186,6 @@ class ClientIVCAPI : public API {
             throw_or_abort("No input_type or input_type not supported");
         }
 
-        // LEFTOFFHERE: whoops, need to determine stack type at runtime
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
         ClientIVC ivc = _accumulate(folding_stack);

@@ -2,7 +2,8 @@
 set -eu
 
 VFLAG=${VERBOSE:+-v}
-BFLAG="-b ./target/program.json"
-FLAGS="--scheme client_ivc -c $CRS_PATH $VFLAG"
+INFLAG=${INPUT_TYPE=runtime-stack}
 
-$BIN prove_and_verify -- $FLAGS $BFLAG
+FLAGS="$CRS_PATH -b ./target/program.json $VFLAG --scheme client_ivc -c --input_type $INFLAG"
+
+$BIN prove_and_verify $FLAGS

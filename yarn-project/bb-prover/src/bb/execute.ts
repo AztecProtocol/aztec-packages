@@ -234,7 +234,7 @@ export async function executeBbClientIvcProof(
       witnessStackPath,
       '-v',
       '--scheme',
-      'client-ivc',
+      'client_ivc',
       '--input_type',
       'runtime-stack',
     ];
