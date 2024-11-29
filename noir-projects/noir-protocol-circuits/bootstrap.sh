@@ -15,8 +15,16 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
+# Back up Nargo.toml to see if it changes after generating variants
+test -f ./Nargo.toml || touch ./Nargo.toml
+mv ./Nargo.toml ./Nargo.toml.old
+
 yarn
 node ./scripts/generate_variants.js
+
+# Check if Nargo.toml is different from Nargo.toml.old, and fail if we are running on CI
+diff ./Nargo.toml ./Nargo.toml.old || (test -n "$CI" && echo "Nargo.toml changed, please commit an updated version" && exit 1)
+rm ./Nargo.toml.old
 
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 echo "Compiling protocol circuits with ${RAYON_NUM_THREADS:-1} threads"
