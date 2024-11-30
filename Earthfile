@@ -9,9 +9,9 @@ bootstrap:
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
   ENV AZTEC_CACHE_COMMIT=7100222db0a2a326ea4238f783f1c524a2880d8e
-  WORKDIR /volume/build
+  WORKDIR /build-volume
   # Use a cache volume for performance
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/volume \
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf * .git && \
     git init 2>/dev/null && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
@@ -20,7 +20,7 @@ bootstrap:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
     CI=1 TEST=0 ./bootstrap.sh fast && \
-    mv .* * /usr/src
+    mv .[!.]* ..?* * /usr/src
   WORKDIR /usr/src
 
 bootstrap-aztec:
