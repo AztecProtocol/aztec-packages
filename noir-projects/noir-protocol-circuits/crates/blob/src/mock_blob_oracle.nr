@@ -3,7 +3,7 @@ use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
 };
-// TODO(BLOB_ORACLE): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
+// TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
 // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
 // If/when simulation times of unconstrained are improved, remove this.
 pub unconstrained fn evaluate_blobs(

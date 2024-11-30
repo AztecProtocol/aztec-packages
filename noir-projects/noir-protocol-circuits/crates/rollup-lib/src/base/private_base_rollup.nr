@@ -233,7 +233,9 @@ mod tests {
             private_base_rollup::PrivateBaseRollupInputs,
             state_diff_hints::PrivateBaseStateDiffHints,
         },
-        components::{append_tx_effects_for_blob, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS},
+        components::{
+            append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
+        },
     };
     use dep::types::{
         abis::{
@@ -245,14 +247,14 @@ mod tests {
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
-            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX,
-            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
-            NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX,
-            PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
+            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -859,12 +861,25 @@ mod tests {
 
     #[test]
     unconstrained fn fuller_tx_effects_sponge() {
-        let NUM_NOTES = 50;
+        let NUM_NOTES = 25;
         let NUM_NULLIFIERS = 3;
         let NUM_MSGS = 5;
-        let NUM_ENC_LOGS = 4;
+        let NUM_PRIV_EVENT_LOGS = 4;
         let NUM_UNENC_LOGS = 6;
         let NUM_CC_LOGS = 1;
+        let TOTAL_BLOB_FIELDS = 2 // revert code and tx fee
+            + NUM_NOTES
+            + 1 // notes and prefix
+            + NUM_NULLIFIERS
+            + 1 // nullifiers and prefix
+            + NUM_MSGS
+            + 1 // L2 to L1 msgs and prefix
+            + NUM_UNENC_LOGS
+            + 1 // unenc. logs and prefix
+            + NUM_CC_LOGS
+            + 1 // contract class logs and prefix
+            + (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS
+            + 1; // private logs and prefix
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.tube_data.set_gas_used(100, 200);
         builder.constants.global_variables.gas_fees.fee_per_da_gas = 1;
@@ -886,7 +901,7 @@ mod tests {
         // Copied from public data test below:
         builder.pre_existing_public_data[0] =
             PublicDataTreeLeafPreimage { slot: 20, value: 40, next_slot: 0, next_index: 0 };
-        builder.tube_data.append_encrypted_log_hashes(NUM_ENC_LOGS);
+        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         builder.tube_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
         // Below will only work with NUM_CC_LOGS=1
         builder.tube_data.add_contract_class_log_hash(1, 2);
@@ -895,11 +910,19 @@ mod tests {
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0
-        // fields appended here = 128 = offset once appending complete
+        let total_blob_fields_bytes = (TOTAL_BLOB_FIELDS as Field).to_be_bytes::<2>();
         reconstructed_tx_effects[0] = field_from_bytes(
             array_concat(
                 TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, 128, 0, REVERT_CODE_PREFIX, 0, 0],
+                [
+                    0,
+                    total_blob_fields_bytes[0],
+                    total_blob_fields_bytes[1],
+                    0,
+                    REVERT_CODE_PREFIX,
+                    0,
+                    0,
+                ],
             ),
             true,
         );
@@ -910,7 +933,7 @@ mod tests {
         );
         // notes
         let mut offset = 2;
-        let notes_prefix = field_from_bytes([NOTES_PREFIX, 0, NUM_NOTES as u8], true);
+        let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
         reconstructed_tx_effects[offset] = notes_prefix;
         offset += 1;
         for i in 0..NUM_NOTES {
@@ -919,8 +942,7 @@ mod tests {
         }
         offset += NUM_NOTES;
         // nullifiers
-        let nullifiers_prefix =
-            field_from_bytes([NULLIFIERS_PREFIX, 0, NUM_NULLIFIERS as u8], true);
+        let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, NUM_NULLIFIERS);
         reconstructed_tx_effects[offset] = nullifiers_prefix;
         offset += 1;
         for i in 0..NUM_NULLIFIERS {
@@ -928,7 +950,7 @@ mod tests {
         }
         offset += NUM_NULLIFIERS;
         // l2 to l1 msgs
-        let l2_to_l1_msgs_prefix = field_from_bytes([L2_L1_MSGS_PREFIX, 0, NUM_MSGS as u8], true);
+        let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, NUM_MSGS);
         reconstructed_tx_effects[offset] = l2_to_l1_msgs_prefix;
         offset += 1;
         for i in 0..NUM_MSGS {
@@ -939,32 +961,20 @@ mod tests {
             );
         }
         offset += NUM_MSGS;
-        // note logs
-        let note_encrypted_logs_prefix =
-            field_from_bytes([NOTE_ENCRYPTED_LOGS_PREFIX, 0, NUM_NOTES as u8], true);
-        reconstructed_tx_effects[offset] = note_encrypted_logs_prefix;
+        // private logs
+        let total_private_logs_len = (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
+        reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
-        for i in 0..NUM_NOTES {
-            reconstructed_tx_effects[offset + i] =
-                builder.tube_data.note_encrypted_logs_hashes.storage()[i].value();
+        for i in 0..NUM_NOTES + NUM_PRIV_EVENT_LOGS {
+            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
+                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
+            }
         }
-        offset += NUM_NOTES;
-        // enc logs
-        let encrypted_logs_prefix =
-            field_from_bytes([ENCRYPTED_LOGS_PREFIX, 0, NUM_ENC_LOGS as u8], true);
-        reconstructed_tx_effects[offset] = encrypted_logs_prefix;
-        offset += 1;
-        for i in 0..NUM_ENC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_encrypted_log_hash(builder
-                .tube_data
-                .encrypted_logs_hashes
-                .storage()[i]
-                .expose_to_public());
-        }
-        offset += NUM_ENC_LOGS;
+        offset += total_private_logs_len;
         // unenc logs
-        let unencrypted_logs_prefix =
-            field_from_bytes([UNENCRYPTED_LOGS_PREFIX, 0, NUM_UNENC_LOGS as u8], true);
+        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, NUM_UNENC_LOGS);
         reconstructed_tx_effects[offset] = unencrypted_logs_prefix;
         offset += 1;
         for i in 0..NUM_UNENC_LOGS {
@@ -975,7 +985,7 @@ mod tests {
         offset += NUM_UNENC_LOGS;
         // cc logs
         let contract_class_logs_prefix =
-            field_from_bytes([CONTRACT_CLASS_LOGS_PREFIX, 0, NUM_CC_LOGS as u8], true);
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
@@ -985,8 +995,8 @@ mod tests {
         }
         offset += NUM_CC_LOGS;
 
-        // Sanity check - if this fails change the above use of 128
-        assert(offset == 128);
+        // Sanity check
+        assert(offset == TOTAL_BLOB_FIELDS);
 
         let mut expected_sponge = outputs.start_sponge_blob;
         expected_sponge.absorb(reconstructed_tx_effects, offset);

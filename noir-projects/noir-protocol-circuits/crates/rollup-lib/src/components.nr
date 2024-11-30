@@ -6,24 +6,19 @@ use crate::abis::{
 };
 use dep::types::{
     abis::{
-        accumulated_data::CombinedAccumulatedData,
-        log_hash::{LogHash, ScopedLogHash},
-        public_data_write::PublicDataWrite,
-        sponge_blob::SpongeBlob,
+        accumulated_data::CombinedAccumulatedData, log_hash::ScopedLogHash,
+        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
     },
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX,
-        L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
+        AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, NOTES_PREFIX,
+        NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
-        UNENCRYPTED_LOGS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        UNENCRYPTED_LOGS_PREFIX,
     },
-    hash::{
-        accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
-    },
-    hash::{accumulate_sha256, compute_tx_logs_hash, silo_unencrypted_log_hash},
+    hash::{accumulate_sha256, silo_unencrypted_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
@@ -229,19 +224,6 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
     merkle_tree.get_root()
 }
 
-fn silo_and_hash_unencrypted_logs<let N: u32>(
-    unencrypted_logs_hashes: [ScopedLogHash; N],
-) -> Field {
-    let siloed_logs = unencrypted_logs_hashes.map(|log: ScopedLogHash| {
-        LogHash {
-            value: silo_unencrypted_log_hash(log),
-            counter: log.log_hash.counter,
-            length: log.log_hash.length,
-        }
-    });
-    compute_tx_logs_hash(siloed_logs)
-}
-
 /**
  * Asserts that the first sponge blob was empty to begin with.
  * This prevents injecting unchecked tx effects in the first base of a rollup.
@@ -252,6 +234,15 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
         left.start_sponge_blob.eq(expected_sponge_blob),
         "block's first blob sponge was not empty",
     );
+}
+
+/**
+ * Converts given type (e.g. note hashes = 3) and length (e.g. 5) into a prefix: 0x03000005.
+ * Uses 2 bytes to encode the length even when we only need 1 to keep uniform.
+ */
+pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
+    let len_bytes = (array_len as Field).to_be_bytes::<2>();
+    field_from_bytes([input_type, 0, len_bytes[0], len_bytes[1]], true)
 }
 
 // Tx effects consist of
@@ -265,7 +256,7 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
 // MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
 // MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
-// 8 fields for prefixes for each of the above categories
+// 7 fields for prefixes for each of the above categories
 global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
@@ -275,7 +266,7 @@ global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
     + MAX_UNENCRYPTED_LOGS_PER_TX
     + MAX_CONTRACT_CLASS_LOGS_PER_TX
-    + 8;
+    + 7;
 pub fn append_tx_effects_for_blob(
     combined: CombinedAccumulatedData,
     revert_code: u8,
@@ -293,9 +284,7 @@ pub fn append_tx_effects_for_blob(
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
         get_all_update_requests_for_tx_effects(all_public_data_update_requests);
-    let note_encrypted_logs = combined.note_encrypted_logs_hashes.map(|log: LogHash| log.value);
-    let encrypted_logs =
-        combined.encrypted_logs_hashes.map(|log: ScopedLogHash| silo_encrypted_log_hash(log));
+    let private_logs = combined.private_logs;
     let unencrypted_logs =
         combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
     let contract_class_logs = combined.contract_class_logs_hashes.map(|log: ScopedLogHash| {
@@ -313,7 +302,7 @@ pub fn append_tx_effects_for_blob(
     offset += 1;
 
     // TX FEE
-    // TODO(Miranda): how many bytes do we expect tx fee to be? Using 29 for now
+    // Using 29 bytes to encompass all reasonable fee lengths
     tx_effects_hash_input[offset] = field_from_bytes(
         array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
         true,
@@ -326,7 +315,7 @@ pub fn append_tx_effects_for_blob(
     // NOTE HASHES
     array_len = array_length(note_hashes);
     if array_len != 0 {
-        let notes_prefix = field_from_bytes([NOTES_PREFIX, 0, array_len as u8], true);
+        let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
         tx_effects_hash_input[offset] = notes_prefix;
         offset += 1;
 
@@ -339,7 +328,7 @@ pub fn append_tx_effects_for_blob(
     // NULLIFIERS
     array_len = array_length(nullifiers);
     if array_len != 0 {
-        let nullifiers_prefix = field_from_bytes([NULLIFIERS_PREFIX, 0, array_len as u8], true);
+        let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
         tx_effects_hash_input[offset] = nullifiers_prefix;
         offset += 1;
 
@@ -352,7 +341,7 @@ pub fn append_tx_effects_for_blob(
     // L2 TO L1 MESSAGES
     array_len = array_length(l2_to_l1_msgs);
     if array_len != 0 {
-        let l2_to_l1_msgs_prefix = field_from_bytes([L2_L1_MSGS_PREFIX, 0, array_len as u8], true);
+        let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
         offset += 1;
 
@@ -365,10 +354,8 @@ pub fn append_tx_effects_for_blob(
     // PUBLIC DATA UPDATE REQUESTS
     array_len = array_length(public_data_update_requests);
     if array_len != 0 {
-        let public_data_update_requests_prefix = field_from_bytes(
-            [PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, 0, (array_len as u8) * 2],
-            true,
-        );
+        let public_data_update_requests_prefix =
+            encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
         tx_effects_hash_input[offset] = public_data_update_requests_prefix;
         offset += 1;
         for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
@@ -378,47 +365,29 @@ pub fn append_tx_effects_for_blob(
         offset += array_len * 2;
     }
 
-    // TODO(MIRANDA): replace below
-    //     // PRIVATE_LOGS
-    // for j in 0..MAX_PRIVATE_LOGS_PER_TX {
-    //     tx_effects_hash_input.extend_from_array(combined.private_logs[j].fields);
-    // }
+    // TODO(Miranda): squash 0s in a nested loop and add len prefix?
+    // PRIVATE_LOGS
+    array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
+    if array_len != 0 {
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = private_logs_prefix;
+        offset += 1;
+
+        for j in 0..MAX_PRIVATE_LOGS_PER_TX {
+            for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
+                tx_effects_hash_input[index] = private_logs[j].fields[k];
+            }
+        }
+        offset += array_len;
+    }
 
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution
-    // NOTE ENCRYPTED LOGS
-    array_len = array_length(note_encrypted_logs);
-    if array_len != 0 {
-        let note_encrypted_logs_prefix =
-            field_from_bytes([NOTE_ENCRYPTED_LOGS_PREFIX, 0, array_len as u8], true);
-        tx_effects_hash_input[offset] = note_encrypted_logs_prefix;
-        offset += 1;
-
-        for j in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
-            tx_effects_hash_input[offset + j] = note_encrypted_logs[j];
-        }
-        offset += array_len;
-    }
-
-    // ENCRYPTED LOGS
-    array_len = array_length(encrypted_logs);
-    if array_len != 0 {
-        let encrypted_logs_prefix =
-            field_from_bytes([ENCRYPTED_LOGS_PREFIX, 0, array_len as u8], true);
-        tx_effects_hash_input[offset] = encrypted_logs_prefix;
-        offset += 1;
-
-        for j in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-            tx_effects_hash_input[offset + j] = encrypted_logs[j];
-        }
-        offset += array_len;
-    }
-
     // UNENCRYPTED LOGS
     array_len = array_length(unencrypted_logs);
     if array_len != 0 {
-        let unencrypted_logs_prefix =
-            field_from_bytes([UNENCRYPTED_LOGS_PREFIX, 0, array_len as u8], true);
+        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = unencrypted_logs_prefix;
         offset += 1;
 
@@ -431,8 +400,7 @@ pub fn append_tx_effects_for_blob(
     // CONTRACT CLASS LOGS
     array_len = array_length(contract_class_logs);
     if array_len != 0 {
-        let contract_class_logs_prefix =
-            field_from_bytes([CONTRACT_CLASS_LOGS_PREFIX, 0, array_len as u8], true);
+        let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = contract_class_logs_prefix;
         offset += 1;
 
@@ -446,7 +414,6 @@ pub fn append_tx_effects_for_blob(
     // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
     // Start prefix is "tx_start".to_field() => 8 bytes
     let prefix_bytes = TX_START_PREFIX.to_be_bytes::<8>();
-    // Assigning length to 2 bytes, since we may go over 255 fields
     let length_bytes = (offset as Field).to_be_bytes::<2>();
     // REVERT CODE
     tx_effects_hash_input[0] = field_from_bytes(

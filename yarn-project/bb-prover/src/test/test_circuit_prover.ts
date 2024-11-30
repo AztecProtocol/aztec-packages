@@ -315,7 +315,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
     if (artifactName == 'BlockRootRollupArtifact') {
-      // TODO(BLOB_ORACLE): temporarily force block root to use wasm while we simulate
+      // TODO(#10323): temporarily force block root to use wasm while we simulate
       // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call hander.
       simulationProvider = this.wasmSimulator;
     }

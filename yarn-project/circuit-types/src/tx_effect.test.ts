@@ -13,15 +13,7 @@ describe('TxEffect', () => {
     const txEffect = TxEffect.random();
     const fields = txEffect.toBlobFields();
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
-    expect(
-      TxEffect.fromBlobFields(
-        fields,
-        txEffect.noteEncryptedLogs,
-        txEffect.encryptedLogs,
-        txEffect.unencryptedLogs,
-        txEffect.contractClassLogs,
-      ),
-    ).toEqual(txEffect);
+    expect(TxEffect.fromBlobFields(fields, txEffect.unencryptedLogs, txEffect.contractClassLogs)).toEqual(txEffect);
   });
 
   it('converts empty to and from fields', () => {
@@ -42,33 +34,21 @@ describe('TxEffect', () => {
     // Add an extra field
     fields.push(new Fr(7));
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
-    expect(() =>
-      TxEffect.fromBlobFields(
-        fields,
-        txEffect.noteEncryptedLogs,
-        txEffect.encryptedLogs,
-        txEffect.unencryptedLogs,
-        txEffect.contractClassLogs,
-      ),
-    ).toThrow('Too many fields');
+    expect(() => TxEffect.fromBlobFields(fields, txEffect.unencryptedLogs, txEffect.contractClassLogs)).toThrow(
+      'Too many fields',
+    );
 
     txEffect = TxEffect.random();
     fields = txEffect.toBlobFields();
-    const buf = Buffer.alloc(3);
+    const buf = Buffer.alloc(4);
     buf.writeUint8(6);
-    buf.writeUint8(0, 2);
+    buf.writeUint16BE(0, 2);
     // Add an extra field which looks like a valid prefix
     const fakePrefix = new Fr(buf);
     fields.push(fakePrefix);
     // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
-    expect(() =>
-      TxEffect.fromBlobFields(
-        fields,
-        txEffect.noteEncryptedLogs,
-        txEffect.encryptedLogs,
-        txEffect.unencryptedLogs,
-        txEffect.contractClassLogs,
-      ),
-    ).toThrow('Invalid fields');
+    expect(() => TxEffect.fromBlobFields(fields, txEffect.unencryptedLogs, txEffect.contractClassLogs)).toThrow(
+      'Invalid fields',
+    );
   });
 });

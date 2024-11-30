@@ -1,6 +1,5 @@
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
-  ENCRYPTED_LOGS_PREFIX,
   Fr,
   L2_L1_MSGS_PREFIX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -9,10 +8,10 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTES_PREFIX,
-  NOTE_ENCRYPTED_LOGS_PREFIX,
   NULLIFIERS_PREFIX,
-  PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+  PRIVATE_LOGS_PREFIX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
   PrivateLog,
   PublicDataWrite,
   REVERT_CODE_PREFIX,
@@ -38,12 +37,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import {
-  ContractClassTxL2Logs,
-  type TxL2Logs,
-  type UnencryptedL2Log,
-  UnencryptedTxL2Logs,
-} from './logs/index.js';
+import { ContractClassTxL2Logs, type TxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
 export { RevertCodeEnum } from '@aztec/circuits.js';
@@ -257,9 +251,9 @@ export class TxEffect {
    * Used to prefix a 'block' of tx effects with its type and length.
    */
   private toPrefix(type: number, length: number): Fr {
-    const buf = Buffer.alloc(3);
+    const buf = Buffer.alloc(4);
     buf.writeUint8(type);
-    buf.writeUint8(length, 2);
+    buf.writeUInt16BE(length, 2);
     return new Fr(buf);
   }
 
@@ -267,8 +261,8 @@ export class TxEffect {
    * Decodes the prefix as used in a blob to tx effect type and length.
    */
   static fromPrefix(prefix: Fr) {
-    const buf = prefix.toBuffer().subarray(-3);
-    return { type: buf[0], length: buf[2] };
+    const buf = prefix.toBuffer().subarray(-4);
+    return { type: buf[0], length: new Fr(buf.subarray(-2)).toNumber() };
   }
 
   /**
@@ -362,16 +356,12 @@ export class TxEffect {
       flattened.push(this.toPrefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, this.publicDataWrites.length * 2));
       flattened.push(...this.publicDataWrites.map(w => [w.leafSlot, w.value]).flat());
     }
+    if (this.privateLogs.length) {
+      flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, this.privateLogs.length * PRIVATE_LOG_SIZE_IN_FIELDS));
+      flattened.push(...this.privateLogs.map(l => l.fields).flat());
+    }
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution
-    if (this.noteEncryptedLogs.unrollLogs().length) {
-      flattened.push(this.toPrefix(NOTE_ENCRYPTED_LOGS_PREFIX, this.noteEncryptedLogs.unrollLogs().length));
-      flattened.push(...this.noteEncryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.hash())));
-    }
-    if (this.encryptedLogs.unrollLogs().length) {
-      flattened.push(this.toPrefix(ENCRYPTED_LOGS_PREFIX, this.encryptedLogs.unrollLogs().length));
-      flattened.push(...this.encryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
-    }
     if (this.unencryptedLogs.unrollLogs().length) {
       flattened.push(this.toPrefix(UNENCRYPTED_LOGS_PREFIX, this.unencryptedLogs.unrollLogs().length));
       flattened.push(...this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
@@ -395,8 +385,6 @@ export class TxEffect {
    */
   static fromBlobFields(
     fields: Fr[] | FieldReader,
-    noteEncryptedLogs?: EncryptedNoteTxL2Logs,
-    encryptedLogs?: EncryptedTxL2Logs,
     unencryptedLogs?: UnencryptedTxL2Logs,
     contractClassLogs?: ContractClassTxL2Logs,
   ) {
@@ -419,6 +407,7 @@ export class TxEffect {
     // TODO: how long should tx fee be? For now, not using fromPrefix()
     const prefixedFee = reader.readField();
     // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
+    // todo: try new Fr(prefixedFee.toBuffer().subarray(3))
     effect.transactionFee = Fr.fromBuffer(Buffer.concat([Buffer.alloc(3), prefixedFee.toBuffer().subarray(3)]));
     while (!reader.isFinished()) {
       const { type, length } = this.fromPrefix(reader.readField());
@@ -443,27 +432,16 @@ export class TxEffect {
           }
           break;
         }
+        case PRIVATE_LOGS_PREFIX: {
+          // TODO(Miranda): squash log 0s in a nested loop and add len prefix?
+          ensureEmpty(effect.privateLogs);
+          const flatPrivateLogs = reader.readFieldArray(length);
+          for (let i = 0; i < length; i += PRIVATE_LOG_SIZE_IN_FIELDS) {
+            effect.privateLogs.push(PrivateLog.fromFields(flatPrivateLogs.slice(i, i + PRIVATE_LOG_SIZE_IN_FIELDS)));
+          }
+          break;
+        }
         // TODO(#8954): When logs are refactored into fields, we will append the read fields here
-        case NOTE_ENCRYPTED_LOGS_PREFIX:
-          // effect.noteEncryptedLogs = EncryptedNoteTxL2Logs.fromFields(reader.readFieldArray(length));
-          ensureEmpty(effect.noteEncryptedLogs.functionLogs);
-          if (!noteEncryptedLogs) {
-            throw new Error(`Tx effect has note logs, but they were not passed raw to .fromBlobFields()`);
-          }
-          this.checkInjectedLogs(noteEncryptedLogs, reader.readFieldArray(length));
-          effect.noteEncryptedLogs = noteEncryptedLogs;
-          effect.noteEncryptedLogsLength = new Fr(noteEncryptedLogs.getKernelLength());
-          break;
-        case ENCRYPTED_LOGS_PREFIX:
-          // effect.encryptedLogs = EncryptedTxL2Logs.fromFields(reader.readFieldArray(length));
-          ensureEmpty(effect.encryptedLogs.functionLogs);
-          if (!encryptedLogs) {
-            throw new Error(`Tx effect has encrypted logs, but they were not passed raw to .fromBlobFields()`);
-          }
-          this.checkInjectedLogs(encryptedLogs, reader.readFieldArray(length));
-          effect.encryptedLogs = encryptedLogs;
-          effect.encryptedLogsLength = new Fr(encryptedLogs.getKernelLength());
-          break;
         case UNENCRYPTED_LOGS_PREFIX:
           // effect.unencryptedLogs = UnencryptedTxL2Logs.fromFields(reader.readFieldArray(length));
           ensureEmpty(effect.unencryptedLogs.functionLogs);
@@ -491,10 +469,6 @@ export class TxEffect {
     }
 
     // If the input fields have no logs, ensure we match the original struct by reassigning injected logs
-    effect.noteEncryptedLogs =
-      !effect.noteEncryptedLogs.getTotalLogCount() && noteEncryptedLogs ? noteEncryptedLogs : effect.noteEncryptedLogs;
-    effect.encryptedLogs =
-      !effect.encryptedLogs.getTotalLogCount() && encryptedLogs ? encryptedLogs : effect.encryptedLogs;
     effect.unencryptedLogs =
       !effect.unencryptedLogs.getTotalLogCount() && unencryptedLogs ? unencryptedLogs : effect.unencryptedLogs;
     effect.contractClassLogs =
@@ -503,12 +477,9 @@ export class TxEffect {
   }
 
   // TODO(#8954): Remove below when logs are refactored into fields
-  private static checkInjectedLogs<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(
-    injected: TxL2Logs<TLog>,
-    expectedHashes: Fr[],
-  ) {
+  private static checkInjectedLogs(injected: TxL2Logs, expectedHashes: Fr[]) {
     injected.unrollLogs().forEach((log, i) => {
-      const logHash = log instanceof EncryptedL2NoteLog ? log.hash() : log.getSiloedHash();
+      const logHash = log.getSiloedHash();
       if (!Fr.fromBuffer(logHash).equals(expectedHashes[i])) {
         throw new Error(
           `Log hash mismatch when reconstructing tx effect. Expected: ${Fr.fromBuffer(logHash)}, Got: ${

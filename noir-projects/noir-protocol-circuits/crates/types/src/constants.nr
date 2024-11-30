@@ -729,10 +729,9 @@ pub global NOTES_PREFIX: u8 = 3;
 pub global NULLIFIERS_PREFIX: u8 = 4;
 pub global L2_L1_MSGS_PREFIX: u8 = 5;
 pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
-pub global NOTE_ENCRYPTED_LOGS_PREFIX: u8 = 7;
-pub global ENCRYPTED_LOGS_PREFIX: u8 = 8;
-pub global UNENCRYPTED_LOGS_PREFIX: u8 = 9;
-pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 10;
+pub global PRIVATE_LOGS_PREFIX: u8 = 7;
+pub global UNENCRYPTED_LOGS_PREFIX: u8 = 8;
+pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 9;
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp

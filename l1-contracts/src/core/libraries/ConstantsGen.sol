@@ -205,7 +205,7 @@ library Constants {
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 25;
   uint256 internal constant HEADER_LENGTH_BYTES = 648;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 491;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 731;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 38;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
@@ -283,10 +283,9 @@ library Constants {
   uint256 internal constant NULLIFIERS_PREFIX = 4;
   uint256 internal constant L2_L1_MSGS_PREFIX = 5;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
-  uint256 internal constant NOTE_ENCRYPTED_LOGS_PREFIX = 7;
-  uint256 internal constant ENCRYPTED_LOGS_PREFIX = 8;
-  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 9;
-  uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 10;
+  uint256 internal constant PRIVATE_LOGS_PREFIX = 7;
+  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 8;
+  uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 9;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;

@@ -140,7 +140,7 @@ impl BlockRootRollupInputs {
                 right.end_sponge_blob,
             );
         } else {
-            // TODO(BLOB_ORACLE): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            // TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
             blob_public_inputs[0] = unsafe {
                 blob::mock_blob_oracle::evaluate_blobs(
                     self.blobs_fields,

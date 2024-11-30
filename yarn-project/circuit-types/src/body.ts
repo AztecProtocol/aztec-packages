@@ -61,8 +61,6 @@ export class Body {
    */
   static fromBlobFields(
     fields: Fr[],
-    noteEncryptedLogs?: EncryptedNoteL2BlockL2Logs,
-    encryptedLogs?: EncryptedL2BlockL2Logs,
     unencryptedLogs?: UnencryptedL2BlockL2Logs,
     contractClassLogs?: ContractClass2BlockL2Logs,
   ) {
@@ -78,15 +76,7 @@ export class Body {
     }
     const txEffects = txEffectsFields
       .filter(effect => effect.length)
-      .map((effect, i) =>
-        TxEffect.fromBlobFields(
-          effect,
-          noteEncryptedLogs?.txLogs[i],
-          encryptedLogs?.txLogs[i],
-          unencryptedLogs?.txLogs[i],
-          contractClassLogs?.txLogs[i],
-        ),
-      );
+      .map((effect, i) => TxEffect.fromBlobFields(effect, unencryptedLogs?.txLogs[i], contractClassLogs?.txLogs[i]));
     return new this(txEffects);
   }
 
@@ -95,18 +85,6 @@ export class Body {
   txEffects: ${inspect(this.txEffects)},
   emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
 }`;
-  }
-
-  get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.noteEncryptedLogs);
-
-    return new EncryptedNoteL2BlockL2Logs(logs);
-  }
-
-  get encryptedLogs(): EncryptedL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
-
-    return new EncryptedL2BlockL2Logs(logs);
   }
 
   get unencryptedLogs(): UnencryptedL2BlockL2Logs {
