@@ -27,8 +27,6 @@ function start_minio() {
     aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
 }
 
-trap cleanup EXIT
-
 # Local file server for a quicker cache layer
 start_minio
 
