@@ -7,7 +7,7 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
-if [[ "${DENOISE:-0}" -eq 0 ]] ; then
+if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
   set -e
   eval "$*"
   exit 0
