@@ -47,7 +47,7 @@ function build {
   fi
   $ci3/github/endgroup
 
-  if ! [ "${TEST:-0}" -eq 0 ] && ([ "${CI:-0}" -eq 1 ] || [ "${TEST:-0}" -eq 1 ]); then
+  if $ci3/cache/should_run "$HASH"; then
     yarn test
     export ci3 YELLOW BLUE GREEN BOLD RESET CMD
     export -f run_e2e_tests
