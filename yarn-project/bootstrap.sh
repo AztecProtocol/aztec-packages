@@ -25,10 +25,14 @@ function build {
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  echo -n "yarn install: "
-  denoise yarn install
+  # in case we hit the cache, install just runtime dependencies
+  echo -n "yarn install (runtime):"
+  denoise yarn workspaces focus --production
 
   if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+    # if we failed the cache, we need dev dependencies
+    echo -n "yarn install (dev): "
+    denoise yarn install
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;

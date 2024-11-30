@@ -8,8 +8,12 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-# yarn build
-if ! [ "${TEST:-0}" -eq 0 ] && ([ "${CI:-0}" -eq 1 ] || [ "${TEST:-0}" -eq 1 ]); then
+HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
+  ../noir-projects/*/.rebuild_patterns \
+  ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
+  ../barretenberg/*/.rebuild_patterns)
+
+if $ci3/cache/should_run ""; then
   parallel --timeout 5m --verbose \
       BOX={} docker compose -p {} up --exit-code-from=boxes --force-recreate ::: vanilla react
 fi
