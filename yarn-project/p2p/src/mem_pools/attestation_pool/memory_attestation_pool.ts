@@ -58,7 +58,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return total;
   }
 
-  public deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
+  public async deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
     const olderThan = [];
 
     // Entries are iterated in insertion order, so we can break as soon as we find a slot that is older than the oldestSlot.
@@ -74,7 +74,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     }
 
     for (const oldSlot of olderThan) {
-      this.deleteAttestationsForSlot(oldSlot);
+      await this.deleteAttestationsForSlot(oldSlot);
     }
     return Promise.resolve();
   }

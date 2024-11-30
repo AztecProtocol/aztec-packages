@@ -227,8 +227,7 @@ export class P2PClient extends WithTracer implements P2P {
   ) {
     super(telemetry, 'P2PClient');
 
-    const { blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } =
-      getP2PConfigFromEnv();
+    const { blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = getP2PConfigFromEnv();
 
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
@@ -646,7 +645,6 @@ export class P2PClient extends WithTracer implements P2P {
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
-
 
     await this.startServiceIfSynched();
   }

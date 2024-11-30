@@ -30,7 +30,6 @@ export interface AttestationPool {
    */
   deleteAttestationsOlderThan(slot: bigint): Promise<void>;
 
-
   /**
    * Delete Attestations for slot
    *

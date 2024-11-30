@@ -3,9 +3,9 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { jest } from '@jest/globals';
 import { type PoolInstrumentation } from '../instrumentation.js';
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
 import { mockAttestation } from './mocks.js';

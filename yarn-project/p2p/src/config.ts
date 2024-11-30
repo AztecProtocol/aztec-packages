@@ -94,7 +94,6 @@ export interface P2PConfig extends P2PReqRespConfig {
   /** How many slots to keep attestations for. */
   keepAttestationsInPoolFor: number;
 
-
   /**
    * The interval of the gossipsub heartbeat to perform maintenance tasks.
    */

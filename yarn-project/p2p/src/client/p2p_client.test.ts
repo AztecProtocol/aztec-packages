@@ -340,7 +340,9 @@ describe('In-Memory P2P Client', () => {
       await advanceToProvenBlock(advanceToProvenBlockNumber);
 
       expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledTimes(1);
-      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor));
+      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(
+        BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
+      );
     });
   });
 });
