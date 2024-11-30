@@ -19,15 +19,15 @@ fi
 
 # Attempt to just pull artefacts from CI and exit on success.
 $ci3/github/group "bb.js build"
-if ! $ci3/cache/download bb.js-$($ci3/cache/content_hash).tar.gz; then
+HASH=$($ci3/cache/content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
+if ! $ci3/cache/download bb.js-$HASH-tar.gz; then
   echo "yarn install"
   denoise yarn install
   find . -exec touch -d "@0" {} + 2>/dev/null || true
 
   echo "Building with command 'yarn $BUILD_CMD'..."
   denoise yarn $BUILD_CMD
-  export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
-  HASH=$($ci3/cache/content_hash)
+  HASH=$($ci3/cache/content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
   $ci3/cache/upload bb.js-$HASH.tar.gz dest
 else
   echo "yarn install (post-cache)"
