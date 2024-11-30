@@ -160,12 +160,17 @@ jobs:
         run: |
           earthly-ci --no-output +bootstrap
       # prepare images locally, tagged by commit hash
-      - name: "Build E2E Image"
+      - name: "Aztec Main Image"
         timeout-minutes: 40
-        if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
           ./bootstrap.sh
-          earthly-ci ./yarn-project+export-e2e-test-images
+          earthly-ci +aztec
+      # prepare images locally, tagged by commit hash
+      - name: "E2E Test Image"
+        timeout-minutes: 40
+        run: |
+          ./bootstrap.sh
+          earthly-ci +end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
