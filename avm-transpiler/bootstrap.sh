@@ -19,7 +19,6 @@ fi
 $ci3/github/group "avm-transpiler build"
 ARTIFACT=avm-transpiler-$($ci3/cache/content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
 if [[ "$OSTYPE" = "darwin"* ]] || !$ci3/cache/download $ARTIFACT; then
-  ./bootstrap_cache.sh && exit
   ./scripts/bootstrap_native.sh
   [[ "$OSTYPE" != "darwin"* ]] && $ci3/cache/upload $ARTIFACT target
 fi
