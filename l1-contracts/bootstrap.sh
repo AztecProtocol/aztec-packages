@@ -19,8 +19,8 @@ HASH=$($ci3/cache/content_hash .rebuild_patterns)
 ARTIFACT=l1-contracts-$HASH.tar.gz
 TEST_FLAG=l1-contracts-test-$HASH
 
+$ci3/github/group "l1-contracts build"
 if ! $ci3/cache/download $ARTIFACT; then
-  $ci3/github/group "l1-contracts build"
   # Clean
   rm -rf broadcast cache out serve
 
@@ -34,8 +34,8 @@ if ! $ci3/cache/download $ARTIFACT; then
   forge build
 
   $ci3/cache/upload $ARTIFACT out
-  $ci3/github/endgroup
 fi
+$ci3/github/endgroup
 
 if $ci3/cache/should_run $TEST_FLAG; then
   $ci3/github/group "l1-contracts test"

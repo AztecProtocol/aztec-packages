@@ -12,7 +12,7 @@ bootstrap:
   WORKDIR /build-volume
   # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
-    rm -rf * .git && \
+    rm -rf $(ls -A) && \
     git init 2>/dev/null && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
