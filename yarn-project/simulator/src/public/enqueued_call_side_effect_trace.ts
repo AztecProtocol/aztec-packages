@@ -316,12 +316,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.nullifierWrites.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
-    this.log.debug(`ET:lowLeafPreimage.nullifier: ${lowLeafPreimage.nullifier}`);
-    this.log.debug(`ET:lowLeafPreimage.nextNullifier: ${lowLeafPreimage.nextNullifier}`);
-    this.log.debug(`ET:lowLeafPreimage.nextIndex: ${lowLeafPreimage.nextIndex}`);
-    this.log.debug(`ET:lowLeafIndex: ${lowLeafIndex}`);
-    this.log.debug(`ET:lowLeafPath: ${JSON.stringify(lowLeafPath)}}`);
-    this.log.debug(`ET:insertionPath: ${JSON.stringify(insertionPath)}}`);
     this.incrementSideEffectCounter();
   }
 

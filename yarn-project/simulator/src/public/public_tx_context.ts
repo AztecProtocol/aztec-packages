@@ -91,7 +91,7 @@ export class PublicTxContext {
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
-      0, //countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
+      /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );
@@ -313,16 +313,12 @@ export class PublicTxContext {
     const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
     const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
 
-    this.log.debug(`CONTEXT: nullifier tree root: ${nullifierTree.root.toString()}`);
-
     const endTreeSnapshots = new TreeSnapshots(
       endStateReference.l1ToL2MessageTree,
       noteHashTree,
       nullifierTree,
       publicDataTree,
     );
-
-    this.log.debug(`CONTEXT: end gas used: ${this.gasUsed.l2Gas}`);
 
     return generateAvmCircuitPublicInputs(
       this.trace,

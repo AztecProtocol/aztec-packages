@@ -2829,25 +2829,6 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
         return error;
     }
 
-    // AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
-    //// We first check that the index is currently empty
-    // auto insertion_index = static_cast<uint64_t>(intermediate_tree_snapshots.note_hash_tree.size);
-    // bool insert_index_is_empty =
-    //     AvmMerkleTreeTraceBuilder::unconstrained_check_membership(FF::zero(),
-    //                                                               insertion_index,
-    //                                                               note_hash_write_hint.sibling_path,
-    //                                                               intermediate_tree_snapshots.note_hash_tree.root);
-    // ASSERT(insert_index_is_empty);
-    //// Update the root with the new leaf that is appended
-    // FF new_root = AvmMerkleTreeTraceBuilder::unconstrained_update_leaf_index(
-    //     note_hash_write_hint.leaf_value, insertion_index, note_hash_write_hint.sibling_path);
-    // intermediate_tree_snapshots.note_hash_tree.root = new_root;
-    // intermediate_tree_snapshots.note_hash_tree.size++;
-
-    // auto [row, output_error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
-    // if (is_ok(error)) {
-    //     error = output_error;
-    // }
     auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
@@ -3008,32 +2989,16 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
         error = output_error;
     }
 
-    info("before merkles");
     // Do merkle check
     FF nullifier_value = row.main_ia;
     FF siloed_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
         current_public_call_request.contract_address, nullifier_value);
-    info("siloed, getting write hint ", nullifier_write_counter);
 
-    // This is a little bit fragile - but we use the fact that if we traced a nullifier that already exists (which is
-    // invalid), we would have stored it under a read hint.
-    //
-    // This is a non-membership proof which means our insertion is valid
     NullifierWriteTreeHint nullifier_write_hint = execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
-    // NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter);
-    // bool is_update = merkle_tree_trace_builder.perform_nullifier_read(clk,
-    //                                                                   nullifier_read_hint.low_leaf_preimage,
-    //                                                                   nullifier_read_hint.low_leaf_index,
-    //                                                                   nullifier_read_hint.low_leaf_sibling_path);
-    //   if the hinted low-leaf skips the target nullifier, it does not exist
-    //   if the hinted low-leaf points to the target nullifier, it already exists which means this would be an "update"
-    //   which is disallowed, so we need to prove the hinted leaf's membership which serves as a proof of the
-    //   target nullifier's non-membership
     bool is_update = siloed_nullifier == nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_nullifier;
     if (is_update) {
-        // hinted nullifier skips target nullifier
-        // prove non membership of the target nullifier by proving membership of the hinted low-leaf
-        info("is update");
+        // hinted low-leaf points to the target nullifier, so it already exists
+        // prove membership of that low-leaf, which also proves membership of the target nullifier
         bool exists = merkle_tree_trace_builder.perform_nullifier_read(
             clk,
             nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
@@ -3042,30 +3007,13 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
         // if hinted low-leaf that skips the nullifier fails membership check, bad hint!
         ASSERT(exists);
         nullifier_read_counter++;
+        // Cannot update an existing nullifier, and cannot emit a duplicate. Error!
         if (is_ok(error)) {
             error = AvmError::DUPLICATE_NULLIFIER;
         }
     } else {
-        info("low leaf preimage nullifier: ", nullifier_write_hint.low_leaf_membership.low_leaf_preimage.nullifier);
-        info("low leaf preimage next_nullifier: ",
-             nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_nullifier);
-        info("low leaf preimage next_index: ", nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_index);
-        info("low leaf index: ", nullifier_write_hint.low_leaf_membership.low_leaf_index);
-        info("low leaf sibling path: [");
-        for (auto node : nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path) {
-            info("\t", node);
-        }
-        info("]");
-        info("insertion path: [");
-        for (auto node : nullifier_write_hint.insertion_path) {
-            info("\t", node);
-        }
-        info("]");
-        info("siloed nullifier: ", siloed_nullifier);
-        // info("intermediate_tree_snapshots.nullifier_tree.size: ", intermediate_tree_snapshots.nullifier_tree.size);
-        // info("intermediate_tree_snapshots.nullifier_tree.root: ", intermediate_tree_snapshots.nullifier_tree.root);
-        info("writing... getting write hint ", nullifier_write_counter);
-        info("not update. performing nullifier append");
+        // hinted low-leaf SKIPS the target nullifier, so it does NOT exist
+        // prove membership of the low leaf which  also proves non-membership of the target nullifier
         merkle_tree_trace_builder.perform_nullifier_append(
             clk,
             nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
@@ -3086,7 +3034,6 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
     side_effect_counter++;
 
     pc += Deserialization::get_pc_increment(OpCode::EMITNULLIFIER);
-    info("done opcode");
     return error;
 }
 
@@ -4499,10 +4446,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // Some sanity checks
     // Check that the final merkle tree lines up with the public inputs
     TreeSnapshots tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
-    info("tree_snapshots ?= public_inputs.end.tree_snapshots");
-    info(tree_snapshots.nullifier_tree.root, " == ", public_inputs.end_tree_snapshots.nullifier_tree.root);
-    // info("tree_snapshot: ", tree_snapshots.nullifier_tree.root);
-    // info(" == ", public_inputs.end_tree_snapshots);
     ASSERT(tree_snapshots == public_inputs.end_tree_snapshots);
 
     vinfo("range_check_required: ", range_check_required);
@@ -4770,10 +4713,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // Sanity check that the amount of gas consumed matches what we expect from the public inputs
     auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
     auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
-    info("gas limit l2: ", public_inputs.gas_settings.gas_limits.l2_gas);
-    info("public inputs end gas used: ", public_inputs.end_gas_used.l2_gas);
-    info("last l2 gas remaining: ", last_l2_gas_remaining);
-    info("expected end l2 gas: ", expected_end_gas_l2);
     ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
     auto last_da_gas_remaining = main_trace.back().main_da_gas_remaining;
     auto expected_end_gas_da = public_inputs.gas_settings.gas_limits.da_gas - public_inputs.end_gas_used.da_gas;

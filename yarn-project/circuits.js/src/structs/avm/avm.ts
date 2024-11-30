@@ -521,12 +521,6 @@ export class AvmNullifierWriteTreeHint {
    * */
   constructor(public lowLeafRead: AvmNullifierReadTreeHint, public _insertionPath: Fr[]) {
     this.insertionPath = new Vector(_insertionPath);
-    console.log(`constr:david:lowLeafPreimage.nullifier: ${this.lowLeafRead.lowLeafPreimage.nullifier}`);
-    console.log(`constr:david:lowLeafPreimage.nextNullifier: ${this.lowLeafRead.lowLeafPreimage.nextNullifier}`);
-    console.log(`constr:david:lowLeafPreimage.nextIndex: ${this.lowLeafRead.lowLeafPreimage.nextIndex}`);
-    console.log(`constr:david:lowLeafIndex: ${this.lowLeafRead.lowLeafIndex}`);
-    console.log(`constr:david:lowLeafPath: ${JSON.stringify(this.lowLeafRead.lowLeafSiblingPath.items)}}`);
-    console.log(`constr:david:insertionPath: ${JSON.stringify(this.insertionPath)}}`);
   }
 
   /**
@@ -568,12 +562,6 @@ export class AvmNullifierWriteTreeHint {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmNullifierWriteTreeHint>) {
-    console.log(`david:lowLeafPreimage.nullifier: ${fields.lowLeafRead.lowLeafPreimage.nullifier}`);
-    console.log(`david:lowLeafPreimage.nextNullifier: ${fields.lowLeafRead.lowLeafPreimage.nextNullifier}`);
-    console.log(`david:lowLeafPreimage.nextIndex: ${fields.lowLeafRead.lowLeafPreimage.nextIndex}`);
-    console.log(`david:lowLeafIndex: ${fields.lowLeafRead.lowLeafIndex}`);
-    console.log(`david:lowLeafPath: ${JSON.stringify(fields.lowLeafRead.lowLeafSiblingPath.items)}}`);
-    console.log(`david:insertionPath: ${JSON.stringify(fields.insertionPath)}}`);
     return [...AvmNullifierReadTreeHint.getFields(fields.lowLeafRead), fields.insertionPath] as const;
   }
 

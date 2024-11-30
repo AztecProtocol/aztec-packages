@@ -948,14 +948,6 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
     vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
     vinfo("hints.contract_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
 
-    vinfo("hints.storage_read_hints size: ", avm_hints.storage_read_hints.size());
-    vinfo("hints.storage_write_hints size: ", avm_hints.storage_write_hints.size());
-    vinfo("hints.nullifier_read_hints size: ", avm_hints.nullifier_read_hints.size());
-    vinfo("hints.nullifier_write_hints size: ", avm_hints.nullifier_write_hints.size());
-    vinfo("hints.note_hash_read_hints size: ", avm_hints.note_hash_read_hints.size());
-    vinfo("hints.note_hash_write_hints size: ", avm_hints.note_hash_write_hints.size());
-    vinfo("hints.l1_to_l2_message_read_hints size: ", avm_hints.l1_to_l2_message_read_hints.size());
-
     vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
     init_bn254_crs(avm_trace::Execution::SRS_SIZE);
 

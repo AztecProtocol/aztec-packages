@@ -67,7 +67,6 @@ bool AvmMerkleTreeTraceBuilder::unconstrained_check_membership(const FF& leaf_va
                                                                const FF& root)
 {
     FF computed_root = unconstrained_compute_root_from_path(leaf_value, leaf_index, path);
-    info("computed root: ", computed_root);
     // If the computed root is the same as the expected then the leaf is a member
     return computed_root == root;
 }
@@ -172,8 +171,6 @@ FF AvmMerkleTreeTraceBuilder::perform_nullifier_append([[maybe_unused]] uint32_t
         ASSERT(is_member);
         return tree_snapshots.nullifier_tree.root;
     }
-    info("BEFORE tree_snapshots.nullifier_tree.root: ", tree_snapshots.nullifier_tree.root);
-    info("BEFORE tree_snapshots.nullifier_tree.size: ", tree_snapshots.nullifier_tree.size);
     // Check membership of the low leaf
     bool low_leaf_member = unconstrained_check_membership(
         low_preimage_hash, static_cast<uint64_t>(low_index), low_path, tree_snapshots.nullifier_tree.root);
@@ -198,8 +195,6 @@ FF AvmMerkleTreeTraceBuilder::perform_nullifier_append([[maybe_unused]] uint32_t
     // Insert the new leaf into the tree
     tree_snapshots.nullifier_tree.root = unconstrained_update_leaf_index(leaf_preimage_hash, index, insertion_path);
     tree_snapshots.nullifier_tree.size++;
-    info("AFTER  tree_snapshots.nullifier_tree.root: ", tree_snapshots.nullifier_tree.root);
-    info("AFTER  tree_snapshots.nullifier_tree.size: ", tree_snapshots.nullifier_tree.size);
     return tree_snapshots.nullifier_tree.root;
 }
 

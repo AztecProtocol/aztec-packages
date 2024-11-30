@@ -390,12 +390,6 @@ export class AvmPersistableStateManager {
         const lowLeafIndex = appendResult.lowWitness.index;
         const lowLeafPath = appendResult.lowWitness.siblingPath;
         const insertionPath = appendResult.insertionPath;
-        this.log.debug(`J:lowLeafPreimage.nullifier: ${lowLeafPreimage.nullifier}`);
-        this.log.debug(`J:lowLeafPreimage.nextNullifier: ${lowLeafPreimage.nextNullifier}`);
-        this.log.debug(`J:lowLeafPreimage.nextIndex: ${lowLeafPreimage.nextIndex}`);
-        this.log.debug(`J:lowLeafIndex: ${lowLeafIndex}`);
-        this.log.debug(`J:lowLeafPath: ${JSON.stringify(lowLeafPath)}}`);
-        this.log.debug(`J:insertionPath: ${JSON.stringify(insertionPath)}}`);
         this.trace.traceNewNullifier(
           siloedNullifier,
           lowLeafPreimage,

@@ -281,24 +281,6 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
-    // std::vector<PublicCallRequest> public_call_requests;
-    // for (const auto& setup_requests : public_inputs.public_setup_call_requests) {
-    //     if (setup_requests.contract_address != 0) {
-    //         public_call_requests.push_back(setup_requests);
-    //     }
-    // }
-    // size_t setup_counter = public_call_requests.size();
-
-    // for (const auto& app_requests : public_inputs.public_app_logic_call_requests) {
-    //     if (app_requests.contract_address != 0) {
-    //         public_call_requests.push_back(app_requests);
-    //     }
-    // }
-    //// We should not need to guard teardown, but while we are testing with handcrafted txs we do
-    // if (public_inputs.public_teardown_call_request.contract_address != 0) {
-    //     public_call_requests.push_back(public_inputs.public_teardown_call_request);
-    // }
-
     // Temporary spot for private non-revertible insertion
     std::vector<FF> siloed_nullifiers;
     siloed_nullifiers.insert(siloed_nullifiers.end(),
