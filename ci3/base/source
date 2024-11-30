@@ -11,6 +11,6 @@ ci3="$root/ci3"
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
 
 function denoise(){
-  denoise $@
+  $ci3/base/denoise $@
 }
 export -f denoise
