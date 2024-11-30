@@ -41,9 +41,12 @@ contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        std::schnorr::verify_signature(
-            public_key_x,
-            public_key_y,
+        schnorr::verify_signature(
+            std::embedded_curve_ops::EmbeddedCurvePoint {
+                x: public_key_x,
+                y: public_key_y,
+                is_infinite: false,
+            },
             signature,
             outer_hash.to_be_bytes::<32>(),
         )

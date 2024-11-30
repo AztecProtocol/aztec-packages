@@ -6,8 +6,6 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract SchnorrAccount {
-    use dep::std;
-
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
@@ -24,6 +22,7 @@ contract SchnorrAccount {
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;
+    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     #[storage]
     struct Storage<Context> {
@@ -78,9 +77,12 @@ contract SchnorrAccount {
         }
 
         // Verify signature of the payload bytes
-        std::schnorr::verify_signature(
-            public_key.x,
-            public_key.y,
+        schnorr::verify_signature(
+            std::embedded_curve_ops::EmbeddedCurvePoint {
+                x: public_key.x,
+                y: public_key.y,
+                is_infinite: false,
+            },
             signature,
             outer_hash.to_be_bytes::<32>(),
         )
