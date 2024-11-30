@@ -1,13 +1,14 @@
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
+import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
+import { type PeerId, type PrivateKey } from '@libp2p/interface';
+import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import type { Libp2p } from 'libp2p';
 
 import { type P2PConfig } from './config.js';
-import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
-import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
-import { type PeerId } from '@libp2p/interface';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -22,8 +23,7 @@ export interface PubSubLibp2p extends Libp2p {
  * const udpAddr = '[2001:db8::1]:8080' -> /ip6/2001:db8::1/udp/8080
  * @param address - The address string to convert. Has to be in the format <addr>:<port>.
  * @param protocol - The protocol to use in the multiaddr string.
- * @returns A multiaddr compliant string.
- */
+ * @returns A multiaddr compliant string.  */
 export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): string {
   const [addr, port] = splitAddressPort(address, false);
 
@@ -165,9 +165,11 @@ export async function getPeerIdPrivateKey(config: P2PConfig, store: AztecKVStore
     return config.peerIdPrivateKey;
   }
 
-  const newPeerIdPrivateKey = (await createSecp256k1PeerId()).privateKey!.toString();
-  await peerIdPrivateKeySingleton.set(newPeerIdPrivateKey);
-  return newPeerIdPrivateKey;
+  const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
+  const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+
+  await peerIdPrivateKeySingleton.set(privateKeyString);
+  return privateKeyString;
 }
 
 /**
@@ -179,9 +181,9 @@ export async function createLibP2PPeerIdFromPrivateKey(privateKey?: string): Pro
   if (!privateKey?.length) {
     throw new Error('No peer private key provided');
   }
-  const base64 = Buffer.from(privateKey, 'hex').toString('base64');
-  return await createFromJSON({
-    id: '',
-    privKey: base64,
-  });
+
+  const asLibp2pPrivateKey: PrivateKey<'secp256k1'> = await unmarshalPrivateKey(
+    new Uint8Array(Buffer.from(privateKey, 'hex')),
+  );
+  return await createFromPrivKey(asLibp2pPrivateKey);
 }

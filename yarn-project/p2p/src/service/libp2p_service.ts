@@ -59,7 +59,6 @@ import {
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 
-
 /**
  * Lib P2P implementation of the P2PService interface.
  */

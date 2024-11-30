@@ -35,7 +35,7 @@ import {
   noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
-import { createLibP2PPeerIdFromPrivateKey, type PubSubLibp2p } from '../util.js';
+import { type PubSubLibp2p, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
 /**
  * Creates a libp2p node, pre configured.

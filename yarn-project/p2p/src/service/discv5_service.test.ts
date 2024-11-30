@@ -6,9 +6,9 @@ import type { PeerId } from '@libp2p/interface';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { DiscV5Service } from './discV5_service.js';
 import { PeerDiscoveryState } from './service.js';
-import { createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
   const timeout = 7_000;
