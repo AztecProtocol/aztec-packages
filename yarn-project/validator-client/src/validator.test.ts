@@ -35,6 +35,7 @@ describe('ValidationService', () => {
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
+    epochCache = mock<EpochCache>();
 
     const validatorPrivateKey = generatePrivateKey();
     validatorAccount = privateKeyToAccount(validatorPrivateKey);
@@ -100,6 +101,8 @@ describe('ValidationService', () => {
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
+    epochCache.getCurrentValidator.mockImplementation(() => Promise.resolve(proposal.getSender()) );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
     const val = ValidatorClient.new(config, epochCache, p2pClient);
     val.registerBlockBuilder(() => {
@@ -107,6 +110,28 @@ describe('ValidationService', () => {
     });
 
     const attestation = await val.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
+  });
+
+  it("Should not return an attestation if the validator is not in the committee", async () => {
+    const proposal = makeBlockProposal();
+
+    // Setup epoch cache mocks
+    epochCache.getCurrentValidator.mockImplementation(() => Promise.resolve(proposal.getSender()) );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
+
+    const attestation = await validatorClient.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
+  });
+
+  it("Should not return an attestation if the proposer is not the current proposer", async () => {
+    const proposal = makeBlockProposal();
+
+    // Setup epoch cache mocks
+    epochCache.getCurrentValidator.mockImplementation(() => Promise.resolve(EthAddress.random()));
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
+
+    const attestation = await validatorClient.attestToProposal(proposal);
     expect(attestation).toBeUndefined();
   });
 
