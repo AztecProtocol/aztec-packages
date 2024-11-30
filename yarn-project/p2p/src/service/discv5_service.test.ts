@@ -6,9 +6,11 @@ import type { PeerId } from '@libp2p/interface';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { DiscV5Service } from './discV5_service.js';
 import { PeerDiscoveryState } from './service.js';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { AztecKVStore } from '@aztec/kv-store';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
   const timeout = 7_000;
@@ -29,6 +31,7 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void>
 describe('Discv5Service', () => {
   jest.setTimeout(10_000);
 
+  let store: AztecKVStore;
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
   let basePort = 7890;
@@ -44,13 +47,15 @@ describe('Discv5Service', () => {
 
   beforeEach(async () => {
     const telemetryClient = new NoopTelemetryClient();
-    bootNode = new BootstrapNode(telemetryClient);
+    store = openTmpStore(true);
+    bootNode = new BootstrapNode(store, telemetryClient);
     await bootNode.start(baseConfig);
     bootNodePeerId = bootNode.getPeerId();
   });
 
   afterEach(async () => {
     await bootNode.stop();
+    await store.clear();
   });
 
   it('should initialize with default values', async () => {
@@ -123,7 +128,7 @@ describe('Discv5Service', () => {
 
   const createNode = async (port: number) => {
     const bootnodeAddr = bootNode.getENR().encodeTxt();
-    const peerId = await createLibP2PPeerIdFromPrivateKey();
+    const peerId = await createSecp256k1PeerId();
     const config: P2PConfig = {
       ...getP2PDefaultConfig(),
       ...baseConfig,

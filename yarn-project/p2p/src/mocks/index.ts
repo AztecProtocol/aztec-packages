@@ -35,7 +35,9 @@ import {
   noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
-import { type PubSubLibp2p, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import { type PubSubLibp2p } from '../util.js';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+import { openTmpStore } from '@aztec/kv-store/utils';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -102,7 +104,7 @@ export async function createTestLibP2PService(
   port: number = 0,
   peerId?: PeerId,
 ) {
-  peerId = peerId ?? (await createLibP2PPeerIdFromPrivateKey());
+  peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
@@ -247,14 +249,16 @@ export async function createBootstrapNode(
   port: number,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
 ): Promise<BootstrapNode> {
-  const peerId = await createLibP2PPeerIdFromPrivateKey();
+  const peerId = await createSecp256k1PeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
   return startBootstrapNode(config, telemetry);
 }
 
 async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
-  const bootstrapNode = new BootstrapNode(telemetry);
+  // Open an ephemeral store that will only exist in memory
+  const store = openTmpStore(true);
+  const bootstrapNode = new BootstrapNode(store, telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;
 }

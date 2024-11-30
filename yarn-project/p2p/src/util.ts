@@ -153,7 +153,10 @@ export async function configureP2PClientAddresses(
  * 3. If not, create a new one, then persist it in the node
  *
  */
-export async function getPeerIdPrivateKey(config: P2PConfig, store: AztecKVStore): Promise<string> {
+export async function getPeerIdPrivateKey(
+  config: { peerIdPrivateKey?: string },
+  store: AztecKVStore,
+): Promise<string> {
   const peerIdPrivateKeySingleton: AztecSingleton<string> = store.openSingleton('peerIdPrivateKey');
   const storedPeerIdPrivateKey = peerIdPrivateKeySingleton.get();
   if (storedPeerIdPrivateKey) {
@@ -177,7 +180,7 @@ export async function getPeerIdPrivateKey(config: P2PConfig, store: AztecKVStore
  * @param privateKey - peer ID private key as hex string
  * @returns The peer ID.
  */
-export async function createLibP2PPeerIdFromPrivateKey(privateKey?: string): Promise<PeerId> {
+export async function createLibP2PPeerIdFromPrivateKey(privateKey: string): Promise<PeerId> {
   if (!privateKey?.length) {
     throw new Error('No peer private key provided');
   }
