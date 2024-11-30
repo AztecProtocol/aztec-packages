@@ -72,5 +72,7 @@ bootstrap:
         rm -rf * .git && \
         git init 2>/dev/null && \
         git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
-        git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null && git reset --hard FETCH_HEAD && \
+        git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
+        git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null && \
+        git reset --hard FETCH_HEAD && \
         CI=1 TEST=0 ./bootstrap.sh fast
