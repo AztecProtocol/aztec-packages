@@ -15,7 +15,7 @@ if [ -n "$CMD" ]; then
 fi
 $ci3/github/group "noir-projects build"
 # TODO: Remove yarn, use bash?
-yarn install
+denoise yarn install
 
 # Use fmt as a trick to download dependencies.
 # Otherise parallel runs of nargo will trip over each other trying to download dependencies.

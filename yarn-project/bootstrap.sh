@@ -26,8 +26,8 @@ function build {
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
   # in case we hit the cache, install just runtime dependencies
-  echo -n "yarn install (runtime):"
-  denoise yarn workspaces focus --production
+  echo -n "yarn install (runtime): "
+  denoise yarn workspaces focus --all --production
 
   if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     # if we failed the cache, we need dev dependencies
