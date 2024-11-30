@@ -91,6 +91,10 @@ export interface P2PConfig extends P2PReqRespConfig {
   /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
   keepProvenTxsInPoolFor: number;
 
+  /** How many slots to keep attestations for. */
+  keepAttestationsInPoolFor: number;
+
+
   /**
    * The interval of the gossipsub heartbeat to perform maintenance tasks.
    */
@@ -228,6 +232,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
+  },
+  keepAttestationsInPoolFor: {
+    env: 'P2P_ATTESTATION_POOL_KEEP_FOR',
+    description: 'How many slots to keep attestations for.',
+    ...numberConfigHelper(96),
   },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',

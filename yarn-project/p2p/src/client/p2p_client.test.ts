@@ -58,6 +58,7 @@ describe('In-Memory P2P Client', () => {
       addAttestations: jest.fn(),
       deleteAttestations: jest.fn(),
       deleteAttestationsForSlot: jest.fn(),
+      deleteAttestationsOlderThan: jest.fn(),
       getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
     };
 
