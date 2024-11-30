@@ -14,8 +14,10 @@ CMD=${1:-}
 function build {
   $ci3/github/group "yarn-project build"
 
-  export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../noir/.rebuild_patterns* ../noir-projects/*/.rebuild_patterns ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns ../barretenberg/*/.rebuild_patterns)
-  HASH=$($ci3/cache/content_hash)
+  HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
+    ../noir-projects/*/.rebuild_patterns \
+    ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
+    ../barretenberg/*/.rebuild_patterns)
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
 
