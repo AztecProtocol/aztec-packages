@@ -327,5 +327,20 @@ describe('In-Memory P2P Client', () => {
     });
   });
 
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7971): tests for attestation pool pruning
+  describe('Attestation pool pruning', () => {
+    it('deletes attestations older than the number of slots we want to keep in the pool', async () => {
+      const advanceToProvenBlockNumber = 20;
+      const keepAttestationsInPoolFor = 12;
+
+      blockSource.setProvenBlockNumber(0);
+      (client as any).keepAttestationsInPoolFor = keepAttestationsInPoolFor;
+      await client.start();
+      expect(attestationPool.deleteAttestationsOlderThan).not.toHaveBeenCalled();
+
+      await advanceToProvenBlock(advanceToProvenBlockNumber);
+
+      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledTimes(1);
+      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor));
+    });
+  });
 });
