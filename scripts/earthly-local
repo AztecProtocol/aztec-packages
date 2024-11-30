@@ -27,14 +27,6 @@ function start_minio() {
     aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
 }
 
-earthly_config_tmp=$(mktemp)
-function cleanup() {
-  echo "Cleaning up..."
-  rm -f $earthly_config_tmp
-  # Optionally stop MinIO if needed
-  # docker stop minio && docker rm minio
-}
-
 trap cleanup EXIT
 
 # Local file server for a quicker cache layer
