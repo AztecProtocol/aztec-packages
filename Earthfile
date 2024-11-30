@@ -68,8 +68,9 @@ bootstrap:
     ENV AZTEC_CACHE_COMMIT=7100222db0a2a326ea4238f783f1c524a2880d8e
     # Use a cache volume for performance
     RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/src/ \
-        rm -rf * .git; \
-        git init 2>/dev/null; \
-        git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null; \
-        git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null && git reset --hard FETCH_HEAD; \
+        set -x && \
+        rm -rf * .git && \
+        git init 2>/dev/null && \
+        git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
+        git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null && git reset --hard FETCH_HEAD && \
         CI=1 TEST=0 ./bootstrap.sh fast

@@ -11,6 +11,6 @@ ci3="$root/ci3"
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
 
 function denoise(){
-  $(git rev-parse --show-toplevel)/base/denoise $@
+  $(git rev-parse --show-toplevel)/ci3/base/denoise $@
 }
 export -f denoise
