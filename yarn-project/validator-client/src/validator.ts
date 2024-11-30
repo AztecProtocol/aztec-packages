@@ -28,6 +28,7 @@ import {
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
+import { EpochCache } from '@aztec/epoch-cache';
 
 /**
  * Callback function for building a block
@@ -65,7 +66,8 @@ export class ValidatorClient extends WithTracer implements Validator {
   private blockBuilder?: BlockBuilderCallback = undefined;
 
   constructor(
-    keyStore: ValidatorKeyStore,
+    private keyStore: ValidatorKeyStore,
+    private epochCache: EpochCache,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
@@ -80,7 +82,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient = new NoopTelemetryClient()) {
+  static new(config: ValidatorClientConfig, epochCache: EpochCache, p2pClient: P2P, telemetry: TelemetryClient = new NoopTelemetryClient()) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -88,7 +90,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, p2pClient, config, telemetry);
+    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, telemetry);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -118,6 +120,19 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
+    // Check that I am in the committee
+    if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
+      this.log.debug(`Not in the committee, skipping attestation`);
+      return undefined;
+    }
+
+    // Check that the proposal is from the current validator
+    const currentValidator = await this.epochCache.getCurrentValidator();
+    if (proposal.getSender() !== currentValidator) {
+      this.log.debug(`Not the current validator, skipping attestation`);
+      return undefined;
+    }
+
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
     this.log.verbose(`request to attest`, {
       archive: proposal.payload.archive.toString(),

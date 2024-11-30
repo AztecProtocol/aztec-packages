@@ -67,7 +67,7 @@ import {
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
-} from './epoch_helpers.js';
+} from '@aztec/circuit-types';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';

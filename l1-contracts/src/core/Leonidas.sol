@@ -329,6 +329,11 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     validatorSet.add(_validator);
   }
 
+  // Public view function for get committee at
+  function getCommitteeAt(Timestamp _ts) external view returns (address[] memory) {
+    return _getCommitteeAt(_ts);
+  }
+
   function _getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
     Epoch epochNumber = getEpochAt(_ts);
     EpochData storage epoch = epochs[epochNumber];
