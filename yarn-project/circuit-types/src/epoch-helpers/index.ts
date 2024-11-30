@@ -1,3 +1,18 @@
+export type L1RollupConstants = {
+  l1StartBlock: bigint;
+  l1GenesisTime: bigint;
+  slotDuration: number;
+  epochDuration: number;
+  ethereumSlotDuration: number;
+};
+
+export const EmptyL1RollupConstants: L1RollupConstants = {
+  l1StartBlock: 0n,
+  l1GenesisTime: 0n,
+  epochDuration: 0,
+  slotDuration: 0,
+  ethereumSlotDuration: 0,
+};
 
 export type EpochConstants = {
   l1GenesisBlock: bigint;

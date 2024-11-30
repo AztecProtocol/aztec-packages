@@ -1,8 +1,8 @@
 
-import { getEpochNumberAtTimestamp, getSlotNumberAtTimestamp } from "@aztec/circuit-types";
+import { getEpochNumberAtTimestamp, getSlotAtTimestamp, type L1RollupConstants, EmptyL1RollupConstants } from "@aztec/circuit-types";
 import { EthAddress } from "@aztec/foundation/eth-address";
-import { HttpTransport, PublicClient, Chain } from "viem";
-import { RollupContract } from "@aztec/ethereum";
+import { HttpTransport, PublicClient, Chain, http, createPublicClient } from "viem";
+import { createEthereumChain, getL1ContractsConfigEnvVars, getL1ReaderConfigFromEnv, RollupContract } from "@aztec/ethereum";
 
 type EpochAndSlot = {
     epoch: bigint;
@@ -12,27 +12,44 @@ type EpochAndSlot = {
 
 export class EpochCache {
     private validators: Map<EthAddress, boolean>;
-
     private currentEpoch: bigint;
 
-    private rollup: RollupContract;
-
     constructor(
-        private publicClient: PublicClient<HttpTransport, Chain>,
-        private rollupAddress: EthAddress,
-        private l1GenesisTime: bigint,
-        private aztecEpochDuration: number,
-        private aztecSlotDuration: number,
+        private rollup: RollupContract,
+        private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     ){
         this.validators = new Map<EthAddress, boolean>();
 
-        this.currentEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), {
-            l1GenesisTime: this.l1GenesisTime,
-            epochDuration: this.aztecEpochDuration,
-            slotDuration: this.aztecSlotDuration
+        this.currentEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), this.l1constants);
+    }
+
+    // TODO: cleanup and merge rollup getters with l1 createAndSync in the archiver
+    static async create(rollupAddress: EthAddress) {
+        const l1ReaderConfig = getL1ReaderConfigFromEnv();
+        const l1constants = getL1ContractsConfigEnvVars();
+
+        const chain = createEthereumChain(l1ReaderConfig.l1RpcUrl, l1ReaderConfig.l1ChainId);
+        const publicClient = createPublicClient({
+            chain: chain.chainInfo,
+            transport: http(chain.rpcUrl),
+            pollingInterval: l1ReaderConfig.viemPollingIntervalMS,
         });
 
-        this.rollup = new RollupContract(this.publicClient, this.rollupAddress.toString());
+        const rollup = new RollupContract(publicClient, rollupAddress.toString());
+        const [l1StartBlock, l1GenesisTime] = await Promise.all([
+            rollup.getL1StartBlock(),
+            rollup.getL1GenesisTime(),
+        ] as const);
+
+        const l1RollupConstants: L1RollupConstants = {
+            l1StartBlock,
+            l1GenesisTime,
+            slotDuration: l1constants.aztecSlotDuration,
+            epochDuration: l1constants.aztecEpochDuration,
+            ethereumSlotDuration: l1constants.ethereumSlotDuration,
+        }
+
+        return new EpochCache(rollup, l1RollupConstants);
     }
 
     getEpochAndSlotNow(): EpochAndSlot {
@@ -42,16 +59,8 @@ export class EpochCache {
 
     getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
         return {
-            epoch: getEpochNumberAtTimestamp(ts, {
-                l1GenesisTime: this.l1GenesisTime,
-                epochDuration: this.aztecEpochDuration,
-                slotDuration: this.aztecSlotDuration
-            }),
-            slot: getSlotNumberAtTimestamp(ts, {
-                l1GenesisTime: this.l1GenesisTime,
-                epochDuration: this.aztecEpochDuration,
-                slotDuration: this.aztecSlotDuration
-            }),
+            epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
+            slot: getSlotAtTimestamp(ts, this.l1constants),
             ts,
         }
     }
@@ -62,7 +71,7 @@ export class EpochCache {
 
         if (currentEpoch !== this.currentEpoch) {
             this.currentEpoch = currentEpoch;
-            const validatorSet = await this.rollup.read.getCommitteeAt(ts);
+            const validatorSet = await this.rollup.getCommitteeAt(ts);
             this.validators = new Map(validatorSet.map((v: `0x${string}`) => [EthAddress.fromString(v), true]));
         }
 

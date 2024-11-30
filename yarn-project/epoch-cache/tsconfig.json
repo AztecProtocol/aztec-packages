@@ -8,6 +8,12 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {

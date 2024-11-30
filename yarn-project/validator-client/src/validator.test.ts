@@ -22,12 +22,15 @@ import {
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { ValidatorClient } from './validator.js';
+import { EpochCache } from '@aztec/epoch-cache';
 
 describe('ValidationService', () => {
   let config: ValidatorClientConfig;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
+  let epochCache: MockProxy<EpochCache>;
   let validatorAccount: PrivateKeyAccount;
+  let rollupAddress: EthAddress = EthAddress.fromString('0x1234567890123456789012345678901234567890');
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
@@ -43,12 +46,12 @@ describe('ValidationService', () => {
       disableValidator: false,
       validatorReexecute: false,
     };
-    validatorClient = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
+    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient());
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, p2pClient, new NoopTelemetryClient())).toThrow(
+    expect(() => ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient())).toThrow(
       InvalidValidatorPrivateKeyError,
     );
   });
@@ -56,7 +59,7 @@ describe('ValidationService', () => {
   it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
     config.validatorReexecute = true;
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
-    const val = ValidatorClient.new(config, p2pClient);
+    const val = ValidatorClient.new(config, epochCache, p2pClient);
     await expect(val.reExecuteTransactions(makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
@@ -98,7 +101,7 @@ describe('ValidationService', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
 
-    const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
+    const val = ValidatorClient.new(config, epochCache, p2pClient);
     val.registerBlockBuilder(() => {
       throw new Error('Failed to build block');
     });

@@ -615,7 +615,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/epoch-cache@workspace:epoch-cache":
+"@aztec/epoch-cache@workspace:^, @aztec/epoch-cache@workspace:epoch-cache":
   version: 0.0.0-use.local
   resolution: "@aztec/epoch-cache@workspace:epoch-cache"
   dependencies:
@@ -1306,6 +1306,7 @@ __metadata:
   dependencies:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"

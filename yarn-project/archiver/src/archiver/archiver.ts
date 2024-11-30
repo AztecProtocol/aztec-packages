@@ -67,6 +67,8 @@ import {
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
+  type L1RollupConstants,
+  EmptyL1RollupConstants,
 } from '@aztec/circuit-types';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -1061,19 +1063,3 @@ class ArchiverStoreHelper
     return this.store.estimateSize();
   }
 }
-
-type L1RollupConstants = {
-  l1StartBlock: bigint;
-  l1GenesisTime: bigint;
-  slotDuration: number;
-  epochDuration: number;
-  ethereumSlotDuration: number;
-};
-
-const EmptyL1RollupConstants: L1RollupConstants = {
-  l1StartBlock: 0n,
-  l1GenesisTime: 0n,
-  epochDuration: 0,
-  slotDuration: 0,
-  ethereumSlotDuration: 0,
-};

@@ -6,7 +6,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { EthAddress, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -77,7 +77,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     super(telemetry, 'Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
