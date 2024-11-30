@@ -28,7 +28,8 @@ if ! $ci3/cache/download noir-packages-$PACKAGES_HASH.tar.gz ; then
 fi
 $ci3/github/endgroup
 
-if $ci3/cache/should_run noir-test-$NATIVE_HASH-$PACKAGES_HASH; then
+TEST_HASH=$($ci3/cache/content_hash .rebuild_patterns_tests)
+if $ci3/cache/should_run noir-test-$TEST_HASH; then
   $ci3/github/group "noir test"
   export PATH="$PWD/noir-repo/target/release/:$PATH"
   denoise ./scripts/test_native.sh
