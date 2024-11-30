@@ -29,8 +29,7 @@ class Execution {
 
     // Bytecode is currently the bytecode of the top-level function call
     // Eventually this will be the bytecode of the dispatch function of top-level contract
-    static std::vector<Row> gen_trace(std::vector<FF> const& calldata,
-                                      AvmPublicInputs const& new_public_inputs,
+    static std::vector<Row> gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints);
 
@@ -41,9 +40,7 @@ class Execution {
     }
 
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
-        std::vector<FF> const& calldata = {},
-        AvmPublicInputs const& public_inputs = AvmPublicInputs(),
-        ExecutionHints const& execution_hints = {});
+        AvmPublicInputs const& public_inputs = AvmPublicInputs(), ExecutionHints const& execution_hints = {});
     static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
 
   private:

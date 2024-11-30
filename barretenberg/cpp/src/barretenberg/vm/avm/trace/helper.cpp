@@ -105,6 +105,8 @@ std::string to_name(AvmError error)
     switch (error) {
     case AvmError::NO_ERROR:
         return "NO ERROR";
+    case AvmError::REVERT_OPCODE:
+        return "REVERT OPCODE";
     case AvmError::INVALID_PROGRAM_COUNTER:
         return "INVALID PROGRAM COUNTER";
     case AvmError::INVALID_OPCODE:
@@ -140,6 +142,11 @@ std::string to_name(AvmError error)
 bool is_ok(AvmError error)
 {
     return error == AvmError::NO_ERROR;
+}
+
+bool exceptionally_halted(AvmError error)
+{
+    return error != AvmError::NO_ERROR && error != AvmError::REVERT_OPCODE;
 }
 
 /**

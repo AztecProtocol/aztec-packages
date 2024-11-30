@@ -961,8 +961,7 @@ export class AvmExecutionHints {
    */
   static from(fields: FieldsOf<AvmExecutionHints>): AvmExecutionHints {
     return new AvmExecutionHints(
-      // omit enqueued call hints until they're implemented in C++
-      new Array<AvmEnqueuedCallHint>(),
+      fields.enqueuedCalls.items,
       fields.storageValues.items,
       fields.noteHashExists.items,
       fields.nullifierExists.items,
@@ -987,8 +986,7 @@ export class AvmExecutionHints {
    */
   static getFields(fields: FieldsOf<AvmExecutionHints>) {
     return [
-      // omit enqueued call hints until they're implemented in C++
-      //fields.enqueuedCalls,
+      fields.enqueuedCalls,
       fields.storageValues,
       fields.noteHashExists,
       fields.nullifierExists,
@@ -1014,8 +1012,7 @@ export class AvmExecutionHints {
   static fromBuffer(buff: Buffer | BufferReader): AvmExecutionHints {
     const reader = BufferReader.asReader(buff);
     return new AvmExecutionHints(
-      // omit enqueued call hints until they're implemented in C++
-      new Array<AvmEnqueuedCallHint>(),
+      reader.readVector(AvmEnqueuedCallHint),
       reader.readVector(AvmKeyValueHint),
       reader.readVector(AvmKeyValueHint),
       reader.readVector(AvmKeyValueHint),

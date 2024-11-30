@@ -6,6 +6,7 @@ namespace bb::avm_trace {
 
 enum class AvmError : uint32_t {
     NO_ERROR,
+    REVERT_OPCODE,
     INVALID_PROGRAM_COUNTER,
     INVALID_OPCODE,
     INVALID_TAG_VALUE,

@@ -290,17 +290,6 @@ export class PublicTxSimulator {
       `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
-    // TODO(dbanks12): remove once AVM proves entire public tx
-    context.updateProvingRequest(
-      this.realAvmProvingRequests,
-      phase,
-      fnName,
-      stateManager,
-      executionRequest,
-      result,
-      allocatedGas,
-    );
-
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
 
     if (result.reverted) {
@@ -387,7 +376,7 @@ export class PublicTxSimulator {
   public async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
     const stateManager = context.state.getActiveStateManager();
     try {
-      //await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
@@ -406,7 +395,7 @@ export class PublicTxSimulator {
     context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
-      //await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(

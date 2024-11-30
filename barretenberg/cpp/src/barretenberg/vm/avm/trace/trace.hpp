@@ -15,7 +15,6 @@
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
-// #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
@@ -42,7 +41,7 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(AvmPublicInputs new_public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
@@ -225,6 +224,10 @@ class AvmTraceBuilder {
     std::vector<Row> finalize();
     void reset();
 
+    void checkpoint_non_revertible_state();
+    void rollback_to_non_revertible_checkpoint();
+    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
+
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
     {
@@ -250,7 +253,7 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
 
     std::vector<FF> calldata;
-    AvmPublicInputs new_public_inputs;
+    AvmPublicInputs public_inputs;
     PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
 
@@ -261,8 +264,6 @@ class AvmTraceBuilder {
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
-    // These are the tracked roots for intermediate steps
-    TreeSnapshots intermediate_tree_snapshots;
     // These are some counters for the tree acceess hints that we probably dont need in the future
     uint32_t note_hash_read_counter = 0;
     uint32_t note_hash_write_counter = 0;

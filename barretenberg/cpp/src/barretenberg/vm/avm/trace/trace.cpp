@@ -35,6 +35,7 @@
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
@@ -134,6 +135,29 @@ bool check_tag_integral(AvmMemoryTag tag)
 /**************************************************************************************************
  *                                   HELPERS
  **************************************************************************************************/
+
+void AvmTraceBuilder::checkpoint_non_revertible_state()
+{
+    merkle_tree_trace_builder.checkpoint_non_revertible_state();
+}
+void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
+{
+    merkle_tree_trace_builder.rollback_to_non_revertible_checkpoint();
+}
+
+void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
+                                           [[maybe_unused]] const std::vector<FF>& siloed_note_hashes)
+{
+    for (const auto& siloed_nullifier : siloed_nullifiers) {
+        auto hint = execution_hints.nullifier_write_hints[nullifier_write_counter++];
+        merkle_tree_trace_builder.perform_nullifier_append(0,
+                                                           hint.low_leaf_membership.low_leaf_preimage,
+                                                           hint.low_leaf_membership.low_leaf_index,
+                                                           hint.low_leaf_membership.low_leaf_sibling_path,
+                                                           siloed_nullifier,
+                                                           hint.insertion_path);
+    }
+}
 
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
@@ -307,17 +331,16 @@ AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
                                  std::vector<FF> calldata)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : calldata(std::move(calldata))
-    , new_public_inputs(public_inputs)
+    , public_inputs(public_inputs)
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
-    , intermediate_tree_snapshots(public_inputs.start_tree_snapshots)
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
+    , merkle_tree_trace_builder(public_inputs.start_tree_snapshots)
 {
     // TODO: think about cast
-    gas_trace_builder.set_initial_gas(static_cast<uint32_t>(new_public_inputs.gas_settings.gas_limits.l2_gas -
-                                                            new_public_inputs.start_gas_used.l2_gas),
-                                      static_cast<uint32_t>(new_public_inputs.gas_settings.gas_limits.da_gas -
-                                                            new_public_inputs.start_gas_used.da_gas));
+    gas_trace_builder.set_initial_gas(
+        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas),
+        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.da_gas - public_inputs.start_gas_used.da_gas));
 }
 
 /**************************************************************************************************
@@ -1627,7 +1650,7 @@ AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_of
 
 AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.transaction_fee;
+    FF ia_value = public_inputs.transaction_fee;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_transaction_fee = FF(1);
 
@@ -1657,7 +1680,7 @@ AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.chain_id;
+    FF ia_value = public_inputs.global_variables.chain_id;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_chain_id = FF(1);
 
@@ -1670,7 +1693,7 @@ AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.version;
+    FF ia_value = public_inputs.global_variables.version;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_version = FF(1);
 
@@ -1683,7 +1706,7 @@ AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.block_number;
+    FF ia_value = public_inputs.global_variables.block_number;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_block_number = FF(1);
 
@@ -1696,7 +1719,7 @@ AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.timestamp;
+    FF ia_value = public_inputs.global_variables.timestamp;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U64);
     row.main_sel_op_timestamp = FF(1);
 
@@ -1709,7 +1732,7 @@ AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.gas_fees.fee_per_l2_gas;
+    FF ia_value = public_inputs.global_variables.gas_fees.fee_per_l2_gas;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
@@ -1722,7 +1745,7 @@ AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    FF ia_value = new_public_inputs.global_variables.gas_fees.fee_per_da_gas;
+    FF ia_value = public_inputs.global_variables.gas_fees.fee_per_da_gas;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_da_gas = FF(1);
 
@@ -2565,10 +2588,9 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     // Sanity check that the computed slot using the value read from slot_offset should match the read hint
     ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
 
-    FF public_data_tree_root = intermediate_tree_snapshots.public_data_tree.root;
     // Check that the leaf is a member of the public data tree
     bool is_member = merkle_tree_trace_builder.perform_storage_read(
-        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path, public_data_tree_root);
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
     ASSERT(is_member);
 
     FF value = read_hint.leaf_preimage.value;
@@ -2657,17 +2679,13 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     // (e) We create a new preimage for the new write
     // (f) We compute the new root by updating at the leaf index with the hash of the new preimage
     PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
-    FF root = merkle_tree_trace_builder.perform_storage_write(clk,
-                                                              write_hint.low_leaf_membership.leaf_preimage,
-                                                              write_hint.low_leaf_membership.leaf_index,
-                                                              write_hint.low_leaf_membership.sibling_path,
-                                                              write_hint.new_leaf_preimage.slot,
-                                                              write_hint.new_leaf_preimage.value,
-                                                              intermediate_tree_snapshots.public_data_tree.size,
-                                                              write_hint.insertion_path,
-                                                              intermediate_tree_snapshots.public_data_tree.root);
-    intermediate_tree_snapshots.public_data_tree.root = root;
-    intermediate_tree_snapshots.public_data_tree.size++;
+    merkle_tree_trace_builder.perform_storage_write(clk,
+                                                    write_hint.low_leaf_membership.leaf_preimage,
+                                                    write_hint.low_leaf_membership.leaf_index,
+                                                    write_hint.low_leaf_membership.sibling_path,
+                                                    write_hint.new_leaf_preimage.slot,
+                                                    write_hint.new_leaf_preimage.value,
+                                                    write_hint.insertion_path);
 
     // TODO(8945): remove fake rows
     Row row = Row{
@@ -2728,11 +2746,9 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
         bool exists = note_hash_value == note_hash_read_hint.leaf_value;
         // Check membership of the leaf index in the note hash tree
         const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
-        bool is_member =
-            AvmMerkleTreeTraceBuilder::unconstrained_check_membership(note_hash_read_hint.leaf_value,
-                                                                      static_cast<uint64_t>(leaf_index),
-                                                                      note_hash_read_hint.sibling_path,
-                                                                      intermediate_tree_snapshots.note_hash_tree.root);
+        bool is_member = merkle_tree_trace_builder.perform_note_hash_read(
+            clk, note_hash_read_hint.leaf_value, leaf_index, note_hash_read_hint.sibling_path);
+
         ASSERT(is_member);
 
         // This already does memory reads
@@ -2796,12 +2812,10 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 
 AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
 {
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     if (note_hash_write_counter >= MAX_NOTE_HASHES_PER_TX) {
-        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -2815,27 +2829,40 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
         return error;
     }
 
-    AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
-    // We first check that the index is currently empty
-    auto insertion_index = static_cast<uint64_t>(intermediate_tree_snapshots.note_hash_tree.size);
-    bool insert_index_is_empty =
-        AvmMerkleTreeTraceBuilder::unconstrained_check_membership(FF::zero(),
-                                                                  insertion_index,
-                                                                  note_hash_write_hint.sibling_path,
-                                                                  intermediate_tree_snapshots.note_hash_tree.root);
-    ASSERT(insert_index_is_empty);
-    // Update the root with the new leaf that is appended
-    FF new_root = AvmMerkleTreeTraceBuilder::unconstrained_update_leaf_index(
-        note_hash_write_hint.leaf_value, insertion_index, note_hash_write_hint.sibling_path);
-    intermediate_tree_snapshots.note_hash_tree.root = new_root;
-    intermediate_tree_snapshots.note_hash_tree.size++;
+    // AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
+    //// We first check that the index is currently empty
+    // auto insertion_index = static_cast<uint64_t>(intermediate_tree_snapshots.note_hash_tree.size);
+    // bool insert_index_is_empty =
+    //     AvmMerkleTreeTraceBuilder::unconstrained_check_membership(FF::zero(),
+    //                                                               insertion_index,
+    //                                                               note_hash_write_hint.sibling_path,
+    //                                                               intermediate_tree_snapshots.note_hash_tree.root);
+    // ASSERT(insert_index_is_empty);
+    //// Update the root with the new leaf that is appended
+    // FF new_root = AvmMerkleTreeTraceBuilder::unconstrained_update_leaf_index(
+    //     note_hash_write_hint.leaf_value, insertion_index, note_hash_write_hint.sibling_path);
+    // intermediate_tree_snapshots.note_hash_tree.root = new_root;
+    // intermediate_tree_snapshots.note_hash_tree.size++;
 
-    auto [row, output_error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
-    if (is_ok(error)) {
-        error = output_error;
-    }
+    // auto [row, output_error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
+    // if (is_ok(error)) {
+    //     error = output_error;
+    // }
+    auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
+
+    AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
+    auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
+        current_public_call_request.contract_address, row.main_ia);
+    ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
+    // We first check that the index is currently empty
+    bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
+        clk, FF::zero(), note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
+    ASSERT(insert_index_is_empty);
+
+    // Update the root with the new leaf that is appended
+    merkle_tree_trace_builder.perform_note_hash_append(clk, siloed_note_hash, note_hash_write_hint.sibling_path);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
@@ -2877,12 +2904,10 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
         FF nullifier_value = unconstrained_read_from_memory(resolved_nullifier_offset);
         FF address_value = unconstrained_read_from_memory(resolved_address);
         FF siloed_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(address_value, nullifier_value);
-        bool is_member =
-            merkle_tree_trace_builder.perform_nullifier_read(clk,
-                                                             nullifier_read_hint.low_leaf_preimage,
-                                                             nullifier_read_hint.low_leaf_index,
-                                                             nullifier_read_hint.low_leaf_sibling_path,
-                                                             intermediate_tree_snapshots.nullifier_tree.root);
+        bool is_member = merkle_tree_trace_builder.perform_nullifier_read(clk,
+                                                                          nullifier_read_hint.low_leaf_preimage,
+                                                                          nullifier_read_hint.low_leaf_index,
+                                                                          nullifier_read_hint.low_leaf_sibling_path);
         ASSERT(is_member);
 
         if (siloed_nullifier == nullifier_read_hint.low_leaf_preimage.nullifier) {
@@ -2988,29 +3013,22 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
     FF nullifier_value = row.main_ia;
     FF siloed_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
         current_public_call_request.contract_address, nullifier_value);
-    info("siloed, getting read hint ", nullifier_read_counter);
+    info("siloed, getting write hint ", nullifier_write_counter);
 
     // This is a little bit fragile - but we use the fact that if we traced a nullifier that already exists (which is
     // invalid), we would have stored it under a read hint.
-    // NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter);
-    // info("got hint, performing read");
-    // bool is_update = merkle_tree_trace_builder.perform_nullifier_read(clk,
-    //                                                                  nullifier_read_hint.low_leaf_preimage,
-    //                                                                  nullifier_read_hint.low_leaf_index,
-    //                                                                  nullifier_read_hint.low_leaf_sibling_path,
-    //                                                                  intermediate_tree_snapshots.nullifier_tree.root);
-    info("0writing... getting write hint ", nullifier_write_counter);
+    //
     // This is a non-membership proof which means our insertion is valid
     NullifierWriteTreeHint nullifier_write_hint = execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
+    // NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter);
     // bool is_update = merkle_tree_trace_builder.perform_nullifier_read(clk,
-    //                                                                   nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
-    //                                                                   nullifier_write_hint.low_leaf_membership.low_leaf_index,
-    //                                                                   nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path,
-    //                                                                   intermediate_tree_snapshots.nullifier_tree.root);
-    //  if the hinted low-leaf skips the target nullifier, it does not exist
-    //  if the hinted low-leaf points to the target nullifier, it already exists which means this would be an "update"
-    //  which is disallowed, so we need to prove the hinted leaf's membership which serves as a proof of the
-    //  target nullifier's non-membership
+    //                                                                   nullifier_read_hint.low_leaf_preimage,
+    //                                                                   nullifier_read_hint.low_leaf_index,
+    //                                                                   nullifier_read_hint.low_leaf_sibling_path);
+    //   if the hinted low-leaf skips the target nullifier, it does not exist
+    //   if the hinted low-leaf points to the target nullifier, it already exists which means this would be an "update"
+    //   which is disallowed, so we need to prove the hinted leaf's membership which serves as a proof of the
+    //   target nullifier's non-membership
     bool is_update = siloed_nullifier == nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_nullifier;
     if (is_update) {
         // hinted nullifier skips target nullifier
@@ -3020,8 +3038,7 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
             clk,
             nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
             nullifier_write_hint.low_leaf_membership.low_leaf_index,
-            nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path,
-            intermediate_tree_snapshots.nullifier_tree.root);
+            nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path);
         // if hinted low-leaf that skips the nullifier fails membership check, bad hint!
         ASSERT(exists);
         nullifier_read_counter++;
@@ -3045,27 +3062,17 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
         }
         info("]");
         info("siloed nullifier: ", siloed_nullifier);
-        info("intermediate_tree_snapshots.nullifier_tree.size: ", intermediate_tree_snapshots.nullifier_tree.size);
-        info("intermediate_tree_snapshots.nullifier_tree.root: ", intermediate_tree_snapshots.nullifier_tree.root);
-        // info("writing... getting write hint ", nullifier_write_counter);
-        //// This is a non-membership proof which means our insertion is valid
-        // NullifierWriteTreeHint nullifier_write_hint =
-        //    execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
+        // info("intermediate_tree_snapshots.nullifier_tree.size: ", intermediate_tree_snapshots.nullifier_tree.size);
+        // info("intermediate_tree_snapshots.nullifier_tree.root: ", intermediate_tree_snapshots.nullifier_tree.root);
+        info("writing... getting write hint ", nullifier_write_counter);
         info("not update. performing nullifier append");
-        FF new_root = merkle_tree_trace_builder.perform_nullifier_append(
+        merkle_tree_trace_builder.perform_nullifier_append(
             clk,
             nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
             nullifier_write_hint.low_leaf_membership.low_leaf_index,
             nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path,
             siloed_nullifier,
-            intermediate_tree_snapshots.nullifier_tree.size,
-            nullifier_write_hint.insertion_path,
-            intermediate_tree_snapshots.nullifier_tree.root);
-        info("new_root: ", new_root);
-
-        intermediate_tree_snapshots.nullifier_tree.root = new_root;
-        intermediate_tree_snapshots.nullifier_tree.size++;
-        info("done with append");
+            nullifier_write_hint.insertion_path);
     }
 
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
@@ -3114,11 +3121,8 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
         bool exists = l1_to_l2_msg_value == l1_to_l2_msg_read_hint.leaf_value;
 
         // Check membership of the leaf index in the l1_to_l2_msg tree
-        bool is_member = AvmMerkleTreeTraceBuilder::unconstrained_check_membership(
-            l1_to_l2_msg_read_hint.leaf_value,
-            static_cast<uint64_t>(l1_to_l2_msg_read_hint.leaf_index),
-            l1_to_l2_msg_read_hint.sibling_path,
-            intermediate_tree_snapshots.l1_to_l2_message_tree.root);
+        bool is_member = merkle_tree_trace_builder.perform_l1_to_l2_message_read(
+            clk, l1_to_l2_msg_read_hint.leaf_value, leaf_index, l1_to_l2_msg_read_hint.sibling_path);
         ASSERT(is_member);
 
         auto read_a = constrained_read_from_memory(
@@ -3300,21 +3304,6 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    if (unencrypted_log_write_counter >= MAX_UNENCRYPTED_LOGS_PER_TX) {
-        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
-        auto row = Row{
-            .main_clk = clk,
-            .main_internal_return_ptr = internal_return_ptr,
-            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
-            .main_pc = pc,
-            .main_sel_op_emit_unencrypted_log = FF(1),
-        };
-        gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG);
-        main_trace.push_back(row);
-        pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
-        return error;
-    }
-
     // FIXME: read (and constrain) log_size_offset
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ log_offset, log_size_offset }, mem_trace_builder);
@@ -3357,6 +3346,26 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
             error = AvmError::CHECK_TAG_ERROR;
         };
     }
+
+    // Can't return earlier as we do elsewhere for side-effect-limit because we need
+    // to at least retrieve log_size first to charge proper gas.
+    // This means a tag error could occur before side-effect-limit first.
+    if (is_ok(error) && unencrypted_log_write_counter >= MAX_UNENCRYPTED_LOGS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_unencrypted_log = FF(1),
+        };
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
+        return error;
+    }
+    unencrypted_log_write_counter++;
 
     if (is_ok(error)) {
         // We need to read the rest of the log_size number of elements
@@ -3763,6 +3772,10 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     });
 
     pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+
+    if (is_ok(error)) {
+        error = AvmError::REVERT_OPCODE;
+    }
 
     // op_valid == true otherwise, ret_size == 0 and we would have returned above.
     return ReturnDataError{
@@ -4483,6 +4496,15 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
  */
 std::vector<Row> AvmTraceBuilder::finalize()
 {
+    // Some sanity checks
+    // Check that the final merkle tree lines up with the public inputs
+    TreeSnapshots tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
+    info("tree_snapshots ?= public_inputs.end.tree_snapshots");
+    info(tree_snapshots.nullifier_tree.root, " == ", public_inputs.end_tree_snapshots.nullifier_tree.root);
+    // info("tree_snapshot: ", tree_snapshots.nullifier_tree.root);
+    // info(" == ", public_inputs.end_tree_snapshots);
+    ASSERT(tree_snapshots == public_inputs.end_tree_snapshots);
+
     vinfo("range_check_required: ", range_check_required);
     vinfo("full_precomputed_tables: ", full_precomputed_tables);
 
@@ -4503,7 +4525,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
-    // size_t kernel_trace_size = kernel_trace_builder.size();
 
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
@@ -4745,6 +4766,18 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     gas_trace_builder.finalize(main_trace);
+
+    // Sanity check that the amount of gas consumed matches what we expect from the public inputs
+    auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
+    auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
+    info("gas limit l2: ", public_inputs.gas_settings.gas_limits.l2_gas);
+    info("public inputs end gas used: ", public_inputs.end_gas_used.l2_gas);
+    info("last l2 gas remaining: ", last_l2_gas_remaining);
+    info("expected end l2 gas: ", expected_end_gas_l2);
+    ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
+    auto last_da_gas_remaining = main_trace.back().main_da_gas_remaining;
+    auto expected_end_gas_da = public_inputs.gas_settings.gas_limits.da_gas - public_inputs.end_gas_used.da_gas;
+    ASSERT(last_da_gas_remaining == expected_end_gas_da);
 
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION
