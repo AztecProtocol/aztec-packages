@@ -35,7 +35,7 @@ function run_bootstrap() {
   rm -f $ci3/cache/.test_faillures
 
   cd $root/$project
-  TEST=1 USE_CACHE=1 $ci3/base/denoise ./bootstrap.sh
+  TEST=1 USE_CACHE=1 denoise ./bootstrap.sh
   exit_code=$?
   if [ "$exit_code" != 0 ]; then
     echo "Bootstrap had a bad exit code $exit_code."

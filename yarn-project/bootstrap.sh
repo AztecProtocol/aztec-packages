@@ -26,7 +26,7 @@ function build {
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
   echo -n "yarn install: "
-  $ci3/base/denoise yarn install
+  denoise yarn install
 
   if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
@@ -51,7 +51,7 @@ function build {
     yarn test
     export ci3 YELLOW BLUE GREEN BOLD RESET CMD
     export -f run_e2e_tests
-    $ci3/base/denoise run_e2e_tests
+    denoise run_e2e_tests
   fi
 }
 

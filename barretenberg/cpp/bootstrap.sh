@@ -122,6 +122,6 @@ function build_wasm_threads {
 export PRESET PIC_PRESET HASH SKIP_BUILD ci3
 export -f build_native build_wasm build_wasm_threads
 
-parallel --line-buffered -v --tag --memfree 8g $ci3/base/denoise {} ::: build_native build_wasm build_wasm_threads
+parallel --line-buffered -v --tag --memfree 8g denoise {} ::: build_native build_wasm build_wasm_threads
 
 $ci3/github/endgroup
