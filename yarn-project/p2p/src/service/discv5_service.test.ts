@@ -1,16 +1,16 @@
 import { sleep } from '@aztec/foundation/sleep';
+import { type AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { PeerDiscoveryState } from './service.js';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { AztecKVStore } from '@aztec/kv-store';
-import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
   const timeout = 7_000;

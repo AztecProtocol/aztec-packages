@@ -5,6 +5,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -14,6 +15,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type PeerId } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
@@ -36,8 +38,6 @@ import {
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
-import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
-import { openTmpStore } from '@aztec/kv-store/utils';
 
 /**
  * Creates a libp2p node, pre configured.

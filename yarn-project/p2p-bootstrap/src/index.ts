@@ -1,4 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { createStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -18,7 +20,13 @@ async function main(
   telemetryClient: TelemetryClient = new NoopTelemetryClient(),
   logger = debugLogger,
 ) {
-  const bootstrapNode = new BootstrapNode(telemetryClient, logger);
+  // If a data directory is provided in config, then create a persistent store.
+  // Otherwise, create a temporary store.
+  const store = config.dataDirectory
+    ? await createStore('p2p-bootstrap', config, logger)
+    : openTmpStore();
+
+  const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);
   logger.info('DiscV5 Bootnode started');
 

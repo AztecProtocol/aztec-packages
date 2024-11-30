@@ -153,10 +153,7 @@ export async function configureP2PClientAddresses(
  * 3. If not, create a new one, then persist it in the node
  *
  */
-export async function getPeerIdPrivateKey(
-  config: { peerIdPrivateKey?: string },
-  store: AztecKVStore,
-): Promise<string> {
+export async function getPeerIdPrivateKey(config: { peerIdPrivateKey?: string }, store: AztecKVStore): Promise<string> {
   const peerIdPrivateKeySingleton: AztecSingleton<string> = store.openSingleton('peerIdPrivateKey');
   const storedPeerIdPrivateKey = peerIdPrivateKeySingleton.get();
   if (storedPeerIdPrivateKey) {
