@@ -18,21 +18,17 @@ function build {
     ../noir-projects/*/.rebuild_patterns \
     ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns)
-  # Generate l1-artifacts before creating lock file
-  (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+  # # Generate l1-artifacts before creating lock file
+  # (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
 
   # Fast build does not delete everything first.
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  # in case we hit the cache, install just runtime dependencies
-  echo "yarn install (runtime): "
-  denoise yarn workspaces focus --all --production
+  echo "yarn install: "
+  denoise yarn install
 
   if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
-    # if we failed the cache, we need dev dependencies
-    echo -n "yarn install (dev): "
-    denoise yarn install
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;
