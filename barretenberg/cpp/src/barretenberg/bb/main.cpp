@@ -33,6 +33,9 @@
 
 using namespace bb;
 
+const std::filesystem::path current_path = std::filesystem::current_path();
+const auto current_dir = current_path.filename().string();
+
 // Initializes without loading G1
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
 acir_proofs::AcirComposer verifier_init()
@@ -41,6 +44,11 @@ acir_proofs::AcirComposer verifier_init()
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     return acir_composer;
+}
+
+std::string to_json(std::vector<bb::fr>& data)
+{
+    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
 std::string vk_to_json(std::vector<bb::fr> const& data)
@@ -689,6 +697,69 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     return verified;
 }
 #endif
+
+/**
+ * @brief Create a Honk a prover from program bytecode and an optional witness
+ *
+ * @tparam Flavor
+ * @param bytecodePath
+ * @param witnessPath
+ * @return UltraProver_<Flavor>
+ */
+template <typename Flavor>
+UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
+                                          const std::string& witnessPath,
+                                          const bool recursive)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>) {
+        honk_recursion = true;
+    }
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
+    acir_format::WitnessVector witness = {};
+    if (!witnessPath.empty()) {
+        witness = get_witness(witnessPath);
+    }
+
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
+    auto prover = Prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    return std::move(prover);
+}
+
+/**
+ * @brief Creates a proof for an ACIR circuit
+ *
+ * Communication:
+ * - stdout: The proof is written to stdout as a byte array
+ * - Filesystem: The proof is written to the path specified by outputPath
+ *
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param outputPath Path to write the proof to
+ */
+template <IsUltraFlavor Flavor>
+void prove_honk(const std::string& bytecodePath,
+                const std::string& witnessPath,
+                const std::string& outputPath,
+                const bool recursive)
+{
+    using Prover = UltraProver_<Flavor>;
+
+    // Construct Honk proof
+    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath, recursive);
+    auto proof = prover.construct_proof();
+    if (outputPath == "-") {
+        writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
+        vinfo("proof written to stdout");
+    } else {
+        write_file(outputPath, to_buffer</*include_size=*/true>(proof));
+        vinfo("proof written to: ", outputPath);
+    }
+}
 
 /**
  * @brief Verifies a proof for an ACIR circuit

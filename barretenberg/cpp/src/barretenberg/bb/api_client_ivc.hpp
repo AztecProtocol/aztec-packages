@@ -1,8 +1,8 @@
 #pragma once
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 
+#include "barretenberg/bb/acir_format_getters.hpp"
 #include "barretenberg/bb/api.hpp"
-#include "barretenberg/bb/ultra_utils.hpp"
+#include "barretenberg/bb/init_srs.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "libdeflate.h"
 
@@ -96,7 +96,7 @@ class ClientIVCAPI : public API {
             folding_stack.push_back(AcirProgram{ constraints, witness });
         }
 
-        // WORKTODO: avoid reallocation / std::move / use pointers
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
         if (input_type == "compiletime_stack") {
             auto program_stack =
                 acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/false);
@@ -139,7 +139,7 @@ class ClientIVCAPI : public API {
 
         using namespace acir_format;
 
-        // WORKTODO: dynamic setting of these
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         init_bn254_crs(1 << 20);
         init_grumpkin_crs(1 << 15);
 
@@ -176,7 +176,6 @@ class ClientIVCAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        // WORKTODO: move and systematize validation logic
         if (!flags.output_type || *flags.output_type != "fields-msgpack") {
             throw_or_abort("No output_type or output_type not supported");
         }
@@ -219,6 +218,7 @@ class ClientIVCAPI : public API {
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
         init_bn254_crs(1);
         init_grumpkin_crs(1 << 15);
 
@@ -249,24 +249,24 @@ class ClientIVCAPI : public API {
         return verified;
     };
 
-    void gates(const API::Flags& flags,
-               const std::filesystem::path& bytecode_path,
-               const std::filesystem::path& witness_path) override
+    void gates([[maybe_unused]] const API::Flags& flags,
+               [[maybe_unused]] const std::filesystem::path& bytecode_path,
+               [[maybe_unused]] const std::filesystem::path& witness_path) override
     {
         throw_or_abort("API function not implemented");
     };
 
-    void contract(const API::Flags& flags,
-                  const std::filesystem::path& output_path,
-                  const std::filesystem::path& vk_path) override
+    void contract([[maybe_unused]] const API::Flags& flags,
+                  [[maybe_unused]] const std::filesystem::path& output_path,
+                  [[maybe_unused]] const std::filesystem::path& vk_path) override
     {
         throw_or_abort("API function not implemented");
     };
 
-    void to_fields(const API::Flags& flags,
-                   const std::filesystem::path& proof_path,
-                   const std::filesystem::path& vk_path,
-                   const std::filesystem::path& output_path) override
+    void to_fields([[maybe_unused]] const API::Flags& flags,
+                   [[maybe_unused]] const std::filesystem::path& proof_path,
+                   [[maybe_unused]] const std::filesystem::path& vk_path,
+                   [[maybe_unused]] const std::filesystem::path& output_path) override
     {
         throw_or_abort("API function not implemented");
     };

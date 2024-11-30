@@ -260,10 +260,8 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
-    vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION ", num_public_inputs);
     num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
-    vinfo("num_public_inputs of the last folding proof ", num_public_inputs);
     for (size_t i = 0; i < num_public_inputs; i++) {
         size_t offset = HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder.add_public_variable(fold_proof[i + offset]);
