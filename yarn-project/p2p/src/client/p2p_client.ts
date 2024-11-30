@@ -623,6 +623,7 @@ export class P2PClient extends WithTracer implements P2P {
     const lastBlockNum = blocks[blocks.length - 1].number;
     const lastBlockSlot = blocks[blocks.length - 1].header.globalVariables.slotNumber.toBigInt();
 
+    // If keepProvenTxsFor is 0, we delete all txs from all proven blocks.
     if (this.keepProvenTxsFor === 0) {
       await this.deleteTxsFromBlocks(blocks);
     } else if (lastBlockNum - this.keepProvenTxsFor >= INITIAL_L2_BLOCK_NUM) {
@@ -634,8 +635,9 @@ export class P2PClient extends WithTracer implements P2P {
     }
 
     // We delete attestations older than the last block slot minus the number of slots we want to keep in the pool.
-    if (lastBlockSlot - BigInt(this.keepAttestationsInPoolFor) >= BigInt(INITIAL_L2_BLOCK_NUM)) {
-      await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlot - BigInt(this.keepAttestationsInPoolFor));
+    const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
+    if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
+      await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
 
     await this.synchedProvenBlockNumber.set(lastBlockNum);
