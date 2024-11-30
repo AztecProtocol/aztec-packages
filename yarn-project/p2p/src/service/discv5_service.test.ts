@@ -8,7 +8,7 @@ import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { PeerDiscoveryState } from './service.js';
 
@@ -35,14 +35,13 @@ describe('Discv5Service', () => {
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
   let basePort = 7890;
-  const baseConfig = {
-    tcpAnnounceAddress: `127.0.0.1:${basePort}`,
+  const baseConfig: BootnodeConfig = {
     udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
-    tcpListenAddress: `0.0.0.0:${basePort}`,
     udpListenAddress: `0.0.0.0:${basePort + 100}`,
     minPeerCount: 1,
     maxPeerCount: 100,
-    queryForIp: false,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 0,
   };
 
   beforeEach(async () => {

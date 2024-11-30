@@ -1,6 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/utils';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { createStore, openTmpStore } from '@aztec/kv-store/utils';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -22,9 +21,7 @@ async function main(
 ) {
   // If a data directory is provided in config, then create a persistent store.
   // Otherwise, create a temporary store.
-  const store = config.dataDirectory
-    ? await createStore('p2p-bootstrap', config, logger)
-    : openTmpStore();
+  const store = config.dataDirectory ? await createStore('p2p-bootstrap', config, logger) : openTmpStore();
 
   const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);

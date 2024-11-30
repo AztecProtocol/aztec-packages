@@ -233,6 +233,8 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
     peerIdPrivateKey: privateKey,
     minPeerCount: 10,
     maxPeerCount: 100,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 0,
   };
 }
 

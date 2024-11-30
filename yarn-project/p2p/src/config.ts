@@ -6,9 +6,9 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
-import { DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 /**
  * P2P client configuration values.

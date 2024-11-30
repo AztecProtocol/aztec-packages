@@ -860,6 +860,7 @@ __metadata:
   resolution: "@aztec/p2p-bootstrap@workspace:p2p-bootstrap"
   dependencies:
     "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": ^29.5.0
