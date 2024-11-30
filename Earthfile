@@ -20,7 +20,8 @@ bootstrap:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
     CI=1 TEST=0 ./bootstrap.sh fast && \
-    bash -c 'mv /volume/build/{.,}* /usr/src'
+    mv .* * /usr/src
+  WORKDIR /usr/src
 
 bootstrap-aztec:
   FROM +bootstrap
