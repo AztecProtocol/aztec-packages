@@ -13,7 +13,6 @@ import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 export class AvmEnqueuedCallHint {
   public readonly contractAddress: AztecAddress;
