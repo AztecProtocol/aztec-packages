@@ -121,33 +121,28 @@ export class GithubClient {
   }
 
   // Borrowed from https://github.com/machulav/ec2-github-runner/blob/main/src/aws.js
-  async pollForRunnerCreation(labels: string[]) {
-    const timeoutMinutes = 5;
-    const retryIntervalSeconds = 10;
-    const quietPeriodSeconds = 30;
+async pollForRunnerCreation(labels: string[]): Promise<void> {
+  const { TIMEOUT_MINUTES, RETRY_INTERVAL, QUIET_PERIOD } = PAGINATION;
+  
+  core.info(`Waiting ${QUIET_PERIOD}s before polling for runners`);
+  await new Promise(r => setTimeout(r, QUIET_PERIOD * 1000));
+  
+  return new Promise((resolve, reject) => {
     let waitSeconds = 0;
-
-    core.info(`Waiting ${quietPeriodSeconds}s before polling for runners`);
-    await new Promise((r) => setTimeout(r, quietPeriodSeconds * 1000));
-    core.info(`Polling for runners every ${retryIntervalSeconds}s`);
-
-    return new Promise((resolve, reject) => {
-      const interval = setInterval(async () => {
-        if (waitSeconds > timeoutMinutes * 60) {
-          core.error("GitHub self-hosted runner creation error");
-          clearInterval(interval);
-          reject(
-            `A timeout of ${timeoutMinutes} minutes is exceeded. Please ensure your EC2 instance has access to the Internet.`
-          );
-        }
-        if (await this.hasRunner(labels)) {
-          clearInterval(interval);
-          resolve("");
-          return;
-        }
-        waitSeconds += retryIntervalSeconds;
-        core.info("Waiting for runners...");
-      }, retryIntervalSeconds * 1000);
-    });
-  }
+    const interval = setInterval(async () => {
+      if (waitSeconds > TIMEOUT_MINUTES * 60) {
+        clearInterval(interval);
+        reject(`Timeout of ${TIMEOUT_MINUTES} minutes exceeded. Check EC2 internet access.`);
+      }
+      
+      if (await this.hasRunner(labels)) {
+        clearInterval(interval);
+        resolve();
+        return;
+      }
+      
+      waitSeconds += RETRY_INTERVAL;
+      core.info("Waiting for runners...");
+    }, RETRY_INTERVAL * 1000);
+  });
 }
