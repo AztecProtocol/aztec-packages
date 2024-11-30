@@ -81,7 +81,9 @@ spec:
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
+{{if not .Values.network.public }}
 ---
+# Headless service for StatefulSet DNS entries
 apiVersion: v1
 kind: Service
 metadata:

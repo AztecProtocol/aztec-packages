@@ -27,19 +27,3 @@ network:
 images:
   aztec:
     pullPolicy: Always
-
-proverNode:
-  service:
-    portNode: 8080
-
-proverAgent:
-  service:
-    portNode: 8080
-
-pxe:
-  service:
-    portNode: 8080
-
-bot:
-  service:
-    portNode: 8080
