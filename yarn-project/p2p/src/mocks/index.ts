@@ -22,7 +22,7 @@ import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../service/discV5_service.js';
-import { LibP2PService, createLibP2PPeerId } from '../service/libp2p_service.js';
+import { LibP2PService } from '../service/libp2p_service.js';
 import { type PeerManager } from '../service/peer_manager.js';
 import { type P2PReqRespConfig } from '../service/reqresp/config.js';
 import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
@@ -35,7 +35,7 @@ import {
   noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
-import { type PubSubLibp2p } from '../util.js';
+import { createLibP2PPeerIdFromPrivateKey, type PubSubLibp2p } from '../util.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -102,7 +102,7 @@ export async function createTestLibP2PService(
   port: number = 0,
   peerId?: PeerId,
 ) {
-  peerId = peerId ?? (await createLibP2PPeerId());
+  peerId = peerId ?? (await createLibP2PPeerIdFromPrivateKey());
   const config = {
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
@@ -247,7 +247,7 @@ export async function createBootstrapNode(
   port: number,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
 ): Promise<BootstrapNode> {
-  const peerId = await createLibP2PPeerId();
+  const peerId = await createLibP2PPeerIdFromPrivateKey();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
   return startBootstrapNode(config, telemetry);

@@ -8,8 +8,7 @@ import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../service/discV5_service.js';
-import { createLibP2PPeerId } from '../service/index.js';
-import { convertToMultiaddr } from '../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -27,7 +26,7 @@ export class BootstrapNode {
    */
   public async start(config: BootnodeConfig) {
     const { peerIdPrivateKey, udpListenAddress, udpAnnounceAddress } = config;
-    const peerId = await createLibP2PPeerId(peerIdPrivateKey);
+    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     this.peerId = peerId;
     const enr = SignableENR.createFromPeerId(peerId);
 

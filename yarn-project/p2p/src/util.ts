@@ -5,6 +5,9 @@ import { resolve } from 'dns/promises';
 import type { Libp2p } from 'libp2p';
 
 import { type P2PConfig } from './config.js';
+import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { type PeerId } from '@libp2p/interface';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -140,4 +143,45 @@ export async function configureP2PClientAddresses(
   }
 
   return config;
+}
+
+/**
+ * Get the peer id private key
+ *
+ * 1. Check we have a peer id private key persisted in the node
+ * 2. If not, check if we have a peer id private key in the config
+ * 3. If not, create a new one, then persist it in the node
+ *
+ */
+export async function getPeerIdPrivateKey(config: P2PConfig, store: AztecKVStore): Promise<string> {
+  const peerIdPrivateKeySingleton: AztecSingleton<string> = store.openSingleton('peerIdPrivateKey');
+  const storedPeerIdPrivateKey = peerIdPrivateKeySingleton.get();
+  if (storedPeerIdPrivateKey) {
+    return storedPeerIdPrivateKey;
+  }
+
+  if (config.peerIdPrivateKey) {
+    await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
+    return config.peerIdPrivateKey;
+  }
+
+  const newPeerIdPrivateKey = (await createSecp256k1PeerId()).privateKey!.toString();
+  await peerIdPrivateKeySingleton.set(newPeerIdPrivateKey);
+  return newPeerIdPrivateKey;
+}
+
+/**
+ * Create a libp2p peer ID from the private key.
+ * @param privateKey - peer ID private key as hex string
+ * @returns The peer ID.
+ */
+export async function createLibP2PPeerIdFromPrivateKey(privateKey?: string): Promise<PeerId> {
+  if (!privateKey?.length) {
+    throw new Error('No peer private key provided');
+  }
+  const base64 = Buffer.from(privateKey, 'hex').toString('base64');
+  return await createFromJSON({
+    id: '',
+    privKey: base64,
+  });
 }
