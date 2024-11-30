@@ -131,8 +131,25 @@ case "$CMD" in
     echo "Toolchains look good! 🎉"
     exit 0
   ;;
+  "aztec-image")
+    source $ci3/base/tmp_source
+    mkdir -p $TMP/usr/src
+    earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    GIT_HASH=$(git rev-parse --short HEAD)
+    docker build -f Dockerfile.aztec --build-arg GIT_HASH=$GIT_HASH -t aztecprotocol/aztec:$GIT_HASH $TMP
+    exit
+  ;;
+  "e2e-image")
+    source $ci3/base/tmp_source
+    mkdir -p $TMP/usr
+    earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
+    export TMP
+    GIT_HASH=$(git rev-parse --short HEAD)
+    docker build -f Dockerfile.end-to-end --build-arg GIT_HASH=$GIT_HASH -t aztecprotocol/end-to-end:$GIT_HASH $TMP
+    exit
+  ;;
   *)
-    echo "usage: $0 <full|fast|check|clean>"
+    echo "usage: $0 <clean|full|fast|check|aztec-image|e2e-image>"
     exit 1
   ;;
 esac

@@ -125,7 +125,7 @@ rollup-verifier-contract:
 # Images
 ########################################################################################################################
 
-aztec:
+other-aztec:
   FROM ubuntu:noble
   RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
   COPY +bootstrap-aztec/usr/src /usr/src
@@ -143,7 +143,7 @@ aztec:
   ARG EARTHLY_GIT_HASH
   SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
 
-end-to-end:
+other-end-to-end:
   FROM ubuntu:noble
   # add repository for chromium
   RUN apt-get update && apt-get install -y software-properties-common \
