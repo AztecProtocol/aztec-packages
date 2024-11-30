@@ -63,11 +63,11 @@ bootstrap-test:
 bootstrap:
     # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
     FROM ./build-images+from-registry
-    WORKDIR /usr/build
     ARG EARTHLY_GIT_HASH
     ENV AZTEC_CACHE_COMMIT=7100222db0a2a326ea4238f783f1c524a2880d8e
+    WORKDIR /volume/build
     # Use a cache volume for performance
-    RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/usr/build/ \
+    RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/volume \
         rm -rf * .git && \
         git init 2>/dev/null && \
         git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
@@ -76,7 +76,7 @@ bootstrap:
         (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
         git reset --hard FETCH_HEAD && \
         CI=1 TEST=0 ./bootstrap.sh fast && \
-        mv /usr/build /usr/src
+        mv /volume/build /usr/src
 
 bootstrap-aztec:
     FROM +bootstrap
