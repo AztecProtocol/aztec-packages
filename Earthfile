@@ -72,6 +72,8 @@ bootstrap:
         rm -rf * .git && \
         git init 2>/dev/null && \
         git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
+        # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
+        bash -c '[[ "$(git fetch origin --negotiate-only --negotiation-tip=$EARTHLY_GIT_HASH)" != *"$EARTHLY_GIT_HASH"* ]] || (echo "Commit $EARTHLY_GIT_HASH is not pushed, exiting." && exit 1)' && \
         git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
         git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null && \
         git reset --hard FETCH_HEAD && \
