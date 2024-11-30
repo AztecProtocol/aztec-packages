@@ -6,7 +6,7 @@ import { generatePrivateKey } from 'viem/accounts';
 import { type ValidatorClientConfig } from './config.js';
 import { ValidatorClient } from './validator.js';
 import { EpochCache } from '@aztec/epoch-cache';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 
 export async function createValidatorClient(config: ValidatorClientConfig, rollupAddress: EthAddress, p2pClient: P2P, telemetry: TelemetryClient) {
   if (config.disableValidator) {

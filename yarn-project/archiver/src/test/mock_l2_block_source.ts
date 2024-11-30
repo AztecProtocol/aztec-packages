@@ -7,10 +7,10 @@ import {
   TxReceipt,
   TxStatus,
 } from '@aztec/circuit-types';
+import { getSlotRangeForEpoch } from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { getSlotRangeForEpoch } from '@aztec/circuit-types';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.

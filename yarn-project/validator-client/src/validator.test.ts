@@ -22,7 +22,7 @@ import {
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { ValidatorClient } from './validator.js';
-import { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache } from '@aztec/epoch-cache';
 
 describe('ValidationService', () => {
   let config: ValidatorClientConfig;
@@ -30,7 +30,6 @@ describe('ValidationService', () => {
   let p2pClient: MockProxy<P2P>;
   let epochCache: MockProxy<EpochCache>;
   let validatorAccount: PrivateKeyAccount;
-  let rollupAddress: EthAddress = EthAddress.fromString('0x1234567890123456789012345678901234567890');
 
   beforeEach(() => {
     p2pClient = mock<P2P>();

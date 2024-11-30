@@ -1,7 +1,9 @@
 import {
+  EmptyL1RollupConstants,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
+  type L1RollupConstants,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockId,
@@ -15,6 +17,10 @@ import {
   type TxReceipt,
   type TxScopedL2Log,
   type UnencryptedL2Log,
+  getEpochNumberAtTimestamp,
+  getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -62,14 +68,6 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlockFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
-import {
-  getEpochNumberAtTimestamp,
-  getSlotAtTimestamp,
-  getSlotRangeForEpoch,
-  getTimestampRangeForEpoch,
-  type L1RollupConstants,
-  EmptyL1RollupConstants,
-} from '@aztec/circuit-types';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';

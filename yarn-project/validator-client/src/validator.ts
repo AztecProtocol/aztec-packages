@@ -6,7 +6,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { EthAddress, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -28,7 +28,7 @@ import {
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
-import { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache } from '@aztec/epoch-cache';
 
 /**
  * Callback function for building a block
