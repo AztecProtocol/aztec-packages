@@ -22,7 +22,6 @@ contract SchnorrAccount {
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     #[storage]
     struct Storage<Context> {
