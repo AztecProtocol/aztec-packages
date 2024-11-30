@@ -18,7 +18,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 $ci3/github/group "avm-transpiler build"
 ARTIFACT=avm-transpiler-$($ci3/cache/content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
-if [[ "$OSTYPE" = "darwin"* ]] || !$ci3/cache/download $ARTIFACT; then
+if [[ "$OSTYPE" = "darwin"* ]] || ! $ci3/cache/download $ARTIFACT; then
   ./scripts/bootstrap_native.sh
   [[ "$OSTYPE" != "darwin"* ]] && $ci3/cache/upload $ARTIFACT target
 fi

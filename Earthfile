@@ -25,33 +25,47 @@ bootstrap:
 
 bootstrap-aztec:
   FROM +bootstrap
-  RUN rm -rf \
-    noir-projects \
-    l1-contracts \
-    barretenberg/ts/src \
-    barretenberg/ts/dest/node-cjs \
-    barretenberg/ts/dest/browser
   WORKDIR /usr/src/yarn-project
   ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+  ENV DENOISE=1
+  LET ci3=$(git rev-parse --show-toplevel)/ci3
   # TODO Copied from yarn-project+build, move into bootstrap.sh before yarn test
-  RUN cd ivc-integration && npx playwright install && npx playwright install-deps
-  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
+  RUN cd ivc-integration && $ci3/base/denoise npx playwright install && $ci3/base/denoise npx playwright install-deps
+  RUN rm -rf node_modules && yarn workspaces focus @aztec/aztec --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-  RUN rm -rf */src
+  WORKDIR /usr/src
+  # Focus on the biggest chunks to remove
+  RUN rm -rf \
+    .git \
+    .github \
+    .yarn \
+    noir-projects \
+    l1-contracts \
+    barretenberg/cpp/src \
+    barretenberg/ts \
+    ci3 \
+    build-system \
+    docs \
+    yarn-project/end-to-end \
+    yarn-project/noir-protocol-circuits-types \
+    yarn-project/*/src
   SAVE ARTIFACT /usr/src /usr/src
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 bootstrap-end-to-end:
   FROM +bootstrap
   RUN rm -rf \
-    .git \
+    .git .github \
     noir-projects \
     l1-contracts \
     barretenberg/ts/src \
     barretenberg/ts/dest/node-cjs \
     barretenberg/ts/dest/browser
-  RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
+  WORKDIR /usr/src/yarn-project
+  RUN rm -rf node_modules && yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+  RUN rm -rf noir-protocol-circuits-types
+  RUN false
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
 
@@ -66,6 +80,8 @@ bb-cli:
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 
     RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+    WORKDIR /usr/src/yarn-project
+    RUN yarn workspaces focus @aztec/bb-prover --production && yarn cache clean
     # yarn symlinks the binary to node_modules/.bin
     ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
 
@@ -125,8 +141,7 @@ aztec:
     CMD curl -fsS http://127.0.0.1:$port/status
   EXPOSE $port
   ARG EARTHLY_GIT_HASH
-  RUN false
-  SAVE IMAGE --push aztecprotocol/aztec:$EARTHLY_GIT_HASH
+  SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
 
 end-to-end:
   FROM ubuntu:noble
@@ -163,7 +178,8 @@ end-to-end:
   WORKDIR /usr/src/yarn-project/end-to-end
   ENTRYPOINT ["yarn", "test"]
   ARG EARTHLY_GIT_HASH
-  SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+  RUN false
+  SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
 
 bootstrap-aztec-fauct:
   FROM +bootstrap
@@ -188,7 +204,7 @@ aztec-faucet:
   LET port=8080
   ARG DIST_TAG="latest"
   ARG ARCH
-  SAVE IMAGE --push aztecprotocol/aztec-faucet:${DIST_TAG}${ARCH:+-$ARCH}
+  SAVE IMAGE aztecprotocol/aztec-faucet:${DIST_TAG}${ARCH:+-$ARCH}
 
 ########################################################################################################################
 # Misc
