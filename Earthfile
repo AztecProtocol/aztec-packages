@@ -25,17 +25,18 @@ bootstrap:
 bootstrap-aztec:
   FROM +bootstrap
   RUN rm -rf \
-    ../noir-projects \
-    ../l1-contracts \
-    ../barretenberg/ts/src \
-    ../barretenberg/ts/dest/node-cjs \
-    ../barretenberg/ts/dest/browser
-  # TODO Copied from yarn-project+build, move into bootstrap.sh before yarn test
+    noir-projects \
+    l1-contracts \
+    barretenberg/ts/src \
+    barretenberg/ts/dest/node-cjs \
+    barretenberg/ts/dest/browser
   WORKDIR /usr/src/yarn-project
   ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+  # TODO Copied from yarn-project+build, move into bootstrap.sh before yarn test
   RUN cd ivc-integration && npx playwright install && npx playwright install-deps
   RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+  RUN rm -rf */src
   SAVE ARTIFACT /usr/src /usr/src
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
@@ -50,11 +51,58 @@ bootstrap-end-to-end:
     barretenberg/ts/dest/browser
   RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-  COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
-  COPY --dir ../spartan/+charts/usr/src/spartan /usr/src/spartan
-
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
+
+########################################################################################################################
+# TODO Stray Build Pieces
+########################################################################################################################
+bb-cli:
+    FROM +bootstrap
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+    # yarn symlinks the binary to node_modules/.bin
+    ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
+
+# helper target to generate vks in parallel
+verification-key:
+    ARG circuit="RootRollupArtifact"
+    FROM +bb-cli
+
+    # this needs to be exported as an env var for RUN to pick it up
+    ENV CIRCUIT=$circuit
+    RUN --entrypoint write-vk -c $CIRCUIT
+
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+protocol-verification-keys:
+    LOCALLY
+    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
+
+    FOR circuit IN $circuits
+        BUILD +verification-key --circuit=$circuit
+    END
+
+    # this could be FROM scratch
+    # but FOR doesn't work without /bin/sh
+    FROM ubuntu:noble
+    WORKDIR /usr/src/bb
+
+    FOR circuit IN $circuits
+        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
+    END
+
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+rollup-verifier-contract:
+    FROM +bb-cli
+    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
+    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
 ########################################################################################################################
 # Images
