@@ -19,6 +19,9 @@ inline size_t get_file_size(std::string const& filename)
 
 inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes = 0)
 {
+    if (filename == "-") {
+        return { (std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>() };
+    }
     // Get the file size.
     auto size = get_file_size(filename);
     if (size <= 0) {

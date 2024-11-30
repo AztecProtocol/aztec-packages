@@ -28,8 +28,6 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns
 export BB_HASH=$($ci3/cache/content_hash)
-export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns_native
-export NOIR_HASH=$($ci3/cache/content_hash)
 
 tmp_dir=./target/tmp
 
@@ -66,9 +64,9 @@ function compile {
     local func="$(cat)"
 
     if echo "$func" | jq -e '.custom_attributes | index("private") != null' > /dev/null; then
-      local name=$(echo "$func" | jq -r '.name')
       local hash=$((echo "$BB_HASH"; echo "$func" | jq -r '.bytecode') | sha256sum | tr -d ' -')
       if ! $ci3/cache/download vk-$hash.tar.gz 2> /dev/null; then
+        local name=$(echo "$func" | jq -r '.name')
         echo "Generating vk for function: $name..." >&2
         echo "$func" | jq -r '.bytecode' | base64 -d | gunzip | $BB write_vk_mega_honk -h -b - -o $tmp_dir/$hash 2>/dev/null
         $ci3/cache/upload vk-$hash.tar.gz $tmp_dir/$hash 2> /dev/null
@@ -82,7 +80,7 @@ function compile {
   export -f process_function
 
   # When slurping (-s), we get an array of two elements:
-  # .[0] is $artifact
+  # .[0] is the original json (at $json_path)
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
