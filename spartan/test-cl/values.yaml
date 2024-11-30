@@ -29,7 +29,7 @@ images:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
     pullPolicy: IfNotPresent
   lighthouse:
-    image: sigp/lighthouse:latest
+    image: sigp/lighthouse:v5.2.1
     pullPolicy: IfNotPresent
 
 ethereum:

@@ -32,13 +32,11 @@ spec:
               done
               echo "Ethereum node is ready!"
 
-              # until curl -s -X POST -H 'Content-Type: application/json' \
-              #   -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-              #   {{ include "aztec-network.clUrl" . }} | grep -q lighthouse; do
-              #   echo "Waiting for Lighthouse node..."
-              #   sleep 5
-              # done
-              # echo "Lighthouse node is ready!"
+              until curl -s {{ include "aztec-network.clUrl" . }}/eth/v1/node/version | grep -q Lighthouse; do
+                echo "Waiting for Lighthouse node..."
+                sleep 5
+              done
+              echo "Lighthouse node is ready!"
       containers:
         - name: ethereum-vc
           image: "{{ .Values.images.lighthouse.image }}"
@@ -49,10 +47,10 @@ spec:
               lighthouse validator_client
               --http
               --http-address "0.0.0.0"
+              --unencrypted-http-transport
               --beacon-nodes {{ include "aztec-network.clUrl" . }}
               --init-slashing-protection
-              --disable-packet-filter
-              {{- include "helpers.flag" (list "http-port" .Values.ethereum.vc.service.port) }}
+              {{ include "helpers.flag" (list "http-port" .Values.ethereum.vc.service.port) }}
               --testnet-dir /genesis
               --datadir /data
           volumeMounts:

@@ -38,14 +38,17 @@ spec:
           image: "{{ .Values.images.lighthouse.image }}"
           imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
           command: ["/bin/sh", "-c"]
+          # {{ include "helpers.flag" (list "http-port" .Values.ethereum.cl.service.port) }}
           args:
             - >-
+              cat /jwt/jwtsecret.txt
+              &&
               lighthouse bn
               --datadir /data
               --disable-packet-filter
               --http
               --http-address "0.0.0.0"
-              {{ include "helpers.flag" (list "http-port" .Values.ethereum.cl.service.port) }}
+              --http-port 5052
               --disable-peer-scoring
               --enable-private-discovery
               --staking
@@ -55,10 +58,10 @@ spec:
               --port 9000
               --target-peers 0
               --testnet-dir /genesis
-              --execution-endpoint {{ include "aztec-network.elUrl" . }}
-              --execution-jwt /jwt/jwtsecret.txt
+              --execution-endpoint {{ include "aztec-network.executionRpcUrl" . }}
+              --execution-jwt-secret-key 688f5d737bad920bdfb2fc2f488d6b6209eebda1dae949a8de91398d932c517a
               --allow-insecure-genesis-sync
-              --debug-level=debug
+              --debug-level=info
           ports:
           # --execution-jwt /jwt/jwtsecret
             - containerPort: {{ .Values.ethereum.cl.service.port }}
@@ -94,7 +97,7 @@ spec:
   type: {{ .Values.ethereum.cl.service.type }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: ethereum
+    app: cl
   ports:
     - protocol: TCP
       port: {{ .Values.ethereum.cl.service.port }}

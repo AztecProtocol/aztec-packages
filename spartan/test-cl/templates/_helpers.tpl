@@ -197,6 +197,10 @@ affinity:
 http://{{ include "aztec-network.fullname" . }}-ethereum.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.el.service.port }}
 {{- end -}}
 
+{{- define "aztec-network.executionRpcUrl" -}}
+http://{{ include "aztec-network.fullname" . }}-ethereum.{{ .Release.Namespace }}.svc.cluster.local:8551
+{{- end -}}
+
 {{- define "aztec-network.clUrl" -}}
 http://{{ include "aztec-network.fullname" . }}-cl.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.cl.service.port }}
 {{- end -}}

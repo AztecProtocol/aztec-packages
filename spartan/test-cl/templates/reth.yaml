@@ -24,17 +24,20 @@ spec:
           image: "{{ .Values.images.reth.image }}"
           imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
           command: ["/bin/sh", "-c"]
-              # --http.corsdomain="*"
           args:
             - >-
-              reth node
-              --datadir /data
-              --chain /genesis/genesis.json
-              --authrpc.jwtsecret /jwt/jwtsecret.txt
-              --http.addr 0.0.0.0
-              {{ include "helpers.flag" (list "http.port" .Values.ethereum.el.service.port) }}
+              reth node {{ include "helpers.flag" (list "http.addr" "0.0.0.0") }}
+              {{- include "helpers.flag" (list "http.port" .Values.ethereum.el.service.port) }}
               {{- include "helpers.flag" (list "builder.gaslimit" .Values.ethereum.el.gasLimit) }}
               {{- include "helpers.flag" (list "txpool.gas-limit" .Values.ethereum.el.gasLimit) }}
+              --http
+              --http.api "admin,net,eth,web3,debug,trace"
+              --http.corsdomain "*"
+              --chain /genesis/genesis.json
+              --authrpc.port 8551
+              --authrpc.addr 0.0.0.0
+              --authrpc.jwtsecret /jwt/jwtsecret.txt
+              --datadir /data
           ports:
             - containerPort: {{ .Values.ethereum.el.service.port }}
               name: reth
@@ -71,7 +74,12 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: ethereum
   ports:
-    - protocol: TCP
+    - name: builder
+      protocol: TCP
+      port: 8551
+      targetPort: 8551
+    - name: http
+      protocol: TCP
       port: {{ .Values.ethereum.el.service.port }}
       targetPort: {{ .Values.ethereum.el.service.targetPort }}
       {{- if and (eq .Values.ethereum.el.service.type "NodePort") .Values.ethereum.el.service.nodePort }}
