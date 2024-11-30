@@ -20,6 +20,7 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 $ci3/github/group "bb.js build"
 if ! $ci3/cache/download bb.js-$($ci3/cache/content_hash).tar.gz; then
+  echo "yarn install"
   denoise yarn install
   find . -exec touch -d "@0" {} + 2>/dev/null || true
 
@@ -28,9 +29,11 @@ if ! $ci3/cache/download bb.js-$($ci3/cache/content_hash).tar.gz; then
   export AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns"
   HASH=$($ci3/cache/content_hash)
   $ci3/cache/upload bb.js-$HASH.tar.gz dest
-  echo "Barretenberg ts build successful"
 else
+  echo "yarn install (post-cache)"
+  denoise yarn install
 fi
+echo "Barretenberg ts build successful"
 $ci3/github/endgroup
 
 if $ci3/cache/should_run bb.js-$HASH; then
