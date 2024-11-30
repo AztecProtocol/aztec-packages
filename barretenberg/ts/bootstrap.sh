@@ -21,7 +21,7 @@ fi
 $ci3/github/group "bb.js build"
 HASH=$($ci3/cache/content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 if ! $ci3/cache/download bb.js-$HASH.tar.gz; then
-  echo "yarn install"
+  echo -n "yarn install"
   denoise yarn install
   find . -exec touch -d "@0" {} + 2>/dev/null || true
 
@@ -29,7 +29,7 @@ if ! $ci3/cache/download bb.js-$HASH.tar.gz; then
   denoise yarn $BUILD_CMD
   $ci3/cache/upload bb.js-$HASH.tar.gz dest
 else
-  echo "yarn install (post-cache)"
+  echo -n "yarn install (post-cache):"
   denoise yarn install
 fi
 echo "Barretenberg ts build successful"

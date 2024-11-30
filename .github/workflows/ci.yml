@@ -155,6 +155,10 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-x86
+      - name: "Bootstrap"
+        timeout-minutes: 40
+        run: |
+          earthly-ci --no-output +bootstrap
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
