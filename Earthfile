@@ -9,6 +9,7 @@ bootstrap-noir-bb:
   FROM ./build-images+from-registry
   ENV AZTEC_CACHE_COMMIT=6abb3ef82027151716dfb7f22fa655cf8f119168
   ARG EARTHLY_GIT_HASH
+  ENV BUILD_SYSTEM_DEBUG=1
   # ENV EARTHLY_GIT_HASH=5a325d3cac201bbc684d6bfb93982686b72f0cfd
   WORKDIR /build-volume
   # Use a cache volume for performance
