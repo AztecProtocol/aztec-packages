@@ -22,8 +22,8 @@ trap on_exit EXIT
 NAME="$1"
 
 shift 1
-if [ -n "${GITHUB_RUN_URL}" ]; then
-  CONTENT="Flag $NAME success cached: See ${GITHUB_RUN_URL}."
+if [ -n "${GITHUB_RUN_URL:-}" ]; then
+  CONTENT="Flag $NAME success cached: See $GITHUB_RUN_URL."
 else
   CONTENT="Flag $NAME success cached: Ran outside of Github Actions."
 fi

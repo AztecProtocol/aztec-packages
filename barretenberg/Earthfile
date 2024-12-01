@@ -1,13 +1,12 @@
 VERSION 0.8
-barretenberg-acir-tests-bb:
+acir-test-base:
     FROM ../+bootstrap-noir-bb
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
-
     WORKDIR /usr/src/barretenberg/acir_tests
-    RUN rm -rf ./acir_tests
-
-    ENV TEST_SRC /usr/src/acir_artifacts
+    RUN COMPILE=1 COMPILE_ONLY=1 ./run_acir_tests.sh
     ENV VERBOSE=1
+
+barretenberg-acir-tests-bb:
+    FROM +acir-test-base
 
     # Fold and verify an ACIR program stack using ClientIvc
     RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
@@ -19,15 +18,10 @@ barretenberg-acir-tests-bb:
     RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
 barretenberg-acir-tests-bb-ultra-plonk:
-    FROM ../+bootstrap-noir-bb
-
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
-
+    FROM +acir-test-base
     WORKDIR /usr/src/barretenberg/acir_tests
     RUN rm -rf ./acir_tests
 
-    ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
     # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
     # This ensures we test independent pk construction through real/garbage witness data paths.
@@ -35,15 +29,11 @@ barretenberg-acir-tests-bb-ultra-plonk:
     RUN FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
 
 barretenberg-acir-tests-bb-ultra-honk:
-    FROM ../+bootstrap-noir-bb
-
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
+    FROM +acir-test-base
 
     WORKDIR /usr/src/barretenberg/acir_tests
     RUN rm -rf ./acir_tests
 
-    ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
 
     # Run the acir test through native bb build prove_then_verify_ultra_honk flow
@@ -61,15 +51,11 @@ barretenberg-acir-tests-bb-ultra-honk:
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
 
 barretenberg-acir-tests-bb-mega-honk:
-    FROM ../+bootstrap-noir-bb
-
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
+    FROM +acir-test-base
 
     WORKDIR /usr/src/barretenberg/acir_tests
     RUN rm -rf ./acir_tests
 
-    ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
 
     # Construct and separately verify a MegaHonk proof for all acir programs
@@ -79,78 +65,12 @@ barretenberg-acir-tests-bb-mega-honk:
     # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
     RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
 
+barretenberg-acir-tests:
+    BUILD +barretenberg-acir-tests-bb
+    BUILD +barretenberg-acir-tests-bb-ultra-plonk
+    BUILD +barretenberg-acir-tests-bb-ultra-honk
+    BUILD +barretenberg-acir-tests-bb-mega-honk
+
 acir-tests:
-    FROM ../+bootstrap-noir-bb
+    FROM +acir-test-base
     RUN CI=1 USE_CACHE=1 TEST=1 barretenberg/acir_tests/bootstrap.sh
-
-barretenberg-acir-tests-sol:
-    FROM ../+bootstrap-noir-bb
-
-    COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ./+sol/ /usr/src/barretenberg/sol
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
-
-    WORKDIR /usr/src/barretenberg/acir_tests
-
-    ENV TEST_SRC /usr/src/acir_artifacts
-    ENV VERBOSE=1
-
-    RUN (cd sol-test && yarn)
-    RUN PARALLEL=1 FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
-
-barretenberg-acir-tests-sol-honk:
-    FROM ../+bootstrap-noir-bb
-
-    COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ./+sol/ /usr/src/barretenberg/sol
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
-
-    WORKDIR /usr/src/barretenberg/acir_tests
-
-    ENV TEST_SRC /usr/src/acir_artifacts
-    ENV VERBOSE=1
-
-    RUN (cd sol-test && yarn)
-    RUN PARALLEL=1 FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
-
-barretenberg-acir-tests-bb.js:
-    FROM ../+bootstrap-noir-bb
-    WORKDIR /usr/src/barretenberg/acir_tests
-
-    # Build/install ts apps.
-    RUN cd browser-test-app && yarn && yarn build
-    RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
-    RUN cd ../ts && yarn
-    ENV VERBOSE=1
-    ENV TEST_SRC /usr/src/acir_artifacts
-    # We have diminishing returns after 32 cores, and unnecessarily use resources
-    ENV HARDWARE_CONCURRENCY=32
-    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
-    ENV TEST_SRC /usr/src/acir_artifacts
-    RUN false
-
-    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672): Try to enable double_verify
-    # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
-    # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
-    RUN BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof
-    # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
-    RUN BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
-    # Commenting for now as fails intermittently. Unreproducable on mainframe.
-    # See https://github.com/AztecProtocol/aztec-packages/issues/2104
-    #RUN BROWSER=webkit THREAD_MODEL=st ./run_acir_tests_browser.sh 1_mul
-    # TODO(https://github.com/noir-lang/noir/issues/5106)
-    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)
-    # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x
-    # Run a single arbitrary test not involving recursion through bb.js for UltraHonk
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement
-    # Run the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement
-    # Run a single arbitrary test not involving recursion through bb.js for MegaHonk
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
-    # Run fold_basic test through bb.js which runs ClientIVC on fold basic
-    RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
-    # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
-    RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul

@@ -43,7 +43,8 @@ curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazon
 # TODO: Understand why.
 COMPILE=1 COMPILE_ONLY=1 ./run_acir_tests.sh
 
-./run_acir_tests.sh
+# TODO(ci3): Currently doing parity with CI
+# ./run_acir_tests.sh
 
 # Serialize these two tests as otherwise servers will conflict. Can we just avoid the servers (or tweak ports)?
 function f0 {
@@ -53,21 +54,82 @@ function f0 {
   BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
 }
 
-export BIN=../ts/dest/node/main.js
-# Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-function f1 { FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x; }
-# Run a single arbitrary test not involving recursion through bb.js for UltraHonk
-function f2 { FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement; }
-# Run the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-function f3 { FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement; }
-# Run a single arbitrary test not involving recursion through bb.js for MegaHonk
-function f4 { FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array; }
-# Run fold_basic test through bb.js which runs ClientIVC on fold basic
-function f5 { FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic; }
-# Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
-function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
 
-export -f f0 f1 f2 f3 f4 f5 f6
-parallel ::: f0 f1 f2 f3 f4 f5 f6
+########################################################################################################################
+# bb.js tests
+########################################################################################################################
+# Helper function to run bb.js tests.
+function bbjs_test() { BIN=../ts/dest/node/main.js ./run_acir_tests.sh "$@"; }
+# Run UltraHonk recursive verification through bb.js on Chrome with multi-threading.
+function f0 { BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof; }
+# Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
+function f1 { FLOW=prove_then_verify bbjs_test ecdsa_secp256r1_3x; }
+# Run a single arbitrary test not involving recursion through bb.js for UltraHonk.
+function f2 { FLOW=prove_and_verify_ultra_honk bbjs_test 6_array assert_statement; }
+# Run the prove-then-verify flow for UltraHonk.
+function f3 { FLOW=prove_then_verify_ultra_honk bbjs_test 6_array assert_statement; }
+# Run a single arbitrary test not involving recursion through bb.js for MegaHonk.
+function f4 { FLOW=prove_and_verify_mega_honk bbjs_test 6_array; }
+# Run fold_basic test through bb.js which runs ClientIVC on fold basic.
+function f5 { FLOW=fold_and_verify_program bbjs_test fold_basic; }
+# Run 1_mul through bb.js build, all_cmds flow, to test all CLI args.
+function f6 { FLOW=all_cmds bbjs_test 1_mul; }
+
+########################################################################################################################
+# Solidity tests
+########################################################################################################################
+# Run Solidity-based tests in parallel for proof verification.
+function f7 { cd sol-test && PARALLEL=1 FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof; }
+# Run Honk-based Solidity tests.
+function f8 { cd sol-test && PARALLEL=1 FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof; }
+
+########################################################################################################################
+# Native Ultrahonk tests
+########################################################################################################################
+# Run UltraHonk proof generation and verification for all ACIR programs.
+function f9 { FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh; }
+# Run recursive UltraHonk proofs.
+function f10 { FLOW=prove_then_verify_ultra_honk HONK=true RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_honk_proof; }
+# Construct and verify an UltraHonk proof for a single program.
+function f11 { FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash; }
+# Construct and verify a MegaHonk proof on one non-recursive program.
+function f12 { FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh merkle_insert; }
+# Construct and separately verify a UltraHonk proof that recursively verifies a Honk proof.
+function f13 { FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof; }
+# Construct and verify a UltraHonk proof that recursively verifies a Honk proof.
+function f14 { FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof; }
+
+########################################################################################################################
+# Native Megahonk tests
+########################################################################################################################
+# Construct and separately verify a MegaHonk proof for all acir programs
+function f15() {
+  FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
+}
+# Construct and verify a MegaHonk proof for a single arbitrary program
+function f16() {
+  FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
+}
+# Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
+function f17() {
+  FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
+}
+
+########################################################################################################################
+# Plonk tests
+########################################################################################################################
+function f18() {
+  FLOW=prove_then_verify ./run_acir_tests.sh
+}
+function f19() {
+  FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
+}
+########################################################################################################################
+# Parallel run
+########################################################################################################################
+TEST_FNS="f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19"
+export -f bbjs_test $TEST_FNS
+parallel --memfree 4g ::: $TEST_FNS
+
 $ci3/cache/upload_flag barretenberg-acir-test-$HASH
 $ci3/github/endgroup

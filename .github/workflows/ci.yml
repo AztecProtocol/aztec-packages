@@ -194,6 +194,7 @@ jobs:
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
 
+
   # # all the non-bench end-to-end integration tests for aztec
   # e2e:
   #   needs: [build, configure]
