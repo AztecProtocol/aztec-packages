@@ -135,6 +135,13 @@ case "$CMD" in
     ./bootstrap.sh aztec-image
     ./bootstrap.sh e2e-image
     yarn-project/end-to-end/scripts/e2e_test.sh $@
+    parallel -j10  earthly {} ::: ${dirs_to_process[@]}
+    exit
+  ;;
+  "e2e-image-test")
+    ./bootstrap.sh aztec-image
+    ./bootstrap.sh e2e-image
+    yarn-project/end-to-end/scripts/e2e_test.sh $@
     exit
   ;;
   "aztec-image")
