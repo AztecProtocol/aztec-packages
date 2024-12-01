@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-
+[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 TEST_NAME=$1
 
 cd $(dirname $0)
