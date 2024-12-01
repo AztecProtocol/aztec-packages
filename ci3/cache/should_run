@@ -2,7 +2,7 @@
 # Are we able to download from S a file with the flag name?
 # if CI=0 with no explicit TEST, don't run this
 if ([ "${CI:-0}" -eq 0 ] || [ "${TEST:-0}" -eq 0 ]) && [ "${TEST:-0}" -lt 1 ]; then
-  echo "Not running tests, need CI=1 and/or TEST=1."
+  echo "Not running tests (CI=${CI:-0} TEST=${TEST:-0})."
   exit 1
 fi
 # if we download the test s3 flag, don't run this
