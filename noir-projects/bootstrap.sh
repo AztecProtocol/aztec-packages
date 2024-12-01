@@ -24,6 +24,8 @@ for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits; do
   (cd $dir && ../../noir/noir-repo/target/release/nargo fmt)
 done
 
+# Compute a content_hash that is agnostic to operating system
+export PLATFORM_TAG=any
 CIRCUITS_HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns_native {noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns)
 VKS_HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns_native {../barretenberg/cpp,noir-protocol-circuits,mock-protocol-circuits,noir-contracts}/.rebuild_patterns)
 

@@ -21,7 +21,11 @@ trap on_exit EXIT
 NAME="$1"
 
 shift 1
-echo "success" > .success
+if [ -n "${GITHUB_RUN_URL}" ]; then
+  CONTENT="See ${GITHUB_RUN_URL} for successful run."
+else
+  CONTENT="A successful run for this test was pushed locally."
+fi
 
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp .success "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
+echo "$COTNTENT" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
 echo "Cache upload of $NAME.flag complete."

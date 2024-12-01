@@ -135,8 +135,8 @@ case "$CMD" in
     ./bootstrap.sh aztec-image
     ./bootstrap.sh e2e-image
     yarn-project/end-to-end/scripts/e2e_test.sh $@
+    # Noir and BB targets
     parallel -j10 denoise earthly {} ::: ${dirs_to_process[@]} ./+bootstrap \
-      ./build-images/+build \
       ./barretenberg/cpp/+bench \
       ./barretenberg/cpp/+test \
       ./noir/+build-acir-tests \
@@ -150,18 +150,36 @@ case "$CMD" in
       ./noir/+format \
       ./noir/+examples \
       ./noir/+packages-test \
-      ./yarn-project/+test \
-      ./yarn-project/+prover-client-test \
-      ./yarn-project/+export-e2e-test-images \
-      ./docs/+deploy-preview --ENV=staging --PR="" \
-      ./scripts/logs/+bench-aggregate \
-      ./scripts/logs/+bench-comment \
       ./noir/+bench-publish-acir-bb \
-      ./barretenberg/cpp/+bench-binaries \
-      ./noir-projects/+public-functions-report \
-      ./noir-projects/+gates-report \
-      ./boxes/+export-boxes
-      # ./yarn-project/+network-test \
+      ./barretenberg/cpp/+bench-binaries
+    # Rest of targets
+    # parallel -j10 denoise earthly {} ::: ${dirs_to_process[@]} ./+bootstrap \
+    #   ./build-images/+build \
+    #   ./barretenberg/cpp/+bench \
+    #   ./barretenberg/cpp/+test \
+    #   ./noir/+build-acir-tests \
+    #   ./barretenberg/+barretenberg-acir-tests-bb \
+    #   ./barretenberg/+barretenberg-acir-tests-bb-ultra-plonk \
+    #   ./barretenberg/+barretenberg-acir-tests-bb-ultra-honk \
+    #   ./barretenberg/+barretenberg-acir-tests-bb-mega-honk \
+    #   ./barretenberg/+barretenberg-acir-tests-sol \
+    #   ./barretenberg/+barretenberg-acir-tests-sol-honk \
+    #   ./barretenberg/+barretenberg-acir-tests-bb.js \
+    #   ./noir/+format \
+    #   ./noir/+examples \
+    #   ./noir/+packages-test \
+    #   ./yarn-project/+test \
+    #   ./yarn-project/+prover-client-test \
+    #   ./yarn-project/+export-e2e-test-images \
+    #   ./docs/+deploy-preview --ENV=staging --PR="" \
+    #   ./scripts/logs/+bench-aggregate \
+    #   ./scripts/logs/+bench-comment \
+    #   ./noir/+bench-publish-acir-bb \
+    #   ./barretenberg/cpp/+bench-binaries \
+    #   ./noir-projects/+public-functions-report \
+    #   ./noir-projects/+gates-report \
+    #   ./boxes/+export-boxes
+    #   # ./yarn-project/+network-test \
 
     exit
   ;;
