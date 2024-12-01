@@ -4441,7 +4441,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
  *
  * @return The main trace
  */
-std::vector<Row> AvmTraceBuilder::finalize(bool apply_public_inputs_assertions)
+std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
 {
     // Some sanity checks
     // Check that the final merkle tree lines up with the public inputs
@@ -4710,7 +4710,7 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_public_inputs_assertions)
 
     gas_trace_builder.finalize(main_trace);
 
-    if (apply_public_inputs_assertions) {
+    if (apply_end_gas_assertions) {
         // Sanity check that the amount of gas consumed matches what we expect from the public inputs
         auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
         auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;

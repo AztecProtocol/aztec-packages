@@ -13,6 +13,14 @@
 
 namespace bb::avm_trace {
 
+enum class TxExecutionPhase : uint32_t {
+    SETUP,
+    APP_LOGIC,
+    TEARDOWN,
+};
+
+std::string to_name(TxExecutionPhase phase);
+
 class Execution {
   public:
     static constexpr size_t SRS_SIZE = 1 << 22;
@@ -31,7 +39,8 @@ class Execution {
     // Eventually this will be the bytecode of the dispatch function of top-level contract
     static std::vector<Row> gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      ExecutionHints const& execution_hints);
+                                      ExecutionHints const& execution_hints,
+                                      bool apply_end_gas_assertions = false);
 
     // For testing purposes only.
     static void set_trace_builder_constructor(TraceBuilderConstructor constructor)

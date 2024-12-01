@@ -221,7 +221,7 @@ class AvmTraceBuilder {
                             uint32_t num_limbs,
                             uint8_t output_bits);
 
-    std::vector<Row> finalize(bool apply_public_inputs_assertions = false);
+    std::vector<Row> finalize(bool apply_end_gas_assertions = false);
     void reset();
 
     void checkpoint_non_revertible_state();

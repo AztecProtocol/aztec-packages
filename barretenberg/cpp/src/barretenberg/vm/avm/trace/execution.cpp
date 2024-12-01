@@ -38,6 +38,22 @@ using namespace bb;
 std::filesystem::path avm_dump_trace_path;
 
 namespace bb::avm_trace {
+
+std::string to_name(TxExecutionPhase phase)
+{
+    switch (phase) {
+    case TxExecutionPhase::SETUP:
+        return "SETUP";
+    case TxExecutionPhase::APP_LOGIC:
+        return "APP_LOGIC";
+    case TxExecutionPhase::TEARDOWN:
+        return "TEARDOWN";
+    default:
+        throw std::runtime_error("Invalid tx phase");
+        break;
+    }
+}
+
 namespace {
 
 // The SRS needs to be able to accommodate the circuit subgroup size.
@@ -183,7 +199,8 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInpu
     for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
         calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
     }
-    std::vector<Row> trace = AVM_TRACK_TIME_V("prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints));
+    std::vector<Row> trace = AVM_TRACK_TIME_V(
+        "prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints, /*apply_end_gas_assertions=*/true));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -265,7 +282,8 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  */
 std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      ExecutionHints const& execution_hints)
+                                      ExecutionHints const& execution_hints,
+                                      bool apply_end_gas_assertions)
 
 {
     vinfo("------- GENERATING TRACE -------");
@@ -295,22 +313,23 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
 
     // Loop over all the public call requests
     uint8_t call_ctx = 0;
-    for (size_t phase = 0; phase < 3; phase++) {
-        auto call_requests_array = phase == 0   ? public_inputs.public_setup_call_requests
-                                   : phase == 1 ? public_inputs.public_app_logic_call_requests
-                                                : public_teardown_call_requests;
+    auto const phases = { TxExecutionPhase::SETUP, TxExecutionPhase::APP_LOGIC, TxExecutionPhase::TEARDOWN };
+    for (auto phase : phases) {
+        auto call_requests_array = phase == TxExecutionPhase::SETUP       ? public_inputs.public_setup_call_requests
+                                   : phase == TxExecutionPhase::APP_LOGIC ? public_inputs.public_app_logic_call_requests
+                                                                          : public_teardown_call_requests;
         std::vector<PublicCallRequest> public_call_requests;
         for (const auto& call_request : call_requests_array) {
             if (call_request.contract_address != 0) {
                 public_call_requests.push_back(call_request);
             }
-            info("Beginning execution of phase ", phase, " (", public_call_requests.size(), " enqueued calls).");
         }
+        info("Beginning execution of phase ", to_name(phase), " (", public_call_requests.size(), " enqueued calls).");
         AvmError error = AvmError::NO_ERROR;
         for (size_t i = 0; i < public_call_requests.size(); i++) {
 
             // When we get this, it means we have done our non-revertible setup phase
-            if (phase == 0) {
+            if (phase == TxExecutionPhase::SETUP) {
                 // Temporary spot for private revertible insertion
                 std::vector<FF> siloed_nullifiers;
                 siloed_nullifiers.insert(
@@ -858,8 +877,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             }
         }
         if (!is_ok(error)) {
-            info("Phase ", phase, " reverted.");
-            if (phase == 0) {
+            info("Phase ", to_name(phase), " reverted.");
+            if (phase == TxExecutionPhase::SETUP) {
                 info("A revert during SETUP phase halts the entire TX");
                 break;
             } else {
@@ -868,7 +887,7 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             }
         }
     }
-    auto trace = trace_builder.finalize(/*apply_public_inputs_assertions=*/true);
+    auto trace = trace_builder.finalize(apply_end_gas_assertions);
 
     show_trace_info(trace);
     return trace;
