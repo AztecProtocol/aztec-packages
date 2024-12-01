@@ -97,7 +97,7 @@ struct TreeDBStats {
 
     ~TreeDBStats() = default;
 
-    MSGPACK_FIELDS(mapSize, blocksDBStats, nodesDBStats, leafPreimagesDBStats, leafIndicesDBStats)
+    MSGPACK_FIELDS(mapSize, blocksDBStats, nodesDBStats, leafPreimagesDBStats, leafIndicesDBStats, blockIndicesDBStats)
 
     bool operator==(const TreeDBStats& other) const
     {

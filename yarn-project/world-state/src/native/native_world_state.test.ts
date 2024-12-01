@@ -20,6 +20,7 @@ import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { map } from 'zod';
 
 import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
@@ -486,6 +487,47 @@ describe('NativeWorldState', () => {
         } else {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
+      }
+    });
+  });
+
+  describe('block numbers for indices', () => {
+    let block: L2Block;
+    let messages: Fr[];
+    let noteHashes: number;
+    let nullifiers: number;
+    let publicTree: number;
+    it('correctly reports block numbers', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const statuses = [];
+      const numBlocks = 5;
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, 2, fork));
+        noteHashes = block.body.txEffects[0].noteHashes.length;
+        nullifiers = block.body.txEffects[0].nullifiers.length;
+        publicTree = block.body.txEffects[0].publicDataWrites.length;
+        await fork.close();
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+        statuses.push(status);
+      }
+
+      const checkTree = async (treeId: MerkleTreeId, itemsLength: number, blockNumber: number) => {
+        const before = itemsLength * blockNumber - 1;
+        const on = before + 1;
+        const after = on + 1;
+        const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
+          treeId,
+          [before, on, after].map(x => BigInt(x)),
+        );
+        expect(blockNumbers).toEqual([blockNumber, blockNumber, blockNumber + 1].map(x => BigInt(x)));
+      };
+
+      for (let i = 0; i < numBlocks - 1; i++) {
+        await checkTree(MerkleTreeId.NOTE_HASH_TREE, noteHashes, i + 1);
+        await checkTree(MerkleTreeId.NULLIFIER_TREE, nullifiers, i + 1);
+        await checkTree(MerkleTreeId.PUBLIC_DATA_TREE, publicTree, i + 1);
+        await checkTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messages.length, i + 1);
       }
     });
   });

@@ -139,7 +139,7 @@ struct GetBlockNumbersForLeafIndicesRequest {
 };
 
 struct GetBlockNumbersForLeafIndicesResponse {
-    std::vector<block_number_t> blockNumbers;
+    std::vector<std::optional<block_number_t>> blockNumbers;
     MSGPACK_FIELDS(blockNumbers);
 };
 

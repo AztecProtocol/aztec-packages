@@ -349,6 +349,14 @@ interface GetTreeInfoResponse {
   root: Buffer;
 }
 
+interface GetBlockNumbersForLeafIndicesRequest extends WithTreeId, WithWorldStateRevision {
+  leafIndices: bigint[];
+}
+
+interface GetBlockNumbersForLeafIndicesResponse {
+  blockNumbers: bigint[];
+}
+
 interface GetSiblingPathRequest extends WithTreeId, WithLeafIndex, WithWorldStateRevision {}
 type GetSiblingPathResponse = Buffer[];
 
@@ -451,6 +459,7 @@ export type WorldStateRequest = {
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafRequest;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageRequest;
   [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathRequest;
+  [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesRequest;
 
   [WorldStateMessageType.FIND_LEAF_INDEX]: FindLeafIndexRequest;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafRequest;
@@ -486,6 +495,7 @@ export type WorldStateResponse = {
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafResponse;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageResponse;
   [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathResponse;
+  [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesResponse;
 
   [WorldStateMessageType.FIND_LEAF_INDEX]: FindLeafIndexResponse;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafResponse;

@@ -166,6 +166,19 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
       treeId,
     };
   }
+
+  async getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    const response = await this.instance.call(WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, {
+      treeId,
+      revision: this.revision,
+      leafIndices,
+    });
+
+    return response.blockNumbers.map(x => (x == undefined ? x : BigInt(x)));
+  }
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
