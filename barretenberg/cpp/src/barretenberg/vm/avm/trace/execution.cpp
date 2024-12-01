@@ -1,5 +1,5 @@
 #include "barretenberg/vm/avm/trace/execution.hpp"
-#include "barretenberg/bb/log.hpp"
+#include "barretenberg/bb/log.hpp" // WORKTODO: NB NB NB
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
