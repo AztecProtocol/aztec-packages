@@ -27,10 +27,6 @@ $ci3/github/group "acir_tests updating yarn"
 find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup
 
-if ! $ci3/cache/should_run "barretenberg-acir-test-$HASH"; then
-  exit 0
-fi
-
 $ci3/github/group "acir_tests building browser-test-app"
 # Keep build as part of tests only.
 (cd browser-test-app && yarn build)
