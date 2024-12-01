@@ -107,6 +107,11 @@ class WorldState {
                                                           MerkleTreeId tree_id,
                                                           index_t leaf_index) const;
 
+    void get_block_numbers_for_leaf_indices(const WorldStateRevision& revision,
+                                            MerkleTreeId tree_id,
+                                            const std::vector<index_t>& leafIndices,
+                                            std::vector<std::optional<block_number_t>>& blockNumbers) const;
+
     /**
      * @brief Get the leaf preimage object
      *
@@ -384,15 +389,13 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<GetIndexedLeafResponse<T>> local;
 
     if (auto* const wrapper = std::get_if<TreeWithStore<Tree>>(&fork->_trees.at(id))) {
-        std::optional<IndexedLeaf<T>> value;
-        Signal signal;
-        auto callback = [&](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
-            if (response.inner.indexed_leaf.has_value()) {
-                value = response.inner.indexed_leaf;
-            }
 
+        Signal signal;
+        auto callback = [&](TypedResponse<GetIndexedLeafResponse<T>>& response) {
+            local = std::move(response);
             signal.signal_level(0);
         };
 
@@ -403,7 +406,11 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
         }
         signal.wait_for_level();
 
-        return value;
+        if (!local.success) {
+            throw std::runtime_error("Failed to find indexed leaf: " + local.message);
+        }
+
+        return local.inner.indexed_leaf;
     }
 
     throw std::runtime_error("Invalid tree type");
@@ -419,12 +426,17 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
 
     std::optional<T> leaf;
+    bool success = true;
+    std::string error_msg;
     Signal signal;
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
-        auto callback = [&signal, &leaf](const TypedResponse<GetLeafResponse>& resp) {
-            if (resp.inner.leaf.has_value()) {
-                leaf = resp.inner.leaf.value();
+        auto callback = [&signal, &leaf, &success, &error_msg](const TypedResponse<GetLeafResponse>& response) {
+            if (!response.success || !response.inner.leaf.has_value()) {
+                success = false;
+                error_msg = response.message;
+            } else {
+                leaf = response.inner.leaf;
             }
             signal.signal_level();
         };
@@ -439,12 +451,16 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
-        auto callback = [&signal, &leaf](const TypedResponse<GetIndexedLeafResponse<T>>& resp) {
-            if (resp.inner.indexed_leaf.has_value()) {
-                leaf = resp.inner.indexed_leaf.value().value;
-            }
-            signal.signal_level();
-        };
+        auto callback =
+            [&signal, &leaf, &success, &error_msg](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
+                if (!response.success || !response.inner.indexed_leaf.has_value()) {
+                    success = false;
+                    error_msg = response.message;
+                } else {
+                    leaf = response.inner.indexed_leaf.value().value;
+                }
+                signal.signal_level();
+            };
 
         if (revision.blockNumber) {
             wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
@@ -454,6 +470,11 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
     }
 
     signal.wait_for_level();
+
+    if (!success) {
+        throw std::runtime_error(error_msg);
+    }
+
     return leaf;
 }
 
@@ -464,15 +485,13 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
                                                    index_t start_index) const
 {
     using namespace crypto::merkle_tree;
-    std::optional<index_t> index;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<FindLeafIndexResponse> local;
 
     Signal signal;
-    auto callback = [&](const TypedResponse<FindLeafIndexResponse>& response) {
-        if (response.success) {
-            index = response.inner.leaf_index;
-        }
+    auto callback = [&](TypedResponse<FindLeafIndexResponse>& response) {
+        local = std::move(response);
         signal.signal_level(0);
     };
     if constexpr (std::is_same_v<bb::fr, T>) {
@@ -496,7 +515,12 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
     }
 
     signal.wait_for_level(0);
-    return index;
+
+    if (!local.success) {
+        throw std::runtime_error(local.message);
+    }
+
+    return local.inner.leaf_index;
 }
 
 template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
@@ -537,7 +561,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     signal.wait_for_level(0);
 
     if (!success) {
-        throw std::runtime_error("Failed to append leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 }
 
@@ -576,7 +600,7 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     signal.wait_for_level();
 
     if (!success) {
-        throw std::runtime_error("Failed to batch insert indexed leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 
     return result;
@@ -615,7 +639,7 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
     signal.wait_for_level();
 
     if (!success) {
-        throw std::runtime_error("Failed to sequentially insert indexed leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 
     return result;

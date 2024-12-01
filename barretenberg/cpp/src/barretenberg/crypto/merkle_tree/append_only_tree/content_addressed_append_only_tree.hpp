@@ -39,17 +39,17 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using StoreType = Store;
 
     // Asynchronous methods accept these callback function types as arguments
-    using AppendCompletionCallback = std::function<void(const TypedResponse<AddDataResponse>&)>;
-    using MetaDataCallback = std::function<void(const TypedResponse<TreeMetaResponse>&)>;
-    using HashPathCallback = std::function<void(const TypedResponse<GetSiblingPathResponse>&)>;
-    using FindLeafCallback = std::function<void(const TypedResponse<FindLeafIndexResponse>&)>;
-    using GetLeafCallback = std::function<void(const TypedResponse<GetLeafResponse>&)>;
+    using AppendCompletionCallback = std::function<void(TypedResponse<AddDataResponse>&)>;
+    using MetaDataCallback = std::function<void(TypedResponse<TreeMetaResponse>&)>;
+    using HashPathCallback = std::function<void(TypedResponse<GetSiblingPathResponse>&)>;
+    using FindLeafCallback = std::function<void(TypedResponse<FindLeafIndexResponse>&)>;
+    using GetLeafCallback = std::function<void(TypedResponse<GetLeafResponse>&)>;
     using CommitCallback = std::function<void(TypedResponse<CommitResponse>&)>;
-    using RollbackCallback = std::function<void(const Response&)>;
+    using RollbackCallback = std::function<void(Response&)>;
     using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
-    using FinaliseBlockCallback = std::function<void(const Response&)>;
-    using GetBlockForIndexCallback = std::function<void(const TypedResponse<BlockForIndexResponse>&)>;
+    using FinaliseBlockCallback = std::function<void(Response&)>;
+    using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -543,7 +543,7 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
         NodePayload nodePayload;
         bool success = store_->get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
         if (!success) {
-            // std::cout << "No root" << std::endl;
+            // std::cout << "No root " << hash << std::endl;
             return std::nullopt;
         }
         // std::cout << "Found root at depth " << i << " : " << hash << std::endl;
@@ -1051,7 +1051,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     new_root = new_hash;
     meta.root = new_hash;
     meta.size = new_size;
-    // std::cout << "New size: " << meta.size << std::endl;
+    // std::cout << "New size: " << meta.size << ", root " << meta.root << std::endl;
     store_->put_meta(meta);
 }
 

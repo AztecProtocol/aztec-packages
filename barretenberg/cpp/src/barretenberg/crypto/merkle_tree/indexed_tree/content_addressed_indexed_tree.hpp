@@ -47,14 +47,13 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     // The public methods accept these function types as asynchronous callbacks
     using LeafValueType = typename Store::LeafType;
     using IndexedLeafValueType = typename Store::IndexedLeafValueType;
-    using AddCompletionCallbackWithWitness =
-        std::function<void(const TypedResponse<AddIndexedDataResponse<LeafValueType>>&)>;
+    using AddCompletionCallbackWithWitness = std::function<void(TypedResponse<AddIndexedDataResponse<LeafValueType>>&)>;
     using AddSequentiallyCompletionCallbackWithWitness =
-        std::function<void(const TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>>&)>;
-    using AddCompletionCallback = std::function<void(const TypedResponse<AddDataResponse>&)>;
+        std::function<void(TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>>&)>;
+    using AddCompletionCallback = std::function<void(TypedResponse<AddDataResponse>&)>;
 
-    using LeafCallback = std::function<void(const TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
-    using FindLowLeafCallback = std::function<void(const TypedResponse<GetLowIndexedLeafResponse>&)>;
+    using LeafCallback = std::function<void(TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
+    using FindLowLeafCallback = std::function<void(TypedResponse<GetLowIndexedLeafResponse>&)>;
 
     ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                 std::shared_ptr<ThreadPool> workers,

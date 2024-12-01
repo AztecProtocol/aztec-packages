@@ -241,10 +241,10 @@ TreeMetaResponse WorldState::get_tree_info(const WorldStateRevision& revision, M
     return std::visit(
         [=](auto&& wrapper) {
             Signal signal(1);
-            TreeMetaResponse response;
+            TypedResponse<TreeMetaResponse> local;
 
-            auto callback = [&](const TypedResponse<TreeMetaResponse>& meta) {
-                response = meta.inner;
+            auto callback = [&](TypedResponse<TreeMetaResponse>& meta) {
+                local = std::move(meta);
                 signal.signal_level(0);
             };
 
@@ -255,12 +255,15 @@ TreeMetaResponse WorldState::get_tree_info(const WorldStateRevision& revision, M
             }
             signal.wait_for_level(0);
 
-            return response;
+            if (!local.success) {
+                throw std::runtime_error(local.message);
+            }
+            return local.inner;
         },
         fork->_trees.at(tree_id));
 }
 
-void WorldState::get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, 5>& responses) const
+void WorldState::get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const
 {
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
 
@@ -271,13 +274,14 @@ void WorldState::get_all_tree_info(const WorldStateRevision& revision, std::arra
 
     Signal signal(static_cast<uint32_t>(tree_ids.size()));
     std::mutex mutex;
+    std::unordered_map<MerkleTreeId, TypedResponse<TreeMetaResponse>> local;
 
     for (auto id : tree_ids) {
         const auto& tree = fork->_trees.at(id);
-        auto callback = [&signal, &responses, &mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
+        auto callback = [&signal, &local, &mutex, id](TypedResponse<TreeMetaResponse>& meta) {
             {
                 std::lock_guard<std::mutex> lock(mutex);
-                responses[id] = meta.inner.meta;
+                local[id] = std::move(meta);
             }
             signal.signal_decrement();
         };
@@ -293,6 +297,14 @@ void WorldState::get_all_tree_info(const WorldStateRevision& revision, std::arra
     }
 
     signal.wait_for_level(0);
+
+    for (auto tree_id : tree_ids) {
+        auto& m = local[tree_id];
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+        responses[tree_id] = std::move(m.inner.meta);
+    }
 }
 
 StateReference WorldState::get_state_reference(const WorldStateRevision& revision) const
@@ -324,19 +336,15 @@ StateReference WorldState::get_state_reference(const WorldStateRevision& revisio
 
     Signal signal(static_cast<uint32_t>(tree_ids.size()));
     StateReference state_reference;
+    std::unordered_map<MerkleTreeId, TypedResponse<TreeMetaResponse>> local;
     std::mutex state_ref_mutex;
 
     for (auto id : tree_ids) {
         const auto& tree = fork->_trees.at(id);
-        auto callback = [&signal, &state_reference, &state_ref_mutex, initial_state, id](
-                            const TypedResponse<TreeMetaResponse>& meta) {
+        auto callback = [&signal, &local, &state_ref_mutex, id](TypedResponse<TreeMetaResponse>& meta) {
             {
                 std::lock_guard<std::mutex> lock(state_ref_mutex);
-                if (initial_state) {
-                    state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
-                } else {
-                    state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
-                }
+                local[id] = std::move(meta);
             }
             signal.signal_decrement();
         };
@@ -352,6 +360,19 @@ StateReference WorldState::get_state_reference(const WorldStateRevision& revisio
     }
 
     signal.wait_for_level(0);
+
+    for (auto tree_id : tree_ids) {
+        auto& m = local[tree_id];
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+        if (initial_state) {
+            state_reference[tree_id] = std::make_pair(m.inner.meta.initialRoot, m.inner.meta.initialSize);
+            continue;
+        }
+        state_reference[tree_id] = std::make_pair(m.inner.meta.root, m.inner.meta.size);
+    }
+
     return state_reference;
 }
 
@@ -364,10 +385,10 @@ fr_sibling_path WorldState::get_sibling_path(const WorldStateRevision& revision,
     return std::visit(
         [leaf_index, revision](auto&& wrapper) {
             Signal signal(1);
-            fr_sibling_path path;
+            TypedResponse<GetSiblingPathResponse> local;
 
-            auto callback = [&signal, &path](const TypedResponse<GetSiblingPathResponse>& response) {
-                path = response.inner.path;
+            auto callback = [&signal, &local](TypedResponse<GetSiblingPathResponse>& response) {
+                local = std::move(response);
                 signal.signal_level(0);
             };
 
@@ -378,7 +399,42 @@ fr_sibling_path WorldState::get_sibling_path(const WorldStateRevision& revision,
             }
             signal.wait_for_level(0);
 
-            return path;
+            if (!local.success) {
+                throw std::runtime_error(local.message);
+            }
+            return local.inner.path;
+        },
+        fork->_trees.at(tree_id));
+}
+
+void WorldState::get_block_numbers_for_leaf_indices(const WorldStateRevision& revision,
+                                                    MerkleTreeId tree_id,
+                                                    const std::vector<index_t>& leafIndices,
+                                                    std::vector<std::optional<block_number_t>>& blockNumbers) const
+{
+    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
+
+    std::visit(
+        [&leafIndices, revision, &blockNumbers](auto&& wrapper) {
+            Signal signal(1);
+            TypedResponse<BlockForIndexResponse> local;
+
+            auto callback = [&signal, &local](TypedResponse<BlockForIndexResponse>& response) {
+                local = std::move(response);
+                signal.signal_level();
+            };
+
+            if (revision.blockNumber) {
+                wrapper.tree->find_block_numbers(leafIndices, revision.blockNumber, callback);
+            } else {
+                wrapper.tree->find_block_numbers(leafIndices, callback);
+            }
+            signal.wait_for_level(0);
+
+            if (!local.success) {
+                throw std::runtime_error(local.message);
+            }
+            blockNumbers = std::move(local.inner.blockNumbers);
         },
         fork->_trees.at(tree_id));
 }
@@ -534,7 +590,15 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
 
     {
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        PublicDataTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
+            // take the first error
+            bool expected = true;
+            if (!resp.success && success.compare_exchange_strong(expected, false)) {
+                err_message = resp.message;
+            }
+
+            signal.signal_decrement();
+        };
         wrapper.tree->add_or_update_values_sequentially(public_writes, completion);
     }
 
@@ -566,9 +630,9 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 {
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
     Signal signal;
-    GetLowIndexedLeafResponse low_leaf_info;
-    auto callback = [&signal, &low_leaf_info](const TypedResponse<GetLowIndexedLeafResponse>& response) {
-        low_leaf_info = response.inner;
+    TypedResponse<GetLowIndexedLeafResponse> low_leaf_info;
+    auto callback = [&signal, &low_leaf_info](TypedResponse<GetLowIndexedLeafResponse>& response) {
+        low_leaf_info = std::move(response);
         signal.signal_level();
     };
 
@@ -591,7 +655,11 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     }
 
     signal.wait_for_level();
-    return low_leaf_info;
+
+    if (!low_leaf_info.success) {
+        throw std::runtime_error(low_leaf_info.message);
+    }
+    return low_leaf_info.inner;
 }
 
 WorldStateStatusSummary WorldState::set_finalised_blocks(const index_t& toBlockNumber)
@@ -599,11 +667,13 @@ WorldStateStatusSummary WorldState::set_finalised_blocks(const index_t& toBlockN
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
-        throw std::runtime_error("Unable to finalise block, already finalised");
+        throw std::runtime_error(format("Unable to finalise blocks to block number ",
+                                        toBlockNumber,
+                                        ", Current finalised block: ",
+                                        archive_state.meta.finalisedBlockHeight));
     }
-    if (!set_finalised_block(toBlockNumber)) {
-        throw std::runtime_error("Failed to set finalised block");
-    }
+    // This will throw if it fails
+    set_finalised_block(toBlockNumber);
     WorldStateStatusSummary status;
     get_status_summary(status);
     return status;
@@ -618,9 +688,8 @@ WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
     WorldStateStatusFull status;
     for (block_number_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber;
          blockNumber--) {
-        if (!unwind_block(blockNumber, status)) {
-            throw std::runtime_error("Failed to unwind block");
-        }
+        // This will throw if it fails
+        unwind_block(blockNumber, status);
     }
     populate_status_summary(status);
     return status;
@@ -638,10 +707,8 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
     WorldStateStatusFull status;
     for (block_number_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber;
          blockNumber++) {
-        if (!remove_historical_block(blockNumber, status)) {
-            throw std::runtime_error(format(
-                "Failed to remove historical block ", blockNumber, " when removing blocks up to ", toBlockNumber));
-        }
+        // This will throw if it fails
+        remove_historical_block(blockNumber, status);
     }
     populate_status_summary(status);
     return status;
@@ -649,21 +716,30 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
 
 bool WorldState::set_finalised_block(const block_number_t& blockNumber)
 {
-    std::atomic_bool success = true;
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal, &success, blockNumber](auto&& wrapper) {
-                wrapper.tree->finalise_block(blockNumber, [&signal, &success](const Response& resp) {
-                    success = success && resp.success;
+            [&signal, &local, blockNumber, id, &mtx](auto&& wrapper) {
+                wrapper.tree->finalise_block(blockNumber, [&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
                     signal.signal_decrement();
                 });
             },
             tree);
     }
     signal.wait_for_level();
-    return success;
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+    return true;
 }
 bool WorldState::unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status)
 {
@@ -725,8 +801,11 @@ bool WorldState::unwind_block(const block_number_t& blockNumber, WorldStateStatu
                     blockNumber);
     }
     signal.wait_for_level();
+    if (!success) {
+        throw std::runtime_error(message);
+    }
     remove_forks_for_block(blockNumber);
-    return success;
+    return true;
 }
 bool WorldState::remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status)
 {
@@ -788,8 +867,11 @@ bool WorldState::remove_historical_block(const block_number_t& blockNumber, Worl
                                        blockNumber);
     }
     signal.wait_for_level();
+    if (!success) {
+        throw std::runtime_error(message);
+    }
     remove_forks_for_block(blockNumber);
-    return success;
+    return true;
 }
 
 bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point)
@@ -831,7 +913,12 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
 
 bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const
 {
-    std::optional<index_t> leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
+    std::optional<index_t> leaf_index = std::nullopt;
+
+    try {
+        leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
+    } catch (std::runtime_error&) {
+    }
 
     if (!leaf_index.has_value()) {
         return false;

@@ -387,6 +387,24 @@ bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& b
     return true;
 }
 
+bool WorldStateAddon::get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<GetBlockNumbersForLeafIndicesRequest> request;
+    obj.convert(request);
+
+    GetBlockNumbersForLeafIndicesResponse response;
+    _ws->get_block_numbers_for_leaf_indices(
+        request.value.revision, request.value.treeId, request.value.leafIndices, response.blockNumbers);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<GetBlockNumbersForLeafIndicesResponse> resp_msg(
+        WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, header, response);
+
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
 bool WorldStateAddon::find_leaf_index(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<TreeIdAndRevisionRequest> request;

@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -20,6 +21,7 @@ enum WorldStateMessageType {
     GET_LEAF_VALUE,
     GET_LEAF_PREIMAGE,
     GET_SIBLING_PATH,
+    GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
 
     FIND_LEAF_INDEX,
     FIND_LOW_LEAF,
@@ -127,6 +129,18 @@ struct GetSiblingPathRequest {
     WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
+};
+
+struct GetBlockNumbersForLeafIndicesRequest {
+    MerkleTreeId treeId;
+    WorldStateRevision revision;
+    std::vector<index_t> leafIndices;
+    MSGPACK_FIELDS(treeId, revision, leafIndices);
+};
+
+struct GetBlockNumbersForLeafIndicesResponse {
+    std::vector<block_number_t> blockNumbers;
+    MSGPACK_FIELDS(blockNumbers);
 };
 
 template <typename T> struct FindLeafIndexRequest {
