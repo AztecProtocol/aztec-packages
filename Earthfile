@@ -7,6 +7,7 @@ VERSION 0.8
 bootstrap:
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
+  ENV AZTEC_CACHE_COMMIT=6abb3ef82027151716dfb7f22fa655cf8f119168
   ARG EARTHLY_GIT_HASH
   # ENV EARTHLY_GIT_HASH=5a325d3cac201bbc684d6bfb93982686b72f0cfd
   WORKDIR /build-volume
@@ -15,6 +16,7 @@ bootstrap:
     rm -rf $(ls -A) && \
     git init 2>/dev/null && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
+    git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
     CI=1 TEST=0 ./bootstrap.sh fast && \
