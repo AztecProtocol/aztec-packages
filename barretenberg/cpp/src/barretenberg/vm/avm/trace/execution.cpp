@@ -304,8 +304,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             if (call_request.contract_address != 0) {
                 public_call_requests.push_back(call_request);
             }
+            info("Beginning execution of phase ", phase, " (", public_call_requests.size(), " enqueued calls).");
         }
-        info("Beginning execution of phase ", phase, " (", public_call_requests.size(), " enqueued calls).");
         AvmError error = AvmError::NO_ERROR;
         for (size_t i = 0; i < public_call_requests.size(); i++) {
 
@@ -868,7 +868,7 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             }
         }
     }
-    auto trace = trace_builder.finalize();
+    auto trace = trace_builder.finalize(/*apply_public_inputs_assertions=*/true);
 
     show_trace_info(trace);
     return trace;
