@@ -9,6 +9,7 @@ fi
 
 if [ "${CI:-0}" -lt 1 ]; then
   # Don't look if CI isn't set. No need to muddle with dev runs.
+  echo "Not checking remote test flag $1 because CI=0."
   exit 1
 fi
 
@@ -22,5 +23,5 @@ else
   # Default to AWS S3 URL if no custom endpoint is set
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
   # Write the flag file to stdout, return exit success if found
-  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" || (echo "Flag $NAME.flag not found." && exit 1)
+  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" -O || (echo "Flag $NAME.flag not found." && exit 1)
 fi
