@@ -140,7 +140,7 @@ case "$CMD" in
       ./barretenberg/cpp/+bench \
       ./barretenberg/cpp/+test \
       ./noir/+build-acir-tests \
-      ./barretenberg/+barretenberg-acir-tests-bb \
+      ./barretenberg/acir_tests/+test \
       ./barretenberg/+barretenberg-acir-tests-bb-ultra-plonk \
       ./barretenberg/+barretenberg-acir-tests-bb-ultra-honk \
       ./barretenberg/+barretenberg-acir-tests-bb-mega-honk \
