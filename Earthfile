@@ -8,7 +8,7 @@ bootstrap:
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
   #ARG EARTHLY_GIT_HASH
-  ENV EARTHLY_GIT_HASH=36fb172bb8f5ec607ec4ae39def3801258336b5c
+  ENV EARTHLY_GIT_HASH=9fb64027bcd3b3083cdcd8325318250501990d10
   WORKDIR /build-volume
   # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \

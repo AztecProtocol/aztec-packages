@@ -117,13 +117,13 @@ function build_wasm_threads {
 }
 
 export PRESET PIC_PRESET HASH HAD_CACHE ci3
-export -f build_native build_wasm build_wasm_threads
+export -f build_native build_wasm build_wasm_threads test_native
 
 
 if [ "${HAD_CACHE:-0}" -eq 0 ]; then
   parallel --line-buffered -v --tag --memfree 8g denoise {} ::: build_native build_wasm build_wasm_threads
 else
-  # We don't need to build, so run tests. Only native tests currently.
+  # We don't need to build, so run tests (only native tests exists currently)
   test_native
 fi
 
