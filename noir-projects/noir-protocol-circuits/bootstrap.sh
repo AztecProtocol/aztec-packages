@@ -97,3 +97,15 @@ cat joblog.txt
 
 # For testing.
 # compile empty_nested
+
+# Wether we run the tests or not is corse grained.
+name=$(basename "$PWD")
+export REBUILD_PATTERNS="^noir-projects/$name"
+export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns_native)
+CIRCUITS_HASH=$($ci3/cache/content_hash)
+if $ci3/base/is_test || $ci3/cache/should_run $name-tests-$CIRCUITS_HASH; then
+  $ci3/github/group "$name test"
+  RAYON_NUM_THREADS= $NARGO test --silence-warnings
+  $ci3/cache/upload_flag $name-tests-$CIRCUITS_HASH
+  $ci3/github/endgroup
+fi

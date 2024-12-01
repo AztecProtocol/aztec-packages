@@ -31,4 +31,4 @@ tmux-client-*.log
 .supermavenignore
 
 # parallel
-joblob.txt
+joblog.txt
