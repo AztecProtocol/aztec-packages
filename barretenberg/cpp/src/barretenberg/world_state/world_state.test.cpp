@@ -52,10 +52,6 @@ template <typename Leaf>
 void assert_leaf_status(
     const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, index_t leaf_index, bool exists)
 {
-    if (!exists) {
-        EXPECT_THROW(ws.get_leaf<Leaf>(revision, tree_id, leaf_index), std::runtime_error);
-        return;
-    }
     std::optional<Leaf> leaf = ws.get_leaf<Leaf>(revision, tree_id, leaf_index);
     EXPECT_EQ(leaf.has_value(), exists);
 }
@@ -76,10 +72,6 @@ template <typename Leaf>
 void assert_leaf_exists(
     const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, const Leaf& expected_value, bool exists)
 {
-    if (!exists) {
-        EXPECT_THROW(ws.find_leaf_index(revision, tree_id, expected_value), std::runtime_error);
-        return;
-    }
     std::optional<index_t> index = ws.find_leaf_index(revision, tree_id, expected_value);
     EXPECT_EQ(index.has_value(), exists);
 }

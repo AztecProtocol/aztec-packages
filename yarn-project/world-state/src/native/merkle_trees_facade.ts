@@ -177,7 +177,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
       leafIndices,
     });
 
-    return response.blockNumbers.map(x => (x == undefined ? x : BigInt(x)));
+    return response.blockNumbers.map(x => (x === undefined || x === null ? undefined : BigInt(x)));
   }
 }
 

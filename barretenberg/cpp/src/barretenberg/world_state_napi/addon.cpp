@@ -150,6 +150,11 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         WorldStateMessageType::GET_SIBLING_PATH,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_sibling_path(obj, buffer); });
 
+    _dispatcher.registerTarget(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                                   return get_block_numbers_for_leaf_indices(obj, buffer);
+                               });
+
     _dispatcher.registerTarget(
         WorldStateMessageType::FIND_LEAF_INDEX,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_index(obj, buffer); });

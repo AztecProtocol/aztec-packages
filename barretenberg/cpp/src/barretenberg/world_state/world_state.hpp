@@ -471,10 +471,6 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
 
     signal.wait_for_level();
 
-    if (!success) {
-        throw std::runtime_error(error_msg);
-    }
-
     return leaf;
 }
 
@@ -517,7 +513,7 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
     signal.wait_for_level(0);
 
     if (!local.success) {
-        throw std::runtime_error(local.message);
+        return std::nullopt;
     }
 
     return local.inner.leaf_index;
