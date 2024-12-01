@@ -18,15 +18,15 @@ $ci3/github/group "noir build"
 NATIVE_HASH=$($ci3/cache/content_hash .rebuild_patterns_native)
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
 export COMMIT_HASH=$NATIVE_HASH
-if ! $ci3/cache/download noir-nargo-$NATIVE_HASH.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
+if ! $ci3/cache/download noir-nargo-v1-$NATIVE_HASH.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
   # Continue with native bootstrapping if the cache was not used or nargo verification failed.
   denoise ./scripts/bootstrap_native.sh
-  $ci3/cache/upload noir-nargo-$NATIVE_HASH.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
+  $ci3/cache/upload noir-nargo--v1-$NATIVE_HASH.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
 fi
 PACKAGES_HASH=$($ci3/cache/content_hash ../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages .rebuild_patterns_native)
-if ! $ci3/cache/download noir-packages-$PACKAGES_HASH.tar.gz ; then
+if ! $ci3/cache/download noir-packages-v1-$PACKAGES_HASH.tar.gz ; then
   denoise ./scripts/bootstrap_packages.sh
-  $ci3/cache/upload noir-packages-$PACKAGES_HASH.tar.gz packages
+  $ci3/cache/upload noir-packages-v1-$PACKAGES_HASH.tar.gz packages
 fi
 $ci3/github/endgroup
 
