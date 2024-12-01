@@ -5,6 +5,8 @@ set -eu
 : "${NODE_PORT:?NODE_PORT is not set}"
 : "${VALIDATOR_PKEY:?VALIDATOR_PKEY is not set}"
 
+PUBLIC_IP=$(curl -s https://ipinfo.io/ip)
+
 ARCH=$(uname -m)
 IMAGE=${IMAGE:-"aztecprotocol/aztec:698cd3d62680629a3f1bfc0f82604534cedbccf3-${ARCH}"}
 
