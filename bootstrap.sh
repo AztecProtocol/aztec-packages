@@ -131,21 +131,47 @@ case "$CMD" in
     echo "Toolchains look good! 🎉"
     exit 0
   ;;
+  "test")
+    ./bootstrap.sh aztec-image
+    ./bootstrap.sh e2e-image
+    yarn-project/end-to-end/scripts/e2e_test.sh $@
+    exit
+  ;;
   "aztec-image")
+    $ci3/github/group "aztec-image"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr/src
-    earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    # TODO(ci3) eventually this will just be a normal mounted docker build
+    denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     GIT_HASH=$(git rev-parse --short HEAD)
-    docker build -f Dockerfile.aztec --build-arg GIT_HASH=$GIT_HASH -t aztecprotocol/aztec:$GIT_HASH $TMP
+    shift 1 # remove command parameter
+    docker build -f Dockerfile.aztec -t aztecprotocol/aztec:$GIT_HASH $TMP $@
+    $ci3/github/endgroup
     exit
   ;;
   "e2e-image")
+    $ci3/github/group "e2e-image"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
-    earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
-    export TMP
+    # TODO(ci3) eventually this will just be a normal mounted docker build
+    denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
+    denoise earthly --artifact +bootstrap-aztec/anvil $TMP/anvil
     GIT_HASH=$(git rev-parse --short HEAD)
-    docker build -f Dockerfile.end-to-end --build-arg GIT_HASH=$GIT_HASH -t aztecprotocol/end-to-end:$GIT_HASH $TMP
+    shift 1 # remove command parameter
+    docker build -f Dockerfile.end-to-end -t aztecprotocol/end-to-end:$GIT_HASH $TMP $@
+    $ci3/github/endgroup
+    exit
+  ;;
+  "faucet-image")
+    $ci3/github/group "faucet-image"
+    source $ci3/base/tmp_source
+    mkdir -p $TMP/usr
+    # TODO(ci3) eventually this will just be a normal mounted docker build
+    earthly --artifact +bootstrap-faucet/usr/src $TMP/usr
+    GIT_HASH=$(git rev-parse --short HEAD)
+    shift 1 # remove command parameter
+    docker build -f Dockerfile.aztec-faucet -t aztecprotocol/aztec-faucet:$GIT_HASH $TMP $@
+    $ci3/github/endgroup
     exit
   ;;
   *)

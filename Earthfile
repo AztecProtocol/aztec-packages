@@ -5,7 +5,7 @@ VERSION 0.8
 ########################################################################################################################
 
 bootstrap:
-  # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
+  # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
   ENV AZTEC_CACHE_COMMIT=7100222db0a2a326ea4238f783f1c524a2880d8e
@@ -22,19 +22,10 @@ bootstrap:
     CI=1 TEST=0 ./bootstrap.sh fast && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
+  SAVE ARTIFACT /usr/src /usr/src
 
-bootstrap-aztec:
+bootstrap-release-base:
   FROM +bootstrap
-  WORKDIR /usr/src/yarn-project
-  ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-  ENV DENOISE=1
-  LET ci3=$(git rev-parse --show-toplevel)/ci3
-  # TODO Copied from yarn-project+build, move into bootstrap.sh before yarn test
-  RUN cd ivc-integration && $ci3/base/denoise npx playwright install && $ci3/base/denoise npx playwright install-deps
-  RUN rm -rf node_modules && yarn workspaces focus @aztec/aztec --production && yarn cache clean
-  COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-  WORKDIR /usr/src
-  # Focus on the biggest chunks to remove
   RUN rm -rf \
     .git \
     .github \
@@ -42,38 +33,52 @@ bootstrap-aztec:
     noir-projects \
     l1-contracts \
     barretenberg/cpp/src \
-    barretenberg/ts \
+    barretenberg/ts/src \
     ci3 \
     build-system \
-    docs \
+    docs
+
+bootstrap-aztec:
+  FROM +bootstrap-release-base
+  WORKDIR /usr/src/yarn-project
+  ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+  ENV DENOISE=1
+  # TODO Copied from yarn-project+build, move into bootstrap.sh before yarn test
+  RUN cd ivc-integration && npx playwright install && npx playwright install-deps
+  RUN rm -rf node_modules && yarn workspaces focus @aztec/aztec --production && yarn cache clean
+  COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+  WORKDIR /usr/src
+  # Focus on the biggest chunks to remove
+  RUN rm -rf \
     yarn-project/end-to-end \
     yarn-project/noir-protocol-circuits-types \
     yarn-project/*/src
   SAVE ARTIFACT /usr/src /usr/src
 
+bootstrap-faucet:
+  FROM +bootstrap-release-base
+  RUN rm -rf node_modules && yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
+  RUN rm -rf \
+    aztec.js/dest/main.js \
+    end-to-end \
+    **/src
+  SAVE ARTIFACT /usr/src /usr/src
+
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 bootstrap-end-to-end:
-  FROM +bootstrap
-  RUN rm -rf \
-    .git .github \
-    noir-projects \
-    l1-contracts \
-    barretenberg/ts/src \
-    barretenberg/ts/dest/node-cjs \
-    barretenberg/ts/dest/browser
+  FROM +bootstrap-release-base
   WORKDIR /usr/src/yarn-project
   RUN rm -rf node_modules && yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-  RUN rm -rf noir-protocol-circuits-types
-  RUN false
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
 
 ########################################################################################################################
-# TODO Stray Build Pieces
+# Build helpers
 ########################################################################################################################
+
 bb-cli:
-    FROM +bootstrap
+    FROM +bootstrap-release-base
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
@@ -122,103 +127,8 @@ rollup-verifier-contract:
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
 ########################################################################################################################
-# Images
+# Logs Uploading
 ########################################################################################################################
-
-other-aztec:
-  FROM ubuntu:noble
-  RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  COPY +bootstrap-aztec/usr/src /usr/src
-  ENV BB_WORKING_DIRECTORY=/usr/src/bb
-  ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-  ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-  ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-  RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-  ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-  LET port=8080
-  ENV PORT=$port
-  HEALTHCHECK --interval=10s --timeout=10s --retries=6 --start-period=120s \
-    CMD curl -fsS http://127.0.0.1:$port/status
-  EXPOSE $port
-  ARG EARTHLY_GIT_HASH
-  SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
-
-other-end-to-end:
-  FROM ubuntu:noble
-  # add repository for chromium
-  RUN apt-get update && apt-get install -y software-properties-common \
-    && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
-    && apt-get install -y wget gnupg \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt update && apt install curl chromium nodejs netcat-openbsd -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /usr/local/bin \
-    && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x /usr/local/bin/kubectl \
-    && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
-    && chmod +x get_helm.sh \
-    && ./get_helm.sh \
-    && rm get_helm.sh
-
-  ENV CHROME_BIN="/usr/bin/chromium"
-  ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
-  ENV HARDWARE_CONCURRENCY=""
-  ENV FAKE_PROOFS=""
-  ENV BB_WORKING_DIRECTORY=/usr/src/bb
-  ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-  ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-  ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-  ENV PROVER_AGENT_CONCURRENCY=8
-  RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-  RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
-
-  COPY +bootstrap-end-to-end/anvil /opt/foundry/bin/anvil
-  COPY +bootstrap-end-to-end/usr/src /usr/src
-  WORKDIR /usr/src/yarn-project/end-to-end
-  ENTRYPOINT ["yarn", "test"]
-  ARG EARTHLY_GIT_HASH
-  RUN false
-  SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
-
-bootstrap-aztec-fauct:
-  FROM +bootstrap
-  RUN yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
-  RUN rm -rf \
-    .git \
-    noir-projects \
-    l1-contracts \
-    barretenberg/ts/src \
-    barretenberg/ts/dest/node-cjs \
-    barretenberg/ts/dest/browser \
-    yarn-project/aztec.js/dest/main.js \
-    yarn-project/end-to-end \
-    yarn-project/**/src
-  SAVE ARTIFACT /usr/src /usr/src
-
-aztec-faucet:
-  FROM ubuntu:noble
-  RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  COPY +bootstrap-aztec-faucet/usr/src /usr/src
-  ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec-faucet/dest/bin/index.js"]
-  LET port=8080
-  ARG DIST_TAG="latest"
-  ARG ARCH
-  SAVE IMAGE aztecprotocol/aztec-faucet:${DIST_TAG}${ARCH:+-$ARCH}
-
-########################################################################################################################
-# Misc
-########################################################################################################################
-
-release-meta:
-  FROM ubuntu:noble
-  COPY .release-please-manifest.json /usr/src/.release-please-manifest.json
-  SAVE ARTIFACT /usr/src /usr/src
-
-scripts:
-  FROM scratch
-  COPY scripts /usr/src/scripts
-  SAVE ARTIFACT /usr/src/scripts scripts
 
 UPLOAD_LOGS:
   FUNCTION
@@ -246,3 +156,16 @@ base-log-uploader:
     ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
     rm -rf aws awscliv2.zip
   COPY +scripts/scripts /usr/src/scripts
+
+########################################################################################################################
+# File Visibility Boilerplate
+########################################################################################################################
+release-meta:
+  FROM scratch
+  COPY .release-please-manifest.json /usr/src/.release-please-manifest.json
+  SAVE ARTIFACT /usr/src /usr/src
+
+scripts:
+  FROM scratch
+  COPY scripts /usr/src/scripts
+  SAVE ARTIFACT /usr/src/scripts scripts

@@ -1,23 +1,6 @@
 VERSION 0.8
-
-acir-tests:
-    FROM ../build-images+from-registry
-    WORKDIR /usr/src/barretenberg
-    COPY ./acir_tests .
-    SAVE ARTIFACT ./*
-
-sol:
-  FROM ../build-images+from-registry
-  WORKDIR /usr/src/barretenberg
-  COPY ./sol .
-  SAVE ARTIFACT ./*
-
-
 barretenberg-acir-tests-bb:
-    FROM ../build-images/+from-registry
-
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    FROM ../+bootstrap
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests

@@ -8,12 +8,11 @@ if [ "${1:-}" == "clean" ]; then
   exit 0
 fi
 
-export AZTEC_CACHE_REBUILD_PATTERNS=$(echo \
+HASH=$($ci3/cache/content_hash \
   ../../noir/.rebuild_patterns_native \
   ../../noir/.rebuild_patterns_tests \
   ../../barretenberg/cpp/.rebuild_patterns \
   ../../barretenberg/ts/.rebuild_patterns)
-HASH=$($ci3/cache/content_hash)
 
 if ! $ci3/cache/should_run barretenberg-acir-test-$HASH; then
   exit 0
@@ -28,13 +27,12 @@ $ci3/github/group "acir_tests updating yarn"
 find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup
 
-# We only run tests in CI.
-if [ "${CI:-0}" -ne 1 ]; then
+if ! $ci3/base/should_run "barretenberg-acir-test-$HASH"; then
   exit 0
 fi
 
 $ci3/github/group "acir_tests building browser-test-app"
-# Keep build as part of CI only.
+# Keep build as part of tests only.
 (cd browser-test-app && yarn build)
 $ci3/github/endgroup
 
