@@ -19,8 +19,8 @@ bootstrap-noir-bb:
     git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
-    echo "noir: " && BUILD_SYSTEM_DEBUG=1 CI=1 TEST=0 USE_CACHE=1 ./noir/bootstrap.sh && \
-    echo "barretenberg: " && BUILD_SYSTEM_DEBUG=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
+    echo "noir: " && CI=1 TEST=0 USE_CACHE=1 ./noir/bootstrap.sh && \
+    echo "barretenberg: " && CI=1 TEST=0 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/src
