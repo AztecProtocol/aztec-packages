@@ -79,7 +79,7 @@ barretenberg-acir-tests-bb-mega-honk:
     # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
     RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
 
-barretenberg-acir-tests:
+acir-tests:
     FROM ../+bootstrap-noir-bb
     RUN CI=1 USE_CACHE=1 TEST=1 barretenberg/acir_tests/bootstrap.sh
 
