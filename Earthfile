@@ -9,7 +9,6 @@ bootstrap-noir-bb:
   FROM ./build-images+from-registry
   ENV AZTEC_CACHE_COMMIT=6abb3ef82027151716dfb7f22fa655cf8f119168
   ARG EARTHLY_GIT_HASH
-  ENV BUILD_SYSTEM_DEBUG=1
   # ENV EARTHLY_GIT_HASH=5a325d3cac201bbc684d6bfb93982686b72f0cfd
   WORKDIR /build-volume
   # Use a cache volume for performance
@@ -20,7 +19,9 @@ bootstrap-noir-bb:
     git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
-    CI=1 TEST=0 USE_CACHE=1 parallel --halt now,fail=1 ::: ./barretenberg/bootstrap.sh ./noir/bootstrap.sh && \
+    BUILD_SYSTEM_DEBUG=1 CI=1 TEST=0 USE_CACHE=1 ./noir/bootstrap.sh && \
+    BUILD_SYSTEM_DEBUG=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
+    parallel --halt now,fail=1 ::: ./barretenberg/bootstrap.sh ./noir/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/src
