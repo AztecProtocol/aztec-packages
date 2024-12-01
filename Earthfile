@@ -21,7 +21,6 @@ bootstrap-noir-bb:
     git reset --hard FETCH_HEAD && \
     echo "noir: " && BUILD_SYSTEM_DEBUG=1 CI=1 TEST=0 USE_CACHE=1 ./noir/bootstrap.sh && \
     echo "barretenberg: " && BUILD_SYSTEM_DEBUG=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
-    parallel --halt now,fail=1 ::: ./barretenberg/bootstrap.sh ./noir/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/src
