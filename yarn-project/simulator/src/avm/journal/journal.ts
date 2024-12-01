@@ -163,12 +163,8 @@ export class AvmPersistableStateManager {
       const lowLeafIndex = lowLeafInfo.index;
       const lowLeafPath = lowLeafInfo.siblingPath;
 
-      const newLeafPreimage = result.element as PublicDataTreeLeafPreimage;
-      let insertionPath;
-
-      if (!result.update) {
-        insertionPath = result.insertionPath;
-      }
+      const insertionPath = result.insertionPath;
+      const newLeafPreimage = result.newOrElementToUpdate.element as PublicDataTreeLeafPreimage;
 
       this.trace.tracePublicStorageWrite(
         contractAddress,
@@ -204,7 +200,7 @@ export class AvmPersistableStateManager {
       const {
         preimage,
         index: leafIndex,
-        alreadyPresent,
+        update: exists,
       } = await this.merkleTrees.getLeafOrLowLeafInfo(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
       // The index and preimage here is either the low leaf or the leaf itself (depending on the value of update flag)
       // In either case, we just want the sibling path to this leaf - it's up to the avm to distinguish if it's a low leaf or not
@@ -216,7 +212,7 @@ export class AvmPersistableStateManager {
       );
       this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
 
-      if (!alreadyPresent) {
+      if (!exists) {
         // Sanity check that the leaf slot is skipped by low leaf when it doesn't exist
         assert(
           leafPreimage.slot.toBigInt() < leafSlot.toBigInt() &&
@@ -312,15 +308,12 @@ export class AvmPersistableStateManager {
       const {
         preimage,
         index: leafIndex,
-        alreadyPresent,
+        update,
       } = await this.merkleTrees.getLeafOrLowLeafInfo(MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
       const leafPreimage = preimage as NullifierLeafPreimage;
       const leafPath = await this.merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
 
-      assert(
-        alreadyPresent == exists,
-        'WorldStateDB contains nullifier leaf, but merkle tree does not.... This is a bug!',
-      );
+      assert(update == exists, 'WorldStateDB contains nullifier leaf, but merkle tree does not.... This is a bug!');
 
       if (exists) {
         this.log.debug(`Siloed nullifier ${siloedNullifier} exists at leafIndex=${leafIndex}`);
@@ -362,11 +355,11 @@ export class AvmPersistableStateManager {
       // Maybe overkill, but we should check if the nullifier is already present in the tree before attempting to insert
       // It might be better to catch the error from the insert operation
       // Trace all nullifier creations, even duplicate insertions that fail
-      const { preimage, index, alreadyPresent } = await this.merkleTrees.getLeafOrLowLeafInfo(
+      const { preimage, index, update } = await this.merkleTrees.getLeafOrLowLeafInfo(
         MerkleTreeId.NULLIFIER_TREE,
         siloedNullifier,
       );
-      if (alreadyPresent) {
+      if (update) {
         this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree at index ${index}!`);
         // If the nullifier is already present, we should not insert it again
         // instead we provide the direct membership path
@@ -374,7 +367,7 @@ export class AvmPersistableStateManager {
         // This just becomes a nullifier read hint
         this.trace.traceNullifierCheck(
           siloedNullifier,
-          /*exists=*/ alreadyPresent,
+          /*exists=*/ update,
           preimage as NullifierLeafPreimage,
           new Fr(index),
           path,

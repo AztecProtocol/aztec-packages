@@ -72,7 +72,6 @@ describe('aztec node', () => {
       p2p,
       l2BlockSource,
       l2LogsSource,
-      l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
       nullifierWithBlockSource,

@@ -1,15 +1,15 @@
 import {
+  type BatchInsertionResult,
   type IndexedTreeId,
   MerkleTreeId,
   type MerkleTreeWriteOperations,
-  type SequentialInsertionResult,
 } from '@aztec/circuit-types';
 import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
-  PUBLIC_DATA_TREE_HEIGHT,
+  type PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
@@ -18,16 +18,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees, NativeWorldStateService } from '@aztec/world-state';
+import { MerkleTrees } from '@aztec/world-state';
 
-import {
-  AvmEphemeralForest,
-  EphemeralAvmTree,
-  type IndexedInsertResult,
-  type IndexedUpsertResult,
-} from './avm_tree.js';
+import { AvmEphemeralForest, EphemeralAvmTree, type IndexedInsertionResult } from './avm_tree.js';
 
-let mainState: MerkleTreeWriteOperations;
+let worldStateTrees: MerkleTrees;
 let copyState: MerkleTreeWriteOperations;
 // Up to 64 dummy note hashes
 let noteHashes: Fr[];
@@ -42,9 +37,8 @@ let getSiblingIndex = 21n;
 
 // Helper to check the equality of the insertion results (low witness, insertion path)
 const checkEqualityOfInsertionResults = <Tree_Height extends number>(
-  containerResults: IndexedUpsertResult<IndexedTreeLeafPreimage>[] | IndexedInsertResult<IndexedTreeLeafPreimage>[],
-  wsResults: SequentialInsertionResult<Tree_Height>[],
-  treeHeight: number,
+  containerResults: IndexedInsertionResult<IndexedTreeLeafPreimage>[],
+  wsResults: BatchInsertionResult<Tree_Height, 0>[],
 ) => {
   if (containerResults.length !== wsResults.length) {
     throw new Error('Results length mismatch');
@@ -55,41 +49,40 @@ const checkEqualityOfInsertionResults = <Tree_Height extends number>(
     expect(containerResult.lowWitness.siblingPath).toEqual(wsResult.lowLeavesWitnessData![0].siblingPath.toFields());
     expect(containerResult.lowWitness.index).toEqual(wsResult.lowLeavesWitnessData![0].index);
     expect(containerResult.lowWitness.preimage).toEqual(wsResult.lowLeavesWitnessData![0].leafPreimage);
-    if ('update' in containerResult && containerResult.update) {
-      expect(Array(treeHeight).fill(Fr.ZERO)).toEqual(wsResult.insertionWitnessData[0].siblingPath.toFields());
-    } else {
-      expect(containerResult.insertionPath).toEqual(wsResult.insertionWitnessData[0].siblingPath.toFields());
-    }
+    expect(containerResult.insertionPath).toEqual(wsResult.newSubtreeSiblingPath.toFields());
   }
 };
 
 const getWorldStateRoot = async (treeId: MerkleTreeId) => {
-  return (await mainState.getTreeInfo(treeId)).root;
+  return (await worldStateTrees.getTreeInfo(treeId, /*includeUncommitted=*/ true)).root;
 };
 
 const getWorldStateSiblingPath = (treeId: MerkleTreeId, index: bigint) => {
-  return mainState.getSiblingPath(treeId, index);
+  return worldStateTrees.getSiblingPath(treeId, index, /*includeUncommitted=*/ true);
 };
 
 const publicDataInsertWorldState = <Tree_Height extends number>(
   slot: Fr,
   value: Fr,
-): Promise<SequentialInsertionResult<Tree_Height>> => {
-  return mainState.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [new PublicDataTreeLeaf(slot, value).toBuffer()]);
+): Promise<BatchInsertionResult<Tree_Height, 0>> => {
+  return worldStateTrees.batchInsert(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    [new PublicDataTreeLeaf(slot, value).toBuffer()],
+    0,
+  );
 };
 
 const nullifierInsertWorldState = <Tree_Height extends number>(
   nullifier: Fr,
-): Promise<SequentialInsertionResult<Tree_Height>> => {
-  return mainState.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
+): Promise<BatchInsertionResult<Tree_Height, 0>> => {
+  return worldStateTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()], 0);
 };
 
 // Set up some recurring state for the tests
 beforeEach(async () => {
-  const worldState = await NativeWorldStateService.tmp();
-
-  mainState = await worldState.fork();
-  copyState = await worldState.fork();
+  const store = openTmpStore(true);
+  worldStateTrees = await MerkleTrees.new(store, new NoopTelemetryClient());
+  copyState = await worldStateTrees.fork();
 
   noteHashes = Array.from({ length: 64 }, (_, i) => new Fr(i));
   // We do + 128 since the first 128 leaves are already filled in the indexed trees (nullifier, public data)
@@ -132,7 +125,7 @@ describe('Simple Note Hash Consistency', () => {
     for (const noteHash of noteHashes) {
       treeContainer.appendNoteHash(noteHash);
     }
-    await mainState.appendLeaves(treeId, noteHashes);
+    await worldStateTrees.appendLeaves(treeId, noteHashes);
 
     // Check that the roots are consistent
     const wsRoot = await getWorldStateRoot(treeId);
@@ -159,7 +152,7 @@ describe('Simple Note Hash Consistency', () => {
     }
 
     // Build a worldstateDB with all the note hashes
-    await mainState.appendLeaves(treeId, preInserted.concat(postInserted));
+    await worldStateTrees.appendLeaves(treeId, preInserted.concat(postInserted));
 
     // Check that the roots are consistent
     const wsRoot = await getWorldStateRoot(treeId);
@@ -181,8 +174,8 @@ describe('Simple Note Hash Consistency', () => {
 
 describe('Simple Public Data Consistency', () => {
   const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
-  let containerInsertionResults: IndexedUpsertResult<PublicDataTreeLeafPreimage>[] = [];
-  let worldStateInsertionResults: SequentialInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
+  let containerInsertionResults: IndexedInsertionResult<PublicDataTreeLeafPreimage>[] = [];
+  let worldStateInsertionResults: BatchInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT, 0>[] = [];
 
   // We need to zero out between tests
   afterEach(() => {
@@ -206,7 +199,7 @@ describe('Simple Public Data Consistency', () => {
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
     // Check that all the accumulated insertion results match
-    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults, PUBLIC_DATA_TREE_HEIGHT);
+    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
   });
 
   it('Should fork a prefilled tree and check consistency', async () => {
@@ -274,14 +267,14 @@ describe('Simple Public Data Consistency', () => {
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
     // Check the insertion results match
-    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults, PUBLIC_DATA_TREE_HEIGHT);
+    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
   });
 });
 
 describe('Simple Nullifier Consistency', () => {
   const treeId = MerkleTreeId.NULLIFIER_TREE as IndexedTreeId;
-  let containerInsertionResults: IndexedInsertResult<NullifierLeafPreimage>[] = [];
-  let worldStateInsertionResults: SequentialInsertionResult<typeof NULLIFIER_TREE_HEIGHT>[] = [];
+  let containerInsertionResults: IndexedInsertionResult<NullifierLeafPreimage>[] = [];
+  let worldStateInsertionResults: BatchInsertionResult<typeof NULLIFIER_TREE_HEIGHT, 0>[] = [];
 
   // We need to zero out between tests
   afterEach(() => {
@@ -304,7 +297,7 @@ describe('Simple Nullifier Consistency', () => {
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
     // Check that all the accumulated insertion results match
-    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults, NULLIFIER_TREE_HEIGHT);
+    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
 
     // Check a sibling path from a random index is consistent
     const wsSiblingPath = await getWorldStateSiblingPath(treeId, getSiblingIndex);
@@ -332,11 +325,7 @@ describe('Simple Nullifier Consistency', () => {
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
     // Check insertion results - note we can only compare against the post-insertion results
-    checkEqualityOfInsertionResults(
-      containerInsertionResults,
-      worldStateInsertionResults.slice(preInsertIndex),
-      NULLIFIER_TREE_HEIGHT,
-    );
+    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults.slice(preInsertIndex));
   });
 
   it('Should check that the insertion paths resolve to the root', async () => {
@@ -377,7 +366,7 @@ describe('Simple Nullifier Consistency', () => {
     // Update low nullifier
     const newLowNullifier = containerInsert.lowWitness.preimage;
     newLowNullifier.nextIndex = containerInsert.leafIndex;
-    newLowNullifier.nextNullifier = containerInsert.element.nullifier;
+    newLowNullifier.nextNullifier = containerInsert.newOrElementToUpdate.element.nullifier;
     // Compute new root
     const updatedRoot = calcRootFromPath(
       containerInsert.lowWitness.siblingPath,
@@ -392,7 +381,7 @@ describe('Simple Nullifier Consistency', () => {
     // Step 4
     const finalRoot = calcRootFromPath(
       containerInsert.insertionPath,
-      treeContainer.hashPreimage(containerInsert.element),
+      treeContainer.hashPreimage(containerInsert.newOrElementToUpdate.element),
       containerInsert.leafIndex,
     );
     expect(finalRoot.toBuffer()).toEqual(rootAfter);
@@ -421,7 +410,7 @@ describe('Big Random Avm Ephemeral Container Test', () => {
 
     // Insert values ino merkleTrees
     // Note Hash
-    await mainState.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes.slice(0, ENTRY_COUNT));
+    await worldStateTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes.slice(0, ENTRY_COUNT));
     // Everything else
     for (let i = 0; i < ENTRY_COUNT; i++) {
       await nullifierInsertWorldState(indexedHashes[i]);
@@ -488,7 +477,7 @@ describe('Checking forking and merging', () => {
 
   it('Fork-Rollback-Fork-Merge should be consistent', async () => {
     // To store results
-    const wsInsertionResults: SequentialInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
+    const wsInsertionResults: BatchInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT, 0>[] = [];
     const containerInsertionResults = [];
 
     const treeContainer = await AvmEphemeralForest.create(copyState);
@@ -517,7 +506,7 @@ describe('Checking forking and merging', () => {
     expect(containerRoot.toBuffer()).toEqual(wsRoot);
 
     // Check that all the accumulated insertion results
-    checkEqualityOfInsertionResults(containerInsertionResults, wsInsertionResults, PUBLIC_DATA_TREE_HEIGHT);
+    checkEqualityOfInsertionResults(containerInsertionResults, wsInsertionResults);
   });
 });
 
@@ -565,7 +554,7 @@ describe('Batch Insertion', () => {
     const treeContainer = await AvmEphemeralForest.create(copyState);
     await treeContainer.appendNullifier(indexedHashes[0]);
     await treeContainer.appendNullifier(indexedHashes[1]);
-    await mainState.batchInsert(
+    await worldStateTrees.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       [indexedHashes[0].toBuffer(), indexedHashes[1].toBuffer()],
       NULLIFIER_SUBTREE_HEIGHT,
