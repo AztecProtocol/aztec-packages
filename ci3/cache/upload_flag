@@ -22,9 +22,9 @@ NAME="$1"
 
 shift 1
 if [ -n "${GITHUB_RUN_URL}" ]; then
-  CONTENT="See ${GITHUB_RUN_URL} for successful run."
+  CONTENT="Flag $NAME success cached: See ${GITHUB_RUN_URL}."
 else
-  CONTENT="A successful run for this test was pushed locally."
+  CONTENT="Flag $NAME success cached: Ran outside of Github Actions."
 fi
 
 echo "$COTNTENT" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
