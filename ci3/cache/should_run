@@ -5,7 +5,7 @@ if [ "${TEST:-}" -eq 0 ]; then
   echo "Skipping test $1 because TEST=0."
   exit 1
 fi
-if [ "${TEST:-}" = 1 ] || [ "${CI:-}" = 1 ]; then
+if [ "${TEST:-}" != 1 ] && [ "${CI:-}" != 1 ]; then
   echo "Skipping test $1 because neither CI or TEST are 1."
   exit 1
 fi
