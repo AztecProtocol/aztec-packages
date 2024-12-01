@@ -41,7 +41,7 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(AvmPublicInputs public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs public_inputs,
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
@@ -221,7 +221,7 @@ class AvmTraceBuilder {
                             uint32_t num_limbs,
                             uint8_t output_bits);
 
-    std::vector<Row> finalize();
+    std::vector<Row> finalize(bool apply_public_inputs_assertions = false);
     void reset();
 
     void checkpoint_non_revertible_state();
