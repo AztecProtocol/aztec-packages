@@ -211,7 +211,7 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
 }
 
 /**
- * @brief
+ * @brief Create a mock Decider verification key for initilization of a mock verifier accumulator
  *
  */
 std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()

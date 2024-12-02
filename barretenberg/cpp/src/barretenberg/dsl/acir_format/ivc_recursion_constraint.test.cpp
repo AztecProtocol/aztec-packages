@@ -103,6 +103,13 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         return program;
     }
 
+    /**
+     * @brief Construct a kernel circuit VK from an acir program with IVC recursion constraints
+     *
+     * @param program Acir program representing a kernel circuit
+     * @param trace_settings needed for construction of the VK
+     * @return std::shared_ptr<ClientIVC::MegaVerificationKey>
+     */
     static std::shared_ptr<ClientIVC::MegaVerificationKey> construct_kernel_vk_from_acir_program(
         AcirProgram& program, const TraceSettings& trace_settings)
     {
