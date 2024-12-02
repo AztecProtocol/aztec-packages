@@ -198,10 +198,9 @@ export class EpochProvingJob {
       .filter(write => !write.isEmpty())
       .map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value));
 
-    await this.db.batchInsert(
+    await this.db.sequentialInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       allPublicDataWrites.map(x => x.toBuffer()),
-      0,
     );
   }
 }

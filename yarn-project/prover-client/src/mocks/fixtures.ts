@@ -109,10 +109,9 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, 
     NULLIFIER_TREE_HEIGHT,
   );
   for (const tx of txs) {
-    await db.batchInsert(
+    await db.sequentialInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       tx.txEffect.publicDataWrites.map(write => write.toBuffer()),
-      0,
     );
   }
 };
