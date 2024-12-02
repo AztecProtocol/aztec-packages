@@ -31,7 +31,6 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # kludge until we move away from runners
   WAIT_FOR_RUNNERS: false
 
@@ -156,21 +155,16 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-x86
-      - name: "Bootstrap"
-        timeout-minutes: 40
-        run: |
-          earthly-ci --no-output +bootstrap
       # prepare images locally, tagged by commit hash
-      - name: "Aztec Main Image"
+      - name: "Build E2E Image"
         timeout-minutes: 40
+        if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
-          ./bootstrap.sh aztec-image
-      # prepare images locally, tagged by commit hash
-      - name: "E2E Test Image"
-        timeout-minutes: 40
-        run: |
-          ./bootstrap.sh e2e-image
-      - name: E2E Compute Jobs
+          ./bootstrap.sh
+          earthly-ci ./yarn-project+export-e2e-test-images
+      # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
+      # (Note ARM uses just 2 tests as a smoketest)
+      - name: Create list of non-bench end-to-end jobs
         id: e2e_list
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
@@ -181,7 +175,7 @@ jobs:
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")"
           echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-      - name: Bench Compute Jobs
+      - name: Create list of bench end-to-end jobs
         id: bench_list
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
@@ -191,7 +185,6 @@ jobs:
           fi
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-
 
   # # all the non-bench end-to-end integration tests for aztec
   # e2e:
