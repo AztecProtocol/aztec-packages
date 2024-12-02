@@ -85,6 +85,14 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     }
     verifier_inputs.honk_verification_key = create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
 
+    // If the verification queue entry corresponds to a kernel circuit, set the databus data to indicate the presence of
+    // propagated return data commitments on the public inputs
+    if (is_kernel) {
+        verifier_inputs.honk_verification_key->databus_propagation_data.is_kernel = true;
+        verifier_inputs.honk_verification_key->databus_propagation_data.kernel_return_data_public_input_idx = 0;
+        verifier_inputs.honk_verification_key->databus_propagation_data.app_return_data_public_input_idx = 8;
+    }
+
     return verifier_inputs;
 }
 
@@ -179,10 +187,13 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
  */
 std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
 {
+    using FF = ClientIVC::FF;
+
     // Set relevant VK metadata and commitments
     auto decider_verification_key = std::make_shared<ClientIVC::DeciderVerificationKey>();
-    decider_verification_key->verification_key = create_mock_honk_vk(0, 0, 0);
+    decider_verification_key->verification_key = create_mock_honk_vk(0, 0, 0); // metadata does not need to be accurate
     decider_verification_key->is_accumulator = true;
+    decider_verification_key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
 
     for (auto& commitment : decider_verification_key->witness_commitments.get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment

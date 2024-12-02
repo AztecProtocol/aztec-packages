@@ -167,7 +167,16 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->is_accumulator = true;
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("HASH = ", builder->hash_circuit());
+    // }
+
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("HASH = ", builder->hash_circuit());
+    // }
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
@@ -178,10 +187,19 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
         combination = linear_combination(to_combine, lagranges);
     }
+
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("HASH = ", builder->hash_circuit());
+    // }
+
     for (auto [combination, to_combine] :
          zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
+
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("HASH = ", builder->hash_circuit());
+    // }
 
     auto accumulator_vkey = accumulator->verification_key->get_all();
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
@@ -192,6 +210,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; ++i) {
         accumulator_witnesses[i] = output_commitments[i + accumulator_vkey.size()];
     }
+
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("HASH = ", builder->hash_circuit());
+    // }
 
     return accumulator;
 }

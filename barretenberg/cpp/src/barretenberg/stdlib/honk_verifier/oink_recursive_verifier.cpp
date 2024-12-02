@@ -129,10 +129,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     verification_key->witness_commitments = std::move(commitments);
     verification_key->public_inputs = std::move(public_inputs);
     verification_key->alphas = std::move(alphas);
-
-    if constexpr (!IsSimulator<Builder>) {
-        info("Circuit hash = ", builder->hash_circuit());
-    }
 }
 
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
