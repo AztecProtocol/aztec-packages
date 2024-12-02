@@ -336,7 +336,7 @@ export class ProvingOrchestrator implements EpochProver {
 
   /** Returns the block as built for a given index. */
   public getBlock(index: number): L2Block {
-    const block = this.provingState?.blocks[index].block;
+    const block = this.provingState?.blocks[index]?.block;
     if (!block) {
       throw new Error(`Block at index ${index} not available`);
     }
@@ -354,7 +354,10 @@ export class ProvingOrchestrator implements EpochProver {
   })
   private padEpoch(): Promise<void> {
     const provingState = this.provingState!;
-    const lastBlock = maxBy(provingState.blocks, b => b.blockNumber)?.block;
+    const lastBlock = maxBy(
+      provingState.blocks.filter(b => !!b),
+      b => b!.blockNumber,
+    )?.block;
     if (!lastBlock) {
       return Promise.reject(new Error(`Epoch needs at least one completed block in order to be padded`));
     }

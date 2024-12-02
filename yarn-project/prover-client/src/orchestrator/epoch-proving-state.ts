@@ -50,7 +50,7 @@ export class EpochProvingState {
   private mergeRollupInputs: BlockMergeRollupInputData[] = [];
   public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
   public finalProof: Proof | undefined;
-  public blocks: BlockProvingState[] = [];
+  public blocks: (BlockProvingState | undefined)[] = [];
 
   constructor(
     public readonly epochNumber: number,
@@ -178,7 +178,7 @@ export class EpochProvingState {
 
   // Returns a specific transaction proving state
   public getBlockProvingStateByBlockNumber(blockNumber: number) {
-    return this.blocks.find(block => block.blockNumber === blockNumber);
+    return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
   // Returns a set of merge rollup inputs
