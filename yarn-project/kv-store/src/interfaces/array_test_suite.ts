@@ -16,20 +16,28 @@ export function describeAztecArray(testName: string, getStore: () => Promise<Azt
       arr = store.openArray<number>('test');
     });
 
-    async function length() {
-      return isAsyncStore(store) ? await arr.lengthAsync() : (arr as AztecArray<number>).length;
+    async function length(sut: AztecAsyncArray<number> | AztecArray<number> = arr) {
+      return isAsyncStore(store)
+        ? await (sut as AztecAsyncArray<number>).lengthAsync()
+        : (sut as AztecArray<number>).length;
     }
 
     async function at(index: number) {
-      return isAsyncStore(store) ? await arr.atAsync(index) : (arr as AztecArray<number>).at(index);
+      return isAsyncStore(store)
+        ? await (arr as AztecAsyncArray<number>).atAsync(index)
+        : (arr as AztecArray<number>).at(index);
     }
 
     async function entries() {
-      return isAsyncStore(store) ? await toArray(arr.entriesAsync()) : (arr as AztecArray<number>).entries();
+      return isAsyncStore(store)
+        ? await toArray((arr as AztecAsyncArray<number>).entriesAsync())
+        : await toArray((arr as AztecArray<number>).entries());
     }
 
-    async function values() {
-      return isAsyncStore(store) ? await toArray(arr.valuesAsync()) : (arr as AztecArray<number>).values();
+    async function values(sut: AztecAsyncArray<number> | AztecArray<number> = arr) {
+      return isAsyncStore(store)
+        ? await toArray((sut as AztecAsyncArray<number>).valuesAsync())
+        : await toArray((sut as AztecArray<number>).values());
     }
 
     it('should be able to push and pop values', async () => {
@@ -107,10 +115,8 @@ export function describeAztecArray(testName: string, getStore: () => Promise<Azt
       await arr.push(3);
 
       const arr2 = store.openArray<number>('test');
-      const length2 = isAsyncStore(store) ? await arr2.lengthAsync() : (arr2 as AztecArray<number>).length;
-      expect(length2).to.equal(3);
-      const values2 = isAsyncStore(store) ? await toArray(arr2.valuesAsync()) : (arr2 as AztecArray<number>).values();
-      expect(values2).to.deep.equal(await values());
+      expect(await length(arr2)).to.equal(3);
+      expect(await values(arr2)).to.deep.equal(await values());
     });
   });
 }

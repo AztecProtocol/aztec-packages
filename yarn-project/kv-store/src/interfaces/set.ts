@@ -38,11 +38,11 @@ export interface AztecAsyncSet<K extends Key> extends AztecBaseSet<K> {
    * @param key - The key to check
    * @returns True if the key exists, false otherwise
    */
-  has(key: K): Promise<boolean>;
+  hasAsync(key: K): Promise<boolean>;
 
   /**
    * Iterates over the sets's keys entries in the key's natural order
    * @param range - The range of keys to iterate over
    */
-  entries(range?: Range<K>): AsyncIterableIterator<K>;
+  entriesAsync(range?: Range<K>): AsyncIterableIterator<K>;
 }

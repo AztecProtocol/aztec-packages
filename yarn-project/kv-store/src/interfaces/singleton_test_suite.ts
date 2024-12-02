@@ -15,7 +15,9 @@ export function describeAztecSingleton(testName: string, getStore: () => Promise
     });
 
     async function get() {
-      return isAsyncStore(store) ? await singleton.get() : singleton.get();
+      return isAsyncStore(store)
+        ? await (singleton as AztecAsyncSingleton<string>).getAsync()
+        : (singleton as AztecSingleton<string>).get();
     }
 
     it('returns undefined if the value is not set', async () => {

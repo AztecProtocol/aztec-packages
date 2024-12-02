@@ -2,6 +2,7 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
+import { Range } from './common.js';
 import { AztecAsyncSet, AztecSet } from './set.js';
 import { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isAsyncStore } from './utils.js';
@@ -17,7 +18,15 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
     });
 
     async function has(key: string) {
-      return isAsyncStore(store) ? await set.has(key) : set.has(key);
+      return isAsyncStore(store)
+        ? await (set as AztecAsyncSet<string>).hasAsync(key)
+        : (set as AztecSet<string>).has(key);
+    }
+
+    async function entries(range?: Range<any>) {
+      return isAsyncStore(store)
+        ? await toArray((set as AztecAsyncSet<string>).entriesAsync(range))
+        : await toArray((set as AztecSet<string>).entries(range));
     }
 
     it('should be able to set and get values', async () => {
@@ -43,7 +52,7 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
       await set.add('baz');
       await set.add('foo');
 
-      expect(await toArray(set.entries())).to.deep.equal(['baz', 'foo']);
+      expect(await entries()).to.deep.equal(['baz', 'foo']);
     });
 
     it('supports range queries', async () => {
@@ -52,13 +61,13 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
       await set.add('c');
       await set.add('d');
 
-      expect(await toArray(set.entries({ start: 'b', end: 'c' }))).to.deep.equal(['b']);
-      expect(await toArray(set.entries({ start: 'b' }))).to.deep.equal(['b', 'c', 'd']);
-      expect(await toArray(set.entries({ end: 'c' }))).to.deep.equal(['a', 'b']);
-      expect(await toArray(set.entries({ start: 'b', end: 'c', reverse: true }))).to.deep.equal(['c']);
-      expect(await toArray(set.entries({ start: 'b', limit: 1 }))).to.deep.equal(['b']);
-      expect(await toArray(set.entries({ start: 'b', reverse: true }))).to.deep.equal(['d', 'c']);
-      expect(await toArray(set.entries({ end: 'b', reverse: true }))).to.deep.equal(['b', 'a']);
+      expect(await entries({ start: 'b', end: 'c' })).to.deep.equal(['b']);
+      expect(await entries({ start: 'b' })).to.deep.equal(['b', 'c', 'd']);
+      expect(await entries({ end: 'c' })).to.deep.equal(['a', 'b']);
+      expect(await entries({ start: 'b', end: 'c', reverse: true })).to.deep.equal(['c']);
+      expect(await entries({ start: 'b', limit: 1 })).to.deep.equal(['b']);
+      expect(await entries({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
+      expect(await entries({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
     });
   });
 }

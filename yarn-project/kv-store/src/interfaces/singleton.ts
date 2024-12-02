@@ -25,5 +25,5 @@ export interface AztecAsyncSingleton<T> extends AztecBaseSingleton<T> {
   /**
    * Gets the value.
    */
-  get(): Promise<T | undefined>;
+  getAsync(): Promise<T | undefined>;
 }

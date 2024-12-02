@@ -28,12 +28,12 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
     return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').store;
   }
 
-  async get(key: K): Promise<V | undefined> {
+  async getAsync(key: K): Promise<V | undefined> {
     const data = await this.db.get(this.#slot(key));
     return data?.value as V;
   }
 
-  async *getValues(key: K): AsyncIterableIterator<V> {
+  async *getValuesAsync(key: K): AsyncIterableIterator<V> {
     const index = this.db.index('keyCount');
     const rangeQuery = IDBKeyRange.bound(
       [this.#container, this.#normalizeKey(key), 0],
@@ -46,8 +46,8 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
     }
   }
 
-  async has(key: K): Promise<boolean> {
-    const result = (await this.get(key)) !== undefined;
+  async hasAsync(key: K): Promise<boolean> {
+    const result = (await this.getAsync(key)) !== undefined;
     return result;
   }
 
@@ -69,7 +69,7 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
   }
 
   async setIfNotExists(key: K, val: V): Promise<boolean> {
-    if (!(await this.has(key))) {
+    if (!(await this.hasAsync(key))) {
       await this.set(key, val);
       return true;
     }
@@ -96,7 +96,7 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
     }
   }
 
-  async *entries(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
+  async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
     const index = this.db.index('key');
     const rangeQuery = IDBKeyRange.bound(
       [this.#container, range.start ?? ''],
@@ -114,14 +114,14 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
     }
   }
 
-  async *values(range: Range<K> = {}): AsyncIterableIterator<V> {
-    for await (const [_, value] of this.entries(range)) {
+  async *valuesAsync(range: Range<K> = {}): AsyncIterableIterator<V> {
+    for await (const [_, value] of this.entriesAsync(range)) {
       yield value;
     }
   }
 
-  async *keys(range: Range<K> = {}): AsyncIterableIterator<K> {
-    for await (const [key, _] of this.entries(range)) {
+  async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
+    for await (const [key, _] of this.entriesAsync(range)) {
       yield this.#denormalizeKey(key as string);
     }
   }

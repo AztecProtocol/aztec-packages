@@ -19,8 +19,8 @@ export class IndexedDBAztecSet<K extends Key> implements AztecAsyncSet<K> {
     this.map.db = db;
   }
 
-  has(key: K): Promise<boolean> {
-    return this.map.has(key);
+  hasAsync(key: K): Promise<boolean> {
+    return this.map.hasAsync(key);
   }
 
   add(key: K): Promise<void> {
@@ -31,7 +31,7 @@ export class IndexedDBAztecSet<K extends Key> implements AztecAsyncSet<K> {
     return this.map.delete(key);
   }
 
-  async *entries(range: Range<K> = {}): AsyncIterableIterator<K> {
-    yield* this.map.keys(range);
+  async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
+    yield* this.map.keysAsync(range);
   }
 }

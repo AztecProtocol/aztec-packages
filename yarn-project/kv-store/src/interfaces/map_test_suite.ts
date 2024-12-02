@@ -2,8 +2,8 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
-import { Key } from './common.js';
-import { AztecAsyncMultiMap, AztecMultiMap } from './map.js';
+import { Key, Range } from './common.js';
+import { AztecAsyncMap, AztecAsyncMultiMap, AztecMap, AztecMultiMap } from './map.js';
 import { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isAsyncStore } from './utils.js';
 
@@ -17,8 +17,34 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       map = store.openMultiMap<string | [number, string], string>('test');
     });
 
-    async function get(key: Key) {
-      return isAsyncStore(store) ? await map.get(key) : map.get(key);
+    async function get(key: Key, sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
+      return isAsyncStore(store)
+        ? await (sut as AztecAsyncMultiMap<any, any>).getAsync(key)
+        : (sut as AztecMultiMap<any, any>).get(key);
+    }
+
+    async function entries() {
+      return isAsyncStore(store)
+        ? await toArray((map as AztecAsyncMultiMap<any, any>).entriesAsync())
+        : await toArray((map as AztecMultiMap<any, any>).entries());
+    }
+
+    async function values() {
+      return isAsyncStore(store)
+        ? await toArray((map as AztecAsyncMultiMap<any, any>).valuesAsync())
+        : await toArray((map as AztecMultiMap<any, any>).values());
+    }
+
+    async function keys(range?: Range<Key>, sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
+      return isAsyncStore(store)
+        ? await toArray((sut as AztecAsyncMultiMap<any, any>).keysAsync(range))
+        : await toArray((sut as AztecMultiMap<any, any>).keys(range));
+    }
+
+    async function getValues(key: Key) {
+      return isAsyncStore(store)
+        ? await toArray((map as AztecAsyncMultiMap<any, any>).getValuesAsync(key))
+        : await toArray((map as AztecMultiMap<any, any>).getValues(key));
     }
 
     it('should be able to set and get values', async () => {
@@ -48,14 +74,14 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
-      expect(await toArray(map.entries())).to.deep.equal([]);
+      expect(await entries()).to.deep.equal([]);
     });
 
     it('should be able to iterate over entries', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await toArray(map.entries())).to.deep.equal([
+      expect(await entries()).to.deep.equal([
         ['baz', 'qux'],
         ['foo', 'bar'],
       ]);
@@ -65,21 +91,21 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await map.set('foo', 'bar');
       await map.set('baz', 'quux');
 
-      expect(await toArray(map.values())).to.deep.equal(['quux', 'bar']);
+      expect(await values()).to.deep.equal(['quux', 'bar']);
     });
 
     it('should be able to iterate over keys', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await toArray(map.keys())).to.deep.equal(['baz', 'foo']);
+      expect(await keys()).to.deep.equal(['baz', 'foo']);
     });
 
     it('should be able to get multiple values for a single key', async () => {
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
 
-      expect(await toArray(map.getValues('foo'))).to.deep.equal(['bar', 'baz']);
+      expect(await getValues('foo')).to.deep.equal(['bar', 'baz']);
     });
 
     it('should be able to delete individual values for a single key', async () => {
@@ -88,7 +114,7 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
 
       await map.deleteValue('foo', 'bar');
 
-      expect(await toArray(map.getValues('foo'))).to.deep.equal(['baz']);
+      expect(await getValues('foo')).to.deep.equal(['baz']);
     });
 
     it('supports tuple keys', async () => {
@@ -98,14 +124,12 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await tupleMap.set([5, 'bar'], 'val');
       await tupleMap.set([0, 'foo'], 'val');
 
-      expect(await toArray(tupleMap.keys())).to.deep.equal([
+      expect(await keys(undefined, tupleMap)).to.deep.equal([
         [0, 'foo'],
         [5, 'bar'],
       ]);
 
-      const result = isAsyncStore(store) ? await tupleMap.get([5, 'bar']) : tupleMap.get([5, 'bar']);
-
-      expect(result).to.equal('val');
+      expect(await get([5, 'bar'], tupleMap)).to.equal('val');
     });
 
     it('supports range queries', async () => {
@@ -114,13 +138,13 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
       await map.set('c', 'c');
       await map.set('d', 'd');
 
-      expect(await toArray(map.keys({ start: 'b', end: 'c' }))).to.deep.equal(['b']);
-      expect(await toArray(map.keys({ start: 'b' }))).to.deep.equal(['b', 'c', 'd']);
-      expect(await toArray(map.keys({ end: 'c' }))).to.deep.equal(['a', 'b']);
-      expect(await toArray(map.keys({ start: 'b', end: 'c', reverse: true }))).to.deep.equal(['c']);
-      expect(await toArray(map.keys({ start: 'b', limit: 1 }))).to.deep.equal(['b']);
-      expect(await toArray(map.keys({ start: 'b', reverse: true }))).to.deep.equal(['d', 'c']);
-      expect(await toArray(map.keys({ end: 'b', reverse: true }))).to.deep.equal(['b', 'a']);
+      expect(await keys({ start: 'b', end: 'c' })).to.deep.equal(['b']);
+      expect(await keys({ start: 'b' })).to.deep.equal(['b', 'c', 'd']);
+      expect(await keys({ end: 'c' })).to.deep.equal(['a', 'b']);
+      expect(await keys({ start: 'b', end: 'c', reverse: true })).to.deep.equal(['c']);
+      expect(await keys({ start: 'b', limit: 1 })).to.deep.equal(['b']);
+      expect(await keys({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
+      expect(await keys({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
     });
   });
 }

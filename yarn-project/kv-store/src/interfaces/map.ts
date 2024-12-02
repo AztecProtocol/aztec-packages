@@ -90,32 +90,32 @@ export interface AztecAsyncMap<K extends Key, V> extends AztecBaseMap<K, V> {
    * Gets the value at the given key.
    * @param key - The key to get the value from
    */
-  get(key: K): Promise<V | undefined>;
+  getAsync(key: K): Promise<V | undefined>;
 
   /**
    * Checks if a key exists in the map.
    * @param key - The key to check
    * @returns True if the key exists, false otherwise
    */
-  has(key: K): Promise<boolean>;
+  hasAsync(key: K): Promise<boolean>;
 
   /**
    * Iterates over the map's key-value entries in the key's natural order
    * @param range - The range of keys to iterate over
    */
-  entries(range?: Range<K>): AsyncIterableIterator<[K, V]>;
+  entriesAsync(range?: Range<K>): AsyncIterableIterator<[K, V]>;
 
   /**
    * Iterates over the map's values in the key's natural order
    * @param range - The range of keys to iterate over
    */
-  values(range?: Range<K>): AsyncIterableIterator<V>;
+  valuesAsync(range?: Range<K>): AsyncIterableIterator<V>;
 
   /**
    * Iterates over the map's keys in the key's natural order
    * @param range - The range of keys to iterate over
    */
-  keys(range?: Range<K>): AsyncIterableIterator<K>;
+  keysAsync(range?: Range<K>): AsyncIterableIterator<K>;
 }
 
 /**
@@ -126,7 +126,7 @@ export interface AztecAsyncMultiMap<K extends Key, V> extends AztecAsyncMap<K, V
    * Gets all the values at the given key.
    * @param key - The key to get the values from
    */
-  getValues(key: K): AsyncIterableIterator<V>;
+  getValuesAsync(key: K): AsyncIterableIterator<V>;
 
   /**
    * Deletes a specific value at the given key.

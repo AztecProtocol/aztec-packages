@@ -58,7 +58,7 @@ export interface AztecAsyncArray<T> extends BaseAztecArray<T> {
   [Symbol.asyncIterator](): AsyncIterableIterator<T>;
 }
 
-export interface AztecArray<T> extends BaseAztecArray<T>, AztecAsyncArray<T> {
+export interface AztecArray<T> extends BaseAztecArray<T> {
   /**
    * The size of the array
    */

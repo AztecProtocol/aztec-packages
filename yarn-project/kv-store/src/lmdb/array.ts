@@ -1,6 +1,6 @@
 import { type Database, type Key } from 'lmdb';
 
-import { type AztecArray } from '../interfaces/array.js';
+import { type AztecArray, AztecAsyncArray } from '../interfaces/array.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
 /** The shape of a key that stores a value in an array */
@@ -9,7 +9,7 @@ type ArrayIndexSlot = ['array', string, 'slot', number];
 /**
  * An persistent array backed by LMDB.
  */
-export class LmdbAztecArray<T> implements AztecArray<T> {
+export class LmdbAztecArray<T> implements AztecArray<T>, AztecAsyncArray<T> {
   #db: Database<T, ArrayIndexSlot>;
   #name: string;
   #length: LmdbAztecSingleton<number>;
@@ -25,7 +25,7 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
   }
 
   async lengthAsync(): Promise<number> {
-    return Promise.resolve(this.length);
+    return this.length;
   }
 
   push(...vals: T[]): Promise<number> {
@@ -73,8 +73,8 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
     return this.#db.get(this.#slot(index));
   }
 
-  atAsync(index: number): Promise<T | undefined> {
-    return Promise.resolve(this.at(index));
+  async atAsync(index: number): Promise<T | undefined> {
+    return this.at(index);
   }
 
   setAt(index: number, val: T): Promise<boolean> {

@@ -26,7 +26,7 @@ export class IndexedDBAztecSingleton<T> implements AztecAsyncSingleton<T> {
     return this.#_db ? this.#_db : this.#rootDB.transaction('data', 'readwrite').store;
   }
 
-  async get(): Promise<T | undefined> {
+  async getAsync(): Promise<T | undefined> {
     const data = await this.db.get(this.#slot);
     return data?.value as T;
   }

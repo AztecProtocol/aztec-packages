@@ -15,7 +15,9 @@ export function describeAztecStore(
       store: AztecKVStore | AztecAsyncKVStore,
       singleton: AztecSingleton<string> | AztecAsyncSingleton<string>,
     ) {
-      return isAsyncStore(store) ? await singleton.get() : singleton.get();
+      return isAsyncStore(store)
+        ? await (singleton as AztecAsyncSingleton<string>).getAsync()
+        : (singleton as AztecSingleton<string>).get();
     }
 
     const itForks = async (store: AztecKVStore | AztecAsyncKVStore) => {
