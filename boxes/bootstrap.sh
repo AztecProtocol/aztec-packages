@@ -8,9 +8,9 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-# yarn build
+yarn && yarn build
 
 if $ci3/base/is_test; then
-  parallel --timeout 5m --verbose \
+  parallel --timeout 5m --verbose --halt now,fail=1 \
       BOX={} docker compose -p {} up --exit-code-from=boxes --force-recreate ::: vanilla react
 fi
