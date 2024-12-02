@@ -134,6 +134,7 @@ describe('L1Publisher', () => {
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
     publicClient.estimateGas.mockResolvedValue(GAS_GUESS);
     l1TxUtils.sendAndMonitorTransaction.mockResolvedValue(proposeTxReceipt);
+    (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
   });
 
   it('publishes and propose l2 block to l1', async () => {
@@ -163,7 +164,7 @@ describe('L1Publisher', () => {
         to: mockRollupAddress,
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
-      { bufferFixed: L1Publisher.PROPOSE_GAS_GUESS },
+      { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
     );
   });
 

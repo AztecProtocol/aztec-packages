@@ -514,7 +514,6 @@ export class L1Publisher {
     });
 
     this.log.verbose(`Submitting propose transaction`);
-
     const result = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
