@@ -15,7 +15,7 @@ function build {
   $ci3/github/group "yarn-project build"
 
   HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
-    ../noir-projects/*/.rebuild_patterns \
+    ../noir-projects/.rebuild_patterns \
     ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns)
   # Generate l1-artifacts before creating lock file

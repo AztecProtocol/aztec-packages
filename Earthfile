@@ -8,7 +8,7 @@ bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
-  ENV AZTEC_CACHE_COMMIT=7100222db0a2a326ea4238f783f1c524a2880d8e
+  # ENV AZTEC_CACHE_COMMIT=7100222db0a2a326ea4238f783f1c524a2880d8e
   WORKDIR /build-volume
   # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
