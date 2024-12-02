@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eux
 
+root=$(git rev-parse --show-toplevel)
+
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
@@ -16,8 +18,8 @@ $BIN proof_as_fields_honk -k vk $FLAGS -p $PROOF
 $BIN contract_ultra_honk -k vk $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner
-export VERIFIER_PATH="$(pwd)/Verifier.sol"
-export TEST_PATH=$(realpath "../../sol-test/HonkTest.sol")
+export VERIFIER_PATH="$root/barretenberg/acir_tests/Verifier.sol"
+export TEST_PATH=$("../../sol-test/HonkTest.sol")
 export TESTING_HONK="true"
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
