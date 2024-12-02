@@ -3,7 +3,7 @@
 # Set BASH best practices for early error exit and undefined variables.
 set -eu
 # Enter our script directory, allowing usage of scripts from any directory.
-cd "$(dirname $0)"
+[ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
 # Expose $ci3 as a base path.
 root="$(git rev-parse --show-toplevel)"
 ci3="$root/ci3"

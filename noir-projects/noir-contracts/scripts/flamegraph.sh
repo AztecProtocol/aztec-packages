@@ -55,7 +55,7 @@ ARTIFACT=$(echo "$ARTIFACT" | tr '[:upper:]' '[:lower:]')
 ARTIFACT_NAME="${ARTIFACT}_contract-${CONTRACT}"
 
 # Extract artifact for the specific function
-node "$SCRIPT_DIR/../extractFunctionAsNoirArtifact.js" "$SCRIPT_DIR/../target/${ARTIFACT_NAME}.json" $FUNCTION
+node "$SCRIPT_DIR/extractFunctionAsNoirArtifact.js" "$SCRIPT_DIR/../target/${ARTIFACT_NAME}.json" $FUNCTION
 
 FUNCTION_ARTIFACT="${ARTIFACT_NAME}-${FUNCTION}.json"
 

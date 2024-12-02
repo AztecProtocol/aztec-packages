@@ -229,17 +229,30 @@ fn display_test_report(
     let writer = StandardStream::stderr(ColorChoice::Always);
     let mut writer = writer.lock();
 
-    for (test_name, test_status) in test_report {
+    let mut sorted_refs: Vec<&(String, TestStatus)> = test_report.iter().collect();
+    // sorted_refs.sort_by(|a, b| a.0.cmp(&b.0));
+    sorted_refs.sort_by(|a, b| match (&a.1, &b.1) {
+        (TestStatus::Pass(d1), TestStatus::Pass(d2)) => d1.cmp(d2),
+        _ => std::cmp::Ordering::Equal,
+    });
+
+    for (test_name, test_status) in sorted_refs {
         write!(writer, "[{}] Testing {test_name}... ", package.name)
             .expect("Failed to write to stderr");
         writer.flush().expect("Failed to flush writer");
 
         match &test_status {
-            TestStatus::Pass { .. } => {
+            TestStatus::Pass(duration) => {
                 writer
                     .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
                     .expect("Failed to set color");
-                writeln!(writer, "ok").expect("Failed to write to stderr");
+                write!(writer, "ok").expect("Failed to write to stderr");
+                writer
+                    .set_color(ColorSpec::new().set_fg(Some(Color::White)))
+                    .expect("Failed to set color");
+                // writeln!(writer, " ({}s)", duration.as_secs()).expect("Failed to write to stderr");
+                let duration_secs = duration.as_secs_f64();
+                writeln!(writer, " ({:.5}s)", duration_secs).expect("Failed to write to stderr");
             }
             TestStatus::Fail { message, error_diagnostic } => {
                 writer

@@ -18,8 +18,8 @@ function build {
     ../noir-projects/*/.rebuild_patterns \
     ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns)
-  # # Generate l1-artifacts before creating lock file
-  # (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+  # Generate l1-artifacts before creating lock file
+  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
 
   # Fast build does not delete everything first.
   # It regenerates all generated code, then performs an incremental tsc build.
