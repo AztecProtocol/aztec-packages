@@ -2851,10 +2851,6 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
     };
 
     for (auto& block : blocks.get()) {
-        std::for_each(block.get_gate_selectors().begin(), block.get_gate_selectors().end(), convert_and_insert);
-    }
-
-    for (auto& block : blocks.get()) {
         std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
         std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
     }
