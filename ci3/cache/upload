@@ -6,28 +6,27 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
-if [ "${CI:-0}" -lt 1 ] ; then
-  # Don't upload if CI is not on.
-  exit 0
-fi
-
 # Name, intended to have .tar.gz ending
-NAME="$1"
+name="$1"
 
 shift 1
 
-TAR_DIR=$(mktemp -d)
-TAR_FILE="$TAR_DIR/${NAME}"
+tar_dir=$(mktemp -d)
+tar_file="$tar_dir/${name}"
 
 function on_exit() {
   # Cleanup the temporary folder
-  rm -rf "$TAR_DIR"
+  rm -rf "$tar_dir"
 }
 trap on_exit EXIT
 
 # Create the tar.gz file
 # Rest of args are our binary paths
-tar -czf "$TAR_FILE" $@
+tar -czf "$tar_file" $@
 
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME" >&2
-echo "Cache upload of $NAME complete." >&2
+if ! aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" >/dev/null 2>&1; then
+  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$name" >&2
+  echo "Cache upload of $name complete." >&2
+else
+  echo "Skipping upload, already exists: $name" >&2
+fi

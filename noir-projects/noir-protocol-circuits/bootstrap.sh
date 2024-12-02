@@ -3,24 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  elif [ "$CMD" = "clean-keys" ]; then
-    rm -rf target/keys
-    # for artifact in target/*.json; do
-    #   echo "Scrubbing vk from $artifact..."
-    #   jq 'del(.verification_key)' "$artifact" > "${artifact}.tmp"
-    #   mv "${artifact}.tmp" "$artifact"
-    # done
-    exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
-  fi
-fi
-
 export RAYON_NUM_THREADS=16
 export HARDWARE_CONCURRENCY=16
 
@@ -122,7 +104,26 @@ function test {
 
 export -f compile test build
 
-parallel --line-buffered bash -c {} ::: build test
-
-# For testing.
-# compile empty_nested
+case "$CMD" in
+  "clean")
+    git clean -fdx
+    ;;
+  "clean-keys")
+    rm -rf target/keys
+    ;;
+  ""|"fast")
+    USE_CACHE=1 build
+    ;;
+  "full")
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "ci")
+    USE_CACHE=1 parallel --line-buffered bash -c {} ::: build test
+    ;;
+  *)
+    echo "Unknown command: $CMD"
+    exit 1
+esac
