@@ -485,6 +485,7 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
+// WORKTODO: change these lengths to include IPA proofs/claims
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 463;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 463;
@@ -712,3 +713,4 @@ pub global PROOF_TYPE_HONK: u32 = 1;
 pub global PROOF_TYPE_OINK: u32 = 2;
 pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
+// WORKTODO: add PROOF_TYPE_ROLLUP_HONK
