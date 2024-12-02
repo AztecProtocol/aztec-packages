@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "This file should not outside of bootstrap/test, this may have accidentally been committed if so!"
+echo "This file should not exist outside of bootstrap/test, this may have accidentally been committed if so!"
 # Use ci3 script base.
 source "$(git rev-parse --show-toplevel)/ci3/base/source"
 if ! $ci3/cache/should_run.bkup "$@"; then
