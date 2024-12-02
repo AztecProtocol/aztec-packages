@@ -121,13 +121,13 @@ class LMDBTreeStore {
 
     void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
-    void write_block_data(block_number_t blockNumber, const BlockPayload& blockData, WriteTransaction& tx);
+    void write_block_data(const block_number_t& blockNumber, const BlockPayload& blockData, WriteTransaction& tx);
 
-    bool read_block_data(block_number_t blockNumber, BlockPayload& blockData, ReadTransaction& tx);
+    bool read_block_data(const block_number_t& blockNumber, BlockPayload& blockData, ReadTransaction& tx);
 
-    void delete_block_data(block_number_t blockNumber, WriteTransaction& tx);
+    void delete_block_data(const block_number_t& blockNumber, WriteTransaction& tx);
 
-    void write_block_index_data(block_number_t blockNumber, const index_t& blockSize, WriteTransaction& tx);
+    void write_block_index_data(const block_number_t& blockNumber, const index_t& blockSize, WriteTransaction& tx);
 
     // index here is 0 based
     bool find_block_for_index(const index_t& index, block_number_t& blockNumber, ReadTransaction& tx);

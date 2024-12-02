@@ -669,7 +669,7 @@ WorldStateStatusSummary WorldState::set_finalised_blocks(const index_t& toBlockN
     if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
         throw std::runtime_error(format("Unable to finalise blocks to block number ",
                                         toBlockNumber,
-                                        ", Current finalised block: ",
+                                        ", current finalised block: ",
                                         archive_state.meta.finalisedBlockHeight));
     }
     // This will throw if it fails

@@ -117,7 +117,7 @@ void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
     stats.blockIndicesDBStats = DBStats(BLOCK_INDICES_DB, stat);
 }
 
-void LMDBTreeStore::write_block_data(block_number_t blockNumber,
+void LMDBTreeStore::write_block_data(const block_number_t& blockNumber,
                                      const BlockPayload& blockData,
                                      LMDBTreeStore::WriteTransaction& tx)
 {
@@ -128,13 +128,13 @@ void LMDBTreeStore::write_block_data(block_number_t blockNumber,
     tx.put_value<BlockMetaKeyType>(key, encoded, *_blockDatabase);
 }
 
-void LMDBTreeStore::delete_block_data(block_number_t blockNumber, LMDBTreeStore::WriteTransaction& tx)
+void LMDBTreeStore::delete_block_data(const block_number_t& blockNumber, LMDBTreeStore::WriteTransaction& tx)
 {
     BlockMetaKeyType key(blockNumber);
     tx.delete_value<BlockMetaKeyType>(key, *_blockDatabase);
 }
 
-bool LMDBTreeStore::read_block_data(block_number_t blockNumber,
+bool LMDBTreeStore::read_block_data(const block_number_t& blockNumber,
                                     BlockPayload& blockData,
                                     LMDBTreeStore::ReadTransaction& tx)
 {
@@ -147,7 +147,9 @@ bool LMDBTreeStore::read_block_data(block_number_t blockNumber,
     return success;
 }
 
-void LMDBTreeStore::write_block_index_data(block_number_t blockNumber, const index_t& blockSize, WriteTransaction& tx)
+void LMDBTreeStore::write_block_index_data(const block_number_t& blockNumber,
+                                           const index_t& blockSize,
+                                           WriteTransaction& tx)
 {
     // There can be multiple block numbers aganst the same index (zero size blocks)
     LeafIndexKeyType key(blockSize);
