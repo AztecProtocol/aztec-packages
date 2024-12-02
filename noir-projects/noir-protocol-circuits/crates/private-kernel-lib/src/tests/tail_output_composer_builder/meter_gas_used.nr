@@ -1,9 +1,10 @@
-use crate::components::tail_output_composer::meter_gas_used::meter_gas_used;
+use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::fixture_builder::FixtureBuilder,
 };
@@ -37,26 +38,15 @@ fn meter_gas_used_everything_succeeds() {
 
     builder.append_l2_to_l1_msgs(1);
     metered_da_bytes += 1 * DA_BYTES_PER_FIELD;
+    computed_l2_gas += 1 * L2_GAS_PER_L2_TO_L1_MSG;
 
-    builder.add_note_encrypted_log_hash(1001, 12, 0);
-    metered_da_bytes += 12;
-    computed_l2_gas += 12 * L2_GAS_PER_LOG_BYTE;
+    builder.append_private_logs(3);
+    metered_da_bytes += 3 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD;
+    computed_l2_gas += 3 * L2_GAS_PER_PRIVATE_LOG;
 
-    builder.add_note_encrypted_log_hash(1002, 8, 0);
-    metered_da_bytes += 8;
-    computed_l2_gas += 8 * L2_GAS_PER_LOG_BYTE;
-
-    builder.add_note_encrypted_log_hash(1003, 20, 0);
-    metered_da_bytes += 20;
-    computed_l2_gas += 20 * L2_GAS_PER_LOG_BYTE;
-
-    builder.add_encrypted_log_hash(2001, 2);
-    metered_da_bytes += 2;
-    computed_l2_gas += 2 * L2_GAS_PER_LOG_BYTE;
-
-    builder.add_encrypted_log_hash(2002, 6);
-    metered_da_bytes += 6;
-    computed_l2_gas += 6 * L2_GAS_PER_LOG_BYTE;
+    builder.add_contract_class_log_hash(3001, 51);
+    metered_da_bytes += 51;
+    computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
 
     let data = builder.to_combined_accumulated_data();
     let gas = meter_gas_used(data);
