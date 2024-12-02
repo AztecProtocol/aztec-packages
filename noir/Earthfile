@@ -94,7 +94,6 @@ packages-test:
   BUILD +packages-test-browser
 
 build-acir-tests:
-  LOCALLY
   FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir/noir-repo/test_programs
