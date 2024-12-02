@@ -169,13 +169,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
     // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit());
+    //     info("HASH = ", builder->hash_circuit_for_debug());
     // }
 
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit());
+    //     info("HASH = ", builder->hash_circuit_for_debug());
     // }
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
@@ -189,7 +189,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     }
 
     // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit());
+    //     info("HASH = ", builder->hash_circuit_for_debug());
     // }
 
     for (auto [combination, to_combine] :
@@ -198,7 +198,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     }
 
     // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit());
+    //     info("HASH = ", builder->hash_circuit_for_debug());
     // }
 
     auto accumulator_vkey = accumulator->verification_key->get_all();
@@ -212,7 +212,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     }
 
     // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit());
+    //     info("HASH = ", builder->hash_circuit_for_debug());
     // }
 
     return accumulator;

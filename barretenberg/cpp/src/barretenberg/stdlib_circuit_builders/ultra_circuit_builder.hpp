@@ -865,6 +865,41 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     uint256_t hash_circuit();
 
+    template <typename ExecutionTrace> uint256_t hash_circuit_for_debug()
+    {
+
+        std::vector<uint8_t> to_hash;
+
+        const auto convert_and_insert = [&to_hash](auto& vector) {
+            std::vector<uint8_t> buffer = to_buffer(vector);
+            to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
+        };
+
+        // DEBUG: selectors!
+        // for (auto& block : blocks.get()) {
+        //     convert_and_insert(block.q_m());
+        // }
+        // for (auto& block : blocks.get()) {
+        //     std::for_each(block.get_gate_selectors().begin(), block.get_gate_selectors().end(), convert_and_insert);
+        // }
+        for (auto& block : blocks.get()) {
+            std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
+        }
+
+        // // DEBUG: wires!
+        // for (auto& block : blocks.get()) {
+        //     std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
+        // }
+
+        // for (auto& block : blocks.get()) {
+        //     std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
+        //     std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
+        // }
+        // convert_and_insert(this->real_variable_index);
+
+        return from_buffer<uint256_t>(crypto::sha256(to_hash));
+    }
+
     msgpack::sbuffer export_circuit() override;
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;

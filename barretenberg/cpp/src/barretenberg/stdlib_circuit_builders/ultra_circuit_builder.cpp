@@ -2831,75 +2831,37 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
 
 template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit()
 {
+    finalize_circuit(/*ensure_nonzero=*/false);
 
-    std::vector<uint8_t> to_hash;
+    size_t sum_of_block_sizes(0);
+    for (auto& block : blocks.get()) {
+        sum_of_block_sizes += block.size();
+    }
+
+    size_t num_bytes_in_selectors = sizeof(FF) * ExecutionTrace::NUM_SELECTORS * sum_of_block_sizes;
+    size_t num_bytes_in_wires_and_copy_constraints =
+        sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
+    size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
+
+    std::vector<uint8_t> to_hash(num_bytes_to_hash);
 
     const auto convert_and_insert = [&to_hash](auto& vector) {
         std::vector<uint8_t> buffer = to_buffer(vector);
         to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
     };
 
-    // DEBUG: selectors!
-    // for (auto& block : blocks.get()) {
-    //     convert_and_insert(block.q_m());
-    // }
-    // for (auto& block : blocks.get()) {
-    //     std::for_each(block.get_gate_selectors().begin(), block.get_gate_selectors().end(), convert_and_insert);
-    // }
     for (auto& block : blocks.get()) {
-        std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
+        std::for_each(block.get_gate_selectors().begin(), block.get_gate_selectors().end(), convert_and_insert);
     }
 
-    // // DEBUG: wires!
-    // for (auto& block : blocks.get()) {
-    //     std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
-    // }
-
-    // for (auto& block : blocks.get()) {
-    //     std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
-    //     std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
-    // }
-    // convert_and_insert(this->real_variable_index);
+    for (auto& block : blocks.get()) {
+        std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
+        std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
+    }
+    convert_and_insert(this->real_variable_index);
 
     return from_buffer<uint256_t>(crypto::sha256(to_hash));
 }
-
-// template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit()
-// {
-//     finalize_circuit(/*ensure_nonzero=*/false);
-
-//     size_t sum_of_block_sizes(0);
-//     for (auto& block : blocks.get()) {
-//         sum_of_block_sizes += block.size();
-//     }
-
-//     size_t num_bytes_in_selectors = sizeof(FF) * ExecutionTrace::NUM_SELECTORS * sum_of_block_sizes;
-//     size_t num_bytes_in_wires_and_copy_constraints =
-//         sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
-//     size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
-
-//     std::vector<uint8_t> to_hash(num_bytes_to_hash);
-
-//     const auto convert_and_insert = [&to_hash](auto& vector) {
-//         std::vector<uint8_t> buffer = to_buffer(vector);
-//         to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
-//     };
-
-//     for (auto& block : blocks.get()) {
-//         convert_and_insert(block.q_m());
-//     }
-//     // for (auto& block : blocks.get()) {
-//     //     std::for_each(block.get_gate_selectors().begin(), block.get_gate_selectors().end(), convert_and_insert);
-//     // }
-
-//     // for (auto& block : blocks.get()) {
-//     //     std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
-//     //     std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
-//     // }
-//     // convert_and_insert(this->real_variable_index);
-
-//     return from_buffer<uint256_t>(crypto::sha256(to_hash));
-// }
 
 /**
  * Export the existing circuit as msgpack compatible buffer.

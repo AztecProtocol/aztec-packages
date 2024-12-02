@@ -93,7 +93,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // info("PRE-DB HASH = ", circuit.hash_circuit());
+    // info("PRE-DB HASH = ", circuit.hash_circuit_for_debug());
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
     // checks between the calldata commitments and the return data commitments contained within the public inputs
@@ -104,7 +104,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
 
-    // info("POST-DB HASH = ", circuit.hash_circuit());
+    // info("POST-DB HASH = ", circuit.hash_circuit_for_debug());
 }
 
 /**
@@ -137,7 +137,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     if (stdlib_verification_queue.empty()) {
         instantiate_stdlib_verification_queue(circuit);
     }
-    // info("HASH = ", circuit.hash_circuit());
+    // info("HASH = ", circuit.hash_circuit_for_debug());
 
     // Peform recursive verification and databus consistency checks for each entry in the verification queue
     for (auto& [proof, vkey, type] : stdlib_verification_queue) {
@@ -145,7 +145,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
     stdlib_verification_queue.clear();
 
-    // info("POST HASH = ", circuit.hash_circuit());
+    // info("POST HASH = ", circuit.hash_circuit_for_debug());
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
     bus_depot.propagate_return_data_commitments(circuit);
