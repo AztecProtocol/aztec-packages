@@ -8,7 +8,11 @@ import Image from "@theme/IdealImage";
 
 This page outlines Aztec's fundamental technical concepts. It is recommended to read this before diving into building on Aztec.
 
-## High level view of Aztec
+## What is Aztec?
+
+Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with both private & public state and private & public execution. 
+
+## High level view
 
 <Image img={require("/img/aztec-high-level.png")} />
 

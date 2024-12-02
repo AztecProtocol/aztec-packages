@@ -250,6 +250,13 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
+                to: "https://github.com/AztecProtocol/aztec-starter",
+                label: "Aztec Starter repo",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "github-item",
+              },
+              {
                 to: "https://github.com/AztecProtocol/aztec-packages",
                 label: "Aztec Monorepo",
                 target: "_blank",

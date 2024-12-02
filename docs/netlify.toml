@@ -20,27 +20,27 @@
 
 [[redirects]]
     from = "/tutorials/contract_tutorials//token_bridge/typescript_glue_code"
-    to = "/tutorials/codealong/contract_tutorials//token_bridge/typescript_glue_code"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge/typescript_glue_code"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials//token_bridge/withdrawing_to_l1"
-    to = "/tutorials/codealong/contract_tutorials//token_bridge/withdrawing_to_l1"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge/withdrawing_to_l1"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials//token_bridge/minting_on_aztec"
-    to = "/tutorials/codealong/contract_tutorials//token_bridge/minting_on_aztec"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge/minting_on_aztec"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials//token_bridge/depositing_to_aztec"
-    to = "/tutorials/codealong/contract_tutorials//token_bridge/depositing_to_aztec"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge/depositing_to_aztec"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials//token_bridge"
-    to = "/tutorials/codealong/contract_tutorials//token_bridge"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials//token_bridge/setup"
-    to = "/tutorials/codealong/contract_tutorials//token_bridge/setup"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge/setup"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
