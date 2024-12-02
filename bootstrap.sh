@@ -131,14 +131,14 @@ case "$CMD" in
     echo "Toolchains look good! 🎉"
     exit 0
   ;;
-  "e2e-image-test")
-    ./bootstrap.sh aztec-image
-    ./bootstrap.sh e2e-image
+  "test-e2e")
+    ./bootstrap.sh image-aztec
+    ./bootstrap.sh image-e2e
     yarn-project/end-to-end/scripts/e2e_test.sh $@
     exit
   ;;
-  "aztec-image")
-    $ci3/github/group "aztec-image"
+  "image-aztec")
+    $ci3/github/group "image-aztec"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr/src
     # TODO(ci3) eventually this will just be a normal mounted docker build
@@ -149,8 +149,8 @@ case "$CMD" in
     $ci3/github/endgroup
     exit
   ;;
-  "e2e-image")
-    $ci3/github/group "e2e-image"
+  "image-e2e")
+    $ci3/github/group "image-aztec"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
     # TODO(ci3) eventually this will just be a normal mounted docker build
@@ -162,8 +162,8 @@ case "$CMD" in
     $ci3/github/endgroup
     exit
   ;;
-  "faucet-image")
-    $ci3/github/group "faucet-image"
+  "image-faucet")
+    $ci3/github/group "image-faucet"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
     # TODO(ci3) eventually this will just be a normal mounted docker build
@@ -175,7 +175,7 @@ case "$CMD" in
     exit
   ;;
   *)
-    echo "usage: $0 <clean|full|fast|check|aztec-image|e2e-image>"
+    echo "usage: $0 <clean|full|fast|check|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac

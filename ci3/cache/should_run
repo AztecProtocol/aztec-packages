@@ -1,17 +1,10 @@
 #!/bin/bash
-# Are we able to download from a file with the flag name?
-# if TEST=0 is explicit, don't run tests.
-if [ "${TEST:-}" = 0 ]; then
-  echo "Skipping test $1 because TEST=0."
+echo "This file should not outside of bootstrap/test, this may have accidentally been committed if so!"
+# Use ci3 script base.
+source "$(git rev-parse --show-toplevel)/ci3/base/source"
+if ! $ci3/cache/should_run.bkup "$@"; then
+  echo "Should not want to skip $@" >> "$ci3/cache/.test_faillures"
   exit 1
 fi
-if [ "${TEST:-}" != 1 ] && [ "${CI:-}" != 1 ]; then
-  echo "Skipping test $1 because neither CI or TEST are 1."
-  exit 1
-fi
-# if we download the test s3 flag, don't run this
-if $(dirname $0)/download_flag "$1" ; then
-  exit 1
-fi
-# otherwise CI=1 or TEST=1 and we have not found our flag in S3, run
+# In the first pass, we want to run each test
 exit 0
