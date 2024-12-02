@@ -18,7 +18,7 @@ $BIN proof_as_fields_honk -k vk $FLAGS -p $PROOF
 $BIN contract_ultra_honk -k vk $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner
-export VERIFIER_PATH="$root//Verifier.sol"
+export VERIFIER_PATH="$root/barretenberg/acir_tests/sol-test/Verifier.sol"
 export TEST_PATH="$root/barretenberg/acir_tests/sol-test/HonkTest.sol"
 export TESTING_HONK="true"
 
