@@ -34,12 +34,17 @@ pub(crate) struct ExecuteCommand {
     /// Set to print output witness to stdout
     #[clap(long, short, action)]
     print: bool,
+
+    /// JSON RPC url to solve oracle calls
+    #[clap(long)]
+    oracle_resolver: Option<String>,
 }
 
 fn run_command(args: ExecuteCommand) -> Result<String, CliError> {
     let bytecode = read_bytecode_from_file(&args.working_directory, &args.bytecode)?;
     let circuit_inputs = read_inputs_from_file(&args.working_directory, &args.input_witness)?;
-    let output_witness = execute_program_from_witness(circuit_inputs, &bytecode)?;
+    let output_witness =
+        execute_program_from_witness(circuit_inputs, &bytecode, args.oracle_resolver.as_deref())?;
     assert_eq!(output_witness.length(), 1, "ACVM CLI only supports a witness stack of size 1");
     let output_witness_string = create_output_witness_string(
         &output_witness.peek().expect("Should have a witness stack item").witness,
@@ -66,6 +71,7 @@ pub(crate) fn run(args: ExecuteCommand) -> Result<String, CliError> {
 pub(crate) fn execute_program_from_witness(
     inputs_map: WitnessMap<FieldElement>,
     bytecode: &[u8],
+    oracle_resolver_url: Option<&str>,
 ) -> Result<WitnessStack<FieldElement>, CliError> {
     let program: Program<FieldElement> = Program::deserialize_program(bytecode)
         .map_err(|_| CliError::CircuitDeserializationError())?;
@@ -73,7 +79,7 @@ pub(crate) fn execute_program_from_witness(
         &program,
         inputs_map,
         &Bn254BlackBoxSolver,
-        &mut DefaultForeignCallExecutor::new(true, None, None, None),
+        &mut DefaultForeignCallExecutor::new(true, oracle_resolver_url, None, None),
     )
     .map_err(CliError::CircuitExecutionError)
 }
