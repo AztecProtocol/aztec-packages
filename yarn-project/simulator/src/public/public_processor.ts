@@ -13,7 +13,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
-  ContractClassRegisteredEvent,
   type ContractDataSource,
   Fr,
   type GlobalVariables,
@@ -26,7 +25,7 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
@@ -275,10 +274,10 @@ export class PublicProcessor {
     });
 
     this.metrics.recordClassRegistration(
-      ...ContractClassRegisteredEvent.fromLogs(
-        tx.contractClassLogs.unrollLogs(),
-        ProtocolContractAddress.ContractClassRegisterer,
-      ),
+      ...tx.contractClassLogs
+        .unrollLogs()
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
     );
 
     const phaseCount = processedPhases.length;

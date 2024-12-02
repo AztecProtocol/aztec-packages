@@ -3,7 +3,7 @@ import {
   type ActualProverConfig,
   type EpochProver,
   type EpochProverManager,
-  type MerkleTreeWriteOperations,
+  type ForkMerkleTreeOperations,
   type ProverCache,
   type ProvingJobBroker,
   type ProvingJobConsumer,
@@ -25,11 +25,8 @@ import { InlineProofStore } from '../proving_broker/proof_store.js';
 import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 
-/**
- * A prover factory.
- * TODO(palla/prover-node): Rename this class
- */
-export class TxProver implements EpochProverManager {
+/** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
+export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
 
@@ -37,6 +34,7 @@ export class TxProver implements EpochProverManager {
 
   private constructor(
     private config: ProverClientConfig,
+    private worldState: ForkMerkleTreeOperations,
     private telemetry: TelemetryClient,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
@@ -47,9 +45,9 @@ export class TxProver implements EpochProverManager {
     this.cacheDir = this.config.cacheDir ? join(this.config.cacheDir, `tx_prover_${this.config.proverId}`) : undefined;
   }
 
-  public createEpochProver(db: MerkleTreeWriteOperations, cache: ProverCache = new InMemoryProverCache()): EpochProver {
+  public createEpochProver(cache: ProverCache = new InMemoryProverCache()): EpochProver {
     return new ProvingOrchestrator(
-      db,
+      this.worldState,
       new CachingBrokerFacade(this.orchestratorClient, cache),
       this.telemetry,
       this.config.proverId,
@@ -104,12 +102,16 @@ export class TxProver implements EpochProverManager {
   /**
    * Creates a new prover client and starts it
    * @param config - The prover configuration.
-   * @param vks - The verification keys for the prover
-   * @param worldStateSynchronizer - An instance of the world state
+   * @param worldState - An instance of the world state
    * @returns An instance of the prover, constructed and started.
    */
-  public static async new(config: ProverClientConfig, broker: ProvingJobBroker, telemetry: TelemetryClient) {
-    const prover = new TxProver(config, telemetry, broker, broker);
+  public static async new(
+    config: ProverClientConfig,
+    worldState: ForkMerkleTreeOperations,
+    broker: ProvingJobBroker,
+    telemetry: TelemetryClient,
+  ) {
+    const prover = new ProverClient(config, worldState, telemetry, broker, broker);
     await prover.start();
     return prover;
   }
