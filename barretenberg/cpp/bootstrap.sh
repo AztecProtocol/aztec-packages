@@ -81,7 +81,7 @@ function test_native {
       cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
     fi
 
-    (cd build && GTEST_COLOR=1 ctest -j32 --output-on-failure)
+    (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
     $ci3/cache/upload_flag barretenberg-test-$HASH
   fi
 }
