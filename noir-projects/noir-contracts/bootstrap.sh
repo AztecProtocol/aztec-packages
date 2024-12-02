@@ -28,6 +28,7 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns
 export BB_HASH=$($ci3/cache/content_hash)
+export PLATFORM_TAG=any
 export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns_native
 export NOIR_HASH=$($ci3/cache/content_hash)
 
