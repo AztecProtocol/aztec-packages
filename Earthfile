@@ -4,7 +4,7 @@ VERSION 0.8
 # Builds
 ########################################################################################################################
 
-bootstrap-noir-bb:
+bootstrap-noir-bb-sol:
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
   ENV AZTEC_CACHE_COMMIT=6abb3ef82027151716dfb7f22fa655cf8f119168
@@ -22,6 +22,7 @@ bootstrap-noir-bb:
     git reset --hard FETCH_HEAD && \
     echo "noir: " && CI=1 TEST=0 USE_CACHE=1 ./noir/bootstrap.sh && \
     echo "barretenberg: " && CI=1 TEST=0 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
+    echo "l1-contracts: " && CI=1 TEST=0 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/src
