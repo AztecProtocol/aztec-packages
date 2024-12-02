@@ -231,11 +231,9 @@ fn display_test_report(
 
     let mut sorted_refs: Vec<&(String, TestStatus)> = test_report.iter().collect();
     // sorted_refs.sort_by(|a, b| a.0.cmp(&b.0));
-    sorted_refs.sort_by(|a, b| {
-        match (&a.1, &b.1) {
-            (TestStatus::Pass(d1), TestStatus::Pass(d2)) => d1.cmp(d2),
-            _ => std::cmp::Ordering::Equal,
-        }
+    sorted_refs.sort_by(|a, b| match (&a.1, &b.1) {
+        (TestStatus::Pass(d1), TestStatus::Pass(d2)) => d1.cmp(d2),
+        _ => std::cmp::Ordering::Equal,
     });
 
     for (test_name, test_status) in sorted_refs {

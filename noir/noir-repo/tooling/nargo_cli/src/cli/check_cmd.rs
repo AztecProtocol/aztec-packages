@@ -15,7 +15,10 @@ use noirc_abi::{AbiParameter, AbiType, MAIN_RETURN_NAME};
 use noirc_driver::{
     check_crate, compute_function_abi, CompileOptions, CrateId, NOIR_ARTIFACT_VERSION_STRING,
 };
-use noirc_frontend::{hir::{Context, ParsedFiles}, monomorphization::monomorphize};
+use noirc_frontend::{
+    hir::{Context, ParsedFiles},
+    monomorphization::monomorphize,
+};
 
 use super::fs::write_to_file;
 use super::NargoConfig;
@@ -61,7 +64,8 @@ pub(crate) fn run(args: CheckCommand, config: NargoConfig) -> Result<(), CliErro
 
     for package in &workspace {
         if args.show_program_hash {
-            let (mut context, crate_id) = prepare_package(&workspace_file_manager, &parsed_files, package);
+            let (mut context, crate_id) =
+                prepare_package(&workspace_file_manager, &parsed_files, package);
             check_crate(&mut context, crate_id, &args.compile_options).unwrap();
             let Some(main) = context.get_main_function(&crate_id) else {
                 continue;

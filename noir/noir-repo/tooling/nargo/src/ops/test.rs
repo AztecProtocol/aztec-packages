@@ -66,7 +66,7 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                     compiled_program.abi,
                     compiled_program.debug,
                     circuit_execution,
-                    time
+                    time,
                 )
             } else {
                 #[cfg(target_arch = "wasm32")]
@@ -134,7 +134,12 @@ fn test_status_program_compile_fail(err: CompileError, test_function: &TestFunct
         return TestStatus::CompileError(err.into());
     }
 
-    check_expected_failure_message(test_function, None, Some(err.into()), std::time::Duration::new(0,0))
+    check_expected_failure_message(
+        test_function,
+        None,
+        Some(err.into()),
+        std::time::Duration::new(0, 0),
+    )
 }
 
 /// The test function compiled successfully.
