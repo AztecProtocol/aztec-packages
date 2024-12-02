@@ -44,8 +44,14 @@ ip=$(aws ec2 describe-instances \
 
 case "$CMD" in
   "ec2")
+    # allows for e.g. ec2 full or ec2 cache-sanity-test
+    shift 1
     # Spin up ec2 instance and bootstrap.
-    $ci3/bootstrap/ec2
+    $ci3/bootstrap/ec2 "$@"
+    ;;
+  "test-cache")
+    # Spin up ec2 instance and bootstrap.
+    scripts/tests/bootstrap/test-cache
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
