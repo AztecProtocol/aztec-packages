@@ -67,7 +67,35 @@ struct BlockIndexPayload {
 
     bool contains(const block_number_t& blockNumber)
     {
-        return std::find(blockNumbers.begin(), blockNumbers.end(), blockNumber) != blockNumbers.end();
+        auto it = std::lower_bound(blockNumbers.begin(), blockNumbers.end(), blockNumber);
+        if (it == blockNumbers.end()) {
+            // The block was not found, we can return
+            return false;
+        }
+        return *it == blockNumber;
+    }
+
+    void delete_block(const block_number_t& blockNumber)
+    {
+        if (blockNumbers.empty()) {
+            return;
+        }
+        // shuffle the block number down, removing the one we want to remove and then pop the end item
+        auto it = std::lower_bound(blockNumbers.begin(), blockNumbers.end(), blockNumber);
+        if (it == blockNumbers.end()) {
+            // The block was not found, we can return
+            return;
+        }
+        // It could be a block higher than the one we are looking for
+        if (*it != blockNumber) {
+            return;
+        }
+        // we have found our block, shuffle blocks after this one down
+        auto readIt = it + 1;
+        while (readIt != blockNumbers.end()) {
+            *it++ = *readIt++;
+        }
+        blockNumbers.pop_back();
     }
 };
 /**

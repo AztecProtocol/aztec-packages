@@ -147,20 +147,29 @@ bool LMDBTreeStore::read_block_data(block_number_t blockNumber,
     return success;
 }
 
-void LMDBTreeStore::write_block_index_data(block_number_t blockNumber, const index_t& index, WriteTransaction& tx)
+void LMDBTreeStore::write_block_index_data(block_number_t blockNumber, const index_t& blockSize, WriteTransaction& tx)
 {
-    LeafIndexKeyType key(index);
+    // There can be multiple block numbers aganst the same index (zero size blocks)
+    LeafIndexKeyType key(blockSize);
     std::vector<uint8_t> data;
+    // Read the block index payload
     bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
     BlockIndexPayload payload;
     if (success) {
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
     }
+
+    // Double check it's not already present (it shouldn't be)
+    // We then add the block number and sort
+    // Sorting shouldn't be necessary as we add blocks in ascending order, but we will make sure
+    // Sorting here and when we unwind blocks means that looking up the block number for an index becomes O(1)
+    // These lookups are much more frequent than adds or deletes so we take the hit here
     if (!payload.contains(blockNumber)) {
         payload.blockNumbers.emplace_back(blockNumber);
         payload.sort();
     }
 
+    // Write the new payload back down
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, payload);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
@@ -171,6 +180,7 @@ bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& b
 {
     LeafIndexKeyType key(index + 1);
     std::vector<uint8_t> data;
+    // Retrieve the payload
     bool success = tx.get_value_or_greater<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
     if (!success) {
         return false;
@@ -180,14 +190,21 @@ bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& b
     if (payload.blockNumbers.empty()) {
         return false;
     }
+    // The block numbers are sorted so we simply return the lowest
     blockNumber = payload.blockNumbers[0];
     return true;
 }
 
-void LMDBTreeStore::delete_block_index(const index_t& index, const block_number_t& blockNumber, WriteTransaction& tx)
+void LMDBTreeStore::delete_block_index(const index_t& blockSize,
+                                       const block_number_t& blockNumber,
+                                       WriteTransaction& tx)
 {
-    LeafIndexKeyType key(index);
+    // To delete a block number form an index we retieve all the block numbers from that index
+    // Then we find and remove the block number in question
+    // Then we write back down
+    LeafIndexKeyType key(blockSize);
     std::vector<uint8_t> data;
+    // Retrieve the data
     bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
     if (!success) {
         return;
@@ -195,16 +212,7 @@ void LMDBTreeStore::delete_block_index(const index_t& index, const block_number_
     BlockIndexPayload payload;
     msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
 
-    if (!payload.blockNumbers.empty()) {
-        // shuffle the block number down, removing the one we want to remove and then pop the end item
-        size_t i = 0;
-        for (i = 0; i < payload.blockNumbers.size() && payload.blockNumbers[i] != blockNumber; ++i) {
-        }
-        for (; i < payload.blockNumbers.size() - 1; ++i) {
-            payload.blockNumbers[i] = payload.blockNumbers[i + 1];
-        }
-        payload.blockNumbers.pop_back();
-    }
+    payload.delete_block(blockNumber);
 
     // if it's now empty, delete it
     if (payload.blockNumbers.empty()) {
