@@ -40,7 +40,7 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
         }
 
-        context.orchestrator.startNewEpoch(1, 1);
+        context.orchestrator.startNewEpoch(1, 1, 1);
         await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
 
         const [processed, failed] = await context.processPublicFunctions(

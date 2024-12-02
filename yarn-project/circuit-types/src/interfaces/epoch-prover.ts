@@ -8,9 +8,10 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
   /**
    * Starts a new epoch. Must be the first method to be called.
    * @param epochNumber - The epoch number.
+   * @param firstBlockNumber - The block number of the first block in the epoch.
    * @param totalNumBlocks - The total number of blocks expected in the epoch (must be at least one).
    **/
-  startNewEpoch(epochNumber: number, totalNumBlocks: number): void;
+  startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void;
 
   /** Pads the block with empty txs if it hasn't reached the declared number of txs. */
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: Header): Promise<L2Block>;
