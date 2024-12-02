@@ -40,5 +40,5 @@ fi
 jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
 # parallel -j$jobs --memfree 500m --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
 for i in "${TEST_NAMES[@]}"; do
-  bash -c "$i"
+  bash -c "./run_acir_test.sh $i"
 done
