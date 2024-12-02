@@ -6,7 +6,7 @@ contract Claim {
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
         protocol_types::address::AztecAddress,
-        state_vars::SharedImmutable,
+        state_vars::PublicImmutable,
     };
     use dep::value_note::value_note::ValueNote;
     use token::Token;
@@ -14,9 +14,9 @@ contract Claim {
     #[storage]
     struct Storage<Context> {
         // Address of a contract based on whose notes we distribute the rewards
-        target_contract: SharedImmutable<AztecAddress, Context>,
+        target_contract: PublicImmutable<AztecAddress, Context>,
         // Token to be distributed as a reward when claiming
-        reward_token: SharedImmutable<AztecAddress, Context>,
+        reward_token: PublicImmutable<AztecAddress, Context>,
     }
 
     #[public]

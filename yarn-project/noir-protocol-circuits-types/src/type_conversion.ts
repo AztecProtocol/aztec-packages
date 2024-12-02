@@ -7,11 +7,8 @@ import {
   type AvmCircuitPublicInputs,
   type AvmProofData,
   AztecAddress,
-  BLOBS_PER_BLOCK,
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  BlobPublicInputs,
-  BlockBlobPublicInputs,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -24,7 +21,6 @@ import {
   CountedPublicCallRequest,
   type EmptyBlockRootRollupInputs,
   type EmptyNestedData,
-  EncryptedLogHash,
   EthAddress,
   FeeRecipient,
   Fr,
@@ -44,16 +40,15 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
@@ -65,7 +60,6 @@ import {
   NUM_BYTES_PER_SHA256,
   NoteHash,
   type NoteHashReadRequestHints,
-  NoteLogHash,
   Nullifier,
   type NullifierLeafPreimage,
   type NullifierReadRequestHints,
@@ -77,7 +71,6 @@ import {
   PartialStateReference,
   type PendingReadHint,
   Point,
-  Poseidon2Sponge,
   type PreviousRollupBlockData,
   type PreviousRollupData,
   PrivateAccumulatedData,
@@ -91,6 +84,8 @@ import {
   type PrivateKernelEmptyInputs,
   type PrivateKernelResetHints,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateLog,
+  PrivateLogData,
   type PrivateToAvmAccumulatedData,
   type PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicAccumulatedData,
@@ -115,15 +110,14 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedEncryptedLogHash,
   ScopedKeyValidationRequestAndGenerator,
   ScopedL2ToL1Message,
   ScopedLogHash,
   ScopedNoteHash,
   ScopedNullifier,
+  ScopedPrivateLogData,
   ScopedReadRequest,
   type SettledReadHint,
-  SpongeBlob,
   StateReference,
   type TUBE_PROOF_LENGTH,
   type TransientDataIndexHint,
@@ -134,7 +128,7 @@ import {
   type VerificationKeyAsFields,
   type VkWitnessData,
 } from '@aztec/circuits.js';
-import { toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import type {
@@ -144,10 +138,6 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BigNum,
-  BlobCommitment as BlobCommitmentNoir,
-  BlobPublicInputs as BlobPublicInputsNoir,
-  BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
@@ -159,7 +149,6 @@ import type {
   Counted as CountedPublicCallRequestNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
-  EncryptedLogHash as EncryptedLogHashNoir,
   FeeRecipient as FeeRecipientNoir,
   Field,
   FixedLengthArray,
@@ -188,7 +177,6 @@ import type {
   NoteHash as NoteHashNoir,
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
   NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
-  NoteLogHash as NoteLogHashNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Nullifier as NullifierNoir,
   NullifierReadRequestHints as NullifierReadRequestHintsNoir,
@@ -198,7 +186,6 @@ import type {
   RootParityInput as ParityRootParityInputNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PendingReadHint as PendingReadHintNoir,
-  Poseidon2 as Poseidon2SpongeNoir,
   PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
@@ -211,6 +198,8 @@ import type {
   PrivateKernelDataWithoutPublicInputs as PrivateKernelDataWithoutPublicInputsNoir,
   PrivateKernelEmptyPrivateInputs as PrivateKernelEmptyPrivateInputsNoir,
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
+  PrivateLogData as PrivateLogDataNoir,
+  Log as PrivateLogNoir,
   PrivateToAvmAccumulatedDataArrayLengths as PrivateToAvmAccumulatedDataArrayLengthsNoir,
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
@@ -232,14 +221,13 @@ import type {
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
-  ScopedEncryptedLogHash as ScopedEncryptedLogHashNoir,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedLogHash as ScopedLogHashNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
+  Scoped as ScopedPrivateLogDataNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
-  SpongeBlob as SpongeBlobNoir,
   StateReference as StateReferenceNoir,
   TransientDataIndexHint as TransientDataIndexHintNoir,
   TreeSnapshots as TreeSnapshotsNoir,
@@ -291,29 +279,6 @@ export function mapNumberFromNoir(number: NoirField): number {
 
 export function mapNumberToNoir(number: number): NoirField {
   return new Fr(BigInt(number)).toString();
-}
-
-/**
- * Maps a BigNum coming to/from noir.
- * TODO(): Is BigInt the best way to represent this?
- * @param number - The BigNum representing the number.
- * @returns The number
- */
-export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
-  // TODO(Miranda): there's gotta be a better way to convert this
-  const paddedLimbs = [
-    `0x` + bignum.limbs[2].substring(2).padStart(4, '0'),
-    bignum.limbs[1].substring(2).padStart(30, '0'),
-    bignum.limbs[0].substring(2).padStart(30, '0'),
-  ];
-  return BigInt(paddedLimbs[0].concat(paddedLimbs[1], paddedLimbs[2]));
-}
-
-export function mapBLS12BigNumToNoir(number: bigint): BigNum {
-  const hex = toHex(number, true);
-  return {
-    limbs: ['0x' + hex.substring(36), '0x' + hex.substring(6, 36), hex.substring(0, 6)],
-  };
 }
 
 /**
@@ -642,12 +607,52 @@ function mapScopedNullifierFromNoir(nullifier: ScopedNullifierNoir) {
   );
 }
 
+function mapPrivateLogToNoir(log: PrivateLog): PrivateLogNoir {
+  return {
+    fields: mapTuple(log.fields, mapFieldToNoir),
+  };
+}
+
+function mapPrivateLogFromNoir(log: PrivateLogNoir) {
+  return new PrivateLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
+}
+
+function mapPrivateLogDataToNoir(data: PrivateLogData): PrivateLogDataNoir {
+  return {
+    log: mapPrivateLogToNoir(data.log),
+    note_hash_counter: mapNumberToNoir(data.noteHashCounter),
+    counter: mapNumberToNoir(data.counter),
+  };
+}
+
+function mapPrivateLogDataFromNoir(data: PrivateLogDataNoir) {
+  return new PrivateLogData(
+    mapPrivateLogFromNoir(data.log),
+    mapNumberFromNoir(data.note_hash_counter),
+    mapNumberFromNoir(data.counter),
+  );
+}
+
+function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): ScopedPrivateLogDataNoir {
+  return {
+    inner: mapPrivateLogDataToNoir(data.inner),
+    contract_address: mapAztecAddressToNoir(data.contractAddress),
+  };
+}
+
+function mapScopedPrivateLogDataFromNoir(data: ScopedPrivateLogDataNoir) {
+  return new ScopedPrivateLogData(
+    mapPrivateLogDataFromNoir(data.inner),
+    mapAztecAddressFromNoir(data.contract_address),
+  );
+}
+
 /**
  * Maps a LogHash to a noir LogHash.
  * @param logHash - The LogHash.
  * @returns The noir log hash.
  */
-export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
+function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
   return {
     value: mapFieldToNoir(logHash.value),
     counter: mapNumberToNoir(logHash.counter),
@@ -660,7 +665,7 @@ export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
  */
-export function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
+function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
   return new LogHash(
     mapFieldFromNoir(logHash.value),
     mapNumberFromNoir(logHash.counter),
@@ -669,63 +674,11 @@ export function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
 }
 
 /**
- * Maps a LogHash to a noir LogHash.
- * @param logHash - The LogHash.
- * @returns The noir log hash.
- */
-export function mapEncryptedLogHashToNoir(logHash: EncryptedLogHash): EncryptedLogHashNoir {
-  return {
-    value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
-    randomness: mapFieldToNoir(logHash.randomness),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-export function mapEncryptedLogHashFromNoir(logHash: EncryptedLogHashNoir): EncryptedLogHash {
-  return new EncryptedLogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
-    mapFieldFromNoir(logHash.randomness),
-  );
-}
-
-/**
  * Maps a ts ScopedLogHash to a noir ScopedLogHash.
  * @param logHash - The ts LogHash.
  * @returns The noir log hash.
  */
-export function mapScopedEncryptedLogHashToNoir(scopedLogHash: ScopedEncryptedLogHash): ScopedEncryptedLogHashNoir {
-  return {
-    log_hash: mapEncryptedLogHashToNoir(scopedLogHash.logHash),
-    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
-  };
-}
-
-/**
- * Maps a noir ScopedLogHash to a ts ScopedLogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-export function mapScopedEncryptedLogHashFromNoir(scopedLogHash: ScopedEncryptedLogHashNoir): ScopedEncryptedLogHash {
-  return new ScopedEncryptedLogHash(
-    mapEncryptedLogHashFromNoir(scopedLogHash.log_hash),
-    mapAztecAddressFromNoir(scopedLogHash.contract_address),
-  );
-}
-
-/**
- * Maps a ts ScopedLogHash to a noir ScopedLogHash.
- * @param logHash - The ts LogHash.
- * @returns The noir log hash.
- */
-export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
+function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
   return {
     log_hash: mapLogHashToNoir(scopedLogHash.logHash),
     contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
@@ -737,38 +690,10 @@ export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogH
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
  */
-export function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
+function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
   return new ScopedLogHash(
     mapLogHashFromNoir(scopedLogHash.log_hash),
     mapAztecAddressFromNoir(scopedLogHash.contract_address),
-  );
-}
-
-/**
- * Maps a LogHash to a noir LogHash.
- * @param noteLogHash - The NoteLogHash.
- * @returns The noir note log hash.
- */
-export function mapNoteLogHashToNoir(noteLogHash: NoteLogHash): NoteLogHashNoir {
-  return {
-    value: mapFieldToNoir(noteLogHash.value),
-    counter: mapNumberToNoir(noteLogHash.counter),
-    length: mapFieldToNoir(noteLogHash.length),
-    note_hash_counter: mapNumberToNoir(noteLogHash.noteHashCounter),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param noteLogHash - The noir NoteLogHash.
- * @returns The TS note log hash.
- */
-export function mapNoteLogHashFromNoir(noteLogHash: NoteLogHashNoir): NoteLogHash {
-  return new NoteLogHash(
-    mapFieldFromNoir(noteLogHash.value),
-    mapNumberFromNoir(noteLogHash.counter),
-    mapFieldFromNoir(noteLogHash.length),
-    mapNumberFromNoir(noteLogHash.note_hash_counter),
   );
 }
 
@@ -777,7 +702,7 @@ export function mapNoteLogHashFromNoir(noteLogHash: NoteLogHashNoir): NoteLogHas
  * @param readRequest - The read request.
  * @returns The noir ReadRequest.
  */
-export function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
+function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
   return {
     value: mapFieldToNoir(readRequest.value),
     counter: mapNumberToNoir(readRequest.counter),
@@ -789,7 +714,7 @@ export function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir 
  * @param readRequest - The noir ReadRequest.
  * @returns The TS ReadRequest.
  */
-export function mapReadRequestFromNoir(readRequest: ReadRequestNoir): ReadRequest {
+function mapReadRequestFromNoir(readRequest: ReadRequestNoir): ReadRequest {
   return new ReadRequest(mapFieldFromNoir(readRequest.value), mapNumberFromNoir(readRequest.counter));
 }
 
@@ -929,11 +854,10 @@ export function mapPrivateCircuitPublicInputsToNoir(
     public_call_requests: mapTuple(privateCircuitPublicInputs.publicCallRequests, mapCountedPublicCallRequestToNoir),
     public_teardown_call_request: mapPublicCallRequestToNoir(privateCircuitPublicInputs.publicTeardownCallRequest),
     l2_to_l1_msgs: mapTuple(privateCircuitPublicInputs.l2ToL1Msgs, mapL2ToL1MessageToNoir),
+    private_logs: mapTuple(privateCircuitPublicInputs.privateLogs, mapPrivateLogDataToNoir),
+    contract_class_logs_hashes: mapTuple(privateCircuitPublicInputs.contractClassLogsHashes, mapLogHashToNoir),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    note_encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.encryptedLogsHashes, mapEncryptedLogHashToNoir),
-    contract_class_logs_hashes: mapTuple(privateCircuitPublicInputs.contractClassLogsHashes, mapLogHashToNoir),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -1160,16 +1084,7 @@ export function mapPrivateAccumulatedDataFromNoir(
     mapTupleFromNoir(privateAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapScopedNoteHashFromNoir),
     mapTupleFromNoir(privateAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapScopedNullifierFromNoir),
     mapTupleFromNoir(privateAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(
-      privateAccumulatedData.note_encrypted_logs_hashes,
-      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-      mapNoteLogHashFromNoir,
-    ),
-    mapTupleFromNoir(
-      privateAccumulatedData.encrypted_logs_hashes,
-      MAX_ENCRYPTED_LOGS_PER_TX,
-      mapScopedEncryptedLogHashFromNoir,
-    ),
+    mapTupleFromNoir(privateAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapScopedPrivateLogDataFromNoir),
     mapTupleFromNoir(
       privateAccumulatedData.contract_class_logs_hashes,
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -1193,8 +1108,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     note_hashes: mapTuple(data.noteHashes, mapScopedNoteHashToNoir),
     nullifiers: mapTuple(data.nullifiers, mapScopedNullifierToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapScopedEncryptedLogHashToNoir),
+    private_logs: mapTuple(data.privateLogs, mapScopedPrivateLogDataToNoir),
     contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
     public_call_requests: mapTuple(data.publicCallRequests, mapCountedPublicCallRequestToNoir),
     private_call_stack: mapTuple(data.privateCallStack, mapPrivateCallRequestToNoir),
@@ -1247,8 +1161,7 @@ function mapPrivateToPublicAccumulatedDataFromNoir(data: PrivateToPublicAccumula
     mapTupleFromNoir(data.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(data.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(data.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(data.note_encrypted_logs_hashes, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
-    mapTupleFromNoir(data.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapScopedLogHashFromNoir),
+    mapTupleFromNoir(data.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
     mapTupleFromNoir(data.contract_class_logs_hashes, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedLogHashFromNoir),
     mapTupleFromNoir(data.public_call_requests, MAX_ENQUEUED_CALLS_PER_TX, mapPublicCallRequestFromNoir),
   );
@@ -1261,8 +1174,7 @@ function mapPrivateToPublicAccumulatedDataToNoir(
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapScopedLogHashToNoir),
+    private_logs: mapTuple(data.privateLogs, mapPrivateLogToNoir),
     contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
     public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
   };
@@ -1301,23 +1213,12 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
  * @param combinedAccumulatedData - The noir combined accumulated data.
  * @returns The parsed combined accumulated data.
  */
-export function mapCombinedAccumulatedDataFromNoir(
-  combinedAccumulatedData: CombinedAccumulatedDataNoir,
-): CombinedAccumulatedData {
+export function mapCombinedAccumulatedDataFromNoir(combinedAccumulatedData: CombinedAccumulatedDataNoir) {
   return new CombinedAccumulatedData(
     mapTupleFromNoir(combinedAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(
-      combinedAccumulatedData.note_encrypted_logs_hashes,
-      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-      mapLogHashFromNoir,
-    ),
-    mapTupleFromNoir(
-      combinedAccumulatedData.encrypted_logs_hashes,
-      MAX_ENCRYPTED_LOGS_PER_TX,
-      mapScopedLogHashFromNoir,
-    ),
+    mapTupleFromNoir(combinedAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.unencrypted_logs_hashes,
       MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -1328,8 +1229,6 @@ export function mapCombinedAccumulatedDataFromNoir(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(combinedAccumulatedData.note_encrypted_log_preimages_length),
-    mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
     mapTupleFromNoir(
@@ -1347,12 +1246,9 @@ export function mapCombinedAccumulatedDataToNoir(
     note_hashes: mapTuple(combinedAccumulatedData.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(combinedAccumulatedData.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    note_encrypted_logs_hashes: mapTuple(combinedAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(combinedAccumulatedData.encryptedLogsHashes, mapScopedLogHashToNoir),
+    private_logs: mapTuple(combinedAccumulatedData.privateLogs, mapPrivateLogToNoir),
     unencrypted_logs_hashes: mapTuple(combinedAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
     contract_class_logs_hashes: mapTuple(combinedAccumulatedData.contractClassLogsHashes, mapScopedLogHashToNoir),
-    note_encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogPreimagesLength),
-    encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
     contract_class_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.contractClassLogPreimagesLength),
     public_data_writes: mapTuple(combinedAccumulatedData.publicDataWrites, mapPublicDataWriteToNoir),
@@ -1633,123 +1529,6 @@ export function mapFeeRecipientFromNoir(feeRecipient: FeeRecipientNoir): FeeReci
 }
 
 /**
- * Maps poseidon sponge to noir.
- * @param sponge - The circuits.js poseidon sponge.
- * @returns The noir poseidon sponge.
- */
-export function mapPoseidon2SpongeToNoir(sponge: Poseidon2Sponge): Poseidon2SpongeNoir {
-  return {
-    cache: mapTuple(sponge.cache, mapFieldToNoir),
-    state: mapTuple(sponge.state, mapFieldToNoir),
-    cache_size: mapNumberToNoir(sponge.cacheSize),
-    squeeze_mode: sponge.squeezeMode,
-  };
-}
-
-/**
- * Maps poseidon sponge from noir.
- * @param sponge - The noir poseidon sponge.
- * @returns The circuits.js poseidon sponge.
- */
-export function mapPoseidon2SpongeFromNoir(sponge: Poseidon2SpongeNoir): Poseidon2Sponge {
-  return new Poseidon2Sponge(
-    mapTupleFromNoir(sponge.cache, 3, mapFieldFromNoir),
-    mapTupleFromNoir(sponge.state, 4, mapFieldFromNoir),
-    mapNumberFromNoir(sponge.cache_size),
-    sponge.squeeze_mode,
-  );
-}
-
-/**
- * Maps sponge blob to noir.
- * @param spongeBlob - The circuits.js sponge blob.
- * @returns The noir sponge blob.
- */
-export function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
-  return {
-    sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
-    fields: mapNumberToNoir(spongeBlob.fields),
-    expected_fields: mapNumberToNoir(spongeBlob.expectedFields),
-  };
-}
-
-/**
- * Maps sponge blob from noir.
- * @param spongeBlob - The noir sponge blob.
- * @returns The circuits.js sponge blob.
- */
-export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
-  return new SpongeBlob(
-    mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
-    mapNumberFromNoir(spongeBlob.fields),
-    mapNumberFromNoir(spongeBlob.expected_fields),
-  );
-}
-
-/**
- * Maps blob commitment to noir.
- * @param commitment - The circuits.js commitment.
- * @returns The noir commitment.
- */
-export function mapBlobCommitmentToNoir(commitment: [Fr, Fr]): BlobCommitmentNoir {
-  return {
-    inner: mapTuple(commitment, mapFieldToNoir),
-  };
-}
-
-/**
- * Maps blob public inputs to noir.
- * @param blobPublicInputs - The circuits.js blob public inputs.
- * @returns The noir blob public inputs.
- */
-export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): BlobPublicInputsNoir {
-  return {
-    z: mapFieldToNoir(blobPublicInputs.z),
-    y: mapBLS12BigNumToNoir(blobPublicInputs.y),
-    kzg_commitment: mapBlobCommitmentToNoir(blobPublicInputs.kzgCommitment),
-  };
-}
-
-/**
- * Maps blob public inputs from noir.
- * @param blobPublicInputs - The noir blob public inputs.
- * @returns The circuits.js blob public inputs.
- */
-export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNoir): BlobPublicInputs {
-  return new BlobPublicInputs(
-    mapFieldFromNoir(blobPublicInputs.z),
-    mapBLS12BigNumFromNoir(blobPublicInputs.y),
-    mapTupleFromNoir(blobPublicInputs.kzg_commitment.inner, 2, mapFieldFromNoir),
-  );
-}
-
-/**
- * Maps block blob public inputs to noir.
- * @param blockBlobPublicInputs - The circuits.js block blob public inputs.
- * @returns The noir block blob public inputs.
- */
-export function mapBlockBlobPublicInputsToNoir(
-  blockBlobPublicInputs: BlockBlobPublicInputs,
-): BlockBlobPublicInputsNoir {
-  return {
-    inner: mapTuple(blockBlobPublicInputs.inner, mapBlobPublicInputsToNoir),
-  };
-}
-
-/**
- * Maps block blob public inputs from noir.
- * @param blockBlobPublicInputs - The noir block blob public inputs.
- * @returns The circuits.js block blob public inputs.
- */
-export function mapBlockBlobPublicInputsFromNoir(
-  blockBlobPublicInputs: BlockBlobPublicInputsNoir,
-): BlockBlobPublicInputs {
-  return new BlockBlobPublicInputs(
-    mapTupleFromNoir(blockBlobPublicInputs.inner, BLOBS_PER_BLOCK, mapBlobPublicInputsFromNoir),
-  );
-}
-
-/**
  * Maps a constant rollup data to a noir constant rollup data.
  * @param constantRollupData - The circuits.js constant rollup data.
  * @returns The noir constant rollup data.
@@ -1791,10 +1570,10 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
-    start_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.startSpongeBlob),
-    end_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.endSpongeBlob),
+    txs_effects_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.txsEffectsHash),
     out_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.outHash),
     accumulated_fees: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedFees),
+    accumulated_mana_used: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedManaUsed),
   };
 }
 
@@ -1818,7 +1597,6 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
-    blob_public_inputs: mapTuple(blockRootOrBlockMergePublicInputs.blobPublicInputs, mapBlockBlobPublicInputsToNoir),
   };
 }
 
@@ -1865,10 +1643,10 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.start_sponge_blob),
-    mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.end_sponge_blob),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.out_hash),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_fees),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_mana_used),
   );
 }
 
@@ -1892,11 +1670,6 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
-    mapTupleFromNoir(
-      blockRootOrBlockMergePublicInputs.blob_public_inputs,
-      AZTEC_MAX_EPOCH_DURATION,
-      mapBlockBlobPublicInputsFromNoir,
-    ),
   );
 }
 
@@ -1996,10 +1769,6 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
-    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    blobs_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
-    blob_commitments: mapTuple(rootRollupInputs.blobCommitments, mapBlobCommitmentToNoir),
-    blobs_hash: mapFieldToNoir(rootRollupInputs.blobsHash),
   };
 }
 
@@ -2078,11 +1847,6 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
-    mapTupleFromNoir(
-      rootRollupPublicInputs.blob_public_inputs,
-      AZTEC_MAX_EPOCH_DURATION,
-      mapBlockBlobPublicInputsFromNoir,
-    ),
   );
 }
 
@@ -2111,6 +1875,7 @@ export function mapHeaderToNoir(header: Header): HeaderNoir {
     state: mapStateReferenceToNoir(header.state),
     global_variables: mapGlobalVariablesToNoir(header.globalVariables),
     total_fees: mapFieldToNoir(header.totalFees),
+    total_mana_used: mapFieldToNoir(header.totalManaUsed),
   };
 }
 
@@ -2126,6 +1891,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
     mapFieldFromNoir(header.total_fees),
+    mapFieldFromNoir(header.total_mana_used),
   );
 }
 
@@ -2136,7 +1902,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
     num_txs: mapFieldToNoir(contentCommitment.numTxs),
-    blobs_hash: mapSha256HashToNoir(contentCommitment.blobsHash),
+    txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
   };
@@ -2149,7 +1915,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
     mapFieldFromNoir(contentCommitment.num_txs),
-    mapSha256HashFromNoir(contentCommitment.blobs_hash),
+    mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),
   );
@@ -2376,8 +2142,8 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
 export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs): PrivateBaseRollupInputsNoir {
   return {
     tube_data: mapPrivateTubeDataToNoir(inputs.tubeData),
+
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
 
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
@@ -2406,8 +2172,8 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
   return {
     tube_data: mapPublicTubeDataToNoir(inputs.tubeData),
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
+
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     state_diff_hints: mapPublicBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
 
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),

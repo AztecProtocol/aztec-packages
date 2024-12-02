@@ -19,17 +19,18 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
  */
 export function makeHeader(
   seed = 0,
-  numTxs: number | undefined = undefined,
   blockNumber: number | undefined = undefined,
   slotNumber: number | undefined = undefined,
+  txsEffectsHash: Buffer | undefined = undefined,
   inHash: Buffer | undefined = undefined,
 ): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment(seed + 0x200, numTxs, inHash),
+    makeContentCommitment(seed + 0x200, txsEffectsHash, inHash),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber, slotNumber ?? blockNumber),
     fr(seed + 0x800),
+    fr(seed + 0x900),
   );
 }
 
@@ -47,12 +48,12 @@ export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
  */
 function makeContentCommitment(
   seed = 0,
-  numTxs: number | undefined = undefined,
+  txsEffectsHash: Buffer | undefined = undefined,
   inHash: Buffer | undefined = undefined,
 ): ContentCommitment {
   return new ContentCommitment(
-    numTxs ? new Fr(numTxs) : new Fr(seed),
-    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
+    new Fr(seed),
+    txsEffectsHash ?? toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
     inHash ?? toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
   );

@@ -296,6 +296,7 @@ export class Sequencer {
       StateReference.empty(),
       newGlobalVariables,
       Fr.ZERO,
+      Fr.ZERO,
     );
 
     // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
@@ -513,17 +514,21 @@ export class Sequencer {
       const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(validTxs, blockSize, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
+        processor.process(
+          validTxs,
+          blockSize,
+          blockBuilder,
+          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
+        ),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
-      await blockBuilder.addTxs(processedTxs);
 
       await interrupt?.(processedTxs);
 
@@ -608,14 +613,19 @@ export class Sequencer {
       await this.publisher.validateBlockForSubmission(block.header);
 
       const workDuration = workTimer.ms();
-      this.log.info(`Assembled block ${block.number} (with hash: ${block.header.hash().toString()})`, {
-        eventName: 'l2-block-built',
-        creator: this.publisher.getSenderAddress().toString(),
-        duration: workDuration,
-        publicProcessDuration: publicProcessorDuration,
-        rollupCircuitsDuration: blockBuildingTimer.ms(),
-        ...block.getStats(),
-      } satisfies L2BlockBuiltStats);
+      this.log.info(
+        `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
+          'hex',
+        )})`,
+        {
+          eventName: 'l2-block-built',
+          creator: this.publisher.getSenderAddress().toString(),
+          duration: workDuration,
+          publicProcessDuration: publicProcessorDuration,
+          rollupCircuitsDuration: blockBuildingTimer.ms(),
+          ...block.getStats(),
+        } satisfies L2BlockBuiltStats,
+      );
 
       if (this.isFlushing) {
         this.log.info(`Flushing completed`);

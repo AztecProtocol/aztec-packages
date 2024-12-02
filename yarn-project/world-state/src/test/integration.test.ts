@@ -14,6 +14,8 @@ import { createWorldState } from '../synchronizer/factory.js';
 import { ServerWorldStateSynchronizer } from '../synchronizer/server_world_state_synchronizer.js';
 import { mockBlocks } from './utils.js';
 
+jest.setTimeout(60_000);
+
 describe('world-state integration', () => {
   let rollupAddress: EthAddress;
   let archiver: MockPrefilledArchiver;
@@ -34,7 +36,7 @@ describe('world-state integration', () => {
     log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
     ({ blocks, messages } = await mockBlocks(1, MAX_BLOCK_COUNT, 1, db));
     log.info(`Generated ${blocks.length} mock blocks`);
-  }, 30_000);
+  });
 
   beforeEach(async () => {
     config = {
@@ -45,6 +47,7 @@ describe('world-state integration', () => {
       worldStateProvenBlocksOnly: false,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,
+      worldStateBlockHistory: 0,
     };
 
     archiver = new MockPrefilledArchiver(blocks, messages);
@@ -52,14 +55,14 @@ describe('world-state integration', () => {
     db = (await createWorldState(config)) as NativeWorldStateService;
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
     log.info(`Created synchronizer`);
-  });
+  }, 30_000);
 
   afterEach(async () => {
     await synchronizer.stop();
     await db.close();
   });
 
-  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 2000) => {
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 5000) => {
     const startTime = Date.now();
     let sleepTime = 0;
     let tips = await synchronizer.getL2Tips();

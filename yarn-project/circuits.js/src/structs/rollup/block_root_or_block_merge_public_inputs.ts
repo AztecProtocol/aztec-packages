@@ -1,11 +1,11 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
-import { BlockBlobPublicInputs } from '../blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
@@ -59,10 +59,6 @@ export class BlockRootOrBlockMergePublicInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
-    /**
-     * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p() for each blob)
-     */
-    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
   ) {}
 
   /**
@@ -84,7 +80,6 @@ export class BlockRootOrBlockMergePublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
     );
   }
 
@@ -105,7 +100,6 @@ export class BlockRootOrBlockMergePublicInputs {
       this.vkTreeRoot,
       this.protocolContractTreeRoot,
       this.proverId,
-      this.blobPublicInputs,
     );
   }
 
@@ -114,7 +108,7 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -123,17 +117,17 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BlockRootOrBlockMergePublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockRootOrBlockMergePublicInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(BlockRootOrBlockMergePublicInputs);
+    return bufferSchemaFor(BlockRootOrBlockMergePublicInputs);
   }
 }
 

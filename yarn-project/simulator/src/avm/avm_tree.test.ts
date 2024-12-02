@@ -6,6 +6,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
@@ -326,6 +327,65 @@ describe('Simple Nullifier Consistency', () => {
     // Check insertion results - note we can only compare against the post-insertion results
     checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults.slice(preInsertIndex));
   });
+
+  it('Should check that the insertion paths resolve to the root', async () => {
+    const treeContainer = await AvmEphemeralForest.create(copyState);
+    const rootBefore = treeContainer.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot().toBuffer();
+
+    const containerInsert = await treeContainer.appendNullifier(indexedHashes[0]);
+    const rootAfter = treeContainer.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot().toBuffer();
+
+    const calcRootFromPath = (path: Fr[], leaf: Fr, index: bigint) => {
+      for (const sibling of path) {
+        if (index % 2n === 0n) {
+          leaf = poseidon2Hash([leaf, sibling]);
+        } else {
+          leaf = poseidon2Hash([sibling, leaf]);
+        }
+        index = index / 2n;
+      }
+      return leaf;
+    };
+
+    // We perform the following steps to check we can compute the next root from the insertion path
+    // (1) Check membership of the low nullifier
+    // (2) Update the low nullifier and compute the new root
+    // (3) Check the insertion path for a zero leaf value against new root
+    // (4) Compute the new root after inserting the new leaf
+    // (5) Check the root after the insertion
+
+    // Step 1
+    const membershipRoot = calcRootFromPath(
+      containerInsert.lowWitness.siblingPath,
+      treeContainer.hashPreimage(containerInsert.lowWitness.preimage),
+      containerInsert.lowWitness.index,
+    );
+    expect(membershipRoot.toBuffer()).toEqual(rootBefore);
+
+    // Step 2
+    // Update low nullifier
+    const newLowNullifier = containerInsert.lowWitness.preimage;
+    newLowNullifier.nextIndex = containerInsert.leafIndex;
+    newLowNullifier.nextNullifier = containerInsert.newOrElementToUpdate.element.nullifier;
+    // Compute new root
+    const updatedRoot = calcRootFromPath(
+      containerInsert.lowWitness.siblingPath,
+      treeContainer.hashPreimage(newLowNullifier),
+      containerInsert.lowWitness.index,
+    );
+
+    //Step 3
+    const zeroMembershipRoot = calcRootFromPath(containerInsert.insertionPath, Fr.ZERO, containerInsert.leafIndex);
+    expect(zeroMembershipRoot.toBuffer()).toEqual(updatedRoot.toBuffer());
+
+    // Step 4
+    const finalRoot = calcRootFromPath(
+      containerInsert.insertionPath,
+      treeContainer.hashPreimage(containerInsert.newOrElementToUpdate.element),
+      containerInsert.leafIndex,
+    );
+    expect(finalRoot.toBuffer()).toEqual(rootAfter);
+  });
 });
 
 describe('Big Random Avm Ephemeral Container Test', () => {
@@ -489,6 +549,25 @@ describe('AVM Ephemeral Tree Sanity Test', () => {
   });
 });
 
+describe('Batch Insertion', () => {
+  it('Should batch insert into the nullifier tree', async () => {
+    const treeContainer = await AvmEphemeralForest.create(copyState);
+    await treeContainer.appendNullifier(indexedHashes[0]);
+    await treeContainer.appendNullifier(indexedHashes[1]);
+    await worldStateTrees.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      [indexedHashes[0].toBuffer(), indexedHashes[1].toBuffer()],
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+
+    // Check root
+    const wsRoot = await getWorldStateRoot(MerkleTreeId.NULLIFIER_TREE);
+    const computedRoot = treeContainer.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot();
+    expect(computedRoot.toBuffer()).toEqual(wsRoot);
+  });
+});
+
+// This benchmark also performs a convenient sanity check
 /* eslint no-console: ["error", { allow: ["time", "timeEnd"] }] */
 describe('A basic benchmark', () => {
   it('Should benchmark writes', async () => {
@@ -498,14 +577,30 @@ describe('A basic benchmark', () => {
     const slots = leaves.map((_, i) => new Fr(i + 128));
 
     const container = await AvmEphemeralForest.create(copyState);
+    await publicDataInsertWorldState(new Fr(0), new Fr(128));
 
     // Updating the first slot, triggers the index 0 to be added to the minimum stored key in the container
     await container.writePublicStorage(new Fr(0), new Fr(128));
+
+    // Check Roots before benchmarking
+    let wsRoot = await getWorldStateRoot(MerkleTreeId.PUBLIC_DATA_TREE);
+    let computedRoot = container.treeMap.get(MerkleTreeId.PUBLIC_DATA_TREE)!.getRoot();
+    expect(computedRoot.toBuffer()).toEqual(wsRoot);
+
     console.time('benchmark');
     // These writes are all new leaves and should be impacted by the key sorted algorithm of the tree.
     for (let i = 0; i < leaves.length; i++) {
       await container.writePublicStorage(slots[i], leaves[i]);
     }
     console.timeEnd('benchmark');
+
+    // Update worldstate for sanity check
+    for (let i = 0; i < leaves.length; i++) {
+      await publicDataInsertWorldState(slots[i], leaves[i]);
+    }
+    // Check roots
+    wsRoot = await getWorldStateRoot(MerkleTreeId.PUBLIC_DATA_TREE);
+    computedRoot = container.treeMap.get(MerkleTreeId.PUBLIC_DATA_TREE)!.getRoot();
+    expect(computedRoot.toBuffer()).toEqual(wsRoot);
   });
 });

@@ -1,5 +1,6 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { MaxBlockNumber } from './max_block_number.js';
 
@@ -23,7 +24,7 @@ export class RollupValidationRequests {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -47,7 +48,7 @@ export class RollupValidationRequests {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return RollupValidationRequests.fromBuffer(Buffer.from(str, 'hex'));
+    return RollupValidationRequests.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {

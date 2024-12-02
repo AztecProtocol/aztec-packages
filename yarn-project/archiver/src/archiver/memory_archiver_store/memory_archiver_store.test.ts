@@ -19,7 +19,7 @@ describe('MemoryArchiverStore', () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);
       const blocks = times(10, (index: number) => ({
-        data: L2Block.random(index + 1, 4, 2, 3, 2, 2),
+        data: L2Block.random(index + 1, 4, 3, 2),
         l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
       }));
 

@@ -7,42 +7,37 @@ import { z } from 'zod';
 import { type TxHash } from '../tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
 import { type MerkleTreeReadOperations } from './merkle_tree_operations.js';
-import { type ProvingJobSource } from './proving-job-source.js';
+import { type ProvingJobConsumer } from './prover-broker.js';
+import { type ProvingJobStatus } from './proving-job.js';
+
+export type ActualProverConfig = {
+  /** Whether to construct real proofs */
+  realProofs: boolean;
+  /** Artificial delay to introduce to all operations to the test prover. */
+  proverTestDelayMs: number;
+};
 
 /**
  * The prover configuration.
  */
-export type ProverConfig = {
+export type ProverConfig = ActualProverConfig & {
   /** The URL to the Aztec node to take proving jobs from */
   nodeUrl?: string;
-  /** Whether to construct real proofs */
-  realProofs: boolean;
-  /** Whether this prover has a local prover agent */
-  proverAgentEnabled: boolean;
-  /** The interval agents poll for jobs at */
-  proverAgentPollInterval: number;
-  /** The maximum number of proving jobs to be run in parallel */
-  proverAgentConcurrency: number;
-  /** Jobs are retried if not kept alive for this long */
-  proverJobTimeoutMs: number;
-  /** The interval to check job health status */
-  proverJobPollIntervalMs: number;
-  /** Artificial delay to introduce to all operations to the test prover. */
-  proverTestDelayMs: number;
   /** Identifier of the prover */
-  proverId?: Fr;
+  proverId: Fr;
+  /** Where to store temporary data */
+  cacheDir?: string;
+
+  proverAgentCount: number;
 };
 
 export const ProverConfigSchema = z.object({
   nodeUrl: z.string().optional(),
   realProofs: z.boolean(),
-  proverAgentEnabled: z.boolean(),
-  proverAgentPollInterval: z.number(),
-  proverAgentConcurrency: z.number(),
-  proverJobTimeoutMs: z.number(),
-  proverJobPollIntervalMs: z.number(),
-  proverId: schemas.Fr.optional(),
+  proverId: schemas.Fr,
   proverTestDelayMs: z.number(),
+  cacheDir: z.string().optional(),
+  proverAgentCount: z.number(),
 }) satisfies ZodFor<ProverConfig>;
 
 export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
@@ -55,40 +50,26 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'Whether to construct real proofs',
     ...booleanConfigHelper(),
   },
-  proverAgentEnabled: {
-    env: 'PROVER_AGENT_ENABLED',
-    description: 'Whether this prover has a local prover agent',
-    ...booleanConfigHelper(true),
-  },
-  proverAgentPollInterval: {
-    env: 'PROVER_AGENT_POLL_INTERVAL_MS',
-    description: 'The interval agents poll for jobs at',
-    ...numberConfigHelper(100),
-  },
-  proverAgentConcurrency: {
-    env: 'PROVER_AGENT_CONCURRENCY',
-    description: 'The maximum number of proving jobs to be run in parallel',
-    ...numberConfigHelper(1),
-  },
-  proverJobTimeoutMs: {
-    env: 'PROVER_JOB_TIMEOUT_MS',
-    description: 'Jobs are retried if not kept alive for this long',
-    ...numberConfigHelper(60_000),
-  },
-  proverJobPollIntervalMs: {
-    env: 'PROVER_JOB_POLL_INTERVAL_MS',
-    description: 'The interval to check job health status',
-    ...numberConfigHelper(1_000),
-  },
   proverId: {
     env: 'PROVER_ID',
     parseEnv: (val: string) => parseProverId(val),
     description: 'Identifier of the prover',
+    defaultValue: Fr.ZERO,
   },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
+  },
+  cacheDir: {
+    env: 'PROVER_CACHE_DIR',
+    description: 'Where to store cache data generated while proving',
+    defaultValue: '/tmp/aztec-prover',
+  },
+  proverAgentCount: {
+    env: 'PROVER_AGENT_COUNT',
+    description: 'The number of prover agents to start',
+    ...numberConfigHelper(1),
   },
 };
 
@@ -97,17 +78,40 @@ function parseProverId(str: string) {
 }
 
 /**
+ * A database where the proving orchestrator can store intermediate results
+ */
+export interface ProverCache {
+  /**
+   * Saves the status of a proving job
+   * @param jobId - The job ID
+   * @param status - The status of the proof
+   */
+  setProvingJobStatus(jobId: string, status: ProvingJobStatus): Promise<void>;
+
+  /**
+   * Retrieves the status of a proving job (if known)
+   * @param jobId - The job ID
+   */
+  getProvingJobStatus(jobId: string): Promise<ProvingJobStatus>;
+
+  /**
+   * Closes the cache
+   */
+  close(): Promise<void>;
+}
+
+/**
  * The interface to the prover client.
  * Provides the ability to generate proofs and build rollups.
  */
 export interface EpochProverManager {
-  createEpochProver(db: MerkleTreeReadOperations): EpochProver;
+  createEpochProver(db: MerkleTreeReadOperations, cache?: ProverCache): EpochProver;
 
   start(): Promise<void>;
 
   stop(): Promise<void>;
 
-  getProvingJobSource(): ProvingJobSource;
+  getProvingJobSource(): ProvingJobConsumer;
 
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
 }

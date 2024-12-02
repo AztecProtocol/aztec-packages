@@ -16,6 +16,8 @@ pub mod combined_constant_data;
 
 pub mod side_effect;
 pub mod read_request;
+pub mod log;
+pub mod private_log;
 pub mod log_hash;
 pub mod note_hash;
 pub mod nullifier;
@@ -36,7 +38,6 @@ pub mod call_context;
 
 pub mod private_circuit_public_inputs;
 
-pub mod sponge_blob;
 pub mod gas_fees;
 pub mod gas_settings;
 pub mod gas;

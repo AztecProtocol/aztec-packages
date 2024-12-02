@@ -14,7 +14,8 @@ pub mod sort_by_counter;
 
 // Re-exports.
 pub use assert_array_appended::{
-    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+    assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+    assert_array_appended_scoped,
 };
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
@@ -131,19 +132,6 @@ where
             result[i] = elem;
             i += 1;
         }
-    }
-    result
-}
-
-// Helper fn to create a subarray from a given array
-pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
-where
-    T: Empty,
-{
-    assert(M + offset <= N, "Subarray length larger than array length");
-    let mut result: [T; M] = [T::empty(); M];
-    for i in 0..M {
-        result[i] = array[offset + i];
     }
     result
 }

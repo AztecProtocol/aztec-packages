@@ -37,8 +37,10 @@ describe('prover/orchestrator/mixed-blocks', () => {
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
-      await context.orchestrator.addTxs(txs);
+      await context.orchestrator.startNewBlock(3, context.globalVariables, l1ToL2Messages);
+      for (const tx of txs) {
+        await context.orchestrator.addNewTx(tx);
+      }
 
       const block = await context.orchestrator.setBlockCompleted();
       await context.orchestrator.finaliseEpoch();
@@ -46,14 +48,16 @@ describe('prover/orchestrator/mixed-blocks', () => {
     });
 
     it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
-      const txs = times(totalCount, (i: number) => makeBloatedProcessedTxWithVKRoot(context.actualDb, i));
+      const txs = times(totalCount, (i: number) => makeBloatedProcessedTxWithVKRoot(context.actualDb, i + 1));
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
+      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
 
-      await context.orchestrator.addTxs(txs);
+      for (const tx of txs) {
+        await context.orchestrator.addNewTx(tx);
+      }
 
       const block = await context.orchestrator.setBlockCompleted();
       await context.orchestrator.finaliseEpoch();

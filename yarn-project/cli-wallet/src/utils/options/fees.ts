@@ -4,12 +4,12 @@ import {
   FeeJuicePaymentMethodWithClaim,
   type FeePaymentMethod,
   NoFeePaymentMethod,
+  type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   type SendMethodOptions,
 } from '@aztec/aztec.js';
 import { AztecAddress, Fr, Gas, GasFees, GasSettings } from '@aztec/circuits.js';
-import { parseBigint } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
 import { Option } from 'commander';
@@ -21,6 +21,7 @@ export type CliFeeArgs = {
   estimateGasOnly: boolean;
   gasLimits?: string;
   payment?: string;
+  maxFeesPerGas?: string;
   estimateGas?: boolean;
 };
 
@@ -35,17 +36,16 @@ export function printGasEstimates(
   gasEstimates: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
   log: LogFn,
 ) {
-  log(`Maximum total tx fee:   ${getEstimatedCost(gasEstimates, GasSettings.default().maxFeesPerGas)}`);
-  log(`Estimated total tx fee: ${getEstimatedCost(gasEstimates, GasFees.default())}`);
   log(`Estimated gas usage:    ${formatGasEstimate(gasEstimates)}`);
+  log(`Maximum total tx fee:   ${getEstimatedCost(gasEstimates, feeOpts.gasSettings.maxFeesPerGas)}`);
 }
 
 function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) {
   return `da=${estimate.gasLimits.daGas},l2=${estimate.gasLimits.l2Gas},teardownDA=${estimate.teardownGasLimits.daGas},teardownL2=${estimate.teardownGasLimits.l2Gas}`;
 }
 
-function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, fees: GasFees) {
-  return GasSettings.from({ ...GasSettings.default(), ...estimate, maxFeesPerGas: fees })
+function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, maxFeesPerGas: GasFees) {
+  return GasSettings.default({ ...estimate, maxFeesPerGas })
     .getFeeLimit()
     .toBigInt();
 }
@@ -60,9 +60,9 @@ export class FeeOpts implements IFeeOpts {
 
   async toSendOpts(sender: AccountWallet): Promise<SendMethodOptions> {
     return {
-      estimateGas: this.estimateGas,
       fee: {
-        gasSettings: this.gasSettings ?? GasSettings.default(),
+        estimateGas: this.estimateGas,
+        gasSettings: this.gasSettings,
         paymentMethod: await this.paymentMethodFactory(sender),
       },
     };
@@ -77,24 +77,28 @@ export class FeeOpts implements IFeeOpts {
 
   static getOptions() {
     return [
-      new Option('--inclusion-fee <value>', 'Inclusion fee to pay for the tx.').argParser(parseBigint),
       new Option('--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>', 'Gas limits for the tx.'),
       FeeOpts.paymentMethodOption(),
+      new Option('--max-fee-per-gas <da=100,l2=100>', 'Maximum fee per gas unit for DA and L2 computation.'),
       new Option('--no-estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
       new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
     ];
   }
 
-  static fromCli(args: CliFeeArgs, log: LogFn, db?: WalletDB) {
+  static async fromCli(args: CliFeeArgs, pxe: PXE, log: LogFn, db?: WalletDB) {
     const estimateOnly = args.estimateGasOnly;
-    if (!args.gasLimits && !args.payment) {
-      return new NoFeeOpts(estimateOnly);
-    }
-    const gasSettings = GasSettings.from({
-      ...GasSettings.default(),
+    const gasFees = args.maxFeesPerGas
+      ? parseGasFees(args.maxFeesPerGas)
+      : { maxFeesPerGas: await pxe.getCurrentBaseFees() };
+    const gasSettings = GasSettings.default({
+      ...gasFees,
       ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
-      maxFeesPerGas: GasFees.default(),
     });
+
+    if (!args.gasLimits && !args.payment) {
+      return new NoFeeOpts(estimateOnly, gasSettings);
+    }
+
     return new FeeOpts(
       estimateOnly,
       gasSettings,
@@ -105,11 +109,7 @@ export class FeeOpts implements IFeeOpts {
 }
 
 class NoFeeOpts implements IFeeOpts {
-  constructor(public estimateOnly: boolean) {}
-
-  get gasSettings(): GasSettings {
-    return GasSettings.default();
-  }
+  constructor(public estimateOnly: boolean, public gasSettings: GasSettings) {}
 
   toSendOpts(): Promise<SendMethodOptions> {
     return Promise.resolve({});
@@ -210,4 +210,21 @@ function parseGasLimits(gasLimits: string): { gasLimits: Gas; teardownGasLimits:
     gasLimits: new Gas(parsed.da, parsed.l2),
     teardownGasLimits: new Gas(parsed.teardownDA, parsed.teardownL2),
   };
+}
+
+function parseGasFees(gasFees: string): { maxFeesPerGas: GasFees } {
+  const parsed = gasFees.split(',').reduce((acc, fee) => {
+    const [dimension, value] = fee.split('=');
+    acc[dimension] = parseInt(value, 10);
+    return acc;
+  }, {} as Record<string, number>);
+
+  const expected = ['da', 'l2'];
+  for (const dimension of expected) {
+    if (!(dimension in parsed)) {
+      throw new Error(`Missing gas fee for ${dimension}`);
+    }
+  }
+
+  return { maxFeesPerGas: new GasFees(parsed.da, parsed.l2) };
 }

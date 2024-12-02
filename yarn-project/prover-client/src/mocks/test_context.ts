@@ -2,13 +2,14 @@ import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type MerkleTreeWriteOperations,
   type ProcessedTx,
+  type ProcessedTxHandler,
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
@@ -117,7 +118,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry);
+    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry, Fr.ZERO);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -146,7 +147,12 @@ export class TestContext {
     }
   }
 
-  public async processPublicFunctions(txs: Tx[], maxTransactions: number, txValidator?: TxValidator<ProcessedTx>) {
+  public async processPublicFunctions(
+    txs: Tx[],
+    maxTransactions: number,
+    txHandler?: ProcessedTxHandler,
+    txValidator?: TxValidator<ProcessedTx>,
+  ) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -171,6 +177,7 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
+      txHandler,
       txValidator,
       defaultExecutorImplementation,
     );
@@ -179,6 +186,7 @@ export class TestContext {
   private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
+    txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
@@ -206,6 +214,6 @@ export class TestContext {
     if (executorMock) {
       simulateInternal.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, txValidator);
+    return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
   }
 }
