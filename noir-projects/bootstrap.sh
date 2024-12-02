@@ -8,9 +8,6 @@ if [ -n "$CMD" ]; then
   if [ "$CMD" = "clean" ]; then
     git clean -fdx
     exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
   fi
 fi
 
@@ -25,9 +22,9 @@ for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr
 done
 
 parallel -v --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
-  "./mock-protocol-circuits/bootstrap.sh" \
-  "./noir-protocol-circuits/bootstrap.sh" \
-  "./noir-contracts/bootstrap.sh"
+  "./mock-protocol-circuits/bootstrap.sh $CMD" \
+  "./noir-protocol-circuits/bootstrap.sh $CMD" \
+  "./noir-contracts/bootstrap.sh $CMD"
 
 $ci3/github/endgroup
 
