@@ -43,7 +43,7 @@ interface IStaking {
   function getInfo(address _attester) external view returns (ValidatorInfo memory);
   function getExit(address _attester) external view returns (Exit memory);
   function getActiveAttesterCount() external view returns (uint256);
-  function getAttesterAt(uint256 _index) external view returns (address);
-  function getProposerAt(uint256 _index) external view returns (address);
-  function getOperatorAt(uint256 _index) external view returns (OperatorInfo memory);
+  function getAttesterAtIndex(uint256 _index) external view returns (address);
+  function getProposerAtIndex(uint256 _index) external view returns (address);
+  function getOperatorAtIndex(uint256 _index) external view returns (OperatorInfo memory);
 }

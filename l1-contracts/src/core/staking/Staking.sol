@@ -157,15 +157,15 @@ contract Staking is IStaking {
     return attesters.length();
   }
 
-  function getAttesterAt(uint256 _index) external view override(IStaking) returns (address) {
+  function getAttesterAtIndex(uint256 _index) external view override(IStaking) returns (address) {
     return attesters.at(_index);
   }
 
-  function getProposerAt(uint256 _index) external view override(IStaking) returns (address) {
+  function getProposerAtIndex(uint256 _index) external view override(IStaking) returns (address) {
     return info[attesters.at(_index)].proposer;
   }
 
-  function getOperatorAt(uint256 _index)
+  function getOperatorAtIndex(uint256 _index)
     external
     view
     override(IStaking)

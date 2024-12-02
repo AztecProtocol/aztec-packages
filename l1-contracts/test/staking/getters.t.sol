@@ -18,34 +18,34 @@ contract GettersTest is StakingBase {
     });
   }
 
-  function test_getAttesterAt() external view {
-    address attester = staking.getAttesterAt(0);
+  function test_getAttesterAtIndex() external view {
+    address attester = staking.getAttesterAtIndex(0);
     assertEq(attester, ATTESTER);
   }
 
   function test_getAttesterOutOfBounds() external {
     vm.expectRevert();
-    staking.getAttesterAt(1);
+    staking.getAttesterAtIndex(1);
   }
 
-  function test_getProposerAt() external view {
-    address proposer = staking.getProposerAt(0);
+  function test_getProposerAtIndex() external view {
+    address proposer = staking.getProposerAtIndex(0);
     assertEq(proposer, PROPOSER);
   }
 
   function test_getProposerOutOfBounds() external {
     vm.expectRevert();
-    staking.getProposerAt(1);
+    staking.getProposerAtIndex(1);
   }
 
-  function test_getOperatorAt() external view {
-    OperatorInfo memory operator = staking.getOperatorAt(0);
+  function test_getOperatorAtIndex() external view {
+    OperatorInfo memory operator = staking.getOperatorAtIndex(0);
     assertEq(operator.attester, ATTESTER);
     assertEq(operator.proposer, PROPOSER);
   }
 
   function test_getOperatorOutOfBounds() external {
     vm.expectRevert();
-    staking.getOperatorAt(1);
+    staking.getOperatorAtIndex(1);
   }
 }
