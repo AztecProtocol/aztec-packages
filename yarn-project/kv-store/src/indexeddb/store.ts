@@ -36,10 +36,6 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
 
-  #containers = new Set<
-    IndexedDBAztecArray<any> | IndexedDBAztecMap<any, any> | IndexedDBAztecSet<any> | IndexedDBAztecSingleton<any>
-  >();
-
   constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
     this.#rootDB = rootDB;
     this.#log = log;
@@ -141,22 +137,6 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    */
   openSingleton<T>(name: string): AztecAsyncSingleton<T> {
     return new IndexedDBAztecSingleton(this.#rootDB, name);
-  }
-
-  /**
-   * Runs a callback in a transaction.
-   * @param callback - Function to execute in a transaction
-   * @returns A promise that resolves to the return value of the callback
-   */
-  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
-    for (const container of this.#containers) {
-      container.db = this.#rootDB.transaction('data', 'readwrite').objectStore('data');
-    }
-    const result = await callback();
-    for (const container of this.#containers) {
-      container.db = undefined;
-    }
-    return result;
   }
 
   /**

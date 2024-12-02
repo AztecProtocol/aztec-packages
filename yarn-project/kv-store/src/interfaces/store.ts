@@ -119,12 +119,6 @@ export interface AztecAsyncKVStore {
   openCounter<K extends Key>(name: string): AztecAsyncCounter<K>;
 
   /**
-   * Starts a transaction. All calls to read/write data while in a transaction are queued and executed atomically.
-   * @param callback - The callback to execute in a transaction
-   */
-  transactionAsync<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
-
-  /**
    * Clears all entries in the store
    */
   clear(): Promise<void>;
