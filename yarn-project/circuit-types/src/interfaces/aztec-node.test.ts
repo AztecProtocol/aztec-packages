@@ -91,7 +91,7 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, undefined]);
   });
 
-  it('findBlockNumbersForIndices', async () => {
+  it('findBlockNumbersForIndexes', async () => {
     const response = await context.client.findBlockNumbersForIndexes(1, MerkleTreeId.ARCHIVE, [5n, 58n]);
     expect(response).toEqual([3n, 9n]);
   });
