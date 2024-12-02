@@ -115,7 +115,7 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private verificationKeys = new Map<
-    `ultra${'_keccak_' | '_'}honk_${ServerProtocolArtifact}`,
+    `ultra${'_keccak_' | '_rollup_'}honk_${ServerProtocolArtifact}`,
     Promise<VerificationKeyData>
   >();
 
@@ -615,7 +615,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordSize('circuitSize', 'tubeCircuit', tubeVK.circuitSize);
 
       // Sanity check the tube proof (can be removed later)
-      await this.verifyWithKey('ultra_honk', tubeVK, tubeProof.binaryProof);
+      await this.verifyWithKey('ultra_rollup_honk', tubeVK, tubeProof.binaryProof);
 
       logger.info(
         `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
