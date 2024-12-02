@@ -42,8 +42,8 @@ void TranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrelations
 
         // Contribution (1)
         std::get<0>(accumulators) +=
-            (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
-             ((z_perm_shift + lagrange_last) * compute_grand_product_denominator<Accumulator>(in, params))) *
+            (((lagrange_first + z_perm) * compute_grand_product_numerator<Accumulator>(in, params)) -
+             ((lagrange_last + z_perm_shift) * compute_grand_product_denominator<Accumulator>(in, params))) *
             scaling_factor;
     }();
 

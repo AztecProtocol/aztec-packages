@@ -69,6 +69,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     const size_t num_threads = domain_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
     const size_t block_size = domain_size / num_threads;
     const size_t final_idx = domain_size - 1;
+    info("final idx ", final_idx);
 
     // Cumpute the index bounds for each thread for reuse in the computations below
     std::vector<std::pair<size_t, size_t>> idx_bounds;
@@ -98,8 +99,18 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             }
             numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
+            if (i == 8) {
+                auto gam = relation_parameters.gamma;
+                info("numerator at 8 ", numerator.at(i));
+                info(" gamma expr", gam * gam * gam * gam * (gam + FF(16380)));
+            }
             denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
                 evaluations, relation_parameters);
+            if (i == 8) {
+                auto gam = relation_parameters.gamma;
+                info("numerator at 8 ", denominator.at(i));
+                info(" gamma expr ", gam * gam * gam * gam * gam);
+            }
         }
     });
 
@@ -168,6 +179,11 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end; ++i) {
             grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
+            if (i == 7) {
+                info("step 3");
+                info(numerator[i]);
+                info(denominator[i].invert());
+            }
         }
     });
 

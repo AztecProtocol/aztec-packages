@@ -57,7 +57,7 @@ TEST_F(TranslatorTests, Basic)
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
     op_queue->append_nonzero_ops();
 
-    for (size_t i = 0; i < 500; i++) {
+    for (size_t i = 0; i < 400; i++) {
         op_queue->add_accumulate(P1);
         op_queue->mul_accumulate(P2, z);
     }

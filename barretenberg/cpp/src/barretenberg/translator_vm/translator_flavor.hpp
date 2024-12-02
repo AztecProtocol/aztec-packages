@@ -618,12 +618,14 @@ class TranslatorFlavor {
   public:
     static inline size_t compute_total_num_gates(const CircuitBuilder& builder)
     {
+        info(builder.num_gates);
         return std::max(builder.num_gates, MINIMUM_MINI_CIRCUIT_SIZE);
     }
 
     static inline size_t compute_dyadic_circuit_size(const CircuitBuilder& builder)
     {
         const size_t total_num_gates = compute_total_num_gates(builder);
+        info("total num gates", total_num_gates);
 
         // Next power of 2
         const size_t mini_circuit_dyadic_size = builder.get_circuit_subgroup_size(total_num_gates);
@@ -736,11 +738,14 @@ class TranslatorFlavor {
         {
             const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
 
+            // We start from 10 to adjust to first 8 disabled rows
+            for (size_t i = 8; i < mini_circuit_dyadic_size - 1; i += 2) {
+                polynomials.lagrange_even_in_minicircuit.at(i + 2) = 1;
+            }
             for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
                 polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-                polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
             }
-            polynomials.lagrange_second.at(1) = 1;
+            polynomials.lagrange_second.at(9) = 1;
             polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
         }
 

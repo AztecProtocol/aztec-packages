@@ -119,9 +119,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
     // Execute Shplemini
-    for (size_t idx = 0; idx < claimed_evaluations.size(); idx++) {
-        info(idx, " eval ", claimed_evaluations.get_all()[idx]);
-    }
+    // for (size_t idx = 0; idx < claimed_evaluations.size(); idx++) {
+    //     info(idx, " eval ", claimed_evaluations.get_all()[idx]);
+    // }
     info("verifier received num evals = ", claimed_evaluations.size());
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,

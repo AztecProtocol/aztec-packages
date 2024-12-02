@@ -32,13 +32,16 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
         return;
     }
 
+    // auto labels = commitment_labels.get_wires();
+    info("wire polys start indexes");
     // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator wires
     // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've commited to
     for (auto [wire_poly, wire] : zip_view(key->polynomials.get_wires(), circuit_builder.wires)) {
+
         parallel_for_range(circuit_builder.num_gates, [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
-                if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
-                    wire_poly.at(i) = circuit_builder.get_variable(wire[i]);
+                if (i >= wire_poly.start_index() && i < wire_poly.end_index() - 8) {
+                    wire_poly.at(i + 8) = circuit_builder.get_variable(wire[i]);
                 } else {
                     ASSERT(wire[i] == 0);
                 }
@@ -46,13 +49,31 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
         });
     }
 
+    for (auto& poly : key->polynomials.get_wires()) {
+        for (size_t idx = 1; idx < 8; idx++) {
+            poly.at(idx) = FF::random_element();
+        }
+    }
     // We construct concatenated versions of range constraint polynomials, where several polynomials are concatenated
     // into one. These polynomials are not commited to.
     bb::compute_concatenated_polynomials<Flavor>(key->polynomials);
 
+    for (auto poly : key->polynomials.get_concatenated()) {
+        info("concatenated poly");
+        for (size_t idx = 1; idx < 9; idx++) {
+            info(poly.at(idx));
+        }
+    }
+
     // We also construct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
     // the range from 0 to maximum range defined by the range constraint.
     bb::compute_translator_range_constraint_ordered_polynomials<Flavor>(key->polynomials, mini_circuit_dyadic_size);
+
+    for (auto& poly : key->polynomials.get_ordered_constraints()) {
+        info("ordered ");
+        info(poly.at(8));
+    }
+    info("ordered exrta num ", key->polynomials.ordered_extra_range_constraints_numerator.at(8));
 
     computed_witness = true;
 }
@@ -72,10 +93,10 @@ void TranslatorProver::execute_preamble_round()
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
     const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
-    const auto accumulated_result = BF(uint256_t(key->polynomials.accumulators_binary_limbs_0[1]) +
-                                       uint256_t(key->polynomials.accumulators_binary_limbs_1[1]) * SHIFT +
-                                       uint256_t(key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
-                                       uint256_t(key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
+    const auto accumulated_result = BF(uint256_t(key->polynomials.accumulators_binary_limbs_0[9]) +
+                                       uint256_t(key->polynomials.accumulators_binary_limbs_1[9]) * SHIFT +
+                                       uint256_t(key->polynomials.accumulators_binary_limbs_2[9]) * SHIFTx2 +
+                                       uint256_t(key->polynomials.accumulators_binary_limbs_3[9]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
     transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
@@ -95,14 +116,6 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
     auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
 
-    for (auto& poly : key->polynomials.get_wires_and_ordered_range_constraints()) {
-        for (size_t idx = 1; idx < 8; idx++) {
-            if (poly.at(idx) != FF(0)) {
-                info(labels[idx]);
-            }
-        }
-    }
-
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
 
         transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
@@ -120,9 +133,13 @@ void TranslatorProver::execute_grand_product_computation_round()
 
     // Compute and store parameters required by relations in Sumcheck
     FF gamma = transcript->template get_challenge<FF>("gamma");
+
+    auto extra_val = key->polynomials.ordered_extra_range_constraints_numerator.at(8);
+    info("z_perm ? ", (gamma + extra_val) / gamma);
     const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
+
     relation_parameters.public_input_delta = 0;
     relation_parameters.lookup_grand_product_delta = 0;
     auto uint_evaluation_input = uint256_t(key->evaluation_input_x);
@@ -132,10 +149,10 @@ void TranslatorProver::execute_grand_product_computation_round()
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
                                                uint_evaluation_input };
 
-    relation_parameters.accumulated_result = { key->polynomials.accumulators_binary_limbs_0[1],
-                                               key->polynomials.accumulators_binary_limbs_1[1],
-                                               key->polynomials.accumulators_binary_limbs_2[1],
-                                               key->polynomials.accumulators_binary_limbs_3[1] };
+    relation_parameters.accumulated_result = { key->polynomials.accumulators_binary_limbs_0[9],
+                                               key->polynomials.accumulators_binary_limbs_1[9],
+                                               key->polynomials.accumulators_binary_limbs_2[9],
+                                               key->polynomials.accumulators_binary_limbs_3[9] };
 
     std::vector<uint256_t> uint_batching_challenge_powers;
     auto batching_challenge_v = key->batching_challenge_v;
@@ -157,12 +174,23 @@ void TranslatorProver::execute_grand_product_computation_round()
         };
     }
     // Compute constraint permutation grand product
-    compute_grand_products<Flavor>(key->polynomials, relation_parameters);
+    using GrandProdRelation = typename std::tuple_element<0, TranslatorFlavor::GrandProductRelations>::type;
+    compute_grand_product<Flavor, GrandProdRelation>(key->polynomials, relation_parameters);
+    // key->polynomials.z_perm.at(6) = FF(0);
+    // key->polynomials.z_perm.at() = FF(0);
+    info(" z perm values ");
+    info("? ", key->polynomials.z_perm.at(8) / key->polynomials.z_perm.at(7));
+    info("?? ", key->polynomials.z_perm.at(9) / key->polynomials.z_perm.at(8));
 
-    for (size_t idx = 2; idx < 6; idx++) {
-        key->polynomials.z_perm.at(idx) = FF::random_element();
+    for (size_t idx = 6; idx < 11; idx++) {
+        auto val = key->polynomials.z_perm.at(idx);
+        info("- z perm at idx ", idx, " = ", -val);
     }
-
+    info(" z perm shift values ");
+    for (size_t idx = 6; idx < 11; idx++) {
+        auto val = key->polynomials.z_perm_shift.at(idx);
+        info("- z perm shift at idx ", idx, " = ", val);
+    }
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
 
