@@ -53,14 +53,7 @@ export function makeBloatedProcessedTx({
   privateOnly?: boolean;
 } = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
-
-  if (!header) {
-    if (db) {
-      header = db.getInitialHeader();
-    } else {
-      header = makeHeader(seed);
-    }
-  }
+  header ??= db?.getInitialHeader() ?? makeHeader(seed);
 
   const txConstantData = TxConstantData.empty();
   txConstantData.historicalHeader = header;

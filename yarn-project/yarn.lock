@@ -1225,7 +1225,6 @@ __metadata:
   resolution: "@aztec/txe@workspace:txe"
   dependencies:
     "@aztec/accounts": "workspace:^"
-    "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
