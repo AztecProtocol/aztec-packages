@@ -77,10 +77,13 @@ function compile {
 export -f compile
 
 function build {
+  set +e
   echo "Compiling contracts (bb-hash: $BB_HASH)..."
   grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
     parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+  code=$?
   cat joblog.txt
+  return $code
 
   # For testing. No parallel case. Small parallel case.
   # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
