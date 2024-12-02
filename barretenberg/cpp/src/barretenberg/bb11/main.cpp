@@ -1,3 +1,6 @@
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
+#include "barretenberg/bb11/CLI11.hpp"
 #include "barretenberg/bb11/api.hpp"
 #include "barretenberg/bb11/api_client_ivc.hpp"
 #include "barretenberg/bb11/file_io.hpp"
@@ -1062,184 +1065,192 @@ std::string get_option(std::vector<std::string>& args, const std::string& option
 
 int main(int argc, char* argv[])
 {
-    try {
-        std::vector<std::string> args(argv + 1, argv + argc);
-        debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
-        verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
-        if (args.empty()) {
-            std::cerr << "No command provided.\n";
-            return 1;
-        }
+    CLI::App app{ "App description" };
+    argv = app.ensure_utf8(argv);
 
-        const API::Flags flags = [&args]() {
-            return API::Flags{ .output_type = get_option(args, "--output_type", "fields-msgpack"),
-                               .input_type = get_option(args, "--input_type", "single-circuit") };
-        }();
+    std::string filename = "default";
+    app.add_option("-f,--file", filename, "A help string");
 
-        const std::string command = args[0];
-        vinfo("bb command is: ", command);
-        const std::string proof_system = get_option(args, "--scheme", "");
-        const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
-        const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
-        const std::string proof_path = get_option(args, "-p", "./proofs/proof");
-        const std::string vk_path = get_option(args, "-k", "./target/vk");
-        const std::string pk_path = get_option(args, "-r", "./target/pk");
+    CLI11_PARSE(app, argc, argv);
+    return 0;
+    //     try {
+    //         std::vector<std::string> args(argv + 1, argv + argc);
+    //         debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
+    //         verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
+    //         if (args.empty()) {
+    //             std::cerr << "No command provided.\n";
+    //             return 1;
+    //         }
 
-        const bool honk_recursion = flag_present(args, "-h");
-        const bool recursive = flag_present(args, "--recursive");
-        CRS_PATH = get_option(args, "-c", CRS_PATH);
+    //         const API::Flags flags = [&args]() {
+    //             return API::Flags{ .output_type = get_option(args, "--output_type", "fields-msgpack"),
+    //                                .input_type = get_option(args, "--input_type", "single-circuit") };
+    //         }();
 
-        const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
-            flags.input_type.has_value() ? info(flags.input_type) : info("no input type provided");
-            flags.output_type.has_value() ? info(flags.output_type) : info("no output type provided");
-            if (command == "prove") {
-                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                // TODO(#7371): remove this (msgpack version...)
-                api.prove(flags, bytecode_path, witness_path, output_dir);
-                return 0;
-            }
+    //         const std::string command = args[0];
+    //         vinfo("bb command is: ", command);
+    //         const std::string proof_system = get_option(args, "--scheme", "");
+    //         const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
+    //         const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
+    //         const std::string proof_path = get_option(args, "-p", "./proofs/proof");
+    //         const std::string vk_path = get_option(args, "-k", "./target/vk");
+    //         const std::string pk_path = get_option(args, "-r", "./target/pk");
 
-            if (command == "verify") {
-                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
-                const std::filesystem::path vk_path = output_dir / "client_ivc_vk";
+    //         const bool honk_recursion = flag_present(args, "-h");
+    //         const bool recursive = flag_present(args, "--recursive");
+    //         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
-                return api.verify(flags, proof_path, vk_path) ? 0 : 1;
-            }
+    //         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
+    //             flags.input_type.has_value() ? info(flags.input_type) : info("no input type provided");
+    //             flags.output_type.has_value() ? info(flags.output_type) : info("no output type provided");
+    //             if (command == "prove") {
+    //                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+    //                 // TODO(#7371): remove this (msgpack version...)
+    //                 api.prove(flags, bytecode_path, witness_path, output_dir);
+    //                 return 0;
+    //             }
 
-            if (command == "prove_and_verify") {
-                return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
-            }
+    //             if (command == "verify") {
+    //                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+    //                 const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
+    //                 const std::filesystem::path vk_path = output_dir / "client_ivc_vk";
 
-            throw_or_abort("Invalid command passed to execute_command in bb");
-            return 1;
-        };
+    //                 return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+    //             }
 
-        // Skip CRS initialization for any command which doesn't require the CRS.
-        if (command == "--version") {
-            writeStringToStdout(BB_VERSION);
-            return 0;
-        }
+    //             if (command == "prove_and_verify") {
+    //                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
+    //             }
 
-        if (proof_system == "client_ivc") {
-            ClientIVCAPI api;
-            execute_command(command, flags, api);
-        } else if (command == "prove_and_verify") {
-            return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove_and_verify_ultra_honk") {
-            return proveAndVerifyHonk<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove_and_verify_mega_honk") {
-            return proveAndVerifyHonk<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove_and_verify_ultra_honk_program") {
-            return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove_and_verify_mega_honk_program") {
-            return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs");
-            prove_output_all(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_ultra_honk_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs");
-            prove_honk_output_all<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_mega_honk_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs");
-            prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_tube") {
-            std::string output_path = get_option(args, "-o", "./target");
-            prove_tube(output_path);
-        } else if (command == "verify_tube") {
-            std::string output_path = get_option(args, "-o", "./target");
-            auto tube_proof_path = output_path + "/proof";
-            auto tube_vk_path = output_path + "/vk";
-            return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
-        } else if (command == "gates") {
-            gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
-        } else if (command == "gates_mega_honk") {
-            gateCount<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
-        } else if (command == "verify") {
-            return verify(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "contract") {
-            std::string output_path = get_option(args, "-o", "./target/contract.sol");
-            contract(output_path, vk_path);
-        } else if (command == "contract_ultra_honk") {
-            std::string output_path = get_option(args, "-o", "./target/contract.sol");
-            contract_honk(output_path, vk_path);
-        } else if (command == "write_vk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk(bytecode_path, output_path, recursive);
-        } else if (command == "write_pk") {
-            std::string output_path = get_option(args, "-o", "./target/pk");
-            write_pk(bytecode_path, output_path, recursive);
-        } else if (command == "proof_as_fields") {
-            std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
-            proof_as_fields(proof_path, vk_path, output_path);
-        } else if (command == "vk_as_fields") {
-            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields(vk_path, output_path);
-        } else if (command == "write_recursion_inputs_honk") {
-            std::string output_path = get_option(args, "-o", "./target");
-            write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
-#ifndef DISABLE_AZTEC_VM
-        } else if (command == "avm_prove") {
-            std::filesystem::path avm_calldata_path = get_option(args, "--avm-calldata", "./target/avm_calldata.bin");
-            std::filesystem::path avm_public_inputs_path =
-                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
-            std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
-            // This outputs both files: proof and vk, under the given directory.
-            std::filesystem::path output_path = get_option(args, "-o", "./proofs");
-            extern std::filesystem::path avm_dump_trace_path;
-            avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
-            avm_prove(avm_calldata_path, avm_public_inputs_path, avm_hints_path, output_path);
-        } else if (command == "avm_verify") {
-            return avm_verify(proof_path, vk_path) ? 0 : 1;
-#endif
-        } else if (command == "prove_ultra_honk") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_ultra_keccak_honk") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_ultra_keccak_honk_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk_output_all<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "verify_ultra_honk") {
-            return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "verify_ultra_keccak_honk") {
-            return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "write_vk_ultra_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraFlavor>(bytecode_path, output_path, recursive);
-        } else if (command == "write_vk_ultra_keccak_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraKeccakFlavor>(bytecode_path, output_path, recursive);
-        } else if (command == "prove_mega_honk") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "verify_mega_honk") {
-            return verify_honk<MegaFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "write_vk_mega_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<MegaFlavor>(bytecode_path, output_path, recursive);
-        } else if (command == "proof_as_fields_honk") {
-            std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
-            proof_as_fields_honk(proof_path, output_path);
-        } else if (command == "vk_as_fields_ultra_honk") {
-            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields_honk<UltraFlavor>(vk_path, output_path);
-        } else if (command == "vk_as_fields_mega_honk") {
-            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields_honk<MegaFlavor>(vk_path, output_path);
-        } else if (command == "vk_as_fields_ultra_keccak_honk") {
-            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields_honk<UltraKeccakFlavor>(vk_path, output_path);
-        } else {
-            std::cerr << "Unknown command: " << command << "\n";
-            return 1;
-        }
-    } catch (std::runtime_error const& err) {
-        std::cerr << err.what() << std::endl;
-        return 1;
-    }
+    //             throw_or_abort("Invalid command passed to execute_command in bb");
+    //             return 1;
+    //         };
+
+    //         // Skip CRS initialization for any command which doesn't require the CRS.
+    //         if (command == "--version") {
+    //             writeStringToStdout(BB_VERSION);
+    //             return 0;
+    //         }
+
+    //         if (proof_system == "client_ivc") {
+    //             ClientIVCAPI api;
+    //             execute_command(command, flags, api);
+    //         } else if (command == "prove_and_verify") {
+    //             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
+    //         } else if (command == "prove_and_verify_ultra_honk") {
+    //             return proveAndVerifyHonk<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
+    //         } else if (command == "prove_and_verify_mega_honk") {
+    //             return proveAndVerifyHonk<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
+    //         } else if (command == "prove_and_verify_ultra_honk_program") {
+    //             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
+    //         } else if (command == "prove_and_verify_mega_honk_program") {
+    //             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
+    //         } else if (command == "prove") {
+    //             std::string output_path = get_option(args, "-o", "./proofs/proof");
+    //             prove(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "prove_output_all") {
+    //             std::string output_path = get_option(args, "-o", "./proofs");
+    //             prove_output_all(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "prove_ultra_honk_output_all") {
+    //             std::string output_path = get_option(args, "-o", "./proofs");
+    //             prove_honk_output_all<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "prove_mega_honk_output_all") {
+    //             std::string output_path = get_option(args, "-o", "./proofs");
+    //             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "prove_tube") {
+    //             std::string output_path = get_option(args, "-o", "./target");
+    //             prove_tube(output_path);
+    //         } else if (command == "verify_tube") {
+    //             std::string output_path = get_option(args, "-o", "./target");
+    //             auto tube_proof_path = output_path + "/proof";
+    //             auto tube_vk_path = output_path + "/vk";
+    //             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
+    //         } else if (command == "gates") {
+    //             gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+    //         } else if (command == "gates_mega_honk") {
+    //             gateCount<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+    //         } else if (command == "verify") {
+    //             return verify(proof_path, vk_path) ? 0 : 1;
+    //         } else if (command == "contract") {
+    //             std::string output_path = get_option(args, "-o", "./target/contract.sol");
+    //             contract(output_path, vk_path);
+    //         } else if (command == "contract_ultra_honk") {
+    //             std::string output_path = get_option(args, "-o", "./target/contract.sol");
+    //             contract_honk(output_path, vk_path);
+    //         } else if (command == "write_vk") {
+    //             std::string output_path = get_option(args, "-o", "./target/vk");
+    //             write_vk(bytecode_path, output_path, recursive);
+    //         } else if (command == "write_pk") {
+    //             std::string output_path = get_option(args, "-o", "./target/pk");
+    //             write_pk(bytecode_path, output_path, recursive);
+    //         } else if (command == "proof_as_fields") {
+    //             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
+    //             proof_as_fields(proof_path, vk_path, output_path);
+    //         } else if (command == "vk_as_fields") {
+    //             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+    //             vk_as_fields(vk_path, output_path);
+    //         } else if (command == "write_recursion_inputs_honk") {
+    //             std::string output_path = get_option(args, "-o", "./target");
+    //             write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
+    // #ifndef DISABLE_AZTEC_VM
+    //         } else if (command == "avm_prove") {
+    //             std::filesystem::path avm_calldata_path = get_option(args, "--avm-calldata",
+    //             "./target/avm_calldata.bin"); std::filesystem::path avm_public_inputs_path =
+    //                 get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
+    //             std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
+    //             // This outputs both files: proof and vk, under the given directory.
+    //             std::filesystem::path output_path = get_option(args, "-o", "./proofs");
+    //             extern std::filesystem::path avm_dump_trace_path;
+    //             avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
+    //             avm_prove(avm_calldata_path, avm_public_inputs_path, avm_hints_path, output_path);
+    //         } else if (command == "avm_verify") {
+    //             return avm_verify(proof_path, vk_path) ? 0 : 1;
+    // #endif
+    //         } else if (command == "prove_ultra_honk") {
+    //             std::string output_path = get_option(args, "-o", "./proofs/proof");
+    //             prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "prove_ultra_keccak_honk") {
+    //             std::string output_path = get_option(args, "-o", "./proofs/proof");
+    //             prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "prove_ultra_keccak_honk_output_all") {
+    //             std::string output_path = get_option(args, "-o", "./proofs/proof");
+    //             prove_honk_output_all<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "verify_ultra_honk") {
+    //             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
+    //         } else if (command == "verify_ultra_keccak_honk") {
+    //             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
+    //         } else if (command == "write_vk_ultra_honk") {
+    //             std::string output_path = get_option(args, "-o", "./target/vk");
+    //             write_vk_honk<UltraFlavor>(bytecode_path, output_path, recursive);
+    //         } else if (command == "write_vk_ultra_keccak_honk") {
+    //             std::string output_path = get_option(args, "-o", "./target/vk");
+    //             write_vk_honk<UltraKeccakFlavor>(bytecode_path, output_path, recursive);
+    //         } else if (command == "prove_mega_honk") {
+    //             std::string output_path = get_option(args, "-o", "./proofs/proof");
+    //             prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
+    //         } else if (command == "verify_mega_honk") {
+    //             return verify_honk<MegaFlavor>(proof_path, vk_path) ? 0 : 1;
+    //         } else if (command == "write_vk_mega_honk") {
+    //             std::string output_path = get_option(args, "-o", "./target/vk");
+    //             write_vk_honk<MegaFlavor>(bytecode_path, output_path, recursive);
+    //         } else if (command == "proof_as_fields_honk") {
+    //             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
+    //             proof_as_fields_honk(proof_path, output_path);
+    //         } else if (command == "vk_as_fields_ultra_honk") {
+    //             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+    //             vk_as_fields_honk<UltraFlavor>(vk_path, output_path);
+    //         } else if (command == "vk_as_fields_mega_honk") {
+    //             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+    //             vk_as_fields_honk<MegaFlavor>(vk_path, output_path);
+    //         } else if (command == "vk_as_fields_ultra_keccak_honk") {
+    //             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+    //             vk_as_fields_honk<UltraKeccakFlavor>(vk_path, output_path);
+    //         } else {
+    //             std::cerr << "Unknown command: " << command << "\n";
+    //             return 1;
+    //         }
+    //     } catch (std::runtime_error const& err) {
+    //         std::cerr << err.what() << std::endl;
+    //         return 1;
+    //     }
 }
