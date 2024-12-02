@@ -25,7 +25,7 @@ trap on_exit EXIT
 tar -czf "$tar_file" $@
 
 if ! aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" >/dev/null 2>&1; then
-  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$name" >&2
+  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$tar_file" "s3://aztec-ci-artifacts/build-cache/$name" >&2
   echo "Cache upload of $name complete." >&2
 else
   echo "Skipping upload, already exists: $name" >&2
