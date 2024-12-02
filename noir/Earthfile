@@ -1,13 +1,13 @@
 VERSION 0.8
 test:
-  FROM ../+bootstrap-noir-bb-sol
+  FROM ../+bootstrap-noir-bb
   WORKDIR /usr/src/noir
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
   RUN ./scripts/test_native.sh
 
 examples:
-  FROM ../+bootstrap-noir-bb-sol
+  FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
 
@@ -21,7 +21,7 @@ examples:
   RUN ./test.sh
 
 format:
-  FROM ../+bootstrap-noir-bb-sol
+  FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir/noir-repo/test_programs
   RUN ./format.sh check
@@ -30,7 +30,7 @@ format:
   RUN nargo fmt --check
 
 packages-deps:
-  FROM ../+bootstrap-noir-bb-sol
+  FROM ../+bootstrap-noir-bb
   COPY noir-repo/.github/scripts/wasm-bindgen-install.sh /usr/src/noir/noir-repo/.github/scripts/wasm-bindgen-install.sh
   WORKDIR /usr/src/noir/noir-repo
   RUN .github/scripts/wasm-bindgen-install.sh
@@ -95,7 +95,7 @@ packages-test:
 
 build-acir-tests:
   LOCALLY
-  FROM ../+bootstrap-noir-bb-sol
+  FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir/noir-repo/test_programs
   RUN /usr/src/noir/noir-repo/target/release/nargo --version
@@ -103,7 +103,7 @@ build-acir-tests:
   SAVE ARTIFACT /usr/src/noir/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-benches-bb:
-  FROM ../+bootstrap-noir-bb-sol
+  FROM ../+bootstrap-noir-bb
   ENV TEST_SRC=/usr/src/acir_artifacts
   WORKDIR /usr/src/barretenberg/acir_tests
 
