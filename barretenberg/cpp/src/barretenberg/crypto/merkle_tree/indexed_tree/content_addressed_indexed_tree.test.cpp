@@ -104,8 +104,11 @@ template <typename TypeOfTree> void check_root(TypeOfTree& tree, fr expected_roo
 }
 
 template <typename TypeOfTree>
-fr_sibling_path get_historic_sibling_path(
-    TypeOfTree& tree, index_t blockNumber, index_t index, bool includeUncommitted = true, bool expected_success = true)
+fr_sibling_path get_historic_sibling_path(TypeOfTree& tree,
+                                          block_number_t blockNumber,
+                                          index_t index,
+                                          bool includeUncommitted = true,
+                                          bool expected_success = true)
 {
     fr_sibling_path h;
     Signal signal;
@@ -177,7 +180,7 @@ GetLowIndexedLeafResponse get_low_leaf(TypeOfTree& tree, const LeafValueType& le
 
 template <typename LeafValueType, typename TypeOfTree>
 GetLowIndexedLeafResponse get_historic_low_leaf(TypeOfTree& tree,
-                                                index_t blockNumber,
+                                                block_number_t blockNumber,
                                                 const LeafValueType& leaf,
                                                 bool includeUncommitted = true)
 {
@@ -236,7 +239,7 @@ void check_find_leaf_index_from(TypeOfTree& tree,
 template <typename LeafValueType, typename TypeOfTree>
 void check_historic_find_leaf_index(TypeOfTree& tree,
                                     const LeafValueType& leaf,
-                                    index_t blockNumber,
+                                    block_number_t blockNumber,
                                     index_t expected_index,
                                     bool expected_success,
                                     bool includeUncommitted = true)
@@ -257,7 +260,7 @@ void check_historic_find_leaf_index(TypeOfTree& tree,
 template <typename LeafValueType, typename TypeOfTree>
 void check_historic_find_leaf_index_from(TypeOfTree& tree,
                                          const LeafValueType& leaf,
-                                         index_t blockNumber,
+                                         block_number_t blockNumber,
                                          index_t start_index,
                                          index_t expected_index,
                                          bool expected_success,
@@ -280,7 +283,7 @@ template <typename LeafValueType, typename TypeOfTree>
 void check_historic_leaf(TypeOfTree& tree,
                          const LeafValueType& leaf,
                          index_t expected_index,
-                         index_t blockNumber,
+                         block_number_t blockNumber,
                          bool expected_success,
                          bool includeUncommitted = true)
 {
@@ -300,7 +303,7 @@ void check_historic_leaf(TypeOfTree& tree,
 template <typename TypeOfTree>
 void check_historic_sibling_path(TypeOfTree& tree,
                                  index_t index,
-                                 index_t blockNumber,
+                                 block_number_t blockNumber,
                                  const fr_sibling_path& expected_sibling_path,
                                  bool includeUncommitted = true,
                                  bool expected_success = true)
@@ -413,7 +416,7 @@ void block_sync_values_sequential(TypeOfTree& tree,
 }
 
 template <typename TypeOfTree>
-void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+void remove_historic_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
@@ -425,7 +428,7 @@ void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool ex
 }
 
 template <typename TypeOfTree>
-void finalise_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+void finalise_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -437,7 +440,7 @@ void finalise_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_
 }
 
 template <typename TypeOfTree>
-void unwind_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+void unwind_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
@@ -2596,7 +2599,7 @@ void test_nullifier_tree_unwind(std::string directory,
 
     const uint32_t blocksToRemove = numBlocksToUnwind;
     for (uint32_t i = 0; i < blocksToRemove; i++) {
-        const index_t blockNumber = numBlocks - i;
+        const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
         unwind_block(tree, blockNumber);
