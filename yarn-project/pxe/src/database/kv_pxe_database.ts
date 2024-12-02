@@ -246,14 +246,16 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   public async removeNotesAfter(blockNumber: number): Promise<void> {
-    for await (const note of this.#notes.valuesAsync()) {
+    const notes = await toArray(this.#notes.valuesAsync());
+    for (const note of notes) {
       const noteDao = IncomingNoteDao.fromBuffer(note);
       if (noteDao.l2BlockNumber > blockNumber) {
         const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
         await this.#notes.delete(noteIndex);
         await this.#notesToScope.delete(noteIndex);
         await this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
-        for await (const scope of this.#scopes.entriesAsync()) {
+        const scopes = await toArray(this.#scopes.entriesAsync());
+        for (const scope of scopes) {
           await this.#notesByAddressPointAndScope.get(scope)!.deleteValue(noteDao.addressPoint.toString(), noteIndex);
           await this.#notesByTxHashAndScope.get(scope)!.deleteValue(noteDao.txHash.toString(), noteIndex);
           await this.#notesByContractAndScope.get(scope)!.deleteValue(noteDao.contractAddress.toString(), noteIndex);
@@ -262,7 +264,9 @@ export class KVPxeDatabase implements PxeDatabase {
       }
     }
 
-    for await (const note of this.#outgoingNotes.valuesAsync()) {
+    const outgoingNotes = await toArray(this.#outgoingNotes.valuesAsync());
+
+    for (const note of outgoingNotes) {
       const noteDao = OutgoingNoteDao.fromBuffer(note);
       if (noteDao.l2BlockNumber > blockNumber) {
         const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
@@ -428,7 +432,7 @@ export class KVPxeDatabase implements PxeDatabase {
       : undefined;
 
     // Check if ovpkM is truthy
-    const ids = ovpkM
+    const idsIterator = ovpkM
       ? this.#outgoingNotesByOvpkM.getValuesAsync(ovpkM.toString())
       : // If ovpkM is falsy, check if filter.txHash is truthy
       filter.txHash
@@ -443,7 +447,9 @@ export class KVPxeDatabase implements PxeDatabase {
         this.#outgoingNotes.keysAsync();
 
     const notes: OutgoingNoteDao[] = [];
-    for await (const id of ids) {
+
+    const ids = await toArray(idsIterator);
+    for (const id of ids) {
       const serializedNote = await this.#outgoingNotes.getAsync(id);
       if (!serializedNote) {
         continue;
@@ -469,12 +475,12 @@ export class KVPxeDatabase implements PxeDatabase {
       notes.push(note);
     }
 
-    return Promise.resolve(notes);
+    return notes;
   }
 
   async removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
     if (nullifiers.length === 0) {
-      return Promise.resolve([]);
+      return [];
     }
 
     const nullifiedNotes: IncomingNoteDao[] = [];
@@ -492,7 +498,7 @@ export class KVPxeDatabase implements PxeDatabase {
         // note doesn't exist. Maybe it got nullified already
         continue;
       }
-      const noteScopes = this.#notesToScope.getValuesAsync(noteIndex) ?? [];
+      const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
       const note = IncomingNoteDao.fromBuffer(noteBuffer);
       if (!note.addressPoint.equals(accountAddressPoint)) {
         // tried to nullify someone else's note
@@ -504,7 +510,9 @@ export class KVPxeDatabase implements PxeDatabase {
       await this.#notes.delete(noteIndex);
       await this.#notesToScope.delete(noteIndex);
 
-      for await (const scope of this.#scopes.entriesAsync()) {
+      const scopes = await toArray(this.#scopes.entriesAsync());
+
+      for (const scope of scopes) {
         await this.#notesByAddressPointAndScope.get(scope)!.deleteValue(accountAddressPoint.toString(), noteIndex);
         await this.#notesByTxHashAndScope.get(scope)!.deleteValue(note.txHash.toString(), noteIndex);
         await this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
@@ -512,7 +520,7 @@ export class KVPxeDatabase implements PxeDatabase {
       }
 
       if (noteScopes !== undefined) {
-        for await (const scope of noteScopes) {
+        for (const scope of noteScopes) {
           await this.#nullifiedNotesToScope.set(noteIndex, scope);
         }
       }
@@ -538,8 +546,6 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
     await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
     await this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
-
-    return Promise.resolve();
   }
 
   async setHeader(header: Header): Promise<void> {
@@ -656,14 +662,8 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async estimateSize(): Promise<number> {
-    const incomingNotesSize = Array.from(await this.getIncomingNotes({})).reduce(
-      (sum, note) => sum + note.getSize(),
-      0,
-    );
-    const outgoingNotesSize = Array.from(await this.getOutgoingNotes({})).reduce(
-      (sum, note) => sum + note.getSize(),
-      0,
-    );
+    const incomingNotesSize = (await this.getIncomingNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
+    const outgoingNotesSize = (await this.getOutgoingNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
 
     const authWitsSize = (await toArray(this.#authWitnesses.valuesAsync())).reduce(
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
@@ -702,11 +702,9 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async resetNoteSyncData(): Promise<void> {
-    for await (const recipient of this.#taggingSecretIndexesForRecipients.keysAsync()) {
-      await this.#taggingSecretIndexesForRecipients.delete(recipient);
-    }
-    for await (const sender of this.#taggingSecretIndexesForSenders.keysAsync()) {
-      await this.#taggingSecretIndexesForSenders.delete(sender);
-    }
+    const recipients = await toArray(this.#taggingSecretIndexesForRecipients.keysAsync());
+    await Promise.all(recipients.map(recipient => this.#taggingSecretIndexesForRecipients.delete(recipient)));
+    const senders = await toArray(this.#taggingSecretIndexesForSenders.keysAsync());
+    await Promise.all(senders.map(sender => this.#taggingSecretIndexesForSenders.delete(sender)));
   }
 }
