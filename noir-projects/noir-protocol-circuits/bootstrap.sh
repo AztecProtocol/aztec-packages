@@ -49,6 +49,8 @@ function on_exit() {
 }
 trap on_exit EXIT
 
+[ -f package.json ] && yarn && node ./scripts/generate_variants.js
+
 mkdir -p $tmp_dir
 mkdir -p $key_dir
 
@@ -56,6 +58,7 @@ mkdir -p $key_dir
 export tmp_dir key_dir ci3 megahonk_regex
 
 function compile {
+  set -eu
   local dir=$1
   local name=${dir//-/_}
   local filename="$name.json"
@@ -64,7 +67,9 @@ function compile {
   local program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
   local hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
   if ! $ci3/cache/download circuit-$hash.tar.gz 2> /dev/null; then
+    SECONDS=0
     $NARGO compile --package $name --silence-warnings
+    echo "Compilation complete for: $name (${SECONDS}s)"
     $ci3/cache/upload circuit-$hash.tar.gz $json_path 2> /dev/null
   fi
 
@@ -75,15 +80,17 @@ function compile {
   if ! $ci3/cache/download vk-$hash.tar.gz 2> /dev/null; then
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
+    SECONDS=0
     local vk=$(jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk_$proto -h -b - -o - --recursive 2>/dev/null | base64 -w 0)
     local vk_fields=$(echo "$vk" | base64 -d | $BB vk_as_fields_$proto -k - -o - 2>/dev/null)
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
-    echo "Key output at: $key_path"
+    echo "Key output at: $key_path (${SECONDS}s)"
     $ci3/cache/upload vk-$hash.tar.gz $key_path 2> /dev/null
   fi
 }
 
 function build {
+  set -eu
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | grep -v simulated | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -96,6 +103,7 @@ function build {
 }
 
 function test {
+  set -eu
   # Wether we run the tests or not is corse grained.
   name=$(basename "$PWD")
   export REBUILD_PATTERNS="^noir-projects/$name"

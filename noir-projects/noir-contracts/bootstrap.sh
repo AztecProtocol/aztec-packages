@@ -43,6 +43,7 @@ mkdir -p $tmp_dir
 export tmp_dir ci3
 
 function compile {
+  set -eu
   local contract=$1
   # Calculate filename because nargo...
   local contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
@@ -61,6 +62,7 @@ function compile {
   # stdin has the function json.
   # stdout receives the function json with the vk added (if it's a private function).
   process_function() {
+    set -eu
     local func="$(cat)"
 
     if echo "$func" | jq -e '.custom_attributes | index("private") != null' > /dev/null; then

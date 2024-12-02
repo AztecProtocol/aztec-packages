@@ -999,13 +999,12 @@ mod tests {
         builder.fails();
     }
 
-    // TODO: Figure out why so slow (120s)
-    // #[test]
-    // fn valid_previous_kernel_empty() {
-    //     let builder = unsafe {
-    //         PrivateBaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
-    //     };
+    #[test]
+    fn valid_previous_kernel_empty() {
+        let builder = unsafe {
+            PrivateBaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
+        };
 
-    //     let _res = builder.execute();
-    // }
+        let _res = builder.execute();
+    }
 }
