@@ -17,7 +17,7 @@ fi
 $ci3/github/group "noir build"
 NATIVE_HASH=$($ci3/cache/content_hash .rebuild_patterns_native)
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
-export COMMIT_HASH=$(echo $NATIVE_HASH | sed 's/_//')
+export COMMIT_HASH="$(echo "$NATIVE_HASH" | sed 's/-.*//g')"
 if ! $ci3/cache/download noir-nargo-$NATIVE_HASH.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
   # Continue with native bootstrapping if the cache was not used or nargo verification failed.
   denoise ./scripts/bootstrap_native.sh

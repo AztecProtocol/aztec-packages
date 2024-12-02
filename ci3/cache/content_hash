@@ -10,7 +10,7 @@ fi
 
 # If too many spurious cache misses: can be customized to pin artifacts to a specific version
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
-PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}$(uname -m)}"
+PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
 # Literal patterns can be provided
 REBUILD_PATTERNS=${REBUILD_PATTERNS:-}
 [ -n "${AZTEC_CACHE_REBUILD_PATTERNS:-}" ] && REBUILD_PATTERNS+=$'\n'$(cat $AZTEC_CACHE_REBUILD_PATTERNS)
@@ -34,4 +34,4 @@ if [ "$CONTENT_HASH" = "$ECHO_BLANK_HASH" ]; then
 fi
 
 # important: include architecture in content hash because we target x86_64 and arm64
-echo "$CONTENT_HASH$(echo $PLATFORM_TAG | sed 's/-//')"
+echo "$CONTENT_HASH-$(echo $PLATFORM_TAG | sed 's/-//')"
