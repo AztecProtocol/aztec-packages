@@ -1072,8 +1072,8 @@ int main(int argc, char* argv[])
         }
 
         const API::Flags flags = [&args]() {
-            return API::Flags{ .output_type = get_option(args, "--output_type", "fields-msgpack"),
-                               .input_type = get_option(args, "--input_type", "single-circuit") };
+            return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
+                               .input_type = get_option(args, "--input_type", "compiletime_stack") };
         }();
 
         const std::string command = args[0];
@@ -1090,8 +1090,8 @@ int main(int argc, char* argv[])
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
-            flags.input_type.has_value() ? info(flags.input_type) : info("no input type provided");
-            flags.output_type.has_value() ? info(flags.output_type) : info("no output type provided");
+            ASSERT(flags.input_type.has_value());
+            ASSERT(flags.output_type.has_value());
             if (command == "prove") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 // TODO(#7371): remove this (msgpack version...)
@@ -1128,12 +1128,8 @@ int main(int argc, char* argv[])
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove_and_verify_ultra_honk") {
             return proveAndVerifyHonk<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove_and_verify_mega_honk") {
-            return proveAndVerifyHonk<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove_and_verify_ultra_honk_program") {
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "prove_and_verify_mega_honk_program") {
-            return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path, recursive);

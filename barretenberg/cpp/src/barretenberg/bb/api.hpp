@@ -6,8 +6,8 @@ namespace bb {
 class API {
   public:
     struct Flags {
-        std::optional<std::string> output_type; // bytes, fields, bytes-and-fields, fields-msgpack
-        std::optional<std::string> input_type;  // single-circuit, runtime_stack, compiletime_stack
+        std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
+        std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
     };
 
     virtual void prove(const Flags& flags,

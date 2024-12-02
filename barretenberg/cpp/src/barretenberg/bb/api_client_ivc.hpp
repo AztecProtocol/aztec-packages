@@ -90,12 +90,6 @@ class ClientIVCAPI : public API {
 
         std::vector<AcirProgram> folding_stack;
 
-        if (input_type == "single-circuit") {
-            AcirFormat constraints = get_constraint_system(bytecode_path, /*honk_recursion=*/false);
-            WitnessVector witness = get_witness(witness_path);
-            folding_stack.push_back(AcirProgram{ constraints, witness });
-        }
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
         if (input_type == "compiletime_stack") {
             auto program_stack =
@@ -108,7 +102,6 @@ class ClientIVCAPI : public API {
             }
         }
 
-        // single-circuit and runtime_stack cases
         if (input_type == "runtime_stack") {
             std::vector<std::string> gzipped_bincodes;
             std::vector<std::string> witness_data;
@@ -176,12 +169,11 @@ class ClientIVCAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        if (!flags.output_type || *flags.output_type != "fields-msgpack") {
+        if (!flags.output_type || *flags.output_type != "fields_msgpack") {
             throw_or_abort("No output_type or output_type not supported");
         }
 
-        if (!flags.input_type || !(*flags.input_type == "single-circuit" || *flags.input_type == "compiletime_stack" ||
-                                   *flags.input_type == "runtime_stack")) {
+        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
             throw_or_abort("No input_type or input_type not supported");
         }
 
@@ -239,8 +231,8 @@ class ClientIVCAPI : public API {
                           const std::filesystem::path& bytecode_path,
                           const std::filesystem::path& witness_path) override
     {
-        if (!flags.input_type) {
-            throw_or_abort("input_type not supplied");
+        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
+            throw_or_abort("No input_type or input_type not supported");
         }
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
