@@ -37,6 +37,6 @@ echo "Bootstrapping contracts for test network. NOTE: This took one hour last ru
 docker run aztecprotocol/aztec:$TAG bootstrap-network \
   --rpc-url $BOOTNODE_URL \
   --l1-rpc-url $ETHEREUM_HOST \
-  --l1-chain-id 31337 \
+  --l1-chain-id 1337 \
   --l1-private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
   --json | tee ./basic_contracts.json
