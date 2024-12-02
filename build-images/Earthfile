@@ -236,10 +236,6 @@ ci:
   SAVE IMAGE --push aztecprotocol/ci:2.0-$TARGETARCH
   SAVE IMAGE --push aztecprotocol/ci:2.0
 
-ci-registry:
-  ARG TARGETARCH
-  # NOTE: match version string above
-  FROM aztecprotocol/ci:2.0
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
