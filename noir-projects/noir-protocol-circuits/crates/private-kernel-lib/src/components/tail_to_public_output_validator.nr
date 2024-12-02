@@ -1,21 +1,17 @@
 mod tail_to_public_output_hints;
 
-use crate::components::{
-    tail_to_public_output_composer::meter_gas_used::meter_gas_used,
-    tail_to_public_output_validator::tail_to_public_output_hints::{
-        generate_tail_to_public_output_hints, TailToPublicOutputHints,
-    },
-};
+use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        side_effect::Counted,
+        side_effect::{Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
@@ -23,6 +19,7 @@ use dep::types::{
         assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,
     },
 };
+use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints};
 
 pub struct TailToPublicOutputValidator {
     output: PrivateToPublicKernelCircuitPublicInputs,
@@ -88,21 +85,12 @@ impl TailToPublicOutputValidator {
             split_counter,
         );
 
-        // note_encrypted_logs_hashes
+        // private_logs
         assert_split_transformed_value_arrays(
-            prev_data.note_encrypted_logs_hashes,
-            output_non_revertible.note_encrypted_logs_hashes,
-            output_revertible.note_encrypted_logs_hashes,
-            |prev: NoteLogHash, out: LogHash| out == prev.expose_to_public(),
-            split_counter,
-        );
-
-        // encrypted_logs_hashes
-        assert_split_transformed_value_arrays(
-            prev_data.encrypted_logs_hashes,
-            output_non_revertible.encrypted_logs_hashes,
-            output_revertible.encrypted_logs_hashes,
-            |prev: ScopedEncryptedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
+            prev_data.private_logs,
+            output_non_revertible.private_logs,
+            output_revertible.private_logs,
+            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
             split_counter,
         );
     }

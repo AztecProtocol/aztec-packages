@@ -33,6 +33,7 @@ using Store = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 using TreeType = ContentAddressedIndexedTree<Store, HashPolicy>;
 
 using CompletionCallback = TreeType::AddCompletionCallbackWithWitness;
+using SequentialCompletionCallback = TreeType::AddSequentiallyCompletionCallbackWithWitness;
 
 class PersistedContentAddressedIndexedTreeTest : public testing::Test {
   protected:
@@ -103,8 +104,11 @@ template <typename TypeOfTree> void check_root(TypeOfTree& tree, fr expected_roo
 }
 
 template <typename TypeOfTree>
-fr_sibling_path get_historic_sibling_path(
-    TypeOfTree& tree, index_t blockNumber, index_t index, bool includeUncommitted = true, bool expected_success = true)
+fr_sibling_path get_historic_sibling_path(TypeOfTree& tree,
+                                          block_number_t blockNumber,
+                                          index_t index,
+                                          bool includeUncommitted = true,
+                                          bool expected_success = true)
 {
     fr_sibling_path h;
     Signal signal;
@@ -176,7 +180,7 @@ GetLowIndexedLeafResponse get_low_leaf(TypeOfTree& tree, const LeafValueType& le
 
 template <typename LeafValueType, typename TypeOfTree>
 GetLowIndexedLeafResponse get_historic_low_leaf(TypeOfTree& tree,
-                                                index_t blockNumber,
+                                                block_number_t blockNumber,
                                                 const LeafValueType& leaf,
                                                 bool includeUncommitted = true)
 {
@@ -235,7 +239,7 @@ void check_find_leaf_index_from(TypeOfTree& tree,
 template <typename LeafValueType, typename TypeOfTree>
 void check_historic_find_leaf_index(TypeOfTree& tree,
                                     const LeafValueType& leaf,
-                                    index_t blockNumber,
+                                    block_number_t blockNumber,
                                     index_t expected_index,
                                     bool expected_success,
                                     bool includeUncommitted = true)
@@ -256,7 +260,7 @@ void check_historic_find_leaf_index(TypeOfTree& tree,
 template <typename LeafValueType, typename TypeOfTree>
 void check_historic_find_leaf_index_from(TypeOfTree& tree,
                                          const LeafValueType& leaf,
-                                         index_t blockNumber,
+                                         block_number_t blockNumber,
                                          index_t start_index,
                                          index_t expected_index,
                                          bool expected_success,
@@ -279,7 +283,7 @@ template <typename LeafValueType, typename TypeOfTree>
 void check_historic_leaf(TypeOfTree& tree,
                          const LeafValueType& leaf,
                          index_t expected_index,
-                         index_t blockNumber,
+                         block_number_t blockNumber,
                          bool expected_success,
                          bool includeUncommitted = true)
 {
@@ -299,7 +303,7 @@ void check_historic_leaf(TypeOfTree& tree,
 template <typename TypeOfTree>
 void check_historic_sibling_path(TypeOfTree& tree,
                                  index_t index,
-                                 index_t blockNumber,
+                                 block_number_t blockNumber,
                                  const fr_sibling_path& expected_sibling_path,
                                  bool includeUncommitted = true,
                                  bool expected_success = true)
@@ -371,6 +375,19 @@ void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool
 }
 
 template <typename LeafValueType, typename TypeOfTree>
+void add_values_sequentially(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool expectedSuccess = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<AddIndexedDataSequentiallyResponse<LeafValueType>>& response) -> void {
+        EXPECT_EQ(response.success, expectedSuccess);
+        signal.signal_level();
+    };
+
+    tree.add_or_update_values_sequentially(values, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
 void block_sync_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool expectedSuccess = true)
 {
     Signal signal;
@@ -383,8 +400,23 @@ void block_sync_values(TypeOfTree& tree, const std::vector<LeafValueType>& value
     signal.wait_for_level();
 }
 
+template <typename LeafValueType, typename TypeOfTree>
+void block_sync_values_sequential(TypeOfTree& tree,
+                                  const std::vector<LeafValueType>& values,
+                                  bool expectedSuccess = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
+        EXPECT_EQ(response.success, expectedSuccess);
+        signal.signal_level();
+    };
+
+    tree.add_or_update_values_sequentially(values, completion);
+    signal.wait_for_level();
+}
+
 template <typename TypeOfTree>
-void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+void remove_historic_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
@@ -396,7 +428,7 @@ void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool ex
 }
 
 template <typename TypeOfTree>
-void finalise_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+void finalise_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -408,7 +440,7 @@ void finalise_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_
 }
 
 template <typename TypeOfTree>
-void unwind_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+void unwind_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
@@ -717,8 +749,8 @@ void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSi
             fr_sibling_path path = memdb.update_element(batch[j].value);
             memory_tree_sibling_paths.push_back(path);
         }
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
             CompletionCallback completion =
@@ -804,8 +836,8 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
             fr_sibling_path path = memdb.update_element(batch[j].value);
             memory_tree_sibling_paths.push_back(path);
         }
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
             CompletionCallback completion =
@@ -953,6 +985,149 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_conta
     };
     tree.add_or_update_values(values, add_completion);
     signal.wait_for_level();
+}
+
+void test_sequential_insert_vs_batch(uint32_t batchSize, std::string directory, uint64_t mapSize, uint64_t maxReaders)
+{
+    auto& random_engine = numeric::get_randomness();
+    const uint32_t batch_size = batchSize;
+    const uint32_t num_batches = 16;
+    uint32_t depth = 10;
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
+    NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
+
+    auto sequential_tree_1 = create_tree(directory, mapSize, maxReaders, depth, batch_size, workers);
+    auto sequential_tree_2 = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
+    auto sequential_tree_3 = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
+    auto batch_tree = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
+
+    for (uint32_t i = 0; i < num_batches; i++) {
+
+        check_root(*sequential_tree_1, memdb.root());
+        check_root(*sequential_tree_2, memdb.root());
+        check_root(*sequential_tree_3, memdb.root());
+        check_root(*batch_tree, memdb.root());
+        check_sibling_path(*sequential_tree_1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*sequential_tree_2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*sequential_tree_3, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*batch_tree, 0, memdb.get_sibling_path(0));
+
+        check_sibling_path(*sequential_tree_1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*sequential_tree_2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*sequential_tree_3, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*batch_tree, 512, memdb.get_sibling_path(512));
+
+        std::vector<NullifierLeafValue> batch;
+        std::vector<fr_sibling_path> memory_tree_sibling_paths;
+        for (uint32_t j = 0; j < batch_size; j++) {
+            batch.emplace_back(random_engine.get_random_uint256());
+            fr_sibling_path path = memdb.update_element(batch[j].value);
+            memory_tree_sibling_paths.push_back(path);
+        }
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> sequential_tree_1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>>
+            sequential_tree_1_insertion_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> sequential_tree_2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>>
+            sequential_tree_2_insertion_witness_data;
+
+        {
+            Signal signal;
+            SequentialCompletionCallback completion =
+                [&](const TypedResponse<AddIndexedDataSequentiallyResponse<NullifierLeafValue>>& response) {
+                    sequential_tree_1_low_leaf_witness_data = response.inner.low_leaf_witness_data;
+                    sequential_tree_1_insertion_witness_data = response.inner.insertion_witness_data;
+                    signal.signal_level();
+                };
+            sequential_tree_1->add_or_update_values_sequentially(batch, completion);
+            signal.wait_for_level();
+        }
+
+        {
+            Signal signal;
+            SequentialCompletionCallback completion =
+                [&](const TypedResponse<AddIndexedDataSequentiallyResponse<NullifierLeafValue>>& response) {
+                    sequential_tree_2_low_leaf_witness_data = response.inner.low_leaf_witness_data;
+                    sequential_tree_2_insertion_witness_data = response.inner.insertion_witness_data;
+                    signal.signal_level();
+                };
+            sequential_tree_2->add_or_update_values_sequentially(batch, completion);
+            signal.wait_for_level();
+        }
+
+        {
+            Signal signal;
+            auto completion = [&](const TypedResponse<AddDataResponse>&) { signal.signal_level(); };
+            sequential_tree_3->add_or_update_values_sequentially(batch, completion);
+            signal.wait_for_level();
+        }
+
+        {
+            Signal signal;
+            auto completion = [&](const TypedResponse<AddDataResponse>&) { signal.signal_level(); };
+            batch_tree->add_or_update_values(batch, completion);
+            signal.wait_for_level();
+        }
+        check_root(*sequential_tree_1, memdb.root());
+        check_root(*sequential_tree_2, memdb.root());
+        check_root(*sequential_tree_3, memdb.root());
+        check_root(*batch_tree, memdb.root());
+
+        check_sibling_path(*sequential_tree_1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*sequential_tree_2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*sequential_tree_3, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*batch_tree, 0, memdb.get_sibling_path(0));
+
+        check_sibling_path(*sequential_tree_1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*sequential_tree_2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*sequential_tree_3, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*batch_tree, 512, memdb.get_sibling_path(512));
+
+        for (uint32_t j = 0; j < batch_size; j++) {
+            EXPECT_EQ(sequential_tree_1_low_leaf_witness_data->at(j).leaf,
+                      sequential_tree_2_low_leaf_witness_data->at(j).leaf);
+            EXPECT_EQ(sequential_tree_1_low_leaf_witness_data->at(j).index,
+                      sequential_tree_2_low_leaf_witness_data->at(j).index);
+            EXPECT_EQ(sequential_tree_1_low_leaf_witness_data->at(j).path,
+                      sequential_tree_2_low_leaf_witness_data->at(j).path);
+
+            EXPECT_EQ(sequential_tree_1_insertion_witness_data->at(j).leaf,
+                      sequential_tree_2_insertion_witness_data->at(j).leaf);
+            EXPECT_EQ(sequential_tree_1_insertion_witness_data->at(j).index,
+                      sequential_tree_2_insertion_witness_data->at(j).index);
+            EXPECT_EQ(sequential_tree_1_insertion_witness_data->at(j).path,
+                      sequential_tree_2_insertion_witness_data->at(j).path);
+        }
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_sequential_insert_vs_batch)
+{
+    uint32_t batchSize = 2;
+    while (batchSize <= 2) {
+        test_sequential_insert_vs_batch(batchSize, _directory, _mapSize, _maxReaders);
+        batchSize <<= 1;
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, sequential_insert_allows_multiple_inserts_to_the_same_key)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    std::vector<PublicDataLeafValue> values{ PublicDataLeafValue(42, 27), PublicDataLeafValue(42, 28) };
+    add_values_sequentially(tree, values);
+
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2).value, values[1]);
 }
 
 template <typename LeafValueType> fr hash_leaf(const IndexedLeaf<LeafValueType>& leaf)
@@ -1475,8 +1650,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
             memdb.update_element(batch[j].value);
         }
         memory_tree_sibling_paths_index_0.push_back(memdb.get_sibling_path(0));
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
-        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
             CompletionCallback completion =
@@ -2424,7 +2599,7 @@ void test_nullifier_tree_unwind(std::string directory,
 
     const uint32_t blocksToRemove = numBlocksToUnwind;
     for (uint32_t i = 0; i < blocksToRemove; i++) {
-        const index_t blockNumber = numBlocks - i;
+        const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
         unwind_block(tree, blockNumber);
