@@ -482,11 +482,14 @@ mod tests {
         assert_eq(lhs, rhs);
     }
 
+    // TODO: After reverting some noir changes (see PR#10341) the below no longer works in unconstrained
+    // This happened previously in commit 893f1eca422d952d672eec75e3c9ff8f149a9ae8 but a sync fixed it.
+    // It works and passes in constrained, just takes a min longer.
     #[test]
-    unconstrained fn test_base() {
+    fn test_base() {
         let mut tx_data = FixtureBuilder::new();
         // Add some random bits of state
-        tx_data.append_note_hashes_with_logs(50);
+        tx_data.append_note_hashes(50);
         tx_data.set_first_nullifier();
         tx_data.append_nullifiers(50);
         tx_data.append_l2_to_l1_msgs(5);

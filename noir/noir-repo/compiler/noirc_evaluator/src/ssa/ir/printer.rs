@@ -214,7 +214,10 @@ fn display_instruction_inner(
             let then_value = show(*then_value);
             let else_condition = show(*else_condition);
             let else_value = show(*else_value);
-            writeln!(f, "if {then_condition} then {then_value} else if {else_condition} {else_value}")
+            writeln!(
+                f,
+                "if {then_condition} then {then_value} else if {else_condition} then {else_value}"
+            )
         }
         Instruction::MakeArray { elements, typ } => {
             write!(f, "make_array [")?;
