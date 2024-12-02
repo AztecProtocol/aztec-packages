@@ -1,7 +1,7 @@
 import { type Database } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
+import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
 import { LmdbAztecMap } from './map.js';
 
 /**
@@ -21,8 +21,8 @@ export class LmdbAztecSet<K extends Key> implements AztecSet<K>, AztecAsyncSet<K
     return this.map.has(key);
   }
 
-  async hasAsync(key: K): Promise<boolean> {
-    return this.has(key);
+  hasAsync(key: K): Promise<boolean> {
+    return Promise.resolve(this.has(key));
   }
 
   add(key: K): Promise<void> {

@@ -1,7 +1,7 @@
-import { IDBPDatabase, IDBPObjectStore } from 'idb';
+import { type IDBPDatabase, type IDBPObjectStore } from 'idb';
 
-import { AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
-import { AztecIDBSchema } from './store.js';
+import { type AztecAsyncSingleton } from '../interfaces/singleton.js';
+import { type AztecIDBSchema } from './store.js';
 
 /**
  * Stores a single value in IndexedDB.

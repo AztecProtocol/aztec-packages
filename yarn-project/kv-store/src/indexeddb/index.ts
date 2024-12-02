@@ -1,6 +1,6 @@
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
-import { DataStoreConfig } from '../config.js';
+import { type DataStoreConfig } from '../config.js';
 import { initStoreForRollup } from '../utils.js';
 import { AztecIndexedDBStore } from './store.js';
 

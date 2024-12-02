@@ -1,14 +1,14 @@
 import { type Logger } from '@aztec/foundation/log';
 
-import { DBSchema, IDBPDatabase, openDB } from 'idb';
+import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
 
-import { AztecAsyncArray } from '../interfaces/array.js';
-import { Key } from '../interfaces/common.js';
-import { AztecAsyncCounter } from '../interfaces/counter.js';
-import { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
-import { AztecAsyncSet } from '../interfaces/set.js';
-import { AztecAsyncSingleton } from '../interfaces/singleton.js';
-import { AztecAsyncKVStore } from '../interfaces/store.js';
+import { type AztecAsyncArray } from '../interfaces/array.js';
+import { type Key } from '../interfaces/common.js';
+import { type AztecAsyncCounter } from '../interfaces/counter.js';
+import { type AztecAsyncMap, type AztecAsyncMultiMap } from '../interfaces/map.js';
+import { type AztecAsyncSet } from '../interfaces/set.js';
+import { type AztecAsyncSingleton } from '../interfaces/singleton.js';
+import { type AztecAsyncKVStore } from '../interfaces/store.js';
 import { IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
 import { IndexedDBAztecSet } from './set.js';
@@ -29,9 +29,6 @@ export interface AztecIDBSchema extends DBSchema {
  */
 
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
-  // This is the only way of doing branding the browser seems to like
-  __branding: 'AztecAsyncKVStore' = 'AztecAsyncKVStore';
-
   #log: Logger;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
@@ -117,7 +114,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     return new IndexedDBAztecMap(this.#rootDB, name);
   }
 
-  openCounter<K extends Key | Array<string | number>>(name: string): AztecAsyncCounter<K> {
+  openCounter<K extends Key | Array<string | number>>(_name: string): AztecAsyncCounter<K> {
     throw new Error('Method not implemented.');
   }
 
@@ -147,7 +144,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /** Deletes this store and removes the database */
-  async delete() {
+  delete() {
     this.#rootDB.deleteObjectStore('data');
   }
 

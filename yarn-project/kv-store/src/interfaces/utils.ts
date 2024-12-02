@@ -1,5 +1,6 @@
-import { AztecAsyncKVStore, AztecKVStore } from './store.js';
+import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
 
+/* eslint-disable no-console */
 export const mockLogger = {
   debug: (msg: string, data: any) => console.log(msg, data),
   info: (msg: string, data: any) => console.log(msg, data),
@@ -8,6 +9,7 @@ export const mockLogger = {
   silent: (msg: string, data: any) => console.log(msg, data),
   verbose: (msg: string, data: any) => console.log(msg, data),
 };
+/* eslint-enable no-console */
 
 export function isSyncStore(store: AztecKVStore | AztecAsyncKVStore): store is AztecAsyncKVStore {
   return (store as AztecKVStore).syncGetters === true;

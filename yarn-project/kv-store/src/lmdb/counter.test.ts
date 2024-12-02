@@ -29,14 +29,14 @@ describe('LmdbAztecCounter', () => {
     });
 
     it('returns 0 for unknown keys', async () => {
-      expect(await counter.get(genKey())).to.equal(0);
+      expect(counter.get(genKey())).to.equal(0);
     });
 
     it('increments values', async () => {
       const key = genKey();
       await counter.update(key, 1);
 
-      expect(await counter.get(key)).to.equal(1);
+      expect(counter.get(key)).to.equal(1);
     });
 
     it('decrements values', async () => {
@@ -44,7 +44,7 @@ describe('LmdbAztecCounter', () => {
       await counter.update(key, 1);
       await counter.update(key, -1);
 
-      expect(await counter.get(key)).to.equal(0);
+      expect(counter.get(key)).to.equal(0);
     });
 
     it('throws when decrementing below zero', async () => {
@@ -59,7 +59,7 @@ describe('LmdbAztecCounter', () => {
       await counter.update(key, 1);
       await counter.update(key, 2);
 
-      expect(await counter.get(key)).to.equal(3);
+      expect(counter.get(key)).to.equal(3);
     });
 
     it('resets the counter', async () => {
@@ -68,7 +68,7 @@ describe('LmdbAztecCounter', () => {
       await counter.update(key, 2);
       await counter.set(key, 0);
 
-      expect(await counter.get(key)).to.equal(0);
+      expect(counter.get(key)).to.equal(0);
     });
 
     it('iterates over entries', async () => {

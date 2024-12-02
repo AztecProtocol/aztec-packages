@@ -1,7 +1,7 @@
 import { type Database, type RangeOptions } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { AztecAsyncMultiMap, type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecAsyncMultiMap, type AztecMultiMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -35,8 +35,8 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     return this.db.get(this.#slot(key))?.[1];
   }
 
-  async getAsync(key: K): Promise<V | undefined> {
-    return this.get(key);
+  getAsync(key: K): Promise<V | undefined> {
+    return Promise.resolve(this.get(key));
   }
 
   *getValues(key: K): IterableIterator<V> {
@@ -56,8 +56,8 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     return this.db.doesExist(this.#slot(key));
   }
 
-  async hasAsync(key: K): Promise<boolean> {
-    return this.has(key);
+  hasAsync(key: K): Promise<boolean> {
+    return Promise.resolve(this.has(key));
   }
 
   async set(key: K, val: V): Promise<void> {

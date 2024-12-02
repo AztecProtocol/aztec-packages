@@ -1,8 +1,8 @@
-import { IDBPDatabase, IDBPObjectStore } from 'idb';
+import { type IDBPDatabase, type IDBPObjectStore } from 'idb';
 
 import { type Key, type Range } from '../interfaces/common.js';
 import { type AztecAsyncMultiMap } from '../interfaces/map.js';
-import { AztecIDBSchema } from './store.js';
+import { type AztecIDBSchema } from './store.js';
 
 /**
  * A map backed by IndexedDB.
@@ -64,7 +64,7 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
     });
   }
 
-  swap(key: K, fn: (val: V | undefined) => V): Promise<void> {
+  swap(_key: K, _fn: (val: V | undefined) => V): Promise<void> {
     throw new Error('Not implemented');
   }
 

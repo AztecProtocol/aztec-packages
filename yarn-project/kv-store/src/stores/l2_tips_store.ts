@@ -7,8 +7,8 @@ import {
   type L2Tips,
 } from '@aztec/circuit-types';
 
-import { AztecAsyncMap, type AztecMap } from '../interfaces/map.js';
-import { AztecAsyncKVStore } from '../interfaces/store.js';
+import { type AztecAsyncMap, type AztecMap } from '../interfaces/map.js';
+import { type AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
 export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {

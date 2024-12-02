@@ -17,7 +17,7 @@ import {
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
-import { AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
 
 /**
  * Used for managing keys. Can hold keys of multiple accounts.

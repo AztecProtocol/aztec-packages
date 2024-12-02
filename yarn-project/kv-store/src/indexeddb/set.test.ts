@@ -3,5 +3,5 @@ import { mockLogger } from '../interfaces/utils.js';
 import { AztecIndexedDBStore } from './store.js';
 
 describe('IndexedDBSet', () => {
-  describeAztecSet('AztecSet', async () => AztecIndexedDBStore.open(mockLogger, undefined, true));
+  describeAztecSet('AztecSet', async () => await AztecIndexedDBStore.open(mockLogger, undefined, true));
 });

@@ -1,8 +1,8 @@
-import { Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import { join } from 'path';
 
-import { DataStoreConfig } from '../config.js';
+import { type DataStoreConfig } from '../config.js';
 import { initStoreForRollup } from '../utils.js';
 import { AztecLmdbStore } from './store.js';
 

@@ -14,7 +14,7 @@ describe('AztecLmdbStore', () => {
       const path = await fs.mkdtemp(join(tmpdir(), 'aztec-store-test-'));
       return AztecLmdbStore.open(path, defaultMapSize, false);
     },
-    async () => AztecLmdbStore.open(undefined, defaultMapSize, false),
-    async () => AztecLmdbStore.open(undefined, defaultMapSize, true),
+    async () => await AztecLmdbStore.open(undefined, defaultMapSize, false),
+    async () => await AztecLmdbStore.open(undefined, defaultMapSize, true),
   );
 });
