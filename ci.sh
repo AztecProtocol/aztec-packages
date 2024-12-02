@@ -49,10 +49,6 @@ case "$CMD" in
     # Spin up ec2 instance and bootstrap.
     $ci3/bootstrap/ec2 "$@"
     ;;
-  "test-cache")
-    # Spin up ec2 instance and bootstrap.
-    scripts/tests/bootstrap/test-cache
-    ;;
   "local")
     # Create container with clone of local repo and bootstrap.
     $ci3/bootstrap/local

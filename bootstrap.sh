@@ -137,6 +137,10 @@ case "$CMD" in
     yarn-project/end-to-end/scripts/e2e_test.sh $@
     exit
   ;;
+  "test-cache")
+    # Spin up ec2 instance and bootstrap.
+    scripts/tests/bootstrap/test-cache
+    ;;
   "image-aztec")
     $ci3/github/group "image-aztec"
     source $ci3/base/tmp_source
@@ -175,7 +179,7 @@ case "$CMD" in
     exit
   ;;
   *)
-    echo "usage: $0 <clean|full|fast|check|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|check|test-e2e|test-cache|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
