@@ -73,6 +73,9 @@ function compile {
     $ci3/cache/upload circuit-$hash.tar.gz $json_path 2> /dev/null
   fi
 
+  # No vks needed for simulated circuits.
+  [ "$name" == *"simulated"* ] && continue
+
   # Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
@@ -91,7 +94,7 @@ function compile {
 
 function build {
   set -eu
-  grep -oP '(?<=crates/)[^"]+' Nargo.toml | grep -v simulated | \
+  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
       if grep -q 'type = "bin"' "$toml_file"; then
