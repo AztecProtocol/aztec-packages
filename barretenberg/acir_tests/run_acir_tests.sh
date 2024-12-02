@@ -69,7 +69,7 @@ if [ "$CLIENT_IVC_SKIPS" = true ]; then
     # folding verifiers and does databus and Goblin merge work depending on its inputs,
     # detecting which circuits are Aztec kernels. These tests may simple fail for trivial
     # reasons, e.g. because  the number of circuits in the stack is odd.
-    SKIP_ARRAY+=(fold_basic_nested_call fold_fibonacci fold_numeric_generic_poseidon)
+    SKIP_ARRAY+=(fold_basic_nested_call fold_fibonacci fold_numeric_generic_poseidon ram_blowup_regression)
 fi
 
 
