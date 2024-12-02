@@ -160,7 +160,6 @@ jobs:
         timeout-minutes: 40
         if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
-          ./bootstrap.sh
           earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
