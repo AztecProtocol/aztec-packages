@@ -469,13 +469,12 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-WorldStateStatusFull WorldState::sync_block(
-    const StateReference& block_state_ref,
-    const bb::fr& block_header_hash,
-    const std::vector<bb::fr>& notes,
-    const std::vector<bb::fr>& l1_to_l2_messages,
-    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
+WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_ref,
+                                            const bb::fr& block_header_hash,
+                                            const std::vector<bb::fr>& notes,
+                                            const std::vector<bb::fr>& l1_to_l2_messages,
+                                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes)
 {
     validate_trees_are_equally_synched();
     WorldStateStatusFull status;
@@ -506,7 +505,15 @@ WorldStateStatusFull WorldState::sync_block(
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
-        NullifierTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        NullifierTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
+            // take the first error
+            bool expected = true;
+            if (!resp.success && success.compare_exchange_strong(expected, false)) {
+                err_message = resp.message;
+            }
+
+            signal.signal_decrement();
+        };
         wrapper.tree->add_or_update_values(nullifiers, 0, completion);
     }
 
@@ -525,30 +532,13 @@ WorldStateStatusFull WorldState::sync_block(
         wrapper.tree->add_value(block_header_hash, decr);
     }
 
-    // finally insert the public writes and wait for all the operations to end
     {
-        // insert public writes in batches so that we can have different transactions modifying the same slot in the
-        // same L2 block
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        std::atomic_uint64_t current_batch = 0;
-        PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
-            current_batch++;
-            if (current_batch == public_writes.size()) {
-                decr(resp);
-            } else {
-                wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
-            }
-        };
-
-        if (public_writes.empty()) {
-            signal.signal_decrement();
-        } else {
-            wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
-        }
-
-        // block inside this scope in order to keep current_batch/completion alive until the end of all operations
-        signal.wait_for_level();
+        PublicDataTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        wrapper.tree->add_or_update_values_sequentially(public_writes, completion);
     }
+
+    signal.wait_for_level();
 
     if (!success) {
         throw std::runtime_error("Failed to sync block: " + err_message);
@@ -639,12 +629,16 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlock
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
-        throw std::runtime_error("Unable to remove historical block, block not found");
+        throw std::runtime_error(format("Unable to remove historical blocks to block number ",
+                                        toBlockNumber,
+                                        ", blocks not found. Current oldest block: ",
+                                        archive_state.meta.oldestHistoricBlock));
     }
     WorldStateStatusFull status;
     for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
         if (!remove_historical_block(blockNumber, status)) {
-            throw std::runtime_error("Failed to remove historical block");
+            throw std::runtime_error(format(
+                "Failed to remove historical block ", blockNumber, " when removing blocks up to ", toBlockNumber));
         }
     }
     populate_status_summary(status);
@@ -828,6 +822,8 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
                               0,
                               0,
                               // total fees
+                              0,
+                              // total mana used
                               0 });
 }
 

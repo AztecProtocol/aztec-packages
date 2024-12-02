@@ -780,8 +780,7 @@ jobs:
         with:
           concurrency_key: docs-preview-x86
       - name: "Docs Preview"
-        if: github.event.number
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           earthly-ci --no-output \
           ./docs/+deploy-preview --ENV=staging --PR=${{ github.event.number }} \

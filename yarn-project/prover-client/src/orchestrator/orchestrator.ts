@@ -1,10 +1,8 @@
 import {
-  Body,
   L2Block,
   MerkleTreeId,
   type ProcessedTx,
   type ServerCircuitProver,
-  type TxEffect,
   makeEmptyProcessedTx,
 } from '@aztec/circuit-types';
 import {
@@ -55,8 +53,8 @@ import { inspect } from 'util';
 
 import {
   buildBaseRollupHints,
+  buildHeaderAndBodyFromTxs,
   buildHeaderFromCircuitOutputs,
-  buildHeaderFromTxEffects,
   createBlockMergeRollupInputs,
   createMergeRollupInputs,
   getPreviousRollupDataFromPublicInputs,
@@ -416,15 +414,12 @@ export class ProvingOrchestrator implements EpochProver {
 
   private async buildBlock(provingState: BlockProvingState, expectedHeader?: Header) {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
-    const nonEmptyTxEffects: TxEffect[] = provingState!.allTxs
-      .map(txProvingState => txProvingState.processedTx.txEffect)
-      .filter(txEffect => !txEffect.isEmpty());
-    const body = new Body(nonEmptyTxEffects);
+    const txs = provingState!.allTxs.map(a => a.processedTx);
 
     // Given we've applied every change from this block, now assemble the block header
     // and update the archive tree, so we're ready to start processing the next block
-    const header = await buildHeaderFromTxEffects(
-      body,
+    const { header, body } = await buildHeaderAndBodyFromTxs(
+      txs,
       provingState.globalVariables,
       provingState.newL1ToL2Messages,
       this.db,
@@ -607,13 +602,6 @@ export class ProvingOrchestrator implements EpochProver {
     provingState: BlockProvingState,
   ) {
     const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
-
-    const rejectReason = txProvingState.verifyStateOrReject();
-    if (rejectReason) {
-      provingState.reject(rejectReason);
-      return;
-    }
-
     const txIndex = provingState.addNewTx(txProvingState);
     this.enqueueTube(provingState, txIndex);
     if (txProvingState.requireAvmProof) {

@@ -72,7 +72,6 @@ describe('aztec node', () => {
       p2p,
       l2BlockSource,
       l2LogsSource,
-      l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
       nullifierWithBlockSource,
@@ -143,12 +142,14 @@ describe('aztec node', () => {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
       validMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
       lastBlockNumber = 3;

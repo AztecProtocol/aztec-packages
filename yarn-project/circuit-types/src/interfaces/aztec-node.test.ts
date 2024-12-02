@@ -5,11 +5,13 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
+  GasFees,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
   PublicKeys,
@@ -33,14 +35,7 @@ import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
-import {
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  type L2BlockL2Logs,
-  UnencryptedL2BlockL2Logs,
-} from '../logs/l2_block_l2_logs.js';
 import { type LogFilter } from '../logs/log_filter.js';
-import { type FromLogType, LogType } from '../logs/log_type.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
@@ -159,6 +154,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(L2Block);
   });
 
+  it('getCurrentBaseFees', async () => {
+    const response = await context.client.getCurrentBaseFees();
+    expect(response).toEqual(GasFees.empty());
+  });
+
   it('getBlockNumber', async () => {
     const response = await context.client.getBlockNumber();
     expect(response).toBe(1);
@@ -209,19 +209,9 @@ describe('AztecNodeApiSchema', () => {
     await context.client.addContractArtifact(AztecAddress.random(), artifact);
   }, 20_000);
 
-  it('getLogs(Encrypted)', async () => {
-    const response = await context.client.getLogs(1, 1, LogType.ENCRYPTED);
-    expect(response).toEqual([expect.any(EncryptedL2BlockL2Logs)]);
-  });
-
-  it('getLogs(NoteEncrypted)', async () => {
-    const response = await context.client.getLogs(1, 1, LogType.NOTEENCRYPTED);
-    expect(response).toEqual([expect.any(EncryptedNoteL2BlockL2Logs)]);
-  });
-
-  it('getLogs(Unencrypted)', async () => {
-    const response = await context.client.getLogs(1, 1, LogType.UNENCRYPTED);
-    expect(response).toEqual([expect.any(UnencryptedL2BlockL2Logs)]);
+  it('getPrivateLogs', async () => {
+    const response = await context.client.getPrivateLogs(1, 1);
+    expect(response).toEqual([expect.any(PrivateLog)]);
   });
 
   it('getUnencryptedLogs', async () => {
@@ -435,6 +425,9 @@ class MockAztecNode implements AztecNode {
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
+  getCurrentBaseFees(): Promise<GasFees> {
+    return Promise.resolve(GasFees.empty());
+  }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
   }
@@ -475,21 +468,8 @@ class MockAztecNode implements AztecNode {
     deepStrictEqual(artifact, this.artifact);
     return Promise.resolve();
   }
-  getLogs<TLogType extends LogType>(
-    _from: number,
-    _limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
-    switch (logType) {
-      case LogType.ENCRYPTED:
-        return Promise.resolve([EncryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      case LogType.NOTEENCRYPTED:
-        return Promise.resolve([EncryptedNoteL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      case LogType.UNENCRYPTED:
-        return Promise.resolve([UnencryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      default:
-        throw new Error(`Unexpected log type: ${logType}`);
-    }
+  getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
+    return Promise.resolve([PrivateLog.random()]);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);

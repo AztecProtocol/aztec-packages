@@ -4,17 +4,14 @@ import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
-  type FromLogType,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockL2Logs,
   type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
-  LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
@@ -42,6 +39,7 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
+  type GasFees,
   type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -49,6 +47,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
+  type PrivateLog,
   type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
@@ -94,8 +93,7 @@ export class AztecNodeService implements AztecNode {
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
     protected readonly blockSource: L2BlockSource & Partial<Service>,
-    protected readonly encryptedLogsSource: L2LogsSource,
-    protected readonly unencryptedLogsSource: L2LogsSource,
+    protected readonly logsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly nullifierSource: NullifierWithBlockSource,
@@ -164,6 +162,7 @@ export class AztecNodeService implements AztecNode {
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    log.info(`Aztec node accepting ${config.realProofs ? 'real' : 'test'} proofs`);
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
@@ -190,7 +189,6 @@ export class AztecNodeService implements AztecNode {
     return new AztecNodeService(
       config,
       p2pClient,
-      archiver,
       archiver,
       archiver,
       archiver,
@@ -259,6 +257,14 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentBaseFees();
+  }
+
+  /**
    * Method to fetch the current block number.
    * @returns The block number.
    */
@@ -303,19 +309,13 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  public getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: LogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
-    const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  public getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+    return this.logsSource.getPrivateLogs(from, limit);
   }
 
   /**
@@ -325,7 +325,7 @@ export class AztecNodeService implements AztecNode {
    * that tag.
    */
   public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.encryptedLogsSource.getLogsByTags(tags);
+    return this.logsSource.getLogsByTags(tags);
   }
 
   /**
@@ -334,7 +334,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+    return this.logsSource.getUnencryptedLogs(filter);
   }
 
   /**
@@ -343,7 +343,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.unencryptedLogsSource.getContractClassLogs(filter);
+    return this.logsSource.getContractClassLogs(filter);
   }
 
   /**

@@ -1,7 +1,6 @@
 import {
   BaseOrMergeRollupPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
-  PrivateBaseRollupInputs,
   VerificationKeyData,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
@@ -9,9 +8,9 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 
 import { type ProvingJobSource, ProvingJobSourceSchema } from './proving-job-source.js';
 import {
+  type ProofUri,
   type ProvingJob,
-  type ProvingRequest,
-  type ProvingRequestResult,
+  type ProvingJobResult,
   type ProvingRequestResultFor,
   ProvingRequestType,
   makePublicInputsAndRecursiveProof,
@@ -66,17 +65,18 @@ describe('ProvingJobSourceSchema', () => {
 });
 
 class MockProvingJobSource implements ProvingJobSource {
-  getProvingJob(): Promise<ProvingJob<ProvingRequest> | undefined> {
+  getProvingJob(): Promise<ProvingJob | undefined> {
     return Promise.resolve({
       id: 'a-job-id',
-      request: { type: ProvingRequestType.PRIVATE_BASE_ROLLUP, inputs: PrivateBaseRollupInputs.empty() },
+      type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+      inputsUri: 'inputs-uri' as ProofUri,
     });
   }
   heartbeat(jobId: string): Promise<void> {
     expect(typeof jobId).toEqual('string');
     return Promise.resolve();
   }
-  resolveProvingJob(jobId: string, result: ProvingRequestResult): Promise<void> {
+  resolveProvingJob(jobId: string, result: ProvingJobResult): Promise<void> {
     expect(typeof jobId).toEqual('string');
     const baseRollupResult = result as ProvingRequestResultFor<typeof ProvingRequestType.PRIVATE_BASE_ROLLUP>;
     expect(baseRollupResult.result.inputs).toBeInstanceOf(BaseOrMergeRollupPublicInputs);

@@ -45,7 +45,7 @@ export async function cancelTx(
     log(` Tx fee: ${cancelReceipt.transactionFee}`);
     log(` Status: ${cancelReceipt.status}`);
     log(` Block number: ${cancelReceipt.blockNumber}`);
-    log(` Block hash: ${cancelReceipt.blockHash?.toString('hex')}`);
+    log(` Block hash: ${cancelReceipt.blockHash?.toString()}`);
   } catch (err: any) {
     log(`Could not cancel transaction\n ${err.message}`);
   }

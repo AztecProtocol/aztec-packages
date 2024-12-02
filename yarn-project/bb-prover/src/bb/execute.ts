@@ -431,10 +431,8 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'mega_vk.bin');
+  const vkPath = join(workingDirectory, 'client_ivc_vk.bin');
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
-  const translatorVkPath = join(workingDirectory, 'translator_vk.bin');
-  const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -450,7 +448,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!filePresent(vkPath) || !filePresent(proofPath) || !filePresent(translatorVkPath) || !filePresent(eccVkPath)) {
+    if (!filePresent(vkPath) || !filePresent(proofPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
@@ -533,12 +531,7 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
     }
 
-    // public inputs are used directly as a vector of fields in C++,
-    // so we serialize them as such here instead of just using toBuffer
-    await fs.writeFile(
-      publicInputsPath,
-      input.publicInputs.toFields().map(fr => fr.toBuffer()),
-    );
+    await fs.writeFile(publicInputsPath, input.output.toBuffer());
     if (!filePresent(publicInputsPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
     }
