@@ -129,6 +129,8 @@ Service Address Setup Container
       value: "{{ .Values.network.public }}"
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
+    - name: TELEMETRY
+      value: "{{ .Values.telemetry.enabled }}"
     - name: OTEL_COLLECTOR_ENDPOINT
       value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST

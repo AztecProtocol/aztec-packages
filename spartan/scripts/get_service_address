@@ -1,9 +1,9 @@
 set -eu
-local SERVICE_LABEL=$1
-local PORT=$2
-local MAX_RETRIES=30
-local RETRY_INTERVAL=2
-local attempt=1
+SERVICE_LABEL=$1
+PORT=$2
+MAX_RETRIES=30
+RETRY_INTERVAL=2
+attempt=1
 
 # Get pod name
 while [ $attempt -le $MAX_RETRIES ]; do
