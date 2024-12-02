@@ -7,7 +7,7 @@ import { type AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 
 /** A key-value store */
 export interface AztecKVStore {
-  __branding: 'AztecKVStore';
+  syncGetters: true;
   /**
    * Creates a new map.
    * @param name - The name of the map
@@ -77,7 +77,6 @@ export interface AztecKVStore {
 }
 
 export interface AztecAsyncKVStore {
-  __branding: 'AztecAsyncKVStore';
   /**
    * Creates a new map.
    * @param name - The name of the map

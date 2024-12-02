@@ -5,9 +5,13 @@ import { expect } from 'chai';
 import { Key, Range } from './common.js';
 import { AztecAsyncMap, AztecAsyncMultiMap, AztecMap, AztecMultiMap } from './map.js';
 import { AztecAsyncKVStore, AztecKVStore } from './store.js';
-import { isAsyncStore } from './utils.js';
+import { isSyncStore } from './utils.js';
 
-export function describeAztecMap(testName: string, getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>) {
+export function describeAztecMap(
+  testName: string,
+  getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  forceAsync: boolean = false,
+) {
   describe(testName, () => {
     let store: AztecKVStore | AztecAsyncKVStore;
     let map: AztecMultiMap<Key, string> | AztecAsyncMultiMap<Key, string>;
@@ -18,33 +22,33 @@ export function describeAztecMap(testName: string, getStore: () => Promise<Aztec
     });
 
     async function get(key: Key, sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
-      return isAsyncStore(store)
-        ? await (sut as AztecAsyncMultiMap<any, any>).getAsync(key)
-        : (sut as AztecMultiMap<any, any>).get(key);
+      return isSyncStore(store) && !forceAsync
+        ? (sut as AztecMultiMap<any, any>).get(key)
+        : await (sut as AztecAsyncMultiMap<any, any>).getAsync(key);
     }
 
     async function entries() {
-      return isAsyncStore(store)
-        ? await toArray((map as AztecAsyncMultiMap<any, any>).entriesAsync())
-        : await toArray((map as AztecMultiMap<any, any>).entries());
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((map as AztecMultiMap<any, any>).entries())
+        : await toArray((map as AztecAsyncMultiMap<any, any>).entriesAsync());
     }
 
     async function values() {
-      return isAsyncStore(store)
-        ? await toArray((map as AztecAsyncMultiMap<any, any>).valuesAsync())
-        : await toArray((map as AztecMultiMap<any, any>).values());
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((map as AztecMultiMap<any, any>).values())
+        : await toArray((map as AztecAsyncMultiMap<any, any>).valuesAsync());
     }
 
     async function keys(range?: Range<Key>, sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
-      return isAsyncStore(store)
-        ? await toArray((sut as AztecAsyncMultiMap<any, any>).keysAsync(range))
-        : await toArray((sut as AztecMultiMap<any, any>).keys(range));
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((sut as AztecMultiMap<any, any>).keys(range))
+        : await toArray((sut as AztecAsyncMultiMap<any, any>).keysAsync(range));
     }
 
     async function getValues(key: Key) {
-      return isAsyncStore(store)
-        ? await toArray((map as AztecAsyncMultiMap<any, any>).getValuesAsync(key))
-        : await toArray((map as AztecMultiMap<any, any>).getValues(key));
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((map as AztecMultiMap<any, any>).getValues(key))
+        : await toArray((map as AztecAsyncMultiMap<any, any>).getValuesAsync(key));
     }
 
     it('should be able to set and get values', async () => {

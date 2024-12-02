@@ -253,7 +253,7 @@ export class SimulatorOracle implements DBOracle {
    * finally the index specified tag. We will then query the node with this tag for each address in the address book.
    * @returns The full list of the users contact addresses.
    */
-  public async getContacts(): Promise<AztecAddress[]> {
+  public getContacts(): Promise<AztecAddress[]> {
     return this.db.getContactAddresses();
   }
 

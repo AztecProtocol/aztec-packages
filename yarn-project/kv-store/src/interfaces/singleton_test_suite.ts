@@ -2,9 +2,13 @@ import { expect } from 'chai';
 
 import { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 import { AztecAsyncKVStore, type AztecKVStore } from './store.js';
-import { isAsyncStore } from './utils.js';
+import { isSyncStore } from './utils.js';
 
-export function describeAztecSingleton(testName: string, getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>) {
+export function describeAztecSingleton(
+  testName: string,
+  getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  forceAsync: boolean = false,
+) {
   describe(testName, () => {
     let store: AztecKVStore | AztecAsyncKVStore;
     let singleton: AztecSingleton<string> | AztecAsyncSingleton<string>;
@@ -15,9 +19,9 @@ export function describeAztecSingleton(testName: string, getStore: () => Promise
     });
 
     async function get() {
-      return isAsyncStore(store)
-        ? await (singleton as AztecAsyncSingleton<string>).getAsync()
-        : (singleton as AztecSingleton<string>).get();
+      return isSyncStore(store) && !forceAsync
+        ? (singleton as AztecSingleton<string>).get()
+        : await (singleton as AztecAsyncSingleton<string>).getAsync();
     }
 
     it('returns undefined if the value is not set', async () => {

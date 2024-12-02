@@ -5,9 +5,13 @@ import { expect } from 'chai';
 import { Range } from './common.js';
 import { AztecAsyncSet, AztecSet } from './set.js';
 import { AztecAsyncKVStore, AztecKVStore } from './store.js';
-import { isAsyncStore } from './utils.js';
+import { isSyncStore } from './utils.js';
 
-export function describeAztecSet(testName: string, getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>) {
+export function describeAztecSet(
+  testName: string,
+  getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  forceAsync: boolean = false,
+) {
   describe(testName, () => {
     let store: AztecKVStore | AztecAsyncKVStore;
     let set: AztecSet<string> | AztecAsyncSet<string>;
@@ -18,15 +22,15 @@ export function describeAztecSet(testName: string, getStore: () => Promise<Aztec
     });
 
     async function has(key: string) {
-      return isAsyncStore(store)
-        ? await (set as AztecAsyncSet<string>).hasAsync(key)
-        : (set as AztecSet<string>).has(key);
+      return isSyncStore(store) && !forceAsync
+        ? (set as AztecSet<string>).has(key)
+        : await (set as AztecAsyncSet<string>).hasAsync(key);
     }
 
     async function entries(range?: Range<any>) {
-      return isAsyncStore(store)
-        ? await toArray((set as AztecAsyncSet<string>).entriesAsync(range))
-        : await toArray((set as AztecSet<string>).entries(range));
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((set as AztecSet<string>).entries(range))
+        : await toArray((set as AztecAsyncSet<string>).entriesAsync(range));
     }
 
     it('should be able to set and get values', async () => {

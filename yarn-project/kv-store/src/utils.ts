@@ -1,7 +1,9 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger } from '@aztec/foundation/log';
 
+import { AztecAsyncSingleton, AztecSingleton } from './interfaces/singleton.js';
 import { AztecAsyncKVStore, type AztecKVStore } from './interfaces/store.js';
+import { isSyncStore } from './interfaces/utils.js';
 
 /**
  * Clears the store if the rollup address does not match the one stored in the database.
@@ -20,7 +22,9 @@ export async function initStoreForRollup<T extends AztecKVStore | AztecAsyncKVSt
   }
   const rollupAddressValue = store.openSingleton<ReturnType<EthAddress['toString']>>('rollupAddress');
   const rollupAddressString = rollupAddress.toString();
-  const storedRollupAddressString = await rollupAddressValue.get();
+  const storedRollupAddressString = isSyncStore(store)
+    ? (rollupAddressValue as AztecSingleton<ReturnType<EthAddress['toString']>>).get()
+    : await (rollupAddressValue as AztecAsyncSingleton<ReturnType<EthAddress['toString']>>).getAsync();
 
   if (typeof storedRollupAddressString !== 'undefined' && storedRollupAddressString !== rollupAddressString) {
     log?.warn(`Rollup address mismatch. Clearing entire database...`, {

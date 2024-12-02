@@ -8,10 +8,6 @@ import {
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type Network } from '@aztec/types/network';
 
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
-
 /**
  * Temporary configuration until WASM can be used instead of native
  */

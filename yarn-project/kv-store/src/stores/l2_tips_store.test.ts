@@ -1,7 +1,7 @@
 import { type L2Block } from '@aztec/circuit-types';
 import { Fr, type Header } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { expect } from 'chai';
@@ -9,7 +9,7 @@ import { expect } from 'chai';
 import { L2TipsStore } from './l2_tips_store.js';
 
 describe('L2TipsStore', () => {
-  let kvStore: AztecKVStore;
+  let kvStore: AztecAsyncKVStore;
   let tipsStore: L2TipsStore;
 
   beforeEach(() => {

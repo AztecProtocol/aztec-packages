@@ -43,7 +43,7 @@ export async function createPXEService(
 
   const store = await createStore('pxe_data', configWithContracts, createDebugLogger('aztec:pxe:data:lmdb'));
 
-  const db = new KVPxeDatabase(store);
+  const db = await KVPxeDatabase.create(store);
   const tips = new L2TipsStore(store, 'pxe');
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));

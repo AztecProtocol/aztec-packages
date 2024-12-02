@@ -102,7 +102,9 @@ export class LmdbAztecArray<T> implements AztecArray<T>, AztecAsyncArray<T> {
   }
 
   async *entriesAsync(): AsyncIterableIterator<[number, T]> {
-    return this.entries();
+    for (const [key, value] of this.entries()) {
+      yield [key, value];
+    }
   }
 
   *values(): IterableIterator<T> {
@@ -112,7 +114,9 @@ export class LmdbAztecArray<T> implements AztecArray<T>, AztecAsyncArray<T> {
   }
 
   async *valuesAsync(): AsyncIterableIterator<T> {
-    return this.values();
+    for (const [_, value] of this.entries()) {
+      yield value;
+    }
   }
 
   [Symbol.iterator](): IterableIterator<T> {

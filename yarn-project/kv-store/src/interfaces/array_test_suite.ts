@@ -4,9 +4,13 @@ import { expect } from 'chai';
 
 import { AztecArray, AztecAsyncArray } from './array.js';
 import { AztecAsyncKVStore, type AztecKVStore } from './store.js';
-import { isAsyncStore } from './utils.js';
+import { isSyncStore } from './utils.js';
 
-export function describeAztecArray(testName: string, getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>) {
+export function describeAztecArray(
+  testName: string,
+  getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  forceAsync: boolean = false,
+) {
   describe(testName, () => {
     let store: AztecKVStore | AztecAsyncKVStore;
     let arr: AztecArray<number> | AztecAsyncArray<number>;
@@ -17,27 +21,27 @@ export function describeAztecArray(testName: string, getStore: () => Promise<Azt
     });
 
     async function length(sut: AztecAsyncArray<number> | AztecArray<number> = arr) {
-      return isAsyncStore(store)
-        ? await (sut as AztecAsyncArray<number>).lengthAsync()
-        : (sut as AztecArray<number>).length;
+      return isSyncStore(store) && !forceAsync
+        ? (sut as AztecArray<number>).length
+        : await (sut as AztecAsyncArray<number>).lengthAsync();
     }
 
     async function at(index: number) {
-      return isAsyncStore(store)
-        ? await (arr as AztecAsyncArray<number>).atAsync(index)
-        : (arr as AztecArray<number>).at(index);
+      return isSyncStore(store) && !forceAsync
+        ? (arr as AztecArray<number>).at(index)
+        : await (arr as AztecAsyncArray<number>).atAsync(index);
     }
 
     async function entries() {
-      return isAsyncStore(store)
-        ? await toArray((arr as AztecAsyncArray<number>).entriesAsync())
-        : await toArray((arr as AztecArray<number>).entries());
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((arr as AztecArray<number>).entries())
+        : await toArray((arr as AztecAsyncArray<number>).entriesAsync());
     }
 
     async function values(sut: AztecAsyncArray<number> | AztecArray<number> = arr) {
-      return isAsyncStore(store)
-        ? await toArray((sut as AztecAsyncArray<number>).valuesAsync())
-        : await toArray((sut as AztecArray<number>).values());
+      return isSyncStore(store) && !forceAsync
+        ? await toArray((sut as AztecArray<number>).values())
+        : await toArray((sut as AztecAsyncArray<number>).valuesAsync());
     }
 
     it('should be able to push and pop values', async () => {

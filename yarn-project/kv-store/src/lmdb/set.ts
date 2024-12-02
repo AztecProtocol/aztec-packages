@@ -38,6 +38,8 @@ export class LmdbAztecSet<K extends Key> implements AztecSet<K>, AztecAsyncSet<K
   }
 
   async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
-    return this.map.keysAsync(range);
+    for await (const key of this.map.keysAsync(range)) {
+      yield key;
+    }
   }
 }

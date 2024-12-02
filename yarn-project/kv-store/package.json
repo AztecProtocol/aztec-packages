@@ -18,7 +18,7 @@
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
     "start": "DEBUG='aztec:*' && node ./dest/bin/index.js",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "yarn test:node && yarn test:browser"
   },
   "inherits": [
     "../package.common.json"

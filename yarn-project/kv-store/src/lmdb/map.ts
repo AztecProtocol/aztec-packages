@@ -47,7 +47,9 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   }
 
   async *getValuesAsync(key: K): AsyncIterableIterator<V> {
-    return this.getValues(key);
+    for (const value of this.getValues(key)) {
+      yield value;
+    }
   }
 
   has(key: K): boolean {
@@ -122,7 +124,9 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   }
 
   async *entriesAsync(range?: Range<K> | undefined): AsyncIterableIterator<[K, V]> {
-    return this.entries(range);
+    for (const entry of this.entries(range)) {
+      yield entry;
+    }
   }
 
   *values(range: Range<K> = {}): IterableIterator<V> {
@@ -132,7 +136,9 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   }
 
   async *valuesAsync(range: Range<K> = {}): AsyncIterableIterator<V> {
-    return this.values(range);
+    for await (const [_, value] of this.entriesAsync(range)) {
+      yield value;
+    }
   }
 
   *keys(range: Range<K> = {}): IterableIterator<K> {
@@ -142,7 +148,9 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   }
 
   async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
-    return this.keys(range);
+    for await (const [key, _] of this.entriesAsync(range)) {
+      yield key;
+    }
   }
 
   #slot(key: K): MapValueSlot<K> {

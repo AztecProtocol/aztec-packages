@@ -9,6 +9,6 @@ export const mockLogger = {
   verbose: (msg: string, data: any) => console.log(msg, data),
 };
 
-export function isAsyncStore(store: AztecKVStore | AztecAsyncKVStore): store is AztecAsyncKVStore {
-  return store.__branding === 'AztecAsyncKVStore';
+export function isSyncStore(store: AztecKVStore | AztecAsyncKVStore): store is AztecAsyncKVStore {
+  return (store as AztecKVStore).syncGetters === true;
 }

@@ -2,7 +2,7 @@ import { expect } from 'chai';
 
 import { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 import { AztecAsyncKVStore, AztecKVStore } from './store.js';
-import { isAsyncStore } from './utils.js';
+import { isSyncStore } from './utils.js';
 
 export function describeAztecStore(
   testName: string,
@@ -15,9 +15,9 @@ export function describeAztecStore(
       store: AztecKVStore | AztecAsyncKVStore,
       singleton: AztecSingleton<string> | AztecAsyncSingleton<string>,
     ) {
-      return isAsyncStore(store)
-        ? await (singleton as AztecAsyncSingleton<string>).getAsync()
-        : (singleton as AztecSingleton<string>).get();
+      return isSyncStore(store)
+        ? (singleton as AztecSingleton<string>).get()
+        : await (singleton as AztecAsyncSingleton<string>).getAsync();
     }
 
     const itForks = async (store: AztecKVStore | AztecAsyncKVStore) => {

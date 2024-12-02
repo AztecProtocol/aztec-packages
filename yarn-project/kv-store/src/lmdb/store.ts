@@ -5,13 +5,13 @@ import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 
-import { type AztecArray } from '../interfaces/array.js';
+import { type AztecArray, AztecAsyncArray } from '../interfaces/array.js';
 import { Key } from '../interfaces/common.js';
-import { type AztecCounter } from '../interfaces/counter.js';
-import { type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
-import { type AztecSet } from '../interfaces/set.js';
-import { type AztecSingleton } from '../interfaces/singleton.js';
-import { type AztecKVStore } from '../interfaces/store.js';
+import { AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
+import { AztecAsyncMap, AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import { AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
+import { AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
+import { AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap } from './map.js';
@@ -21,9 +21,9 @@ import { LmdbAztecSingleton } from './singleton.js';
 /**
  * A key-value store backed by LMDB.
  */
-export class AztecLmdbStore implements AztecKVStore {
-  // This is the only way of doing branding the browser seems to like
-  __branding: 'AztecKVStore' = 'AztecKVStore';
+export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
+  syncGetters: true = true;
+
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
@@ -94,7 +94,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends Key, V>(name: string): AztecMap<K, V> {
+  openMap<K extends Key, V>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -103,7 +103,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the set
    * @returns A new AztecSet
    */
-  openSet<K extends Key>(name: string): AztecSet<K> {
+  openSet<K extends Key>(name: string): AztecSet<K> & AztecAsyncSet<K> {
     return new LmdbAztecSet(this.#data, name);
   }
 
@@ -112,11 +112,11 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> {
+  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
     return new LmdbAztecMap(this.#multiMapData, name);
   }
 
-  openCounter<K extends Key>(name: string): AztecCounter<K> {
+  openCounter<K extends Key>(name: string): AztecCounter<K> & AztecAsyncCounter<K> {
     return new LmdbAztecCounter(this.#data, name);
   }
 
@@ -125,7 +125,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  openArray<T>(name: string): AztecArray<T> {
+  openArray<T>(name: string): AztecArray<T> & AztecAsyncArray<T> {
     return new LmdbAztecArray(this.#data, name);
   }
 
@@ -134,7 +134,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the singleton
    * @returns A new AztecSingleton
    */
-  openSingleton<T>(name: string): AztecSingleton<T> {
+  openSingleton<T>(name: string): AztecSingleton<T> & AztecAsyncSingleton<T> {
     return new LmdbAztecSingleton(this.#data, name);
   }
 
@@ -145,6 +145,15 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   transaction<T>(callback: () => T): Promise<T> {
     return this.#rootDb.transaction(callback);
+  }
+
+  /**
+   * Runs an async callback in a transaction.
+   * @param callback - Function to execute in a transaction
+   * @returns A promise that resolves to the return value of the callback
+   */
+  async transactionAsync<T extends unknown>(callback: () => Promise<T>): Promise<T> {
+    throw new Error('Method not implemented.');
   }
 
   /**
