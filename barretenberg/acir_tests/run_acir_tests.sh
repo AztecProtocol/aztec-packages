@@ -38,5 +38,5 @@ if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
 fi
 
 jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-parallel -j$jobs --memfree 500mb --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
+parallel -j$jobs --memfree 500m --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
 cat joblog.txt
