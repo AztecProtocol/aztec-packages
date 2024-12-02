@@ -355,8 +355,8 @@ export async function awaitL2BlockNumber(
     await sleep(1000);
     tips = await rollupCheatCodes.getTips();
   }
-  if (Date.now() >= endTime) {
-    throw new Error(`Timeout waiting for L2 Block ${blockNumber}`);
+  if (tips.pending < blockNumber) {
+    throw new Error(`Timeout waiting for L2 Block ${blockNumber}, only reached ${tips.pending}`);
   } else {
     logger.info(`Reached L2 Block ${tips.pending}`);
   }

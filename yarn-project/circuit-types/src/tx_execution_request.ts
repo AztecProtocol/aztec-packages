@@ -144,6 +144,6 @@ export class TxExecutionRequest {
   }
 
   [inspect.custom]() {
-    return `TxExecutionRequest(${this.functionSelector}(${this.argsOfCalls.map(arg => arg.toString()).join(', ')}))`;
+    return `TxExecutionRequest(${this.origin} called ${this.functionSelector})`;
   }
 }
