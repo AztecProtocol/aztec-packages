@@ -23,4 +23,4 @@ shift 1
 echo "success" > .success
 
 aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp .success "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
-echo "Cache upload of $NAME.flag complete."
+echo "Cache upload of $NAME.flag complete." >&2

@@ -83,29 +83,35 @@ function compile {
   fi
 }
 
-export -f compile
+function build {
+  grep -oP '(?<=crates/)[^"]+' Nargo.toml | grep -v simulated | \
+    while read -r dir; do
+      toml_file=./crates/$dir/Nargo.toml
+      if grep -q 'type = "bin"' "$toml_file"; then
+          echo "$(basename $dir)"
+      fi
+    done | \
+    parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+  cat joblog.txt
+}
 
-grep -oP '(?<=crates/)[^"]+' Nargo.toml | grep -v simulated | \
-  while read -r dir; do
-    toml_file=./crates/$dir/Nargo.toml
-    if grep -q 'type = "bin"' "$toml_file"; then
-        echo "$(basename $dir)"
-    fi
-  done | \
-  parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
-cat joblog.txt
+function test {
+  # Wether we run the tests or not is corse grained.
+  name=$(basename "$PWD")
+  export REBUILD_PATTERNS="^noir-projects/$name"
+  export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns_native)
+  CIRCUITS_HASH=$($ci3/cache/content_hash)
+  if $ci3/base/is_test || $ci3/cache/should_run $name-tests-$CIRCUITS_HASH; then
+    $ci3/github/group "$name test"
+    RAYON_NUM_THREADS= $NARGO test --silence-warnings
+    $ci3/cache/upload_flag $name-tests-$CIRCUITS_HASH
+    $ci3/github/endgroup
+  fi
+}
+
+export -f compile test build
+
+parallel --line-buffered bash -c {} ::: build test
 
 # For testing.
 # compile empty_nested
-
-# Wether we run the tests or not is corse grained.
-name=$(basename "$PWD")
-export REBUILD_PATTERNS="^noir-projects/$name"
-export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns_native)
-CIRCUITS_HASH=$($ci3/cache/content_hash)
-if $ci3/base/is_test || $ci3/cache/should_run $name-tests-$CIRCUITS_HASH; then
-  $ci3/github/group "$name test"
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings
-  $ci3/cache/upload_flag $name-tests-$CIRCUITS_HASH
-  $ci3/github/endgroup
-fi

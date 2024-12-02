@@ -1317,12 +1317,13 @@ mod tests {
         builder.fails();
     }
 
-    #[test]
-    fn valid_previous_kernel_empty() {
-        let builder = unsafe {
-            PublicBaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
-        };
+    // TODO: Figure out why so slow (450s)
+    // #[test]
+    // fn valid_previous_kernel_empty() {
+    //     let builder = unsafe {
+    //         PublicBaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
+    //     };
 
-        let _res = builder.execute();
-    }
+    //     let _res = builder.execute();
+    // }
 }

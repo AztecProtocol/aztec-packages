@@ -26,8 +26,8 @@ done
 
 parallel -v --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
   "./mock-protocol-circuits/bootstrap.sh" \
-  "./noir-protocol-circuits/bootstrap.sh"
-  # "cd noir-contracts && ./bootstrap.sh"
+  "./noir-protocol-circuits/bootstrap.sh" \
+  "./noir-contracts/bootstrap.sh"
 
 $ci3/github/endgroup
 
