@@ -28,5 +28,5 @@ else
   CONTENT="Flag $NAME success cached: Ran outside of Github Actions."
 fi
 
-echo "$COTNTENT" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
+echo "$CONTENT" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
 echo "Cache upload of $NAME.flag complete."

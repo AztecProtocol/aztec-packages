@@ -101,7 +101,7 @@ bootstrap-end-to-end:
 test-acir:
   FROM +bootstrap-noir-bb
   WORKDIR /usr/src/barretenberg/acir_tests
-  RUN CI=1 USE_CACHE=1 ./bootstap.sh
+  RUN TEST=1 CI=1 USE_CACHE=1 ./bootstrap.sh
 
 ########################################################################################################################
 # Build helpers
