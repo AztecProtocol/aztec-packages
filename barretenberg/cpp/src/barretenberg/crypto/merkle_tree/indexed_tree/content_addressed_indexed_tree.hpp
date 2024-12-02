@@ -1482,8 +1482,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
                         response.inner.insertion_witness_data->push_back(insertion_witness);
                     } else {
                         // If it's an update, append an empty witness
-                        response.inner.insertion_witness_data->push_back(LeafUpdateWitnessData<LeafValueType>{
-                            .leaf = IndexedLeafValueType::empty(), .index = 0, .path = std::vector<fr>(depth_) });
+                        response.inner.insertion_witness_data->push_back(LeafUpdateWitnessData<LeafValueType>(
+                            IndexedLeafValueType::empty(), 0, std::vector<fr>(depth_)));
                     }
                 }
             }
