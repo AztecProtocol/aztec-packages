@@ -21,6 +21,11 @@ bootNode:
   validator:
     disabled: true
 
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 200
+
 network:
   public: true
 
