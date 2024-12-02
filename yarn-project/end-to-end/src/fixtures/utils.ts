@@ -682,6 +682,7 @@ export async function createAndSyncProverNode(
     proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,
     proverNodeMaxPendingJobs: 10,
+    proverNodeMaxParallelBlocksPerEpoch: 32,
     proverNodePollingIntervalMs: 200,
     quoteProviderBasisPointFee: 100,
     quoteProviderBondAmount: 1000n,

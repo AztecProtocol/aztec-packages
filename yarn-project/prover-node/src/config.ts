@@ -46,10 +46,14 @@ export type ProverNodeConfig = ArchiverConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
   ProverBondManagerConfig &
-  QuoteProviderConfig & {
-    proverNodeMaxPendingJobs: number;
-    proverNodePollingIntervalMs: number;
-  };
+  QuoteProviderConfig &
+  SpecificProverNodeConfig;
+
+type SpecificProverNodeConfig = {
+  proverNodeMaxPendingJobs: number;
+  proverNodePollingIntervalMs: number;
+  proverNodeMaxParallelBlocksPerEpoch: number;
+};
 
 export type QuoteProviderConfig = {
   quoteProviderBasisPointFee: number;
@@ -57,9 +61,7 @@ export type QuoteProviderConfig = {
   quoteProviderUrl?: string;
 };
 
-const specificProverNodeConfigMappings: ConfigMappingsType<
-  Pick<ProverNodeConfig, 'proverNodePollingIntervalMs' | 'proverNodeMaxPendingJobs'>
-> = {
+const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
   proverNodeMaxPendingJobs: {
     env: 'PROVER_NODE_MAX_PENDING_JOBS',
     description: 'The maximum number of pending jobs for the prover node',
@@ -69,6 +71,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<
     env: 'PROVER_NODE_POLLING_INTERVAL_MS',
     description: 'The interval in milliseconds to poll for new jobs',
     ...numberConfigHelper(1000),
+  },
+  proverNodeMaxParallelBlocksPerEpoch: {
+    env: 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH',
+    description: 'The Maximum number of blocks to process in parallel while proving an epoch',
+    ...numberConfigHelper(32),
   },
 };
 
