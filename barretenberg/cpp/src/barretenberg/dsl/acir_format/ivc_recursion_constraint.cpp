@@ -67,33 +67,42 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
                                                                const TraceSettings& trace_settings,
                                                                const bool is_kernel)
 {
+    using FF = ClientIVC::FF;
+    using MegaVerificationKey = ClientIVC::MegaVerificationKey;
+
+    // WORKTODO: is there a way to use some internal IVC data for this instead of constructing blocks?
     MegaExecutionTraceBlocks blocks;
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
-    size_t num_public_inputs =
-        bb::PAIRING_POINT_ACCUMULATOR_SIZE + static_cast<uint32_t>(is_kernel) * bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
+    size_t num_public_inputs = bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    if (is_kernel) {
+        num_public_inputs += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
+    }
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
 
-    ClientIVC::VerifierInputs verifier_inputs{};
-
-    verifier_inputs.type = verification_type;
+    // Construct a mock Oink or PG proof
+    std::vector<FF> proof;
     if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
-        verifier_inputs.proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+        proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
     } else { // ClientIVC::QUEUE_TYPE::PG)
-        verifier_inputs.proof = create_mock_pg_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+        proof = create_mock_pg_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
     }
-    verifier_inputs.honk_verification_key = create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
+
+    // Construct a mock MegaHonk verification key
+    std::shared_ptr<MegaVerificationKey> verification_key =
+        create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
 
     // If the verification queue entry corresponds to a kernel circuit, set the databus data to indicate the presence of
     // propagated return data commitments on the public inputs
     if (is_kernel) {
-        verifier_inputs.honk_verification_key->databus_propagation_data.is_kernel = true;
-        verifier_inputs.honk_verification_key->databus_propagation_data.kernel_return_data_public_input_idx = 0;
-        verifier_inputs.honk_verification_key->databus_propagation_data.app_return_data_public_input_idx = 8;
+        // WORKTODO: how can we make this a little less magical?
+        verification_key->databus_propagation_data.is_kernel = true;
+        verification_key->databus_propagation_data.kernel_return_data_public_input_idx = 0;
+        verification_key->databus_propagation_data.app_return_data_public_input_idx = 8;
     }
 
-    return verifier_inputs;
+    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
 }
 
 /**
