@@ -35,7 +35,7 @@ describe('prover/orchestrator/public-functions', () => {
           numberOfNonRevertiblePublicCallRequests,
           numberOfRevertiblePublicCallRequests,
         });
-        tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
+        tx.data.constants.historicalHeader = context.getHeader(0);
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
@@ -49,7 +49,7 @@ describe('prover/orchestrator/public-functions', () => {
           await context.orchestrator.addNewTx(processedTx);
         }
 
-        const block = await context.orchestrator.setBlockCompleted();
+        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
         await context.orchestrator.finaliseEpoch();
         expect(block.number).toEqual(context.blockNumber);
       },
