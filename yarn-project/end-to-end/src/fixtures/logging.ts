@@ -1,10 +1,5 @@
-import { onLog } from '@aztec/aztec.js';
-
 import { mkdirpSync } from 'fs-extra';
 import { dirname } from 'path';
-import * as winston from 'winston';
-
-const { format, transports } = winston;
 
 let metricsLoggerSet = false;
 
@@ -22,15 +17,6 @@ export function setupMetricsLogger(filename: string) {
     return;
   }
   mkdirpSync(dirname(filename));
-  const logger = winston.createLogger({
-    level: 'debug',
-    format: format.combine(format.timestamp(), format.json()),
-    transports: [new transports.File({ filename })],
-  });
-  onLog((level, namespace, message, data) => {
-    if (data && data['eventName']) {
-      logger.log({ ...data, level, namespace, message });
-    }
-  });
+  // TODO(palla/log): Reenable or kill metrics logger
   metricsLoggerSet = true;
 }

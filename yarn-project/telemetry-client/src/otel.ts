@@ -11,6 +11,7 @@ import {
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
+import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { awsEc2Detector, awsEcsDetector } from '@opentelemetry/resource-detector-aws';
 import {
   type IResource,
@@ -27,7 +28,7 @@ import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentele
 
 import { aztecDetector } from './aztec_resource_detector.js';
 import { type TelemetryClientConfig } from './config.js';
-import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
+import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
@@ -129,11 +130,26 @@ export class OpenTelemetryClient implements TelemetryClient {
         }),
       ],
     });
+
     const loggerProvider = registerOtelLoggerProvider(resource, config.logsCollectorUrl);
+    instrumentLogger(loggerProvider, tracerProvider, meterProvider);
 
     const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
     service.start();
 
     return service;
   }
+}
+
+function instrumentLogger(
+  loggerProvider: LoggerProvider,
+  tracerProvider: NodeTracerProvider,
+  meterProvider: MeterProvider,
+) {
+  // We disable log sending since we have a batch log processor already configured
+  const instrumentation = new PinoInstrumentation({ disableLogSending: true });
+  instrumentation.setLoggerProvider(loggerProvider);
+  instrumentation.setTracerProvider(tracerProvider);
+  instrumentation.setMeterProvider(meterProvider);
+  instrumentation.enable();
 }

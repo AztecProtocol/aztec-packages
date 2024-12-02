@@ -24,7 +24,7 @@ export function registerOtelLoggerProvider(resource: IResource, otelLogsUrl?: UR
       maxQueueSize: 4096,
     }),
   );
-  otelLogs.setGlobalLoggerProvider(loggerProvider);
 
+  otelLogs.setGlobalLoggerProvider(loggerProvider);
   return loggerProvider;
 }

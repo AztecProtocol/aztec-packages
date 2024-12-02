@@ -1,6 +1,6 @@
 import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, currentLevel as currentLogLevel } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -505,7 +505,7 @@ export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
   input: AvmCircuitInputs,
-  log: LogFn,
+  logger: DebugLogger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -562,11 +562,11 @@ export async function generateAvmProof(
       avmHintsPath,
       '-o',
       outputPath,
-      currentLogLevel == 'debug' ? '-d' : currentLogLevel == 'verbose' ? '-v' : '',
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`AvmCircuit (prove) BB out - ${message}`);
+      logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, 'avm_prove', args, logFunction);
     const duration = timer.ms();
