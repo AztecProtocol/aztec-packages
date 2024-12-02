@@ -17,6 +17,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
+      dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.proverAgent.gke.spotEnabled }}
       affinity:
         nodeAffinity:
