@@ -273,10 +273,11 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_by_index)
                                        BlockAndIndex{ .blockNumber = 5, .index = 130 } };
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
-        // write all of the blocks
+        // write all of the blocks. we will write them in reverse order
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (auto& block : blocks) {
+        for (int i = int(blocks.size()) - 1; i >= 0; i--) {
             // the arg is block size so add 1
+            const BlockAndIndex& block = blocks[size_t(i)];
             store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
         }
         transaction->commit();
@@ -406,10 +407,11 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
                                        BlockAndIndex{ .blockNumber = 5, .index = 130 } };
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
-        // write all of the blocks
+        // write all of the blocks. we will write them in reverse order
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (auto& block : blocks) {
+        for (int i = int(blocks.size()) - 1; i >= 0; i--) {
             // the arg is block size so add 1
+            const BlockAndIndex& block = blocks[size_t(i)];
             store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
         }
         transaction->commit();
