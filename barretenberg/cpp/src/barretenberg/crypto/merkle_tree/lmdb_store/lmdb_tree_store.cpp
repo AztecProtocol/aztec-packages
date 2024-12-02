@@ -148,11 +148,11 @@ bool LMDBTreeStore::read_block_data(const block_number_t& blockNumber,
 }
 
 void LMDBTreeStore::write_block_index_data(const block_number_t& blockNumber,
-                                           const index_t& blockSize,
+                                           const index_t& sizeAtBlock,
                                            WriteTransaction& tx)
 {
     // There can be multiple block numbers aganst the same index (zero size blocks)
-    LeafIndexKeyType key(blockSize);
+    LeafIndexKeyType key(sizeAtBlock);
     std::vector<uint8_t> data;
     // Read the block index payload
     bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
@@ -197,14 +197,14 @@ bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& b
     return true;
 }
 
-void LMDBTreeStore::delete_block_index(const index_t& blockSize,
+void LMDBTreeStore::delete_block_index(const index_t& sizeAtBlock,
                                        const block_number_t& blockNumber,
                                        WriteTransaction& tx)
 {
     // To delete a block number form an index we retieve all the block numbers from that index
     // Then we find and remove the block number in question
     // Then we write back down
-    LeafIndexKeyType key(blockSize);
+    LeafIndexKeyType key(sizeAtBlock);
     std::vector<uint8_t> data;
     // Retrieve the data
     bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
