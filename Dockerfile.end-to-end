@@ -25,7 +25,6 @@ ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 ENV PROVER_AGENT_CONCURRENCY=8
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-RUN npm install --global yarn@4.5.2
 
 COPY /usr/src /usr/src
 COPY /anvil /opt/foundry/bin/anvil

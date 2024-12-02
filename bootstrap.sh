@@ -147,20 +147,20 @@ case "$CMD" in
     mkdir -p $TMP/usr/src
     # TODO(ci3) eventually this will just be a normal mounted docker build
     denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
-    GIT_HASH=$(git rev-parse --short HEAD)
+    GIT_HASH=$(git rev-parse HEAD)
     shift 1 # remove command parameter
     docker build -f Dockerfile.aztec -t aztecprotocol/aztec:$GIT_HASH $TMP $@
     $ci3/github/endgroup
     exit
   ;;
   "image-e2e")
-    $ci3/github/group "image-aztec"
+    $ci3/github/group "image-e2e"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
     # TODO(ci3) eventually this will just be a normal mounted docker build
-    denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
-    denoise earthly --artifact +bootstrap-aztec/anvil $TMP/anvil
-    GIT_HASH=$(git rev-parse --short HEAD)
+    denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
+    denoise earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
+    GIT_HASH=$(git rev-parse HEAD)
     shift 1 # remove command parameter
     docker build -f Dockerfile.end-to-end -t aztecprotocol/end-to-end:$GIT_HASH $TMP $@
     $ci3/github/endgroup
@@ -171,8 +171,8 @@ case "$CMD" in
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
     # TODO(ci3) eventually this will just be a normal mounted docker build
-    earthly --artifact +bootstrap-faucet/usr/src $TMP/usr
-    GIT_HASH=$(git rev-parse --short HEAD)
+    earthly --artifact +bootstrap-faucet/usr/src $TMP/usr/src
+    GIT_HASH=$(git rev-parse HEAD)
     shift 1 # remove command parameter
     docker build -f Dockerfile.aztec-faucet -t aztecprotocol/aztec-faucet:$GIT_HASH $TMP $@
     $ci3/github/endgroup

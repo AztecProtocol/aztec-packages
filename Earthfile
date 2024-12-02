@@ -65,7 +65,6 @@ bootstrap-end-to-end:
   RUN rm -rf node_modules && yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
   RUN rm -rf noir-protocol-circuits-types
-  RUN false
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
 
