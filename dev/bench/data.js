@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732912395465,
+  "lastUpdate": 1733151378097,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1acf4cfc28c72550f299d97493c7a4b33b4c5d7c",
-          "message": "chore: remove public kernels (#10027)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
-          "timestamp": "2024-11-19T11:09:44Z",
-          "tree_id": "cfcc2cb85cf45e38b826d94437c1a69a68ab3ed4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1acf4cfc28c72550f299d97493c7a4b33b4c5d7c"
-        },
-        "date": 1732015950175,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28655.800502999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27119.88433 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5339.22649500002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4954.658189 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83615.17206699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83615172000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15270.78894,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15270790000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3081395668,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3081395668 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141400666,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141400666 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2974,6 +2914,66 @@ window.BENCHMARK_DATA = {
             "value": 133738848,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133738848 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cf05a7a346ea11853e940d5e9ac105ef0d629d35",
+          "message": "feat: Allow querying block number for tree indices (#10332)\n\nThis PR make the following changes.\r\n\r\n1. Captures and propagates more of the errors generated in the merkle\r\ntrees out to the TS interface.\r\n2. Introduces the `block_number_t` typedef within the native world\r\nstate.\r\n3. Introduces a new DB in the native world state. This DB maps block\r\nnumbers to the size of the tree at that block. It then uses this DB to\r\nfulfill queries looking to identify which block given notes were\r\nincluded within.",
+          "timestamp": "2024-12-02T14:27:20Z",
+          "tree_id": "c8522bb2cc4539932198c8940c2fa75549ec551e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cf05a7a346ea11853e940d5e9ac105ef0d629d35"
+        },
+        "date": 1733151370444,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28045.361946000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26377.061908 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5038.110503999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4704.827921 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85570.86460399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85570865000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15154.101198999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15154102000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3062933694,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3062933694 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140911800,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140911800 ns\nthreads: 1"
           }
         ]
       }
