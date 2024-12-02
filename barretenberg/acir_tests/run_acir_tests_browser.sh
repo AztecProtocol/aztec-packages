@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-set -em
+# We're deliberately not doing: set -eu
 
 cleanup() {
-  lsof -i ":8080" | awk 'NR>1 {print $2}' | xargs kill -9
-  exit
+    [ -n "$pid" ] && kill $pid 2>/dev/null
 }
-
-trap cleanup SIGINT SIGTERM
+trap cleanup EXIT
 
 # Skipping firefox because this headless firefox is so slow.
 export BROWSER=${BROWSER:-chrome,webkit}
@@ -17,6 +15,7 @@ THREAD_MODEL=${THREAD_MODEL:-mt}
 # TODO: Currently webkit doesn't seem to have shared memory so is a single threaded test regardless of THREAD_MODEL!
 echo "Testing thread model: $THREAD_MODEL"
 (cd browser-test-app && yarn serve:dest:$THREAD_MODEL) > /dev/null 2>&1 &
+pid=$!
 sleep 1
+
 VERBOSE=1 BIN=./headless-test/bb.js.browser ./run_acir_tests.sh $@
-lsof -i ":8080" | awk 'NR>1 {print $2}' | xargs kill -9
