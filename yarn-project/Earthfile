@@ -6,7 +6,6 @@ deps:
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
     FROM ../build-images+from-registry
 
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN npx playwright install && npx playwright install-deps
 
     # copy bb, bb-js and noir-packages
@@ -53,6 +52,7 @@ build:
 
     WORKDIR /usr/src/yarn-project
     COPY . .
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
 
 
