@@ -6,7 +6,7 @@ import { isSyncStore } from './utils.js';
 
 export function describeAztecSingleton(
   testName: string,
-  getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  getStore: () => AztecKVStore | Promise<AztecAsyncKVStore>,
   forceAsync: boolean = false,
 ) {
   describe(testName, () => {

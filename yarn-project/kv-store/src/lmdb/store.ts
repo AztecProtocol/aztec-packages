@@ -22,7 +22,7 @@ import { LmdbAztecSingleton } from './singleton.js';
  * A key-value store backed by LMDB.
  */
 export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
-  syncGetters: true = true;
+  syncGetters = true as const;
 
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;

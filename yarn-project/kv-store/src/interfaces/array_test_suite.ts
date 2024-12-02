@@ -8,7 +8,7 @@ import { isSyncStore } from './utils.js';
 
 export function describeAztecArray(
   testName: string,
-  getStore: () => Promise<AztecKVStore | AztecAsyncKVStore>,
+  getStore: () => AztecKVStore | Promise<AztecAsyncKVStore>,
   forceAsync: boolean = false,
 ) {
   describe(testName, () => {

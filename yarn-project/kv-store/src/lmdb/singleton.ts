@@ -21,8 +21,8 @@ export class LmdbAztecSingleton<T> implements AztecSingleton<T>, AztecAsyncSingl
     return this.#db.get(this.#slot);
   }
 
-  async getAsync(): Promise<T | undefined> {
-    return this.get();
+  getAsync(): Promise<T | undefined> {
+    return Promise.resolve(this.get());
   }
 
   set(val: T): Promise<boolean> {

@@ -7,7 +7,7 @@ import {
   type L2Tips,
 } from '@aztec/circuit-types';
 
-import { type AztecAsyncMap, type AztecMap } from '../interfaces/map.js';
+import { type AztecAsyncMap } from '../interfaces/map.js';
 import { type AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */

@@ -28,6 +28,6 @@ export async function createStore(
   );
 }
 
-export async function openTmpStore(ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
+export function openTmpStore(ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
   return AztecIndexedDBStore.open(createDebugLogger('aztec:kv-store:indexeddb'), undefined, ephemeral);
 }

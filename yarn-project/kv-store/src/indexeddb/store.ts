@@ -145,7 +145,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
   /** Deletes this store and removes the database */
   delete() {
-    this.#rootDB.deleteObjectStore('data');
+    return Promise.resolve(this.#rootDB.deleteObjectStore('data'));
   }
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

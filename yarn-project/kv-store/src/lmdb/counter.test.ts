@@ -28,7 +28,7 @@ describe('LmdbAztecCounter', () => {
       counter = new LmdbAztecCounter(db, 'test');
     });
 
-    it('returns 0 for unknown keys', async () => {
+    it('returns 0 for unknown keys', () => {
       expect(counter.get(genKey())).to.equal(0);
     });
 
