@@ -3,8 +3,7 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {Staking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
+import {IStaking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
@@ -69,7 +68,7 @@ contract FinaliseWithdrawTest is StakingBase {
     vm.warp(Timestamp.unwrap(exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit Staking.WithdrawFinalised(ATTESTER, RECIPIENT, MINIMUM_STAKE);
+    emit IStaking.WithdrawFinalised(ATTESTER, RECIPIENT, MINIMUM_STAKE);
     staking.finaliseWithdraw(ATTESTER);
 
     exit = staking.getExit(ATTESTER);

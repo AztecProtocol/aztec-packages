@@ -28,68 +28,10 @@ contract Staking is IStaking {
   mapping(address attester => ValidatorInfo) internal info;
   mapping(address attester => Exit) internal exits;
 
-  event Deposit(
-    address indexed attester, address indexed proposer, address indexed withdrawer, uint256 amount
-  );
-  event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
-  event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
-  event Slashed(address indexed attester, uint256 amount);
-
   constructor(address _slasher, IERC20 _stakingAsset, uint256 _minimumStake) {
     SLASHER = _slasher;
     STAKING_ASSET = _stakingAsset;
     MINIMUM_STAKE = _minimumStake;
-  }
-
-  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
-    external
-    override(IStaking)
-  {
-    require(_amount >= MINIMUM_STAKE, Errors.Staking__InsufficientStake(_amount, MINIMUM_STAKE));
-    STAKING_ASSET.transferFrom(msg.sender, address(this), _amount);
-    require(info[_attester].status == Status.NONE, Errors.Staking__AlreadyRegistered(_attester));
-    require(attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
-
-    // If BLS, need to check possession of private key to avoid attacks.
-
-    info[_attester] = ValidatorInfo({
-      stake: _amount,
-      withdrawer: _withdrawer,
-      proposer: _proposer,
-      status: Status.VALIDATING
-    });
-
-    emit Deposit(_attester, _proposer, _withdrawer, _amount);
-  }
-
-  function initiateWithdraw(address _attester, address _recipient)
-    external
-    override(IStaking)
-    returns (bool)
-  {
-    ValidatorInfo storage validator = info[_attester];
-
-    require(
-      msg.sender == validator.withdrawer,
-      Errors.Staking__NotWithdrawer(validator.withdrawer, msg.sender)
-    );
-    require(
-      validator.status == Status.VALIDATING || validator.status == Status.LIVING,
-      Errors.Staking__NothingToExit(_attester)
-    );
-    if (validator.status == Status.VALIDATING) {
-      require(attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
-    }
-
-    // Note that the "amount" is not stored here, but reusing the `validators`
-    // We always exit fully.
-    exits[_attester] =
-      Exit({exitableAt: Timestamp.wrap(block.timestamp) + EXIT_DELAY, recipient: _recipient});
-    validator.status = Status.EXITING;
-
-    emit WithdrawInitiated(_attester, _recipient, validator.stake);
-
-    return true;
   }
 
   function finaliseWithdraw(address _attester) external override(IStaking) {
@@ -110,7 +52,7 @@ contract Staking is IStaking {
 
     STAKING_ASSET.transfer(recipient, amount);
 
-    emit WithdrawFinalised(_attester, recipient, amount);
+    emit IStaking.WithdrawFinalised(_attester, recipient, amount);
   }
 
   function slash(address _attester, uint256 _amount) external override(IStaking) {
@@ -149,12 +91,17 @@ contract Staking is IStaking {
     return info[_attester];
   }
 
-  function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
-    return exits[_attester];
+  function getProposerForAttester(address _attester)
+    external
+    view
+    override(IStaking)
+    returns (address)
+  {
+    return info[_attester].proposer;
   }
 
-  function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
-    return attesters.length();
+  function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
+    return exits[_attester];
   }
 
   function getAttesterAtIndex(uint256 _index) external view override(IStaking) returns (address) {
@@ -173,5 +120,62 @@ contract Staking is IStaking {
   {
     address attester = attesters.at(_index);
     return OperatorInfo({proposer: info[attester].proposer, attester: attester});
+  }
+
+  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+    public
+    virtual
+    override(IStaking)
+  {
+    require(_amount >= MINIMUM_STAKE, Errors.Staking__InsufficientStake(_amount, MINIMUM_STAKE));
+    STAKING_ASSET.transferFrom(msg.sender, address(this), _amount);
+    require(info[_attester].status == Status.NONE, Errors.Staking__AlreadyRegistered(_attester));
+    require(attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
+
+    // If BLS, need to check possession of private key to avoid attacks.
+
+    info[_attester] = ValidatorInfo({
+      stake: _amount,
+      withdrawer: _withdrawer,
+      proposer: _proposer,
+      status: Status.VALIDATING
+    });
+
+    emit IStaking.Deposit(_attester, _proposer, _withdrawer, _amount);
+  }
+
+  function initiateWithdraw(address _attester, address _recipient)
+    public
+    virtual
+    override(IStaking)
+    returns (bool)
+  {
+    ValidatorInfo storage validator = info[_attester];
+
+    require(
+      msg.sender == validator.withdrawer,
+      Errors.Staking__NotWithdrawer(validator.withdrawer, msg.sender)
+    );
+    require(
+      validator.status == Status.VALIDATING || validator.status == Status.LIVING,
+      Errors.Staking__NothingToExit(_attester)
+    );
+    if (validator.status == Status.VALIDATING) {
+      require(attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+    }
+
+    // Note that the "amount" is not stored here, but reusing the `validators`
+    // We always exit fully.
+    exits[_attester] =
+      Exit({exitableAt: Timestamp.wrap(block.timestamp) + EXIT_DELAY, recipient: _recipient});
+    validator.status = Status.EXITING;
+
+    emit IStaking.WithdrawInitiated(_attester, _recipient, validator.stake);
+
+    return true;
+  }
+
+  function getActiveAttesterCount() public view override(IStaking) returns (uint256) {
+    return attesters.length();
   }
 }

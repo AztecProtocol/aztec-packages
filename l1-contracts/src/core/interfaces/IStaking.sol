@@ -34,6 +34,13 @@ struct Exit {
 }
 
 interface IStaking {
+  event Deposit(
+    address indexed attester, address indexed proposer, address indexed withdrawer, uint256 amount
+  );
+  event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
+  event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
+  event Slashed(address indexed attester, uint256 amount);
+
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
     external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
@@ -45,5 +52,6 @@ interface IStaking {
   function getActiveAttesterCount() external view returns (uint256);
   function getAttesterAtIndex(uint256 _index) external view returns (address);
   function getProposerAtIndex(uint256 _index) external view returns (address);
+  function getProposerForAttester(address _attester) external view returns (address);
   function getOperatorAtIndex(uint256 _index) external view returns (OperatorInfo memory);
 }

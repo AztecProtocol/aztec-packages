@@ -48,4 +48,9 @@ contract GettersTest is StakingBase {
     vm.expectRevert();
     staking.getOperatorAtIndex(1);
   }
+
+  function test_getProposerForAttester() external view {
+    assertEq(staking.getProposerForAttester(ATTESTER), PROPOSER);
+    assertEq(staking.getProposerForAttester(address(1)), address(0));
+  }
 }
