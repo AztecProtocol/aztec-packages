@@ -1019,7 +1019,7 @@ mod tests {
             array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
             true,
         );
-        tx_effects[2] = field_from_bytes([NOTES_PREFIX, 0, 50 as u8], true);
+        tx_effects[2] = encode_blob_prefix(NOTES_PREFIX, 50);
         for i in 0..50 {
             tx_effects[i + 3] = builder.avm_data.note_hashes.storage()[i].value();
         }
