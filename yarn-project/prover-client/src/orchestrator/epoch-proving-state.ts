@@ -59,11 +59,6 @@ export class EpochProvingState {
     private rejectionCallback: (reason: string) => void,
   ) {}
 
-  /** Returns the current block proving state */
-  public get currentBlock(): BlockProvingState | undefined {
-    return this.blocks.at(-1);
-  }
-
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
     const totalLeaves = Math.max(2, this.totalNumBlocks);
@@ -110,7 +105,7 @@ export class EpochProvingState {
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
-  ) {
+  ): BlockProvingState {
     const block = new BlockProvingState(
       this.blocks.length,
       numTxs,
@@ -128,7 +123,7 @@ export class EpochProvingState {
     if (this.blocks.length === this.totalNumBlocks) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
-    return this.blocks.length - 1;
+    return block;
   }
 
   // Returns true if this proving state is still valid, false otherwise
@@ -180,8 +175,8 @@ export class EpochProvingState {
   }
 
   // Returns a specific transaction proving state
-  public getBlockProvingState(index: number) {
-    return this.blocks[index];
+  public getBlockProvingStateByBlockNumber(blockNumber: number) {
+    return this.blocks.find(block => block.blockNumber === blockNumber);
   }
 
   // Returns a set of merge rollup inputs

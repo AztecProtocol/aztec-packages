@@ -1,6 +1,7 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_read_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -11,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <sys/types.h>
 #include <unordered_map>
 
@@ -79,6 +81,10 @@ void assert_leaf_index(
     const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, const Leaf& value, index_t expected_index)
 {
     std::optional<index_t> index = ws.find_leaf_index<Leaf>(revision, tree_id, value);
+    EXPECT_TRUE(index.has_value());
+    if (!index.has_value()) {
+        return;
+    }
     EXPECT_EQ(index.value(), expected_index);
 }
 
@@ -363,6 +369,7 @@ TEST_F(WorldStateTest, NullifierTree)
 
     auto test_leaf = ws.get_indexed_leaf<NullifierLeafValue>(WorldStateRevision::committed(), tree_id, 128);
     // at this point 142 should be the biggest leaf so it wraps back to 0
+    EXPECT_TRUE(test_leaf.has_value());
     EXPECT_EQ(test_leaf.value(), IndexedLeaf(test_nullifier, 0, 0));
 
     auto predecessor_of_142_again =
@@ -524,6 +531,19 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
     for (const auto& [tree_id, snapshot] : block_state_ref) {
         EXPECT_EQ(state_ref.at(tree_id), snapshot);
     }
+
+    std::vector<std::optional<block_number_t>> blockNumbers;
+    ws.get_block_numbers_for_leaf_indices(
+        WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, { 0 }, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), 1);
+    EXPECT_EQ(blockNumbers[0], 1);
+
+    EXPECT_THROW(ws.get_block_numbers_for_leaf_indices(
+                     WorldStateRevision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 2, .includeUncommitted = false },
+                     MerkleTreeId::NOTE_HASH_TREE,
+                     { 0 },
+                     blockNumbers),
+                 std::runtime_error);
 }
 
 TEST_F(WorldStateTest, SyncBlockFromDirtyState)
@@ -788,4 +808,44 @@ TEST_F(WorldStateTest, BuildsABlockInAFork)
     ws.sync_block(fork_state_ref, { 1 }, { 42 }, { 43 }, { { 129 } }, { { { 129, 1 } } });
 
     EXPECT_EQ(fork_state_ref, ws.get_state_reference(WorldStateRevision::committed()));
+}
+
+TEST_F(WorldStateTest, GetBlockForIndex)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    // bb::fr block_hash(1);
+    StateReference block_state_ref = {
+        { MerkleTreeId::NULLIFIER_TREE,
+          { fr("0x187a19972150cd1e76d8201d720da7682fcf4d93ec6a3c7b0d84bbefde5bd927"), 129 } },
+        { MerkleTreeId::NOTE_HASH_TREE,
+          { fr("0x2467e5f90736b4ea977e7d21cfb3714181e16b7d6cd867768b59e2ea90fa3eaf"), 1 } },
+        { MerkleTreeId::PUBLIC_DATA_TREE,
+          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+          { fr("0x24ffd0fab86555ab2e86cffc706d4cfb4b8c405c3966af805de954504ffc27ac"), 1 } },
+    };
+
+    WorldStateStatusFull status = ws.sync_block(
+        block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
+    WorldStateStatusSummary expected{ 1, 0, 1, true };
+    EXPECT_EQ(status.summary, expected);
+
+    StateReference state_ref = ws.get_state_reference(WorldStateRevision::committed());
+
+    std::vector<MerkleTreeId> tree_ids{
+        MerkleTreeId::NULLIFIER_TREE,
+        MerkleTreeId::NOTE_HASH_TREE,
+        MerkleTreeId::PUBLIC_DATA_TREE,
+        MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+    };
+
+    for (const auto& id : tree_ids) {
+        std::vector<std::optional<block_number_t>> blockNumbers;
+        ws.get_block_numbers_for_leaf_indices(
+            WorldStateRevision::committed(), id, { state_ref[id].second - 1 }, blockNumbers);
+
+        EXPECT_EQ(blockNumbers.size(), 1);
+        EXPECT_TRUE(blockNumbers[0].has_value());
+        EXPECT_EQ(blockNumbers[0].value(), 1);
+    }
 }

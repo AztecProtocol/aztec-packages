@@ -435,6 +435,22 @@ export class AztecNodeService implements AztecNode {
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
   }
 
+  /**
+   * Find the block numbers of the given leaf indices in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * @param treeId - The tree to search in.
+   * @param leafIndices - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   */
+  public async findBlockNumbersForIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return await committedDb.getBlockNumbersForLeafIndices(treeId, leafIndices);
+  }
+
   public async findNullifiersIndexesWithBlock(
     blockNumber: L2BlockNumber,
     nullifiers: Fr[],

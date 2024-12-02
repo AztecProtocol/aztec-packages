@@ -469,6 +469,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Initialize batching challenge as ν²
         Fr current_batching_challenge = shplonk_batching_challenge.sqr();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N - 1; ++j) {
             // Compute the scaling factor  (ν²⁺ⁱ) / (z + r²⁽ⁱ⁺²⁾) for i = 0, … , d-2
             Fr scaling_factor = current_batching_challenge * inverse_vanishing_evals[j + 2];

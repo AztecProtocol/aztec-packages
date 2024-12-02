@@ -1,4 +1,3 @@
-import { createDebugLogger } from '@aztec/aztec.js';
 import {
   type BlockBuilder,
   L2Block,
@@ -9,13 +8,19 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { buildBaseRollupHints, buildHeaderAndBodyFromTxs, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { inspect } from 'util';
+
+import {
+  buildBaseRollupHints,
+  buildHeaderAndBodyFromTxs,
+  getTreeSnapshot,
+} from '../orchestrator/block-building-helpers.js';
 
 /**
  * Builds a block and its header from a set of processed tx without running any circuits.
@@ -89,4 +94,24 @@ export class LightweightBlockBuilderFactory {
   create(db: MerkleTreeWriteOperations): BlockBuilder {
     return new LightweightBlockBuilder(db, this.telemetry ?? new NoopTelemetryClient());
   }
+}
+
+/**
+ * Creates a block builder under the hood with the given txs and messages and creates a block.
+ * Automatically adds padding txs to get to a minimum of 2 txs in the block.
+ * @param db - A db fork to use for block building.
+ */
+export async function buildBlock(
+  txs: ProcessedTx[],
+  globalVariables: GlobalVariables,
+  l1ToL2Messages: Fr[],
+  db: MerkleTreeWriteOperations,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+) {
+  const builder = new LightweightBlockBuilder(db, telemetry);
+  await builder.startNewBlock(Math.max(txs.length, 2), globalVariables, l1ToL2Messages);
+  for (const tx of txs) {
+    await builder.addNewTx(tx);
+  }
+  return await builder.setBlockCompleted();
 }
