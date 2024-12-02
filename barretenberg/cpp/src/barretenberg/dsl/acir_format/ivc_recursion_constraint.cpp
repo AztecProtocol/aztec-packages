@@ -14,38 +14,60 @@ namespace acir_format {
 
 using namespace bb;
 
-ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
+/**
+ * @brief Create an IVC object with mocked state corresponding to a set of IVC recursion constraints
+ * @details Construction of a kernel circuit requires two inputs: kernel prgram acir constraints and an IVC instance
+ * containing state needed to complete the kernel logic, e.g. proofs for input to recursive verifiers. To construct
+ * verification keys for kernel circuits without running a full IVC, we mock the IVC state corresponding to a provided
+ * set of IVC recurson constraints. For example, if the constraints contain a single PG recursive verification, we
+ * initialize an IVC with mocked data for the verifier accumulator, the folding proof, the circuit verification key,
+ * and a merge proof.
+ * @note There are only three valid combinations of IVC recursion constraints for a kernel program. See below for
+ * details.
+ *
+ * @param constraints IVC recursion constraints from a kernel circuit
+ * @param trace_settings
+ * @return ClientIVC
+ */
+ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
+                                           const TraceSettings& trace_settings)
 {
-    // WORKTODO: the settings here will just be set based on the one and only default trace structuring
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc{ trace_settings };
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
 
-    // There are only three valid combinations of IVC recursion constraints: (1) a single Oink recursive verification
-    // for an app circuit (init kernel), (2) a single PG recursive verification for a kernel circuit (reset kernel, tail
-    // kernel), or (3) two PG recursive verifications for a kernel and an app in that order (inner kernel).
+    // There are only three valid combinations of IVC recursion constraints:
+
+    // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK, /*is_kernel=*/false);
-    } else if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
+        return ivc;
+    }
+
+    // Case: RESET or TAIL kernel; single PG recursive verification of a kernel
+    if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
         ivc.verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-    } else if (constraints.size() == 2) {
+        return ivc;
+    }
+
+    // Case: INNER kernel; two PG recursive verifications, kernel and app in that order
+    if (constraints.size() == 2) {
         ASSERT(constraints[0].proof_type == pg_type && constraints[1].proof_type == pg_type);
         ivc.verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
-    } else {
-        info("WARNING: Invalid set of IVC recursion constraints!");
-        ASSERT(false);
+        return ivc;
     }
 
-    return ivc;
+    ASSERT(false && "WARNING: Invalid set of IVC recursion constraints!");
+    return ClientIVC{};
 }
 
 /**
- * @brief Populate an IVC instance with data that mimics the state after PG accumulation
- * @details Mock state consists a mock verification queue entry of type OINK (proof, VK) and a mocked merge proof
+ * @brief Populate an IVC instance with data that mimics the state after a single IVC accumulation (Oink or PG)
+ * @details Mock state consists of a mock verification queue entry of type OINK (proof, VK) and a mocked merge proof
  *
  * @param ivc
  * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
@@ -60,7 +82,8 @@ void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type, const boo
 }
 
 /**
- * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
+ * @brief Create a mock verification queue entry with proof and VK that have the correct structure but are not
+ * necessarily valid
  *
  */
 ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::QUEUE_TYPE verification_type,
@@ -70,16 +93,17 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     using FF = ClientIVC::FF;
     using MegaVerificationKey = ClientIVC::MegaVerificationKey;
 
-    // WORKTODO: is there a way to use some internal IVC data for this instead of constructing blocks?
+    // Use the trace settings to determine the correct dyadic size and the public inputs offset
     MegaExecutionTraceBlocks blocks;
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
+    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
+    // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
     size_t num_public_inputs = bb::PAIRING_POINT_ACCUMULATOR_SIZE;
     if (is_kernel) {
         num_public_inputs += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
     }
-    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
 
     // Construct a mock Oink or PG proof
     std::vector<FF> proof;
@@ -96,17 +120,14 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     // If the verification queue entry corresponds to a kernel circuit, set the databus data to indicate the presence of
     // propagated return data commitments on the public inputs
     if (is_kernel) {
-        // WORKTODO: how can we make this a little less magical?
-        verification_key->databus_propagation_data.is_kernel = true;
-        verification_key->databus_propagation_data.kernel_return_data_public_input_idx = 0;
-        verification_key->databus_propagation_data.app_return_data_public_input_idx = 8;
+        verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
     }
 
     return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
 }
 
 /**
- * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
+ * @brief Create a mock oink proof that has the correct structure but is not in general valid
  *
  */
 std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
@@ -141,14 +162,13 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
 }
 
 /**
- * @brief Create a mock PG proof and VK that have the correct structure but are not necessarily valid
+ * @brief Create a mock PG proof that has the correct structure but is not in general valid
  *
  */
 std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
                                                 const size_t num_public_inputs,
                                                 const size_t pub_inputs_offset)
 {
-    // using Flavor = ClientIVC::Flavor;
     using FF = ClientIVC::FF;
     using DeciderProvingKeys = ClientIVC::DeciderProvingKeys;
 
@@ -169,7 +189,7 @@ std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
 }
 
 /**
- * @brief Create a mock oink proof and VK that have the correct structure but are not necessarily valid
+ * @brief Create a mock MegaHonk VK that has the correct structure
  *
  */
 std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t dyadic_size,
@@ -223,7 +243,7 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     std::vector<FF> proof;
 
     FF mock_val(5);
-    auto mock_commitment = curve::BN254::AffineElement::one() * mock_val;
+    auto mock_commitment = curve::BN254::AffineElement::one();
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
 
     // There are 12 entities in the merge protocol (4 columns x 3 components; aggregate transcript, previous aggregate

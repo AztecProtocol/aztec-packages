@@ -107,7 +107,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         AcirProgram& program, const TraceSettings& trace_settings)
     {
         // Create a mock IVC instance from the IVC recursion constraints in the kernel program
-        ClientIVC mock_ivc = create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints);
+        ClientIVC mock_ivc =
+            create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints, trace_settings);
 
         // Create kernel circuit from kernel program and the mocked IVC (empty witness mimics VK construction context)
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, mock_ivc, /*witness=*/{});
