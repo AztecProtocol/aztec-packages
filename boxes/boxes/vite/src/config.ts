@@ -11,6 +11,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js";
 import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
+import { TestPrivateKernelProver } from "@aztec/pxe/kernel_prover";
 import { KeyStore } from "@aztec/key-store";
 import { PrivateKernelProver } from "@aztec/circuit-types";
 import { L2TipsStore } from "@aztec/kv-store/stores";
@@ -31,7 +32,8 @@ export class PrivateEnv {
   async init() {
     const config = getPXEServiceConfig();
     const aztecNode = await createAztecNodeClient(this.nodeURL);
-    this.pxe = await this.createPXEService(aztecNode, config);
+    const proofCreator = new TestPrivateKernelProver();
+    this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
     const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
       this.secretKey,
     );
@@ -91,6 +93,7 @@ export const deployerEnv = new PrivateEnv(
 const IGNORE_FUNCTIONS = [
   "constructor",
   "compute_note_hash_and_optionally_a_nullifier",
+  "sync_notes",
 ];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(
   (f) => !IGNORE_FUNCTIONS.includes(f.name),

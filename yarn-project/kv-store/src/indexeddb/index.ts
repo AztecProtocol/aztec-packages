@@ -22,7 +22,7 @@ export async function createStore(
       : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
   return initStoreForRollup(
-    await AztecIndexedDBStore.open(createDebugLogger('aztec:kv-store:indexeddb'), dataDirectory ?? '', true),
+    await AztecIndexedDBStore.open(createDebugLogger('aztec:kv-store:indexeddb'), dataDirectory ?? '', false),
     config.l1Contracts.rollupAddress,
     log,
   );

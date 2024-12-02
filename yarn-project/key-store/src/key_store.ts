@@ -277,7 +277,8 @@ export class KeyStore {
   public async getKeyPrefixAndAccount(value: Bufferable): Promise<[KeyPrefix, AztecAddress]> {
     const valueBuffer = serializeToBuffer(value);
     for await (const [key, val] of this.#keys.entriesAsync()) {
-      if (val.equals(valueBuffer)) {
+      // Browser returns Uint8Array, Node.js returns Buffer
+      if (Buffer.from(val).equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
             const account = AztecAddress.fromString(key.split('-')[0]);

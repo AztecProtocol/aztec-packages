@@ -28,13 +28,12 @@ export default defineConfig({
     nodePolyfillsFix({
       overrides: {
         fs: "memfs",
+        buffer: "buffer/",
       },
     }),
     topLevelAwait(),
   ],
-  resolve: {
-    alias: {
-      "@nimiq/jungle-db": "@nimiq/jungle-db/dist/indexeddb.js",
-    },
+  optimizeDeps: {
+    exclude: ["@noir-lang/acvm_js", "@noir-lang/noirc_abi"],
   },
 });

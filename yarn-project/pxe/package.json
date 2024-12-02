@@ -6,7 +6,8 @@
     ".": "./dest/index.js",
     "./service": "./dest/pxe_service/index.js",
     "./config": "./dest/config/index.js",
-    "./database": "./dest/database/index.js"
+    "./database": "./dest/database/index.js",
+    "./kernel_prover": "./dest/kernel_prover/index.js"
   },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {

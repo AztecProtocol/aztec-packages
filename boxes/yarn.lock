@@ -1397,17 +1397,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nimiq/jungle-db@npm:^0.11.1":
-  version: 0.11.1
-  resolution: "@nimiq/jungle-db@npm:0.11.1"
-  dependencies:
-    atob: "npm:^2.0.3"
-    btoa: "npm:^1.1.2"
-    node-lmdb: "npm:^0.10.1"
-  checksum: 02bbc4a97f629193f811140c49da1aba1f9bc983082efb1eb6895093f4718c5415a6f54db61de6eef539c5b6bd4c6dfbe88c94664e335193f0ec96c0952a8a0d
-  languageName: node
-  linkType: hard
-
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5
   resolution: "@nodelib/fs.scandir@npm:2.1.5"
@@ -1434,6 +1423,18 @@ __metadata:
   checksum: db9de047c3bb9b51f9335a7bb46f4fcfb6829fb628318c12115fbaf7d369bfce71c15b103d1fc3b464812d936220ee9bc1c8f762d032c9f6be9acc99249095b1
   languageName: node
   linkType: hard
+
+"@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite"
+  languageName: node
+  linkType: soft
+
+"@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite"
+  languageName: node
+  linkType: soft
 
 "@nolyfill/is-core-module@npm:1.0.39":
   version: 1.0.39
@@ -3225,15 +3226,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"atob@npm:^2.0.3":
-  version: 2.1.2
-  resolution: "atob@npm:2.1.2"
-  bin:
-    atob: bin/atob.js
-  checksum: ada635b519dc0c576bb0b3ca63a73b50eefacf390abb3f062558342a8d68f2db91d0c8db54ce81b0d89de3b0f000de71f3ae7d761fd7d8cc624278fe443d6c7e
-  languageName: node
-  linkType: hard
-
 "atomic-sleep@npm:^1.0.0":
   version: 1.0.0
   resolution: "atomic-sleep@npm:1.0.0"
@@ -3622,15 +3614,6 @@ __metadata:
   dependencies:
     node-int64: "npm:^0.4.0"
   checksum: 24d8dfb7b6d457d73f32744e678a60cc553e4ec0e9e1a01cf614b44d85c3c87e188d3cc78ef0442ce5032ee6818de20a0162ba1074725c0d08908f62ea979227
-  languageName: node
-  linkType: hard
-
-"btoa@npm:^1.1.2":
-  version: 1.2.1
-  resolution: "btoa@npm:1.2.1"
-  bin:
-    btoa: bin/btoa.js
-  checksum: 557b9682e40a68ae057af1b377e28884e6ff756ba0f499fe0f8c7b725a5bfb5c0d891604ac09944dbe330c9d43fb3976fef734f9372608d0d8e78a30eda292ae
   languageName: node
   linkType: hard
 
@@ -8415,15 +8398,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nan@npm:^2.19.0":
-  version: 2.22.0
-  resolution: "nan@npm:2.22.0"
-  dependencies:
-    node-gyp: "npm:latest"
-  checksum: d5d31aefdb218deba308d44867c5f432b4d3aabeb57c70a2b236d62652e9fee7044e5d5afd380d9fef022fe7ebb2f2d6c85ca3cbcac5031aaca3592c844526bb
-  languageName: node
-  linkType: hard
-
 "nanoid@npm:^3.3.7":
   version: 3.3.7
   resolution: "nanoid@npm:3.3.7"
@@ -8500,17 +8474,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-gyp-build@npm:^4.8.1":
-  version: 4.8.4
-  resolution: "node-gyp-build@npm:4.8.4"
-  bin:
-    node-gyp-build: bin.js
-    node-gyp-build-optional: optional.js
-    node-gyp-build-test: build-test.js
-  checksum: 444e189907ece2081fe60e75368784f7782cfddb554b60123743dfb89509df89f1f29c03bbfa16b3a3e0be3f48799a4783f487da6203245fa5bed239ba7407e1
-  languageName: node
-  linkType: hard
-
 "node-gyp@npm:latest":
   version: 10.2.0
   resolution: "node-gyp@npm:10.2.0"
@@ -8535,17 +8498,6 @@ __metadata:
   version: 0.4.0
   resolution: "node-int64@npm:0.4.0"
   checksum: a6a4d8369e2f2720e9c645255ffde909c0fbd41c92ea92a5607fc17055955daac99c1ff589d421eee12a0d24e99f7bfc2aabfeb1a4c14742f6c099a51863f31a
-  languageName: node
-  linkType: hard
-
-"node-lmdb@npm:^0.10.1":
-  version: 0.10.1
-  resolution: "node-lmdb@npm:0.10.1"
-  dependencies:
-    nan: "npm:^2.19.0"
-    node-gyp: "npm:latest"
-    node-gyp-build: "npm:^4.8.1"
-  checksum: 5d40e7f3dd789429f486758f87390956f31d867b3f401c327413e4e21f5d3058ca7b7a1b4c1528133ca940c370d165c174b25b62f6664084d3bba7ca9552e828
   languageName: node
   linkType: hard
 
@@ -11487,10 +11439,12 @@ __metadata:
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store"
     "@aztec/pxe": "link:../../../yarn-project/pxe"
     "@eslint/js": "npm:^9.13.0"
-    "@nimiq/jungle-db": "npm:^0.11.1"
+    "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js"
+    "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"
     "@vitejs/plugin-react-swc": "npm:^3.5.0"
+    buffer: "npm:^6.0.3"
     eslint: "npm:^9.13.0"
     eslint-plugin-react-hooks: "npm:^5.0.0"
     eslint-plugin-react-refresh: "npm:^0.4.14"

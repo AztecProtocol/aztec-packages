@@ -595,7 +595,7 @@ export class KVPxeDatabase implements PxeDatabase {
     } else {
       const existingBuffer = await this.#completeAddresses.atAsync(existing);
 
-      if (existingBuffer?.equals(buffer)) {
+      if (Buffer.from(existingBuffer || Buffer.from([])).equals(buffer)) {
         return false;
       }
 
