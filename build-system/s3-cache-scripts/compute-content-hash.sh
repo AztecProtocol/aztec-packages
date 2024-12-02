@@ -28,4 +28,4 @@ fi
 # Sort the hashes and compute the content hash
 CONTENT_HASH=$(echo "$FILE_HASHES" | sort | git hash-object --stdin)
 # important: include architecture in content hash because we target x86_64 and arm64
-echo "$CONTENT_HASH_$(uname -m)"
+echo "$CONTENT_HASH-$(uname -m)"
