@@ -57,7 +57,7 @@ function compile {
   fi
 
   # No vks needed for simulated circuits.
-  [ "$name" == *"simulated"* ] && continue
+  [[ "$name" == *"simulated"* ]] && return
 
   # Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
@@ -76,7 +76,8 @@ function compile {
 }
 
 function build {
-  set -eu
+  set +e
+  set -u
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -85,7 +86,9 @@ function build {
       fi
     done | \
     parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+  code=$?
   cat joblog.txt
+  return $code
 }
 
 function test {

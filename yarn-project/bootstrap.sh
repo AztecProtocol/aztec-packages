@@ -121,7 +121,7 @@ function run_e2e_tests {
     "simple e2e_p2p/reqresp"
     "flake e2e_p2p/upgrade_governance_proposer"
     "simple e2e_private_voting_contract"
-    "simple e2e_prover/full FAKE_PROOFS=1"
+    "flake e2e_prover/full FAKE_PROOFS=1"
     "simple e2e_prover_coordination"
     "simple e2e_public_testnet_transfer"
     "simple e2e_state_vars"
@@ -141,9 +141,9 @@ function run_e2e_tests {
 
     "compose composed/docs_examples"
     "flake composed/e2e_aztec_js_browser"
+    "compose composed/e2e_pxe"
     "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
-    "compose composed/pxe"
     "compose sample-dapp/index"
     "compose sample-dapp/ci/index"
     "compose guides/dapp_testing"
@@ -170,17 +170,18 @@ function run_e2e_tests {
   code=$?
   set -e
 
-  awk 'NR > 1 && $7 != 0 {print $NF "-" $1}' joblog.txt | while read -r job; do
+  # Note this is highly dependent on the command structure above.
+  # Skip first line (header).
+  # 7th field (1-indexed) is exit value.
+  # (NF-1) is the second to last field, so skips the last field "2>&1" to give the test name.
+  # We can't index from the front because {3} above is a variable length set of env vars.
+  # We concat the test name with its job number in $1, to allow running the same test with different env vars.
+  awk 'NR > 1 && $7 != 0 {print $(NF-1) "-" $1}' joblog.txt | while read -r job; do
     stdout_file="results/${job}/stdout"
-    # stderr_file="results/${job}/stderr"
     if [ -f "$stdout_file" ]; then
       echo "=== Failed Job Output ==="
       cat "$stdout_file"
     fi
-    # if [ -f "$stderr_file" ]; then
-    #   echo "=== Failed Job Output: $stderr_file ==="
-    #   cat "$stderr_file"
-    # fi
   done
 
   echo "=== Job Log ==="
