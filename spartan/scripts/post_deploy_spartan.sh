@@ -5,7 +5,7 @@ set -o pipefail
 
 echo "Bootstrapping network with test contracts"
 
-NAMESPACE=${1:-spartan}
+export NAMESPACE=${1:-spartan}
 TAG=${2:-latest}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -22,10 +22,11 @@ function get_load_balancer_url() {
   kubectl get svc -n $namespace -o jsonpath="{.items[?(@.metadata.name=='$service_name')].status.loadBalancer.ingress[0].hostname}"
 }
 
+
 # Fetch the service URLs based on the namespace for injection in the test-transfer.sh
-export BOOTNODE_URL=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-boot-node-lb-tcp"):8080
-export PXE_URL=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-pxe-lb"):8080
-export ETHEREUM_HOST=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-ethereum-lb"):8545
+export BOOTNODE_URL=http://$($(dirname $0)/get_service_address boot-node 8080)
+export PXE_URL=http://$($(dirname $0)/get_service_address pxe 8080)
+export ETHEREUM_HOST=http://$($(dirname $0)/get_service_address ethereum 8545)
 
 echo "BOOTNODE_URL: $BOOTNODE_URL"
 echo "PXE_URL: $PXE_URL"
