@@ -79,6 +79,6 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
-      CI=1 ./bootstrap.sh $cmd || exec bash
+      CI=1 ./bootstrap.sh $CMD || exec bash
     '
 "
