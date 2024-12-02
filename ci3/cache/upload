@@ -17,9 +17,9 @@ if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache
   exit 0
 fi
 # Pipe tar directly to AWS S3 cp
-if tar -czf - "$@" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME" >&2 ; then
-  echo "Cache upload of $NAME complete." >&2
+if tar -czf - "$@" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$name" >&2 ; then
+  echo "Cache upload of $name complete." >&2
 else
-  echo "Cache upload of $NAME failed." >&2
+  echo "Cache upload of $name failed." >&2
   exit 0
 fi
