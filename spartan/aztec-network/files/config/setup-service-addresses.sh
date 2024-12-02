@@ -81,8 +81,6 @@ fi
 
 if [ "${PROVER_BROKER_EXTERNAL_HOST}" != "" ]; then
     PROVER_BROKER_ADDR="${PROVER_BROKER_EXTERNAL_HOST}"
-elif [ "${NETWORK_PUBLIC}" = "true" ]; then
-    PROVER_BROKER_ADDR=$(get_service_address "prover-broker" "${PROVER_BROKER_PORT}")
 else
     PROVER_BROKER_ADDR="http://${SERVICE_NAME}-prover-broker.${NAMESPACE}:${PROVER_BROKER_PORT}"
 fi
