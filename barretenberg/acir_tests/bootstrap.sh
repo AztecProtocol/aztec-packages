@@ -75,12 +75,14 @@ function f5 { FLOW=fold_and_verify_program bbjs_test fold_basic; }
 # Run 1_mul through bb.js build, all_cmds flow, to test all CLI args.
 function f6 { FLOW=all_cmds bbjs_test 1_mul; }
 
+# TODO solidity verifier tests
+
 ########################################################################################################################
 # Parallel run
 ########################################################################################################################
 TEST_FNS="f0 f1 f2 f3 f4 f5 f6"
 export -f bbjs_test $TEST_FNS
-parallel -j5 ::: $TEST_FNS
+parallel ::: $TEST_FNS
 
 $ci3/cache/upload_flag barretenberg-acir-test-$HASH
 $ci3/github/endgroup

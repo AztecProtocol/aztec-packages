@@ -164,14 +164,12 @@ jobs:
       - name: "Aztec Main Image"
         timeout-minutes: 40
         run: |
-          ./bootstrap.sh
-          earthly-ci +aztec
+          ./bootstrap.sh aztec-image
       # prepare images locally, tagged by commit hash
       - name: "E2E Test Image"
         timeout-minutes: 40
         run: |
-          ./bootstrap.sh
-          earthly-ci +end-to-end
+          ./bootstrap.sh e2e-image
       - name: E2E Compute Jobs
         id: e2e_list
         run: |

@@ -4,6 +4,27 @@ VERSION 0.8
 # Builds
 ########################################################################################################################
 
+bootstrap-acir-bench:
+  # Intended to run on an isolated runner
+  FROM ./build-images+from-registry
+  ARG EARTHLY_GIT_HASH
+  ENV DENOISE=1
+  WORKDIR /build-volume
+  # Use a cache volume for performance
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
+    rm -rf $(ls -A) && \
+    git init 2>/dev/null && \
+    git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
+    git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
+    (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
+    git reset --hard FETCH_HEAD && \
+    echo "noir: " && CI=1 TEST=1 USE_CACHE=1 ./noir/bootstrap.sh && \
+    echo "barretenberg: " && CI=1 TEST=1 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
+
+    mv $(ls -A) /usr/src
+  WORKDIR /usr/src
+  SAVE ARTIFACT /usr/src /usr/src
+
 bootstrap-noir-bb:
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
@@ -20,8 +41,8 @@ bootstrap-noir-bb:
     git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
-    echo "noir: " && CI=1 USE_CACHE=1 ./noir/bootstrap.sh && \
-    echo "barretenberg: " && CI=1 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
+    echo "noir: " && CI=1 TEST=1 USE_CACHE=1 ./noir/bootstrap.sh && \
+    echo "barretenberg: " && CI=1 TEST=1 USE_CACHE=1 ./barretenberg/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/src
