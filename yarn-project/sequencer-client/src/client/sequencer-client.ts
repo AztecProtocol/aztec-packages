@@ -2,11 +2,11 @@ import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchroniz
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type P2P } from '@aztec/p2p';
+import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
-import { LightweightBlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';

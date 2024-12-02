@@ -1,20 +1,18 @@
+import {
+  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  FUNCTION_TREE_HEIGHT,
+  MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  type PrivateFunction,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
+} from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
-import {
-  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  FUNCTION_TREE_HEIGHT,
-  MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
-  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
-  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-} from '../../constants.gen.js';
-import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '../interfaces/index.js';
+import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class PrivateFunctionBroadcastedEvent {
@@ -30,23 +28,10 @@ export class PrivateFunctionBroadcastedEvent {
   ) {}
 
   static isPrivateFunctionBroadcastedEvent(log: Buffer) {
-    return toBigIntBE(log.subarray(0, 32)) == REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE;
+    return log.subarray(0, 32).equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG.toBuffer());
   }
 
-  static fromLogs(logs: { contractAddress: AztecAddress; data: Buffer }[], registererContractAddress: AztecAddress) {
-    return logs
-      .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log.data))
-      .filter(log => log.contractAddress.equals(registererContractAddress))
-      .map(log => this.fromLogData(log.data));
-  }
-
-  static fromLogData(log: Buffer) {
-    if (!this.isPrivateFunctionBroadcastedEvent(log)) {
-      throw new Error(
-        `Log data for PrivateFunctionBroadcastedEvent is not prefixed with magic value 0x${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}`,
-      );
-    }
-
+  static fromLog(log: Buffer) {
     const expectedLength =
       32 *
       (MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS +
