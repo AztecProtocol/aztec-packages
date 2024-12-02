@@ -8,11 +8,12 @@ if [ "${1:-}" == "clean" ]; then
   exit 0
 fi
 
-HASH=$($ci3/cache/content_hash \
+export AZTEC_CACHE_REBUILD_PATTERNS=$(echo \
   ../../noir/.rebuild_patterns_native \
   ../../noir/.rebuild_patterns_tests \
   ../../barretenberg/cpp/.rebuild_patterns \
   ../../barretenberg/ts/.rebuild_patterns)
+HASH=$($ci3/cache/content_hash)
 
 if ! $ci3/cache/should_run barretenberg-acir-test-$HASH; then
   exit 0
@@ -27,8 +28,13 @@ $ci3/github/group "acir_tests updating yarn"
 find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 $ci3/github/endgroup
 
+# We only run tests in CI.
+if [ "${CI:-0}" -ne 1 ]; then
+  exit 0
+fi
+
 $ci3/github/group "acir_tests building browser-test-app"
-# Keep build as part of tests only.
+# Keep build as part of CI only.
 (cd browser-test-app && yarn build)
 $ci3/github/endgroup
 
@@ -53,36 +59,21 @@ function f0 {
   BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
 }
 
-(cd sol-test && yarn install)
-
-########################################################################################################################
-# bb.js tests
-########################################################################################################################
-# Helper function to run bb.js tests.
-function bbjs_test() { BIN=../ts/dest/node/main.js ./run_acir_tests.sh "$@"; }
-# Run UltraHonk recursive verification through bb.js on Chrome with multi-threading.
-function f0 { BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof; }
+export BIN=../ts/dest/node/main.js
 # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-function f1 { FLOW=prove_then_verify bbjs_test ecdsa_secp256r1_3x; }
-# Run a single arbitrary test not involving recursion through bb.js for UltraHonk.
-function f2 { FLOW=prove_and_verify_ultra_honk bbjs_test 6_array assert_statement; }
-# Run the prove-then-verify flow for UltraHonk.
-function f3 { FLOW=prove_then_verify_ultra_honk bbjs_test 6_array assert_statement; }
-# Run a single arbitrary test not involving recursion through bb.js for MegaHonk.
-function f4 { FLOW=prove_and_verify_mega_honk bbjs_test 6_array; }
-# Run fold_basic test through bb.js which runs ClientIVC on fold basic.
-function f5 { FLOW=fold_and_verify_program bbjs_test fold_basic; }
-# Run 1_mul through bb.js build, all_cmds flow, to test all CLI args.
-function f6 { FLOW=all_cmds bbjs_test 1_mul; }
+function f1 { FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x; }
+# Run a single arbitrary test not involving recursion through bb.js for UltraHonk
+function f2 { FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement; }
+# Run the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
+function f3 { FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement; }
+# Run a single arbitrary test not involving recursion through bb.js for MegaHonk
+function f4 { FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array; }
+# Run fold_basic test through bb.js which runs ClientIVC on fold basic
+function f5 { FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic; }
+# Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
+function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
 
-# TODO solidity verifier tests
-
-########################################################################################################################
-# Parallel run
-########################################################################################################################
-TEST_FNS="f0 f1 f2 f3 f4 f5 f6"
-export -f bbjs_test $TEST_FNS
-parallel ::: $TEST_FNS
-
+export -f f0 f1 f2 f3 f4 f5 f6
+parallel ::: f0 f1 f2 f3 f4 f5 f6
 $ci3/cache/upload_flag barretenberg-acir-test-$HASH
 $ci3/github/endgroup
