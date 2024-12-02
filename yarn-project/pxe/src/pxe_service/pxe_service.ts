@@ -521,7 +521,7 @@ export class PXEService implements PXE {
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
       })
       .catch(err => {
-        throw this.contextualizeError(err, inspect(txRequest), privateExecutionResult.toJSON());
+        throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       });
   }
 
