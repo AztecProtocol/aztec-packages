@@ -18,12 +18,12 @@ $BIN proof_as_fields_honk -k vk $FLAGS -p $PROOF
 $BIN contract_ultra_honk -k vk $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner
-export VERIFIER_PATH="$root/barretenberg/acir_tests/Verifier.sol"
-export TEST_PATH=$("../../sol-test/HonkTest.sol")
+export VERIFIER_PATH="$root//Verifier.sol"
+export TEST_PATH="$root/barretenberg/acir_tests/sol-test/HonkTest.sol"
 export TESTING_HONK="true"
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port
 # Deploy the verifier then send a test transaction
 export TEST_NAME=$(basename $(pwd))
-node ../../sol-test/src/index.js
+node "$root/barretenberg/acir_tests/sol-test/src/index.js"

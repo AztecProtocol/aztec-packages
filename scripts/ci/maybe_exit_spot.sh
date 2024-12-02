@@ -22,8 +22,11 @@ cleanup() {
 trap cleanup EXIT
 touch ~/.maybe-exit-spot-lock
 
+has_none() {
+  ! pgrep $1 > /dev/null
+}
 # We wait to see if a runner comes up in
-while ! pgrep Runner.Worker > /dev/null && ! pgrep earthly > /dev/null ; do
+while has_none Runner.Worker && has_none earthly && has_none clang && has_none cargo && has_none nargo && has_none node; do
   if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
     echo "Found no runner or earthly instance for $MAX_WAIT_TIME, shutting down now."
     ~/spot_runner_graceful_exit.sh
