@@ -570,6 +570,7 @@ impl<'f> Context<'f> {
             let instruction = Instruction::IfElse {
                 then_condition: cond_context.then_branch.condition,
                 then_value: then_arg,
+                else_condition: cond_context.else_branch.as_ref().unwrap().condition,
                 else_value: else_arg,
             };
             let call_stack = cond_context.call_stack.clone();
@@ -665,6 +666,11 @@ impl<'f> Context<'f> {
         }
 
         let then_condition = then_branch.condition;
+        let else_condition = if let Some(branch) = else_branch {
+            branch.condition
+        } else {
+            self.inserter.function.dfg.make_constant(FieldElement::zero(), Type::bool())
+        };
         let block = self.inserter.function.entry_block();
 
         // Merging must occur in a separate loop as we cannot borrow `self` as mutable while `value_merger` does
@@ -673,6 +679,7 @@ impl<'f> Context<'f> {
             let instruction = Instruction::IfElse {
                 then_condition,
                 then_value: *then_case,
+                else_condition,
                 else_value: *else_case,
             };
             let dfg = &mut self.inserter.function.dfg;

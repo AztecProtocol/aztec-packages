@@ -456,7 +456,7 @@ fn simplify_slice_push_back(
         ValueMerger::new(dfg, block, &mut slice_sizes, unknown, None, call_stack);
 
     let new_slice =
-        value_merger.merge_values(len_not_equals_capacity, set_last_slice_value, new_slice);
+        value_merger.merge_values(len_not_equals_capacity, len_equals_capacity, set_last_slice_value, new_slice);
 
     SimplifyResult::SimplifiedToMultiple(vec![new_slice_length, new_slice])
 }
