@@ -38,7 +38,10 @@ if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
 fi
 
 jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-# parallel -j$jobs --memfree 500m --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
-for i in "${TEST_NAMES[@]}"; do
-  bash -c "./run_acir_test.sh $i"
-done
+if [ "${PARALLEL:-1}" = 1 ]; then
+  parallel -j$jobs --memfree 500m --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
+else
+  for i in "${TEST_NAMES[@]}"; do
+    ./run_acir_test.sh "$i"
+  done
+fi
