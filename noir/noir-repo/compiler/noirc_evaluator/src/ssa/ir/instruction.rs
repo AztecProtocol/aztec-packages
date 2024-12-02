@@ -315,7 +315,12 @@ pub(crate) enum Instruction {
     ///     else_value
     /// }
     /// ```
-    IfElse { then_condition: ValueId, then_value: ValueId, else_condition: ValueId, else_value: ValueId },
+    IfElse {
+        then_condition: ValueId,
+        then_value: ValueId,
+        else_condition: ValueId,
+        else_value: ValueId,
+    },
 
     /// Creates a new array or slice.
     ///
