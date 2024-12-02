@@ -453,11 +453,11 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: barretenberg-acir-tests-bb-mega-honk-x86
-      - name: "BB Native Acir Tests (Megahonk)"
+          concurrency_key: barretenberg-acir-tests-bb-client-ivc-x86
+      - name: "BB Native Acir Tests (ClientIVC)"
         working-directory: ./barretenberg/
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-mega-honk
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-client-ivc
 
   bb-acir-tests-sol:
     needs: [noir-build-acir-tests, build, configure]
