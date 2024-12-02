@@ -145,14 +145,18 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal);
       }
     } catch (error: any) {
+      // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
       } else {
+        // This branch most commonly be hit if the transactions are available, but the re-execution fails
         // Catch all error handler
         this.log.error(`Failed to attest to proposal: ${error.message}`);
       }
       return undefined;
     }
+
+    // Provided all of the above checks pass, we can attest to the proposal
     this.log.verbose(
       `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
     );

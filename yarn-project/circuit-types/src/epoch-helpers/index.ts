@@ -9,9 +9,9 @@ export type L1RollupConstants = {
 export const EmptyL1RollupConstants: L1RollupConstants = {
   l1StartBlock: 0n,
   l1GenesisTime: 0n,
-  epochDuration: 0,
-  slotDuration: 0,
-  ethereumSlotDuration: 0,
+  epochDuration: 1, // Not 0 to pervent division by zero
+  slotDuration: 1,
+  ethereumSlotDuration: 1,
 };
 
 export type EpochConstants = {

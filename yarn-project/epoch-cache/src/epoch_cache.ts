@@ -21,16 +21,17 @@ type EpochAndSlot = {
 };
 
 export class EpochCache {
-  private validators: Map<EthAddress, boolean>;
-  private currentEpoch: bigint;
+  private validators: EthAddress[];
+  private cachedEpoch: bigint;
 
   constructor(
     private rollup: RollupContract,
+    initialValidators: EthAddress[] = [],
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
   ) {
-    this.validators = new Map<EthAddress, boolean>();
+    this.validators = initialValidators;
 
-    this.currentEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), this.l1constants);
+    this.cachedEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), this.l1constants);
   }
 
   // TODO: cleanup and merge rollup getters with l1 createAndSync in the archiver
@@ -46,9 +47,10 @@ export class EpochCache {
     });
 
     const rollup = new RollupContract(publicClient, rollupAddress.toString());
-    const [l1StartBlock, l1GenesisTime] = await Promise.all([
+    const [l1StartBlock, l1GenesisTime, initialValidators] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
+      rollup.getCurrentEpochCommittee(),
     ] as const);
 
     const l1RollupConstants: L1RollupConstants = {
@@ -59,7 +61,11 @@ export class EpochCache {
       ethereumSlotDuration: l1constants.ethereumSlotDuration,
     };
 
-    return new EpochCache(rollup, l1RollupConstants);
+    return new EpochCache(
+      rollup,
+      initialValidators.map(v => EthAddress.fromString(v)),
+      l1RollupConstants,
+    );
   }
 
   getEpochAndSlotNow(): EpochAndSlot {
@@ -77,15 +83,15 @@ export class EpochCache {
 
   async getValidatorSet(): Promise<EthAddress[]> {
     // If the current epoch has changed, then we need to make a request to update the validator set
-    const { epoch: currentEpoch, ts } = this.getEpochAndSlotNow();
+    const { epoch: calculatedEpoch, ts } = this.getEpochAndSlotNow();
 
-    if (currentEpoch !== this.currentEpoch) {
-      this.currentEpoch = currentEpoch;
+    if (calculatedEpoch !== this.cachedEpoch) {
+      this.cachedEpoch = calculatedEpoch;
       const validatorSet = await this.rollup.getCommitteeAt(ts);
-      this.validators = new Map(validatorSet.map((v: `0x${string}`) => [EthAddress.fromString(v), true]));
+      this.validators = validatorSet.map((v: `0x${string}`) => EthAddress.fromString(v));
     }
 
-    return Array.from(this.validators.keys());
+    return this.validators;
   }
 
   async getCurrentValidator(): Promise<EthAddress> {

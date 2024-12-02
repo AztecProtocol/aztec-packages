@@ -48,6 +48,10 @@ export class RollupContract {
     return this.rollup.read.getCommitteeAt([timestamp]);
   }
 
+  async getCurrentEpochCommittee() {
+    return this.rollup.read.getCurrentEpochCommittee();
+  }
+
   async getEpochNumber(blockNumber?: bigint) {
     blockNumber ??= await this.getBlockNumber();
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
