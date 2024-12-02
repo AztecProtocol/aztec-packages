@@ -332,7 +332,7 @@ export class L1TxUtils {
 
     // Get initial priority fee from the network
     let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
-    let maxFeePerGas = baseFee; // gasConfig.maxGwei! * WEI_CONST;
+    let maxFeePerGas = baseFee;
 
     // Bump base fee so it's valid for next blocks if it stalls
     const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
@@ -363,7 +363,8 @@ export class L1TxUtils {
     const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
     maxFeePerGas = maxFeePerGas > maxGweiInWei ? maxGweiInWei : maxFeePerGas;
 
-    const maxPriorityFeePerGas = priorityFee;
+    // Ensure priority fee doesn't exceed max fee
+    const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
 
     this.logger?.debug(
       `Gas price calculation (attempt ${attempt}): baseFee=${formatGwei(baseFee)}, ` +

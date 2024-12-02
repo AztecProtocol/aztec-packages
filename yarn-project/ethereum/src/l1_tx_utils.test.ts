@@ -16,6 +16,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { EthCheatCodes } from './eth_cheat_codes.js';
 import { L1TxUtils } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
 
@@ -29,12 +30,14 @@ describe('GasUtils', () => {
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let anvil: Anvil;
+  let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
   const logger = createDebugLogger('l1_gas_test');
 
   beforeAll(async () => {
     const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
     anvil = anvilInstance;
+    cheatCodes = new EthCheatCodes(rpcUrl);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
@@ -54,6 +57,13 @@ describe('GasUtils', () => {
       account,
     });
 
+    // set base fee
+    await publicClient.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [initialBaseFee.toString()],
+    });
+    await cheatCodes.evmMine();
+
     gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20n,
       maxGwei: 500n,
@@ -66,21 +76,12 @@ describe('GasUtils', () => {
 
   afterEach(async () => {
     // Reset base fee
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [initialBaseFee.toString()],
-    });
-    await publicClient.transport.request({
-      method: 'evm_mine',
-      params: [],
-    });
+    await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
+    await cheatCodes.evmMine();
   });
   afterAll(async () => {
     // disabling interval mining as it seems to cause issues with stopping anvil
-    await publicClient.transport.request({
-      method: 'evm_setIntervalMining',
-      params: [0], // Disable interval mining
-    });
+    await cheatCodes.setIntervalMining(0); // Disable interval mining
     await anvil.stop();
   }, 5_000);
 
@@ -96,20 +97,11 @@ describe('GasUtils', () => {
 
   it('handles gas price spikes by retrying with higher gas price', async () => {
     // Disable all forms of mining
-    await publicClient.transport.request({
-      method: 'evm_setAutomine',
-      params: [false],
-    });
-    await publicClient.transport.request({
-      method: 'evm_setIntervalMining',
-      params: [0],
-    });
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
 
     // Ensure initial base fee is low
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [initialBaseFee.toString()],
-    });
+    await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
 
     const request = {
       to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
@@ -129,26 +121,14 @@ describe('GasUtils', () => {
       maxPriorityFeePerGas: originalMaxPriorityFeePerGas,
     });
 
-    const rawTx = await publicClient.transport.request({
-      method: 'debug_getRawTransaction',
-      params: [txHash],
-    });
+    const rawTx = await cheatCodes.getRawTransaction(txHash);
 
     // Temporarily drop the transaction
-    await publicClient.transport.request({
-      method: 'anvil_dropTransaction',
-      params: [txHash],
-    });
+    await cheatCodes.dropTransaction(txHash);
 
     // Mine a block with higher base fee
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [((WEI_CONST * 15n) / 10n).toString()],
-    });
-    await publicClient.transport.request({
-      method: 'evm_mine',
-      params: [],
-    });
+    await cheatCodes.setNextBlockBaseFeePerGas((WEI_CONST * 15n) / 10n);
+    await cheatCodes.evmMine();
 
     // Re-add the original tx
     await publicClient.transport.request({
@@ -164,10 +144,7 @@ describe('GasUtils', () => {
 
     await sleep(2000);
     // re-enable mining
-    await publicClient.transport.request({
-      method: 'evm_setIntervalMining',
-      params: [1],
-    });
+    await cheatCodes.setIntervalMining(1);
     const receipt = await monitorFn;
     expect(receipt.status).toBe('success');
     // Verify that a replacement transaction was created
@@ -185,16 +162,10 @@ describe('GasUtils', () => {
     const newBaseFee = (maxGwei - 10n) * WEI_CONST;
 
     // Set base fee high but still under our max
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [newBaseFee.toString()],
-    });
+    await cheatCodes.setNextBlockBaseFeePerGas(newBaseFee);
 
     // Mine a new block to make the base fee change take effect
-    await publicClient.transport.request({
-      method: 'evm_mine',
-      params: [],
-    });
+    await cheatCodes.evmMine();
 
     const receipt = await gasUtils.sendAndMonitorTransaction({
       to: '0x1234567890123456789012345678901234567890',
@@ -207,14 +178,8 @@ describe('GasUtils', () => {
 
   it('adds appropriate buffer to gas estimation', async () => {
     const stableBaseFee = WEI_CONST * 10n;
-    await publicClient.transport.request({
-      method: 'anvil_setNextBlockBaseFeePerGas',
-      params: [stableBaseFee.toString()],
-    });
-    await publicClient.transport.request({
-      method: 'evm_mine',
-      params: [],
-    });
+    await cheatCodes.setNextBlockBaseFeePerGas(stableBaseFee);
+    await cheatCodes.evmMine();
 
     // First deploy without any buffer
     const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
