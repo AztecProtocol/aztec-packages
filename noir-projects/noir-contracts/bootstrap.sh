@@ -3,23 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/base/source
 
 CMD=${1:-}
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  elif [ "$CMD" = "clean-keys" ]; then
-    for artifact in target/*.json; do
-      echo "Scrubbing vk from $artifact..."
-      jq '.functions |= map(del(.verification_key))' "$artifact" > "${artifact}.tmp"
-      mv "${artifact}.tmp" "$artifact"
-    done
-    exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
-  fi
-fi
-
 export RAYON_NUM_THREADS=16
 export HARDWARE_CONCURRENCY=16
 export PLATFORM_TAG=any
@@ -94,10 +77,39 @@ function compile {
 
 export -f compile
 
-echo "Compiling contracts (bb-hash: $BB_HASH)..."
-grep -oP '(?<=contracts/)[^"]+' Nargo.toml | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
-cat joblog.txt
+function build {
+  echo "Compiling contracts (bb-hash: $BB_HASH)..."
+  grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
+    parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+  cat joblog.txt
 
-# For testing. No parallel case. Small parallel case.
-# echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
-# compile uniswap_contract
+  # For testing. No parallel case. Small parallel case.
+  # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+  # compile uniswap_contract
+}
+
+case "$CMD" in
+  "clean")
+    git clean -fdx
+    ;;
+  "clean-keys")
+    for artifact in target/*.json; do
+      echo "Scrubbing vk from $artifact..."
+      jq '.functions |= map(del(.verification_key))' "$artifact" > "${artifact}.tmp"
+      mv "${artifact}.tmp" "$artifact"
+    done
+    ;;
+  ""|"fast"|"ci")
+    USE_CACHE=1 build
+    ;;
+  "full")
+    build
+    ;;
+  "test")
+    # TODO: Needs TXE. Handle after yarn-project.
+    exit 0
+    ;;
+  *)
+    echo "Unknown command: $CMD"
+    exit 1
+esac
