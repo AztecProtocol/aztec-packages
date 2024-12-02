@@ -19,9 +19,7 @@ async function main(
   telemetryClient: TelemetryClient = new NoopTelemetryClient(),
   logger = debugLogger,
 ) {
-  // If a data directory is provided in config, then create a persistent store.
-  // Otherwise, create a temporary store.
-  const store = config.dataDirectory ? await createStore('p2p-bootstrap', config, logger) : openTmpStore();
+  const store = await createStore('p2p-bootstrap', config, logger);
 
   const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);
