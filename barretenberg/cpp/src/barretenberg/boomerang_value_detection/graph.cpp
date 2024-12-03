@@ -197,6 +197,30 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
     return gate_variables;
 }
 
+template <typename FF>
+inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
+    bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, bool is_internal_block)
+{
+    std::vector<uint32_t> gate_variables;
+    auto& block = ultra_circuit_builder.blocks.poseidon2_internal;
+    auto& selector = block.q_poseidon2_internal()[index];
+    if (!is_internal_block) {
+        block = ultra_circuit_builder.blocks.poseidon2_external;
+        selector = block.q_poseidon2_external()[index];
+    }
+    if (selector == 1) {
+        gate_variables.insert(gate_variables.end(),
+                              { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
+        if (index != block.size() - 1) {
+            gate_variables.insert(
+                gate_variables.end(),
+                { block.w_l()[index + 1], block.w_r()[index + 1], block.w_o()[index + 1], block.w_4()[index + 1] });
+        }
+    }
+    this->process_gate_variables(ultra_circuit_builder, gate_variables);
+    return gate_variables;
+}
+
 /**
  * @brief Construct a new Graph from Ultra Circuit Builder
  * @tparam FF
@@ -260,6 +284,28 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
             std::vector<uint32_t> variable_indices =
                 this->get_plookup_gate_connected_component(ultra_circuit_constructor, i);
             this->connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices, false);
+        }
+    }
+
+    const auto& poseidon2_internal_block = ultra_circuit_constructor.blocks.poseidon2_internal;
+    auto internal_gates = poseidon2_internal_block;
+    if (internal_gates.size() > 0) {
+        for (size_t i = 0; i < internal_gates.size(); i++) {
+            std::vector<uint32_t> variabled_indices =
+                this->get_poseido2s_gate_connected_component(ultra_circuit_constructor, i);
+            this->connect_all_variables_in_vector(
+                ultra_circuit_constructor, variabled_indices, /*is_sorted_variables=*/false);
+        }
+    }
+
+    const auto& poseidon2_external_block = ultra_circuit_constructor.blocks.poseidon2_external;
+    auto external_gates = poseidon2_external_block;
+    if (external_gates.size() > 0) {
+        for (size_t i = 0; i < external_gates.size(); i++) {
+            std::vector<uint32_t> variable_indices =
+                this->get_poseido2s_gate_connected_component(ultra_circuit_constructor, i, /*is_internal_block=*/false);
+            this->connect_all_variables_in_vector(
+                ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
         }
     }
 }

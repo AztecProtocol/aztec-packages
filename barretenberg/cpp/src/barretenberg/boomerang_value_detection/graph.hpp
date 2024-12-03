@@ -43,6 +43,11 @@ template <typename FF> class Graph_ {
                                                                size_t index);
     std::vector<uint32_t> get_sort_constraint_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                                   size_t index);
+    std::vector<uint32_t> get_poseido2s_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                 size_t index,
+                                                                 bool is_internal_block = true);
+    std::vector<uint32_t> get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                 size_t index);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
