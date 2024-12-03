@@ -1,5 +1,5 @@
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { generateKeyPair, marshalPrivateKey } from '@libp2p/crypto/keys';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
