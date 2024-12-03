@@ -65,6 +65,9 @@ jobs:
 
           export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
+          gcloud components install gke-gcloud-auth-plugin --quiet
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
+
           GCLOUD_CONFIG_DIR=$(gcloud info --format='value(config. paths. global_config_dir)')
 
           echo "GCloud config dir: [$GCLOUD_CONFIG_DIR]"
