@@ -69,6 +69,7 @@ jobs:
 
           docker run --rm --network=host \
             -v ~/.kube:/root/.kube \
+            -v ~/.config/gcloud:/root/.config/gcloud \
             -e K8S=true \
             -e INSTANCE_NAME=${{ env.NAMESPACE }} \
             -e SPARTAN_DIR="/usr/src/spartan" \
