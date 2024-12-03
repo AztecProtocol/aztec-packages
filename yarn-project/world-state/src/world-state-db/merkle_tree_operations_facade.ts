@@ -181,6 +181,13 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
     throw new Error('Method not implemented in legacy merkle tree');
   }
 
+  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
+    _treeId: ID,
+    _leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    throw new Error('Method not implemented in legacy merkle tree');
+  }
+
   close(): Promise<void> {
     return Promise.resolve();
   }

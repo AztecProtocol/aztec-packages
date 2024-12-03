@@ -4,9 +4,7 @@ use crate::components::previous_kernel_validator::previous_kernel_validator_hint
     generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
 };
 use dep::types::{
-    abis::{log_hash::ScopedEncryptedLogHash, private_kernel_data::PrivateKernelData},
-    address::AztecAddress,
-    traits::is_empty,
+    abis::private_kernel_data::PrivateKernelData, address::AztecAddress, traits::is_empty,
     utils::arrays::array_length,
 };
 
@@ -41,8 +39,8 @@ impl PreviousKernelValidator {
     fn validate_common(self) {
         self.validate_empty_private_call_stack();
         self.verify_empty_validation_requests();
-        self.verify_sorted_siloed_values();
-        self.validate_no_transient_data();
+        self.verify_siloed_values();
+        self.verify_no_transient_data();
     }
 
     fn validate_empty_private_call_stack(self) {
@@ -138,9 +136,9 @@ impl PreviousKernelValidator {
         );
     }
 
-    fn verify_sorted_siloed_values(self) {
-        // Check that the data are already siloed and/or sorted in the reset circuit.
-        // Any unprocessed data added after the last reset with siloing was called should be caught here.
+    // Ensure that the data has been properly siloed in the reset circuit.
+    fn verify_siloed_values(self) {
+        // note_hashes
         let num_note_hashes = array_length(self.previous_kernel.public_inputs.end.note_hashes);
         if num_note_hashes != 0 {
             let note_hash = self.previous_kernel.public_inputs.end.note_hashes[num_note_hashes - 1];
@@ -151,6 +149,7 @@ impl PreviousKernelValidator {
             );
         }
 
+        // nullifiers
         let num_nullifiers = array_length(self.previous_kernel.public_inputs.end.nullifiers);
         let nullifier = self.previous_kernel.public_inputs.end.nullifiers[num_nullifiers - 1]; // - 1 without checking because there's at least 1 nullifier.
         assert_eq(
@@ -159,27 +158,20 @@ impl PreviousKernelValidator {
             "nullifiers have not been siloed in a reset",
         );
 
-        // Note logs are not siloed, but they are sorted and their note_hash_counter should've been set to 0 in the reset circuit.
-        let num_note_logs = array_length(
-            self.previous_kernel.public_inputs.end.note_encrypted_logs_hashes,
-        );
-        if num_note_logs != 0 {
-            let note_log = self.previous_kernel.public_inputs.end.note_encrypted_logs_hashes[
-                num_note_logs
-                    - 1];
-            assert_eq(note_log.note_hash_counter, 0, "note logs have not been sorted in a reset");
+        // private_logs
+        let num_private_logs = array_length(self.previous_kernel.public_inputs.end.private_logs);
+        if num_private_logs != 0 {
+            let private_log =
+                self.previous_kernel.public_inputs.end.private_logs[num_private_logs - 1];
+            assert_eq(
+                private_log.contract_address,
+                AztecAddress::zero(),
+                "private logs have not been siloed in a reset",
+            );
         }
-
-        // We need to check the entire array because randomness can be 0 for encrypted logs if the app wants to reveal the actual contract address.
-        assert(
-            self.previous_kernel.public_inputs.end.encrypted_logs_hashes.all(
-                |h: ScopedEncryptedLogHash| h.log_hash.randomness == 0,
-            ),
-            "encrypted logs have not been siloed in a reset",
-        );
     }
 
-    fn validate_no_transient_data(self) {
+    fn verify_no_transient_data(self) {
         let nullifiers = self.previous_kernel.public_inputs.end.nullifiers;
         let note_hashes = self.previous_kernel.public_inputs.end.note_hashes;
         let note_hash_indexes_for_nullifiers = self.hints.note_hash_indexes_for_nullifiers;
@@ -197,6 +189,9 @@ impl PreviousKernelValidator {
                     note_hash.counter() < nullifier.counter(),
                     "Cannot link a note hash emitted after a nullifier",
                 );
+                // No need to verify logs linked to a note hash are squashed.
+                // When a note hash is squashed, all associated logs are guaranteed to be removed.
+                // See reset-kernel-lib/src/reset/transient_data.nr for details.
             }
         }
     }

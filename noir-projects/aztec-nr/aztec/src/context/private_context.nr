@@ -12,7 +12,6 @@ use crate::{
         },
         header::get_header_at,
         key_validation_request::get_key_validation_request,
-        logs::{emit_encrypted_event_log, emit_encrypted_note_log},
         returns::pack_returns,
     },
 };
@@ -20,12 +19,14 @@ use dep::protocol_types::{
     abis::{
         call_context::CallContext,
         function_selector::FunctionSelector,
-        log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
+        log::Log,
+        log_hash::LogHash,
         max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
         read_request::ReadRequest,
         side_effect::Counted,
@@ -33,11 +34,12 @@ use dep::protocol_types::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PUBLIC_DISPATCH_SELECTOR,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
     },
     header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -74,8 +76,7 @@ pub struct PrivateContext {
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub historical_header: Header,
 
-    pub note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
-    pub encrypted_logs_hashes: BoundedVec<EncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
+    pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
     pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
@@ -104,8 +105,7 @@ impl PrivateContext {
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
+            private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
@@ -193,8 +193,7 @@ impl PrivateContext {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage(),
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage(),
+            private_logs: self.private_logs.storage(),
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
@@ -304,35 +303,20 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    // NB: A randomness value of 0 signals that the kernels should not mask the contract address
-    // used in siloing later on e.g. 'handshaking' contract w/ known address.
-    pub fn emit_raw_event_log_with_masked_address<let M: u32>(
-        &mut self,
-        randomness: Field,
-        log: [u8; M],
-        log_hash: Field,
-    ) {
+    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS]) {
         let counter = self.next_counter();
-        let contract_address = self.this_address();
-        let len = log.len() as Field + 4;
-        let side_effect = EncryptedLogHash { value: log_hash, counter, length: len, randomness };
-        self.encrypted_logs_hashes.push(side_effect);
-
-        emit_encrypted_event_log(contract_address, randomness, log, counter);
+        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter: 0, counter };
+        self.private_logs.push(private_log);
     }
 
-    pub fn emit_raw_note_log<let M: u32>(
+    pub fn emit_raw_note_log(
         &mut self,
+        log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
         note_hash_counter: u32,
-        log: [u8; M],
-        log_hash: Field,
     ) {
         let counter = self.next_counter();
-        let len = log.len() as Field + 4;
-        let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
-        self.note_encrypted_logs_hashes.push(side_effect);
-
-        emit_encrypted_note_log(note_hash_counter, log, counter);
+        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter, counter };
+        self.private_logs.push(private_log);
     }
 
     pub fn call_private_function<let ARGS_COUNT: u32>(
@@ -602,8 +586,7 @@ impl Empty for PrivateContext {
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
             historical_header: Header::empty(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
+            private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }

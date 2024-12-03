@@ -199,6 +199,16 @@ export interface MerkleTreeReadOperations {
     treeId: ID,
     index: bigint,
   ): Promise<MerkleTreeLeafType<typeof treeId> | undefined>;
+
+  /**
+   * Get the block numbers for a set of leaf indices
+   * @param treeId - The tree for which the block numbers should be returned.
+   * @param leafIndices - The indices to be queried.
+   */
+  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]>;
 }
 
 export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
