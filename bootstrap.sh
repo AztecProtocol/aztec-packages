@@ -148,7 +148,7 @@ case "$CMD" in
     source $ci3/source_tmp
     echo "earthly artifact build:"
     earthly --artifact +bootstrap/usr/src $TMP/usr/src
-    docker_mount_run $TMP/usr/src "CI=1 boxes/bootstrap.sh $@"
+    docker build -f Dockerfile.boxes $TMP
     github_endgroup
     exit
   ;;
