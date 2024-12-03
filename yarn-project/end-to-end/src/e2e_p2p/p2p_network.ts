@@ -27,14 +27,16 @@ import {
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
+import { InstalledClock } from '@sinonjs/fake-timers';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
+
 export class P2PNetworkTest {
-  private snapshotManager: ISnapshotManager;
+  public snapshotManager: ISnapshotManager;
   private baseAccount;
 
   public logger: DebugLogger;
@@ -81,6 +83,15 @@ export class P2PNetworkTest {
     });
   }
 
+  /**
+   * When using fake timers, we need to keep the system and anvil clocks in sync.
+   */
+  public async syncMockSystemTime() {
+    const { timer, deployL1ContractsValues } = this.ctx!;
+    const timestamp = await deployL1ContractsValues.publicClient.getBlock({blockTag: 'latest'});
+    timer.setSystemTime(Number(timestamp.timestamp) * 1000);
+  }
+
   static async create({
     testName,
     numberOfNodes,
@@ -112,7 +123,7 @@ export class P2PNetworkTest {
   }
 
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('add-validators', async ({ deployL1ContractsValues, aztecNodeConfig }) => {
+    await this.snapshotManager.snapshot('add-validators', async ({ deployL1ContractsValues, aztecNodeConfig, timer }) => {
       const rollup = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         abi: RollupAbi,
@@ -160,6 +171,11 @@ export class P2PNetworkTest {
           account: this.baseAccount,
         }),
       });
+
+      // Set the system time in the node, only after we have warped the time and waited for a block
+      // Time is only set in the NEXT block
+      timer.setSystemTime(Number(timestamp) * 1000);
+      console.log("getting system time after jump", Date.now());
     });
   }
 
@@ -199,7 +215,7 @@ export class P2PNetworkTest {
   async removeInitialNode() {
     await this.snapshotManager.snapshot(
       'remove-inital-validator',
-      async ({ deployL1ContractsValues, aztecNodeConfig }) => {
+      async ({ deployL1ContractsValues, aztecNodeConfig, aztecNode, timer }) => {
         const rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
           abi: RollupAbi,
@@ -227,15 +243,19 @@ export class P2PNetworkTest {
         }
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+        const receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
           hash: await deployL1ContractsValues.walletClient.sendTransaction({
             to: this.baseAccount.address,
             value: 1n,
             account: this.baseAccount,
           }),
         });
+        const block = await deployL1ContractsValues.publicClient.getBlock({
+          blockNumber: receipt.blockNumber,
+        });
+        timer.setSystemTime(Number(block.timestamp) * 1000);
 
-        await this.ctx.aztecNode.stop();
+        await aztecNode.stop();
       },
     );
   }

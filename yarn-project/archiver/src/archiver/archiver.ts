@@ -167,6 +167,9 @@ export class Archiver implements ArchiveSource {
       rollup.read.GENESIS_TIME(),
     ] as const);
 
+    console.log('l1GenesisTime', l1GenesisTime);
+    console.log('l1StartBlock', l1StartBlock);
+
     const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
 
     const archiver = new Archiver(

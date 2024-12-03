@@ -100,7 +100,7 @@ describe('ValidationService', () => {
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
-    epochCache.getCurrentValidator.mockImplementation(() => Promise.resolve(proposal.getSender()) );
+    epochCache.getCurrentProposer.mockImplementation(() => Promise.resolve(proposal.getSender()) );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
     const val = ValidatorClient.new(config, epochCache, p2pClient);
@@ -116,7 +116,7 @@ describe('ValidationService', () => {
     const proposal = makeBlockProposal();
 
     // Setup epoch cache mocks
-    epochCache.getCurrentValidator.mockImplementation(() => Promise.resolve(proposal.getSender()) );
+    epochCache.getCurrentProposer.mockImplementation(() => Promise.resolve(proposal.getSender()) );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
 
     const attestation = await validatorClient.attestToProposal(proposal);
@@ -127,7 +127,7 @@ describe('ValidationService', () => {
     const proposal = makeBlockProposal();
 
     // Setup epoch cache mocks
-    epochCache.getCurrentValidator.mockImplementation(() => Promise.resolve(EthAddress.random()));
+    epochCache.getCurrentProposer.mockImplementation(() => Promise.resolve(EthAddress.random()));
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
     const attestation = await validatorClient.attestToProposal(proposal);

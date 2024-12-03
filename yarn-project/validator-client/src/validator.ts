@@ -120,15 +120,19 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     // Check that I am in the committee
+    console.log('request to attest', proposal.payload.header.globalVariables.slotNumber.toString());
     if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
-      this.log.debug(`Not in the committee, skipping attestation`);
+      this.log.verbose(`Not in the committee, skipping attestation`);
       return undefined;
     }
 
-    // Check that the proposal is from the current validator
-    const currentValidator = await this.epochCache.getCurrentValidator();
-    if (proposal.getSender() !== currentValidator) {
-      this.log.debug(`Not the current validator, skipping attestation`);
+    // Check that the proposal is from the current proposer
+    // TODO: this must be updated to request the epoch seed from the l1 contract too
+    const currentProposer = await this.epochCache.getCurrentProposer(proposal.payload.header.globalVariables.slotNumber);
+    console.log('currentProposer', currentProposer);
+    console.log('proposal.getSender()', proposal.getSender());
+    if (!proposal.getSender().equals(currentProposer)) {
+      this.log.verbose(`Not the current proposer, skipping attestation`);
       return undefined;
     }
 

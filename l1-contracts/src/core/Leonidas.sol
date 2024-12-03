@@ -288,6 +288,65 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     return committee[_computeProposerIndex(epochNumber, slot, sampleSeed, committee.length)];
   }
 
+  // DEBUG
+  function getInternalSampleEncodingAt(Timestamp _ts) public view returns (bytes memory, uint256, uint256, uint256) {
+    Epoch epochNumber = getEpochAt(_ts);
+    Slot slot = getSlotAt(_ts);
+
+    EpochData storage epoch = epochs[epochNumber];
+
+    // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
+    if (epoch.sampleSeed != 0) {
+      uint256 committeeSize = epoch.committee.length;
+      if (committeeSize == 0) {
+        return (abi.encode(epochNumber, slot, 0), epochNumber.unwrap(), slot.unwrap(), 0);
+      }
+
+      return (abi.encode(epochNumber, slot, epoch.sampleSeed), epochNumber.unwrap(), slot.unwrap(), epoch.sampleSeed);
+    }
+
+    // Allow anyone if there is no validator set
+    if (validatorSet.length() == 0) {
+      return (abi.encode(epochNumber, slot, 0), epochNumber.unwrap(), slot.unwrap(), 0);
+    }
+
+    // Emulate a sampling of the validators
+    uint256 sampleSeed = _getSampleSeed(epochNumber);
+    return (abi.encode(epochNumber, slot, sampleSeed), epochNumber.unwrap(), slot.unwrap(), sampleSeed);
+  }
+
+  function getInternalProposerIndexAt(Timestamp _ts) public view returns (uint256) {
+    Epoch epochNumber = getEpochAt(_ts);
+    Slot slot = getSlotAt(_ts);
+
+    EpochData storage epoch = epochs[epochNumber];
+
+    // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
+    if (epoch.sampleSeed != 0) {
+      uint256 committeeSize = epoch.committee.length;
+      if (committeeSize == 0) {
+        return 0;
+      }
+
+      return
+        _computeProposerIndex(epochNumber, slot, epoch.sampleSeed, committeeSize);
+    }
+
+    // Allow anyone if there is no validator set
+    if (validatorSet.length() == 0) {
+      return 0;
+    }
+
+    // Emulate a sampling of the validators
+    uint256 sampleSeed = _getSampleSeed(epochNumber);
+    address[] memory committee = _sampleValidators(sampleSeed);
+    return _computeProposerIndex(epochNumber, slot, sampleSeed, committee.length);
+  }
+
+  function getTimestamp() public view returns (uint256) {
+    return block.timestamp;
+  }
+
   /**
    * @notice  Computes the epoch at a specific time
    *
@@ -332,6 +391,15 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   // Public view function for get committee at
   function getCommitteeAt(Timestamp _ts) external view returns (address[] memory) {
     return _getCommitteeAt(_ts);
+  }
+
+  // TODO: make sure this cannot modify state
+  function getSampleSeedAt(Timestamp _ts) external view returns (uint256) {
+    return _getSampleSeed(getEpochAt(_ts));
+  }
+
+  function getCurrentSampleSeed() external view returns (uint256) {
+    return _getSampleSeed(getCurrentEpoch());
   }
 
   function _getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
@@ -501,6 +569,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     return lastSeed;
   }
 
+
   /**
    * @notice  Computes the index of the committee member that acts as proposer for a given slot
    *
@@ -518,4 +587,5 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   {
     return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
+
 }

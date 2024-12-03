@@ -48,8 +48,32 @@ export class RollupContract {
     return this.rollup.read.getCommitteeAt([timestamp]);
   }
 
+  async getSampleSeedAt(timestamp: bigint) {
+    return this.rollup.read.getSampleSeedAt([timestamp]);
+  }
+
+  async getCurrentSampleSeed() {
+    return this.rollup.read.getCurrentSampleSeed();
+  }
+
   async getCurrentEpochCommittee() {
     return this.rollup.read.getCurrentEpochCommittee();
+  }
+
+  async getCurrentProposer() {
+    return this.rollup.read.getCurrentProposer();
+  }
+
+  async getTimestamp() {
+    return this.rollup.read.getTimestamp();
+  }
+
+  async getInternalSampleEncodingAt(timestamp: bigint) {
+    return this.rollup.read.getInternalSampleEncodingAt([timestamp]);
+  }
+
+  async getInternalProposerIndexAt(timestamp: bigint) {
+    return this.rollup.read.getInternalProposerIndexAt([timestamp]);
   }
 
   async getEpochNumber(blockNumber?: bigint) {

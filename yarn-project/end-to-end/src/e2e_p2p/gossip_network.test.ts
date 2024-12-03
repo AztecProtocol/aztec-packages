@@ -33,13 +33,14 @@ describe('e2e_p2p_network', () => {
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
+
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_network',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
   });
@@ -65,6 +66,9 @@ describe('e2e_p2p_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
+    const t0 = Date.now();
+    console.log('current time', t0);
+
     t.ctx.aztecNodeConfig.validatorReexecute = true;
 
     // create our network of nodes and submit txs into each of them
@@ -83,6 +87,13 @@ describe('e2e_p2p_network', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+
+    const t1 = Date.now();
+    console.log('time after creating nodes', t1);
+    console.log('time diff', t1 - t0);
+
+    // When using fake timers, we need to keep the system and anvil clocks in sync.
+    await t.syncMockSystemTime();
 
     // wait a bit for peers to discover each other
     await sleep(4000);

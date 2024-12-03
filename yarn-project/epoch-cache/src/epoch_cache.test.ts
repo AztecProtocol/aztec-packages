@@ -15,7 +15,7 @@ describe('EpochCache', () => {
   const EPOCH_DURATION = 32; // 384 seconds
   const L1_GENESIS_TIME = 1000n;
 
-  const testValidators = [
+  const testCommittee = [
     EthAddress.fromString('0x0000000000000000000000000000000000000001'),
     EthAddress.fromString('0x0000000000000000000000000000000000000002'),
     EthAddress.fromString('0x0000000000000000000000000000000000000003'),
@@ -27,7 +27,8 @@ describe('EpochCache', () => {
     rollupContract = mock<RollupContract>();
 
     // Mock the getCommitteeAt method
-    rollupContract.getCommitteeAt.mockResolvedValue(testValidators.map(v => v.toString()));
+    rollupContract.getCommitteeAt.mockResolvedValue(testCommittee.map(v => v.toString()));
+    rollupContract.getSampleSeedAt.mockResolvedValue(0n);
 
     // Setup fake timers
     jest.useFakeTimers();
@@ -41,7 +42,7 @@ describe('EpochCache', () => {
       epochDuration: EPOCH_DURATION,
     };
 
-    epochCache = new EpochCache(rollupContract, testValidators, testConstants);
+    epochCache = new EpochCache(rollupContract, testCommittee, 0n, testConstants);
   });
 
   afterEach(() => {
@@ -50,8 +51,8 @@ describe('EpochCache', () => {
 
   it('should cache the validator set for the length of an epoch', async () => {
     // Initial call to get validators
-    const initialValidators = await epochCache.getValidatorSet();
-    expect(initialValidators).toEqual(testValidators);
+    const initialCommittee = await epochCache.getCommittee();
+    expect(initialCommittee).toEqual(testCommittee);
     // Not called as we should cache with the initial validator set
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
 
@@ -59,19 +60,19 @@ describe('EpochCache', () => {
     jest.setSystemTime(Date.now() + (Number(EPOCH_DURATION * SLOT_DURATION) / 2) * 1000);
 
     // Add another validator to the set
-    rollupContract.getCommitteeAt.mockResolvedValue([...testValidators, extraTestValidator].map(v => v.toString()));
+    rollupContract.getCommitteeAt.mockResolvedValue([...testCommittee, extraTestValidator].map(v => v.toString()));
 
     // Should use cached validators
-    const midEpochValidators = await epochCache.getValidatorSet();
-    expect(midEpochValidators).toEqual(testValidators);
+    const midEpochCommittee = await epochCache.getCommittee();
+    expect(midEpochCommittee).toEqual(testCommittee);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Still cached
 
     // Move time forward to next epoch (x 1000 for milliseconds)
     jest.setSystemTime(Date.now() + Number(EPOCH_DURATION * SLOT_DURATION) * 1000);
 
-    // Should fetch new validators
-    const nextEpochValidators = await epochCache.getValidatorSet();
-    expect(nextEpochValidators).toEqual([...testValidators, extraTestValidator]);
+    // Should fetch new validator
+    const nextEpochCommittee = await epochCache.getCommittee();
+    expect(nextEpochCommittee).toEqual([...testCommittee, extraTestValidator]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
   });
 
@@ -81,17 +82,17 @@ describe('EpochCache', () => {
     jest.setSystemTime(initialTime);
 
     // Get validator for slot 0
-    let currentValidator = await epochCache.getCurrentValidator();
-    expect(currentValidator).toEqual(testValidators[0]); // First validator for slot 0
+    let currentValidator = await epochCache.getCurrentProposer();
+    expect(currentValidator).toEqual(testCommittee[0]); // First validator for slot 0
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    currentValidator = await epochCache.getCurrentValidator();
-    expect(currentValidator).toEqual(testValidators[1]); // Second validator for slot 1
+    currentValidator = await epochCache.getCurrentProposer();
+    expect(currentValidator).toEqual(testCommittee[1]); // Second validator for slot 1
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    currentValidator = await epochCache.getCurrentValidator();
-    expect(currentValidator).toEqual(testValidators[0]); // Back to first validator for slot 3
+    currentValidator = await epochCache.getCurrentProposer();
+    expect(currentValidator).toEqual(testCommittee[0]); // Back to first validator for slot 3
   });
 });

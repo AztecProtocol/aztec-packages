@@ -5,10 +5,16 @@ import { generatePrivateKey } from 'viem/accounts';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidatorClient } from './validator.js';
-import { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache, type EpochCacheConfig } from '@aztec/epoch-cache';
 import { type EthAddress } from '@aztec/foundation/eth-address';
+// import { type L1TimestampSource } from '@aztec/circuit-types';
 
-export async function createValidatorClient(config: ValidatorClientConfig, rollupAddress: EthAddress, p2pClient: P2P, telemetry: TelemetryClient) {
+export async function createValidatorClient(
+  config: ValidatorClientConfig & EpochCacheConfig,
+  rollupAddress: EthAddress,
+  p2pClient: P2P,
+  telemetry: TelemetryClient
+) {
   if (config.disableValidator) {
     return undefined;
   }
@@ -17,7 +23,7 @@ export async function createValidatorClient(config: ValidatorClientConfig, rollu
   }
 
   // Create the epoch cache
-  const epochCache = await EpochCache.create(rollupAddress);
+  const epochCache = await EpochCache.create(rollupAddress, /*l1TimestampSource,*/ config);
 
   return ValidatorClient.new(config, epochCache, p2pClient, telemetry);
 }
