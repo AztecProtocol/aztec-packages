@@ -73,7 +73,11 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       // Start Node and PXE JSON-RPC server
       signalHandlers.push(stop);
       services.node = [node, AztecNodeApiSchema];
-      services.pxe = [pxe, PXESchema];
+      if (!sandboxOptions.noPXE) {
+        services.pxe = [pxe, PXESchema];
+      } else {
+        userLog(`Not exposing PXE API through JSON-RPC server`);
+      }
     } else {
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');
