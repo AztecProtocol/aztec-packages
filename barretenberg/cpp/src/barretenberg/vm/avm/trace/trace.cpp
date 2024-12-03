@@ -37,6 +37,7 @@
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
 
 namespace bb::avm_trace {
@@ -134,6 +135,15 @@ bool check_tag_integral(AvmMemoryTag tag)
 /**************************************************************************************************
  *                                   HELPERS
  **************************************************************************************************/
+
+void AvmTraceBuilder::checkpoint_non_revertible_state()
+{
+    merkle_tree_trace_builder.checkpoint_non_revertible_state();
+}
+void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
+{
+    merkle_tree_trace_builder.rollback_to_non_revertible_checkpoint();
+}
 
 void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
                                            [[maybe_unused]] const std::vector<FF>& siloed_note_hashes)
@@ -2626,10 +2636,24 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset)
 {
     // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
+    if (storage_write_counter >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_sstore = FF(1),
+        };
+        gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::SSTORE);
+        return error;
+    }
+
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ src_offset, slot_offset }, mem_trace_builder);
     auto [resolved_src, resolved_slot] = resolved_addrs;
@@ -2671,6 +2695,7 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
         .main_ind_addr_a = read_a.indirect_address,
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = read_a.direct_address, // direct address incremented at end of the loop
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_mem_op_a = 1,
@@ -2789,8 +2814,24 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    if (note_hash_write_counter >= MAX_NOTE_HASHES_PER_TX) {
+        AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_note_hash = FF(1),
+        };
+        gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITNOTEHASH);
+        return error;
+    }
+
     auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
+    row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
     auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
@@ -2923,33 +2964,56 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
 
 AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [row, error] = create_kernel_output_opcode(indirect, clk, nullifier_offset);
+    if (nullifier_write_counter >= MAX_NULLIFIERS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_nullifier = FF(1),
+        };
+        gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITNULLIFIER);
+        return error;
+    }
+
+    auto [row, output_error] = create_kernel_output_opcode(indirect, clk, nullifier_offset);
     row.main_sel_op_emit_nullifier = FF(1);
+    if (is_ok(error)) {
+        error = output_error;
+    }
 
     // Do merkle check
     FF nullifier_value = row.main_ia;
     FF siloed_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
         current_public_call_request.contract_address, nullifier_value);
 
-    // This is a little bit fragile - but we use the fact that if we traced a nullifier that already exists (which is
-    // invalid), we would have stored it under a read hint.
-    NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter);
-    bool is_update = merkle_tree_trace_builder.perform_nullifier_read(clk,
-                                                                      nullifier_read_hint.low_leaf_preimage,
-                                                                      nullifier_read_hint.low_leaf_index,
-                                                                      nullifier_read_hint.low_leaf_sibling_path);
+    NullifierWriteTreeHint nullifier_write_hint = execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
+    bool is_update = siloed_nullifier == nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_nullifier;
     if (is_update) {
-        // If we are in this branch, then the nullifier already exists in the tree
-        // WE NEED TO RAISE AN ERROR FLAG HERE - for now we do nothing, except increment the counter
-
+        // hinted low-leaf points to the target nullifier, so it already exists
+        // prove membership of that low-leaf, which also proves membership of the target nullifier
+        bool exists = merkle_tree_trace_builder.perform_nullifier_read(
+            clk,
+            nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
+            nullifier_write_hint.low_leaf_membership.low_leaf_index,
+            nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path);
+        // if hinted low-leaf that skips the nullifier fails membership check, bad hint!
+        ASSERT(exists);
         nullifier_read_counter++;
-        error = AvmError::DUPLICATE_NULLIFIER;
+        // Cannot update an existing nullifier, and cannot emit a duplicate. Error!
+        if (is_ok(error)) {
+            error = AvmError::DUPLICATE_NULLIFIER;
+        }
     } else {
-        // This is a non-membership proof which means our insertion is valid
-        NullifierWriteTreeHint nullifier_write_hint =
-            execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
+        // hinted low-leaf SKIPS the target nullifier, so it does NOT exist
+        // prove membership of the low leaf which  also proves non-membership of the target nullifier
         merkle_tree_trace_builder.perform_nullifier_append(
             clk,
             nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
@@ -2958,6 +3022,8 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
             siloed_nullifier,
             nullifier_write_hint.insertion_path);
     }
+
+    row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
@@ -3228,6 +3294,26 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
         };
     }
 
+    // Can't return earlier as we do elsewhere for side-effect-limit because we need
+    // to at least retrieve log_size first to charge proper gas.
+    // This means a tag error could occur before side-effect-limit first.
+    if (is_ok(error) && unencrypted_log_write_counter >= MAX_UNENCRYPTED_LOGS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_unencrypted_log = FF(1),
+        };
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
+        return error;
+    }
+    unencrypted_log_write_counter++;
+
     if (is_ok(error)) {
         // We need to read the rest of the log_size number of elements
         for (uint32_t i = 0; i < log_size; i++) {
@@ -3282,14 +3368,38 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
 AvmError AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    if (l2_to_l1_msg_write_counter >= MAX_L2_TO_L1_MSGS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_l2_to_l1_msg = FF(1),
+        };
+        gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::SENDL2TOL1MSG);
+        return error;
+    }
+    l2_to_l1_msg_write_counter++;
+
     // Note: unorthodox order - as seen in L2ToL1Message struct in TS
-    auto [row, error] = create_kernel_output_opcode_with_metadata(
+    auto [row, output_error] = create_kernel_output_opcode_with_metadata(
         indirect, clk, content_offset, AvmMemoryTag::FF, recipient_offset, AvmMemoryTag::FF);
+
+    if (is_ok(error)) {
+        error = output_error;
+    }
+
     // Wtite to output
     // kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.main_ia, row.main_ib);
     row.main_sel_op_emit_l2_to_l1_msg = FF(1);
+    row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
@@ -3609,6 +3719,10 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     });
 
     pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+
+    if (is_ok(error)) {
+        error = AvmError::REVERT_OPCODE;
+    }
 
     // op_valid == true otherwise, ret_size == 0 and we would have returned above.
     return ReturnDataError{
@@ -4327,7 +4441,7 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
  *
  * @return The main trace
  */
-std::vector<Row> AvmTraceBuilder::finalize()
+std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
 {
     // Some sanity checks
     // Check that the final merkle tree lines up with the public inputs
@@ -4596,13 +4710,15 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     gas_trace_builder.finalize(main_trace);
 
-    // Sanity check that the amount of gas consumed matches what we expect from the public inputs
-    auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
-    auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
-    ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
-    auto last_da_gas_remaining = main_trace.back().main_da_gas_remaining;
-    auto expected_end_gas_da = public_inputs.gas_settings.gas_limits.da_gas - public_inputs.end_gas_used.da_gas;
-    ASSERT(last_da_gas_remaining == expected_end_gas_da);
+    if (apply_end_gas_assertions) {
+        // Sanity check that the amount of gas consumed matches what we expect from the public inputs
+        auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
+        auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
+        ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
+        auto last_da_gas_remaining = main_trace.back().main_da_gas_remaining;
+        auto expected_end_gas_da = public_inputs.gas_settings.gas_limits.da_gas - public_inputs.end_gas_used.da_gas;
+        ASSERT(last_da_gas_remaining == expected_end_gas_da);
+    }
 
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION

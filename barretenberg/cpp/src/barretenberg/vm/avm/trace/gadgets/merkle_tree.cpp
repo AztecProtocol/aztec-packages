@@ -10,6 +10,15 @@ using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
  *                          UNCONSTRAINED TREE OPERATIONS
  **************************************************************************************************/
 
+void AvmMerkleTreeTraceBuilder::checkpoint_non_revertible_state()
+{
+    non_revertible_tree_snapshots = tree_snapshots.copy();
+}
+void AvmMerkleTreeTraceBuilder::rollback_to_non_revertible_checkpoint()
+{
+    tree_snapshots = non_revertible_tree_snapshots;
+}
+
 FF AvmMerkleTreeTraceBuilder::unconstrained_hash_nullifier_preimage(const NullifierLeafPreimage& preimage)
 {
     return Poseidon2::hash({ preimage.nullifier, preimage.next_nullifier, preimage.next_index });

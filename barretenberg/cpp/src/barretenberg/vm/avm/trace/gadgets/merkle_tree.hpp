@@ -27,6 +27,9 @@ class AvmMerkleTreeTraceBuilder {
 
     void reset();
 
+    void checkpoint_non_revertible_state();
+    void rollback_to_non_revertible_checkpoint();
+
     bool check_membership(
         uint32_t clk, const FF& leaf_value, const uint64_t leaf_index, const std::vector<FF>& path, const FF& root);
 
@@ -106,6 +109,7 @@ class AvmMerkleTreeTraceBuilder {
 
   private:
     std::vector<MerkleEntry> merkle_check_trace;
+    TreeSnapshots non_revertible_tree_snapshots;
     TreeSnapshots tree_snapshots;
     MerkleEntry compute_root_from_path(uint32_t clk,
                                        const FF& leaf_value,

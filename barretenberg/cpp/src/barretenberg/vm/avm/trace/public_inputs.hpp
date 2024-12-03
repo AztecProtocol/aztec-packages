@@ -107,6 +107,27 @@ struct TreeSnapshots {
         return l1_to_l2_message_tree == rhs.l1_to_l2_message_tree && note_hash_tree == rhs.note_hash_tree &&
                nullifier_tree == rhs.nullifier_tree && public_data_tree == rhs.public_data_tree;
     }
+    inline TreeSnapshots copy()
+    {
+        return {
+        .l1_to_l2_message_tree = {
+          .root = l1_to_l2_message_tree.root,
+          .size = l1_to_l2_message_tree.size,
+        },
+        .note_hash_tree = {
+          .root = note_hash_tree.root,
+          .size = note_hash_tree.size,
+        },
+        .nullifier_tree = {
+          .root = nullifier_tree.root,
+          .size = nullifier_tree.size,
+        },
+        .public_data_tree = {
+          .root = public_data_tree.root,
+          .size = public_data_tree.size,
+        },
+      };
+    }
 };
 
 inline void read(uint8_t const*& it, TreeSnapshots& tree_snapshots)
