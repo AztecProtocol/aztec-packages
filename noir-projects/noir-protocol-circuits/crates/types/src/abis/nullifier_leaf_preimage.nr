@@ -33,6 +33,10 @@ impl LeafPreimage for NullifierLeafPreimage {
     fn get_key(self) -> Field {
         self.nullifier
     }
+
+    fn as_leaf(self) -> Field {
+        self.hash()
+    }
 }
 
 impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
