@@ -642,7 +642,7 @@ comptime fn generate_finalization_payload(
     };
 
     // We compute the log length and we concatenate the fields into a single quote.
-    let public_values_length = fields_list.len();
+    let public_values_field_length = fields_list.len();
     let fields = fields_list.join(quote {,});
 
     // Now we compute quotes relevant to the multi-scalar multiplication.
@@ -651,7 +651,7 @@ comptime fn generate_finalization_payload(
 
     // We generate scalars_list manually as we need it to refer self.public_values
     let mut scalars_list: [Quoted] = &[];
-    for i in 0..public_values_length {
+    for i in 0..public_values_field_length {
         scalars_list =
             scalars_list.push_back(quote { std::hash::from_field_unsafe(self.public_values[$i]) });
     }
@@ -670,9 +670,8 @@ comptime fn generate_finalization_payload(
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;
-    let public_values_field_length = public_values_length * 32;
-    let finalization_log_byte_length =
-        1 /* public_values_length */ + setup_log_byte_length + public_values_field_length;
+    let finalization_log_length =
+        1 /* public_values_field_length */ + setup_log_field_length + public_values_field_length;
 
     (
         quote {
@@ -680,7 +679,7 @@ comptime fn generate_finalization_payload(
             pub context: &mut aztec::prelude::PublicContext,
             pub hiding_point_slot: Field,
             pub setup_log_slot: Field,
-            pub public_values: [Field; $public_values_length],
+            pub public_values: [Field; $public_values_field_length],
         }
 
         impl $finalization_payload_name {
@@ -728,7 +727,7 @@ comptime fn generate_finalization_payload(
 
                 // We create the finalization log, which contains the length of the public values, the setup log, and
                 // the public values themselves.
-                let mut finalization_log: [Field; $finalization_log_byte_length] = std::mem::zeroed();
+                let mut finalization_log: [Field; $finalization_log_length] = std::mem::zeroed();
 
                 // Populate the first byte with number of public values
                 finalization_log[0] = self.public_values.len() as Field;
@@ -739,7 +738,7 @@ comptime fn generate_finalization_payload(
                 }
 
                 // Iterate over the public values and append them to the log
-                for i in 0..$public_values_length {
+                for i in 0..self.public_values.len() {
                     finalization_log[1 + setup_log.len() + i] = self.public_values[i];
                 }
 
@@ -755,7 +754,7 @@ comptime fn generate_finalization_payload(
 
         impl aztec::protocol_types::traits::Empty for $finalization_payload_name {
             fn empty() -> Self {
-                Self { context: &mut aztec::prelude::PublicContext::empty(), public_values: [0; $public_values_length], hiding_point_slot: 0, setup_log_slot: 0 }
+                Self { context: &mut aztec::prelude::PublicContext::empty(), public_values: [0; $public_values_field_length], hiding_point_slot: 0, setup_log_slot: 0 }
             }
         }
     },
