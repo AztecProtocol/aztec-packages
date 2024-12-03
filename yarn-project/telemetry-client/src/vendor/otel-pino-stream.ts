@@ -215,9 +215,13 @@ export class OTelPinoStream extends Writable {
 
         // The `trace_id` et al fields that may have been added by the
         // "log correlation" feature are stripped, because they are redundant.
-        trace_id, // eslint-disable-line @typescript-eslint/no-unused-vars
-        span_id, // eslint-disable-line @typescript-eslint/no-unused-vars
-        trace_flags, // eslint-disable-line @typescript-eslint/no-unused-vars
+        // trace_id, // eslint-disable-line @typescript-eslint/no-unused-vars
+        // span_id, // eslint-disable-line @typescript-eslint/no-unused-vars
+        // trace_flags, // eslint-disable-line @typescript-eslint/no-unused-vars
+
+        // [aztec] They are not redundant, we depend on them for correlation.
+        // The instrumentation package seems to be adding these fields via a custom hook.
+        // We push them from the logger module in foundation, so we don't want to clear them here.
 
         ...attributes
       } = recObj;

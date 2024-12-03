@@ -15,7 +15,9 @@ export function createDebugLogger(module: string): DebugLogger {
     { level: getLogLevelFromFilters(logFilters, module) },
   );
 
-  const logFn = (level: LogLevel, msg: string, data?: LogData) => pinoLogger[level](data ?? {}, msg);
+  // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
+  const logFn = (level: LogLevel, msg: string, data?: LogData) =>
+    pinoLogger.isLevelEnabled(level) && pinoLogger[level](processLogData(data ?? {}), msg);
 
   return {
     silent: () => {},
@@ -38,6 +40,20 @@ export function createDebugLogger(module: string): DebugLogger {
   };
 }
 
+// Allow global hooks for processing log data.
+// Used for injecting OTEL trace_id in telemetry client.
+type LogDataHandler = (data: LogData) => LogData;
+const logDataHandlers: LogDataHandler[] = [];
+
+export function addLogDataHandler(handler: LogDataHandler): void {
+  logDataHandlers.push(handler);
+}
+
+function processLogData(data: LogData): LogData {
+  return logDataHandlers.reduce((accum, handler) => handler(accum), data);
+}
+
+// Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
@@ -46,7 +62,7 @@ const prettyTransport: LoggerOptions['transport'] = {
   target: 'pino-pretty',
   options: {
     sync: true,
-    ignore: 'module,pid,hostname',
+    ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
     messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
     customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
     customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',

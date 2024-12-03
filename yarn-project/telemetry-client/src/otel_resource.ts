@@ -11,6 +11,7 @@ import {
 import { aztecDetector } from './aztec_resource_detector.js';
 
 export async function getOtelResource(): Promise<IResource> {
+  // TODO(palla/log): Do we really need *all* this info?
   const resource = detectResourcesSync({
     detectors: [
       osDetectorSync,
