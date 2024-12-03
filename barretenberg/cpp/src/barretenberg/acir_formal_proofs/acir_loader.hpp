@@ -17,8 +17,9 @@ class AcirToSmtLoader {
     AcirToSmtLoader(std::string filename);
 
     acir_format::AcirFormat& get_constraint_systems() { return this->constraint_system; }
-    smt_solver::Solver get_solver();
-    smt_circuit::UltraCircuit get_circuit(smt_solver::Solver* solver);
+    bb::UltraCircuitBuilder get_circuit_builder();
+    smt_solver::Solver get_smt_solver();
+    smt_circuit::UltraCircuit get_smt_circuit(smt_solver::Solver* solver);
 
   private:
     std::string instruction_name;

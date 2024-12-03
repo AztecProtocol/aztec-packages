@@ -4,16 +4,39 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include <vector>
+
+// defkit/print_assertions TODO delete all print_assertions from tests
+const std::string ARTIFACTS_PATH = "../src/barretenberg/acir_formal_proofs/artifacts/";
+
+// saves to ARTIFACTS_PATH/{instruction_name}.witness
+void save_buggy_witness(std::string instruction_name, smt_circuit::UltraCircuit circuit)
+{
+    // stay it empty, dont want to see them in stdout
+    std::vector<std::string> special_names;
+    info("Saving bug for op ", instruction_name);
+    default_model_single(special_names, circuit, ARTIFACTS_PATH + instruction_name + ".witness");
+}
+
+bool verify_buggy_witness(std::string instruction_name)
+{
+    std::vector<bb::fr> witness = import_witness_single(ARTIFACTS_PATH + instruction_name + ".witness.pack");
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + instruction_name + ".acir");
+    bb::UltraCircuitBuilder builder = loader.get_circuit_builder();
+    for (uint i = 0; i < witness.size(); i++) {
+        builder.variables[i] = witness[i];
+    }
+    return bb::CircuitChecker::check(builder);
+}
 
 TEST(acir_formal_proofs, uint_terms_add)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Add.acir");
-    smt_solver::Solver solver = loader.get_solver();    
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Add.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -23,13 +46,17 @@ TEST(acir_formal_proofs, uint_terms_add)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
+
+    if (res) {
+        save_buggy_witness("Binary::Add", circuit);
+    }
 }
 
 TEST(acir_formal_proofs, uint_terms_mul)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Mul.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Mul.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -39,13 +66,17 @@ TEST(acir_formal_proofs, uint_terms_mul)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
+
+    if (res) {
+        save_buggy_witness("Binary::Mul", circuit);
+    }
 }
 
 TEST(acir_formal_proofs, uint_terms_and)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::And.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::And.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -55,67 +86,94 @@ TEST(acir_formal_proofs, uint_terms_and)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
-
-    std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
-    std::unordered_map<std::string, std::string> vals = solver.model(terms);
-    info("a = ", vals["a"]);
-    info("b = ", vals["b"]);
-    info("c = ", vals["c"]);
-    info("c_res = ", vals["cr"]);
-
+    if (res) {
+        save_buggy_witness("Binary::And", circuit);
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        std::unordered_map<std::string, std::string> vals = solver.model(terms);
+        info("a = ", vals["a"]);
+        info("b = ", vals["b"]);
+        info("c = ", vals["c"]);
+        info("c_res = ", vals["cr"]);
+    }
 }
 
-/*TEST(acir_formal_proofs, uint_terms_div)
+TEST(acir_formal_proofs, uint_terms_div)
 {
     AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Div.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
-    // c = a // b
-    // a = b * c + k where k < b 
-    // k = a - b * c
-    // 
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
-    auto cr = a - c * b;
-    cr < b;
+    auto cr = a / b;
+    c == cr;
     bool res = solver.check();
     solver.print_assertions();
     info(solver.getResult());
-    std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
-    std::unordered_map<std::string, std::string> vals = solver.model(terms);
-    info("a = ", vals["a"]);
-    info("b = ", vals["b"]);
-    info("c = ", vals["c"]);
-    info("c_res = ", vals["cr"]);
-
     EXPECT_FALSE(res);
-}*/
+    if (res) {
+        save_buggy_witness("Binary::Div", circuit);
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        std::unordered_map<std::string, std::string> vals = solver.model(terms);
+        info("a = ", vals["a"]);
+        info("b = ", vals["b"]);
+        info("c = ", vals["c"]);
+        info("c_res = ", vals["cr"]);
+    }
+}
 
-/* TEST(acir_formal_proofs, uint_terms_eq)
+// checks to times
+// if a == b c must be 0
+// if a != b must be 1
+TEST(acir_formal_proofs, uint_terms_eq_on_equality)
 {
     AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Eq.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
-    // c is bool var  = (a == b)
-    // so if c is True a - b == 0
-    // if c is False a - b == k
-    // so if circuit is correct
-    // ( a - b ) * (c ^ 1) == 0
-    // if a - b != 0 and c is True k * (a - b) = 0, circuit is incorrect
-    // if a - b == 0 
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
-    auto cr = a == b;
-    c != cr;
+    a == b;
+    c != 1;
     bool res = solver.check();
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
-} */
+    if (res) {
+        save_buggy_witness("Binary::Eq", circuit);
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c } });
+        std::unordered_map<std::string, std::string> vals = solver.model(terms);
+        info("a = ", vals["a"]);
+        info("b = ", vals["b"]);
+        info("c = ", vals["c"]);
+    }
+}
 
-/* TEST(acir_formal_proofs, uint_terms_lt)
+TEST(acir_formal_proofs, uint_terms_eq_on_inequality)
+{
+    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Eq.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    auto c = circuit["c"];
+    a != b;
+    c != 0;
+    bool res = solver.check();
+    solver.print_assertions();
+    info(solver.getResult());
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness("Binary::Eq", circuit);
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c } });
+        std::unordered_map<std::string, std::string> vals = solver.model(terms);
+        info("a = ", vals["a"]);
+        info("b = ", vals["b"]);
+        info("c = ", vals["c"]);
+    }
+}
+
+/*TEST(acir_formal_proofs, uint_terms_lt)
 {
     AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Lt.acir");
     smt_solver::Solver solver = loader.get_solver();
@@ -129,13 +187,14 @@ TEST(acir_formal_proofs, uint_terms_and)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
-} */
+}
+*/
 
 TEST(acir_formal_proofs, uint_terms_mod)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Mod.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Mod.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     // c = a mod b
     // k * b + c = a
     // k = (a - c) / b
@@ -150,13 +209,16 @@ TEST(acir_formal_proofs, uint_terms_mod)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness("Binary::Mod", circuit);
+    }
 }
 
 TEST(acir_formal_proofs, uint_terms_or)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Or.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Or.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -166,17 +228,18 @@ TEST(acir_formal_proofs, uint_terms_or)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
-
-    std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
-    std::unordered_map<std::string, std::string> vals = solver.model(terms);
-    info("a = ", vals["a"]);
-    info("b = ", vals["b"]);
-    info("c = ", vals["c"]);
-    info("c_res = ", vals["cr"]);
-
+    if (res) {
+        save_buggy_witness("Binary::Or", circuit);
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        std::unordered_map<std::string, std::string> vals = solver.model(terms);
+        info("a = ", vals["a"]);
+        info("b = ", vals["b"]);
+        info("c = ", vals["c"]);
+        info("c_res = ", vals["cr"]);
+    }
 }
 
-/*TEST(acir_formal_proofs, uint_terms_shl)
+/* TEST(acir_formal_proofs, uint_terms_shl)
 {
     AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Shl.acir");
     smt_solver::Solver solver = loader.get_solver();
@@ -191,8 +254,9 @@ TEST(acir_formal_proofs, uint_terms_or)
     info(solver.getResult());
     EXPECT_FALSE(res);
 }
+*/
 
-TEST(acir_formal_proofs, uint_terms_shr)
+/*TEST(acir_formal_proofs, uint_terms_shr)
 {
     AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Shr.acir");
     smt_solver::Solver solver = loader.get_solver();
@@ -210,9 +274,9 @@ TEST(acir_formal_proofs, uint_terms_shr)
 
 TEST(acir_formal_proofs, uint_terms_sub)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Sub.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Sub.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -222,13 +286,16 @@ TEST(acir_formal_proofs, uint_terms_sub)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness("Binary::Sub", circuit);
+    }
 }
 
 TEST(acir_formal_proofs, uint_terms_xor)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Xor.acir");
-    smt_solver::Solver solver = loader.get_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_circuit(&solver);
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Xor.acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -238,19 +305,28 @@ TEST(acir_formal_proofs, uint_terms_xor)
     solver.print_assertions();
     info(solver.getResult());
     EXPECT_FALSE(res);
-
-    std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
-    std::unordered_map<std::string, std::string> vals = solver.model(terms);
-    info("a = ", vals["a"]);
-    info("b = ", vals["b"]);
-    info("c = ", vals["c"]);
-    info("c_res = ", vals["cr"]);
+    if (res) {
+        save_buggy_witness("Binary::Xor", circuit);
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        std::unordered_map<std::string, std::string> vals = solver.model(terms);
+        info("a = ", vals["a"]);
+        info("b = ", vals["b"]);
+        info("c = ", vals["c"]);
+        info("c_res = ", vals["cr"]);
+    }
 }
 
-
-TEST(acir_circuit_check, uint_terms_add)
+// if failed, bug NOT verified
+// fali on file not found or check circuit
+TEST(acir_formal_proofs, uint_terms_and_verify_bug)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Add.public.acir");
+    EXPECT_TRUE(verify_buggy_witness("Binary::And"));
+}
+
+/*TEST(acir_circuit_check, uint_terms_add)
+{
+    AcirToSmtLoader loader =
+        AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Add.public.acir");
     bb::UltraCircuitBuilder builder = acir_format::create_circuit(loader.get_constraint_systems(), false);
     // naming first three variables
     // for binary noir sets indices as 0 1 2
@@ -267,3 +343,4 @@ TEST(acir_circuit_check, uint_terms_add)
     // builder.variables[4] = 1;
     EXPECT_TRUE(bb::CircuitChecker::check(builder));
 }
+*/
