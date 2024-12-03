@@ -307,7 +307,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     circuit.pairing_point_accumulator_public_input_indices;
                 proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
-                if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
+                if constexpr (IsMegaFlavor<Flavor>) { // Set databus commitment propagation data
                     proving_key.databus_propagation_data = circuit.databus_propagation_data;
                 }
                 auto end = std::chrono::steady_clock::now();
