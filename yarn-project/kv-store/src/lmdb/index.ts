@@ -19,13 +19,13 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
       ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
       : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
   );
-  return initStoreForRollup(
-    AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false),
-    config.l1Contracts.rollupAddress,
-    log,
-  );
-}
 
+  const store = AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false);
+  if (config.l1Contracts?.rollupAddress) {
+    return initStoreForRollup(store, config.l1Contracts.rollupAddress, log);
+  }
+  return store;
+}
 /**
  * Opens a temporary store for testing purposes.
  * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional

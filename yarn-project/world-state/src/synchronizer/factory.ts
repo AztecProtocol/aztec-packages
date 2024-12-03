@@ -27,6 +27,12 @@ export async function createWorldState(
     dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,
     dataStoreMapSizeKB: config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB,
   } as DataStoreConfig;
+
+  if (!config.l1Contracts?.rollupAddress) {
+    throw new Error('Rollup address is required to create a world state synchronizer.');
+  }
+
+  // If a data directory is provided in config, then create a persistent store.
   const merkleTrees = ['true', '1'].includes(process.env.USE_LEGACY_WORLD_STATE ?? '')
     ? await MerkleTrees.new(
         await createStore('world-state', newConfig, createDebugLogger('aztec:world-state:lmdb')),

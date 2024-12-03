@@ -16,8 +16,8 @@ import { type MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
-import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
-import { configureP2PClientAddresses } from '../util.js';
+import { LibP2PService } from '../service/index.js';
+import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export * from './p2p_client.js';
 
@@ -49,7 +49,8 @@ export const createP2PClient = async (
     config = await configureP2PClientAddresses(_config);
 
     // Create peer discovery service
-    const peerId = await createLibP2PPeerId(config.peerIdPrivateKey);
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, store);
+    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     const discoveryService = new DiscV5Service(peerId, config, telemetry);
 
     p2pService = await LibP2PService.new(
