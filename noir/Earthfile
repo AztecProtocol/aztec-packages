@@ -93,14 +93,6 @@ packages-test:
   BUILD +packages-test-node
   BUILD +packages-test-browser
 
-build-acir-tests:
-  FROM ../+bootstrap-noir-bb
-  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-  WORKDIR /usr/src/noir/noir-repo/test_programs
-  RUN /usr/src/noir/noir-repo/target/release/nargo --version
-  RUN ./rebuild.sh
-  SAVE ARTIFACT /usr/src/noir/noir-repo/test_programs/acir_artifacts/*
-
 barretenberg-acir-benches-bb:
   FROM ../+bootstrap-noir-bb
   ENV TEST_SRC=/usr/src/acir_artifacts

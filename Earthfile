@@ -21,6 +21,7 @@ bootstrap-noir-bb:
     CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
+  SAVE ARTIFACT /usr/src /usr/src
 
 bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
