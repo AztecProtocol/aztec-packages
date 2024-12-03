@@ -22,6 +22,8 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
+  SampleLibAbi,
+  SampleLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   TxsDecoderAbi,
@@ -173,6 +175,10 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
           contractAbi: TxsDecoderAbi,
           contractBytecode: TxsDecoderBytecode,
         },
+        SampleLib: {
+          contractAbi: SampleLibAbi,
+          contractBytecode: SampleLibBytecode,
+        },
       },
     },
   },
@@ -283,12 +289,11 @@ export const deployL1Contracts = async (
     return await (await fetch(rpcUrl, content)).json();
   };
   if (isAnvilTestChain(chain.id)) {
-    const interval = 12; // @todo  #8084
-    const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    const res = await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    logger.info(`Set block interval to ${interval}`);
+    logger.info(`Set block interval to ${args.ethereumSlotDuration}`);
   }
 
   logger.info(`Deploying contracts from ${account.address.toString()}...`);
@@ -347,6 +352,12 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
+  const rollupArgs = {
+    aztecSlotDuration: args.aztecSlotDuration,
+    aztecEpochDuration: args.aztecEpochDuration,
+    targetCommitteeSize: args.aztecTargetCommitteeSize,
+    aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+  };
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
@@ -354,14 +365,9 @@ export const deployL1Contracts = async (
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
-    {
-      aztecSlotDuration: args.aztecSlotDuration,
-      aztecEpochDuration: args.aztecEpochDuration,
-      targetCommitteeSize: args.aztecTargetCommitteeSize,
-      aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
-    },
+    rollupArgs,
   ]);
-  logger.info(`Deployed Rollup at ${rollupAddress}`);
+  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupArgs);
 
   await deployer.waitForDeployments();
   logger.info(`All core contracts deployed`);
@@ -391,7 +397,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 20000000000;
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000;
   const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
@@ -623,9 +629,15 @@ export async function deployL1Contract(
       );
 
       for (const linkRef in libraries.linkReferences) {
-        for (const c in libraries.linkReferences[linkRef]) {
-          const start = 2 + 2 * libraries.linkReferences[linkRef][c][0].start;
-          const length = 2 * libraries.linkReferences[linkRef][c][0].length;
+        for (const contractName in libraries.linkReferences[linkRef]) {
+          // If the library name matches the one we just deployed, we replace it.
+          if (contractName !== libraryName) {
+            continue;
+          }
+
+          // We read the first instance to figure out what we are to replace.
+          const start = 2 + 2 * libraries.linkReferences[linkRef][contractName][0].start;
+          const length = 2 * libraries.linkReferences[linkRef][contractName][0].length;
 
           const toReplace = bytecode.slice(start, start + length);
           replacements[toReplace] = address;

@@ -242,7 +242,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "brillig_to_bytes_integration",
                                          "brillig_to_le_bytes",
                                          "brillig_top_level",
-                                         "brillig_unitialised_arrays",
+                                         "brillig_uninitialized_arrays",
                                          "brillig_wrapping",
                                          "cast_bool",
                                          "closures_mut_ref",
@@ -400,9 +400,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                               // Assumes Flavor is not UltraHonk
 
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();

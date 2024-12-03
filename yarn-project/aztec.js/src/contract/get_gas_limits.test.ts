@@ -10,7 +10,7 @@ describe('getGasLimits', () => {
     txSimulationResult = mockSimulatedTx();
 
     const tx = mockTxForRollup();
-    tx.data.forRollup!.end.gasUsed = Gas.from({ daGas: 100, l2Gas: 200 });
+    tx.data.gasUsed = Gas.from({ daGas: 100, l2Gas: 200 });
     txSimulationResult.publicInputs = tx.data;
 
     txSimulationResult.publicOutput!.gasUsed = {

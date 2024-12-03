@@ -155,6 +155,15 @@ describe('e2e_avm_simulator', () => {
     });
 
     describe('Nested calls', () => {
+      it('Nested call to non-existent contract reverts & rethrows by default', async () => {
+        // The nested call reverts and by default caller rethrows
+        await expect(avmContract.methods.nested_call_to_nothing().send().wait()).rejects.toThrow(/No bytecode/);
+      });
+      it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
+        // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
+        const tx = await avmContract.methods.nested_call_to_nothing_recovers().send().wait();
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
+      });
       it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
         const nullifier = new Fr(1);
         await expect(

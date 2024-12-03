@@ -593,6 +593,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async getHonkSolidityVerifier(acirVec: Uint8Array, recursive: boolean): Promise<string> {
+    const inArgs = [acirVec, recursive].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'get_honk_solidity_verifier_vk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirProofAsFieldsUltraHonk(proofBuf: Uint8Array): Promise<Fr[]> {
     const inArgs = [proofBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
@@ -685,6 +697,18 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
       'poseidon2_hash',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  poseidon2HashAccumulate(inputsBuffer: Fr[]): Fr {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Fr];
+    const result = this.wasm.callWasmExport(
+      'poseidon2_hash_accumulate',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

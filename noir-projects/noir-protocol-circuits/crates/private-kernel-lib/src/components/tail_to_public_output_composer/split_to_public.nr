@@ -47,41 +47,27 @@ pub unconstrained fn split_to_public(
         }
     }
 
-    let note_encrypted_logs_hashes = data.note_encrypted_logs_hashes;
-    for i in 0..note_encrypted_logs_hashes.max_len() {
-        if i < note_encrypted_logs_hashes.len() {
-            let note_encrypted_log_hash = note_encrypted_logs_hashes.get_unchecked(i);
-            let public_log_hash = note_encrypted_log_hash.expose_to_public();
-            if note_encrypted_log_hash.counter < min_revertible_side_effect_counter {
-                non_revertible_builder.note_encrypted_logs_hashes.push(public_log_hash);
+    let private_logs = data.private_logs;
+    for i in 0..private_logs.max_len() {
+        if i < private_logs.len() {
+            let private_log = private_logs.get_unchecked(i);
+            if private_log.inner.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.private_logs.push(private_log.inner.log);
             } else {
-                revertible_builder.note_encrypted_logs_hashes.push(public_log_hash);
+                revertible_builder.private_logs.push(private_log.inner.log);
             }
         }
     }
 
-    let encrypted_logs_hashes = data.encrypted_logs_hashes;
-    for i in 0..encrypted_logs_hashes.max_len() {
-        if i < encrypted_logs_hashes.len() {
-            let encrypted_log_hash = encrypted_logs_hashes.get_unchecked(i);
-            let public_log_hash = encrypted_log_hash.expose_to_public();
-            if encrypted_log_hash.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.encrypted_logs_hashes.push(public_log_hash);
+    let contract_class_logs_hashes = data.contract_class_logs_hashes;
+    for i in 0..contract_class_logs_hashes.max_len() {
+        if i < contract_class_logs_hashes.len() {
+            let contract_class_log_hash = contract_class_logs_hashes.get_unchecked(i);
+            let public_log_hash = contract_class_log_hash.expose_to_public();
+            if contract_class_log_hash.counter() < min_revertible_side_effect_counter {
+                non_revertible_builder.contract_class_logs_hashes.push(public_log_hash);
             } else {
-                revertible_builder.encrypted_logs_hashes.push(public_log_hash);
-            }
-        }
-    }
-
-    let unencrypted_logs_hashes = data.unencrypted_logs_hashes;
-    for i in 0..unencrypted_logs_hashes.max_len() {
-        if i < unencrypted_logs_hashes.len() {
-            let unencrypted_log_hash = unencrypted_logs_hashes.get_unchecked(i);
-            let public_log_hash = unencrypted_log_hash.expose_to_public();
-            if unencrypted_log_hash.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.unencrypted_logs_hashes.push(public_log_hash);
-            } else {
-                revertible_builder.unencrypted_logs_hashes.push(public_log_hash);
+                revertible_builder.contract_class_logs_hashes.push(public_log_hash);
             }
         }
     }

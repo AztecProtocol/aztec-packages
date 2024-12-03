@@ -2,6 +2,7 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import {
   PRIVATE_KERNEL_EMPTY_INDEX,
+  type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PrivateTubeData,
@@ -26,7 +27,7 @@ describe('prover/bb_prover/base-rollup', () => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
-    context = await TestContext.new(logger, 'native', 1, buildProver);
+    context = await TestContext.new(logger, 1, buildProver);
   });
 
   afterAll(async () => {
@@ -34,7 +35,7 @@ describe('prover/bb_prover/base-rollup', () => {
   });
 
   it('proves the base rollup', async () => {
-    const header = context.actualDb.getInitialHeader();
+    const header = context.getHeader(0);
     const chainId = context.globalVariables.chainId;
     const version = context.globalVariables.version;
     const vkTreeRoot = getVKTreeRoot();
@@ -58,8 +59,8 @@ describe('prover/bb_prover/base-rollup', () => {
 
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
-    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, context.actualDb);
-    const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints);
+    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, await context.getFork());
+    const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints as PrivateBaseRollupHints);
 
     logger.verbose('Proving base rollups');
     const proofOutputs = await context.prover.getPrivateBaseRollupProof(baseRollupInputs);

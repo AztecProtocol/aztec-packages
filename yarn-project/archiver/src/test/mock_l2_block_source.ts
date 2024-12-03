@@ -1,4 +1,12 @@
-import { L2Block, type L2BlockSource, type L2Tips, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import {
+  L2Block,
+  L2BlockHash,
+  type L2BlockSource,
+  type L2Tips,
+  type TxHash,
+  TxReceipt,
+  TxStatus,
+} from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -119,8 +127,14 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns The requested tx effect.
    */
   public getTxEffect(txHash: TxHash) {
-    const txEffect = this.l2Blocks.flatMap(b => b.body.txEffects).find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(txEffect);
+    const match = this.l2Blocks
+      .flatMap(b => b.body.txEffects.map(tx => [tx, b] as const))
+      .find(([tx]) => tx.txHash.equals(txHash));
+    if (!match) {
+      return Promise.resolve(undefined);
+    }
+    const [txEffect, block] = match;
+    return Promise.resolve({ data: txEffect, l2BlockNumber: block.number, l2BlockHash: block.hash().toString() });
   }
 
   /**
@@ -138,7 +152,7 @@ export class MockL2BlockSource implements L2BlockSource {
               TxStatus.SUCCESS,
               '',
               txEffect.transactionFee.toBigInt(),
-              block.hash().toBuffer(),
+              L2BlockHash.fromField(block.hash()),
               block.number,
             ),
           );

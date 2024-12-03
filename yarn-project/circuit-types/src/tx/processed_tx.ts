@@ -1,4 +1,3 @@
-import { type AvmProvingRequest, type SimulationError, type Tx, TxEffect, TxHash } from '@aztec/circuit-types';
 import {
   ClientIvcProof,
   CombinedConstantData,
@@ -8,14 +7,18 @@ import {
   type Header,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
-  type PublicKernelCircuitPublicInputs,
   RevertCode,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
+import { type AvmProvingRequest } from '../interfaces/proving-job.js';
+import { type SimulationError } from '../simulation_error.js';
+import { TxEffect } from '../tx_effect.js';
 import { type GasUsed } from './gas_used.js';
+import { type Tx } from './tx.js';
+import { TxHash } from './tx_hash.js';
 
-export enum PublicKernelPhase {
+export enum TxExecutionPhase {
   SETUP,
   APP_LOGIC,
   TEARDOWN,
@@ -63,32 +66,6 @@ export type ProcessedTx = {
    */
   isEmpty: boolean;
 };
-
-export type RevertedTx = ProcessedTx & {
-  data: PublicKernelCircuitPublicInputs & {
-    reverted: true;
-  };
-
-  revertReason: SimulationError;
-};
-
-export function isRevertedTx(tx: ProcessedTx): tx is RevertedTx {
-  return !tx.txEffect.revertCode.isOK();
-}
-
-export function partitionReverts(txs: ProcessedTx[]): { reverted: RevertedTx[]; nonReverted: ProcessedTx[] } {
-  return txs.reduce(
-    ({ reverted, nonReverted }, tx) => {
-      if (isRevertedTx(tx)) {
-        reverted.push(tx);
-      } else {
-        nonReverted.push(tx);
-      }
-      return { reverted, nonReverted };
-    },
-    { reverted: [], nonReverted: [] } as ReturnType<typeof partitionReverts>,
-  );
-}
 
 /**
  * Represents a tx that failed to be processed by the sequencer public processor.
@@ -161,16 +138,15 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
-    data.end.noteEncryptedLogPreimagesLength,
-    data.end.encryptedLogPreimagesLength,
+    data.end.privateLogs.filter(l => !l.isEmpty()),
     data.end.unencryptedLogPreimagesLength,
-    tx.noteEncryptedLogs,
-    tx.encryptedLogs,
+    data.end.contractClassLogPreimagesLength,
     tx.unencryptedLogs,
+    tx.contractClassLogs,
   );
 
   const gasUsed = {
-    totalGas: tx.data.forRollup!.end.gasUsed,
+    totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
   };
 
@@ -209,10 +185,14 @@ export function makeProcessedTxFromTxWithPublicCalls(
     }
   }
 
-  const noteEncryptedLogPreimagesLength = tx.noteEncryptedLogs.getKernelLength();
-  const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
+  const privateLogs = [
+    ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,
+    ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
+  ].filter(l => !l.isEmpty());
+
   // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
   const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
+  const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
 
   const txEffect = new TxEffect(
     revertCode,
@@ -223,12 +203,11 @@ export function makeProcessedTxFromTxWithPublicCalls(
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
-    new Fr(noteEncryptedLogPreimagesLength),
-    new Fr(encryptedLogPreimagesLength),
+    privateLogs,
     new Fr(unencryptedLogPreimagesLength),
-    tx.noteEncryptedLogs,
-    tx.encryptedLogs,
+    new Fr(contractClassLogPreimagesLength),
     tx.unencryptedLogs,
+    tx.contractClassLogs,
   );
 
   return {

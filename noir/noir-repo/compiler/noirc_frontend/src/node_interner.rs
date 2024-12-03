@@ -2351,7 +2351,7 @@ impl Methods {
     }
 
     /// Select the 1 matching method with an object type matching `typ`
-    fn find_matching_method(
+    pub fn find_matching_method(
         &self,
         typ: &Type,
         has_self_param: bool,
@@ -2439,6 +2439,7 @@ fn get_type_method_key(typ: &Type) -> Option<TypeMethodKey> {
         | Type::Error
         | Type::Struct(_, _)
         | Type::InfixExpr(..)
+        | Type::CheckedCast { .. }
         | Type::TraitAsType(..) => None,
     }
 }

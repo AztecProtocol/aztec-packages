@@ -275,6 +275,19 @@ jobs:
         with:
           concurrency_key: publish-npm
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+
+      - name: Publish bb.js NPM package
+        run: |
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v}
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./barretenberg/ts+publish-npm \
+            --DIST_TAG=latest \
+            --VERSION=$VERSION \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
       - name: Publish yarn-project NPM packages
         run: |
           DEPLOY_TAG=${{ env.DEPLOY_TAG }}
@@ -287,14 +300,14 @@ jobs:
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
-      - name: Publish bb.js NPM package
+      - name: Publish l1-contracts NPM package
         run: |
           DEPLOY_TAG=${{ env.DEPLOY_TAG }}
           VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
-            ./barretenberg/ts+publish-npm \
+            ./l1-contracts+publish-npm \
             --DIST_TAG=latest \
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
@@ -322,7 +335,11 @@ jobs:
         working-directory: ./aztec-up/terraform
         run: |
           terraform init
-          TAG=${{ env.DEPLOY_TAG }}
+          if [ -n "${{ env.DEPLOY_TAG }}" ]; then
+            TAG=${{ env.DEPLOY_TAG }}
+          else
+            TAG=${{ github.ref_name }}
+          fi
           export TF_VAR_VERSION=${TAG#aztec-packages-v}
           terraform apply -auto-approve
 

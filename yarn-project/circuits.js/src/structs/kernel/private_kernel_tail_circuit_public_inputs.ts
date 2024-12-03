@@ -1,7 +1,10 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
+import { Gas } from '../gas.js';
 import { GlobalVariables } from '../global_variables.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicCallRequest } from '../public_call_request.js';
@@ -105,6 +108,11 @@ export class PrivateKernelTailCircuitPublicInputs {
     public constants: TxConstantData,
     public rollupValidationRequests: RollupValidationRequests,
     /**
+     * The accumulated gas used after private execution.
+     * If the tx has a teardown call request, the teardown gas limits will also be included.
+     */
+    public gasUsed: Gas,
+    /**
      * The address of the fee payer for the transaction.
      */
     public feePayer: AztecAddress,
@@ -120,6 +128,14 @@ export class PrivateKernelTailCircuitPublicInputs {
         'Cannot create PrivateKernelTailCircuitPublicInputs that is for both public kernel circuit and rollup circuit.',
       );
     }
+  }
+
+  static get schema() {
+    return bufferSchemaFor(PrivateKernelTailCircuitPublicInputs);
+  }
+
+  toJSON() {
+    return this.toBuffer();
   }
 
   getSize() {
@@ -142,6 +158,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.nonRevertibleAccumulatedData,
       this.forPublic.revertibleAccumulatedData,
       this.forPublic.publicTeardownCallRequest,
+      this.gasUsed,
       this.feePayer,
     );
   }
@@ -163,6 +180,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       constants,
       PartialStateReference.empty(),
       RevertCode.OK,
+      this.gasUsed,
       this.feePayer,
     );
   }
@@ -222,12 +240,23 @@ export class PrivateKernelTailCircuitPublicInputs {
     return nullifiers.filter(n => !n.isZero());
   }
 
+  getNonEmptyPrivateLogs() {
+    const privateLogs = this.forPublic
+      ? mergeAccumulatedData(
+          this.forPublic.nonRevertibleAccumulatedData.privateLogs,
+          this.forPublic.revertibleAccumulatedData.privateLogs,
+        )
+      : this.forRollup!.end.privateLogs;
+    return privateLogs.filter(n => !n.isEmpty());
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();
     return new PrivateKernelTailCircuitPublicInputs(
       reader.readObject(TxConstantData),
       reader.readObject(RollupValidationRequests),
+      reader.readObject(Gas),
       reader.readObject(AztecAddress),
       isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForPublic) : undefined,
       !isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForRollup) : undefined,
@@ -240,6 +269,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       isForPublic,
       this.constants,
       this.rollupValidationRequests,
+      this.gasUsed,
       this.feePayer,
       isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
     );
@@ -249,9 +279,28 @@ export class PrivateKernelTailCircuitPublicInputs {
     return new PrivateKernelTailCircuitPublicInputs(
       TxConstantData.empty(),
       RollupValidationRequests.empty(),
+      Gas.empty(),
       AztecAddress.ZERO,
       undefined,
       PartialPrivateTailPublicInputsForRollup.empty(),
+    );
+  }
+
+  /**
+   * Creates an empty instance except for a nullifier in the combined accumulated data.
+   * Useful for populating a tx, which relies on that nullifier for extracting its tx hash.
+   * TODO(#9269): Remove this method as we move away from 1st nullifier as hash.
+   */
+  static emptyWithNullifier() {
+    const data = CombinedAccumulatedData.empty();
+    data.nullifiers[0] = Fr.random();
+    return new PrivateKernelTailCircuitPublicInputs(
+      TxConstantData.empty(),
+      RollupValidationRequests.empty(),
+      Gas.empty(),
+      AztecAddress.ZERO,
+      undefined,
+      new PartialPrivateTailPublicInputsForRollup(data),
     );
   }
 }

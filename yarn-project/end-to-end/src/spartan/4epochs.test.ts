@@ -6,8 +6,8 @@ import { TokenContract } from '@aztec/noir-contracts.js';
 import { jest } from '@jest/globals';
 
 import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
-import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { getConfig, isK8sConfig, startPortForward } from './utils.js';
 
 const config = getConfig(process.env);
 
@@ -30,13 +30,13 @@ describe('token transfer test', () => {
   beforeAll(async () => {
     if (isK8sConfig(config)) {
       await startPortForward({
-        resource: 'svc/spartan-aztec-network-pxe',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
         hostPort: config.HOST_PXE_PORT,
       });
       await startPortForward({
-        resource: 'svc/spartan-aztec-network-ethereum',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_ETHEREUM_PORT,
         hostPort: config.HOST_ETHEREUM_PORT,
@@ -80,7 +80,7 @@ describe('token transfer test', () => {
         ...testWallets.wallets.map(async w =>
           (
             await TokenContract.at(testWallets.tokenAddress, w)
-          ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+          ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
         ),
       ]);
 

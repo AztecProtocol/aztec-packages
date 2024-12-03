@@ -1,6 +1,8 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
@@ -106,7 +108,7 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -115,7 +117,17 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BlockRootOrBlockMergePublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockRootOrBlockMergePublicInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return bufferSchemaFor(BlockRootOrBlockMergePublicInputs);
   }
 }
 

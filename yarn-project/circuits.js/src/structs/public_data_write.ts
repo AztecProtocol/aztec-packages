@@ -1,8 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { STRING_ENCODING } from './shared.js';
+import { z } from 'zod';
 
 /**
  * Write operations on the public state tree.
@@ -20,6 +22,15 @@ export class PublicDataWrite {
      */
     public readonly value: Fr,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        leafSlot: schemas.Fr,
+        value: schemas.Fr,
+      })
+      .transform(PublicDataWrite.from);
+  }
 
   static from(fields: FieldsOf<PublicDataWrite>) {
     return new PublicDataWrite(...PublicDataWrite.getFields(fields));
@@ -44,11 +55,11 @@ export class PublicDataWrite {
   }
 
   static fromString(str: string) {
-    return PublicDataWrite.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    return PublicDataWrite.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString(STRING_ENCODING);
+    return bufferToHex(this.toBuffer());
   }
 
   static empty() {

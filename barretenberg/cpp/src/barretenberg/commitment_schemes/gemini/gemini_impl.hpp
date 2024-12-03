@@ -113,6 +113,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
                                                      std::move(batched_to_be_shifted),
                                                      std::move(batched_concatenated));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
     for (size_t l = 0; l < CONST_PROOF_SIZE_LOG_N - 1; l++) {
         if (l < log_n - 1) {
             transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1),

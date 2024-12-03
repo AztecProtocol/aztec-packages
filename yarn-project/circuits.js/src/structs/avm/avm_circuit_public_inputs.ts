@@ -1,10 +1,12 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
 import { MAX_ENQUEUED_CALLS_PER_TX } from '../../constants.gen.js';
+import { Gas } from '../gas.js';
 import { GasSettings } from '../gas_settings.js';
 import { GlobalVariables } from '../global_variables.js';
 import {
@@ -19,6 +21,7 @@ export class AvmCircuitPublicInputs {
   constructor(
     public globalVariables: GlobalVariables,
     public startTreeSnapshots: TreeSnapshots,
+    public startGasUsed: Gas,
     public gasSettings: GasSettings,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
@@ -28,6 +31,7 @@ export class AvmCircuitPublicInputs {
     public previousNonRevertibleAccumulatedData: PrivateToAvmAccumulatedData,
     public previousRevertibleAccumulatedData: PrivateToAvmAccumulatedData,
     public endTreeSnapshots: TreeSnapshots,
+    public endGasUsed: Gas,
     public accumulatedData: AvmAccumulatedData,
     public transactionFee: Fr,
     public reverted: boolean,
@@ -38,6 +42,7 @@ export class AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       reader.readObject(GlobalVariables),
       reader.readObject(TreeSnapshots),
+      reader.readObject(Gas),
       reader.readObject(GasSettings),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -47,6 +52,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(PrivateToAvmAccumulatedData),
       reader.readObject(PrivateToAvmAccumulatedData),
       reader.readObject(TreeSnapshots),
+      reader.readObject(Gas),
       reader.readObject(AvmAccumulatedData),
       reader.readObject(Fr),
       reader.readBoolean(),
@@ -57,6 +63,7 @@ export class AvmCircuitPublicInputs {
     return serializeToBuffer(
       this.globalVariables,
       this.startTreeSnapshots,
+      this.startGasUsed,
       this.gasSettings,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
@@ -66,6 +73,7 @@ export class AvmCircuitPublicInputs {
       this.previousNonRevertibleAccumulatedData,
       this.previousRevertibleAccumulatedData,
       this.endTreeSnapshots,
+      this.endGasUsed,
       this.accumulatedData,
       this.transactionFee,
       this.reverted,
@@ -73,11 +81,11 @@ export class AvmCircuitPublicInputs {
   }
 
   static fromString(str: string) {
-    return AvmCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -85,6 +93,7 @@ export class AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       GlobalVariables.fromFields(reader),
       TreeSnapshots.fromFields(reader),
+      Gas.fromFields(reader),
       GasSettings.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -94,6 +103,7 @@ export class AvmCircuitPublicInputs {
       PrivateToAvmAccumulatedData.fromFields(reader),
       PrivateToAvmAccumulatedData.fromFields(reader),
       TreeSnapshots.fromFields(reader),
+      Gas.fromFields(reader),
       AvmAccumulatedData.fromFields(reader),
       reader.readField(),
       reader.readBoolean(),
@@ -104,6 +114,7 @@ export class AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       GlobalVariables.empty(),
       TreeSnapshots.empty(),
+      Gas.empty(),
       GasSettings.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
@@ -113,6 +124,7 @@ export class AvmCircuitPublicInputs {
       PrivateToAvmAccumulatedData.empty(),
       PrivateToAvmAccumulatedData.empty(),
       TreeSnapshots.empty(),
+      Gas.empty(),
       AvmAccumulatedData.empty(),
       Fr.zero(),
       false,
@@ -123,6 +135,7 @@ export class AvmCircuitPublicInputs {
     return `AvmCircuitPublicInputs {
       globalVariables: ${inspect(this.globalVariables)},
       startTreeSnapshots: ${inspect(this.startTreeSnapshots)},
+      startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())
@@ -140,6 +153,7 @@ export class AvmCircuitPublicInputs {
       previousNonRevertibleAccumulatedData: ${inspect(this.previousNonRevertibleAccumulatedData)},
       previousRevertibleAccumulatedData: ${inspect(this.previousRevertibleAccumulatedData)},
       endTreeSnapshots: ${inspect(this.endTreeSnapshots)},
+      endGasUsed: ${inspect(this.endGasUsed)},
       accumulatedData: ${inspect(this.accumulatedData)},
       transactionFee: ${inspect(this.transactionFee)},
       reverted: ${this.reverted},

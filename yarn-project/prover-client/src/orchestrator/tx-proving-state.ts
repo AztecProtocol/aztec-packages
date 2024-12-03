@@ -1,23 +1,16 @@
-import {
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  type MerkleTreeId,
-  type ProcessedTx,
-  type ProofAndVerificationKey,
-  UnencryptedTxL2Logs,
-} from '@aztec/circuit-types';
+import { type MerkleTreeId, type ProcessedTx, type ProofAndVerificationKey } from '@aztec/circuit-types';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VK_INDEX,
   type AppendOnlyTreeSnapshot,
   AvmProofData,
   type BaseRollupHints,
-  Fr,
+  PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateTubeData,
+  PublicBaseRollupHints,
   PublicBaseRollupInputs,
   PublicTubeData,
-  type RecursiveProof,
   type TUBE_PROOF_LENGTH,
   TUBE_VK_INDEX,
   TubeInputs,
@@ -31,8 +24,8 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
  * Also stores the inputs to the base rollup for this transaction and the tree snapshots
  */
 export class TxProvingState {
-  private tube?: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
-  private avm?: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
+  private tube?: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  private avm?: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -67,6 +60,9 @@ export class TxProvingState {
     const vkData = this.getTubeVkData();
     const tubeData = new PrivateTubeData(this.processedTx.data.toKernelCircuitPublicInputs(), this.tube.proof, vkData);
 
+    if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected private base rollup hints');
+    }
     return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
   }
 
@@ -93,62 +89,19 @@ export class TxProvingState {
       this.getAvmVkData(),
     );
 
+    if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected public base rollup hints');
+    }
+
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
-  public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>) {
+  public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) {
     this.tube = tubeProofAndVk;
   }
 
-  public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>) {
+  public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>) {
     this.avm = avmProofAndVk;
-  }
-
-  public verifyStateOrReject(): string | undefined {
-    const txEffect = this.processedTx.txEffect;
-    const fromPrivate = this.processedTx.data;
-
-    const noteEncryptedLogsHashes = [
-      fromPrivate.forRollup?.end.noteEncryptedLogsHashes || [],
-      fromPrivate.forPublic?.nonRevertibleAccumulatedData.noteEncryptedLogsHashes || [],
-      fromPrivate.forPublic?.revertibleAccumulatedData.noteEncryptedLogsHashes || [],
-    ].flat();
-    const txNoteEncryptedLogsHash = EncryptedNoteTxL2Logs.hashNoteLogs(
-      noteEncryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.value.toBuffer()),
-    );
-    if (!txNoteEncryptedLogsHash.equals(txEffect.noteEncryptedLogs.hash())) {
-      return `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogsHash)} === ${Fr.fromBuffer(
-        txEffect.noteEncryptedLogs.hash(),
-      )}`;
-    }
-
-    const encryptedLogsHashes = [
-      fromPrivate.forRollup?.end.encryptedLogsHashes || [],
-      fromPrivate.forPublic?.nonRevertibleAccumulatedData.encryptedLogsHashes || [],
-      fromPrivate.forPublic?.revertibleAccumulatedData.encryptedLogsHashes || [],
-    ].flat();
-    const txEncryptedLogsHash = EncryptedTxL2Logs.hashSiloedLogs(
-      encryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
-    );
-    if (!txEncryptedLogsHash.equals(txEffect.encryptedLogs.hash())) {
-      // @todo This rejection messages is never seen. Never making it out to the logs
-      return `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogsHash)} === ${Fr.fromBuffer(
-        txEffect.encryptedLogs.hash(),
-      )}`;
-    }
-
-    const avmOutput = this.processedTx.avmProvingRequest?.inputs.output;
-    const unencryptedLogsHashes = avmOutput
-      ? avmOutput.accumulatedData.unencryptedLogsHashes
-      : fromPrivate.forRollup!.end.unencryptedLogsHashes;
-    const txUnencryptedLogsHash = UnencryptedTxL2Logs.hashSiloedLogs(
-      unencryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
-    );
-    if (!txUnencryptedLogsHash.equals(txEffect.unencryptedLogs.hash())) {
-      return `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogsHash)} === ${Fr.fromBuffer(
-        txEffect.unencryptedLogs.hash(),
-      )}`;
-    }
   }
 
   private getTubeVkData() {

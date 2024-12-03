@@ -10,13 +10,13 @@ contract FPC {
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::SharedImmutable,
+        state_vars::PublicImmutable,
     };
     use dep::token::Token;
 
     #[storage]
     struct Storage<Context> {
-        settings: SharedImmutable<Settings, Context>,
+        settings: PublicImmutable<Settings, Context>,
     }
 
     #[public]
@@ -28,8 +28,8 @@ contract FPC {
 
     #[private]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, nonce: Field) {
-        // TODO(PR #8022): Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
-        let settings = storage.settings.read_private();
+        // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
+        let settings = storage.settings.read();
 
         assert(asset == settings.other_asset);
 
@@ -58,7 +58,7 @@ contract FPC {
     #[internal]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
         // docs:start:public_call
-        Token::at(asset).transfer_public(from, context.this_address(), amount, nonce).call(
+        Token::at(asset).transfer_in_public(from, context.this_address(), amount, nonce).call(
             &mut context,
         );
         // docs:end:public_call
@@ -69,7 +69,7 @@ contract FPC {
     fn pay_refund(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         // Just do public refunds for the present
         let refund = compute_rebate(context, amount);
-        Token::at(asset).transfer_public(context.this_address(), refund_address, refund, 0).call(
+        Token::at(asset).transfer_in_public(context.this_address(), refund_address, refund, 0).call(
             &mut context,
         );
     }

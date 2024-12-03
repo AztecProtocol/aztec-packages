@@ -17,7 +17,7 @@ import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' assert { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
 import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' assert { type: 'json' };
-import MockPublicKernelCircuit from '../artifacts/mock_public_kernel.json' assert { type: 'json' };
+import MockPublicBaseCircuit from '../artifacts/mock_public_base.json' assert { type: 'json' };
 import type {
   AppCreatorInputType,
   AppPublicInputs,
@@ -28,7 +28,7 @@ import type {
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
-  MockPublicKernelInputType,
+  MockPublicBaseInputType,
   PrivateKernelPublicInputs,
   u8,
 } from './types/index.js';
@@ -41,7 +41,7 @@ export {
   MockPrivateKernelInnerCircuit,
   MockPrivateKernelResetCircuit,
   MockPrivateKernelTailCircuit,
-  MockPublicKernelCircuit,
+  MockPublicBaseCircuit,
   MockAppCreatorVk,
   MockAppReaderVk,
   MockPrivateKernelInitVk,
@@ -132,10 +132,8 @@ export async function witnessGenMockPrivateKernelTailCircuit(
   };
 }
 
-export async function witnessGenMockPublicKernelCircuit(
-  args: MockPublicKernelInputType,
-): Promise<WitnessGenResult<u8>> {
-  const program = new Noir(MockPublicKernelCircuit);
+export async function witnessGenMockPublicBaseCircuit(args: MockPublicBaseInputType): Promise<WitnessGenResult<u8>> {
+  const program = new Noir(MockPublicBaseCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,

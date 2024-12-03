@@ -5,7 +5,6 @@ import type { PublicStateDB } from '../../index.js';
 
 type PublicStorageReadResult = {
   value: Fr;
-  exists: boolean;
   cached: boolean;
 };
 
@@ -49,7 +48,7 @@ export class PublicStorage {
    * @param slot - the slot in the contract's storage being read from
    * @returns value: the latest value written according to this cache or the parent's. undefined on cache miss.
    */
-  public readHereOrParent(contractAddress: Fr, slot: Fr): Fr | undefined {
+  public readHereOrParent(contractAddress: AztecAddress, slot: Fr): Fr | undefined {
     // First try check this storage cache
     let value = this.cache.read(contractAddress, slot);
     // Then try parent's storage cache
@@ -71,23 +70,23 @@ export class PublicStorage {
    * @param slot - the slot in the contract's storage being read from
    * @returns exists: whether the slot has EVER been written to before, value: the latest value written to slot, or 0 if never written to before
    */
-  public async read(contractAddress: Fr, slot: Fr): Promise<PublicStorageReadResult> {
+  public async read(contractAddress: AztecAddress, slot: Fr): Promise<PublicStorageReadResult> {
     let cached = false;
     // Check this cache and parent's (recursively)
     let value = this.readHereOrParent(contractAddress, slot);
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
-      value = await this.hostPublicStorage.storageRead(contractAddress, slot);
+      // This functions returns Fr.ZERO if it has never been written to before
+      // we explicity coalesce to Fr.ZERO in case we have some implementations that cause this to return undefined
+      value = (await this.hostPublicStorage.storageRead(contractAddress, slot)) ?? Fr.ZERO;
       // TODO(dbanks12): if value retrieved from host storage, we can cache it here
       // any future reads to the same slot can read from cache instead of more expensive
       // DB access
     } else {
       cached = true;
     }
-    // if value is undefined, that means this slot has never been written to!
-    const exists = value !== undefined;
-    const valueOrZero = exists ? value : Fr.ZERO;
-    return Promise.resolve({ value: valueOrZero, exists, cached });
+    // if value is Fr.ZERO here, it that means this slot has never been written to!
+    return Promise.resolve({ value, cached });
   }
 
   /**
@@ -97,7 +96,7 @@ export class PublicStorage {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public write(contractAddress: Fr, slot: Fr, value: Fr) {
+  public write(contractAddress: AztecAddress, slot: Fr, value: Fr) {
     this.cache.write(contractAddress, slot, value);
   }
 
@@ -143,7 +142,7 @@ class PublicStorageCache {
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or undefined if no value has been written
    */
-  public read(contractAddress: Fr, slot: Fr): Fr | undefined {
+  public read(contractAddress: AztecAddress, slot: Fr): Fr | undefined {
     return this.cachePerContract.get(contractAddress.toBigInt())?.get(slot.toBigInt());
   }
 
@@ -154,7 +153,7 @@ class PublicStorageCache {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public write(contractAddress: Fr, slot: Fr, value: Fr) {
+  public write(contractAddress: AztecAddress, slot: Fr, value: Fr) {
     let cacheAtContract = this.cachePerContract.get(contractAddress.toBigInt());
     if (!cacheAtContract) {
       // If this contract's storage has no staged modifications, create a new inner map to store them

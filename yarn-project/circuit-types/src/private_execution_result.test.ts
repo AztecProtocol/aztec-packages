@@ -1,5 +1,5 @@
-import { PublicExecutionRequest } from '@aztec/circuit-types';
 import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
   PrivateExecutionResult,
@@ -7,6 +7,7 @@ import {
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from './private_execution_result.js';
+import { PublicExecutionRequest } from './public_execution_request.js';
 
 function emptyExecutionResult(): PrivateExecutionResult {
   return new PrivateExecutionResult(
@@ -22,8 +23,6 @@ function emptyExecutionResult(): PrivateExecutionResult {
     [],
     PublicExecutionRequest.empty(),
     [],
-    [],
-    [],
   );
 }
 
@@ -32,6 +31,14 @@ describe('execution_result', () => {
 
   beforeEach(() => {
     executionResult = emptyExecutionResult();
+  });
+
+  describe('serialization', () => {
+    it('serializes and deserializes correctly', () => {
+      const instance = PrivateExecutionResult.random();
+      jsonParseWithSchema;
+      expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
+    });
   });
 
   describe('collectNoteHashLeafIndexMap', () => {

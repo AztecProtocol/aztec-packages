@@ -1,5 +1,8 @@
-import { type AztecAddress, Fr, type FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
 import { type OpcodeLocation } from '@aztec/foundation/abi';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 /**
  * Address and selector of a function that failed during simulation.
@@ -49,10 +52,20 @@ export interface SourceCodeLocation {
   locationText: string;
 }
 
+const SourceCodeLocationSchema = z.object({
+  filePath: z.string(),
+  line: z.number(),
+  column: z.number(),
+  fileSource: z.string(),
+  locationText: z.string(),
+});
+
 /**
  * A stack of noir source code locations.
  */
 export type NoirCallStack = SourceCodeLocation[] | OpcodeLocation[];
+
+const NoirCallStackSchema: z.ZodType<NoirCallStack> = z.union([z.array(SourceCodeLocationSchema), z.array(z.string())]);
 
 /**
  * Checks if a call stack is unresolved.
@@ -207,12 +220,30 @@ export class SimulationError extends Error {
     };
   }
 
-  static fromJSON(obj: ReturnType<SimulationError['toJSON']>) {
-    return new SimulationError(
-      obj.originalMessage,
-      obj.functionErrorStack,
-      obj.revertData.map(serializedFr => Fr.fromString(serializedFr)),
-      obj.noirErrorStack,
-    );
+  static get schema() {
+    return z
+      .object({
+        originalMessage: z.string(),
+        functionErrorStack: z.array(
+          z.object({
+            contractAddress: schemas.AztecAddress,
+            contractName: z.string().optional(),
+            functionSelector: schemas.FunctionSelector,
+            functionName: z.string().optional(),
+          }),
+        ),
+        noirErrorStack: NoirCallStackSchema.optional(),
+        revertData: z.array(schemas.Fr),
+      })
+      .transform(
+        ({ originalMessage, functionErrorStack, noirErrorStack, revertData }) =>
+          new SimulationError(originalMessage, functionErrorStack, revertData, noirErrorStack),
+      );
+  }
+
+  static random() {
+    return new SimulationError('Random simulation error', [
+      { contractAddress: AztecAddress.random(), functionSelector: FunctionSelector.random() },
+    ]);
   }
 }

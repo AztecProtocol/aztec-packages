@@ -1,13 +1,19 @@
 import {
+  AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
+  DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
   Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/types/abi';
 import { type NoirCompiledContract } from '@aztec/types/noir';
@@ -64,7 +70,10 @@ function computeContractLeaf(artifact: NoirCompiledContract) {
 }
 
 function computeRoot(names: string[], leaves: Fr[]) {
-  const data = names.map((name, i) => ({ address: new Fr(contractAddressMapping[name]), leaf: leaves[i] }));
+  const data = names.map((name, i) => ({
+    address: new AztecAddress(new Fr(contractAddressMapping[name])),
+    leaf: leaves[i],
+  }));
   const tree = buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
@@ -140,6 +149,18 @@ function generateRoot(names: string[], leaves: Fr[]) {
   `;
 }
 
+function generateLogTags() {
+  return `
+  export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
+  export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromString('${poseidon2Hash([
+    DEPLOYER_CONTRACT_ADDRESS,
+    DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+  ])}');
+  `;
+}
+
 async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
@@ -159,6 +180,8 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
     ${generateContractLeaves(names, leaves)}
 
     ${generateRoot(names, leaves)}
+
+    ${generateLogTags()}
   `;
   await fs.writeFile(outputFilePath, content);
 }
@@ -177,7 +200,7 @@ async function main() {
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    leaves.push(computeContractLeaf(artifact));
+    leaves.push(computeContractLeaf(artifact).toField());
   }
 
   await generateOutputFile(destNames, leaves);

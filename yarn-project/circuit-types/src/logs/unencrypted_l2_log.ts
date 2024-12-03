@@ -1,6 +1,9 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
+
+import { z } from 'zod';
 
 /**
  * Represents an individual unencrypted log entry.
@@ -43,17 +46,10 @@ export class UnencryptedL2Log {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, data: ${payload})`;
   }
 
-  /** Returns a JSON-friendly representation of the log. */
-  public toJSON(): object {
-    return {
-      contractAddress: this.contractAddress.toString(),
-      data: this.data.toString('hex'),
-    };
-  }
-
-  /** Converts a plain JSON object into an instance. */
-  public static fromJSON(obj: any) {
-    return new UnencryptedL2Log(AztecAddress.fromString(obj.contractAddress), Buffer.from(obj.data, 'hex'));
+  static get schema() {
+    return z
+      .object({ contractAddress: schemas.AztecAddress, data: schemas.Buffer })
+      .transform(({ contractAddress, data }) => new UnencryptedL2Log(contractAddress, data));
   }
 
   /**

@@ -5,50 +5,39 @@ import {
   NestedProcessReturnValues,
   type ProcessedTx,
   type ProcessedTxHandler,
-  PublicKernelPhase,
   Tx,
+  TxExecutionPhase,
   type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import {
-  ContractClassRegisteredEvent,
+  type AztecAddress,
   type ContractDataSource,
   Fr,
-  Gas,
   type GlobalVariables,
   type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { type SimulationProvider } from '../providers/index.js';
-import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
-import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
-import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
-  constructor(
-    private contractDataSource: ContractDataSource,
-    private simulator: SimulationProvider,
-    private telemetryClient: TelemetryClient,
-  ) {}
+  constructor(private contractDataSource: ContractDataSource, private telemetryClient: TelemetryClient) {}
 
   /**
    * Creates a new instance of a PublicProcessor.
@@ -61,20 +50,17 @@ export class PublicProcessorFactory {
     maybeHistoricalHeader: Header | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
-    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
-    const publicKernelSimulator = new RealPublicKernelCircuitSimulator(this.simulator);
+    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
 
-    return PublicProcessor.create(
+    return new PublicProcessor(
       merkleTree,
-      publicExecutor,
-      publicKernelSimulator,
       globalVariables,
       historicalHeader,
       worldStateDB,
+      publicTxSimulator,
       this.telemetryClient,
     );
   }
@@ -88,46 +74,14 @@ export class PublicProcessor {
   private metrics: PublicProcessorMetrics;
   constructor(
     protected db: MerkleTreeWriteOperations,
-    protected publicExecutor: PublicExecutor,
-    protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected worldStateDB: WorldStateDB,
-    protected enqueuedCallsProcessor: EnqueuedCallsProcessor,
+    protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,
-    private log = createDebugLogger('aztec:sequencer:public-processor'),
+    private log = createDebugLogger('aztec:simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
-  }
-
-  static create(
-    db: MerkleTreeWriteOperations,
-    publicExecutor: PublicExecutor,
-    publicKernelSimulator: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-  ) {
-    const enqueuedCallsProcessor = EnqueuedCallsProcessor.create(
-      db,
-      publicExecutor,
-      publicKernelSimulator,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-    );
-
-    return new PublicProcessor(
-      db,
-      publicExecutor,
-      publicKernelSimulator,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-      enqueuedCallsProcessor,
-      telemetryClient,
-    );
   }
 
   get tracer(): Tracer {
@@ -212,15 +166,9 @@ export class PublicProcessor {
           }
         }
 
-        const allPublicDataWrites = padArrayEnd(
-          processedTx.txEffect.publicDataWrites,
-          PublicDataWrite.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
-        await this.db.batchInsert(
+        await this.db.sequentialInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          allPublicDataWrites.map(x => x.toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
+          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);
@@ -248,9 +196,10 @@ export class PublicProcessor {
   private async getFeePaymentPublicDataWrite(
     publicDataWrites: PublicDataWrite[],
     txFee: Fr,
-    feePayer: Fr,
+    feePayer: AztecAddress,
   ): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
+      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
       return;
     }
 
@@ -258,7 +207,7 @@ export class PublicProcessor {
     const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
 
-    this.log.debug(`Deducting ${txFee} balance in Fee Juice for ${feePayer}`);
+    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
     const existingBalanceWrite = publicDataWrites.find(write => write.leafSlot.equals(leafSlot));
 
@@ -267,7 +216,9 @@ export class PublicProcessor {
       : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
-      throw new Error(`Not enough balance for fee payer to pay for transaction (got ${balance} needs ${txFee})`);
+      throw new Error(
+        `Not enough balance for fee payer to pay for transaction (got ${balance.toBigInt()} needs ${txFee.toBigInt()})`,
+      );
     }
 
     const updatedBalance = balance.sub(txFee);
@@ -276,18 +227,18 @@ export class PublicProcessor {
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
 
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
-    const txData = tx.data.toKernelCircuitPublicInputs();
-
     const gasFees = this.globalVariables.gasFees;
-    const transactionFee = txData.end.gasUsed
-      .computeFee(gasFees)
-      .add(txData.constants.txContext.gasSettings.inclusionFee);
+    const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
+    const accumulatedData = tx.data.forRollup!.end;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      txData.end.publicDataWrites,
+      accumulatedData.publicDataWrites,
       transactionFee,
-      txData.feePayer,
+      tx.data.feePayer,
     );
 
     const processedTx = makeProcessedTxFromPrivateOnlyTx(
@@ -305,14 +256,8 @@ export class PublicProcessor {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const {
-      avmProvingRequest,
-      returnValues,
-      revertCode,
-      revertReason,
-      gasUsed: phaseGasUsed,
-      processedPhases,
-    } = await this.enqueuedCallsProcessor.process(tx);
+    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
+      await this.publicTxSimulator.simulate(tx);
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
@@ -328,14 +273,15 @@ export class PublicProcessor {
     });
 
     this.metrics.recordClassRegistration(
-      ...ContractClassRegisteredEvent.fromLogs(
-        tx.unencryptedLogs.unrollLogs(),
-        ProtocolContractAddress.ContractClassRegisterer,
-      ),
+      ...tx.contractClassLogs
+        .unrollLogs()
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
     );
 
     const phaseCount = processedPhases.length;
-    this.metrics.recordTx(phaseCount, timer.ms());
+    const durationMs = timer.ms();
+    this.metrics.recordTx(phaseCount, durationMs);
 
     const data = avmProvingRequest.inputs.output;
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
@@ -343,15 +289,6 @@ export class PublicProcessor {
       data.transactionFee,
       tx.data.feePayer,
     );
-
-    const privateGasUsed = tx.data.forPublic!.revertibleAccumulatedData.gasUsed.add(
-      tx.data.forPublic!.nonRevertibleAccumulatedData.gasUsed,
-    );
-    const publicGasUsed = Object.values(phaseGasUsed).reduce((total, gas) => total.add(gas), Gas.empty());
-    const gasUsed = {
-      totalGas: privateGasUsed.add(publicGasUsed),
-      teardownGas: phaseGasUsed[PublicKernelPhase.TEARDOWN] ?? Gas.empty(),
-    };
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
@@ -361,6 +298,8 @@ export class PublicProcessor {
       revertCode,
       revertReason,
     );
+
+    const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 
     return [processedTx, returnValues];
   }

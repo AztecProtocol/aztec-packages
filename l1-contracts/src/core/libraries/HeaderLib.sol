@@ -52,6 +52,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | 0x0248                                                                           | 0x20         | total_fees
+ *  | 0x0268                                                                           | 0x20         | total_mana_used
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -102,9 +103,10 @@ library HeaderLib {
     StateReference stateReference;
     GlobalVariables globalVariables;
     uint256 totalFees;
+    uint256 totalManaUsed;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x268; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x288; // Header byte length
 
   /**
    * @notice Decodes the header
@@ -158,11 +160,14 @@ library HeaderLib {
     // Reading totalFees
     header.totalFees = uint256(bytes32(_header[0x0248:0x0268]));
 
+    // Reading totalManaUsed
+    header.totalManaUsed = uint256(bytes32(_header[0x0268:0x0288]));
+
     return header;
   }
 
   function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
-    bytes32[] memory fields = new bytes32[](24);
+    bytes32[] memory fields = new bytes32[](25);
 
     // must match the order in the Header.getFields
     fields[0] = _header.lastArchive.root;
@@ -195,7 +200,7 @@ library HeaderLib {
     fields[21] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
     fields[22] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
     fields[23] = bytes32(_header.totalFees);
-
+    fields[24] = bytes32(_header.totalManaUsed);
     // fail if the header structure has changed without updating this function
     require(
       fields.length == Constants.HEADER_LENGTH,

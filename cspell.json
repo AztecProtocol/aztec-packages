@@ -6,7 +6,6 @@
     "acvm",
     "addrs",
     "alphanet",
-    "Governance",
     "archiver",
     "assignement",
     "asyncify",
@@ -106,6 +105,7 @@
     "gitrepo",
     "Gossipable",
     "gossipsub",
+    "Governance",
     "grumpkin",
     "gtest",
     "gzipped",
@@ -120,6 +120,7 @@
     "ierc",
     "indexeddb",
     "initialise",
+    "initialising",
     "interruptible",
     "isequal",
     "ivpk",
@@ -154,6 +155,7 @@
     "monomorphize",
     "mplex",
     "msgpack",
+    "msgpackr",
     "muldiv",
     "multiaddr",
     "multiaddrs",
@@ -163,6 +165,7 @@
     "muxers",
     "nada",
     "namespacing",
+    "napi",
     "Nargo",
     "nixpkgs",
     "nodebuffer",
@@ -224,6 +227,8 @@
     "rollup",
     "rollups",
     "rushstack",
+    "sanitise",
+    "sanitised",
     "schnorr",
     "secp",
     "SEMRESATTRS",
@@ -313,5 +318,7 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous"]
+  "flagWords": [
+    "anonymous"
+  ]
 }

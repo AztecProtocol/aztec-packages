@@ -54,6 +54,8 @@ export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
 export const BLOCK_SIZE = 'aztec.block.size';
 /** How many blocks are included in this epoch */
 export const EPOCH_SIZE = 'aztec.epoch.size';
+/** The proposer of a block */
+export const BLOCK_PROPOSER = 'aztec.block.proposer';
 /** The epoch number */
 export const EPOCH_NUMBER = 'aztec.epoch.number';
 /** The tx hash */
@@ -81,3 +83,8 @@ export const P2P_ID = 'aztec.p2p.id';
 export const POOL_NAME = 'aztec.pool.name';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
+
+export const SIMULATOR_PHASE = 'aztec.simulator.phase';
+export const TARGET_ADDRESS = 'aztec.address.target';
+export const SENDER_ADDRESS = 'aztec.address.sender';
+export const MANA_USED = 'aztec.mana.used';

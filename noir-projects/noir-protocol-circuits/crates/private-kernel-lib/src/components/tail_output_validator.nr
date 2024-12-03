@@ -1,18 +1,18 @@
 mod tail_output_hints;
 
-use crate::components::{
-    tail_output_composer::meter_gas_used::meter_gas_used,
-    tail_output_validator::tail_output_hints::{generate_tail_output_hints, TailOutputHints},
-};
+use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
-        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log_hash::ScopedLogHash,
+        private_log::PrivateLogData,
+        side_effect::scoped::Scoped,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::is_empty,
+    traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
+use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 
 pub struct TailOutputValidator {
     output: KernelCircuitPublicInputs,
@@ -39,6 +39,10 @@ impl TailOutputValidator {
     fn validate_empty_values(self) {
         assert(is_empty(self.output.start_state), "start_state must be empty");
         assert_eq(self.output.revert_code, 0, "revert_code must be empty");
+        assert(
+            is_empty_array(self.output.end.unencrypted_logs_hashes),
+            "unencrypted logs in private must be empty",
+        );
     }
 
     fn validate_propagated_values(self) {
@@ -88,22 +92,11 @@ impl TailOutputValidator {
             assert_eq(nullifiers[i].value(), self.output.end.nullifiers[i], "mismatch nullifiers");
         }
 
-        // note_encrypted_logs_hashes
+        // private_logs
         assert_eq(
-            self.previous_kernel.end.note_encrypted_logs_hashes.map(|log: NoteLogHash| {
-                log.expose_to_public()
-            }),
-            self.output.end.note_encrypted_logs_hashes,
-            "mismatch note_encrypted_logs_hashes",
-        );
-
-        // encrypted_logs_hashes
-        assert_eq(
-            self.previous_kernel.end.encrypted_logs_hashes.map(|log: ScopedEncryptedLogHash| {
-                log.expose_to_public()
-            }),
-            self.output.end.encrypted_logs_hashes,
-            "mismatch encrypted_logs_hashes",
+            self.previous_kernel.end.private_logs.map(|l: Scoped<PrivateLogData>| l.inner.log),
+            self.output.end.private_logs,
+            "mismatch private_logs",
         );
     }
 
@@ -115,21 +108,20 @@ impl TailOutputValidator {
             |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev.expose_to_public(),
             self.hints.sorted_l2_to_l1_msg_hints,
         );
-
-        // unencrypted_log_hashes
+        // contract_class_logs
         assert_exposed_sorted_transformed_value_array(
-            self.previous_kernel.end.unencrypted_logs_hashes,
-            self.output.end.unencrypted_logs_hashes,
+            self.previous_kernel.end.contract_class_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
             |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
-            self.hints.sorted_unencrypted_log_hash_hints,
+            self.hints.sorted_contract_class_log_hash_hints,
         );
     }
 
     fn validate_gas_used(self) {
         let gas_used = meter_gas_used(self.output.end);
-        assert(self.output.end.gas_used == gas_used, "incorrect metered gas used");
+        assert(self.output.gas_used == gas_used, "incorrect metered gas used");
 
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
-        assert(self.output.end.gas_used.within(limits), "The gas used exceeds the gas limits");
+        assert(self.output.gas_used.within(limits), "The gas used exceeds the gas limits");
     }
 }

@@ -41,6 +41,8 @@ impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext>
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
+    // TODO: This function is still around because of a stale blacklist token. It should most likely be nuked. If you
+    // need this functionality use partial notes instead.
     // docs:start:insert_from_public
     pub fn insert_from_public(self, note: &mut Note) {
         create_note_hash_from_public(self.context, self.storage_slot, note);

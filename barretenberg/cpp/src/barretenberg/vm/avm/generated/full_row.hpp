@@ -49,6 +49,7 @@ template <typename FF> struct AvmFullRow {
     FF alu_cmp_gadget_gt{};
     FF alu_cmp_gadget_input_a{};
     FF alu_cmp_gadget_input_b{};
+    FF alu_cmp_gadget_non_ff_gt{};
     FF alu_cmp_gadget_result{};
     FF alu_cmp_gadget_sel{};
     FF alu_ff_tag{};
@@ -128,11 +129,13 @@ template <typename FF> struct AvmFullRow {
     FF cmp_borrow{};
     FF cmp_clk{};
     FF cmp_cmp_rng_ctr{};
+    FF cmp_diff{};
     FF cmp_input_a{};
     FF cmp_input_b{};
     FF cmp_op_eq{};
     FF cmp_op_eq_diff_inv{};
     FF cmp_op_gt{};
+    FF cmp_op_non_ff_gt{};
     FF cmp_p_a_borrow{};
     FF cmp_p_b_borrow{};
     FF cmp_p_sub_a_hi{};
@@ -164,14 +167,12 @@ template <typename FF> struct AvmFullRow {
     FF main_bin_op_id{};
     FF main_call_ptr{};
     FF main_da_gas_remaining{};
+    FF main_da_gas_u16_r0{};
+    FF main_da_gas_u16_r1{};
     FF main_da_out_of_gas{};
     FF main_dyn_da_gas_op_cost{};
     FF main_dyn_gas_multiplier{};
     FF main_dyn_l2_gas_op_cost{};
-    FF main_emit_l2_to_l1_msg_write_offset{};
-    FF main_emit_note_hash_write_offset{};
-    FF main_emit_nullifier_write_offset{};
-    FF main_emit_unencrypted_log_write_offset{};
     FF main_ia{};
     FF main_ib{};
     FF main_ic{};
@@ -185,18 +186,14 @@ template <typename FF> struct AvmFullRow {
     FF main_inv{};
     FF main_is_fake_row{};
     FF main_is_gas_accounted{};
-    FF main_kernel_in_offset{};
-    FF main_kernel_out_offset{};
-    FF main_l1_to_l2_msg_exists_write_offset{};
     FF main_l2_gas_remaining{};
+    FF main_l2_gas_u16_r0{};
+    FF main_l2_gas_u16_r1{};
     FF main_l2_out_of_gas{};
     FF main_mem_addr_a{};
     FF main_mem_addr_b{};
     FF main_mem_addr_c{};
     FF main_mem_addr_d{};
-    FF main_note_hash_exist_write_offset{};
-    FF main_nullifier_exists_write_offset{};
-    FF main_nullifier_non_exists_write_offset{};
     FF main_op_err{};
     FF main_opcode_val{};
     FF main_pc{};
@@ -210,8 +207,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_calldata{};
     FF main_sel_execution_end{};
     FF main_sel_execution_row{};
-    FF main_sel_kernel_inputs{};
-    FF main_sel_kernel_out{};
     FF main_sel_mem_op_a{};
     FF main_sel_mem_op_b{};
     FF main_sel_mem_op_c{};
@@ -226,6 +221,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
     FF main_sel_op_dagasleft{};
+    FF main_sel_op_debug_log{};
     FF main_sel_op_div{};
     FF main_sel_op_ecadd{};
     FF main_sel_op_emit_l2_to_l1_msg{};
@@ -285,10 +281,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_rng_16{};
     FF main_sel_rng_8{};
     FF main_sel_slice_gadget{};
-    FF main_side_effect_counter{};
-    FF main_sload_write_offset{};
     FF main_space_id{};
-    FF main_sstore_write_offset{};
     FF main_tag_err{};
     FF main_w_in_tag{};
     FF mem_addr{};
@@ -653,6 +646,7 @@ template <typename FF> struct AvmFullRow {
     FF range_check_clk{};
     FF range_check_cmp_hi_bits_rng_chk{};
     FF range_check_cmp_lo_bits_rng_chk{};
+    FF range_check_cmp_non_ff_rng_chk{};
     FF range_check_dyn_diff{};
     FF range_check_dyn_rng_chk_bits{};
     FF range_check_dyn_rng_chk_pow_2{};
@@ -700,16 +694,11 @@ template <typename FF> struct AvmFullRow {
     FF slice_sel_start{};
     FF slice_space_id{};
     FF slice_val{};
+    FF perm_rng_non_ff_cmp_inv{};
     FF perm_rng_cmp_lo_inv{};
     FF perm_rng_cmp_hi_inv{};
     FF perm_rng_alu_inv{};
     FF perm_cmp_alu_inv{};
-    FF perm_rng_gas_l2_inv{};
-    FF perm_rng_gas_da_inv{};
-    FF perm_l2_start_gas_inv{};
-    FF perm_da_start_gas_inv{};
-    FF perm_l2_end_gas_inv{};
-    FF perm_da_end_gas_inv{};
     FF perm_pos_mem_read_a_inv{};
     FF perm_pos_mem_read_b_inv{};
     FF perm_pos_mem_read_c_inv{};
@@ -753,8 +742,10 @@ template <typename FF> struct AvmFullRow {
     FF lookup_byte_lengths_inv{};
     FF lookup_byte_operations_inv{};
     FF lookup_opcode_gas_inv{};
-    FF kernel_output_lookup_inv{};
-    FF lookup_into_kernel_inv{};
+    FF lookup_l2_gas_rng_chk_0_inv{};
+    FF lookup_l2_gas_rng_chk_1_inv{};
+    FF lookup_da_gas_rng_chk_0_inv{};
+    FF lookup_da_gas_rng_chk_1_inv{};
     FF lookup_cd_value_inv{};
     FF lookup_ret_value_inv{};
     FF incl_main_tag_err_inv{};
@@ -777,8 +768,10 @@ template <typename FF> struct AvmFullRow {
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
     FF lookup_opcode_gas_counts{};
-    FF kernel_output_lookup_counts{};
-    FF lookup_into_kernel_counts{};
+    FF lookup_l2_gas_rng_chk_0_counts{};
+    FF lookup_l2_gas_rng_chk_1_counts{};
+    FF lookup_da_gas_rng_chk_0_counts{};
+    FF lookup_da_gas_rng_chk_1_counts{};
     FF lookup_cd_value_counts{};
     FF lookup_ret_value_counts{};
     FF incl_main_tag_err_counts{};
@@ -787,7 +780,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 773;
+    static constexpr size_t SIZE = 766;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

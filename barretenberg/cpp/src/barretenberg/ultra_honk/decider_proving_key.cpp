@@ -11,14 +11,14 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
 
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         min_size_of_execution_trace += circuit.blocks.ecc_op.size();
     }
 
@@ -37,9 +37,9 @@ template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic
  * @tparam Flavor
  * @param circuit
  */
-template <IsHonkFlavor Flavor>
+template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
-    requires IsGoblinFlavor<Flavor>
+    requires IsMegaFlavor<Flavor>
 {
     auto& calldata_poly = proving_key.polynomials.calldata;
     auto& calldata_read_counts = proving_key.polynomials.calldata_read_counts;
@@ -96,7 +96,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * @tparam Flavor
  * @param circuit
  */
-template <IsHonkFlavor Flavor>
+template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
 {
     auto& blocks = circuit.blocks;
@@ -114,7 +114,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
         if (block_size > fixed_block_size && block != overflow_block) {
             // Disallow overflow in blocks that are not expected to be used by App circuits
             ASSERT(!block.is_pub_inputs);
-            if constexpr (IsGoblinFlavor<Flavor>) {
+            if constexpr (IsMegaFlavor<Flavor>) {
                 ASSERT(block != blocks.ecc_op);
             }
 
@@ -182,13 +182,14 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
              ". \nActual overflow size: ",
              overflow_block.size(),
              "\n");
-        overflow_block.set_fixed_size(static_cast<uint32_t>(overflow_block.size()));
+        overflow_block.fixed_size = static_cast<uint32_t>(overflow_block.size());
         blocks.summarize();
     }
 }
 
 template class DeciderProvingKey_<UltraFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
+template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;
 template class DeciderProvingKey_<MegaZKFlavor>;
 

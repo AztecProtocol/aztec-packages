@@ -1,6 +1,6 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
-  type MerkleTreeWriteOperations,
+  type L2Block,
   type ProcessedTx,
   type ProcessedTxHandler,
   type PublicExecutionRequest,
@@ -8,45 +8,49 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
+import { type AppendOnlyTreeSnapshot, type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
-  type PublicExecutionResult,
-  PublicExecutionResultBuilder,
-  type PublicExecutor,
   PublicProcessor,
-  RealPublicKernelCircuitSimulator,
+  PublicTxSimulator,
   type SimulationProvider,
   WASMSimulator,
   type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
+import { jest } from '@jest/globals';
 import * as fs from 'fs/promises';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
+import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
+import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {
+  private headers: Map<number, Header> = new Map();
+
   constructor(
-    public publicExecutor: MockProxy<PublicExecutor>,
-    public worldStateDB: MockProxy<WorldStateDB>,
+    public publicTxSimulator: PublicTxSimulator,
+    public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeWriteOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
-    public orchestrator: ProvingOrchestrator,
+    public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
     public logger: DebugLogger,
@@ -58,41 +62,30 @@ export class TestContext {
 
   static async new(
     logger: DebugLogger,
-    worldState: 'native' | 'legacy' = 'native',
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
-    blockNumber = 3,
+    blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
-    const publicExecutor = mock<PublicExecutor>();
     const worldStateDB = mock<WorldStateDB>();
-    const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
     // Separated dbs for public processor and prover - see public_processor for context
-    let publicDb: MerkleTreeWriteOperations;
-    let proverDb: MerkleTreeWriteOperations;
+    const ws = await NativeWorldStateService.tmp();
+    const publicDb = await ws.fork();
 
-    if (worldState === 'native') {
-      const ws = await NativeWorldStateService.tmp();
-      publicDb = await ws.fork();
-      proverDb = await ws.fork();
-    } else {
-      const ws = await MerkleTrees.new(openTmpStore(), telemetry);
-      publicDb = await ws.getLatest();
-      proverDb = await ws.getLatest();
-    }
+    worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
 
-    const processor = PublicProcessor.create(
+    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, telemetry, globalVariables);
+    const processor = new PublicProcessor(
       publicDb,
-      publicExecutor,
-      publicKernel,
       globalVariables,
       Header.empty(),
       worldStateDB,
+      publicTxSimulator,
       telemetry,
     );
 
@@ -120,19 +113,18 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry);
+    const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
     agent.start(queue);
 
     return new this(
-      publicExecutor,
-      worldStateDB,
+      publicTxSimulator,
+      ws,
       processor,
       simulationProvider,
       globalVariables,
-      proverDb,
       localProver,
       agent,
       orchestrator,
@@ -142,11 +134,57 @@ export class TestContext {
     );
   }
 
+  public getFork() {
+    return this.worldState.fork();
+  }
+
+  public getHeader(blockNumber: 0): Header;
+  public getHeader(blockNumber: number): Header | undefined;
+  public getHeader(blockNumber = 0) {
+    return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
+  }
+
   async cleanup() {
     await this.proverAgent.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
+  }
+
+  public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): ProcessedTx;
+  public makeProcessedTx(seed?: number): ProcessedTx;
+  public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): ProcessedTx {
+    const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
+    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
+    const header = this.getHeader(blockNum - 1);
+    return makeBloatedProcessedTx({
+      header,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      globalVariables: this.globalVariables,
+      ...opts,
+    });
+  }
+
+  /** Creates a block with the given number of txs and adds it to world-state */
+  public async makePendingBlock(
+    numTxs: number,
+    numMsgs: number = 0,
+    blockNumOrGlobals: GlobalVariables | number = this.globalVariables,
+    makeProcessedTxOpts: (index: number) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]> = () => ({}),
+  ) {
+    const globalVariables = typeof blockNumOrGlobals === 'number' ? makeGlobals(blockNumOrGlobals) : blockNumOrGlobals;
+    const blockNum = globalVariables.blockNumber.toNumber();
+    const db = await this.worldState.fork();
+    const msgs = times(numMsgs, i => new Fr(blockNum * 100 + i));
+    const txs = times(numTxs, i =>
+      this.makeProcessedTx({ seed: i + blockNum * 1000, globalVariables, ...makeProcessedTxOpts(i) }),
+    );
+
+    const block = await buildBlock(txs, globalVariables, msgs, db);
+    this.headers.set(blockNum, block.header);
+    await this.worldState.handleL2BlockAndMessages(block, msgs);
+    return { block, txs, msgs };
   }
 
   public async processPublicFunctions(
@@ -157,25 +195,24 @@ export class TestContext {
   ) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
-      execution: PublicExecutionRequest,
-      _globalVariables: GlobalVariables,
+      executionRequest: PublicExecutionRequest,
       allocatedGas: Gas,
-      _transactionFee?: Fr,
+      _transactionFee: Fr,
+      _fnName: string,
     ) => {
       for (const tx of txs) {
         const allCalls = tx.publicTeardownFunctionCall.isEmpty()
           ? tx.enqueuedPublicFunctionCalls
           : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
         for (const request of allCalls) {
-          if (execution.callContext.equals(request.callContext)) {
-            const result = PublicExecutionResultBuilder.empty().build({
-              endGasLeft: allocatedGas,
-            });
-            return Promise.resolve(result);
+          if (executionRequest.callContext.equals(request.callContext)) {
+            return Promise.resolve(
+              new AvmFinalizedCallResult(/*reverted=*/ false, /*output=*/ [], /*gasLeft=*/ allocatedGas),
+            );
           }
         }
       }
-      throw new Error(`Unexpected execution request: ${execution}`);
+      throw new Error(`Unexpected execution request: ${executionRequest}`);
     };
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
@@ -186,22 +223,53 @@ export class TestContext {
     );
   }
 
-  public async processPublicFunctionsWithMockExecutorImplementation(
+  private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
     txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
-      execution: PublicExecutionRequest,
-      globalVariables: GlobalVariables,
+      executionRequest: PublicExecutionRequest,
       allocatedGas: Gas,
-      transactionFee?: Fr,
-    ) => Promise<PublicExecutionResult>,
+      transactionFee: Fr,
+      fnName: string,
+    ) => Promise<AvmFinalizedCallResult>,
   ) {
+    // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
+    const simulateInternal: jest.SpiedFunction<
+      (
+        stateManager: AvmPersistableStateManager,
+        executionResult: any,
+        allocatedGas: Gas,
+        transactionFee: any,
+        fnName: any,
+      ) => Promise<AvmFinalizedCallResult>
+    > = jest.spyOn(
+      this.publicTxSimulator as unknown as {
+        simulateEnqueuedCallInternal: PublicTxSimulator['simulateEnqueuedCallInternal'];
+      },
+      'simulateEnqueuedCallInternal',
+    );
     if (executorMock) {
-      this.publicExecutor.simulate.mockImplementation(executorMock);
+      simulateInternal.mockImplementation(executorMock);
     }
     return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
+  }
+}
+
+class TestProvingOrchestrator extends ProvingOrchestrator {
+  public isVerifyBuiltBlockAgainstSyncedStateEnabled = false;
+
+  // Disable this check by default, since it requires seeding world state with the block being built
+  // This is only enabled in some tests with multiple blocks that populate the pending chain via makePendingBlock
+  protected override verifyBuiltBlockAgainstSyncedState(
+    l2Block: L2Block,
+    newArchive: AppendOnlyTreeSnapshot,
+  ): Promise<void> {
+    if (this.isVerifyBuiltBlockAgainstSyncedStateEnabled) {
+      return super.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
+    }
+    return Promise.resolve();
   }
 }

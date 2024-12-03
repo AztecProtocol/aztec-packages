@@ -1,10 +1,14 @@
-use crate::{context::{PublicContext, UnconstrainedContext}, state_vars::storage::Storage};
+use crate::{
+    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    state_vars::storage::Storage,
+};
 use dep::protocol_types::{
     constants::INITIALIZATION_SLOT_SEPARATOR,
     traits::{Deserialize, Serialize},
 };
 
-// Just like SharedImmutable but without the ability to read from private functions.
+/// Stores an immutable value in public state which can be read from public, private and unconstrained execution
+/// contexts.
 // docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
     context: Context,
@@ -57,9 +61,27 @@ where
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
 where
-    T: Deserialize<T_SERIALIZED_LEN>,
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
 {
     pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
+    }
+}
+
+impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
+where
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+{
+    pub fn read(self) -> T {
+        let header = self.context.get_header();
+        let mut fields = [0; T_SERIALIZED_LEN];
+
+        for i in 0..fields.len() {
+            fields[i] = header.public_storage_historical_read(
+                self.storage_slot + i as Field,
+                (*self.context).this_address(),
+            );
+        }
+        T::deserialize(fields)
     }
 }

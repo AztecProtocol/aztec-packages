@@ -1,23 +1,17 @@
 mod tail_to_public_output_hints;
 
-use crate::components::{
-    tail_to_public_output_composer::meter_gas_used::{
-        meter_gas_used_non_revertible, meter_gas_used_revertible,
-    },
-    tail_to_public_output_validator::tail_to_public_output_hints::{
-        generate_tail_to_public_output_hints, TailToPublicOutputHints,
-    },
-};
+use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
-        nullifier::{Nullifier, ScopedNullifier},
+        nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        side_effect::Counted,
+        side_effect::{Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
@@ -25,6 +19,7 @@ use dep::types::{
         assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,
     },
 };
+use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints};
 
 pub struct TailToPublicOutputValidator {
     output: PrivateToPublicKernelCircuitPublicInputs,
@@ -90,21 +85,12 @@ impl TailToPublicOutputValidator {
             split_counter,
         );
 
-        // note_encrypted_logs_hashes
+        // private_logs
         assert_split_transformed_value_arrays(
-            prev_data.note_encrypted_logs_hashes,
-            output_non_revertible.note_encrypted_logs_hashes,
-            output_revertible.note_encrypted_logs_hashes,
-            |prev: NoteLogHash, out: LogHash| out == prev.expose_to_public(),
-            split_counter,
-        );
-
-        // encrypted_logs_hashes
-        assert_split_transformed_value_arrays(
-            prev_data.encrypted_logs_hashes,
-            output_non_revertible.encrypted_logs_hashes,
-            output_revertible.encrypted_logs_hashes,
-            |prev: ScopedEncryptedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
+            prev_data.private_logs,
+            output_non_revertible.private_logs,
+            output_revertible.private_logs,
+            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
             split_counter,
         );
     }
@@ -126,14 +112,14 @@ impl TailToPublicOutputValidator {
             hints.sorted_l2_to_l1_msg_hints,
         );
 
-        // unencrypted_logs_hashes
+        // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.unencrypted_logs_hashes,
-            prev_data.unencrypted_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+            prev_data.contract_class_logs_hashes,
+            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
             split_counter,
-            output_non_revertible.unencrypted_logs_hashes,
-            output_revertible.unencrypted_logs_hashes,
-            hints.sorted_unencrypted_log_hash_hints,
+            output_non_revertible.contract_class_logs_hashes,
+            output_revertible.contract_class_logs_hashes,
+            hints.sorted_contract_class_log_hash_hints,
         );
 
         // public_call_requests
@@ -148,21 +134,14 @@ impl TailToPublicOutputValidator {
     }
 
     fn validate_gas_used(self) {
-        let gas_used = meter_gas_used_non_revertible(self.output.non_revertible_accumulated_data);
-        assert(
-            self.output.non_revertible_accumulated_data.gas_used == gas_used,
-            "incorrect metered non-revertible gas used",
+        let gas_settings = self.output.constants.tx_context.gas_settings;
+        let gas_used = meter_gas_used(
+            self.output.non_revertible_accumulated_data,
+            self.output.revertible_accumulated_data,
+            self.output.public_teardown_call_request,
+            gas_settings.teardown_gas_limits,
         );
-
-        let gas_used = meter_gas_used_revertible(self.output.revertible_accumulated_data);
-        assert(
-            self.output.revertible_accumulated_data.gas_used == gas_used,
-            "incorrect metered revertible gas used",
-        );
-
-        let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
-        let total_gas_used = self.output.non_revertible_accumulated_data.gas_used
-            + self.output.revertible_accumulated_data.gas_used;
-        assert(total_gas_used.within(limits), "The gas used exceeds the gas limits");
+        assert_eq(self.output.gas_used, gas_used, "incorrect metered gas used");
+        assert(gas_used.within(gas_settings.gas_limits), "The gas used exceeds the gas limits");
     }
 }

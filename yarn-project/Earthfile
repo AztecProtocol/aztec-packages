@@ -5,6 +5,9 @@ deps:
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
     FROM ../build-images+from-registry
+
+    RUN npx playwright install && npx playwright install-deps
+
     # copy bb, bb-js and noir-packages
     COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/bin
     COPY ../barretenberg/cpp/+preset-release-world-state/bin /usr/src/barretenberg/cpp/build/bin
@@ -51,7 +54,6 @@ build:
     COPY . .
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
-    RUN cd ivc-integration && chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
 
 
 build-dev:

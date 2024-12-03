@@ -1,6 +1,10 @@
-import { type EpochProofQuote } from '../prover_coordination/index.js';
-import { type Tx } from '../tx/tx.js';
-import { type TxHash } from '../tx/tx_hash.js';
+import { type ApiSchemaFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
+import { EpochProofQuote } from '../prover_coordination/index.js';
+import { Tx } from '../tx/tx.js';
+import { TxHash } from '../tx/tx_hash.js';
 
 /** Provides basic operations for ProverNodes to interact with other nodes in the network. */
 export interface ProverCoordination {
@@ -16,9 +20,9 @@ export interface ProverCoordination {
    * @param quote - The quote to store
    */
   addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Stops the coordination service.
-   */
-  stop(): Promise<void>;
 }
+
+export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {
+  getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
+};

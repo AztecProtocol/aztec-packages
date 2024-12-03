@@ -7,10 +7,13 @@ import { type AztecAddress } from '@aztec/circuits.js';
 import { type PXEService } from '@aztec/pxe';
 
 import getPort from 'get-port';
-import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
+
+// Setup snapshots will create a node with index 0, so all of our loops here
+// need to start from 1 to avoid running validators with the same key
+export const PRIVATE_KEYS_START_INDEX = 1;
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -28,22 +31,8 @@ export function generateNodePrivateKeys(startIndex: number, numberOfNodes: numbe
   return nodePrivateKeys;
 }
 
-export function generatePeerIdPrivateKey(): string {
-  // magic number is multiaddr prefix: https://multiformats.io/multiaddr/ for secp256k1
-  return '08021220' + generatePrivateKey().substr(2, 66);
-}
-
-export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
-  const peerIdPrivateKeys = [];
-  for (let i = 0; i < numberOfPeers; i++) {
-    peerIdPrivateKeys.push(generatePeerIdPrivateKey());
-  }
-  return peerIdPrivateKeys;
-}
-
 export function createNodes(
   config: AztecNodeConfig,
-  peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
@@ -52,11 +41,11 @@ export function createNodes(
 ): Promise<AztecNodeService[]> {
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
-    // We run on ports from the bootnode upwards if a port if provided, otherwise we get a random port
+    // We run on ports from the bootnode upwards
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
-    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir, metricsPort);
+    const nodePromise = createNode(config, port, bootstrapNodeEnr, i + PRIVATE_KEYS_START_INDEX, dataDir, metricsPort);
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);
@@ -65,7 +54,6 @@ export function createNodes(
 // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
   config: AztecNodeConfig,
-  peerIdPrivateKey: string,
   tcpPort: number,
   bootstrapNode: string | undefined,
   publisherAddressIndex: number,
@@ -76,29 +64,25 @@ export async function createNode(
     config,
     bootstrapNode,
     tcpPort,
-    peerIdPrivateKey,
     publisherAddressIndex,
     dataDirectory,
   );
 
   const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort, /*serviceName*/ `node:${tcpPort}`);
 
-  return await AztecNodeService.createAndSync(
-    validatorConfig,
-    telemetryClient,
-    createDebugLogger(`aztec:node-${tcpPort}`),
-  );
+  return await AztecNodeService.createAndSync(validatorConfig, {
+    telemetry: telemetryClient,
+    logger: createDebugLogger(`aztec:node-${tcpPort}`),
+  });
 }
 
 export async function createValidatorConfig(
   config: AztecNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
-  peerIdPrivateKey?: string,
-  accountIndex: number = 0,
+  accountIndex: number = 1,
   dataDirectory?: string,
 ) {
-  peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
   port = port ?? (await getPort());
 
   const privateKey = getPrivateKeyFromIndex(accountIndex);
@@ -109,13 +93,10 @@ export async function createValidatorConfig(
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
-    peerIdPrivateKey: peerIdPrivateKey,
     udpListenAddress: `0.0.0.0:${port}`,
     tcpListenAddress: `0.0.0.0:${port}`,
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
-    minTxsPerBlock: config.minTxsPerBlock,
-    maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
     blockCheckIntervalMS: 1000,
     transactionProtocol: '',

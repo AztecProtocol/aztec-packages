@@ -1,6 +1,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -298,7 +299,7 @@ void process_plonk_recursion_constraints(Builder& builder,
         // they want these constants set by keeping the nested aggregation object attached to
         // the proof as public inputs. As this is the only object that can prepended to the
         // proof if the proof is above the expected size (with public inputs stripped)
-        PairingPointAccumPubInputIndices nested_aggregation_object = {};
+        PairingPointAccumulatorPubInputIndices nested_aggregation_object = {};
         // If the proof has public inputs attached to it, we should handle setting the nested
         // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
@@ -342,16 +343,9 @@ void process_plonk_recursion_constraints(Builder& builder,
     // inputs.
     if (!constraint_system.recursion_constraints.empty()) {
 
-        // First add the output aggregation object as public inputs
-        // Set the indices as public inputs because they are no longer being
-        // created in ACIR
-        for (const auto& idx : current_output_aggregation_object) {
-            builder.set_public_input(idx);
-        }
-
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.set_pairing_point_accumulator(current_output_aggregation_object);
+        builder.add_pairing_point_accumulator(current_output_aggregation_object);
     }
 }
 
@@ -490,7 +484,16 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         ASSERT(false);
     }
 
-    // WORKTODO: construct stdlib keys here only is !witness.empty()
+    // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
+    // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
+    if (witness.empty()) {
+        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+        for (auto [constraint, queue_entry] :
+             zip_view(constraint_system.ivc_recursion_constraints, ivc.verification_queue)) {
+
+            populate_dummy_vk_in_constraint(circuit, queue_entry.honk_verification_key, constraint.key);
+        }
+    }
 
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
     std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
@@ -499,7 +502,6 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
             StdlibVerificationKey::from_witness_indices(circuit, constraint.key)));
     }
-
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     // ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
     // DEBUG: allow client ivc to auto-populate valid keys

@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Test {
 
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_unconstrained;
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions,
@@ -14,8 +14,10 @@ contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, point::Point, public_keys::IvpkM,
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+        point::Point,
         traits::Serialize,
+        utils::arrays::array_concat,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
@@ -34,7 +36,7 @@ contract Test {
         utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
-        get_mint_private_content_hash, get_mint_public_content_hash,
+        get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
     use dep::value_note::value_note::ValueNote;
     // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
@@ -298,10 +300,8 @@ contract Test {
             value4: fields[4],
         };
 
-        event.emit(encode_and_encrypt_event_with_randomness_unconstrained(
+        event.emit(encode_and_encrypt_event_unconstrained(
             &mut context,
-            // testing only - a secret random value is passed in here to salt / mask the address
-            5,
             outgoing_viewer_ovpk_m,
             owner,
             outgoing_viewer,
@@ -314,16 +314,9 @@ contract Test {
                 .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false)
                 .call(&mut context);
 
-            let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
-
-            otherEvent.emit(encode_and_encrypt_event_with_randomness_unconstrained(
-                &mut context,
-                // testing only - a randomness of 0 signals the kernels to not mask the address
-                0,
-                outgoing_viewer_ovpk_m,
-                owner,
-                outgoing_viewer,
-            ));
+            // Emit a log with non-encrypted content for testing purpose.
+            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            context.emit_private_log(leaky_log);
         }
     }
 
@@ -372,29 +365,27 @@ contract Test {
     }
 
     #[public]
-    fn consume_mint_public_message(
+    fn consume_mint_to_public_message(
         to: AztecAddress,
         amount: Field,
         secret: Field,
         message_leaf_index: Field,
         portal_address: EthAddress,
     ) {
-        let content_hash = get_mint_public_content_hash(to, amount);
+        let content_hash = get_mint_to_public_content_hash(to, amount);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
     }
 
     #[private]
-    fn consume_mint_private_message(
-        secret_hash_for_redeeming_minted_notes: Field,
+    fn consume_mint_to_private_message(
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash =
-            get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
+        let content_hash = get_mint_to_private_content_hash(amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,

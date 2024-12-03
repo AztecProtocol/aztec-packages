@@ -3,6 +3,7 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -23,9 +24,14 @@ describe('e2e_p2p_rediscovery', () => {
       testName: 'e2e_p2p_rediscovery',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      metricsPort: shouldCollectMetrics(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
+
+    // We remove the initial node such that it will no longer attempt to build blocks / be in the sequencing set
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -40,11 +46,12 @@ describe('e2e_p2p_rediscovery', () => {
     const contexts: NodeContext[] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other
@@ -61,11 +68,10 @@ describe('e2e_p2p_rediscovery', () => {
       const node = nodes[i];
       await node.stop();
       t.logger.info(`Node ${i} stopped`);
-      await sleep(1200);
+      await sleep(2500);
 
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
-        t.peerIdPrivateKeys[i],
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
