@@ -44,6 +44,7 @@ barretenberg-acir-tests-bb-ultra-honk:
 
 barretenberg-acir-tests-bb-mega-honk:
     FROM +barretenberg-acir-tests-base
+    RUN false
     # Construct and separately verify a MegaHonk proof for all acir programs
     RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
     # Construct and verify a MegaHonk proof for a single arbitrary program

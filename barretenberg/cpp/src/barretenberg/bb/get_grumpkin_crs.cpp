@@ -26,6 +26,7 @@ namespace bb {
 std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path, size_t num_points)
 {
     std::filesystem::create_directories(path);
+    FileLock lock(path / "grumpkin_g1.lock");
     std::ifstream size_file(path / "grumpkin_size");
     size_t size = 0;
     if (size_file) {

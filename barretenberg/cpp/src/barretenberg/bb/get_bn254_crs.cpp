@@ -1,5 +1,6 @@
 #include "get_bn254_crs.hpp"
 #include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/common/file_lock.hpp"
 
 namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
@@ -33,6 +34,7 @@ namespace bb {
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
 {
     std::filesystem::create_directories(path);
+    FileLock lock(path / "bn254_g1.lock");
 
     auto g1_path = path / "bn254_g1.dat";
     size_t g1_file_size = get_file_size(g1_path);
