@@ -168,15 +168,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit_for_debug());
-    // }
-
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-
-    // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit_for_debug());
-    // }
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
@@ -188,18 +180,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         combination = linear_combination(to_combine, lagranges);
     }
 
-    // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit_for_debug());
-    // }
-
     for (auto [combination, to_combine] :
          zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
-
-    // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit_for_debug());
-    // }
 
     auto accumulator_vkey = accumulator->verification_key->get_all();
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
@@ -210,10 +194,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; ++i) {
         accumulator_witnesses[i] = output_commitments[i + accumulator_vkey.size()];
     }
-
-    // if constexpr (!IsSimulator<Builder>) {
-    //     info("HASH = ", builder->hash_circuit_for_debug());
-    // }
 
     return accumulator;
 }

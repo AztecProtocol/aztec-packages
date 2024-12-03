@@ -95,7 +95,7 @@ struct DatabusPropagationData {
         return os;
     };
 
-    // Construct a class instance with the default settings for a kernel circuit
+    // Construct an instance of this class with the default settings for a kernel circuit
     static DatabusPropagationData kernel_default()
     {
         DatabusPropagationData data;

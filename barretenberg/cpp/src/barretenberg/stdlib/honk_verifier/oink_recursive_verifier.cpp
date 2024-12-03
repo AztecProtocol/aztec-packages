@@ -48,8 +48,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     FF pub_inputs_offset = transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
 
     if (static_cast<uint32_t>(circuit_size.get_value()) != verification_key->verification_key->circuit_size) {
-        info("Proof circuit size = ", circuit_size.get_value());
-        info("VK circuit size = ", verification_key->verification_key->circuit_size);
         throw_or_abort("OinkRecursiveVerifier::verify: proof circuit size does not match verification key");
     }
     if (static_cast<uint32_t>(public_input_size.get_value()) != verification_key->verification_key->num_public_inputs) {

@@ -37,7 +37,7 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
 
-    // There are only three valid combinations of IVC recursion constraints:
+    // There are only three valid combinations of IVC recursion constraints for Aztec kernel circuits:
 
     // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
