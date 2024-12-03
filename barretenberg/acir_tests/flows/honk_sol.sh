@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euxA
+set -eu
 DIR="$(dirname $0)"
 
 VFLAG=${VERBOSE:+-v}
