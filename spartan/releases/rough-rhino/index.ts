@@ -274,7 +274,7 @@ const dockerCommands = {
 
   logs: async () => {
     try {
-      spinner.start("Fetching logs...");
+      spinner.stopAndPersist({ text: "Fetching logs..." });
       // Use spawn instead of execSync to handle SIGINT properly
       const child = require("child_process").spawn(
         "docker",
