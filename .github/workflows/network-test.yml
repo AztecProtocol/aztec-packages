@@ -15,13 +15,8 @@ on:
 
 jobs:
   network_test:
-    # This job will run on Ubuntu
     runs-on: ubuntu-latest
-    concurrency:
-      group: deploy-${{ github.ref }} # Only one job per branch
-      cancel-in-progress: false # Allow previous deployment to complete to avoid corruption
 
-    # Set up a variable based on the branch name
     env:
       TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
