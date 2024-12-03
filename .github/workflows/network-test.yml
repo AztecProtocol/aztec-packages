@@ -45,10 +45,8 @@ jobs:
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-
-      - name: Install GKE Auth Plugin
-        run: |
-          gcloud components install gke-gcloud-auth-plugin --quiet
+        with:
+          install_components: gke-gcloud-auth-plugin
 
       - name: Configure kubectl with GKE cluster
         run: |
@@ -67,9 +65,13 @@ jobs:
 
           export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
+          GCLOUD_CONFIG_DIR=$(gcloud info --format='value(config. paths. global_config_dir)')
+
+          echo "GCloud config dir: [$GCLOUD_CONFIG_DIR]"
+
           docker run --rm --network=host \
             -v ~/.kube:/root/.kube \
-            -v ~/.config/gcloud:/root/.config/gcloud \
+            -v $GCLOUD_CONFIG_DIR:/root/.config/gcloud \
             -e K8S=true \
             -e INSTANCE_NAME=${{ env.NAMESPACE }} \
             -e SPARTAN_DIR="/usr/src/spartan" \
