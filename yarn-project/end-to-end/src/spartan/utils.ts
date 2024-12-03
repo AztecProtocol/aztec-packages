@@ -1,7 +1,7 @@
 import { createDebugLogger, sleep } from '@aztec/aztec.js';
 import type { Logger } from '@aztec/foundation/log';
 
-import { exec, spawn } from 'child_process';
+import { exec, execSync, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
@@ -41,7 +41,12 @@ export type DirectConfig = z.infer<typeof directConfigSchema>;
 export type EnvConfig = z.infer<typeof envSchema>;
 
 export function getConfig(env: unknown): EnvConfig {
-  return envSchema.parse(env);
+  const config = envSchema.parse(env);
+  if (isK8sConfig(config)) {
+    const command = `gcloud container clusters get-credentials ${config.CLUSTER_NAME} --region=${config.REGION}`;
+    execSync(command);
+  }
+  return config;
 }
 
 export function isK8sConfig(config: EnvConfig): config is K8sConfig {
