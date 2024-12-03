@@ -149,8 +149,7 @@ case "$CMD" in
     $ci3/github/group "image-aztec"
     source $ci3/base/tmp_source
     denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
-    shift 1 # remove command parameter
-    docker build -f Dockerfile.aztec -t $IMAGE $TMP $@
+    docker build -f Dockerfile.aztec -t $IMAGE $TMP
     $ci3/github/endgroup
     exit
   ;;
@@ -163,8 +162,7 @@ case "$CMD" in
     source $ci3/base/tmp_source
     denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
     denoise earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
-    shift 1 # remove command parameter
-    docker build -f Dockerfile.end-to-end -t $IMAGE $TMP $@
+    docker build -f Dockerfile.end-to-end -t $IMAGE $TMP
     $ci3/github/endgroup
     exit
   ;;
@@ -177,8 +175,7 @@ case "$CMD" in
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
     earthly --artifact +bootstrap-faucet/usr/src $TMP/usr/src
-    shift 1 # remove command parameter
-    docker build -f Dockerfile.aztec-faucet -t $IMAGE $TMP $@
+    docker build -f Dockerfile.aztec-faucet -t $IMAGE $TMP
     $ci3/github/endgroup
     exit
   ;;
