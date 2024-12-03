@@ -20,6 +20,7 @@ tests:
     command: './scripts/e2e_compose_test.sh bench_tx_size'
   e2e_2_pxes: {}
   e2e_account_contracts: {}
+  e2e_amm: {}
   e2e_authwit: {}
   e2e_avm_simulator: {}
   e2e_blacklist_token_contract: {}
