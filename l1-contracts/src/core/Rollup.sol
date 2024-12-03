@@ -870,55 +870,23 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Timestamp _ts,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) public view override(IRollup) {
-    SignatureLib.verify(_quote.signature, _quote.quote.prover, quoteToDigest(_quote.quote));
-
     Slot currentSlot = getSlotAt(_ts);
     address currentProposer = getProposerAt(_ts);
     Epoch epochToProve = getEpochToProve();
+    uint256 posInEpoch = positionInEpoch(currentSlot);
+    bytes32 digest = quoteToDigest(_quote.quote);
 
-    require(
-      _quote.quote.validUntilSlot >= currentSlot,
-      Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot)
-    );
-
-    require(
-      _quote.quote.basisPointFee <= 10_000,
-      Errors.Rollup__InvalidBasisPointFee(_quote.quote.basisPointFee)
-    );
-
-    require(
-      currentProposer == address(0) || currentProposer == msg.sender,
-      Errors.Leonidas__InvalidProposer(currentProposer, msg.sender)
-    );
-
-    require(
-      _quote.quote.epochToProve == epochToProve,
-      Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve)
-    );
-
-    require(
-      positionInEpoch(currentSlot) < CLAIM_DURATION_IN_L2_SLOTS,
-      Errors.Rollup__NotInClaimPhase(positionInEpoch(currentSlot), CLAIM_DURATION_IN_L2_SLOTS)
-    );
-
-    // if the epoch to prove is not the one that has been claimed,
-    // then whatever is in the proofClaim is stale
-    require(
-      proofClaim.epochToProve != epochToProve || proofClaim.proposerClaimant == address(0),
-      Errors.Rollup__ProofRightAlreadyClaimed()
-    );
-
-    require(
-      _quote.quote.bondAmount >= PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST,
-      Errors.Rollup__InsufficientBondAmount(
-        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
-      )
-    );
-
-    uint256 availableFundsInEscrow = PROOF_COMMITMENT_ESCROW.deposits(_quote.quote.prover);
-    require(
-      _quote.quote.bondAmount <= availableFundsInEscrow,
-      Errors.Rollup__InsufficientFundsInEscrow(_quote.quote.bondAmount, availableFundsInEscrow)
+    ValidationLib.validateEpochProofRightClaimAtTime(
+      currentSlot,
+      currentProposer,
+      epochToProve,
+      posInEpoch,
+      _quote,
+      digest,
+      proofClaim,
+      CLAIM_DURATION_IN_L2_SLOTS,
+      PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST,
+      PROOF_COMMITMENT_ESCROW
     );
   }
 
