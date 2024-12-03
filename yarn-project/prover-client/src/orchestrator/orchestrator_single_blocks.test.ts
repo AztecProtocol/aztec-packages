@@ -24,8 +24,6 @@ describe('prover/orchestrator/blocks', () => {
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(context.globalVariables, []);
 
-      await context.orchestrator.addTxs([]);
-
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
       expect(block.number).toEqual(context.blockNumber);

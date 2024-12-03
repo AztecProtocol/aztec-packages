@@ -102,7 +102,7 @@ export class BlockProvingState {
 
   public startNewBlock(numTxs: number, numBlobFields: number) {
     if (this.spongeBlobState) {
-      throw new Error(`Must end previous block before starting a new one`);
+      throw new Error(`Block ${this.blockNumber} already initalised.`);
     }
     // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
     // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.

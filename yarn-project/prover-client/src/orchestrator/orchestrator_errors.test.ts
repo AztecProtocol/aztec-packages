@@ -31,7 +31,7 @@ describe('prover/orchestrator/errors', () => {
       await orchestrator.addTxs(txs);
 
       await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
-        /Rollup not accepting further transactions/,
+        `Block ${context.blockNumber} already initalised.`,
       );
 
       const block = await orchestrator.setBlockCompleted(context.blockNumber);
@@ -42,8 +42,6 @@ describe('prover/orchestrator/errors', () => {
     it('throws if adding too many blocks', async () => {
       orchestrator.startNewEpoch(1, 1);
       await orchestrator.startNewBlock(context.globalVariables, []);
-      // TODO(Miranda): check below line required
-      await orchestrator.addTxs([]);
       await orchestrator.setBlockCompleted(context.blockNumber);
 
       await expect(async () => await orchestrator.startNewBlock(context.globalVariables, [])).rejects.toThrow(
@@ -68,15 +66,6 @@ describe('prover/orchestrator/errors', () => {
       orchestrator.startNewEpoch(1, 1);
       await expect(async () => await orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
         /Block proving state for 1 not found/,
-      );
-    });
-
-    it('throws if setting an incomplete block as completed', async () => {
-      orchestrator.startNewEpoch(1, 1);
-      await orchestrator.startNewBlock(context.globalVariables, []);
-      // TODO(Miranda): check err msg below
-      await expect(async () => await orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
-        `Invalid proving state, call startNewBlock before adding transactions or completing the block`,
       );
     });
 

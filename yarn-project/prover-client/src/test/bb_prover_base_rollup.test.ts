@@ -61,7 +61,12 @@ describe('prover/bb_prover/base-rollup', () => {
 
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
-    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, await context.getFork(), startSpongeBlob);
+    const baseRollupHints = await buildBaseRollupHints(
+      tx,
+      context.globalVariables,
+      await context.getFork(),
+      startSpongeBlob,
+    );
     const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints as PrivateBaseRollupHints);
 
     logger.verbose('Proving base rollups');

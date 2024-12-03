@@ -16,8 +16,8 @@ import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  BLOBS_PER_BLOCK,
   type AppendOnlyTreeSnapshot,
+  BLOBS_PER_BLOCK,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupHints,
@@ -162,7 +162,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     logger.info(
-      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()} with ${numTxs} transactions`,
+      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()}`,
     );
 
     // Fork world state at the end of the immediately previous block
@@ -233,9 +233,8 @@ export class ProvingOrchestrator implements EpochProver {
     [Attributes.BLOCK_TXS_COUNT]: txs.length,
   }))
   public async addTxs(txs: ProcessedTx[]): Promise<void> {
-    // TODO(Miranda): check block number
     const blockNumber = txs[0].constants.globalVariables.blockNumber.toNumber();
-    const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
+    const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
     }
@@ -244,7 +243,7 @@ export class ProvingOrchestrator implements EpochProver {
     provingState.startNewBlock(Math.max(2, txs.length), numBlobFields);
 
     logger.info(
-      `Adding ${txs.length} transactions with ${numBlobFields} effects to block ${provingState?.blockNumber}`,
+      `Adding ${txs.length} transactions with ${numBlobFields} blob fields to block ${provingState?.blockNumber}`,
     );
     for (const tx of txs) {
       try {
@@ -263,7 +262,6 @@ export class ProvingOrchestrator implements EpochProver {
 
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         this.enqueueFirstProofs(hints, treeSnapshots, tx, provingState);
-
       } catch (err: any) {
         throw new Error(`Error adding transaction ${tx.hash.toString()} to block ${blockNumber}: ${err.message}`, {
           cause: err,
@@ -284,9 +282,14 @@ export class ProvingOrchestrator implements EpochProver {
   }))
   public async setBlockCompleted(blockNumber: number, expectedHeader?: Header): Promise<L2Block> {
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
-    // TODO(Miranda): check totalNumTxs
-    if (!provingState || !provingState.totalNumTxs) {
+    if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
+    }
+
+    if (provingState.totalNumTxs === undefined) {
+      // If we are completing an empty block, initialise the provingState.
+      // We will have 2 padding txs, and => no blob fields.
+      provingState.startNewBlock(2, 0);
     }
 
     if (!provingState.verifyState()) {
@@ -294,8 +297,8 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // We may need to pad the rollup with empty transactions
-    const paddingTxCount = provingState.totalNumTxs - provingState.transactionsReceived;
-    if (paddingTxCount > 0 && provingState.totalNumTxs > 2) {
+    const paddingTxCount = provingState.totalNumTxs! - provingState.transactionsReceived;
+    if (paddingTxCount > 0 && provingState.totalNumTxs! > 2) {
       throw new Error(`Block not ready for completion: expecting ${paddingTxCount} more transactions.`);
     }
 
@@ -710,7 +713,9 @@ export class ProvingOrchestrator implements EpochProver {
 
     // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
-    const [ms, hints] = await elapsed(buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState));
+    const [ms, hints] = await elapsed(
+      buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
+    );
 
     if (!tx.isEmpty) {
       this.metrics.recordBaseRollupInputs(ms);

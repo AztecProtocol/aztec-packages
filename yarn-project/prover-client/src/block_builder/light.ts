@@ -117,9 +117,7 @@ export async function buildBlock(
   telemetry: TelemetryClient = new NoopTelemetryClient(),
 ) {
   const builder = new LightweightBlockBuilder(db, telemetry);
-  await builder.startNewBlock(Math.max(txs.length, 2), globalVariables, l1ToL2Messages);
-  for (const tx of txs) {
-    await builder.addNewTx(tx);
-  }
+  await builder.startNewBlock(globalVariables, l1ToL2Messages);
+  await builder.addTxs(txs);
   return await builder.setBlockCompleted();
 }
