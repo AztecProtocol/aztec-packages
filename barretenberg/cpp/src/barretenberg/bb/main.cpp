@@ -991,8 +991,9 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& witnes
             // Construct a dummy proof corresponding to the known VK from the recursion constraint.
             // databus_propagation_data is needed in order to append the correct number of public inputs due to
             // propagated databus commitments.
-            std::vector<FF> proof =
-                acir_format::construct_dummy_proof_for_ivc(constraint.proof_type, stdlib_vk.databus_propagation_data);
+            std::vector<FF>
+                proof; /* =
+     acir_format::construct_dummy_proof_for_ivc(constraint.proof_type, stdlib_vk.databus_propagation_data);*/
             auto proof_type = constraint.proof_type == acir_format::PROOF_TYPE::OINK ? bb::ClientIVC::QUEUE_TYPE::OINK
                                                                                      : bb::ClientIVC::QUEUE_TYPE::PG;
             // The VK is known via the ivc recursion constraint and does not need to be populated here

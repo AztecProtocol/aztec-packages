@@ -114,6 +114,12 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 // Allocate the wires and selectors polynomials
                 {
                     PROFILE_THIS_NAME("allocating wires");
+
+                    for (auto& wire : proving_key.polynomials.get_wires()) {
+                        wire = Polynomial::shiftable(proving_key.circuit_size);
+                    }
+                }
+                {
                     PROFILE_THIS_NAME("allocating gate selectors");
 
                     // Define gate selectors over the block they are isolated to
@@ -278,41 +284,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             // If Goblin, construct the databus polynomials
             if constexpr (IsMegaFlavor<Flavor>) {
                 PROFILE_THIS_NAME("constructing databus polynomials");
-                proving_key.polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
-                {
-                    PROFILE_THIS_NAME("constructing lookup table polynomials");
-
-                    construct_lookup_table_polynomials<Flavor>(
-                        proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
-                }
-
-                {
-                    PROFILE_THIS_NAME("constructing lookup read counts");
-
-                    construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
-                                                         proving_key.polynomials.lookup_read_tags,
-                                                         circuit,
-                                                         dyadic_circuit_size);
-                }
-
-                // Construct the public inputs array
-                for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
-                    size_t idx = i + proving_key.pub_inputs_offset;
-                    proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
-                }
-
-                // Set the recursive proof indices
-                proving_key.pairing_point_accumulator_public_input_indices =
-                    circuit.pairing_point_accumulator_public_input_indices;
-                proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
-
-                if constexpr (IsMegaFlavor<Flavor>) { // Set databus commitment propagation data
-                    proving_key.databus_propagation_data = circuit.databus_propagation_data;
-                }
-                auto end = std::chrono::steady_clock::now();
-                auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-                vinfo("time to construct proving key: ", diff.count(), " ms.");
+                construct_databus_polynomials(circuit);
             }
         }
         // Set the lagrange polynomials
