@@ -84,9 +84,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slotOfChange;
   }
 
-  uint256 internal constant BLOB_GAS_PER_BLOB = 2 ** 17;
-  uint256 internal constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
-
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
 
@@ -713,38 +710,12 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 blockOfInterest =
       canPruneAtTime(_timestamp) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
-    FeeHeader storage parentFeeHeader = blocks[blockOfInterest].feeHeader;
-    uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
-      -int256(FeeMath.MANA_TARGET)
+    return FeeMath.getManaBaseFeeComponentsAt(
+      blocks[blockOfInterest].feeHeader,
+      getL1FeesAt(_timestamp),
+      _inFeeAsset ? getFeeAssetPrice() : 1e9,
+      EPOCH_DURATION
     );
-
-    L1FeeData memory fees = getL1FeesAt(_timestamp);
-    uint256 dataCost =
-      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, fees.blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
-    uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
-      + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
-    uint256 gasCost = Math.mulDiv(gasUsed, fees.baseFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
-    uint256 provingCost = FeeMath.provingCostPerMana(
-      blocks[tips.pendingBlockNumber].feeHeader.provingCostPerManaNumerator
-    );
-
-    uint256 congestionMultiplier = FeeMath.congestionMultiplier(excessMana);
-    uint256 total = dataCost + gasCost + provingCost;
-    uint256 congestionCost = Math.mulDiv(
-      total, congestionMultiplier, FeeMath.MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor
-    ) - total;
-
-    uint256 feeAssetPrice = _inFeeAsset ? getFeeAssetPrice() : 1e9;
-
-    // @todo @lherskind. The following is a crime against humanity, but it makes it
-    // very neat to plot etc from python, #10004 will fix it across the board
-    return ManaBaseFeeComponents({
-      dataCost: Math.mulDiv(dataCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      gasCost: Math.mulDiv(gasCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      provingCost: Math.mulDiv(provingCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      congestionCost: Math.mulDiv(congestionCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      congestionMultiplier: congestionMultiplier
-    });
   }
 
   function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)

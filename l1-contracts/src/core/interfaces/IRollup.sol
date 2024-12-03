@@ -10,6 +10,7 @@ import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {ManaBaseFeeComponents} from "@aztec/core/libraries/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {FeeHeader, L1FeeData} from "@aztec/core/libraries/FeeMath.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;
@@ -19,24 +20,11 @@ struct SubmitEpochRootProofArgs {
   bytes proof;
 }
 
-struct FeeHeader {
-  uint256 excessMana;
-  uint256 feeAssetPriceNumerator;
-  uint256 manaUsed;
-  uint256 provingCostPerManaNumerator;
-  uint256 congestionCost;
-}
-
 struct BlockLog {
   FeeHeader feeHeader;
   bytes32 archive;
   bytes32 blockHash;
   Slot slotNumber;
-}
-
-struct L1FeeData {
-  uint256 baseFee;
-  uint256 blobFee;
 }
 
 interface ITestRollup {
