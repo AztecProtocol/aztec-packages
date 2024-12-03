@@ -13,7 +13,8 @@ HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
   ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
 
+denoise "yarn && yarn build"
 if $ci3/cache/should_run "boxes-test-$HASH"; then
-  parallel --timeout 5m --verbose \
+  parallel --timeout 5m --verbose --halt now,fail=1 \
       BOX={} docker compose -p {} up --exit-code-from=boxes --force-recreate ::: vanilla react
 fi

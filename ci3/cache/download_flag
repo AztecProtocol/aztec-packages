@@ -15,6 +15,7 @@ fi
 
 NAME=$1
 
+# Read out the build flag as it has the context of the last success.
 # Extract endpoint URL if S3_BUILD_CACHE_AWS_PARAMS is set
 if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
   # Write the flag file to stdout, return exit success if found
