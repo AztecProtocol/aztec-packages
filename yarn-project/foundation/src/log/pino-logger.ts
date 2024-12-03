@@ -2,6 +2,7 @@ import { bold, reset } from 'colorette';
 import { type LoggerOptions, pino } from 'pino';
 import { inspect } from 'util';
 
+import { compactArray } from '../collection/array.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
@@ -40,31 +41,54 @@ export function createDebugLogger(module: string): DebugLogger {
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
-const pretty: Pick<LoggerOptions, 'transport'> = {
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      sync: true,
-      ignore: 'module,pid,hostname',
-      messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
-      customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
-      customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
-    },
+// Transport options for pretty logging to stdout via pino-pretty.
+const prettyTransport: LoggerOptions['transport'] = {
+  target: 'pino-pretty',
+  options: {
+    sync: true,
+    ignore: 'module,pid,hostname',
+    messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
+    customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
+    customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   },
 };
 
-const logger = pino({
-  customLevels: {
-    verbose: 25,
-  },
-  useOnlyCustomLevels: false,
-  level: logLevel,
-  ...(['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? {} : pretty),
-});
+// Transport for vanilla stdout logging as JSON.
+const stdoutTransport: LoggerOptions['transport'] = {
+  target: 'pino/file',
+  options: { destination: 1 },
+};
+
+// Transport for OpenTelemetry logging. While defining this here is an abstraction leakage since this
+// should live in the telemetry-client, it is necessary to ensure that the logger is initialized with
+// the correct transport. Tweaking transports of a live pino instance is tricky, and creating a new instance
+// would mean that all child loggers created before the telemetry-client is initialized would not have
+// this transport configured. Note that the target is defined as the export in the telemetry-client,
+// since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
+const customLevels = { verbose: 25 };
+const { levels } = pino({ customLevels, useOnlyCustomLevels: false });
+const otelTransport: LoggerOptions['transport'] = {
+  target: '@aztec/telemetry-client/otel-pino-stream',
+  options: { levels, messageKey: 'msg' },
+};
+
+// Create a new pino instance with an stdout transport (either vanilla or json), and optionally
+// an OTLP transport if the OTLP endpoint is provided. Note that transports are initialized in a
+// worker thread.
+const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+const logger = pino(
+  { customLevels, useOnlyCustomLevels: false, level: logLevel },
+  pino.transport({
+    targets: compactArray([
+      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdoutTransport : prettyTransport,
+      process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ? otelTransport : undefined,
+    ]),
+  }),
+);
 
 logger.info(
   { module: 'logger', ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}) },
-  `Console logger initialized with level ${logLevel}`,
+  `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : ''),
 );
 
 /** Log function that accepts an exception object */

@@ -11,7 +11,6 @@ import {
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
-import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { awsEc2Detector, awsEcsDetector } from '@opentelemetry/resource-detector-aws';
 import {
   type IResource,
@@ -29,6 +28,7 @@ import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentele
 import { aztecDetector } from './aztec_resource_detector.js';
 import { type TelemetryClientConfig } from './config.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
+import { getOtelResource } from './otel_resource.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
@@ -89,25 +89,9 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public static async createAndStart(config: TelemetryClientConfig, log: DebugLogger): Promise<OpenTelemetryClient> {
-    const resource = detectResourcesSync({
-      detectors: [
-        osDetectorSync,
-        envDetectorSync,
-        processDetectorSync,
-        serviceInstanceIdDetectorSync,
-        awsEc2Detector,
-        awsEcsDetector,
-        aztecDetector,
-      ],
-    });
+    const resource = await getOtelResource();
 
-    if (resource.asyncAttributesPending) {
-      await resource.waitForAsyncAttributes!();
-    }
-
-    const tracerProvider = new NodeTracerProvider({
-      resource,
-    });
+    const tracerProvider = new NodeTracerProvider({ resource });
 
     // optionally push traces to an OTEL collector instance
     if (config.tracesCollectorUrl) {
@@ -131,25 +115,11 @@ export class OpenTelemetryClient implements TelemetryClient {
       ],
     });
 
-    const loggerProvider = registerOtelLoggerProvider(resource, config.logsCollectorUrl);
-    instrumentLogger(loggerProvider, tracerProvider, meterProvider);
+    const loggerProvider = await registerOtelLoggerProvider(resource, config.logsCollectorUrl);
 
     const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
     service.start();
 
     return service;
   }
-}
-
-function instrumentLogger(
-  loggerProvider: LoggerProvider,
-  tracerProvider: NodeTracerProvider,
-  meterProvider: MeterProvider,
-) {
-  // We disable log sending since we have a batch log processor already configured
-  const instrumentation = new PinoInstrumentation({ disableLogSending: true });
-  instrumentation.setLoggerProvider(loggerProvider);
-  instrumentation.setTracerProvider(tracerProvider);
-  instrumentation.setMeterProvider(meterProvider);
-  instrumentation.enable();
 }
