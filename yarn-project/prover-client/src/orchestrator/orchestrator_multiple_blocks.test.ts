@@ -70,10 +70,8 @@ describe('prover/orchestrator/multi-block', () => {
         context.orchestrator.startNewEpoch(epochIndex + 1, epochIndex * numBlocks + 1, numBlocks);
         await Promise.all(
           blocks.slice(epochIndex * numBlocks, (epochIndex + 1) * numBlocks).map(async ({ block, txs }) => {
-            await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
-            for (const tx of txs) {
-              await context.orchestrator.addNewTx(tx);
-            }
+            await context.orchestrator.startNewBlock(block.header.globalVariables, []);
+            await context.orchestrator.addTxs(txs);
             await context.orchestrator.setBlockCompleted(block.number);
           }),
         );

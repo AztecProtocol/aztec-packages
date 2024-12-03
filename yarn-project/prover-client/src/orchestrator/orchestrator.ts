@@ -233,6 +233,12 @@ export class ProvingOrchestrator implements EpochProver {
     [Attributes.BLOCK_TXS_COUNT]: txs.length,
   }))
   public async addTxs(txs: ProcessedTx[]): Promise<void> {
+    if (!txs.length) {
+      // To avoid an ugly throw below. If we require an empty block, we can just call setBlockCompleted
+      // on a block with no txs. We cannot do that here because we cannot find the blockNumber without any txs.
+      logger.warn(`Provided no txs to orchestrator addTxs.`);
+      return;
+    }
     const blockNumber = txs[0].constants.globalVariables.blockNumber.toNumber();
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
