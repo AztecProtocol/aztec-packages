@@ -4,8 +4,8 @@ use crate::{
         global_variables::GlobalVariables,
     },
     constants::{
-        CONTENT_COMMITMENT_LENGTH, GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH,
-        BLOCK_HEADER_LENGTH, STATE_REFERENCE_LENGTH,
+        BLOCK_HEADER_LENGTH, CONTENT_COMMITMENT_LENGTH, GENERATOR_INDEX__BLOCK_HASH,
+        GLOBAL_VARIABLES_LENGTH, STATE_REFERENCE_LENGTH,
     },
     content_commitment::ContentCommitment,
     hash::poseidon2_hash_with_separator,

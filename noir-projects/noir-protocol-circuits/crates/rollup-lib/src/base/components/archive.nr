@@ -1,6 +1,6 @@
 use types::{
-    constants::ARCHIVE_HEIGHT,
     block_header::BlockHeader,
+    constants::ARCHIVE_HEIGHT,
     merkle_tree::membership::{assert_check_membership, MembershipWitness},
 };
 

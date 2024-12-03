@@ -37,6 +37,7 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
+    block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
@@ -52,7 +53,6 @@ use crate::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
         silo_note_hash,
     },
-    block_header::BlockHeader,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,

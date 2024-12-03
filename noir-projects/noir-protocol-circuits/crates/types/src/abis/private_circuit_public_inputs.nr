@@ -6,6 +6,7 @@ use crate::{
         read_request::ReadRequest, side_effect::Counted,
         validation_requests::KeyValidationRequestAndGenerator,
     },
+    block_header::BlockHeader,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -14,7 +15,6 @@ use crate::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
-    block_header::BlockHeader,
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     transaction::tx_context::TxContext,
