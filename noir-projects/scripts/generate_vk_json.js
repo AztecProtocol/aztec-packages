@@ -123,6 +123,7 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
+  // WORKTODO: possibly just co-opt write_vk_mega_honk to handle apps/kernels
   const writeVkCommand = `${BB_BIN_PATH} ${
     isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
   } -h -b "${artifactPath}" -o "${binaryVkPath}" ${

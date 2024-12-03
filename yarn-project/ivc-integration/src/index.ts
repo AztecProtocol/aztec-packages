@@ -160,11 +160,13 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: appWitnessGenResult.publicInputs,
     tx,
+    app_vk: getVkAsFields(MockAppCreatorVk),
   });
   logger('generated mock private kernel init witness');
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
   });
   logger('generated mock private kernel tail witness');
 
@@ -190,10 +192,13 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: creatorAppWitnessGenResult.publicInputs,
     tx,
+    app_vk: getVkAsFields(MockAppCreatorVk),
   });
   const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     app_inputs: readerAppWitnessGenResult.publicInputs,
+    app_vk: getVkAsFields(MockAppReaderVk),
+    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
   });
 
   const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -204,10 +209,12 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
       MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       MOCK_MAX_COMMITMENTS_PER_TX.toString(),
     ],
+    kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
   });
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
+    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
   });
 
   // Create client IVC proof

@@ -24,6 +24,8 @@ mkdir -p "./target/keys"
 
 PARALLEL_VK=${PARALLEL_VK:-true}
 
+# WORKTODO: VKs getting generated here
+
 if [[ $PARALLEL_VK == "true" ]]; then
   echo "Generating vks in parallel..."
   for pathname in "./target"/*.json; do
