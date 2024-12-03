@@ -13,6 +13,8 @@ const program = new Command();
 // Global spinner instance used throughout the application
 const spinner = ora({ color: "blue", discardStdin: false });
 
+const ARCH = execSync("uname -m").toString().trim();
+
 // ASCII Art Banner
 const showBanner = () => {
   console.log(
@@ -105,34 +107,24 @@ const configureEnvironment = async (options: any) => {
     spinner.succeed(`Public IP: ${publicIP}`);
 
     // Load existing config
-    spinner.stopAndPersist({ text: "Loading configuration..." });
-    const currentConfig = existsSync(".env")
-      ? Object.fromEntries(
-          readFileSync(".env", "utf8")
-            .split("\n")
-            .filter(Boolean)
-            .map((line) => line.split("="))
-        )
-      : {};
-
     if (!options.name) {
       options.name = await input({
         message: "Validator Name:",
-        default: currentConfig.name || defaultConfig.name,
+        default: defaultConfig.name,
       });
     }
 
     if (!options.p2pPort) {
       options.p2pPort = await input({
         message: "P2P Port:",
-        default: currentConfig.p2pPort || defaultConfig.p2pPort,
+        default: defaultConfig.p2pPort,
       });
     }
 
     if (!options.port) {
       options.port = await input({
         message: "Node Port:",
-        default: currentConfig.port || defaultConfig.port,
+        default: defaultConfig.port,
       });
     }
 
@@ -146,21 +138,12 @@ const configureEnvironment = async (options: any) => {
     if (!options.ip) {
       options.ip = await input({
         message: "Public IP:",
-        default: publicIP || defaultConfig.ip,
+        default: defaultConfig.ip,
       });
     }
 
     // Restart spinner for saving config
     spinner.start("Saving configuration...");
-
-    const envContent = Object.entries(options)
-      .map(([key, value]) => `${key}=${value}`)
-      .join("\n");
-
-    writeFileSync(".env", envContent, {
-      encoding: "utf8",
-      flag: "w",
-    });
 
     spinner.succeed("Environment configured successfully");
 
@@ -172,8 +155,6 @@ services:
     validator:
         network_mode: host
         restart: unless-stopped
-        env_file:
-            - .env
         environment:
             - P2P_UDP_ANNOUNCE_ADDR=${options.ip}:${options.p2pPort}
             - P2P_TCP_ANNOUNCE_ADDR=${options.ip}:${options.p2pPort}
@@ -207,7 +188,7 @@ services:
             - OUTBOX_CONTRACT_ADDRESS=0x1016b5aaa3270a65c315c664ecb238b6db270b64
             - P2P_UDP_LISTEN_ADDR=0.0.0.0:${options.p2pPort}
             - P2P_TCP_LISTEN_ADDR=0.0.0.0:${options.p2pPort}
-        image: aztecprotocol/aztec:698cd3d62680629a3f1bfc0f82604534cedbccf3-${process.arch}
+        image: aztecprotocol/aztec:698cd3d62680629a3f1bfc0f82604534cedbccf3-${ARCH}
         command: start --node --archiver --sequencer
 `;
     writeFileSync("docker-compose.yml", composeConfig);
@@ -356,9 +337,9 @@ program
 
     await configureEnvironment(options);
 
-    spinner.info(
-      'Initialization complete! Use "aztec-spartan start" to launch your node.'
-    );
+    spinner.stopAndPersist({
+      text: 'Initialization complete! Use "npx aztec-spartan start" to launch your node.',
+    });
     process.exit(0);
   });
 
@@ -366,9 +347,9 @@ program
   .command("start")
   .description("Start Aztec Testnet node")
   .action(async () => {
-    if (!existsSync(".env")) {
+    if (!existsSync("docker-compose.yml")) {
       console.error(
-        'Configuration not found. Please run "aztec-spartan init" first.'
+        'Configuration not found. Please run "npx aztec-spartan install" first.'
       );
       process.exit(1);
     }

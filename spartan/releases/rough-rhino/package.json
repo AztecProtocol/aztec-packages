@@ -3,6 +3,12 @@
   "module": "index.ts",
   "type": "module",
   "version": "1.0.0",
+  "scripts": {
+    "test": "bun test",
+    "start": "bun index.ts",
+    "compile": "tsc index.ts --skipLibCheck --module nodenext && chmod +x index.js",
+    "publish": "bun compile && bun publish"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/figlet": "^1.5.8",
