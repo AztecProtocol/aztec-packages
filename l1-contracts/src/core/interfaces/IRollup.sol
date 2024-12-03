@@ -15,6 +15,7 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;
@@ -29,6 +30,27 @@ struct BlockLog {
   bytes32 archive;
   bytes32 blockHash;
   Slot slotNumber;
+}
+
+struct ChainTips {
+  uint256 pendingBlockNumber;
+  uint256 provenBlockNumber;
+}
+
+struct L1GasOracleValues {
+  L1FeeData pre;
+  L1FeeData post;
+  Slot slotOfChange;
+}
+
+struct RollupStore {
+  mapping(uint256 blockNumber => BlockLog log) blocks;
+  ChainTips tips;
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  L1GasOracleValues l1GasOracleValues;
+  DataStructures.EpochProofClaim proofClaim;
+  IVerifier epochProofVerifier;
 }
 
 interface ITestRollup {

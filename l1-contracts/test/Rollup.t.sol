@@ -236,18 +236,14 @@ contract RollupTest is DecoderBase, TimeFns {
     );
     rollup.claimEpochProofRight(signedQuote);
 
-    (
-      Epoch epochToProve,
-      uint256 basisPointFee,
-      uint256 bondAmount,
-      address bondProvider,
-      address proposerClaimant
-    ) = rollup.proofClaim();
-    assertEq(epochToProve, signedQuote.quote.epochToProve, "Invalid epoch to prove");
-    assertEq(basisPointFee, signedQuote.quote.basisPointFee, "Invalid basis point fee");
-    assertEq(bondAmount, signedQuote.quote.bondAmount, "Invalid bond amount");
-    assertEq(bondProvider, quote.prover, "Invalid bond provider");
-    assertEq(proposerClaimant, address(this), "Invalid proposer claimant");
+    DataStructures.EpochProofClaim memory epochProofClaim = rollup.getProofClaim();
+    assertEq(epochProofClaim.epochToProve, signedQuote.quote.epochToProve, "Invalid epoch to prove");
+    assertEq(
+      epochProofClaim.basisPointFee, signedQuote.quote.basisPointFee, "Invalid basis point fee"
+    );
+    assertEq(epochProofClaim.bondAmount, signedQuote.quote.bondAmount, "Invalid bond amount");
+    assertEq(epochProofClaim.bondProvider, quote.prover, "Invalid bond provider");
+    assertEq(epochProofClaim.proposerClaimant, address(this), "Invalid proposer claimant");
     assertEq(
       proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 9, "Invalid escrow balance"
     );
