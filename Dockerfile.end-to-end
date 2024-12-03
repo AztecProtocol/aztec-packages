@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y software-properties-common \
   && apt-get install -y wget gnupg \
   && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
   && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-  && apt update && apt install curl chromium nodejs netcat-openbsd -y \
+  && apt update && apt install curl chromium nodejs npm netcat-openbsd -y \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /usr/local/bin \
   && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y software-properties-common \
   && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
   && chmod +x get_helm.sh \
   && ./get_helm.sh \
-  && rm get_helm.sh
-
+  && rm get_helm.sh \
+  && npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
 ENV CHROME_BIN="/usr/bin/chromium"
 ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
 ENV HARDWARE_CONCURRENCY=""
