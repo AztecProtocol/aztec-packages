@@ -22,5 +22,6 @@ export async function registerContractClass(
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   const registerer = getRegistererContract(wallet);
   await wallet.addCapsule(encodedBytecode);
+  console.log({ contract: artifact.name, emitPublicBytecode });
   return registerer.methods.register(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, emitPublicBytecode);
 }

@@ -827,8 +827,11 @@ class ArchiverStoreHelper
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
       .map(log => ContractClassRegisteredEvent.fromLog(log.data))
       .map(e => e.toContractClassPublic());
+    this.#log.info(
+      `Block ${blockNum} has ${allLogs.length} logs, of which ${contractClasses} contract class registration events`,
+    );
     if (contractClasses.length > 0) {
-      contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
+      contractClasses.forEach(c => this.#log.info(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
         // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
         return await this.store.addContractClasses(
