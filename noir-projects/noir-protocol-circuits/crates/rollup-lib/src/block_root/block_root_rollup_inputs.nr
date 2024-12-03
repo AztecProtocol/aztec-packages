@@ -156,7 +156,7 @@ impl BlockRootRollupInputs {
             previous_block_hash: self.previous_block_hash,
             end_block_hash: block_hash, // current newest block hash = this block hash
             start_global_variables: left.constants.global_variables, // we have asserted that left.constants == right.constants => ...
-            end_global_variables: left.constants.global_variables, // with a current block range of 1, we only have 1 set of constants
+            end_global_variables: left.constants.global_variables, // ...with a current block range of 1, we only have 1 set of constants
             out_hash: content_commitment.out_hash,
             fees: fee_arr,
             vk_tree_root: left.constants.vk_tree_root,
