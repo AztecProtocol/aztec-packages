@@ -57,16 +57,11 @@ pub(crate) fn public_data_tree_insert(
             },
             |write: PublicDataTreeLeaf, low_preimage: PublicDataTreeLeafPreimage| {
                 // Build insertion leaf
-                let is_update = low_preimage.slot == write.slot;
-                if is_update {
-                    PublicDataTreeLeafPreimage::empty()
-                } else {
-                    PublicDataTreeLeafPreimage {
-                        slot: write.slot,
-                        value: write.value,
-                        next_slot: low_preimage.next_slot,
-                        next_index: low_preimage.next_index,
-                    }
+                PublicDataTreeLeafPreimage {
+                    slot: write.slot,
+                    value: write.value,
+                    next_slot: low_preimage.next_slot,
+                    next_index: low_preimage.next_index,
                 }
             },
         )

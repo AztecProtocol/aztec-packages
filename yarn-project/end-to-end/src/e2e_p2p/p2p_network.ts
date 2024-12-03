@@ -17,7 +17,6 @@ import {
   PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
   generateNodePrivateKeys,
-  generatePeerIdPrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
 import {
   type ISnapshotManager,
@@ -66,7 +65,6 @@ export class P2PNetworkTest {
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
     this.nodePrivateKeys = generateNodePrivateKeys(PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.nodePublicKeys = this.nodePrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
-    this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfNodes);
 
     this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 

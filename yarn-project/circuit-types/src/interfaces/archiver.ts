@@ -3,6 +3,7 @@ import {
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
   Header,
+  PrivateLog,
   PublicFunctionSchema,
 } from '@aztec/circuits.js';
 import { ContractArtifactSchema } from '@aztec/foundation/abi';
@@ -14,10 +15,8 @@ import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
 import { GetUnencryptedLogsResponseSchema, TxScopedL2Log } from '../logs/get_logs_response.js';
-import { L2BlockL2Logs } from '../logs/l2_block_l2_logs.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
-import { LogType } from '../logs/log_type.js';
 import { type L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { type NullifierWithBlockSource } from '../nullifier_with_block_source.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -51,10 +50,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlocksForEpoch: z.function().args(schemas.BigInt).returns(z.array(L2Block.schema)),
   isEpochComplete: z.function().args(schemas.BigInt).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
-  getLogs: z
-    .function()
-    .args(schemas.Integer, schemas.Integer, z.nativeEnum(LogType))
-    .returns(z.array(L2BlockL2Logs.schema)),
+  getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))

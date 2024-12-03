@@ -150,6 +150,11 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         WorldStateMessageType::GET_SIBLING_PATH,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_sibling_path(obj, buffer); });
 
+    _dispatcher.registerTarget(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                                   return get_block_numbers_for_leaf_indices(obj, buffer);
+                               });
+
     _dispatcher.registerTarget(
         WorldStateMessageType::FIND_LEAF_INDEX,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_index(obj, buffer); });
@@ -381,6 +386,24 @@ bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& b
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<fr_sibling_path> resp_msg(WorldStateMessageType::GET_SIBLING_PATH, header, path);
+
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<GetBlockNumbersForLeafIndicesRequest> request;
+    obj.convert(request);
+
+    GetBlockNumbersForLeafIndicesResponse response;
+    _ws->get_block_numbers_for_leaf_indices(
+        request.value.revision, request.value.treeId, request.value.leafIndices, response.blockNumbers);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<GetBlockNumbersForLeafIndicesResponse> resp_msg(
+        WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, header, response);
 
     msgpack::pack(buffer, resp_msg);
 
