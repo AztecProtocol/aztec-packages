@@ -9,7 +9,7 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  type Header,
+  type BlockHeader,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicCircuitPublicInputs,
@@ -42,7 +42,7 @@ export function makeBloatedProcessedTx({
   privateOnly = false,
 }: {
   seed?: number;
-  header?: Header;
+  header?: BlockHeader;
   db?: MerkleTreeReadOperations;
   chainId?: Fr;
   version?: Fr;

@@ -1,5 +1,5 @@
 import { Body, type InBlock, L2Block, L2BlockHash, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, type AztecAddress, BlockHeader, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
 
@@ -147,14 +147,14 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers
    */
-  *getBlockHeaders(start: number, limit: number): IterableIterator<Header> {
+  *getBlockHeaders(start: number, limit: number): IterableIterator<BlockHeader> {
     for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
-      yield Header.fromBuffer(blockStorage.header);
+      yield BlockHeader.fromBuffer(blockStorage.header);
     }
   }
 
   private getBlockFromBlockStorage(blockStorage: BlockStorage) {
-    const header = Header.fromBuffer(blockStorage.header);
+    const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = header.hash().toString();
     const blockBodyBuffer = this.#blockBodies.get(blockHash);

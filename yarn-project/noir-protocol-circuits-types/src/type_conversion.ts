@@ -32,7 +32,7 @@ import {
   GlobalVariables,
   GrumpkinScalar,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  Header,
+  BlockHeader,
   KernelCircuitPublicInputs,
   type KeyValidationHint,
   KeyValidationRequest,
@@ -1868,7 +1868,7 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
  * @param header - The header.
  * @returns Header.
  */
-export function mapHeaderToNoir(header: Header): HeaderNoir {
+export function mapHeaderToNoir(header: BlockHeader): HeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
     content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
@@ -1884,8 +1884,8 @@ export function mapHeaderToNoir(header: Header): HeaderNoir {
  * @param header - The header.
  * @returns Header.
  */
-export function mapHeaderFromNoir(header: HeaderNoir): Header {
-  return new Header(
+export function mapHeaderFromNoir(header: HeaderNoir): BlockHeader {
+  return new BlockHeader(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
     mapContentCommitmentFromNoir(header.content_commitment),
     mapStateReferenceFromNoir(header.state),

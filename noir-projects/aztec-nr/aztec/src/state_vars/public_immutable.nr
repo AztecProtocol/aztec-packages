@@ -73,7 +73,7 @@ where
     T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
 {
     pub fn read(self) -> T {
-        let header = self.context.get_header();
+        let header = self.context.get_block_header();
         let mut fields = [0; T_SERIALIZED_LEN];
 
         for i in 0..fields.len() {

@@ -35,7 +35,7 @@ describe('prover/bb_prover/base-rollup', () => {
   });
 
   it('proves the base rollup', async () => {
-    const header = context.getHeader(0);
+    const header = context.getBlockHeader(0);
     const chainId = context.globalVariables.chainId;
     const version = context.globalVariables.version;
     const vkTreeRoot = getVKTreeRoot();

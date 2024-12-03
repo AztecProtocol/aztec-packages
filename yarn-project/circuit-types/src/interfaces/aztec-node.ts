@@ -5,7 +5,7 @@ import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   GasFees,
-  Header,
+  BlockHeader,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -370,7 +370,7 @@ export interface AztecNode
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getBlockHeader(blockNumber?: L2BlockNumber): Promise<Header>;
+  getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -549,7 +549,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
-  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(Header.schema),
+  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
 
   simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
 

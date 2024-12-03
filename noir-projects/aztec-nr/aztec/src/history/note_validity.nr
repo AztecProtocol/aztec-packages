@@ -1,10 +1,10 @@
 use crate::{context::PrivateContext, note::note_interface::{NoteInterface, NullifiableNote}};
 
-use dep::protocol_types::header::Header;
+use dep::protocol_types::block_header::BlockHeader;
 
 trait ProveNoteValidity {
     fn prove_note_validity<Note, let N: u32>(
-        header: Header,
+        header: BlockHeader,
         note: Note,
         context: &mut PrivateContext,
     )
@@ -12,7 +12,7 @@ trait ProveNoteValidity {
         Note: NoteInterface<N> + NullifiableNote;
 }
 
-impl ProveNoteValidity for Header {
+impl ProveNoteValidity for BlockHeader {
     fn prove_note_validity<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
     where
         Note: NoteInterface<N> + NullifiableNote,

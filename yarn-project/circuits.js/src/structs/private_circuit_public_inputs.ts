@@ -23,7 +23,7 @@ import {
   MAX_PRIVATE_LOGS_PER_CALL,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
-import { Header } from '../structs/header.js';
+import { BlockHeader } from '../structs/block_header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
 import { KeyValidationRequestAndGenerator } from './key_validation_request_and_generator.js';
@@ -126,7 +126,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
-    public historicalHeader: Header,
+    public historicalHeader: BlockHeader,
     /**
      * Transaction context.
      *
@@ -173,7 +173,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(TxContext),
     );
   }
@@ -200,7 +200,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
       reader.readField(),
       reader.readField(),
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(TxContext),
     );
   }
@@ -230,7 +230,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
       Fr.ZERO,
       Fr.ZERO,
-      Header.empty(),
+      BlockHeader.empty(),
       TxContext.empty(),
     );
   }

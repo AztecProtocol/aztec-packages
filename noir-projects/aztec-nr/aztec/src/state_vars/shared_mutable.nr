@@ -191,7 +191,7 @@ where
     fn historical_read_from_public_storage(
         self,
     ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) {
-        let header = self.context.get_header();
+        let header = self.context.get_block_header();
         let address = self.context.this_address();
 
         let historical_block_number = header.global_variables.block_number as u32;

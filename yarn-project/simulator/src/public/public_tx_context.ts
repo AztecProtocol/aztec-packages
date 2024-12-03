@@ -14,7 +14,7 @@ import {
   Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
+  type BlockHeader,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
   RevertCode,
@@ -58,7 +58,7 @@ export class PublicTxContext {
   constructor(
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
-    private readonly historicalHeader: Header, // FIXME(dbanks12): remove
+    private readonly historicalHeader: BlockHeader, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
     private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,

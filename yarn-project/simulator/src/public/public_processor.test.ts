@@ -16,7 +16,7 @@ import {
   Gas,
   GasFees,
   GlobalVariables,
-  Header,
+  BlockHeader,
   PublicDataWrite,
   RevertCode,
   countAccumulatedItems,
@@ -86,7 +86,7 @@ describe('public_processor', () => {
     processor = new PublicProcessor(
       db,
       globalVariables,
-      Header.empty(),
+      BlockHeader.empty(),
       worldStateDB,
       publicTxProcessor,
       new NoopTelemetryClient(),

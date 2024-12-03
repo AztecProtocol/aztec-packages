@@ -10,7 +10,7 @@ import {
 import {
   type CompleteAddress,
   type ContractInstance,
-  type Header,
+  type BlockHeader,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
@@ -138,7 +138,7 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @returns A Promise that resolves to a Header object.
    */
-  getHeader(): Promise<Header>;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Fetch the index of the leaf in the respective tree

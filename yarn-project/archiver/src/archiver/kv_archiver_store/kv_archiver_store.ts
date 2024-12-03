@@ -13,7 +13,7 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
-  type Header,
+  type BlockHeader,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
@@ -171,7 +171,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlockHeaders(start: number, limit: number): Promise<Header[]> {
+  getBlockHeaders(start: number, limit: number): Promise<BlockHeader[]> {
     try {
       return Promise.resolve(Array.from(this.#blockStore.getBlockHeaders(start, limit)));
     } catch (err) {

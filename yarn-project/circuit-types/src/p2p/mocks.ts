@@ -1,4 +1,4 @@
-import { type Header } from '@aztec/circuits.js';
+import { type BlockHeader } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -11,7 +11,7 @@ import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } f
 
 export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
-  header?: Header;
+  header?: BlockHeader;
   archive?: Fr;
   txHashes?: TxHash[];
 }

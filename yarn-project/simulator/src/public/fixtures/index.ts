@@ -10,7 +10,7 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  Header,
+  BlockHeader,
   MAX_L2_GAS_PER_ENQUEUED_CALL,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
@@ -117,7 +117,7 @@ export function createTxForPublicCall(
   const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const constantData = new TxConstantData(Header.empty(), txContext, Fr.zero(), Fr.zero());
+  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,

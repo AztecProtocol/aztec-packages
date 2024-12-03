@@ -122,7 +122,7 @@ import { Gas } from '../structs/gas.js';
 import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
-import { Header } from '../structs/header.js';
+import { BlockHeader } from '../structs/block_header.js';
 import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
@@ -879,8 +879,8 @@ export function makeHeader(
   blockNumber: number | undefined = undefined,
   slotNumber: number | undefined = undefined,
   txsEffectsHash: Buffer | undefined = undefined,
-): Header {
-  return new Header(
+): BlockHeader {
+  return new BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),

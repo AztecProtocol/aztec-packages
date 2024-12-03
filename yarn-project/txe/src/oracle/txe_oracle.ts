@@ -17,7 +17,7 @@ import {
   Gas,
   GasFees,
   GlobalVariables,
-  Header,
+  BlockHeader,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -362,8 +362,8 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async getHeader(blockNumber: number): Promise<Header | undefined> {
-    const header = Header.empty();
+  async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+    const header = BlockHeader.empty();
     const db = await this.#getTreesAt(blockNumber);
     header.state = await db.getStateReference();
     header.globalVariables.blockNumber = new Fr(blockNumber);

@@ -6,7 +6,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { type GlobalVariables, type BlockHeader } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -37,7 +37,7 @@ import { ValidatorMetrics } from './metrics.js';
 type BlockBuilderCallback = (
   txs: Tx[],
   globalVariables: GlobalVariables,
-  historicalHeader?: Header,
+  historicalHeader?: BlockHeader,
   interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
 ) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
 
@@ -47,7 +47,7 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsiblities
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -210,7 +210,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     return this.validationService.createBlockProposal(header, archive, txs);
   }
 

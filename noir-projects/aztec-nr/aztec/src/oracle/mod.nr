@@ -15,7 +15,7 @@ pub mod key_validation_request;
 pub mod get_sibling_path;
 pub mod random;
 pub mod enqueue_public_function_call;
-pub mod header;
+pub mod block_header;
 pub mod notes;
 pub mod storage;
 pub mod logs;

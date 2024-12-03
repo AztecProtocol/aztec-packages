@@ -9,7 +9,7 @@ import {
   Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
+  type BlockHeader,
   L2ToL1Message,
   LogHash,
   MAX_ENQUEUED_CALLS_PER_CALL,
@@ -187,7 +187,7 @@ export function generateAvmProvingRequest(
   real: boolean,
   fnName: string,
   stateManager: AvmPersistableStateManager,
-  historicalHeader: Header,
+  historicalHeader: BlockHeader,
   globalVariables: GlobalVariables,
   executionRequest: PublicExecutionRequest,
   result: EnqueuedPublicCallExecutionResult,
@@ -245,7 +245,7 @@ function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: Public
 }
 
 function getPublicCircuitPublicInputs(
-  historicalHeader: Header,
+  historicalHeader: BlockHeader,
   globalVariables: GlobalVariables,
   result: PublicFunctionCallResult,
 ) {

@@ -65,9 +65,9 @@ contract InclusionProofs {
         // docs:start:prove_note_inclusion
         // 2) Prove the note inclusion
         let header = if (use_block_number) {
-            context.get_header_at(block_number)
+            context.get_block_header_at(block_number)
         } else {
-            context.get_header()
+            context.get_block_header()
         };
 
         header.prove_note_inclusion(note);
@@ -80,13 +80,13 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32, // The block at which we'll prove that the note exists
     ) {
-        let header = context.get_header();
+        let header = context.get_block_header();
         let mut note = ValueNote::new(1, owner);
 
         let header = if (use_block_number) {
-            context.get_header_at(block_number)
+            context.get_block_header_at(block_number)
         } else {
-            context.get_header()
+            context.get_block_header()
         };
 
         header.prove_note_inclusion(note);
@@ -113,9 +113,9 @@ contract InclusionProofs {
         let note = private_values.get_notes(options).get(0);
 
         let header = if (use_block_number) {
-            context.get_header_at(block_number)
+            context.get_block_header_at(block_number)
         } else {
-            context.get_header()
+            context.get_block_header()
         };
         // docs:start:prove_note_not_nullified
         header.prove_note_not_nullified(note, &mut context);
@@ -140,9 +140,9 @@ contract InclusionProofs {
 
         // 2) Prove the note validity
         let header = if (use_block_number) {
-            context.get_header_at(block_number)
+            context.get_block_header_at(block_number)
         } else {
-            context.get_header()
+            context.get_block_header()
         };
         // docs:start:prove_note_validity
         header.prove_note_validity(note, &mut context);
@@ -170,9 +170,9 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the nullifier exists in the nullifier tree
     ) {
         let header = if (use_block_number) {
-            context.get_header_at(block_number)
+            context.get_block_header_at(block_number)
         } else {
-            context.get_header()
+            context.get_block_header()
         };
         // docs:start:prove_nullifier_inclusion
         header.prove_nullifier_inclusion(nullifier);
@@ -194,7 +194,7 @@ contract InclusionProofs {
     fn test_storage_historical_read_unset_slot(
         block_number: u32, // The block at which we'll read the public storage value
     ) {
-        let header = context.get_header_at(block_number);
+        let header = context.get_block_header_at(block_number);
         // docs:start:public_storage_historical_read
         assert_eq(
             header.public_storage_historical_read(
@@ -213,9 +213,9 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll read the public storage value
     ) {
         let header = if (use_block_number) {
-            context.get_header_at(block_number)
+            context.get_block_header_at(block_number)
         } else {
-            context.get_header()
+            context.get_block_header()
         };
 
         let actual = header.public_storage_historical_read(
@@ -234,7 +234,7 @@ contract InclusionProofs {
         test_deployment: bool,
         test_initialization: bool,
     ) {
-        let header = context.get_header_at(block_number);
+        let header = context.get_block_header_at(block_number);
 
         if test_deployment {
             // docs:start:prove_contract_deployment
@@ -256,7 +256,7 @@ contract InclusionProofs {
         test_deployment: bool,
         test_initialization: bool,
     ) {
-        let header = context.get_header_at(block_number);
+        let header = context.get_block_header_at(block_number);
 
         if test_deployment {
             // docs:start:prove_contract_non_deployment

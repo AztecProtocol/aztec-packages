@@ -21,7 +21,7 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   Fr,
-  type Header,
+  type BlockHeader,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -427,7 +427,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2Blocks.slice(fromIndex, toIndex));
   }
 
-  public async getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  public async getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     const blocks = await this.getBlocks(from, limit);
     return blocks.map(block => block.data.header);
   }

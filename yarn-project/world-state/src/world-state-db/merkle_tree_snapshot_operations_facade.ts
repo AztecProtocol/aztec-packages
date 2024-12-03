@@ -5,7 +5,7 @@ import {
   type MerkleTreeReadOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { AppendOnlyTreeSnapshot, Fr, type Header, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, type BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type IndexedTreeSnapshot } from '@aztec/merkle-tree';
 
@@ -136,7 +136,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
     );
   }
 
-  getInitialHeader(): Header {
+  getInitialHeader(): BlockHeader {
     throw new Error('Getting initial header not supported on snapshot.');
   }
 }

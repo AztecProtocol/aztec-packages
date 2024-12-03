@@ -15,7 +15,7 @@ use types::{
         PUBLIC_BASE_ROLLUP_VK_INDEX,
     },
     content_commitment::ContentCommitment,
-    header::Header,
+    block_header::BlockHeader,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
     state_reference::StateReference,
     traits::Empty,

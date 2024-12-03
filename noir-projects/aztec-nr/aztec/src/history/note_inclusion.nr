@@ -1,4 +1,4 @@
-use dep::protocol_types::header::Header;
+use dep::protocol_types::block_header::BlockHeader;
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
@@ -7,12 +7,12 @@ use crate::{
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note)
+    fn prove_note_inclusion<Note, let N: u32>(header: BlockHeader, note: Note)
     where
         Note: NoteInterface<N> + NullifiableNote;
 }
 
-impl ProveNoteInclusion for Header {
+impl ProveNoteInclusion for BlockHeader {
     fn prove_note_inclusion<Note, let N: u32>(self, note: Note)
     where
         Note: NoteInterface<N> + NullifiableNote,

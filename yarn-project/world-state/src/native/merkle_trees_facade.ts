@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
-  type Header,
+  type BlockHeader,
   NullifierLeaf,
   NullifierLeafPreimage,
   PartialStateReference,
@@ -37,11 +37,11 @@ import { type NativeWorldStateInstance } from './native_world_state_instance.js'
 export class MerkleTreesFacade implements MerkleTreeReadOperations {
   constructor(
     protected readonly instance: NativeWorldStateInstance,
-    protected readonly initialHeader: Header,
+    protected readonly initialHeader: BlockHeader,
     protected readonly revision: WorldStateRevision,
   ) {}
 
-  getInitialHeader(): Header {
+  getInitialHeader(): BlockHeader {
     return this.initialHeader;
   }
 
@@ -182,13 +182,13 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
-  constructor(instance: NativeWorldStateInstance, initialHeader: Header, revision: WorldStateRevision) {
+  constructor(instance: NativeWorldStateInstance, initialHeader: BlockHeader, revision: WorldStateRevision) {
     assert.notEqual(revision.forkId, 0, 'Fork ID must be set');
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
 
-  async updateArchive(header: Header): Promise<void> {
+  async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
       blockHeaderHash: header.hash().toBuffer(),

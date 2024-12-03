@@ -13,7 +13,7 @@ import {
   AZTEC_MAX_EPOCH_DURATION,
   EthAddress,
   type FeeRecipient,
-  type Header,
+  type BlockHeader,
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -338,7 +338,7 @@ export class L1Publisher {
    *
    */
   public async validateBlockForSubmission(
-    header: Header,
+    header: BlockHeader,
     attestationData: { digest: Buffer; signatures: Signature[] } = {
       digest: Buffer.alloc(32),
       signatures: [],

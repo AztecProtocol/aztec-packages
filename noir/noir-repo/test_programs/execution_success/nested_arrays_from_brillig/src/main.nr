@@ -5,7 +5,7 @@ struct Header {
 struct MyNote {
     plain: Field,
     array: [Field; 2],
-    header: Header,
+    header: BlockHeader,
 }
 
 fn access_nested(notes: [MyNote; 2]) -> Field {
