@@ -1,6 +1,6 @@
 #!/bin/bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 CMD=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
@@ -47,11 +47,11 @@ case "$CMD" in
     # allows for e.g. ec2 full or ec2 cache-sanity-test
     shift 1
     # Spin up ec2 instance and bootstrap.
-    $ci3/bootstrap/ec2 "$@"
+    bootstrap_ec2 "$@"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
-    $ci3/bootstrap/local
+    bootstrap_local
     ;;
   "run")
     # Trigger a GA workflow for current branch PR and tail logs.

@@ -1,10 +1,10 @@
 #!/bin/bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 CMD=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
 NO_TERMINATE=${NO_TERMINATE:-0}
-# picked up by $ci3/github/group and $ci3/github/endgroup
+# picked up by github_group and github_endgroup
 GITHUB_LOG=${GITHUB_LOG:-}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
@@ -12,7 +12,7 @@ BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 function on_exit {
     set +e
     if [ "$NO_TERMINATE" -eq 0 ]; then
-      $ci3/aws/terminate_instance $ip $sir
+      aws_terminate_instance $ip $sir
     else
       echo "Remote machine not terminated, connect with: ./ci.sh attach"
     fi
@@ -27,7 +27,7 @@ fi
 
 instance_name="${BRANCH//\//_}"
 
-$ci3/github/group "Request Build Instance"
+github_group "Request Build Instance"
 # Terminate any existing instance with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
@@ -40,12 +40,12 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$($ci3/aws/request_instance $instance_name 128 x86_64)
+ip_sir=$(aws_request_instance $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
 trap on_exit EXIT
-$ci3/github/endgroup
+github_endgroup
 
 args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
@@ -57,7 +57,7 @@ args+=" -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}"
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails).
 # Run in our build container, cloning commit and running bootstrap.sh.
-$ci3/github/group "Start CI Image"
+github_group "Start CI Image"
 ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   # Not interested in shutdown messages.
   mesg n

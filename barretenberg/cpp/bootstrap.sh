@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 cleanup() {
     BG_PIDS=$(jobs -p)
@@ -13,7 +13,7 @@ trap cleanup EXIT
 
 CMD=${1:-}
 
-$ci3/github/group "bb cpp build"
+github_group "bb cpp build"
 
 if [ -n "$CMD" ]; then
   if [ "$CMD" = "clean" ]; then
@@ -62,17 +62,17 @@ rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 
 (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
 
-HASH=$($ci3/cache/content_hash .rebuild_patterns)
+HASH=$(cache_content_hash .rebuild_patterns)
 
 function test_native {
-  if $ci3/cache/should_run barretenberg-test-$HASH; then
+  if test_should_run barretenberg-test-$HASH; then
     cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $PRESET
 
     # Download ignition transcripts.
-    $ci3/github/group "download ignition"
+    github_group "download ignition"
     (cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
-    $ci3/github/endgroup
+    github_endgroup
 
     if [ ! -d ./srs_db/grumpkin ]; then
       # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
@@ -82,7 +82,7 @@ function test_native {
     fi
 
     (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
-    $ci3/cache/upload_flag barretenberg-test-$HASH
+    cache_upload_flag barretenberg-test-$HASH
   fi
 }
 function build_native {
@@ -99,21 +99,21 @@ function build_native {
   mkdir -p ../../yarn-project/world-state/build/
   cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 
-  $ci3/cache/upload barretenberg-preset-release-$HASH.tar.gz build/bin
-  $ci3/cache/upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
+  cache_upload barretenberg-preset-release-$HASH.tar.gz build/bin
+  cache_upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
   test_native
 }
 
 function build_wasm {
   cmake --preset wasm
   cmake --build --preset wasm
-  $ci3/cache/upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
+  cache_upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
 }
 
 function build_wasm_threads {
   cmake --preset wasm-threads
   cmake --build --preset wasm-threads
-  $ci3/cache/upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
+  cache_upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
 }
 
 export PRESET PIC_PRESET HASH HAD_CACHE ci3
@@ -127,4 +127,4 @@ else
   test_native
 fi
 
-$ci3/github/endgroup
+github_endgroup

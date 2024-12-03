@@ -5,7 +5,10 @@
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
+
+# Enable abbreviated output.
+export DENOISE=1
 
 # Enable abbreviated output.
 export DENOISE=1
@@ -16,8 +19,6 @@ YELLOW="\033[93m"
 RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
-
-export DENOISE=1
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${RESET}"
@@ -206,9 +207,9 @@ HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
-$ci3/github/group "Pull Submodules"
+github_group "Pull Submodules"
 denoise git submodule update --init --recursive
-$ci3/github/endgroup
+github_endgroup
 
 check_toolchains
 

@@ -53,7 +53,7 @@ describe('AVM Integration', () => {
     return provingResult as BBSuccess;
   }
 
-  // TODO broken, bug David Banks
+  // TODO: Skipping for now as per Davids advice.
   it.skip('Should generate and verify an ultra honk proof from an AVM verification', async () => {
     const bbSuccess = await proveAvmTestContract(
       'bulk_testing',

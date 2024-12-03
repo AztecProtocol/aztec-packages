@@ -18,8 +18,9 @@ if [ "${1:-}" != "compile" ]; then
 fi
 shift # remove the compile arg so we can inject --show-artifact-paths
 
-# Forward all arguments to nargo, tee output to console
-artifacts_to_process=$($NARGO compile --inliner-aggressiveness 0 --show-artifact-paths $@ | tee /dev/tty | grep -oP 'Saved contract artifact to: \K.*')
+# Forward all arguments to nargo, tee output to console.
+# Nargo should be outputing errors to stderr, but it doesn't. So tee to stdout to display errors.
+artifacts_to_process=$($NARGO compile --inliner-aggressiveness 0 --show-artifact-paths $@ | tee >(cat >&2) | grep -oP 'Saved contract artifact to: \K.*')
 
 # NOTE: the output that is teed to /dev/tty will normally not be redirectable by the caller.
 # If the script is run via docker, however, the user will see this output on stdout and will be able to redirect.

@@ -1,16 +1,25 @@
 #!/bin/bash
 # Use the minio script base. We ensure minio is running and wipe it.
+<<<<<<< HEAD
 source $(git rev-parse --show-toplevel)/ci3/cache/test_source
+=======
+source $(git rev-parse --show-toplevel)/ci3/source_test
+>>>>>>> origin/cl/ci3
 
 set -o pipefail
 
 export DENOISE=${DENOISE:-1}
 # Tests the various modes of bootstrap test usage.
+<<<<<<< HEAD
 # We wrap and mock ci3/cache/should_run to detect when a test tries to run.
+=======
+# We wrap and mock ci3/test_should_run to detect when a test tries to run.
+>>>>>>> origin/cl/ci3
 # We never return true, as we don't actually want to run tests here.
 # - First, with CI=0, we assert that should_run returns true to each test.
 # - Then, with CI=1, we assert that should_run returns true to each test, as it is a first pass.
 # - Next, with CI=1, we assert that should_run returns false to each test, as it is a second pass.
+<<<<<<< HEAD
 # We mock ci3/cache/should_run for this purpose.
 function run_cleanup() {
   rm -f $ci3/cache/download.bkup
@@ -21,18 +30,39 @@ function run_cleanup() {
 function exit_cleanup() {
   run_cleanup
   rm -f $ci3/cache/.test_failures
+=======
+# We mock ci3/test_should_run for this purpose.
+function run_cleanup() {
+  rm -f cache_download.bkup
+  rm -f test_should_run.bkup
+  git checkout -- test_should_run
+  git checkout -- cache_download
+}
+function exit_cleanup() {
+  run_cleanup
+  rm -f $ci3/.test_failures
+>>>>>>> origin/cl/ci3
 }
 trap exit_cleanup EXIT
 
 function run_bootstrap() {
   set +e
   project=$1
+<<<<<<< HEAD
   cp $ci3/cache/should_run $ci3/cache/should_run.bkup
   cp $ci3/cache/download $ci3/cache/download.bkup
   # Install our mocks
   cp $2 $ci3/cache/should_run
   cp $3 $ci3/cache/download
   rm -f $ci3/cache/.test_faillures
+=======
+  cp test_should_run test_should_run.bkup
+  cp cache_download cache_download.bkup
+  # Install our mocks
+  cp $2 test_should_run
+  cp $3 cache_download
+  rm -f $ci3/.test_failures
+>>>>>>> origin/cl/ci3
 
   cd $root/$project
   TEST=1 USE_CACHE=1 denoise ./bootstrap.sh
@@ -45,9 +75,15 @@ function run_bootstrap() {
 }
 
 function check_for_bad_asserts() {
+<<<<<<< HEAD
   if [ -s "$ci3/cache/.test_faillures" ]; then
     echo "Failures detected:"
     cat "$ci3/cache/.test_faillures"
+=======
+  if [ -s "$ci3/.test_failures" ]; then
+    echo "Failures detected:"
+    cat "$ci3/.test_failures"
+>>>>>>> origin/cl/ci3
     exit 1
   fi
 }

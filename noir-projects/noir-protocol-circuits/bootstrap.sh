@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 CMD=${1:-}
 
@@ -10,9 +10,9 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns
-export BB_HASH=$($ci3/cache/content_hash)
+export BB_HASH=$(cache_content_hash)
 export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns_native
-export NARGO_HASH=$($ci3/cache/content_hash)
+export NARGO_HASH=$(cache_content_hash)
 
 tmp_dir=./target/tmp
 key_dir=./target/keys
@@ -49,21 +49,21 @@ function compile {
   local proto=$(echo "$name" | grep -qE "${megahonk_regex}" && echo "mega_honk" || echo "ultra_honk")
   local program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
   local hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
-  if ! $ci3/cache/download circuit-$hash.tar.gz 2> /dev/null; then
+  if ! cache_download circuit-$hash.tar.gz 2> /dev/null; then
     SECONDS=0
     $NARGO compile --package $name --silence-warnings
     echo "Compilation complete for: $name (${SECONDS}s)"
-    $ci3/cache/upload circuit-$hash.tar.gz $json_path 2> /dev/null
+    cache_upload circuit-$hash.tar.gz $json_path 2> /dev/null
   fi
 
   # No vks needed for simulated circuits.
-  [ "$name" == *"simulated"* ] && continue
+  [[ "$name" == *"simulated"* ]] && return
 
   # Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   local hash=$(echo "$BB_HASH-$bytecode_hash-$proto" | sha256sum | tr -d ' -')
-  if ! $ci3/cache/download vk-$hash.tar.gz 2> /dev/null; then
+  if ! cache_download vk-$hash.tar.gz 2> /dev/null; then
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
     SECONDS=0
@@ -71,12 +71,13 @@ function compile {
     local vk_fields=$(echo "$vk" | base64 -d | $BB vk_as_fields_$proto -k - -o - 2>/dev/null)
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo "Key output at: $key_path (${SECONDS}s)"
-    $ci3/cache/upload vk-$hash.tar.gz $key_path 2> /dev/null
+    cache_upload vk-$hash.tar.gz $key_path 2> /dev/null
   fi
 }
 
 function build {
-  set -eu
+  set +e
+  set -u
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -85,7 +86,9 @@ function build {
       fi
     done | \
     parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+  code=$?
   cat joblog.txt
+  return $code
 }
 
 function test {
@@ -94,13 +97,14 @@ function test {
   name=$(basename "$PWD")
   export REBUILD_PATTERNS="^noir-projects/$name"
   export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns_native)
-  CIRCUITS_HASH=$($ci3/cache/content_hash)
-  if $ci3/base/is_test || $ci3/cache/should_run $name-tests-$CIRCUITS_HASH; then
-    $ci3/github/group "$name test"
-    RAYON_NUM_THREADS= $NARGO test --silence-warnings
-    $ci3/cache/upload_flag $name-tests-$CIRCUITS_HASH
-    $ci3/github/endgroup
+  CIRCUITS_HASH=$(cache_content_hash)
+  if ! test_should_run $name-tests-$CIRCUITS_HASH; then
+    return
   fi
+  github_group "$name test"
+  RAYON_NUM_THREADS= $NARGO test --silence-warnings
+  cache_upload_flag $name-tests-$CIRCUITS_HASH
+  github_endgroup
 }
 
 export -f compile test build
@@ -112,17 +116,14 @@ case "$CMD" in
   "clean-keys")
     rm -rf target/keys
     ;;
-  ""|"fast")
-    USE_CACHE=1 build
-    ;;
-  "full")
+  ""|"fast"|"full")
     build
     ;;
   "test")
     test
     ;;
   "ci")
-    USE_CACHE=1 parallel --line-buffered bash -c {} ::: build test
+    parallel --line-buffered bash -c {} ::: build test
     ;;
   *)
     echo "Unknown command: $CMD"

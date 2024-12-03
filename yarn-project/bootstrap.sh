@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 YELLOW="\033[93m"
 BLUE="\033[34m"
@@ -12,9 +12,9 @@ RESET="\033[0m"
 CMD=${1:-}
 
 function build {
-  $ci3/github/group "yarn-project build"
+  github_group "yarn-project build"
 
-  HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
+  HASH=$(cache_content_hash ../noir/.rebuild_patterns* \
     ../noir-projects/.rebuild_patterns \
     ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns)
@@ -28,7 +28,7 @@ function build {
   echo "yarn install: "
   denoise yarn install
 
-  if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+  if ! cache_download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;
@@ -41,23 +41,26 @@ function build {
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     FILES_TO_UPLOAD=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
-    $ci3/cache/upload yarn-project-$HASH.tar.gz $FILES_TO_UPLOAD
+    cache_upload yarn-project-$HASH.tar.gz $FILES_TO_UPLOAD
     echo
     echo -e "${GREEN}Yarn project successfully built!${RESET}"
   fi
-  $ci3/github/endgroup
+  github_endgroup
 
-  if $ci3/cache/should_run yarn-project-tests-"$HASH"; then
-    yarn test
-    export ci3 YELLOW BLUE GREEN BOLD RESET CMD
+  if test_should_run "yarn-project-tests-$HASH"; then
+    github_group "yarn-project unit test"
+    denoise yarn test
+    github_endgroup
+
+    github_group "yarn-project e2e tests"
     export -f run_e2e_tests
     denoise run_e2e_tests
-    $ci3/cache/upload yarn-project-tests-"$HASH"
+    github_endgroup
+    cache_upload_flag "yarn-project-tests-$HASH"
   fi
 }
 
 function run_e2e_tests {
-  $ci3/github/group "yarn-project test"
   cd end-to-end
 
   # Pre-pull the required image for visibility.
@@ -122,7 +125,7 @@ function run_e2e_tests {
     "simple e2e_p2p/reqresp"
     "flake e2e_p2p/upgrade_governance_proposer"
     "simple e2e_private_voting_contract"
-    "simple e2e_prover/full FAKE_PROOFS=1"
+    "flake e2e_prover/full FAKE_PROOFS=1"
     "simple e2e_prover_coordination"
     "simple e2e_public_testnet_transfer"
     "simple e2e_state_vars"
@@ -142,9 +145,9 @@ function run_e2e_tests {
 
     "compose composed/docs_examples"
     "flake composed/e2e_aztec_js_browser"
+    "compose composed/e2e_pxe"
     "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
-    "compose composed/pxe"
     "compose sample-dapp/index"
     "compose sample-dapp/ci/index"
     "compose guides/dapp_testing"
@@ -171,23 +174,23 @@ function run_e2e_tests {
   code=$?
   set -e
 
-  awk 'NR > 1 && $7 != 0 {print $NF "-" $1}' joblog.txt | while read -r job; do
+  # Note this is highly dependent on the command structure above.
+  # Skip first line (header).
+  # 7th field (1-indexed) is exit value.
+  # (NF-1) is the second to last field, so skips the last field "2>&1" to give the test name.
+  # We can't index from the front because {3} above is a variable length set of env vars.
+  # We concat the test name with its job number in $1, to allow running the same test with different env vars.
+  awk 'NR > 1 && $7 != 0 {print $(NF-1) "-" $1}' joblog.txt | while read -r job; do
     stdout_file="results/${job}/stdout"
-    # stderr_file="results/${job}/stderr"
     if [ -f "$stdout_file" ]; then
       echo "=== Failed Job Output ==="
       cat "$stdout_file"
     fi
-    # if [ -f "$stderr_file" ]; then
-    #   echo "=== Failed Job Output: $stderr_file ==="
-    #   cat "$stderr_file"
-    # fi
   done
 
   echo "=== Job Log ==="
   cat joblog.txt
 
-  $ci3/github/endgroup
   exit $code
 }
 

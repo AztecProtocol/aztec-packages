@@ -3,7 +3,7 @@
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
 #   RECURSIVE: to enable --recursive for each test.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 FLOW=${FLOW:-prove_and_verify}
@@ -38,4 +38,4 @@ if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
 fi
 
 jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-parallel -j$jobs --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
+parallel -j$jobs --line-buffered --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
