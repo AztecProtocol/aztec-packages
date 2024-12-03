@@ -222,7 +222,9 @@ end-to-end-base:
         && chmod +x /usr/local/bin/kubectl \
         && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz \
         && tar xf google-cloud-cli-linux-x86_64.tar.gz \
-        && ./google-cloud-sdk/install.sh --additional-components gke-gcloud-auth-plugin --path-update true --quiet \
+        && mv google-cloud-sdk /usr/lib/google-cloud-sdk \
+        && /usr/lib/google-cloud-sdk/install.sh --additional-components gke-gcloud-auth-plugin --path-update false --quiet \
+        && ln -s /usr/lib/google-cloud-sdk/bin/gcloud /usr/bin/gcloud \
         && rm google-cloud-cli-linux-x86_64.tar.gz \
         && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
         && chmod +x get_helm.sh \
