@@ -113,7 +113,7 @@ library HeaderLib {
    * @param _header - The header calldata
    * @return The decoded header
    */
-  function decode(bytes calldata _header) internal pure returns (Header memory) {
+  function decode(bytes calldata _header) external pure returns (Header memory) {
     require(
       _header.length == HEADER_LENGTH,
       Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length)
@@ -166,7 +166,7 @@ library HeaderLib {
     return header;
   }
 
-  function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
+  function toFields(Header memory _header) external pure returns (bytes32[] memory) {
     bytes32[] memory fields = new bytes32[](25);
 
     // must match the order in the Header.getFields
@@ -213,7 +213,7 @@ library HeaderLib {
   // TODO(#7346): Currently using the below to verify block root proofs until batch rollups fully integrated.
   // Once integrated, remove the below fn (not used anywhere else).
   function toFields(GlobalVariables memory _globalVariables)
-    internal
+    external
     pure
     returns (bytes32[] memory)
   {

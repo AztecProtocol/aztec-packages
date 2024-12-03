@@ -6,7 +6,7 @@ import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -92,7 +92,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes header;
     bytes body;
     bytes32[] txHashes;
-    SignatureLib.Signature[] signatures;
+    Signature[] signatures;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -156,7 +156,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 blockHash = 0x267f79fe7e757b20e924fac9f78264a0d1c8c4b481fea21d0bbe74650d87a1f1;
 
     bytes32[] memory txHashes = new bytes32[](0);
-    SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+    Signature[] memory signatures = new Signature[](0);
 
     bytes memory body = full.block.body;
     bytes memory header = full.block.header;

@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {ManaBaseFeeComponents} from "@aztec/core/libraries/FeeMath.sol";
@@ -67,15 +67,12 @@ interface IRollup {
 
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
-  function propose(
-    ProposeArgs calldata _args,
-    SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body
-  ) external;
+  function propose(ProposeArgs calldata _args, Signature[] memory _signatures, bytes calldata _body)
+    external;
 
   function proposeAndClaim(
     ProposeArgs calldata _args,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes calldata _body,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
@@ -86,7 +83,7 @@ interface IRollup {
 
   function validateHeader(
     bytes calldata _header,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _txsEffecstHash,

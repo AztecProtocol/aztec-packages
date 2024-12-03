@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 library EpochProofQuoteLib {
@@ -29,7 +29,7 @@ library EpochProofQuoteLib {
    */
   struct SignedEpochProofQuote {
     EpochProofQuote quote;
-    SignatureLib.Signature signature;
+    Signature signature;
   }
 
   bytes32 public constant EPOCH_PROOF_QUOTE_TYPEHASH = keccak256(

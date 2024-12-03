@@ -19,7 +19,7 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -38,6 +38,8 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {ValidationLib} from "@aztec/core/libraries/RollupLibs/ValidationLib.sol";
+
 import {Vm} from "forge-std/Vm.sol";
 
 struct ChainTips {
@@ -257,7 +259,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    */
   function proposeAndClaim(
     ProposeArgs calldata _args,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes calldata _body,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
@@ -438,7 +440,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 tipArchive = blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    SignatureLib.Signature[] memory sigs = new SignatureLib.Signature[](0);
+    Signature[] memory sigs = new Signature[](0);
     DataStructures.ExecutionFlags memory flags =
       DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
     _validateLeonidas(slot, sigs, _archive, flags);
@@ -460,7 +462,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    */
   function validateHeader(
     bytes calldata _header,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _txsEffectsHash,
@@ -536,11 +538,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
-  function propose(
-    ProposeArgs calldata _args,
-    SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body
-  ) public override(IRollup) {
+  function propose(ProposeArgs calldata _args, Signature[] memory _signatures, bytes calldata _body)
+    public
+    override(IRollup)
+  {
     if (canPrune()) {
       _prune();
     }
@@ -1071,7 +1072,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    */
   function _validateHeader(
     HeaderLib.Header memory _header,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
     uint256 _manaBaseFee,
@@ -1080,8 +1081,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) internal view {
     uint256 pendingBlockNumber =
       canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
-    _validateHeaderForSubmissionBase(
-      _header, _currentTime, _manaBaseFee, _txEffectsHash, pendingBlockNumber, _flags
+
+    ValidationLib.validateHeaderForSubmissionBase(
+      ValidationLib.ValidateHeaderArgs({
+        header: _header,
+        currentTime: _currentTime,
+        manaBaseFee: _manaBaseFee,
+        txsEffectsHash: _txEffectsHash,
+        pendingBlockNumber: pendingBlockNumber,
+        flags: _flags,
+        version: VERSION,
+        feeJuicePortal: FEE_JUICE_PORTAL,
+        getTimestampForSlot: this.getTimestampForSlot
+      }),
+      blocks
     );
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
@@ -1106,7 +1119,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    */
   function _validateHeaderForSubmissionSequencerSelection(
     Slot _slot,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
     DataStructures.ExecutionFlags memory _flags
@@ -1125,91 +1138,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     require(epochNumber == currentEpoch, Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber));
 
     _validateLeonidas(_slot, _signatures, _digest, _flags);
-  }
-
-  /**
-   * @notice  Validate a header for submission to the pending chain (base checks)
-   *          Base checks here being the checks that we wish to do regardless of the sequencer
-   *          selection mechanism.
-   *
-   *         Each of the following validation checks must pass, otherwise an error is thrown and we revert.
-   *          - The chain ID MUST match the current chain ID
-   *          - The version MUST match the current version
-   *          - The block id MUST be the next block in the chain
-   *          - The last archive root in the header MUST match the current archive
-   *          - The slot MUST be larger than the slot of the previous block (ensures single block per slot)
-   *          - The timestamp MUST be equal to GENESIS_TIME + slot * SLOT_DURATION
-   *          - The `txsEffectsHash` of the header must match the computed `_txsEffectsHash`
-   *            - This can be relaxed to happen at the time of `submitProof` instead
-   *
-   * @param _header - The header to validate
-   */
-  function _validateHeaderForSubmissionBase(
-    HeaderLib.Header memory _header,
-    Timestamp _currentTime,
-    uint256 _manaBaseFee,
-    bytes32 _txsEffectsHash,
-    uint256 _pendingBlockNumber,
-    DataStructures.ExecutionFlags memory _flags
-  ) internal view {
-    require(
-      block.chainid == _header.globalVariables.chainId,
-      Errors.Rollup__InvalidChainId(block.chainid, _header.globalVariables.chainId)
-    );
-
-    require(
-      _header.globalVariables.version == VERSION,
-      Errors.Rollup__InvalidVersion(VERSION, _header.globalVariables.version)
-    );
-
-    require(
-      _header.globalVariables.blockNumber == _pendingBlockNumber + 1,
-      Errors.Rollup__InvalidBlockNumber(
-        _pendingBlockNumber + 1, _header.globalVariables.blockNumber
-      )
-    );
-
-    bytes32 tipArchive = blocks[_pendingBlockNumber].archive;
-    require(
-      tipArchive == _header.lastArchive.root,
-      Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root)
-    );
-
-    Slot slot = Slot.wrap(_header.globalVariables.slotNumber);
-    Slot lastSlot = blocks[_pendingBlockNumber].slotNumber;
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    Timestamp timestamp = getTimestampForSlot(slot);
-    require(
-      Timestamp.wrap(_header.globalVariables.timestamp) == timestamp,
-      Errors.Rollup__InvalidTimestamp(timestamp, Timestamp.wrap(_header.globalVariables.timestamp))
-    );
-
-    // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
-    //        from the value that we have in the constants.
-    //        When you are encountering this, it will likely be as the sequencer expects to be able to include
-    //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
-    //        from the last block. However, if the actual will only be 1 second in the future, you will end up
-    //        expecting this value to be in the future.
-    require(timestamp <= _currentTime, Errors.Rollup__TimestampInFuture(_currentTime, timestamp));
-
-    // Check if the data is available
-    require(
-      _flags.ignoreDA || _header.contentCommitment.txsEffectsHash == _txsEffectsHash,
-      Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash)
-    );
-
-    // If not canonical rollup, require that the fees are zero
-    if (address(this) != FEE_JUICE_PORTAL.canonicalRollup()) {
-      require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
-      require(_header.globalVariables.gasFees.feePerL2Gas == 0, Errors.Rollup__NonZeroL2Fee());
-    } else {
-      require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
-      require(
-        _header.globalVariables.gasFees.feePerL2Gas == _manaBaseFee,
-        Errors.Rollup__InvalidManaBaseFee(_manaBaseFee, _header.globalVariables.gasFees.feePerL2Gas)
-      );
-    }
   }
 
   function _fakeBlockNumberAsProven(uint256 _blockNumber) private {

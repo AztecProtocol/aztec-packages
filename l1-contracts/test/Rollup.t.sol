@@ -6,7 +6,7 @@ import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -54,7 +54,7 @@ contract RollupTest is DecoderBase, TimeFns {
   FeeJuicePortal internal feeJuicePortal;
   IProofCommitmentEscrow internal proofCommitmentEscrow;
   RewardDistributor internal rewardDistributor;
-  SignatureLib.Signature[] internal signatures;
+  Signature[] internal signatures;
 
   EpochProofQuoteLib.EpochProofQuote internal quote;
   EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
@@ -1190,7 +1190,7 @@ contract RollupTest is DecoderBase, TimeFns {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
     return EpochProofQuoteLib.SignedEpochProofQuote({
       quote: _quote,
-      signature: SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s})
+      signature: Signature({isEmpty: false, v: v, r: r, s: s})
     });
   }
 }
