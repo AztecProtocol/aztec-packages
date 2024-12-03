@@ -70,7 +70,7 @@ jobs:
           docker run --rm --network=host \
             -v ~/.kube:/root/.kube \
             -e K8S=true \
-            -e INSTANCE_NAME="spartan" \
+            -e INSTANCE_NAME=${{ env.NAMESPACE }} \
             -e SPARTAN_DIR="/usr/src/spartan" \
             -e NAMESPACE=${{ env.NAMESPACE }} \
             -e HOST_PXE_PORT=$PXE_PORT \
