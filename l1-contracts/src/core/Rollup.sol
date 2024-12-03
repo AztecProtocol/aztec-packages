@@ -19,15 +19,12 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeMath} from "@aztec/core/libraries/FeeMath.sol";
-import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
-import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
+import {FeeMath} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
-import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
@@ -38,7 +35,15 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {ValidationLib} from "@aztec/core/libraries/RollupLibs/ValidationLib.sol";
+
+import {
+  ExtRollupLib,
+  ValidateHeaderArgs,
+  Header,
+  SignedEpochProofQuote
+} from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
+
+import {IntRollupLib, EpochProofQuote} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 
 import {Vm} from "forge-std/Vm.sol";
 
@@ -75,8 +80,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using EpochLib for Epoch;
   using SafeERC20 for IERC20;
   using ProposeLib for ProposeArgs;
-  using FeeMath for uint256;
-  using FeeMath for ManaBaseFeeComponents;
+  using IntRollupLib for uint256;
+  using IntRollupLib for ManaBaseFeeComponents;
 
   struct L1GasOracleValues {
     L1FeeData pre;
@@ -258,7 +263,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
     bytes calldata _body,
-    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
+    SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_args, _signatures, _body);
     claimEpochProofRight(_quote);
@@ -466,7 +471,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
     uint256 manaBaseFee = getManaBaseFeeAt(_currentTime, true);
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    Header memory header = ExtRollupLib.decodeHeader(_header);
     _validateHeader(
       header, _signatures, _digest, _currentTime, manaBaseFee, _txsEffectsHash, _flags
     );
@@ -497,13 +502,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     override(IRollup)
     returns (bytes32)
   {
-    return TxsDecoder.decode(_body);
+    return ExtRollupLib.computeTxsEffectsHash(_body);
   }
 
-  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
-    public
-    override(IRollup)
-  {
+  function claimEpochProofRight(SignedEpochProofQuote calldata _quote) public override(IRollup) {
     validateEpochProofRightClaimAtTime(Timestamp.wrap(block.timestamp), _quote);
 
     Slot currentSlot = getCurrentSlot();
@@ -547,15 +549,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // The `body` is passed outside the "args" as it does not directly need to be in the digest
     // as long as the `txsEffectsHash` is included and matches what is in the header.
     // Which we are checking in the `_validateHeader` call below.
-    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
+    bytes32 txsEffectsHash = ExtRollupLib.computeTxsEffectsHash(_body);
 
     // Decode and validate header
-    HeaderLib.Header memory header = HeaderLib.decode(_args.header);
+    Header memory header = ExtRollupLib.decodeHeader(_args.header);
 
     setupEpoch();
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    uint256 manaBaseFee = FeeMath.summedBaseFee(components);
+    uint256 manaBaseFee = components.summedBaseFee();
     _validateHeader({
       _header: header,
       _signatures: _signatures,
@@ -570,9 +572,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     {
       FeeHeader memory parentFeeHeader = blocks[blockNumber - 1].feeHeader;
-      uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
-        -int256(FeeMath.MANA_TARGET)
-      );
+      uint256 excessMana = IntRollupLib.computeExcessMana(parentFeeHeader);
 
       blocks[blockNumber] = BlockLog({
         archive: _args.archive,
@@ -654,7 +654,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @return The fee asset price
    */
   function getFeeAssetPrice() public view override(IRollup) returns (uint256) {
-    return FeeMath.feeAssetPriceModifier(
+    return IntRollupLib.feeAssetPriceModifier(
       blocks[tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
     );
   }
@@ -710,7 +710,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 blockOfInterest =
       canPruneAtTime(_timestamp) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
-    return FeeMath.getManaBaseFeeComponentsAt(
+    return ExtRollupLib.getManaBaseFeeComponentsAt(
       blocks[blockOfInterest].feeHeader,
       getL1FeesAt(_timestamp),
       _inFeeAsset ? getFeeAssetPrice() : 1e9,
@@ -718,13 +718,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     );
   }
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
+  function quoteToDigest(EpochProofQuote memory _quote)
     public
     view
     override(IRollup)
     returns (bytes32)
   {
-    return _hashTypedDataV4(EpochProofQuoteLib.hash(_quote));
+    return _hashTypedDataV4(IntRollupLib.computeQuoteHash(_quote));
   }
 
   /**
@@ -866,17 +866,18 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaimAtTime(
-    Timestamp _ts,
-    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
-  ) public view override(IRollup) {
+  function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
+    public
+    view
+    override(IRollup)
+  {
     Slot currentSlot = getSlotAt(_ts);
     address currentProposer = getProposerAt(_ts);
     Epoch epochToProve = getEpochToProve();
     uint256 posInEpoch = positionInEpoch(currentSlot);
     bytes32 digest = quoteToDigest(_quote.quote);
 
-    ValidationLib.validateEpochProofRightClaimAtTime(
+    ExtRollupLib.validateEpochProofRightClaimAtTime(
       currentSlot,
       currentProposer,
       epochToProve,
@@ -1010,7 +1011,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
   function _validateHeader(
-    HeaderLib.Header memory _header,
+    Header memory _header,
     Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
@@ -1021,8 +1022,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 pendingBlockNumber =
       canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
-    ValidationLib.validateHeaderForSubmissionBase(
-      ValidationLib.ValidateHeaderArgs({
+    ExtRollupLib.validateHeaderForSubmissionBase(
+      ValidateHeaderArgs({
         header: _header,
         currentTime: _currentTime,
         manaBaseFee: _manaBaseFee,

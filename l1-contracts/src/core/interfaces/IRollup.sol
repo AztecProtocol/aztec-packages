@@ -6,11 +6,15 @@ import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
-import {ManaBaseFeeComponents} from "@aztec/core/libraries/FeeMath.sol";
-import {ProposeArgs} from "@aztec/core/libraries/ProposeLib.sol";
+import {
+  EpochProofQuote,
+  SignedEpochProofQuote
+} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
+import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
-import {FeeHeader, L1FeeData} from "@aztec/core/libraries/FeeMath.sol";
+import {
+  FeeHeader, L1FeeData, ManaBaseFeeComponents
+} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;
@@ -53,7 +57,7 @@ interface IRollup {
   function prune() external;
   function updateL1GasFeeOracle() external;
 
-  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(SignedEpochProofQuote calldata _quote) external;
 
   function propose(ProposeArgs calldata _args, Signature[] memory _signatures, bytes calldata _body)
     external;
@@ -62,7 +66,7 @@ interface IRollup {
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
     bytes calldata _body,
-    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
+    SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
@@ -99,10 +103,7 @@ interface IRollup {
       Epoch provenEpochNumber
     );
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
-    external
-    view
-    returns (bytes32);
+  function quoteToDigest(EpochProofQuote memory _quote) external view returns (bytes32);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
   function getFeeAssetPrice() external view returns (uint256);
   function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
@@ -116,10 +117,9 @@ interface IRollup {
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
   function getClaimableEpoch() external view returns (Epoch);
-  function validateEpochProofRightClaimAtTime(
-    Timestamp _ts,
-    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
-  ) external view;
+  function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
+    external
+    view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
     uint256 _epochSize,

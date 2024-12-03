@@ -610,7 +610,14 @@ export async function deployL1Contract(
   let address: Hex | null | undefined = undefined;
 
   if (libraries) {
-    // @note  Assumes that we wont have nested external libraries.
+    // Verify that all link references have corresponding code
+    for (const linkRef in libraries.linkReferences) {
+      for (const contractName in libraries.linkReferences[linkRef]) {
+        if (!libraries.libraryCode[contractName]) {
+          throw new Error(`Missing library code for ${contractName}`);
+        }
+      }
+    }
 
     const replacements: Record<string, EthAddress> = {};
 

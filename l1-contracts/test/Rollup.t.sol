@@ -7,7 +7,10 @@ import {DecoderBase} from "./decoders/Base.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {
+  EpochProofQuote,
+  SignedEpochProofQuote
+} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -26,7 +29,9 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
+import {
+  ProposeArgs, OracleInput, ProposeLib
+} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
@@ -56,8 +61,8 @@ contract RollupTest is DecoderBase, TimeFns {
   RewardDistributor internal rewardDistributor;
   Signature[] internal signatures;
 
-  EpochProofQuoteLib.EpochProofQuote internal quote;
-  EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
+  EpochProofQuote internal quote;
+  SignedEpochProofQuote internal signedQuote;
 
   uint256 internal privateKey;
   address internal signer;
@@ -107,7 +112,7 @@ contract RollupTest is DecoderBase, TimeFns {
     privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
     signer = vm.addr(privateKey);
     uint256 bond = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
-    quote = EpochProofQuoteLib.EpochProofQuote({
+    quote = EpochProofQuote({
       epochToProve: Epoch.wrap(0),
       validUntilSlot: Slot.wrap(1),
       bondAmount: bond,
@@ -1181,14 +1186,14 @@ contract RollupTest is DecoderBase, TimeFns {
     );
   }
 
-  function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)
+  function _quoteToSignedQuote(EpochProofQuote memory _quote)
     internal
     view
-    returns (EpochProofQuoteLib.SignedEpochProofQuote memory)
+    returns (SignedEpochProofQuote memory)
   {
     bytes32 digest = rollup.quoteToDigest(_quote);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-    return EpochProofQuoteLib.SignedEpochProofQuote({
+    return SignedEpochProofQuote({
       quote: _quote,
       signature: Signature({isEmpty: false, v: v, r: r, s: s})
     });

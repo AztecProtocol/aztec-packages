@@ -162,8 +162,6 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Archive: ${archive}`);
   const epochNum = await rollup.read.getCurrentEpoch();
   log(`Current epoch: ${epochNum}`);
-  const epoch = await rollup.read.epochs([epochNum]);
-  log(`Epoch Sample Seed: ${epoch[0].toString()}, Next Seed: ${epoch[1].toString()}`);
   const slot = await rollup.read.getCurrentSlot();
   log(`Current slot: ${slot}`);
   const proposerDuringPrevL1Block = await rollup.read.getCurrentProposer();

@@ -3,32 +3,32 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "../Errors.sol";
-import {HeaderLib} from "../HeaderLib.sol";
+import {Header} from "./HeaderLib.sol";
 import {Timestamp, Slot, Epoch} from "../TimeMath.sol";
 import {DataStructures} from "../DataStructures.sol";
 import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
-library ValidationLib {
-  struct ValidateHeaderArgs {
-    HeaderLib.Header header;
-    Timestamp currentTime;
-    uint256 manaBaseFee;
-    bytes32 txsEffectsHash;
-    uint256 pendingBlockNumber;
-    DataStructures.ExecutionFlags flags;
-    uint256 version;
-    IFeeJuicePortal feeJuicePortal;
-    function(Slot) external view returns (Timestamp) getTimestampForSlot;
-  }
+struct ValidateHeaderArgs {
+  Header header;
+  Timestamp currentTime;
+  uint256 manaBaseFee;
+  bytes32 txsEffectsHash;
+  uint256 pendingBlockNumber;
+  DataStructures.ExecutionFlags flags;
+  uint256 version;
+  IFeeJuicePortal feeJuicePortal;
+  function(Slot) external view returns (Timestamp) getTimestampForSlot;
+}
 
+library ValidationLib {
   function validateHeaderForSubmissionBase(
     ValidateHeaderArgs memory _args,
     mapping(uint256 blockNumber => BlockLog log) storage _blocks
-  ) external view {
+  ) internal view {
     require(
       block.chainid == _args.header.globalVariables.chainId,
       Errors.Rollup__InvalidChainId(block.chainid, _args.header.globalVariables.chainId)
@@ -100,13 +100,13 @@ library ValidationLib {
     address _currentProposer,
     Epoch _epochToProve,
     uint256 _posInEpoch,
-    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote,
+    SignedEpochProofQuote calldata _quote,
     bytes32 _digest,
     DataStructures.EpochProofClaim storage _proofClaim,
     uint256 _claimDurationInL2Slots,
     uint256 _proofCommitmentMinBondAmountInTst,
     IProofCommitmentEscrow _proofCommitmentEscrow
-  ) external view {
+  ) internal view {
     SignatureLib.verify(_quote.signature, _quote.quote.prover, _digest);
 
     require(

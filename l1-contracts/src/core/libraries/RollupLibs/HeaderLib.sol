@@ -5,6 +5,56 @@ pragma solidity >=0.8.27;
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
+struct AppendOnlyTreeSnapshot {
+  bytes32 root;
+  uint32 nextAvailableLeafIndex;
+}
+
+struct PartialStateReference {
+  AppendOnlyTreeSnapshot noteHashTree;
+  AppendOnlyTreeSnapshot nullifierTree;
+  AppendOnlyTreeSnapshot contractTree;
+  AppendOnlyTreeSnapshot publicDataTree;
+}
+
+struct StateReference {
+  AppendOnlyTreeSnapshot l1ToL2MessageTree;
+  // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
+  PartialStateReference partialStateReference;
+}
+
+struct GasFees {
+  uint256 feePerDaGas;
+  uint256 feePerL2Gas;
+}
+
+struct GlobalVariables {
+  uint256 chainId;
+  uint256 version;
+  uint256 blockNumber;
+  uint256 slotNumber;
+  uint256 timestamp;
+  address coinbase;
+  bytes32 feeRecipient;
+  GasFees gasFees;
+}
+
+struct ContentCommitment {
+  uint256 numTxs;
+  bytes32 txsEffectsHash;
+  bytes32 inHash;
+  bytes32 outHash;
+}
+
+struct Header {
+  AppendOnlyTreeSnapshot lastArchive;
+  ContentCommitment contentCommitment;
+  StateReference stateReference;
+  GlobalVariables globalVariables;
+  uint256 totalFees;
+  uint256 totalManaUsed;
+}
+
 /**
  * @title Header Library
  * @author Aztec Labs
@@ -56,56 +106,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
-  struct AppendOnlyTreeSnapshot {
-    bytes32 root;
-    uint32 nextAvailableLeafIndex;
-  }
-
-  struct PartialStateReference {
-    AppendOnlyTreeSnapshot noteHashTree;
-    AppendOnlyTreeSnapshot nullifierTree;
-    AppendOnlyTreeSnapshot contractTree;
-    AppendOnlyTreeSnapshot publicDataTree;
-  }
-
-  struct StateReference {
-    AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
-    PartialStateReference partialStateReference;
-  }
-
-  struct GasFees {
-    uint256 feePerDaGas;
-    uint256 feePerL2Gas;
-  }
-
-  struct GlobalVariables {
-    uint256 chainId;
-    uint256 version;
-    uint256 blockNumber;
-    uint256 slotNumber;
-    uint256 timestamp;
-    address coinbase;
-    bytes32 feeRecipient;
-    GasFees gasFees;
-  }
-
-  struct ContentCommitment {
-    uint256 numTxs;
-    bytes32 txsEffectsHash;
-    bytes32 inHash;
-    bytes32 outHash;
-  }
-
-  struct Header {
-    AppendOnlyTreeSnapshot lastArchive;
-    ContentCommitment contentCommitment;
-    StateReference stateReference;
-    GlobalVariables globalVariables;
-    uint256 totalFees;
-    uint256 totalManaUsed;
-  }
-
   uint256 private constant HEADER_LENGTH = 0x288; // Header byte length
 
   /**
@@ -113,7 +113,7 @@ library HeaderLib {
    * @param _header - The header calldata
    * @return The decoded header
    */
-  function decode(bytes calldata _header) external pure returns (Header memory) {
+  function decode(bytes calldata _header) internal pure returns (Header memory) {
     require(
       _header.length == HEADER_LENGTH,
       Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length)
@@ -166,7 +166,7 @@ library HeaderLib {
     return header;
   }
 
-  function toFields(Header memory _header) external pure returns (bytes32[] memory) {
+  function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
     bytes32[] memory fields = new bytes32[](25);
 
     // must match the order in the Header.getFields
@@ -213,7 +213,7 @@ library HeaderLib {
   // TODO(#7346): Currently using the below to verify block root proofs until batch rollups fully integrated.
   // Once integrated, remove the below fn (not used anywhere else).
   function toFields(GlobalVariables memory _globalVariables)
-    external
+    internal
     pure
     returns (bytes32[] memory)
   {
