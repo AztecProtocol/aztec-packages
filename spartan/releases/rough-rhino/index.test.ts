@@ -1,13 +1,5 @@
-import {
-  describe,
-  expect,
-  test,
-  beforeAll,
-  afterAll,
-  beforeEach,
-  mock,
-} from "bun:test";
-import { execSync, spawnSync } from "child_process";
+import { describe, expect, test, beforeAll, afterAll, mock } from "bun:test";
+import { execSync } from "child_process";
 import { existsSync, unlinkSync, readFileSync } from "fs";
 import { join } from "path";
 import axios from "axios";
@@ -62,7 +54,7 @@ describe("Test Suite", () => {
         });
       } catch (error: any) {
         expect(error.message).toContain(
-          'Configuration not found. Please run "aztec-node init" first.'
+          'Configuration not found. Please run "aztec-spartan init" first.'
         );
       }
     });

@@ -1,33 +1,17 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import ora from "ora";
-import pino from "pino";
-import pretty from "pino-pretty";
 import axios from "axios";
 import { execSync } from "child_process";
 import { writeFileSync, readFileSync, existsSync } from "fs";
-import { join } from "path";
 import figlet from "figlet";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import input from "@inquirer/input";
-import path from "path";
 const program = new Command();
 
 // Global spinner instance used throughout the application
 const spinner = ora({ color: "blue", discardStdin: false });
-
-// Configure logging
-const logger = pino({
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      translateTime: "HH:MM:ss",
-      ignore: "pid,hostname",
-    },
-  },
-});
 
 // ASCII Art Banner
 const showBanner = () => {
@@ -82,12 +66,12 @@ const installDocker = async () => {
 
     spinner.succeed("Docker installed successfully");
     spinner.stop();
-    logger.info("Please log out and back in for group changes to take effect");
+    spinner.info("Please log out and back in for group changes to take effect");
     return true;
-  } catch (error) {
+  } catch (error: any) {
     spinner.fail("Failed to install Docker");
     spinner.stop();
-    logger.error(error);
+    spinner.fail(error.message);
     return false;
   }
 };
@@ -98,7 +82,7 @@ const getPublicIP = async () => {
     const { data } = await axios.get("https://api.ipify.org?format=json");
     return data.ip;
   } catch (error) {
-    logger.error("Failed to get public IP");
+    spinner.warn("Failed to get public IP");
     return null;
   }
 };
@@ -231,9 +215,9 @@ services:
       "Docker compose file generated successfully, run `aztec-spartan start` to launch your node"
     );
     return true;
-  } catch (error) {
+  } catch (error: any) {
     spinner.fail("Failed to configure environment");
-    logger.error(error);
+    spinner.fail(error);
     return false;
   }
 };
@@ -273,7 +257,7 @@ const dockerCommands = {
       spinner.fail("Failed to start containers. Is Docker running?");
       if (error instanceof Error) {
         const message = error.message.split("\n")[0];
-        logger.error(message);
+        spinner.fail(message);
       }
     }
   },
@@ -287,7 +271,7 @@ const dockerCommands = {
       spinner.fail("Failed to stop containers. Is Docker running?");
       if (error instanceof Error) {
         const message = error.message.split("\n")[0];
-        logger.error(message);
+        spinner.fail(message);
       }
     }
   },
@@ -302,7 +286,7 @@ const dockerCommands = {
       spinner.fail("Failed to pull images. Is Docker running?");
       if (error instanceof Error) {
         const message = error.message.split("\n")[0];
-        logger.error(message);
+        spinner.fail(message);
       }
     }
   },
@@ -340,7 +324,7 @@ const dockerCommands = {
       spinner.fail("Failed to fetch logs. Is Docker running?");
       if (error instanceof Error) {
         const message = error.message.split("\n")[0];
-        logger.error(message);
+        spinner.fail(message);
       }
     }
   },
@@ -365,14 +349,14 @@ program
     showBanner();
 
     if (options.skipDocker) {
-      logger.warn("Skipping Docker installation");
+      spinner.warn("Skipping Docker installation");
     } else {
       await checkDocker();
     }
 
     await configureEnvironment(options);
 
-    logger.info(
+    spinner.info(
       'Initialization complete! Use "aztec-spartan start" to launch your node.'
     );
     process.exit(0);
