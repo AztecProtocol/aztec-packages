@@ -142,39 +142,43 @@ case "$CMD" in
     scripts/tests/bootstrap/test-cache
     ;;
   "image-aztec")
+    IMAGE=aztecprotocol/aztec:$(git rev-parse HEAD)
+    if $ci3/docker/has_image $IMAGE; then
+      echo "Image $IMAGE already exists." && exit
+    fi
     $ci3/github/group "image-aztec"
     source $ci3/base/tmp_source
-    mkdir -p $TMP/usr/src
-    # TODO(ci3) eventually this will just be a normal mounted docker build
     denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
-    GIT_HASH=$(git rev-parse HEAD)
     shift 1 # remove command parameter
-    docker build -f Dockerfile.aztec -t aztecprotocol/aztec:$GIT_HASH $TMP $@
+    docker build -f Dockerfile.aztec -t $IMAGE $TMP $@
     $ci3/github/endgroup
     exit
   ;;
   "image-e2e")
+    IMAGE=aztecprotocol/end-to-end:$(git rev-parse HEAD)
+    if $ci3/docker/has_image $IMAGE; then
+      echo "Image $IMAGE already exists." && exit
+    fi
     $ci3/github/group "image-e2e"
     source $ci3/base/tmp_source
-    mkdir -p $TMP/usr
-    # TODO(ci3) eventually this will just be a normal mounted docker build
     denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
     denoise earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
-    GIT_HASH=$(git rev-parse HEAD)
     shift 1 # remove command parameter
-    docker build -f Dockerfile.end-to-end -t aztecprotocol/end-to-end:$GIT_HASH $TMP $@
+    docker build -f Dockerfile.end-to-end -t $IMAGE $TMP $@
     $ci3/github/endgroup
     exit
   ;;
   "image-faucet")
+    IMAGE=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
     $ci3/github/group "image-faucet"
+    if $ci3/docker/has_image $IMAGE; then
+      echo "Image $IMAGE already exists." && exit
+    fi
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
-    # TODO(ci3) eventually this will just be a normal mounted docker build
     earthly --artifact +bootstrap-faucet/usr/src $TMP/usr/src
-    GIT_HASH=$(git rev-parse HEAD)
     shift 1 # remove command parameter
-    docker build -f Dockerfile.aztec-faucet -t aztecprotocol/aztec-faucet:$GIT_HASH $TMP $@
+    docker build -f Dockerfile.aztec-faucet -t $IMAGE $TMP $@
     $ci3/github/endgroup
     exit
   ;;
