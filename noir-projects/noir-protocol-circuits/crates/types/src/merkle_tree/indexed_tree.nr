@@ -69,7 +69,7 @@ where
                 low_leaf_preimage.update_value(value)
             } else {
                 low_leaf_preimage.update_pointers(
-                    low_leaf_key,
+                    value_key,
                     start_insertion_index as u32 + value_index,
                 )
             };
@@ -153,7 +153,7 @@ where
     let updated_low_leaf = if is_update {
         low_leaf_preimage.update_value(value)
     } else {
-        low_leaf_preimage.update_pointers(low_leaf_key, snapshot.next_available_leaf_index)
+        low_leaf_preimage.update_pointers(value_key, snapshot.next_available_leaf_index)
     };
 
     // Update low leaf
