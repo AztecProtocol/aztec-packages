@@ -45,7 +45,7 @@ describe('AVM Integration', () => {
       Buffer.from(bytecode, 'base64'),
       recursive,
       witnessFileName,
-      'ultra_honk',
+      'ultra_rollup_honk',
       logger.info,
     );
 
@@ -111,7 +111,7 @@ describe('AVM Integration', () => {
       bbBinaryPath,
       path.join(bbWorkingDirectory, 'proof'),
       path.join(bbWorkingDirectory, 'vk'),
-      'ultra_honk',
+      'ultra_rollup_honk',
       logger.info,
     );
 
