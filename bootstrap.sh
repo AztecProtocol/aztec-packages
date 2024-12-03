@@ -141,21 +141,21 @@ case "$CMD" in
   "test-cache")
     # Test cache by running minio with full and fast bootstraps
     scripts/tests/bootstrap/test-cache
+    exit
     ;;
   "test-boxes")
     github_group "test-boxes"
     source $ci3/source_tmp
     echo "earthly artifact build:"
     earthly --artifact +bootstrap/usr/src $TMP/usr/src
-    bash
-    CI=1 $TMP/usr/src/boxes/bootstrap.sh $@
+    docker_mount_run $TMP/usr/src "CI=1 boxes/bootstrap.sh $@"
     github_endgroup
     exit
   ;;
   "image-aztec")
     IMAGE=aztecprotocol/aztec:$(git rev-parse HEAD)
     if docker_has_image $IMAGE; then
-      echo "Image $IMAGE already exists." && exit
+      exit
     fi
     github_group "image-aztec"
     source $ci3/source_tmp
