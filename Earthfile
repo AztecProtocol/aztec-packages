@@ -7,6 +7,7 @@ bootstrap-noir-bb:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
+  ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
   # Use a cache volume for performance
@@ -27,6 +28,7 @@ bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
+  ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
@@ -39,7 +41,7 @@ bootstrap:
     git reset --hard FETCH_HEAD && \
     CI=1 TEST=0 ./bootstrap.sh fast && \
     mv $(ls -A) /usr/src
-  WORKDIR /usr/src
+  SAVE ARTIFACT /usr/src /usr/src
 
 bootstrap-aztec:
   FROM +bootstrap
@@ -65,7 +67,6 @@ bootstrap-aztec:
     build-system \
     docs \
     yarn-project/end-to-end \
-    yarn-project/noir-protocol-circuits-types \
     yarn-project/*/src
   SAVE ARTIFACT /usr/src /usr/src
 
@@ -82,7 +83,6 @@ bootstrap-end-to-end:
   WORKDIR /usr/src/yarn-project
   RUN rm -rf node_modules && yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-  RUN rm -rf noir-protocol-circuits-types
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
 

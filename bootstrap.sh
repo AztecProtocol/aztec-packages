@@ -145,8 +145,9 @@ case "$CMD" in
     $ci3/github/group "test-boxes"
     source $ci3/base/tmp_source
     echo "earthly artifact build:"
-    earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
-    CI=1 $TMP/boxes/bootstrap.sh $@
+    earthly --artifact +bootstrap/usr/src $TMP/usr/src
+    bash
+    CI=1 $TMP/usr/src/boxes/bootstrap.sh $@
     $ci3/github/endgroup
     exit
   ;;
