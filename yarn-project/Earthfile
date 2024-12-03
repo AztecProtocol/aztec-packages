@@ -215,11 +215,15 @@ end-to-end-base:
         && apt-get install -y wget gnupg \
         && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
         && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
+        && apt update && apt install curl chromium nodejs netcat-openbsd git -y \
         && rm -rf /var/lib/apt/lists/* \
         && mkdir -p /usr/local/bin \
         && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
         && chmod +x /usr/local/bin/kubectl \
+        && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz \
+        && tar xf google-cloud-cli-linux-x86_64.tar.gz \
+        && ./google-cloud-sdk/install.sh --additional-components gke-gcloud-auth-plugin --path-update true --quiet \
+        && rm google-cloud-cli-linux-x86_64.tar.gz \
         && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
         && chmod +x get_helm.sh \
         && ./get_helm.sh \
