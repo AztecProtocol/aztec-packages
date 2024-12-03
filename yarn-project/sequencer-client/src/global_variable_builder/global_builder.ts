@@ -46,8 +46,21 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     });
   }
 
+  /**
+   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
+   * @returns Base fees for the expected next block
+   */
   public async getCurrentBaseFees(): Promise<GasFees> {
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFee([true])));
+    // Since this might be called in the middle of a slot where a block might have been published,
+    // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
+    // The timestamp of that last block will act as a lower bound for the next block.
+
+    const lastBlock = await this.rollupContract.read.getBlock([await this.rollupContract.read.getPendingBlockNumber()]);
+    const earliestTimestamp = await this.rollupContract.read.getTimestampForSlot([lastBlock.slotNumber + 1n]);
+    const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
+    const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
+
+    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
   }
 
   /**
@@ -77,7 +90,8 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);
 
-    const gasFees = await this.getCurrentBaseFees();
+    // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
+    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
 
     const globalVariables = new GlobalVariables(
       chainId,

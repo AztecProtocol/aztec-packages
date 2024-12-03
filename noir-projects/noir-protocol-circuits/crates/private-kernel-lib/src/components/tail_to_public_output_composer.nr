@@ -1,15 +1,12 @@
 mod meter_gas_used;
 mod split_to_public;
 
-use crate::components::{
-    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
-    tail_to_public_output_composer::{
-        meter_gas_used::meter_gas_used, split_to_public::split_to_public,
-    },
-};
+use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
 };
+use split_to_public::split_to_public;
+pub use meter_gas_used::meter_gas_used;
 
 pub struct TailToPublicOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,

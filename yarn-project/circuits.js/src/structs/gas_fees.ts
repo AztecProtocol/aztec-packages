@@ -44,6 +44,13 @@ export class GasFees {
     }
   }
 
+  mul(scalar: number | bigint) {
+    return new GasFees(
+      new Fr(this.feePerDaGas.toBigInt() * BigInt(scalar)),
+      new Fr(this.feePerL2Gas.toBigInt() * BigInt(scalar)),
+    );
+  }
+
   static from(fields: FieldsOf<GasFees>) {
     return new GasFees(fields.feePerDaGas, fields.feePerL2Gas);
   }

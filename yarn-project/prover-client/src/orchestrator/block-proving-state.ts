@@ -131,7 +131,7 @@ export class BlockProvingState {
 
   /** Returns the block number as an epoch number. Used for prioritizing proof requests. */
   public get epochNumber(): number {
-    return this.globalVariables.blockNumber.toNumber();
+    return this.parentEpoch.epochNumber;
   }
 
   /**

@@ -38,8 +38,7 @@ pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_NOTE_ENCRYPTED_LOGS_PER_CALL: u32 = 16;
-pub global MAX_ENCRYPTED_LOGS_PER_CALL: u32 = 4;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
 pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 
@@ -91,8 +90,7 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 // TODO: for large multisends we might run out of key validation requests here but not dealing with this now as
 // databus will hopefully make the issue go away.
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_NOTE_ENCRYPTED_LOGS_PER_TX: u32 = 64;
-pub global MAX_ENCRYPTED_LOGS_PER_TX: u32 = 8;
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
 pub global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 // docs:end:constants
@@ -129,17 +127,16 @@ pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
-pub global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
+pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
+    0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-global FEE_JUICE_INITIAL_MINT: Field = 20000000000000000000;
-global FEE_FUNDING_FOR_TESTER_ACCOUNT: Field = 100000000000000000000; // 100e18
+global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -215,6 +212,8 @@ pub global L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST: u32 =
 
 // Gas for hashing and validating logs
 pub global L2_GAS_PER_LOG_BYTE: u32 = 4;
+// Zero gas because we don't have to hash and validate the private logs
+pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
 
 // Gas for writing message to L1 portal
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
@@ -278,11 +277,12 @@ pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
 pub global PARTIAL_STATE_REFERENCE_LENGTH: u32 = 6;
 pub global READ_REQUEST_LENGTH: u32 = 2;
 pub global TREE_LEAF_READ_REQUEST_LENGTH: u32 = 2;
+pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS
+    + 1 /* note_hash_counter */
+    + 1 /* counter */;
+pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1;
 pub global LOG_HASH_LENGTH: u32 = 3;
 pub global SCOPED_LOG_HASH_LENGTH: u32 = LOG_HASH_LENGTH + 1;
-pub global ENCRYPTED_LOG_HASH_LENGTH: u32 = 4;
-pub global SCOPED_ENCRYPTED_LOG_HASH_LENGTH: u32 = ENCRYPTED_LOG_HASH_LENGTH + 1;
-pub global NOTE_LOG_HASH_LENGTH: u32 = 4;
 pub global NOTE_HASH_LENGTH: u32 = 2;
 pub global SCOPED_NOTE_HASH_LENGTH: u32 = NOTE_HASH_LENGTH + 1;
 pub global NULLIFIER_LENGTH: u32 = 3;
@@ -306,11 +306,13 @@ pub global TREE_SNAPSHOTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH * 4;
 pub global TX_CONTEXT_LENGTH: u32 = 2 + GAS_SETTINGS_LENGTH;
 pub global TX_REQUEST_LENGTH: u32 = 2 + TX_CONTEXT_LENGTH + FUNCTION_DATA_LENGTH;
 pub global TOTAL_FEES_LENGTH: u32 = 1;
+pub global TOTAL_MANA_USED_LENGTH: u32 = 1;
 pub global HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + CONTENT_COMMITMENT_LENGTH
     + STATE_REFERENCE_LENGTH
     + GLOBAL_VARIABLES_LENGTH
-    + TOTAL_FEES_LENGTH;
+    + TOTAL_FEES_LENGTH
+    + TOTAL_MANA_USED_LENGTH;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
@@ -324,8 +326,7 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + PUBLIC_CALL_REQUEST_LENGTH
     + (L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
     + 2
-    + (NOTE_LOG_HASH_LENGTH * MAX_NOTE_ENCRYPTED_LOGS_PER_CALL)
-    + (ENCRYPTED_LOG_HASH_LENGTH * MAX_ENCRYPTED_LOGS_PER_CALL)
+    + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL)
     + (LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL)
     + HEADER_LENGTH
     + TX_CONTEXT_LENGTH;
@@ -366,11 +367,11 @@ pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_
 pub global COMBINED_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (LOG_HASH_LENGTH * MAX_NOTE_ENCRYPTED_LOGS_PER_TX)
-    + (SCOPED_LOG_HASH_LENGTH * MAX_ENCRYPTED_LOGS_PER_TX)
-    + 4
+    + (PRIVATE_LOG_SIZE_IN_FIELDS * MAX_PRIVATE_LOGS_PER_TX)
     + (SCOPED_LOG_HASH_LENGTH * MAX_UNENCRYPTED_LOGS_PER_TX)
+    + 1 /* unencrypted_log_preimages_length */
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
+    + 1 /* contract_class_log_preimages_length */
     + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 pub global TX_CONSTANT_DATA_LENGTH: u32 = HEADER_LENGTH
     + TX_CONTEXT_LENGTH
@@ -381,8 +382,7 @@ pub global COMBINED_CONSTANT_DATA_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH + GLOBAL
 pub global PRIVATE_ACCUMULATED_DATA_LENGTH: u32 = (SCOPED_NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_TX)
     + (SCOPED_NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_TX)
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (NOTE_LOG_HASH_LENGTH * MAX_NOTE_ENCRYPTED_LOGS_PER_TX)
-    + (SCOPED_ENCRYPTED_LOG_HASH_LENGTH * MAX_ENCRYPTED_LOGS_PER_TX)
+    + (SCOPED_PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_TX)
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX)
     + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_TX);
@@ -396,8 +396,7 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (MAX_NOTE_ENCRYPTED_LOGS_PER_TX * LOG_HASH_LENGTH)
-    + (MAX_ENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
+    + (MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS)
     + (MAX_CONTRACT_CLASS_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH);
 
@@ -450,11 +449,11 @@ pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
 
-// + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees
+// + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees, accumulated_mana_used
 pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
-    + 5;
+    + 6;
 pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* previous_block_hash */
@@ -473,6 +472,8 @@ pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
 pub global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: u32 =
     64 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; // 1 write is 64 bytes
+pub global PRIVATE_LOGS_NUM_BYTES_PER_BASE_ROLLUP: u32 =
+    32 * PRIVATE_LOG_SIZE_IN_FIELDS * MAX_PRIVATE_LOGS_PER_TX;
 pub global CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 32;
 pub global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 pub global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED: Field = 52;

@@ -30,7 +30,6 @@ import { identify } from '@libp2p/identify';
 import type { PeerId } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
-import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
@@ -59,22 +58,6 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-
-/**
- * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
- * @param privateKey - Optional peer ID private key as hex string
- * @returns The peer ID.
- */
-export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
-  if (!privateKey?.length) {
-    return await createSecp256k1PeerId();
-  }
-  const base64 = Buffer.from(privateKey, 'hex').toString('base64');
-  return await createFromJSON({
-    id: '',
-    privKey: base64,
-  });
-}
 
 /**
  * Lib P2P implementation of the P2PService interface.

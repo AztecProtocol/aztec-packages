@@ -125,7 +125,7 @@ void show_trace_info(const auto& trace)
           100 * nonzero_elements / total_elements,
           "%)");
     const size_t non_zero_columns = [&]() {
-        bool column_is_nonzero[trace.front().SIZE];
+        std::vector<bool> column_is_nonzero(trace.front().SIZE, false);
         for (auto const& row : trace) {
             const auto row_vec = row.as_vector();
             for (size_t col = 0; col < row.SIZE; col++) {
@@ -134,7 +134,7 @@ void show_trace_info(const auto& trace)
                 }
             }
         }
-        return static_cast<size_t>(std::count(column_is_nonzero, column_is_nonzero + trace.front().SIZE, true));
+        return static_cast<size_t>(std::count(column_is_nonzero.begin(), column_is_nonzero.end(), true));
     }();
     vinfo("Number of non-zero columns: ",
           non_zero_columns,
@@ -322,8 +322,14 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
         uint32_t pc = 0;
         uint32_t counter = 0;
         AvmError error = AvmError::NO_ERROR;
-        while (error == AvmError::NO_ERROR && (pc = trace_builder.get_pc()) < bytecode.size()) {
-            auto inst = Deserialization::parse(bytecode, pc);
+        while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
+            auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
+            error = parse_error;
+
+            if (!is_ok(error)) {
+                break;
+            }
+
             debug("[PC:" + std::to_string(pc) + "] [IC:" + std::to_string(counter++) + "] " + inst.to_string() +
                   " (gasLeft l2=" + std::to_string(trace_builder.get_l2_gas_left()) + ")");
 
@@ -818,7 +824,7 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             }
         }
 
-        if (error != AvmError::NO_ERROR) {
+        if (!is_ok(error)) {
             info("AVM stopped due to exceptional halting condition. Error: ",
                  to_name(error),
                  " at PC: ",
@@ -827,7 +833,6 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
                  counter - 1); // Need adjustement as counter increment occurs in loop body
         }
     }
-
     auto trace = trace_builder.finalize();
 
     show_trace_info(trace);
