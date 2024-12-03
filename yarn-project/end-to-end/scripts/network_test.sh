@@ -165,7 +165,7 @@ fi
 
 docker run --rm --network=host \
   -v ~/.kube:/root/.kube \
-  -e K8S=true \
+  -e K8S=local \
   -e INSTANCE_NAME="spartan" \
   -e SPARTAN_DIR="/usr/src/spartan" \
   -e NAMESPACE="$NAMESPACE" \
