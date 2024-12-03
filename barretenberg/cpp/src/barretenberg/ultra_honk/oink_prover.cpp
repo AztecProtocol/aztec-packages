@@ -133,24 +133,17 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
 
     if constexpr (IsMegaFlavor<Flavor>) {
         const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
-        info("could get here?");
         // Commit to Goblin ECC op wires
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
                                                              proving_key->proving_key.polynomials.get_ecc_op_wires(),
                                                              commitment_labels.get_ecc_op_wires())) {
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
-                if constexpr (Flavor::HasZK) {
-                    for (size_t idx = 1; idx < 4; idx++) {
-                        polynomial.at(circuit_size - idx) = FF::random_element();
-                    }
-                }
                 commitment = proving_key->proving_key.commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
 
-        info("but not here");
         // Commit to DataBus related polynomials
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_entities(),
@@ -204,7 +197,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     }
     {
         PROFILE_THIS_NAME("COMMIT::wires");
-
         if (proving_key->get_is_structured()) {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_block_ranges);

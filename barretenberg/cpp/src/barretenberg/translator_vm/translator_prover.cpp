@@ -37,7 +37,6 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator wires
     // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've commited to
     for (auto [wire_poly, wire] : zip_view(key->polynomials.get_wires(), circuit_builder.wires)) {
-
         parallel_for_range(circuit_builder.num_gates, [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
                 if (i >= wire_poly.start_index() && i < wire_poly.end_index() - 8) {
@@ -58,22 +57,9 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     // into one. These polynomials are not commited to.
     bb::compute_concatenated_polynomials<Flavor>(key->polynomials);
 
-    for (auto poly : key->polynomials.get_concatenated()) {
-        info("concatenated poly");
-        for (size_t idx = 1; idx < 9; idx++) {
-            info(poly.at(idx));
-        }
-    }
-
     // We also construct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
     // the range from 0 to maximum range defined by the range constraint.
     bb::compute_translator_range_constraint_ordered_polynomials<Flavor>(key->polynomials, mini_circuit_dyadic_size);
-
-    for (auto& poly : key->polynomials.get_ordered_constraints()) {
-        info("ordered ");
-        info(poly.at(8));
-    }
-    info("ordered exrta num ", key->polynomials.ordered_extra_range_constraints_numerator.at(8));
 
     computed_witness = true;
 }
@@ -108,16 +94,10 @@ void TranslatorProver::execute_preamble_round()
  */
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
-    // const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
     // Commit to all wire polynomials and ordered range constraint polynomials
-
-    // info("number random commitments ", idx);
-
     auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
     auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
-
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-
         transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
     }
 }
@@ -128,9 +108,6 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
  */
 void TranslatorProver::execute_grand_product_computation_round()
 {
-
-    // const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-
     // Compute and store parameters required by relations in Sumcheck
     FF gamma = transcript->template get_challenge<FF>("gamma");
 
@@ -139,7 +116,6 @@ void TranslatorProver::execute_grand_product_computation_round()
     const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
-
     relation_parameters.public_input_delta = 0;
     relation_parameters.lookup_grand_product_delta = 0;
     auto uint_evaluation_input = uint256_t(key->evaluation_input_x);
