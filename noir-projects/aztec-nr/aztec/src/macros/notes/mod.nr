@@ -724,29 +724,24 @@ comptime fn generate_finalization_payload(
 
             pub fn emit_log(self) {
                 // We load the setup log from storage
-                let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
+                let setup_log: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 
-                // We convert the log from fields to bytes
-                let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
+                // We create the finalization log, which contains the length of the public values, the setup log, and
+                // the public values themselves.
+                let mut finalization_log: [Field; $finalization_log_byte_length] = std::mem::zeroed();
 
-                // We append the public value to the log and emit it as unencrypted log
-                let mut finalization_log = [0; $finalization_log_byte_length];
+                // Populate the first byte with number of public values
+                finalization_log[0] = self.public_values.len() as Field;
 
                 // Iterate over the partial log and copy it to the final log
                 for i in 0..setup_log.len() {
-                    finalization_log[i + 1] = setup_log[i];
+                    finalization_log[1 + i] = setup_log[i];
                 }
 
                 // Iterate over the public values and append them to the log
                 for i in 0..$public_values_length {
-                    let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
-                    for j in 0..public_value_bytes.len() {
-                        finalization_log[1 + $setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
-                    }
+                    finalization_log[1 + setup_log.len() + i] = self.public_values[i];
                 }
-
-                // Populate the first byte with number of public values
-                finalization_log[0] = $public_values_length;
 
                 // We emit the finalization log via the unencrypted logs stream
                 self.context.emit_unencrypted_log(finalization_log);
