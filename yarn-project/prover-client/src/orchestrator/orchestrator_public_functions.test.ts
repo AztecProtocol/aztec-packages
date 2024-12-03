@@ -42,7 +42,7 @@ describe('prover/orchestrator/public-functions', () => {
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
-        context.orchestrator.startNewEpoch(1, 1);
+        context.orchestrator.startNewEpoch(1, 1, 1);
         await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
         for (const processedTx of processed) {

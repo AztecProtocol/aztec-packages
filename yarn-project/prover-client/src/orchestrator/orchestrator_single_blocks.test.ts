@@ -22,7 +22,7 @@ describe('prover/orchestrator/blocks', () => {
 
   describe('blocks', () => {
     it('builds an empty L2 block', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1);
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
@@ -34,7 +34,7 @@ describe('prover/orchestrator/blocks', () => {
       const txs = [context.makeProcessedTx(1)];
 
       // This will need to be a 2 tx block
-      context.orchestrator.startNewEpoch(1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1);
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       for (const tx of txs) {
@@ -51,7 +51,7 @@ describe('prover/orchestrator/blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      context.orchestrator.startNewEpoch(1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1);
       await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
 
       for (const tx of txs) {
