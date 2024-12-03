@@ -60,6 +60,10 @@ export class EpochProvingState {
     private rejectionCallback: (reason: string) => void,
   ) {}
 
+  public getProvinbJobPrefix(): string {
+    return String(this.epochNumber);
+  }
+
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
     const totalLeaves = Math.max(2, this.totalNumBlocks);

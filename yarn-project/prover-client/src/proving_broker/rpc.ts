@@ -25,6 +25,17 @@ const GetProvingJobResponse = z.object({
   time: z.number(),
 });
 
+const ReportProgressResponse = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('continue'),
+  }),
+  z.object({
+    status: z.literal('abort'),
+    job: ProvingJob.optional(),
+    time: z.number().optional(),
+  }),
+]);
+
 export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
   enqueueProvingJob: z.function().args(ProvingJob).returns(z.void()),
   getProvingJobStatus: z.function().args(ProvingJobId).returns(ProvingJobStatus),
@@ -38,7 +49,7 @@ export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
   reportProvingJobProgress: z
     .function()
     .args(ProvingJobId, z.number(), optional(ProvingJobFilterSchema))
-    .returns(GetProvingJobResponse.optional()),
+    .returns(ReportProgressResponse),
   reportProvingJobSuccess: z.function().args(ProvingJobId, ProofUri).returns(z.void()),
 };
 

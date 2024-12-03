@@ -7,6 +7,7 @@ import {
   type ProvingJobInputs,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
+  ReportProgressResponse,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
@@ -40,7 +41,7 @@ describe('ProvingAgent', () => {
     prover = new MockProver();
     jobSource = {
       getProvingJob: jest.fn(),
-      reportProvingJobProgress: jest.fn(),
+      reportProvingJobProgress: jest.fn<any>().mockResolvedValue({ status: 'continue' } as ReportProgressResponse),
       reportProvingJobError: jest.fn(),
       reportProvingJobSuccess: jest.fn(),
     };
@@ -193,10 +194,11 @@ describe('ProvingAgent', () => {
 
     // now let's simulate the job source cancelling the job and giving the agent something else to do
     // this should cause the agent to abort the current job and start the new one
-    const secondJobResponse = makeBaseParityJob();
+    const newJob = makeBaseParityJob();
+    const secondJobResponse: ReportProgressResponse = { status: 'abort', ...newJob };
 
     jobSource.reportProvingJobProgress.mockResolvedValueOnce(secondJobResponse);
-    proofDB.getProofInput.mockResolvedValueOnce(secondJobResponse.inputs);
+    proofDB.getProofInput.mockResolvedValueOnce(newJob.inputs);
 
     const secondProof =
       promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
@@ -212,13 +214,9 @@ describe('ProvingAgent', () => {
     // agent should have switched now
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(4);
-    expect(jobSource.reportProvingJobProgress).toHaveBeenLastCalledWith(
-      secondJobResponse.job.id,
-      secondJobResponse.time,
-      {
-        allowList: [ProvingRequestType.BASE_PARITY],
-      },
-    );
+    expect(jobSource.reportProvingJobProgress).toHaveBeenLastCalledWith(newJob.job.id, newJob.time, {
+      allowList: [ProvingRequestType.BASE_PARITY],
+    });
 
     secondProof.resolve(makeBaseParityResult());
   });

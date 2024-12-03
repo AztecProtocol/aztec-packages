@@ -67,6 +67,10 @@ export class BlockProvingState {
     return this.globalVariables.blockNumber.toNumber();
   }
 
+  public getProvinbJobPrefix(): string {
+    return `${this.parentEpoch.getProvinbJobPrefix()}:${this.blockNumber}`;
+  }
+
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
     return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);

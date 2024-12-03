@@ -37,6 +37,7 @@ import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
+import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {
@@ -49,7 +50,7 @@ export class TestContext {
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
-    public proverAgent: ProverAgent,
+    public testBroker: TestBroker,
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
@@ -112,12 +113,11 @@ export class TestContext {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
-    const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
+    const testBroker = new TestBroker(proverCount, localProver);
+    const orchestrator = new TestProvingOrchestrator(ws, testBroker, telemetry, Fr.ZERO);
     const agent = new ProverAgent(localProver, proverCount);
 
-    queue.start();
-    agent.start(queue);
+    await testBroker.start();
 
     return new this(
       publicTxSimulator,
@@ -126,7 +126,7 @@ export class TestContext {
       simulationProvider,
       globalVariables,
       localProver,
-      agent,
+      testBroker,
       orchestrator,
       blockNumber,
       directoriesToCleanup,
@@ -145,7 +145,7 @@ export class TestContext {
   }
 
   async cleanup() {
-    await this.proverAgent.stop();
+    await this.testBroker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }

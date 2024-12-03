@@ -8,6 +8,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { jest } from '@jest/globals';
 
 import { TestContext } from '../mocks/test_context.js';
+import { TestBroker } from '../test/mock_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-failures');
@@ -26,11 +27,17 @@ describe('prover/orchestrator/failures', () => {
 
   describe('error handling', () => {
     let mockProver: ServerCircuitProver;
+    let mockBroker: TestBroker;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.worldState, mockProver, new NoopTelemetryClient());
+      mockBroker = new TestBroker(1, mockProver);
+      orchestrator = new ProvingOrchestrator(context.worldState, mockBroker, new NoopTelemetryClient());
+
+      await mockBroker.start();
     });
+
+    afterEach(() => mockBroker.stop());
 
     const run = async (message: string) => {
       // We need at least 3 blocks, 3 txs, and 1 message to ensure all circuits are used

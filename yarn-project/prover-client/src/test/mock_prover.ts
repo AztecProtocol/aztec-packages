@@ -59,7 +59,7 @@ export class TestBroker implements ProvingJobProducer {
     prover: ServerCircuitProver,
     private proofStore: ProofStore = new InlineProofStore(),
   ) {
-    this.agents = times(agentCount, () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient()));
+    this.agents = times(agentCount, () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient(), [], 10));
   }
 
   public async start() {

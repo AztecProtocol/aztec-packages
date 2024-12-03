@@ -83,6 +83,11 @@ export type GetProvingJobResponse = {
   time: number;
 };
 
+export type ReportProgressResponse =
+  | { status: 'continue' }
+  | { status: 'abort' }
+  | { status: 'abort'; job: ProvingJob; time: number };
+
 /**
  * An interface for proving agents to request jobs and report results
  */
@@ -118,7 +123,7 @@ export interface ProvingJobConsumer {
     id: ProvingJobId,
     startedAt: number,
     filter?: ProvingJobFilter,
-  ): Promise<GetProvingJobResponse | undefined>;
+  ): Promise<ReportProgressResponse>;
 }
 
 export interface ProvingJobBroker extends ProvingJobProducer, ProvingJobConsumer {}

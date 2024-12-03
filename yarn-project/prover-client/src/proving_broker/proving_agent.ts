@@ -71,25 +71,33 @@ export class ProvingAgent {
       // If during (1) the broker returns a new job that means we can cancel the current job and start the new one
       let maybeJob: { job: ProvingJob; time: number } | undefined;
       if (this.currentJobController?.getStatus() === ProvingJobControllerStatus.PROVING) {
-        maybeJob = await this.broker.reportProvingJobProgress(
+        const progressReport = await this.broker.reportProvingJobProgress(
           this.currentJobController.getJobId(),
           this.currentJobController.getStartedAt(),
           { allowList: this.proofAllowList },
         );
-      } else {
+
+        if (progressReport.status === 'continue') {
+          return;
+        } else {
+          this.log.info(
+            `Aborting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()}`,
+          );
+          this.currentJobController.abort();
+
+          if ('job' in progressReport) {
+            maybeJob = { job: progressReport.job, time: progressReport.time };
+          }
+        }
+      }
+
+      if (!maybeJob) {
         maybeJob = await this.broker.getProvingJob({ allowList: this.proofAllowList });
       }
 
       if (!maybeJob) {
+        // we couldn't find a job to work on. Sleep
         return;
-      }
-
-      let abortedProofJobId: string | undefined;
-      let abortedProofName: string | undefined;
-      if (this.currentJobController?.getStatus() === ProvingJobControllerStatus.PROVING) {
-        abortedProofJobId = this.currentJobController.getJobId();
-        abortedProofName = this.currentJobController.getProofTypeName();
-        this.currentJobController?.abort();
       }
 
       const { job, time } = maybeJob;
@@ -109,19 +117,11 @@ export class ProvingAgent {
         this.handleJobResult,
       );
 
-      if (abortedProofJobId) {
-        this.log.info(
-          `Aborting job id=${abortedProofJobId} type=${abortedProofName} to start new job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
-            job.inputsUri,
-          )}`,
-        );
-      } else {
-        this.log.info(
-          `Starting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
-            job.inputsUri,
-          )}`,
-        );
-      }
+      this.log.info(
+        `Starting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
+          job.inputsUri,
+        )}`,
+      );
 
       if (this.idleTimer) {
         this.instrumentation.recordIdleTime(this.idleTimer);

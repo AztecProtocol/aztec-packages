@@ -46,12 +46,7 @@ export class ProverClient implements EpochProverManager {
   }
 
   public createEpochProver(cache: ProverCache = new InMemoryProverCache()): EpochProver {
-    return new ProvingOrchestrator(
-      this.worldState,
-      new CachingBrokerFacade(this.orchestratorClient, cache),
-      this.telemetry,
-      this.config.proverId,
-    );
+    return new ProvingOrchestrator(this.worldState, this.orchestratorClient, this.telemetry, this.config.proverId);
   }
 
   public getProverId(): Fr {

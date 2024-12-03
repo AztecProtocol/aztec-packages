@@ -9,6 +9,7 @@ import { jest } from '@jest/globals';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { TestContext } from '../mocks/test_context.js';
+import { TestBroker } from '../test/mock_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-lifecycle');
@@ -25,9 +26,20 @@ describe('prover/orchestrator/lifecycle', () => {
   });
 
   describe('lifecycle', () => {
+    let prover: ServerCircuitProver;
+    let broker: TestBroker;
+
+    beforeEach(async () => {
+      prover = new TestCircuitProver(new NoopTelemetryClient());
+      broker = new TestBroker(4, prover);
+
+      await broker.start();
+    });
+
+    afterEach(() => broker.stop());
+
     it('cancels proving requests', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, new NoopTelemetryClient());
+      const orchestrator = new ProvingOrchestrator(context.worldState, broker, new NoopTelemetryClient());
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -40,12 +52,13 @@ describe('prover/orchestrator/lifecycle', () => {
       orchestrator.startNewEpoch(1, 1, 1);
       await orchestrator.startNewBlock(2, context.globalVariables, []);
 
-      await sleep(1);
+      await sleep(10);
 
       expect(spy).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
       expect(spy.mock.calls.every(([_, signal]) => !signal?.aborted)).toBeTruthy();
 
       orchestrator.cancel();
+      await sleep(10);
       expect(spy.mock.calls.every(([_, signal]) => signal?.aborted)).toBeTruthy();
     });
   });

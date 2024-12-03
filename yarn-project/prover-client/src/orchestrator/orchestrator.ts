@@ -10,6 +10,13 @@ import {
   type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
   type ProofAndVerificationKey,
+  ProverCache,
+  ProvingJob,
+  ProvingJobId,
+  ProvingJobInputsMap,
+  ProvingJobProducer,
+  ProvingJobResultsMap,
+  ProvingRequestType,
 } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
@@ -44,6 +51,7 @@ import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
@@ -53,6 +61,8 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackI
 
 import { inspect } from 'util';
 
+import { InlineProofStore, ProofStore } from '../proving_broker/proof_store.js';
+import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
@@ -79,6 +89,9 @@ import { TxProvingState } from './tx-proving-state.js';
 
 const logger = createLogger('prover-client:orchestrator');
 
+// 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
+const MAX_WAIT_MS = 1_200_000;
+
 /**
  * Implements an event driven proving scheduler to build the recursive proof tree. The idea being:
  * 1. Transactions are provided to the scheduler post simulation.
@@ -104,9 +117,11 @@ export class ProvingOrchestrator implements EpochProver {
 
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
-    private prover: ServerCircuitProver,
+    private prover: ProvingJobProducer,
     telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,
+    private proofStore: ProofStore = new InlineProofStore(),
+    private cache: ProverCache = new InMemoryProverCache(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }
@@ -381,15 +396,10 @@ export class ProvingOrchestrator implements EpochProver {
     logger.debug(`Enqueuing deferred proving for padding block to enqueue ${paddingBlockCount} paddings`);
     this.deferredProving(
       provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
-        },
-        signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
-      ),
+      provingState.numMergeLevels + 1n,
+      provingState.blocks.length + 1,
+      ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
+      inputs,
       result => {
         logger.debug(`Completed proof for padding block`);
         const currentLevel = provingState.numMergeLevels + 1n;
@@ -475,31 +485,23 @@ export class ProvingOrchestrator implements EpochProver {
       return;
     }
     logger.debug(`Enqueuing deferred proving for padding txs to enqueue ${txInputs.length} paddings`);
+    const inputs = new PrivateKernelEmptyInputData(
+      paddingTx.constants.historicalHeader,
+      // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
+      // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
+      // we'd have to clear out the paddingTx here and regenerate it when they do.
+      paddingTx.constants.txContext.chainId,
+      paddingTx.constants.txContext.version,
+      paddingTx.constants.vkTreeRoot,
+      paddingTx.constants.protocolContractTreeRoot,
+    );
+
     this.deferredProving(
       provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getEmptyPrivateKernelProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'private-kernel-empty' satisfies CircuitName,
-        },
-        signal =>
-          this.prover.getEmptyPrivateKernelProof(
-            new PrivateKernelEmptyInputData(
-              paddingTx.constants.historicalHeader,
-              // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
-              // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
-              // we'd have to clear out the paddingTx here and regenerate it when they do.
-              paddingTx.constants.txContext.chainId,
-              paddingTx.constants.txContext.version,
-              paddingTx.constants.vkTreeRoot,
-              paddingTx.constants.protocolContractTreeRoot,
-            ),
-            signal,
-            provingState.epochNumber,
-          ),
-      ),
+      provingState.numMergeLevels + 1n,
+      provingState.totalNumTxs + 1,
+      ProvingRequestType.PRIVATE_KERNEL_EMPTY,
+      inputs,
       result => {
         logger.debug(`Completed proof for padding tx, now enqueuing ${txInputs.length} padding txs`);
         this.paddingTxProof = { proof: result.proof, verificationKey: result.verificationKey };
@@ -622,16 +624,116 @@ export class ProvingOrchestrator implements EpochProver {
     }
   }
 
+  private async enqueueAndWaitForJob<T extends ProvingRequestType>(
+    id: ProvingJobId,
+    type: T,
+    inputs: ProvingJobInputsMap[T],
+    signal?: AbortSignal,
+  ): Promise<ProvingJobResultsMap[T]> {
+    // first try the cache
+    let jobEnqueued = false;
+    try {
+      const cachedResult = await this.cache.getProvingJobStatus(id);
+      if (cachedResult.status !== 'not-found') {
+        logger.debug(`Found cached result for job=${id}: status=${cachedResult.status}`);
+      }
+
+      if (cachedResult.status === 'fulfilled') {
+        const output = await this.proofStore.getProofOutput(cachedResult.value);
+        if (output.type === type) {
+          return output.result as ProvingJobResultsMap[T];
+        } else {
+          logger.warn(`Cached result type mismatch for job=${id}. Expected=${type} but got=${output.type}`);
+        }
+      } else if (cachedResult.status === 'rejected') {
+        // prefer returning a rejected promises so that we don't trigger the catch block below
+        return Promise.reject(new Error(cachedResult.reason));
+      } else if (cachedResult.status === 'in-progress' || cachedResult.status === 'in-queue') {
+        jobEnqueued = true;
+      } else {
+        jobEnqueued = false;
+      }
+    } catch (err) {
+      logger.warn(`Failed to get cached proving job id=${id}: ${err}. Re-running job`);
+    }
+
+    if (!jobEnqueued) {
+      try {
+        const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
+        await this.prover.enqueueProvingJob({
+          id,
+          type,
+          inputsUri,
+        });
+        await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
+      } catch (err) {
+        logger.error(`Failed to enqueue proving job id=${id}: ${err}`);
+        await this.cache.setProvingJobStatus(id, { status: 'not-found' });
+        throw err;
+      }
+    }
+
+    // notify broker of cancelled job
+    const abortFn = async () => {
+      signal?.removeEventListener('abort', abortFn);
+      await this.prover.removeAndCancelProvingJob(id);
+    };
+
+    signal?.addEventListener('abort', abortFn);
+
+    try {
+      // loop here until the job settles
+      // NOTE: this could also terminate because the job was cancelled through event listener above
+      const result = await retryUntil(
+        async () => {
+          try {
+            return await this.prover.waitForJobToSettle(id);
+          } catch (err) {
+            // waitForJobToSettle can only fail for network errors
+            // keep retrying until we time out
+          }
+        },
+        `Proving job=${id} type=${ProvingRequestType[type]}`,
+        MAX_WAIT_MS / 1000,
+        1,
+      );
+
+      try {
+        await this.cache.setProvingJobStatus(id, result);
+      } catch (err) {
+        logger.warn(`Failed to cache proving job id=${id} resultStatus=${result.status}: ${err}`);
+      }
+
+      console.log('Job has settled', result);
+      if (result.status === 'fulfilled') {
+        const output = await this.proofStore.getProofOutput(result.value);
+        if (output.type === type) {
+          return output.result as ProvingJobResultsMap[T];
+        } else {
+          return Promise.reject(new Error(`Unexpected proof type: ${output.type}. Expected: ${type}`));
+        }
+      } else {
+        return Promise.reject(new Error(result.reason));
+      }
+    } finally {
+      signal?.removeEventListener('abort', abortFn);
+    }
+  }
+
   /**
    * Enqueue a job to be scheduled
    * @param provingState - The proving state object being operated on
    * @param jobType - The type of job to be queued
    * @param job - The actual job, returns a promise notifying of the job's completion
    */
-  private deferredProving<T>(
+  private deferredProving<T extends ProvingRequestType>(
     provingState: EpochProvingState | BlockProvingState | undefined,
-    request: (signal: AbortSignal) => Promise<T>,
-    callback: (result: T) => void | Promise<void>,
+    level: number | bigint,
+    index: number | bigint,
+    type: T,
+    inputs: ProvingJobInputsMap[T],
+    // request: (signal: AbortSignal) => Promise<T>,
+    callback: (result: ProvingJobResultsMap[T]) => void | Promise<void>,
   ) {
     if (!provingState?.verifyState()) {
       logger.debug(`Not enqueuing job, state no longer valid`);
@@ -650,7 +752,22 @@ export class ProvingOrchestrator implements EpochProver {
           return;
         }
 
-        const result = await request(controller.signal);
+        const id = `${provingState.getProvinbJobPrefix()}:${level}:${index}:${
+          ProvingRequestType[type]
+        }` as ProvingJobId;
+        //const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
+
+        //const job: ProvingJob = {
+        //  id,
+        //  type: type,
+        //  inputsUri,
+        //  blockNumber: 0,
+        //};
+        const result = await this.enqueueAndWaitForJob(id, type, inputs, controller.signal);
+        //await this.prover.enqueueProvingJob(job);
+        //const result = await this.prover.waitForJobToSettle(job.id);
+
+        // const result = await request(controller.signal);
         if (!provingState?.verifyState()) {
           logger.debug(`State no longer valid, discarding result`);
           return;
@@ -663,6 +780,13 @@ export class ProvingOrchestrator implements EpochProver {
         }
 
         await callback(result);
+
+        //if (result.status === 'fulfilled') {
+        //  const output = await this.proofStore.getProofOutput(result.value);
+        //  await callback(output.result as ProvingJobResultsMap[T]);
+        //} else {
+        //  throw new Error(result.reason);
+        //}
       } catch (err) {
         if (err instanceof AbortError) {
           // operation was cancelled, probably because the block was cancelled
@@ -739,39 +863,26 @@ export class ProvingOrchestrator implements EpochProver {
       } for ${processedTx.hash.toString()}`,
     );
 
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        `ProvingOrchestrator.prover.${
-          rollupType === 'private-base-rollup' ? 'getPrivateBaseRollupProof' : 'getPublicBaseRollupProof'
-        }`,
-        {
-          [Attributes.TX_HASH]: processedTx.hash.toString(),
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType satisfies CircuitName,
-        },
-        signal => {
-          if (rollupType === 'private-base-rollup') {
-            const inputs = txProvingState.getPrivateBaseInputs();
-            return this.prover.getPrivateBaseRollupProof(inputs, signal, provingState.epochNumber);
-          } else {
-            const inputs = txProvingState.getPublicBaseInputs();
-            return this.prover.getPublicBaseRollupProof(inputs, signal, provingState.epochNumber);
-          }
-        },
-      ),
-      result => {
-        logger.debug(`Completed proof for ${rollupType} for tx ${processedTx.hash.toString()}`);
-        validatePartialState(result.inputs.end, txProvingState.treeSnapshots);
-        const currentLevel = provingState.numMergeLevels + 1n;
-        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, BigInt(txIndex), [
-          result.inputs,
-          result.proof,
-          result.verificationKey.keyAsFields,
-        ]);
-      },
-    );
+    const type =
+      rollupType === 'private-base-rollup'
+        ? ProvingRequestType.PRIVATE_BASE_ROLLUP
+        : ProvingRequestType.PUBLIC_BASE_ROLLUP;
+
+    const inputs =
+      type === ProvingRequestType.PRIVATE_BASE_ROLLUP
+        ? txProvingState.getPrivateBaseInputs()
+        : txProvingState.getPublicBaseInputs();
+
+    this.deferredProving(provingState, Number(provingState.numMergeLevels + 1n), txIndex, type, inputs, result => {
+      logger.debug(`Completed proof for ${rollupType} for tx ${processedTx.hash.toString()}`);
+      validatePartialState(result.inputs.end, txProvingState.treeSnapshots);
+      const currentLevel = provingState.numMergeLevels + 1n;
+      this.storeAndExecuteNextMergeLevel(provingState, currentLevel, BigInt(txIndex), [
+        result.inputs,
+        result.proof,
+        result.verificationKey.keyAsFields,
+      ]);
+    });
   }
 
   // Enqueues the tub circuit for a given transaction index
@@ -787,19 +898,10 @@ export class ProvingOrchestrator implements EpochProver {
 
     this.deferredProving(
       provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getTubeProof',
-        {
-          [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
-        },
-        signal => {
-          const inputs = txProvingState.getTubeInputs();
-          return this.prover.getTubeProof(inputs, signal, provingState.epochNumber);
-        },
-      ),
+      Number(provingState.numMergeLevels + 1n),
+      txIndex,
+      ProvingRequestType.TUBE_PROOF,
+      txProvingState.getTubeInputs(),
       result => {
         logger.debug(`Completed tube proof for tx index: ${txIndex}`);
         txProvingState.assignTubeProof(result);
@@ -821,25 +923,13 @@ export class ProvingOrchestrator implements EpochProver {
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!, mergeInputData.verificationKeys[1]!],
     );
 
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getMergeRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'merge-rollup' satisfies CircuitName,
-        },
-        signal => this.prover.getMergeRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        this.storeAndExecuteNextMergeLevel(provingState, level, index, [
-          result.inputs,
-          result.proof,
-          result.verificationKey.keyAsFields,
-        ]);
-      },
-    );
+    this.deferredProving(provingState, level, index, ProvingRequestType.MERGE_ROLLUP, inputs, result => {
+      this.storeAndExecuteNextMergeLevel(provingState, level, index, [
+        result.inputs,
+        result.proof,
+        result.verificationKey.keyAsFields,
+      ]);
+    });
   }
 
   // Executes the block root rollup circuit
@@ -881,102 +971,66 @@ export class ProvingOrchestrator implements EpochProver {
       proverId: this.proverId,
     });
 
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getBlockRootRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-root-rollup' satisfies CircuitName,
-        },
-        signal => this.prover.getBlockRootRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        const header = this.extractBlockHeaderFromPublicInputs(provingState, result.inputs);
-        if (!header.hash().equals(provingState.block!.header.hash())) {
-          logger.error(
-            `Block header mismatch\nCircuit:${inspect(header)}\nComputed:${inspect(provingState.block!.header)}`,
-          );
-          provingState.reject(`Block header hash mismatch`);
-        }
+    this.deferredProving(provingState, 0, 0, ProvingRequestType.BLOCK_ROOT_ROLLUP, inputs, result => {
+      const header = this.extractBlockHeaderFromPublicInputs(provingState, result.inputs);
+      if (!header.hash().equals(provingState.block!.header.hash())) {
+        logger.error(
+          `Block header mismatch\nCircuit:${inspect(header)}\nComputed:${inspect(provingState.block!.header)}`,
+        );
+        provingState.reject(`Block header hash mismatch`);
+      }
 
-        provingState.blockRootRollupPublicInputs = result.inputs;
-        provingState.finalProof = result.proof.binaryProof;
+      provingState.blockRootRollupPublicInputs = result.inputs;
+      provingState.finalProof = result.proof.binaryProof;
 
-        logger.debug(`Completed proof for block root rollup for ${provingState.block?.number}`);
-        // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
+      logger.debug(`Completed proof for block root rollup for ${provingState.block?.number}`);
+      // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
 
-        const currentLevel = this.provingState!.numMergeLevels + 1n;
-        this.storeAndExecuteNextBlockMergeLevel(this.provingState!, currentLevel, BigInt(provingState.index), [
-          result.inputs,
-          result.proof,
-          result.verificationKey.keyAsFields,
-        ]);
-      },
-    );
+      const currentLevel = this.provingState!.numMergeLevels + 1n;
+      this.storeAndExecuteNextBlockMergeLevel(this.provingState!, currentLevel, BigInt(provingState.index), [
+        result.inputs,
+        result.proof,
+        result.verificationKey.keyAsFields,
+      ]);
+    });
   }
 
   // Executes the base parity circuit and stores the intermediate state for the root parity circuit
   // Enqueues the root parity circuit if all inputs are available
   private enqueueBaseParityCircuit(provingState: BlockProvingState, inputs: BaseParityInputs, index: number) {
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getBaseParityProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' satisfies CircuitName,
-        },
-        signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
-      ),
-      provingOutput => {
-        const rootParityInput = new RootParityInput(
-          provingOutput.proof,
-          provingOutput.verificationKey.keyAsFields,
-          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
-          provingOutput.inputs,
+    this.deferredProving(provingState, 1, index, ProvingRequestType.BASE_PARITY, inputs, provingOutput => {
+      const rootParityInput = new RootParityInput(
+        provingOutput.proof,
+        provingOutput.verificationKey.keyAsFields,
+        getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+        provingOutput.inputs,
+      );
+      provingState.setRootParityInputs(rootParityInput, index);
+      if (provingState.areRootParityInputsReady()) {
+        const rootParityInputs = new RootParityInputs(
+          provingState.rootParityInput as Tuple<
+            RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
+            typeof NUM_BASE_PARITY_PER_ROOT_PARITY
+          >,
         );
-        provingState.setRootParityInputs(rootParityInput, index);
-        if (provingState.areRootParityInputsReady()) {
-          const rootParityInputs = new RootParityInputs(
-            provingState.rootParityInput as Tuple<
-              RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
-              typeof NUM_BASE_PARITY_PER_ROOT_PARITY
-            >,
-          );
-          this.enqueueRootParityCircuit(provingState, rootParityInputs);
-        }
-      },
-    );
+        this.enqueueRootParityCircuit(provingState, rootParityInputs);
+      }
+    });
   }
 
   // Runs the root parity circuit ans stored the outputs
   // Enqueues the root rollup proof if all inputs are available
   private enqueueRootParityCircuit(provingState: BlockProvingState, inputs: RootParityInputs) {
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getRootParityProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' satisfies CircuitName,
-        },
-        signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
-      ),
-      provingOutput => {
-        const rootParityInput = new RootParityInput(
-          provingOutput.proof,
-          provingOutput.verificationKey.keyAsFields,
-          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
-          provingOutput.inputs,
-        );
-        provingState!.finalRootParityInput = rootParityInput;
-        this.checkAndEnqueueBlockRootRollup(provingState);
-      },
-    );
+    this.deferredProving(provingState, 0, 0, ProvingRequestType.ROOT_PARITY, inputs, provingOutput => {
+      const rootParityInput = new RootParityInput(
+        provingOutput.proof,
+        provingOutput.verificationKey.keyAsFields,
+        getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+        provingOutput.inputs,
+      );
+      provingState!.finalRootParityInput = rootParityInput;
+      this.checkAndEnqueueBlockRootRollup(provingState);
+    });
   }
 
   // Executes the block merge rollup circuit and stored the output as intermediate state for the parent merge/block root circuit
@@ -992,25 +1046,13 @@ export class ProvingOrchestrator implements EpochProver {
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!, mergeInputData.verificationKeys[1]!],
     );
 
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getBlockMergeRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-merge-rollup' satisfies CircuitName,
-        },
-        signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        this.storeAndExecuteNextBlockMergeLevel(provingState, level, index, [
-          result.inputs,
-          result.proof,
-          result.verificationKey.keyAsFields,
-        ]);
-      },
-    );
+    this.deferredProving(provingState, level, index, ProvingRequestType.BLOCK_MERGE_ROLLUP, inputs, result => {
+      this.storeAndExecuteNextBlockMergeLevel(provingState, level, index, [
+        result.inputs,
+        result.proof,
+        result.verificationKey.keyAsFields,
+      ]);
+    });
   }
 
   // Executes the root rollup circuit
@@ -1033,24 +1075,12 @@ export class ProvingOrchestrator implements EpochProver {
       this.proverId,
     );
 
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getRootRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' satisfies CircuitName,
-        },
-        signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        logger.verbose(`Orchestrator completed root rollup for epoch ${provingState.epochNumber}`);
-        provingState.rootRollupPublicInputs = result.inputs;
-        provingState.finalProof = result.proof.binaryProof;
-        provingState.resolve({ status: 'success' });
-      },
-    );
+    this.deferredProving(provingState, 0, 0, ProvingRequestType.ROOT_ROLLUP, inputs, result => {
+      logger.verbose(`Orchestrator completed root rollup for epoch ${provingState.epochNumber}`);
+      provingState.rootRollupPublicInputs = result.inputs;
+      provingState.finalProof = result.proof.binaryProof;
+      provingState.resolve({ status: 'success' });
+    });
   }
 
   private checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
@@ -1182,39 +1212,18 @@ export class ProvingOrchestrator implements EpochProver {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
 
-    // This function tries to do AVM proving. If there is a failure, it fakes the proof unless AVM_PROVING_STRICT is defined.
-    // Nothing downstream depends on the AVM proof yet. So having this mode lets us incrementally build the AVM circuit.
-    const doAvmProving = wrapCallbackInSpan(
-      this.tracer,
-      'ProvingOrchestrator.prover.getAvmProof',
-      {
-        [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
-      },
-      async (signal: AbortSignal) => {
-        const inputs = txProvingState.getAvmInputs();
-        try {
-          return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
-        } catch (err) {
-          if (process.env.AVM_PROVING_STRICT) {
-            throw err;
-          } else {
-            logger.warn(
-              `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
-            );
-            return {
-              proof: makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
-              verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-            };
-          }
-        }
+    this.deferredProving(
+      provingState,
+      provingState.numMergeLevels + 1n,
+      txIndex,
+      ProvingRequestType.PUBLIC_VM,
+      txProvingState.getAvmInputs(),
+      proofAndVk => {
+        logger.debug(`Proven VM for tx index: ${txIndex}`);
+        txProvingState.assignAvmProof(proofAndVk);
+        this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
       },
     );
-
-    this.deferredProving(provingState, doAvmProving, proofAndVk => {
-      logger.debug(`Proven VM for tx index: ${txIndex}`);
-      txProvingState.assignAvmProof(proofAndVk);
-      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
-    });
   }
 
   private checkAndEnqueueNextTxCircuit(provingState: BlockProvingState, txIndex: number) {
