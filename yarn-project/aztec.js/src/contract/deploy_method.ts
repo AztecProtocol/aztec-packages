@@ -89,6 +89,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
+    const deployment = await this.getDeploymentFunctionCalls(options);
+
+    // NOTE: MEGA HACK. Remove with #10007
+    // register the contract after generating deployment function calls in order to publicly register the class and (optioanlly) emit its bytecode
+    //
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
     // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
     // runs, since it needs the contract to have been registered in order to estimate gas for its initialization,
@@ -97,7 +102,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // once this tx has gone through.
     await this.wallet.registerContract({ artifact: this.artifact, instance: this.getInstance(options) });
 
-    const deployment = await this.getDeploymentFunctionCalls(options);
     const bootstrap = await this.getInitializeFunctionCalls(options);
 
     if (deployment.calls.length + bootstrap.calls.length === 0) {
