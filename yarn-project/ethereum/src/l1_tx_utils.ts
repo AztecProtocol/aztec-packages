@@ -204,7 +204,7 @@ export class L1TxUtils {
     // Retry a few times, in case the tx is not yet propagated.
     const tx = await retry<GetTransactionReturnType>(
       () => this.publicClient.getTransaction({ hash: initialTxHash }),
-      `Getting L1 transaction ${initialTxHash} nonce`,
+      `Getting L1 transaction ${initialTxHash}`,
       makeBackoff([1, 2, 3]),
       this.logger,
       true,
@@ -244,7 +244,14 @@ export class L1TxUtils {
           }
         }
 
-        const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
+        // Retry a few times, in case the tx is not yet propagated.
+        const tx = await retry<GetTransactionReturnType>(
+          () => this.publicClient.getTransaction({ hash: currentTxHash }),
+          `Getting L1 transaction ${currentTxHash}`,
+          makeBackoff([1, 2, 3]),
+          this.logger,
+          true,
+        );
         const timePassed = Date.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
@@ -358,6 +365,9 @@ export class L1TxUtils {
       // first attempt, just bump priority fee
       priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
     }
+
+    // Add priority fee to maxFeePerGas
+    maxFeePerGas += priorityFee;
 
     // Ensure we don't exceed maxGwei
     const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
