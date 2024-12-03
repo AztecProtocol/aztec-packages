@@ -62,6 +62,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       if (sandboxOptions.testAccounts) {
         if (aztecNodeConfig.p2pEnabled) {
           userLog(`Not setting up test accounts as we are connecting to a network`);
+        } else if (sandboxOptions.noPXE) {
+          userLog(`Not setting up test accounts as we are not exposing a PXE`);
         } else {
           userLog('Setting up test accounts...');
           const accounts = await deployInitialTestAccounts(pxe);
