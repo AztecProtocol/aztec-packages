@@ -149,7 +149,7 @@ case "$CMD" in
     $ci3/github/group "image-aztec"
     source $ci3/base/tmp_source
     echo "earthly artifact build:"
-    denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     echo "docker image build:"
     docker build -f Dockerfile.aztec -t $IMAGE $TMP
     $ci3/github/endgroup
@@ -163,8 +163,8 @@ case "$CMD" in
     $ci3/github/group "image-e2e"
     source $ci3/base/tmp_source
     echo "earthly artifact build:"
-    denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
-    denoise earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
+    earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
+    earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
     echo "docker image build:"
     docker build -f Dockerfile.end-to-end -t $IMAGE $TMP
     $ci3/github/endgroup
