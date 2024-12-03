@@ -11,6 +11,7 @@
     "./prettier": "./.prettierrc.json",
     "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",
+    "./async-pool": "./dest/async-pool/index.js",
     "./aztec-address": "./dest/aztec-address/index.js",
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
@@ -25,6 +26,7 @@
     "./json-rpc": "./dest/json-rpc/index.js",
     "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
+    "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
     "./log": "./dest/log/index.js",
     "./mutex": "./dest/mutex/index.js",
@@ -47,7 +49,8 @@
     "./testing": "./dest/testing/index.js",
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
-    "./promise": "./dest/promise/index.js"
+    "./promise": "./dest/promise/index.js",
+    "./string": "./dest/string/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",

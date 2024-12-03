@@ -1,6 +1,10 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+
+import { z } from 'zod';
 
 import { Note } from '../logs/l1_payload/payload.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -48,13 +52,38 @@ export class ExtendedNote {
     return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
+  static get schema() {
+    return z
+      .object({
+        note: Note.schema,
+        owner: schemas.AztecAddress,
+        contractAddress: schemas.AztecAddress,
+        storageSlot: schemas.Fr,
+        noteTypeId: schemas.NoteSelector,
+        txHash: TxHash.schema,
+      })
+      .transform(({ note, owner, contractAddress, storageSlot, noteTypeId, txHash }) => {
+        return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+      });
+  }
+
   toString() {
-    return '0x' + this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string) {
-    const hex = str.replace(/^0x/, '');
-    return ExtendedNote.fromBuffer(Buffer.from(hex, 'hex'));
+    return ExtendedNote.fromBuffer(hexToBuffer(str));
+  }
+
+  static random() {
+    return new ExtendedNote(
+      Note.random(),
+      AztecAddress.random(),
+      AztecAddress.random(),
+      Fr.random(),
+      NoteSelector.random(),
+      TxHash.random(),
+    );
   }
 }
 
@@ -78,6 +107,22 @@ export class UniqueNote extends ExtendedNote {
     super(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
+  static override get schema() {
+    return z
+      .object({
+        note: Note.schema,
+        owner: schemas.AztecAddress,
+        contractAddress: schemas.AztecAddress,
+        storageSlot: schemas.Fr,
+        noteTypeId: schemas.NoteSelector,
+        txHash: TxHash.schema,
+        nonce: schemas.Fr,
+      })
+      .transform(({ note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce }) => {
+        return new UniqueNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+      });
+  }
+
   override toBuffer(): Buffer {
     return Buffer.concat([
       this.note.toBuffer(),
@@ -88,6 +133,18 @@ export class UniqueNote extends ExtendedNote {
       this.txHash.buffer,
       this.nonce.toBuffer(),
     ]);
+  }
+
+  static override random() {
+    return new UniqueNote(
+      Note.random(),
+      AztecAddress.random(),
+      AztecAddress.random(),
+      Fr.random(),
+      NoteSelector.random(),
+      TxHash.random(),
+      Fr.random(),
+    );
   }
 
   static override fromBuffer(buffer: Buffer | BufferReader) {
@@ -105,7 +162,6 @@ export class UniqueNote extends ExtendedNote {
   }
 
   static override fromString(str: string) {
-    const hex = str.replace(/^0x/, '');
-    return UniqueNote.fromBuffer(Buffer.from(hex, 'hex'));
+    return UniqueNote.fromBuffer(hexToBuffer(str));
   }
 }

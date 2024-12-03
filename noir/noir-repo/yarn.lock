@@ -229,6 +229,7 @@ __metadata:
     commander: ^10.0.1
     debug: ^4.3.4
     fflate: ^0.8.0
+    pako: ^2.1.0
     tslib: ^2.4.0
   bin:
     bb.js: ./dest/node/main.js

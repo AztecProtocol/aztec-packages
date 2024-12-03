@@ -139,9 +139,22 @@ async function getBlockFromRollupTx(
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
+  const [decodedArgs, , bodyHex] = args! as readonly [
+    {
+      header: Hex;
+      archive: Hex;
+      blockHash: Hex;
+      oracleInput: {
+        provingCostModifier: bigint;
+        feeAssetPriceModifier: bigint;
+      };
+      txHashes: Hex[];
+    },
+    ViemSignature[],
+    Hex,
+  ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
@@ -152,7 +165,7 @@ async function getBlockFromRollupTx(
 
   const archive = AppendOnlyTreeSnapshot.fromBuffer(
     Buffer.concat([
-      Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+      Buffer.from(hexToBytes(decodedArgs.archive)), // L2Block.archive.root
       numToUInt32BE(Number(l2BlockNum + 1n)), // L2Block.archive.nextAvailableLeafIndex
     ]),
   );
@@ -278,11 +291,20 @@ export async function getProofFromSubmitProofTx(
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
-    const [_epochSize, nestedArgs, _fees, aggregationObjectHex, proofHex] = args!;
-    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
-    proverId = Fr.fromString(nestedArgs[6]);
-    archiveRoot = Fr.fromString(nestedArgs[1]);
-    proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
+    const [decodedArgs] = args as readonly [
+      {
+        epochSize: bigint;
+        args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
+        fees: readonly Hex[];
+        aggregationObject: Hex;
+        proof: Hex;
+      },
+    ];
+
+    aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
+    proverId = Fr.fromString(decodedArgs.args[6]);
+    archiveRoot = Fr.fromString(decodedArgs.args[1]);
+    proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);
   }

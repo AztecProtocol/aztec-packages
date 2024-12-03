@@ -64,6 +64,5 @@ export class ToRadixBE extends Instruction {
     memory.setSlice(dstOffset, res);
 
     memory.assert({ reads: 2, writes: this.numLimbs, addressing });
-    context.machineState.incrementPc();
   }
 }

@@ -42,7 +42,7 @@ describe('docs_examples', () => {
     // docs:end:full_deploy
 
     // docs:start:send_transaction
-    const _tx = await contract.methods.mint_public(wallet.getAddress(), 1).send().wait();
+    const _tx = await contract.methods.mint_to_public(wallet.getAddress(), 1).send().wait();
     // docs:end:send_transaction
 
     // docs:start:simulate_function

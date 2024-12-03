@@ -64,7 +64,8 @@ describe('guides/writing_an_account_contract', () => {
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    await token.methods.mint_to_private(address, mintAmount).send().wait();
+    const from = address; // we are setting from to address here because of TODO(#9887)
+    await token.methods.mint_to_private(from, address, mintAmount).send().wait();
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);
@@ -79,7 +80,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_public(address, 200).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

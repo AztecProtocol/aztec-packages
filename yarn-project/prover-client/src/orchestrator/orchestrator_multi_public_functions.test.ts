@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { EmptyTxValidator, mockTx } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -35,7 +35,7 @@ describe('prover/orchestrator/public-functions', () => {
           }),
         );
         for (const tx of txs) {
-          tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
+          tx.data.constants.historicalHeader = context.getHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
         }
@@ -43,11 +43,20 @@ describe('prover/orchestrator/public-functions', () => {
         context.orchestrator.startNewEpoch(1, 1);
         await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
 
-        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
+        const [processed, failed] = await context.processPublicFunctions(
+          txs,
+          numTransactions,
+          undefined,
+          new EmptyTxValidator(),
+        );
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        const block = await context.orchestrator.setBlockCompleted();
+        for (const tx of processed) {
+          await context.orchestrator.addNewTx(tx);
+        }
+
+        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
         await context.orchestrator.finaliseEpoch();
 
         expect(block.number).toEqual(context.blockNumber);

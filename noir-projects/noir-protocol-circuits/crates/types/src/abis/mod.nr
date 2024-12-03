@@ -1,50 +1,46 @@
-mod append_only_tree_snapshot;
+pub mod append_only_tree_snapshot;
+pub mod avm_circuit_public_inputs;
 
-mod contract_class_function_leaf_preimage;
+pub mod contract_class_function_leaf_preimage;
 
-mod event_selector;
-mod function_selector;
-mod function_data;
+pub mod event_selector;
+pub mod function_selector;
+pub mod function_data;
 
-mod global_variables;
-mod note_hash_leaf_preimage;
-mod nullifier_leaf_preimage;
+pub mod global_variables;
+pub mod note_hash_leaf_preimage;
+pub mod nullifier_leaf_preimage;
 
-mod combined_constant_data;
+pub mod tx_constant_data;
+pub mod combined_constant_data;
 
-mod side_effect;
-mod read_request;
-mod tree_leaf_read_request;
-mod log_hash;
-mod note_hash;
-mod nullifier;
-mod public_data_read;
-mod public_data_update_request;
-mod public_data_write;
+pub mod side_effect;
+pub mod read_request;
+pub mod log;
+pub mod private_log;
+pub mod log_hash;
+pub mod note_hash;
+pub mod nullifier;
+pub mod public_data_write;
 
-mod accumulated_data;
-mod validation_requests;
+pub mod accumulated_data;
+pub mod validation_requests;
 
-mod max_block_number;
+pub mod max_block_number;
 
 pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_data;
-mod public_kernel_data;
-mod public_kernel_inner_data;
 
-mod private_call_request;
-mod public_call_request;
-mod public_call_stack_item_compressed;
-mod public_inner_call_request;
-mod call_context;
+pub mod private_call_request;
+pub mod public_call_request;
+pub mod call_context;
 
-mod enqueued_call_data;
-mod public_call_data;
-
-mod public_circuit_public_inputs;
 pub mod private_circuit_public_inputs;
 
-mod gas_fees;
-mod gas_settings;
-mod gas;
+pub mod gas_fees;
+pub mod gas_settings;
+pub mod gas;
+
+pub mod tree_snapshots;
+pub mod tube;

@@ -1,33 +1,27 @@
-mod assert_array_appended;
-mod assert_array_prepended;
-mod assert_combined_array;
-mod assert_combined_sorted_transformed_value_array;
-mod assert_combined_transformed_array;
-mod assert_deduped_array;
-mod assert_exposed_sorted_transformed_value_array;
-mod assert_sorted_array;
-mod assert_sorted_transformed_value_array;
-mod assert_split_sorted_transformed_value_arrays;
-mod assert_split_transformed_value_arrays;
-mod get_sorted_result;
-mod get_sorted_tuple;
-mod sort_by;
-mod sort_by_counter;
+pub mod assert_array_appended;
+pub mod assert_array_prepended;
+pub mod assert_combined_array;
+pub mod assert_combined_transformed_array;
+pub mod assert_exposed_sorted_transformed_value_array;
+pub mod assert_sorted_array;
+pub mod assert_sorted_transformed_value_array;
+pub mod assert_split_sorted_transformed_value_arrays;
+pub mod assert_split_transformed_value_arrays;
+pub mod get_sorted_result;
+pub mod get_sorted_tuple;
+pub mod sort_by;
+pub mod sort_by_counter;
 
 // Re-exports.
 pub use assert_array_appended::{
-    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+    assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+    assert_array_appended_scoped,
 };
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
-pub use assert_combined_sorted_transformed_value_array::{
-    assert_combined_sorted_transformed_value_array_asc,
-    get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
-};
 pub use assert_combined_transformed_array::{
     assert_combined_transformed_array, combine_and_transform_arrays,
 };
-pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},

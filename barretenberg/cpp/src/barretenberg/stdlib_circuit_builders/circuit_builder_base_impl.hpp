@@ -236,33 +236,36 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices)
+void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
+    const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
 {
-    if (contains_recursive_proof) {
-        failure("added recursive proof when one already exists");
+    if (contains_pairing_point_accumulator) {
+        failure("added pairing point accumulator when one already exists");
         ASSERT(0);
     }
-    contains_recursive_proof = true;
+    contains_pairing_point_accumulator = true;
 
     size_t i = 0;
-    for (const auto& idx : proof_output_witness_indices) {
+    for (const auto& idx : pairing_point_accum_witness_indices) {
         set_public_input(idx);
-        recursive_proof_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
+        pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
         ++i;
     }
 }
 
-template <typename FF_>
-void CircuitBuilderBase<FF_>::set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices)
+template <typename FF_> void CircuitBuilderBase<FF_>::add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices)
 {
-    if (contains_recursive_proof) {
-        failure("added recursive proof when one already exists");
+    if (contains_ipa_claim) {
+        failure("added IPA claim when one already exists");
         ASSERT(0);
     }
-    contains_recursive_proof = true;
-    for (size_t i = 0; i < proof_output_witness_indices.size(); ++i) {
-        recursive_proof_public_input_indices[i] =
-            get_public_input_index(real_variable_index[proof_output_witness_indices[i]]);
+    contains_ipa_claim = true;
+
+    size_t i = 0;
+    for (const auto& idx : ipa_claim_witness_indices) {
+        set_public_input(idx);
+        ipa_claim_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
+        ++i;
     }
 }
 

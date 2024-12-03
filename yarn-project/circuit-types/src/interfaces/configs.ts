@@ -1,4 +1,7 @@
 import { type AztecAddress, type EthAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 type AllowedInstance = { address: AztecAddress };
 type AllowedInstanceFunction = { address: AztecAddress; selector: FunctionSelector };
@@ -38,5 +41,31 @@ export interface SequencerConfig {
   /** Whether to require every tx to have a fee payer */
   enforceFees?: boolean;
   /** Payload address to vote for */
-  gerousiaPayload?: EthAddress;
+  governanceProposerPayload?: EthAddress;
+  /** Whether to enforce the time table when building blocks */
+  enforceTimeTable?: boolean;
 }
+
+const AllowedElementSchema = z.union([
+  z.object({ address: schemas.AztecAddress, selector: schemas.FunctionSelector }),
+  z.object({ address: schemas.AztecAddress }),
+  z.object({ classId: schemas.Fr, selector: schemas.FunctionSelector }),
+  z.object({ classId: schemas.Fr }),
+]) satisfies ZodFor<AllowedElement>;
+
+export const SequencerConfigSchema = z.object({
+  transactionPollingIntervalMS: z.number().optional(),
+  maxTxsPerBlock: z.number().optional(),
+  minTxsPerBlock: z.number().optional(),
+  minSecondsBetweenBlocks: z.number().optional(),
+  maxSecondsBetweenBlocks: z.number().optional(),
+  coinbase: schemas.EthAddress.optional(),
+  feeRecipient: schemas.AztecAddress.optional(),
+  acvmWorkingDirectory: z.string().optional(),
+  acvmBinaryPath: z.string().optional(),
+  allowedInSetup: z.array(AllowedElementSchema),
+  allowedInTeardown: z.array(AllowedElementSchema),
+  maxBlockSizeInBytes: z.number().optional(),
+  enforceFees: z.boolean().optional(),
+  gerousiaPayload: schemas.EthAddress.optional(),
+}) satisfies ZodFor<SequencerConfig>;

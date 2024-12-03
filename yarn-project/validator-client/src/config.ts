@@ -1,10 +1,10 @@
-import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, l1ContractsConfigMappings } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
 
 /**
@@ -22,6 +22,9 @@ export interface ValidatorClientConfig {
 
   /** Wait for attestations timeout */
   attestationWaitTimeoutMs: number;
+
+  /** Re-execute transactions before attesting */
+  validatorReexecute: boolean;
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -43,7 +46,15 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   attestationWaitTimeoutMs: {
     env: 'VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS',
     description: 'Wait for attestations timeout',
-    ...numberConfigHelper(AZTEC_SLOT_DURATION * 1000),
+    ...numberConfigHelper(
+      getConfigFromMappings(pickConfigMappings(l1ContractsConfigMappings, ['aztecSlotDuration'])).aztecSlotDuration *
+        1000,
+    ),
+  },
+  validatorReexecute: {
+    env: 'VALIDATOR_REEXECUTE',
+    description: 'Re-execute transactions before attesting',
+    ...booleanConfigHelper(true),
   },
 };
 

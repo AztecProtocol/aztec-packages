@@ -8,6 +8,7 @@ import {
 import { EthAddress, Fr, GENESIS_ARCHIVE_ROOT, NullifierLeaf, PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -31,6 +32,8 @@ describe('NativeWorldState', () => {
 
   let log: DebugLogger;
 
+  let legacyStore: AztecKVStore;
+
   const allTrees = Object.values(MerkleTreeId)
     .filter((x): x is MerkleTreeId => typeof x === 'number')
     .map(x => [MerkleTreeId[x], x] as const);
@@ -43,13 +46,14 @@ describe('NativeWorldState', () => {
   });
 
   afterAll(async () => {
+    await legacyStore.delete();
     await rm(nativeDataDir, { recursive: true });
-    await rm(legacyDataDir, { recursive: true });
   });
 
   beforeAll(async () => {
-    nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir);
-    legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
+    legacyStore = AztecLmdbStore.open(legacyDataDir);
+    nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir, 1024 * 1024);
+    legacyWS = await MerkleTrees.new(legacyStore, new NoopTelemetryClient());
   });
 
   it('has to expected genesis archive tree root', async () => {
@@ -129,24 +133,20 @@ describe('NativeWorldState', () => {
           .fill(0)
           .map(() => new PublicDataTreeLeaf(Fr.random(), Fr.random()).toBuffer()),
       ],
-    ])(
-      'inserting real leaves into %s',
-      async (_, treeId, leaves) => {
-        const height = Math.ceil(Math.log2(leaves.length) | 0);
-        const [native, js] = await Promise.all([
-          nativeFork.batchInsert(treeId, leaves, height),
-          legacyLatest.batchInsert(treeId, leaves, height),
-        ]);
+    ])('inserting real leaves into %s', async (_, treeId, leaves) => {
+      const height = Math.ceil(Math.log2(leaves.length) | 0);
+      const [native, js] = await Promise.all([
+        nativeFork.batchInsert(treeId, leaves, height),
+        legacyLatest.batchInsert(treeId, leaves, height),
+      ]);
 
-        expect(native.sortedNewLeaves.map(Fr.fromBuffer)).toEqual(js.sortedNewLeaves.map(Fr.fromBuffer));
-        expect(native.sortedNewLeavesIndexes).toEqual(js.sortedNewLeavesIndexes);
-        expect(native.newSubtreeSiblingPath.toFields()).toEqual(js.newSubtreeSiblingPath.toFields());
-        expect(native.lowLeavesWitnessData).toEqual(js.lowLeavesWitnessData);
+      expect(native.sortedNewLeaves.map(Fr.fromBuffer)).toEqual(js.sortedNewLeaves.map(Fr.fromBuffer));
+      expect(native.sortedNewLeavesIndexes).toEqual(js.sortedNewLeavesIndexes);
+      expect(native.newSubtreeSiblingPath.toFields()).toEqual(js.newSubtreeSiblingPath.toFields());
+      expect(native.lowLeavesWitnessData).toEqual(js.lowLeavesWitnessData);
 
-        await assertSameTree(treeId, nativeFork, legacyLatest);
-      },
-      60_000,
-    );
+      await assertSameTree(treeId, nativeFork, legacyLatest);
+    });
 
     it.each<[string, FrTreeId, Fr[]]>([
       [MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE], MerkleTreeId.NOTE_HASH_TREE, Array(64).fill(0).map(Fr.random)],

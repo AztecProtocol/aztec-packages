@@ -9,7 +9,7 @@ mod test;
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.
-pub struct ScheduledDelayChange<let INITIAL_DELAY: u32> {
+pub(crate) struct ScheduledDelayChange<let INITIAL_DELAY: u32> {
     // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
     // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
     // ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
@@ -21,14 +21,14 @@ pub struct ScheduledDelayChange<let INITIAL_DELAY: u32> {
 }
 
 impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
-    pub fn new(pre: Option<u32>, post: Option<u32>, block_of_change: u32) -> Self {
+    pub(crate) fn new(pre: Option<u32>, post: Option<u32>, block_of_change: u32) -> Self {
         Self { pre, post, block_of_change }
     }
 
     /// Returns the current value of the delay stored in the data structure.
     /// This function only returns a meaningful value when called in public with the current block number - for
     /// historical private reads use `get_effective_minimum_delay_at` instead.
-    pub fn get_current(self, current_block_number: u32) -> u32 {
+    pub(crate) fn get_current(self, current_block_number: u32) -> u32 {
         // The post value becomes the current one at the block of change, so any transaction that is included in the
         // block of change will use the post value.
         if current_block_number < self.block_of_change {
@@ -41,7 +41,7 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
     /// Returns the scheduled change, i.e. the post-change delay and the block at which it will become the current
     /// delay. Note that this block may be in the past if the change has already taken place.
     /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
-    pub fn get_scheduled(self) -> (u32, u32) {
+    pub(crate) fn get_scheduled(self) -> (u32, u32) {
         (self.post.unwrap_or(INITIAL_DELAY), self.block_of_change)
     }
 
@@ -52,7 +52,7 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
     ///  - when reducing the delay, the change will take effect after a delay equal to the difference between old and
     ///    new delay. For example, if reducing from 3 days to 1 day, the reduction will be scheduled to happen after 2
     ///    days.
-    pub fn schedule_change(&mut self, new: u32, current_block_number: u32) {
+    pub(crate) fn schedule_change(&mut self, new: u32, current_block_number: u32) {
         let current = self.get_current(current_block_number);
 
         // When changing the delay value we must ensure that it is not possible to produce a value change with a delay
@@ -89,7 +89,7 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
     /// which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
     /// scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than
     /// the current one.
-    pub fn get_effective_minimum_delay_at(self, historical_block_number: u32) -> u32 {
+    pub(crate) fn get_effective_minimum_delay_at(self, historical_block_number: u32) -> u32 {
         if self.block_of_change <= historical_block_number {
             // If no delay changes were scheduled, then the delay value at the historical block (post) is guaranteed to
             // hold due to how further delay changes would be scheduled by `schedule_change`.

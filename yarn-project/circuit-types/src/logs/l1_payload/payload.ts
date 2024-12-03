@@ -1,7 +1,9 @@
 import { Vector } from '@aztec/circuits.js';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 /**
  * The Note class represents a Note emitted from a Noir contract as a vector of Fr (finite field) elements.
@@ -9,6 +11,14 @@ import { BufferReader } from '@aztec/foundation/serialize';
  * additional operations on the underlying field elements.
  */
 export class Payload extends Vector<Fr> {
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  static get schema() {
+    return schemas.Buffer.transform(Payload.fromBuffer);
+  }
+
   /**
    * Create a Note instance from a Buffer or BufferReader.
    * The input 'buffer' can be either a Buffer containing the serialized Fr elements or a BufferReader instance.
@@ -40,7 +50,7 @@ export class Payload extends Vector<Fr> {
    * @returns A hex string with the vector length as first element.
    */
   override toString() {
-    return '0x' + this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -49,19 +59,36 @@ export class Payload extends Vector<Fr> {
    * @returns A Note instance.
    */
   static fromString(str: string) {
-    const hex = str.replace(/^0x/, '');
-    return Payload.fromBuffer(Buffer.from(hex, 'hex'));
+    return Payload.fromBuffer(hexToBuffer(str));
   }
 
   get length() {
     return this.items.length;
   }
 
-  equals(other: Note) {
+  equals(other: Payload) {
     return this.items.every((item, index) => item.equals(other.items[index]));
   }
 }
 
-export class Event extends Payload {}
+export class Event extends Payload {
+  static override get schema() {
+    return schemas.Buffer.transform(Event.fromBuffer);
+  }
 
-export class Note extends Payload {}
+  static override fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new Event(reader.readVector(Fr));
+  }
+}
+
+export class Note extends Payload {
+  static override get schema() {
+    return schemas.Buffer.transform(Note.fromBuffer);
+  }
+
+  static override fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new Note(reader.readVector(Fr));
+  }
+}

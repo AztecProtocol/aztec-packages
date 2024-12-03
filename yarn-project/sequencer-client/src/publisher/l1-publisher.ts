@@ -3,21 +3,21 @@ import {
   type EpochProofClaim,
   type EpochProofQuote,
   type L2Block,
+  SignatureDomainSeperator,
   type TxHash,
   getHashedSignaturePayload,
 } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
-  AZTEC_EPOCH_DURATION,
-  ETHEREUM_SLOT_DURATION,
+  AZTEC_MAX_EPOCH_DURATION,
   EthAddress,
   type FeeRecipient,
   type Header,
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type EthereumChain, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -26,7 +26,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { GerousiaAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { GovernanceProposerAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -58,7 +58,6 @@ import {
   publicActions,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
@@ -122,7 +121,7 @@ export type L1SubmitEpochProofArgs = {
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
-  fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>;
+  fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>;
   proof: Proof;
 };
 
@@ -145,24 +144,29 @@ export class L1Publisher {
 
   protected log = createDebugLogger('aztec:sequencer:publisher');
 
-  private rollupContract: GetContractReturnType<
+  protected rollupContract: GetContractReturnType<
     typeof RollupAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   >;
-  private gerousiaContract?: GetContractReturnType<
-    typeof GerousiaAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  protected governanceProposerContract?: GetContractReturnType<
+    typeof GovernanceProposerAbi,
+    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   > = undefined;
 
-  private publicClient: PublicClient<HttpTransport, chains.Chain>;
-  private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
-  private account: PrivateKeyAccount;
+  protected publicClient: PublicClient<HttpTransport, Chain>;
+  protected walletClient: WalletClient<HttpTransport, Chain, PrivateKeyAccount>;
+  protected account: PrivateKeyAccount;
+  protected ethereumSlotDuration: bigint;
 
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
-  constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
+  constructor(
+    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    client: TelemetryClient,
+  ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
+    this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
@@ -170,11 +174,7 @@ export class L1Publisher {
     this.account = privateKeyToAccount(publisherPrivateKey);
     this.log.debug(`Publishing from address ${this.account.address}`);
 
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
-    });
+    this.walletClient = this.createWalletClient(this.account, chain);
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
@@ -188,13 +188,24 @@ export class L1Publisher {
       client: this.walletClient,
     });
 
-    if (l1Contracts.gerousiaAddress) {
-      this.gerousiaContract = getContract({
-        address: getAddress(l1Contracts.gerousiaAddress.toString()),
-        abi: GerousiaAbi,
+    if (l1Contracts.governanceProposerAddress) {
+      this.governanceProposerContract = getContract({
+        address: getAddress(l1Contracts.governanceProposerAddress.toString()),
+        abi: GovernanceProposerAbi,
         client: this.walletClient,
       });
     }
+  }
+
+  protected createWalletClient(
+    account: PrivateKeyAccount,
+    chain: EthereumChain,
+  ): WalletClient<HttpTransport, Chain, PrivateKeyAccount> {
+    return createWalletClient({
+      account,
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
+    });
   }
 
   public getPayLoad() {
@@ -221,7 +232,7 @@ export class L1Publisher {
 
   public getRollupContract(): GetContractReturnType<
     typeof RollupAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   > {
     return this.rollupContract;
   }
@@ -239,7 +250,7 @@ export class L1Publisher {
     // FIXME: This should not throw if unable to propose but return a falsey value, so
     // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
     // which may require a retry, vs actually not being the turn for proposing.
-    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
       timeOfNextL1Slot,
       `0x${archive.toString('hex')}`,
@@ -305,7 +316,7 @@ export class L1Publisher {
   }
 
   public async validateProofQuote(quote: EpochProofQuote): Promise<EpochProofQuote | undefined> {
-    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
     const args = [timeOfNextL1Slot, quote.toViemArgs()] as const;
     try {
       await this.rollupContract.read.validateEpochProofRightClaimAtTime(args, { account: this.account });
@@ -333,7 +344,7 @@ export class L1Publisher {
       signatures: [],
     },
   ): Promise<void> {
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
@@ -385,7 +396,7 @@ export class L1Publisher {
       return false;
     }
 
-    if (!this.gerousiaContract) {
+    if (!this.governanceProposerContract) {
       return false;
     }
 
@@ -398,14 +409,17 @@ export class L1Publisher {
 
     const [proposer, roundNumber] = await Promise.all([
       this.rollupContract.read.getProposerAt([timestamp]),
-      this.gerousiaContract.read.computeRound([slotNumber]),
+      this.governanceProposerContract.read.computeRound([slotNumber]),
     ]);
 
     if (proposer != this.account.address) {
       return false;
     }
 
-    const [slotForLastVote] = await this.gerousiaContract.read.rounds([this.rollupContract.address, roundNumber]);
+    const [slotForLastVote] = await this.governanceProposerContract.read.rounds([
+      this.rollupContract.address,
+      roundNumber,
+    ]);
 
     if (slotForLastVote >= slotNumber) {
       return false;
@@ -418,7 +432,7 @@ export class L1Publisher {
 
     let txHash;
     try {
-      txHash = await this.gerousiaContract.write.vote([this.payload.toString()], {
+      txHash = await this.governanceProposerContract.write.vote([this.payload.toString()], {
         account: this.account,
       });
     } catch (err) {
@@ -461,7 +475,7 @@ export class L1Publisher {
 
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
@@ -628,26 +642,28 @@ export class L1Publisher {
     }
 
     // Check the block hash and archive for the immediate block before the epoch
-    const [previousArchive, previousBlockHash] = await this.rollupContract.read.blocks([proven]);
-    if (publicInputs.previousArchive.root.toString() !== previousArchive) {
+    const blockLog = await this.rollupContract.read.getBlock([proven]);
+    if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${previousArchive}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
       );
     }
     // TODO: Remove zero check once we inject the proper zero blockhash
-    if (previousBlockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== previousBlockHash) {
+    if (blockLog.blockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== blockLog.blockHash) {
       throw new Error(
-        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${previousBlockHash}`,
+        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${blockLog.blockHash}`,
       );
     }
 
     // Check the block hash and archive for the last block in the epoch
-    const [endArchive, endBlockHash] = await this.rollupContract.read.blocks([BigInt(toBlock)]);
-    if (publicInputs.endArchive.root.toString() !== endArchive) {
-      throw new Error(`End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endArchive}`);
+    const endBlockLog = await this.rollupContract.read.getBlock([BigInt(toBlock)]);
+    if (publicInputs.endArchive.root.toString() !== endBlockLog.archive) {
+      throw new Error(
+        `End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endBlockLog.archive}`,
+      );
     }
-    if (publicInputs.endBlockHash.toString() !== endBlockHash) {
-      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockHash}`);
+    if (publicInputs.endBlockHash.toString() !== endBlockLog.blockHash) {
+      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockLog.blockHash}`);
     }
 
     // Compare the public inputs computed by the contract with the ones injected
@@ -691,7 +707,18 @@ export class L1Publisher {
   }): Promise<string | undefined> {
     try {
       const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-      const txArgs = [...this.getSubmitEpochProofArgs(args), proofHex] as const;
+      const argsArray = this.getSubmitEpochProofArgs(args);
+
+      const txArgs = [
+        {
+          epochSize: argsArray[0],
+          args: argsArray[1],
+          fees: argsArray[2],
+          aggregationObject: argsArray[3],
+          proof: proofHex,
+        },
+      ] as const;
+
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
       await this.rollupContract.simulate.submitEpochRootProof(txArgs, { account: this.account });
       return await this.rollupContract.write.submitEpochRootProof(txArgs, { account: this.account });
@@ -722,12 +749,19 @@ export class L1Publisher {
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
-    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
+    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
-      `0x${encodedData.header.toString('hex')}`,
-      `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.blockHash.toString('hex')}`,
-      txHashes,
+      {
+        header: `0x${encodedData.header.toString('hex')}`,
+        archive: `0x${encodedData.archive.toString('hex')}`,
+        oracleInput: {
+          // We are currently not modifying these. See #9963
+          feeAssetPriceModifier: 0n,
+          provingCostModifier: 0n,
+        },
+        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
+        txHashes,
+      },
       attestations,
       `0x${encodedData.body.toString('hex')}`,
     ] as const;
@@ -752,7 +786,7 @@ export class L1Publisher {
         args.publicInputs.outHash.toString(),
         args.publicInputs.proverId.toString(),
       ],
-      makeTuple(AZTEC_EPOCH_DURATION * 2, i =>
+      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),

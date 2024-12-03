@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
@@ -16,7 +16,7 @@ contract TxsDecoderHelper {
     pure
     returns (bytes32, uint256, uint256)
   {
-    return TxsDecoder.computeKernelEncryptedLogsHash(0, _kernelLogs);
+    return TxsDecoder.computeKernelUnencryptedLogsHash(0, _kernelLogs, false);
   }
 
   function computeTxOutHash(bytes calldata _kernelMsgs) external pure returns (bytes32) {

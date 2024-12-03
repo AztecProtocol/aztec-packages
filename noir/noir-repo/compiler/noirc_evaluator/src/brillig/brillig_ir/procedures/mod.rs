@@ -1,3 +1,6 @@
+use noirc_errors::debug_info::ProcedureDebugId;
+use serde::{Deserialize, Serialize};
+
 mod array_copy;
 mod array_reverse;
 mod check_max_stack_depth;
@@ -33,8 +36,8 @@ use super::{
 /// Procedures are a set of complex operations that are common in the noir language.
 /// Extracting them to reusable procedures allows us to reduce the size of the generated Brillig.
 /// Procedures receive their arguments on scratch space to avoid stack dumping&restoring.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub(crate) enum ProcedureId {
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
+pub enum ProcedureId {
     ArrayCopy,
     ArrayReverse,
     VectorCopy,
@@ -48,10 +51,67 @@ pub(crate) enum ProcedureId {
     RevertWithString(String),
 }
 
+impl ProcedureId {
+    pub(crate) fn to_debug_id(&self) -> ProcedureDebugId {
+        ProcedureDebugId(match self {
+            ProcedureId::ArrayCopy => 0,
+            ProcedureId::ArrayReverse => 1,
+            ProcedureId::VectorCopy => 2,
+            ProcedureId::MemCopy => 3,
+            ProcedureId::PrepareVectorPush(true) => 4,
+            ProcedureId::PrepareVectorPush(false) => 5,
+            ProcedureId::VectorPopFront => 6,
+            ProcedureId::VectorPopBack => 7,
+            ProcedureId::PrepareVectorInsert => 8,
+            ProcedureId::VectorRemove => 9,
+            ProcedureId::CheckMaxStackDepth => 10,
+            ProcedureId::RevertWithString(_) => 11,
+        })
+    }
+
+    pub fn from_debug_id(debug_id: ProcedureDebugId) -> Self {
+        let inner = debug_id.0;
+        match inner {
+            0 => ProcedureId::ArrayCopy,
+            1 => ProcedureId::ArrayReverse,
+            2 => ProcedureId::VectorCopy,
+            3 => ProcedureId::MemCopy,
+            4 => ProcedureId::PrepareVectorPush(true),
+            5 => ProcedureId::PrepareVectorPush(false),
+            6 => ProcedureId::VectorPopFront,
+            7 => ProcedureId::VectorPopBack,
+            8 => ProcedureId::PrepareVectorInsert,
+            9 => ProcedureId::VectorRemove,
+            10 => ProcedureId::CheckMaxStackDepth,
+            // TODO: what to do here?
+            11 => ProcedureId::RevertWithString("".to_string()),
+            _ => panic!("Unsupported procedure debug ID of {inner} was supplied"),
+        }
+    }
+}
+
+impl std::fmt::Display for ProcedureId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProcedureId::ArrayCopy => write!(f, "ArrayCopy"),
+            ProcedureId::ArrayReverse => write!(f, "ArrayReverse"),
+            ProcedureId::VectorCopy => write!(f, "VectorCopy"),
+            ProcedureId::MemCopy => write!(f, "MemCopy"),
+            ProcedureId::PrepareVectorPush(flag) => write!(f, "PrepareVectorPush({flag})"),
+            ProcedureId::VectorPopFront => write!(f, "VectorPopFront"),
+            ProcedureId::VectorPopBack => write!(f, "VectorPopBack"),
+            ProcedureId::PrepareVectorInsert => write!(f, "PrepareVectorInsert"),
+            ProcedureId::VectorRemove => write!(f, "VectorRemove"),
+            ProcedureId::CheckMaxStackDepth => write!(f, "CheckMaxStackDepth"),
+            ProcedureId::RevertWithString(_) => write!(f, "RevertWithString"),
+        }
+    }
+}
+
 pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
     procedure_id: ProcedureId,
 ) -> BrilligArtifact<F> {
-    let mut brillig_context = BrilligContext::new_for_procedure(false);
+    let mut brillig_context = BrilligContext::new_for_procedure(false, procedure_id.clone());
     brillig_context.enter_context(Label::procedure(procedure_id.clone()));
 
     match procedure_id {
@@ -80,7 +140,7 @@ pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
         }
     };
 
-    brillig_context.stop_instruction();
+    brillig_context.return_instruction();
 
     brillig_context.artifact()
 }

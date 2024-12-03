@@ -591,7 +591,7 @@ impl<'context> Elaborator<'context> {
     pub(super) fn mark_struct_as_constructed(&mut self, struct_type: Shared<StructType>) {
         let struct_type = struct_type.borrow();
         let parent_module_id = struct_type.id.parent_module_id(self.def_maps);
-        self.interner.usage_tracker.mark_as_used(parent_module_id, &struct_type.name);
+        self.usage_tracker.mark_as_used(parent_module_id, &struct_type.name);
     }
 
     /// Resolve all the fields of a struct constructor expression.
@@ -907,7 +907,17 @@ impl<'context> Elaborator<'context> {
 
         let location = Location::new(span, self.file);
         match value.into_expression(self.interner, location) {
-            Ok(new_expr) => self.elaborate_expression(new_expr),
+            Ok(new_expr) => {
+                // At this point the Expression was already elaborated and we got a Value.
+                // We'll elaborate this value turned into Expression to inline it and get
+                // an ExprId and Type, but we don't want any visibility errors to happen
+                // here (they could if we have `Foo { inner: 5 }` and `inner` is not
+                // accessible from where this expression is being elaborated).
+                self.silence_field_visibility_errors += 1;
+                let value = self.elaborate_expression(new_expr);
+                self.silence_field_visibility_errors -= 1;
+                value
+            }
             Err(error) => make_error(self, error),
         }
     }

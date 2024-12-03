@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub struct MembershipWitness<let N: u32> {
-    leaf_index: Field,
-    sibling_path: [Field; N],
+    pub leaf_index: Field,
+    pub sibling_path: [Field; N],
 }
 
 impl<let N: u32> Empty for MembershipWitness<N> {
@@ -93,11 +93,18 @@ mod tests {
         },
         tests::merkle_tree_utils::NonEmptyMerkleTree,
     };
+    use crate::traits::Empty;
     use std::hash::pedersen_hash;
 
     struct TestLeafPreimage {
         value: Field,
         next_value: Field,
+    }
+
+    impl Empty for TestLeafPreimage {
+        fn empty() -> Self {
+            TestLeafPreimage { value: 0, next_value: 0 }
+        }
     }
 
     impl LeafPreimage for TestLeafPreimage {
@@ -124,7 +131,7 @@ mod tests {
         }
     }
 
-    global leaf_preimages = [
+    global leaf_preimages: [TestLeafPreimage; 4] = [
         TestLeafPreimage { value: 20, next_value: 30 },
         TestLeafPreimage { value: 40, next_value: 0 },
         TestLeafPreimage { value: 10, next_value: 20 },

@@ -37,14 +37,13 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
     const receipt = await asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).send().wait();
 
-    tokenSim.shield(wallets[0].getAddress(), amount);
-    await t.tokenSim.check();
-
     // Redeem it
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
-    tokenSim.redeemShield(wallets[0].getAddress(), amount);
+    // Check that the result matches token sim
+    tokenSim.transferToPrivate(wallets[0].getAddress(), wallets[0].getAddress(), amount);
+    await t.tokenSim.check();
   });
 
   it('on behalf of other', async () => {
@@ -59,9 +58,6 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
     const receipt = await action.send().wait();
 
-    tokenSim.shield(wallets[0].getAddress(), amount);
-    await t.tokenSim.check();
-
     // Check that replaying the shield should fail!
     await expect(
       asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce).simulate(),
@@ -71,7 +67,9 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
-    tokenSim.redeemShield(wallets[0].getAddress(), amount);
+    // Check that the result matches token sim
+    tokenSim.transferToPrivate(wallets[0].getAddress(), wallets[0].getAddress(), amount);
+    await t.tokenSim.check();
   });
 
   describe('failure cases', () => {

@@ -3,15 +3,15 @@ use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, trait
 use std::option::Option;
 
 pub struct PropertySelector {
-    index: u8, // index of the field in the serialized note array
-    offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
-    length: u8, // number of bytes to read after the offset
+    pub(crate) index: u8, // index of the field in the serialized note array
+    pub(crate) offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
+    pub(crate) length: u8, // number of bytes to read after the offset
 }
 
 pub struct Select {
-    property_selector: PropertySelector,
-    comparator: u8,
-    value: Field,
+    pub(crate) property_selector: PropertySelector,
+    pub(crate) comparator: u8,
+    pub(crate) value: Field,
 }
 
 impl Select {
@@ -23,15 +23,15 @@ impl Select {
 }
 
 pub struct SortOrderEnum {
-    DESC: u8,
-    ASC: u8,
+    pub DESC: u8,
+    pub ASC: u8,
 }
 
-global SortOrder = SortOrderEnum { DESC: 1, ASC: 2 };
+pub global SortOrder: SortOrderEnum = SortOrderEnum { DESC: 1, ASC: 2 };
 
 pub struct Sort {
-    property_selector: PropertySelector,
-    order: u8,
+    pub(crate) property_selector: PropertySelector,
+    pub(crate) order: u8,
 }
 
 impl Sort {
@@ -41,11 +41,11 @@ impl Sort {
 }
 
 pub struct NoteStatusEnum {
-    ACTIVE: u8,
-    ACTIVE_OR_NULLIFIED: u8,
+    pub ACTIVE: u8,
+    pub ACTIVE_OR_NULLIFIED: u8,
 }
 
-global NoteStatus = NoteStatusEnum {
+pub global NoteStatus: NoteStatusEnum = NoteStatusEnum {
     ACTIVE: 1,
     ACTIVE_OR_NULLIFIED: 2,
     // TODO 4217: add 'NULLIFIED'
@@ -61,17 +61,17 @@ fn return_all_notes<Note>(
 
 // docs:start:NoteGetterOptions
 pub struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
-    selects: BoundedVec<Option<Select>, N>,
-    sorts: BoundedVec<Option<Sort>, N>,
-    limit: u32,
-    offset: u32,
+    pub selects: BoundedVec<Option<Select>, N>,
+    pub sorts: BoundedVec<Option<Sort>, N>,
+    pub limit: u32,
+    pub offset: u32,
     // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
     // unlike filter it is applied in an unconstrained context.
-    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    preprocessor_args: PREPROCESSOR_ARGS,
-    filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    filter_args: FILTER_ARGS,
-    status: u8,
+    pub preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub preprocessor_args: PREPROCESSOR_ARGS,
+    pub filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub filter_args: FILTER_ARGS,
+    pub status: u8,
 }
 // docs:end:NoteGetterOptions
 

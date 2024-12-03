@@ -31,18 +31,17 @@ use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVaria
 
 use noirc_frontend::ast::Visibility;
 use noirc_frontend::{hir_def::function::FunctionSignature, monomorphization::ast::Program};
+use ssa_gen::Ssa;
 use tracing::{span, Level};
 
-use self::{
-    acir_gen::{Artifacts, GeneratedAcir},
-    ssa_gen::Ssa,
-};
+use crate::acir::{Artifacts, GeneratedAcir};
 
-mod acir_gen;
 mod checks;
 pub(super) mod function_builder;
 pub mod ir;
 mod opt;
+#[cfg(test)]
+pub(crate) mod parser;
 pub mod ssa_gen;
 
 pub struct SsaEvaluatorOptions {
@@ -95,28 +94,29 @@ pub(crate) fn optimize_into_acir(
     .run_pass(Ssa::remove_paired_rc, "After Removing Paired rc_inc & rc_decs:")
     .run_pass(Ssa::separate_runtime, "After Runtime Separation:")
     .run_pass(Ssa::resolve_is_unconstrained, "After Resolving IsUnconstrained:")
-    .run_pass(|ssa| ssa.inline_functions(options.inliner_aggressiveness), "After Inlining:")
+    .run_pass(|ssa| ssa.inline_functions(options.inliner_aggressiveness), "After Inlining (1st):")
     // Run mem2reg with the CFG separated into blocks
-    .run_pass(Ssa::mem2reg, "After Mem2Reg:")
-    .run_pass(Ssa::simplify_cfg, "After Simplifying:")
+    .run_pass(Ssa::mem2reg, "After Mem2Reg (1st):")
+    .run_pass(Ssa::simplify_cfg, "After Simplifying (1st):")
     .run_pass(Ssa::as_slice_optimization, "After `as_slice` optimization")
     .try_run_pass(
         Ssa::evaluate_static_assert_and_assert_constant,
         "After `static_assert` and `assert_constant`:",
     )?
+    .run_pass(Ssa::loop_invariant_code_motion, "After Loop Invariant Code Motion:")
     .try_run_pass(Ssa::unroll_loops_iteratively, "After Unrolling:")?
-    .run_pass(Ssa::simplify_cfg, "After Simplifying:")
+    .run_pass(Ssa::simplify_cfg, "After Simplifying (2nd):")
     .run_pass(Ssa::flatten_cfg, "After Flattening:")
     .run_pass(Ssa::remove_bit_shifts, "After Removing Bit Shifts:")
     // Run mem2reg once more with the flattened CFG to catch any remaining loads/stores
-    .run_pass(Ssa::mem2reg, "After Mem2Reg:")
+    .run_pass(Ssa::mem2reg, "After Mem2Reg (2nd):")
     // Run the inlining pass again to handle functions with `InlineType::NoPredicates`.
     // Before flattening is run, we treat functions marked with the `InlineType::NoPredicates` as an entry point.
     // This pass must come immediately following `mem2reg` as the succeeding passes
     // may create an SSA which inlining fails to handle.
     .run_pass(
         |ssa| ssa.inline_functions_with_no_predicates(options.inliner_aggressiveness),
-        "After Inlining:",
+        "After Inlining (2nd):",
     )
     .run_pass(Ssa::remove_if_else, "After Remove IfElse:")
     .run_pass(Ssa::fold_constants, "After Constant Folding:")
@@ -140,6 +140,23 @@ pub(crate) fn optimize_into_acir(
     let brillig = time("SSA to Brillig", options.print_codegen_timings, || {
         ssa.to_brillig(options.enable_brillig_logging)
     });
+
+    let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
+    let ssa_gen_span_guard = ssa_gen_span.enter();
+
+    let ssa = SsaBuilder {
+        ssa,
+        print_ssa_passes: options.enable_ssa_logging,
+        print_codegen_timings: options.print_codegen_timings,
+    }
+    .run_pass(
+        |ssa| ssa.fold_constants_with_brillig(&brillig),
+        "After Constant Folding with Brillig:",
+    )
+    .run_pass(Ssa::dead_instruction_elimination, "After Dead Instruction Elimination:")
+    .finish();
+
+    drop(ssa_gen_span_guard);
 
     let artifacts = time("SSA to ACIR", options.print_codegen_timings, || {
         ssa.into_acir(&brillig, options.expression_width)
@@ -296,6 +313,7 @@ fn convert_generated_acir_into_circuit(
         assertion_payloads: assert_messages,
         warnings,
         name,
+        brillig_procedure_locs,
         ..
     } = generated_acir;
 
@@ -332,8 +350,14 @@ fn convert_generated_acir_into_circuit(
         })
         .collect();
 
-    let mut debug_info =
-        DebugInfo::new(locations, brillig_locations, debug_variables, debug_functions, debug_types);
+    let mut debug_info = DebugInfo::new(
+        locations,
+        brillig_locations,
+        debug_variables,
+        debug_functions,
+        debug_types,
+        brillig_procedure_locs,
+    );
 
     // Perform any ACIR-level optimizations
     let (optimized_circuit, transformation_map) = acvm::compiler::optimize(circuit);
@@ -363,8 +387,8 @@ fn split_public_and_private_inputs(
     func_sig
         .0
         .iter()
-        .map(|(_, typ, visibility)| {
-            let num_field_elements_needed = typ.field_count() as usize;
+        .map(|(pattern, typ, visibility)| {
+            let num_field_elements_needed = typ.field_count(&pattern.location()) as usize;
             let witnesses = input_witnesses[idx..idx + num_field_elements_needed].to_vec();
             idx += num_field_elements_needed;
             (visibility, witnesses)

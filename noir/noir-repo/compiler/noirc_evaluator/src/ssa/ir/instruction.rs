@@ -16,6 +16,7 @@ use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
 use super::{
     basic_block::BasicBlockId,
     dfg::{CallStack, DataFlowGraph},
+    function::Function,
     map::Id,
     types::{NumericType, Type},
     value::{Value, ValueId},
@@ -44,8 +45,7 @@ pub(crate) type InstructionId = Id<Instruction>;
 /// - Opcodes which the IR knows the target machine has
 /// special support for. (LowLevel)
 /// - Opcodes which have no function definition in the
-/// source code and must be processed by the IR. An example
-/// of this is println.
+/// source code and must be processed by the IR.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum Intrinsic {
     ArrayLen,
@@ -70,6 +70,8 @@ pub(crate) enum Intrinsic {
     IsUnconstrained,
     DerivePedersenGenerators,
     FieldLessThan,
+    ArrayRefCount,
+    SliceRefCount,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -99,6 +101,8 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::IsUnconstrained => write!(f, "is_unconstrained"),
             Intrinsic::DerivePedersenGenerators => write!(f, "derive_pedersen_generators"),
             Intrinsic::FieldLessThan => write!(f, "field_less_than"),
+            Intrinsic::ArrayRefCount => write!(f, "array_refcount"),
+            Intrinsic::SliceRefCount => write!(f, "slice_refcount"),
         }
     }
 }
@@ -107,11 +111,18 @@ impl Intrinsic {
     /// Returns whether the `Intrinsic` has side effects.
     ///
     /// If there are no side effects then the `Intrinsic` can be removed if the result is unused.
+    ///
+    /// An example of a side effect is increasing the reference count of an array, but functions
+    /// which can fail due to implicit constraints are also considered to have a side effect.
     pub(crate) fn has_side_effects(&self) -> bool {
         match self {
             Intrinsic::AssertConstant
             | Intrinsic::StaticAssert
             | Intrinsic::ApplyRangeConstraint
+            // Array & slice ref counts are treated as having side effects since they operate
+            // on hidden variables on otherwise identical array values.
+            | Intrinsic::ArrayRefCount
+            | Intrinsic::SliceRefCount
             | Intrinsic::AsWitness => true,
 
             // These apply a constraint that the input must fit into a specified number of limbs.
@@ -143,6 +154,39 @@ impl Intrinsic {
         }
     }
 
+    /// Intrinsics which only have a side effect due to the chance that
+    /// they can fail a constraint can be deduplicated.
+    pub(crate) fn can_be_deduplicated(&self, deduplicate_with_predicate: bool) -> bool {
+        match self {
+            // These apply a constraint in the form of ACIR opcodes, but they can be deduplicated
+            // if the inputs are the same. If they depend on a side effect variable (e.g. because
+            // they were in an if-then-else) then `handle_instruction_side_effects` in `flatten_cfg`
+            // will have attached the condition variable to their inputs directly, so they don't
+            // directly depend on the corresponding `enable_side_effect` instruction any more.
+            // However, to conform with the expectations of `Instruction::can_be_deduplicated` and
+            // `constant_folding` we only use this information if the caller shows interest in it.
+            Intrinsic::ToBits(_)
+            | Intrinsic::ToRadix(_)
+            | Intrinsic::BlackBox(
+                BlackBoxFunc::MultiScalarMul
+                | BlackBoxFunc::EmbeddedCurveAdd
+                | BlackBoxFunc::RecursiveAggregation,
+            ) => deduplicate_with_predicate,
+
+            // Operations that remove items from a slice don't modify the slice, they just assert it's non-empty.
+            Intrinsic::SlicePopBack | Intrinsic::SlicePopFront | Intrinsic::SliceRemove => {
+                deduplicate_with_predicate
+            }
+
+            Intrinsic::AssertConstant
+            | Intrinsic::StaticAssert
+            | Intrinsic::ApplyRangeConstraint
+            | Intrinsic::AsWitness => deduplicate_with_predicate,
+
+            _ => !self.has_side_effects(),
+        }
+    }
+
     /// Lookup an Intrinsic by name and return it if found.
     /// If there is no such intrinsic by that name, None is returned.
     pub(crate) fn lookup(name: &str) -> Option<Intrinsic> {
@@ -170,6 +214,8 @@ impl Intrinsic {
             "is_unconstrained" => Some(Intrinsic::IsUnconstrained),
             "derive_pedersen_generators" => Some(Intrinsic::DerivePedersenGenerators),
             "field_less_than" => Some(Intrinsic::FieldLessThan),
+            "array_refcount" => Some(Intrinsic::ArrayRefCount),
+            "slice_refcount" => Some(Intrinsic::SliceRefCount),
 
             other => BlackBoxFunc::lookup(other).map(Intrinsic::BlackBox),
         }
@@ -234,7 +280,7 @@ pub(crate) enum Instruction {
     /// - `code1` will have side effects iff `condition1` evaluates to `true`
     ///
     /// This instruction is only emitted after the cfg flattening pass, and is used to annotate
-    /// instruction regions with an condition that corresponds to their position in the CFG's
+    /// instruction regions with a condition that corresponds to their position in the CFG's
     /// if-branching structure.
     EnableSideEffectsIf { condition: ValueId },
 
@@ -269,15 +315,13 @@ pub(crate) enum Instruction {
     ///     else_value
     /// }
     /// ```
+    IfElse { then_condition: ValueId, then_value: ValueId, else_value: ValueId },
+
+    /// Creates a new array or slice.
     ///
-    /// Where we save the result of !then_condition so that we have the same
-    /// ValueId for it each time.
-    IfElse {
-        then_condition: ValueId,
-        then_value: ValueId,
-        else_condition: ValueId,
-        else_value: ValueId,
-    },
+    /// `typ` should be an array or slice type with an element type
+    /// matching each of the `elements` values' types.
+    MakeArray { elements: im::Vector<ValueId>, typ: Type },
 }
 
 impl Instruction {
@@ -290,7 +334,9 @@ impl Instruction {
     pub(crate) fn result_type(&self) -> InstructionResultType {
         match self {
             Instruction::Binary(binary) => binary.result_type(),
-            Instruction::Cast(_, typ) => InstructionResultType::Known(typ.clone()),
+            Instruction::Cast(_, typ) | Instruction::MakeArray { typ, .. } => {
+                InstructionResultType::Known(typ.clone())
+            }
             Instruction::Not(value)
             | Instruction::Truncate { value, .. }
             | Instruction::ArraySet { array: value, .. }
@@ -316,10 +362,53 @@ impl Instruction {
         matches!(self.result_type(), InstructionResultType::Unknown)
     }
 
+    /// Indicates if the instruction has a side effect, ie. it can fail, or it interacts with memory.
+    ///
+    /// This is similar to `can_be_deduplicated`, but it doesn't depend on whether the caller takes
+    /// constraints into account, because it might not use it to isolate the side effects across branches.
+    pub(crate) fn has_side_effects(&self, dfg: &DataFlowGraph) -> bool {
+        use Instruction::*;
+
+        match self {
+            // These either have side-effects or interact with memory
+            EnableSideEffectsIf { .. }
+            | Allocate
+            | Load { .. }
+            | Store { .. }
+            | IncrementRc { .. }
+            | DecrementRc { .. } => true,
+
+            Call { func, .. } => match dfg[*func] {
+                Value::Intrinsic(intrinsic) => intrinsic.has_side_effects(),
+                _ => true, // Be conservative and assume other functions can have side effects.
+            },
+
+            // These can fail.
+            Constrain(..) | RangeCheck { .. } => true,
+
+            // This should never be side-effectful
+            MakeArray { .. } => false,
+
+            // These can have different behavior depending on the EnableSideEffectsIf context.
+            Binary(_)
+            | Cast(_, _)
+            | Not(_)
+            | Truncate { .. }
+            | IfElse { .. }
+            | ArrayGet { .. }
+            | ArraySet { .. } => self.requires_acir_gen_predicate(dfg),
+        }
+    }
+
     /// Indicates if the instruction can be safely replaced with the results of another instruction with the same inputs.
     /// If `deduplicate_with_predicate` is set, we assume we're deduplicating with the instruction
     /// and its predicate, rather than just the instruction. Setting this means instructions that
     /// rely on predicates can be deduplicated as well.
+    ///
+    /// Some instructions get the predicate attached to their inputs by `handle_instruction_side_effects` in `flatten_cfg`.
+    /// These can be deduplicated because they implicitly depend on the predicate, not only when the caller uses the
+    /// predicate variable as a key to cache results. However, to avoid tight coupling between passes, we make the deduplication
+    /// conditional on whether the caller wants the predicate to be taken into account or not.
     pub(crate) fn can_be_deduplicated(
         &self,
         dfg: &DataFlowGraph,
@@ -337,12 +426,17 @@ impl Instruction {
             | DecrementRc { .. } => false,
 
             Call { func, .. } => match dfg[*func] {
-                Value::Intrinsic(intrinsic) => !intrinsic.has_side_effects(),
+                Value::Intrinsic(intrinsic) => {
+                    intrinsic.can_be_deduplicated(deduplicate_with_predicate)
+                }
                 _ => false,
             },
 
             // We can deduplicate these instructions if we know the predicate is also the same.
             Constrain(..) | RangeCheck { .. } => deduplicate_with_predicate,
+
+            // This should never be side-effectful
+            MakeArray { .. } => true,
 
             // These can have different behavior depending on the EnableSideEffectsIf context.
             // Replacing them with a similar instruction potentially enables replacing an instruction
@@ -360,12 +454,12 @@ impl Instruction {
         }
     }
 
-    pub(crate) fn can_eliminate_if_unused(&self, dfg: &DataFlowGraph) -> bool {
+    pub(crate) fn can_eliminate_if_unused(&self, function: &Function) -> bool {
         use Instruction::*;
         match self {
             Binary(binary) => {
                 if matches!(binary.operator, BinaryOp::Div | BinaryOp::Mod) {
-                    if let Some(rhs) = dfg.get_numeric_constant(binary.rhs) {
+                    if let Some(rhs) = function.dfg.get_numeric_constant(binary.rhs) {
                         rhs != FieldElement::zero()
                     } else {
                         false
@@ -381,7 +475,8 @@ impl Instruction {
             | Load { .. }
             | ArrayGet { .. }
             | IfElse { .. }
-            | ArraySet { .. } => true,
+            | ArraySet { .. }
+            | MakeArray { .. } => true,
 
             Constrain(..)
             | Store { .. }
@@ -391,10 +486,11 @@ impl Instruction {
             | RangeCheck { .. } => false,
 
             // Some `Intrinsic`s have side effects so we must check what kind of `Call` this is.
-            Call { func, .. } => match dfg[*func] {
+            Call { func, .. } => match function.dfg[*func] {
                 // Explicitly allows removal of unused ec operations, even if they can fail
                 Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::MultiScalarMul))
                 | Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::EmbeddedCurveAdd)) => true,
+
                 Value::Intrinsic(intrinsic) => !intrinsic.has_side_effects(),
 
                 // All foreign functions are treated as having side effects.
@@ -410,7 +506,7 @@ impl Instruction {
         }
     }
 
-    /// If true the instruction will depends on enable_side_effects context during acir-gen
+    /// If true the instruction will depend on `enable_side_effects` context during acir-gen.
     pub(crate) fn requires_acir_gen_predicate(&self, dfg: &DataFlowGraph) -> bool {
         match self {
             Instruction::Binary(binary)
@@ -444,7 +540,8 @@ impl Instruction {
             | Instruction::Store { .. }
             | Instruction::IfElse { .. }
             | Instruction::IncrementRc { .. }
-            | Instruction::DecrementRc { .. } => false,
+            | Instruction::DecrementRc { .. }
+            | Instruction::MakeArray { .. } => false,
         }
     }
 
@@ -511,14 +608,15 @@ impl Instruction {
                     assert_message: assert_message.clone(),
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
-                Instruction::IfElse {
-                    then_condition: f(*then_condition),
-                    then_value: f(*then_value),
-                    else_condition: f(*else_condition),
-                    else_value: f(*else_value),
-                }
-            }
+            Instruction::IfElse { then_condition, then_value, else_value } => Instruction::IfElse {
+                then_condition: f(*then_condition),
+                then_value: f(*then_value),
+                else_value: f(*else_value),
+            },
+            Instruction::MakeArray { elements, typ } => Instruction::MakeArray {
+                elements: elements.iter().copied().map(f).collect(),
+                typ: typ.clone(),
+            },
         }
     }
 
@@ -573,11 +671,15 @@ impl Instruction {
             | Instruction::RangeCheck { value, .. } => {
                 f(*value);
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_value } => {
                 f(*then_condition);
                 f(*then_value);
-                f(*else_condition);
                 f(*else_value);
+            }
+            Instruction::MakeArray { elements, typ: _ } => {
+                for element in elements {
+                    f(*element);
+                }
             }
         }
     }
@@ -634,20 +736,28 @@ impl Instruction {
                     None
                 }
             }
-            Instruction::ArraySet { array, index, value, .. } => {
-                let array_const = dfg.get_array_constant(*array);
-                let index_const = dfg.get_numeric_constant(*index);
-                if let (Some((array, element_type)), Some(index)) = (array_const, index_const) {
+            Instruction::ArraySet { array: array_id, index: index_id, value, .. } => {
+                let array = dfg.get_array_constant(*array_id);
+                let index = dfg.get_numeric_constant(*index_id);
+                if let (Some((array, _element_type)), Some(index)) = (array, index) {
                     let index =
                         index.try_to_u32().expect("Expected array index to fit in u32") as usize;
 
                     if index < array.len() {
-                        let new_array = dfg.make_array(array.update(index, *value), element_type);
-                        return SimplifiedTo(new_array);
+                        let elements = array.update(index, *value);
+                        let typ = dfg.type_of_value(*array_id);
+                        let instruction = Instruction::MakeArray { elements, typ };
+                        let new_array = dfg.insert_instruction_and_results(
+                            instruction,
+                            block,
+                            Option::None,
+                            call_stack.clone(),
+                        );
+                        return SimplifiedTo(new_array.first());
                     }
                 }
 
-                try_optimize_array_set_from_previous_get(dfg, *array, *index, *value)
+                try_optimize_array_set_from_previous_get(dfg, *array_id, *index_id, *value)
             }
             Instruction::Truncate { value, bit_size, max_bit_size } => {
                 if bit_size == max_bit_size {
@@ -726,7 +836,7 @@ impl Instruction {
                     None
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_value } => {
                 let typ = dfg.type_of_value(*then_value);
 
                 if let Some(constant) = dfg.get_numeric_constant(*then_condition) {
@@ -745,13 +855,11 @@ impl Instruction {
 
                 if matches!(&typ, Type::Numeric(_)) {
                     let then_condition = *then_condition;
-                    let else_condition = *else_condition;
 
                     let result = ValueMerger::merge_numeric_values(
                         dfg,
                         block,
                         then_condition,
-                        else_condition,
                         then_value,
                         else_value,
                     );
@@ -760,6 +868,7 @@ impl Instruction {
                     None
                 }
             }
+            Instruction::MakeArray { .. } => None,
         }
     }
 }
@@ -803,12 +912,12 @@ fn try_optimize_array_get_from_previous_set(
                             return SimplifyResult::None;
                         }
                     }
+                    Instruction::MakeArray { elements: array, typ: _ } => {
+                        elements = Some(array.clone());
+                        break;
+                    }
                     _ => return SimplifyResult::None,
                 }
-            }
-            Value::Array { array, typ: _ } => {
-                elements = Some(array.clone());
-                break;
             }
             _ => return SimplifyResult::None,
         }

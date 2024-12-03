@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include <gtest/gtest.h>
 
@@ -41,7 +42,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
 
     // Generate an extremely simple avm trace
     AvmCircuitBuilder generate_avm_circuit()
@@ -53,7 +54,8 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
         trace_builder.op_add(0, 1, 2, 3);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 
         inject_end_gas_values(public_inputs, trace);
@@ -75,8 +77,20 @@ TEST_F(AvmRecursiveTests, recursion)
 
     HonkProof proof = prover.construct_proof();
 
-    std::vector<std::vector<InnerFF>> public_inputs_vec =
-        bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
+    // We just pad all the public inputs with the right number of zeroes
+    std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
+    std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> calldata{ {} };
+    std::vector<FF> returndata{ {} };
+
+    std::vector<std::vector<InnerFF>> public_inputs{
+        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs
+    };
+    std::vector<std::vector<InnerFF>> public_inputs_vec{
+        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata, returndata
+    };
 
     bool verified = verifier.verify_proof(proof, public_inputs_vec);
     ASSERT_TRUE(verified) << "native proof verification failed";
@@ -120,7 +134,7 @@ TEST_F(AvmRecursiveTests, recursion)
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
     auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-        outer_circuit, TraceStructure::NONE, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
+        outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);

@@ -8,17 +8,17 @@ use std::{
     meta::{type_of, unquote},
 };
 
-comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
+pub comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let mut parameters =
-        f.parameters().map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
+        f.parameters().map(|(name, typ): (Quoted, Type)| quote { pub $name: $typ }).join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
-        struct $parameters_struct_name {
+        pub struct $parameters_struct_name {
             $parameters
         }
     };
@@ -99,7 +99,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let fn_parameters_list =
         fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
-    let fn_name_str = fn_name.as_str_quote();
+    let (fn_name_str, _) = fn_name.as_str_quote();
 
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
 

@@ -4,6 +4,7 @@
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/instructions.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 
 #include <cstddef>
@@ -15,7 +16,7 @@ namespace bb::avm_trace {
 class Execution {
   public:
     static constexpr size_t SRS_SIZE = 1 << 22;
-    using TraceBuilderConstructor = std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
+    using TraceBuilderConstructor = std::function<AvmTraceBuilder(AvmPublicInputs public_inputs,
                                                                   ExecutionHints execution_hints,
                                                                   uint32_t side_effect_counter,
                                                                   std::vector<FF> calldata)>;
@@ -29,7 +30,7 @@ class Execution {
     // Bytecode is currently the bytecode of the top-level function call
     // Eventually this will be the bytecode of the dispatch function of top-level contract
     static std::vector<Row> gen_trace(std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs,
+                                      AvmPublicInputs const& new_public_inputs,
                                       std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints);
 
@@ -41,7 +42,7 @@ class Execution {
 
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
         std::vector<FF> const& calldata = {},
-        std::vector<FF> const& public_inputs_vec = getDefaultPublicInputs(),
+        AvmPublicInputs const& public_inputs = AvmPublicInputs(),
         ExecutionHints const& execution_hints = {});
     static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
 

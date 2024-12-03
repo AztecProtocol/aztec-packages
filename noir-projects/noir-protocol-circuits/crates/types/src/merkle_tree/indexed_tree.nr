@@ -1,8 +1,9 @@
-mod check_valid_low_leaf;
+pub mod check_valid_low_leaf;
 
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     merkle_tree::{
+        leaf_preimage::{IndexedTreeLeafPreimage, IndexedTreeLeafValue},
         membership::{assert_check_membership, MembershipWitness},
         root::{calculate_empty_tree_root, calculate_subtree_root, root_from_sibling_path},
     },
@@ -29,6 +30,8 @@ where
     Leaf: Hash + Empty,
 {
     // A permutation to the values is provided to make the insertion use only one insertion strategy
+    // However, for the actual insertion in the tree the original order is respected, the sorting is only used for validation of the links
+    // and low leaf updates.
     check_permutation(values_to_insert, sorted_values, sorted_values_indexes);
 
     // Now, update the existing leaves with the new leaves
@@ -96,5 +99,65 @@ where
     AppendOnlyTreeSnapshot {
         root: new_root,
         next_available_leaf_index: start_insertion_index + (values_to_insert.len() as u32),
+    }
+}
+
+pub fn insert<Value, Leaf, let TreeHeight: u32>(
+    mut snapshot: AppendOnlyTreeSnapshot,
+    value: Value,
+    low_leaf_preimage: Leaf,
+    low_leaf_membership_witness: MembershipWitness<TreeHeight>,
+    insertion_sibling_path: [Field; TreeHeight],
+    is_valid_low_leaf: fn(Leaf, Value) -> bool,
+    update_low_leaf: fn(Leaf, Value, u32) -> Leaf,
+    build_insertion_leaf: fn(Value, Leaf) -> Leaf,
+) -> AppendOnlyTreeSnapshot
+where
+    Value: IndexedTreeLeafValue,
+    Leaf: IndexedTreeLeafPreimage,
+{
+    assert(is_valid_low_leaf(low_leaf_preimage, value), "Invalid low leaf");
+
+    // perform membership check for the low leaf against the original root
+    assert_check_membership(
+        low_leaf_preimage.as_leaf(),
+        low_leaf_membership_witness.leaf_index,
+        low_leaf_membership_witness.sibling_path,
+        snapshot.root,
+    );
+
+    // Calculate the new value of the low_leaf
+    let updated_low_leaf =
+        update_low_leaf(low_leaf_preimage, value, snapshot.next_available_leaf_index);
+
+    // Update low leaf
+    snapshot.root = root_from_sibling_path(
+        updated_low_leaf.as_leaf(),
+        low_leaf_membership_witness.leaf_index,
+        low_leaf_membership_witness.sibling_path,
+    );
+
+    if low_leaf_preimage.get_key() == value.get_key() {
+        // If it's an update, we don't need to insert the new leaf and advance the tree
+        snapshot
+    } else {
+        let insertion_leaf = build_insertion_leaf(value, low_leaf_preimage);
+        assert_check_membership(
+            0,
+            snapshot.next_available_leaf_index as Field,
+            insertion_sibling_path,
+            snapshot.root,
+        );
+
+        // Calculate the new root
+        snapshot.root = root_from_sibling_path(
+            insertion_leaf.as_leaf(),
+            snapshot.next_available_leaf_index as Field,
+            insertion_sibling_path,
+        );
+
+        snapshot.next_available_leaf_index += 1;
+
+        snapshot
     }
 }

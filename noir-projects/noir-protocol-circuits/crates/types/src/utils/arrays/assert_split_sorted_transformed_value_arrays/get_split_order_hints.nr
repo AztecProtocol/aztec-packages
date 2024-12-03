@@ -10,9 +10,9 @@ use crate::{
 };
 
 pub struct SplitOrderHints<let N: u32> {
-    sorted_counters_lt: [u32; N],
-    sorted_counters_gte: [u32; N],
-    sorted_indexes: [u32; N],
+    pub sorted_counters_lt: [u32; N],
+    pub sorted_counters_gte: [u32; N],
+    pub sorted_indexes: [u32; N],
 }
 
 impl<let N: u32> SplitOrderHints<N> {
@@ -105,7 +105,7 @@ mod tests {
         },
     };
 
-    global full_array = [
+    global full_array: [TestValue; 5] = [
         TestValue { value: 100, counter: 11 },
         TestValue { value: 200, counter: 17 },
         TestValue { value: 300, counter: 7 },

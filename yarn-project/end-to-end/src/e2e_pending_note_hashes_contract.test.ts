@@ -7,7 +7,6 @@ import {
 } from '@aztec/circuits.js';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
-import { EncryptedNoteTxL2Logs } from '../../circuit-types/src/logs/tx_l2_logs.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
@@ -61,14 +60,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const blockNum = await aztecNode.getBlockNumber();
     const block = (await aztecNode.getBlocks(blockNum, 1))[0];
 
-    const logArray = block.body.txEffects.flatMap(txEffect => txEffect.noteEncryptedLogs);
-
-    for (let l = 0; l < exceptFirstFew + 1; l++) {
-      expect(logArray[l]).not.toEqual(EncryptedNoteTxL2Logs.empty());
-    }
-    for (let l = exceptFirstFew + 1; l < logArray.length; l++) {
-      expect(logArray[l]).toEqual(EncryptedNoteTxL2Logs.empty());
-    }
+    const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+    expect(privateLogs.length).toBe(exceptFirstFew);
   };
 
   const deployContract = async () => {
@@ -301,12 +294,12 @@ describe('e2e_pending_note_hashes_contract', () => {
     const outgoingViewer = owner;
     // Add a note of value 10, with a note log
     // Then emit another note log with the same counter as the one above, but with value 5
-    await deployedContract.methods.test_emit_bad_note_log(owner, outgoingViewer).send().wait();
+    const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, outgoingViewer).send().wait();
 
-    const syncStats = await wallet.getSyncStats();
-    // Expect two incoming decryptable note logs to be emitted
-    expect(syncStats[owner.toString()].decryptedIncoming).toEqual(2);
-    // Expect one note log to be dropped
-    expect(syncStats[owner.toString()].failed).toEqual(1);
+    await deployedContract.methods.sync_notes().simulate();
+
+    const incomingNotes = await wallet.getIncomingNotes({ txHash: txReceipt.txHash });
+
+    expect(incomingNotes.length).toBe(1);
   });
 });
