@@ -213,7 +213,7 @@ EOF
 # Docker commands
 start_node() {
     if [ ! -f "docker-compose.yml" ]; then
-        echo -e "${RED}Configuration not found. Please run './aztec-spartan.sh install' first.${NC}"
+        echo -e "${RED}Configuration not found. Please run './aztec-spartan.sh config' first.${NC}"
         exit 1
     fi
     echo -e "${BLUE}Starting containers...${NC}"
@@ -255,7 +255,7 @@ show_logs() {
 
 # Main script
 case "$1" in
-    "install")
+    "config")
         show_banner
         check_docker
         configure_environment "$@"
@@ -273,9 +273,9 @@ case "$1" in
         show_logs
         ;;
     *)
-        echo "Usage: $0 {install|start|stop|update|logs}"
+        echo "Usage: $0 {config|start|stop|update|logs}"
         echo "Commands:"
-        echo "  install - Install and configure Aztec Testnet node"
+        echo "  config   - Install and configure Aztec Testnet node"
         echo "  start   - Start Aztec Testnet node"
         echo "  stop    - Stop Aztec Testnet node"
         echo "  update  - Update Aztec Testnet node images"

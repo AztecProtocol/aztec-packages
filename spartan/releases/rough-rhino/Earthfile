@@ -39,7 +39,7 @@ test-no-config:
 test-install:
     FROM +test-setup
     # Test installation with CLI arguments
-    RUN echo -e "\n\n" | ./aztec-spartan.sh install \
+    RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -p 8080 \
         -p2p 40400 \
         -ip 1.2.3.4 \
@@ -51,8 +51,8 @@ test-install:
         grep -q "P2P_UDP_ANNOUNCE_ADDR=1.2.3.4:40400" docker-compose.yml && \
         grep -q "AZTEC_PORT=8080" docker-compose.yml && \
         grep -q "VALIDATOR_PRIVATE_KEY=0x00" docker-compose.yml && \
-        echo "✅ Install test passed" || \
-        (echo "❌ Install test failed" && exit 1)
+        echo "✅ Config test passed" || \
+        (echo "❌ Config test failed" && exit 1)
 
 test-docker-check:
     FROM +deps
@@ -61,7 +61,7 @@ test-docker-check:
     # Remove docker to test docker installation check
     RUN rm -f /usr/local/bin/docker /usr/local/bin/docker-compose
     # Test docker check (should fail since docker is not installed)
-    RUN if ./aztec-spartan.sh install 2>&1 | grep -q "Docker or Docker Compose not found"; then \
+    RUN if ./aztec-spartan.sh config 2>&1 | grep -q "Docker or Docker Compose not found"; then \
         echo "✅ Docker check test passed"; \
         else \
         echo "❌ Docker check test failed" && exit 1; \
@@ -70,7 +70,7 @@ test-docker-check:
 test-start-stop:
     FROM +test-setup
     # First install with test configuration
-    RUN echo -e "\n\n" | ./aztec-spartan.sh install \
+    RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -p 8080 \
         -p2p 40400 \
         -ip 1.2.3.4 \

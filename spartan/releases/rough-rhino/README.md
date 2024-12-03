@@ -19,12 +19,18 @@ To configure a new node, create a new directory and run the install script:
 
 ```bash
 cd val1
-curl -L https://github.com/AztecProtocol/aztec-packages/blob/master/spartan/releases/rough-rhino/validator.sh | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/spartan/releases/rough-rhino/create-spartan.sh | bash
+```
+
+This will install `aztec-spartan.sh` in the current directory. You can now run it:
+
+```bash
+./aztec-spartan.sh config
 ```
 
 If you don't have Docker installed, the script will do it for you. It will then prompt for any required environment variables and output a `docker-compose.yml` file.
 
-You can run the command without any command to see all available options, and pass them as flags, i.e. `npx aztec-spartan install -p 8080 -p2p 40400 -n nameme`.
+You can run the command without any command to see all available options, and pass them as flags, i.e. `npx aztec-spartan config -p 8080 -p2p 40400 -n nameme`.
 
 ## Running
 
