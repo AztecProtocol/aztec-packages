@@ -82,7 +82,7 @@ export class KeyStore {
     await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(completeAddress);
+    return completeAddress;
   }
 
   /**
@@ -138,7 +138,7 @@ export class KeyStore {
     // At last we silo the secret key and return the key validation request
     const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
-    return Promise.resolve(new KeyValidationRequest(pkM, skApp));
+    return new KeyValidationRequest(pkM, skApp);
   }
 
   /**

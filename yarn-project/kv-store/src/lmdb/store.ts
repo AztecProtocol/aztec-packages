@@ -148,6 +148,15 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   }
 
   /**
+   * Runs a callback in a transaction.
+   * @param callback - Function to execute in a transaction
+   * @returns A promise that resolves to the return value of the callback
+   */
+  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    return await this.#rootDb.transaction(callback);
+  }
+
+  /**
    * Clears all entries in the store & sub DBs.
    */
   async clear() {

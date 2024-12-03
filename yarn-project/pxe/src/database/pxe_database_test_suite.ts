@@ -429,8 +429,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addCompleteAddress(address);
         }
 
-        const result = await database.getCompleteAddress(addresses[0].address);
-        expect(result).toEqual(addresses[0]);
+        const result = await database.getCompleteAddress(addresses[3].address);
+        expect(result).toEqual(addresses[3]);
       });
 
       it("returns an empty array if it doesn't have addresses", async () => {
