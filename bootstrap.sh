@@ -143,57 +143,57 @@ case "$CMD" in
     scripts/tests/bootstrap/test-cache
     ;;
   "test-boxes")
-    $ci3/github/group "test-boxes"
-    source $ci3/base/tmp_source
+    github_group "test-boxes"
+    source $ci3/source_tmp
     echo "earthly artifact build:"
     earthly --artifact +bootstrap/usr/src $TMP/usr/src
     bash
     CI=1 $TMP/usr/src/boxes/bootstrap.sh $@
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   "image-aztec")
     IMAGE=aztecprotocol/aztec:$(git rev-parse HEAD)
-    if $ci3/docker/has_image $IMAGE; then
+    if docker_has_image $IMAGE; then
       echo "Image $IMAGE already exists." && exit
     fi
-    $ci3/github/group "image-aztec"
-    source $ci3/base/tmp_source
+    github_group "image-aztec"
+    source $ci3/source_tmp
     echo "earthly artifact build:"
     earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     echo "docker image build:"
     docker build -f Dockerfile.aztec -t $IMAGE $TMP
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   "image-e2e")
     IMAGE=aztecprotocol/end-to-end:$(git rev-parse HEAD)
-    if $ci3/docker/has_image $IMAGE; then
+    if docker_has_image $IMAGE; then
       echo "Image $IMAGE already exists." && exit
     fi
-    $ci3/github/group "image-e2e"
-    source $ci3/base/tmp_source
+    github_group "image-e2e"
+    source $ci3/source_tmp
     echo "earthly artifact build:"
     earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
     earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
     echo "docker image build:"
     docker build -f Dockerfile.end-to-end -t $IMAGE $TMP
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   "image-faucet")
     IMAGE=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
-    if $ci3/docker/has_image $IMAGE; then
+    if docker_has_image $IMAGE; then
       echo "Image $IMAGE already exists." && exit
     fi
-    $ci3/github/group "image-faucet"
-    source $ci3/base/tmp_source
+    github_group "image-faucet"
+    source $ci3/source_tmp
     mkdir -p $TMP/usr
     echo "earthly artifact build:"
     earthly --artifact +bootstrap-faucet/usr/src $TMP/usr/src
     echo "docker image build:"
     docker build -f Dockerfile.aztec-faucet -t $IMAGE $TMP
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   *)

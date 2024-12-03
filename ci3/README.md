@@ -25,7 +25,7 @@ We work in terms of _content hashes_, not commit hashes or branches. Content has
 
 A rebuild pattern is a regular expression that is matched against a list of changed files. We often use pretty broad regular expressions that trigger rebuilds if _any_ file in a project changes, but you can be more fine-grained, e.g. not triggering rebuilds if you change something inconsequential.
 
-This module provides a series of tools intended to write straight-forward scripts. A script should source ci3/base/source and write their scripts using the $ci3 path installed. Then tools can be accessed using the $ci3 path variable.
+This module provides a series of tools intended to write straight-forward scripts. A script should source ci3/source and write their scripts using the tools from ci3 now in their PATH. Then tools can also be accessed using the $ci3 path variable.
 
 ## Cache
 
@@ -38,4 +38,4 @@ Rationale:
 
 Installation:
 
-- This is just some shell scripts, but you do need AWS credentials set up and aws commandline installed otherwise the scripts **do nothing**.
+- This is just some shell scripts, but you do need AWS credentials set up and aws commandline installed otherwise the scripts **do nothing**. Alternatively to AWS, use of S3-compatible tools like e.g. minio can be used as the cache, see test_source for an example.
