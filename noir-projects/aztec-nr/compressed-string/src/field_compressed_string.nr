@@ -18,11 +18,13 @@ impl Deserialize<1> for FieldCompressedString {
     }
 }
 
-impl FieldCompressedString {
-    pub fn is_eq(self, other: FieldCompressedString) -> bool {
+impl Eq for FieldCompressedString {
+    fn eq(self, other: FieldCompressedString) -> bool {
         self.value == other.value
     }
+}
 
+impl FieldCompressedString {
     pub fn from_field(input_field: Field) -> Self {
         Self { value: input_field }
     }

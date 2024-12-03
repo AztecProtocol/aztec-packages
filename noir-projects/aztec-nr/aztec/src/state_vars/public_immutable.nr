@@ -1,6 +1,7 @@
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
     state_vars::storage::Storage,
+    utils::with_hash::WithHash,
 };
 use dep::protocol_types::{
     constants::INITIALIZATION_SLOT_SEPARATOR,
@@ -18,7 +19,7 @@ pub struct PublicImmutable<T, Context> {
 
 impl<T, Context, let N: u32> Storage<T, N> for PublicImmutable<T, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
+    WithHash<T, _>: Serialize<N> + Deserialize<N>,
 {}
 
 impl<T, Context> PublicImmutable<T, Context> {
@@ -36,7 +37,7 @@ impl<T, Context> PublicImmutable<T, Context> {
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + Eq,
 {
     // docs:start:public_immutable_struct_write
     pub fn initialize(self, value: T) {
@@ -47,41 +48,36 @@ where
 
         // We populate the initialization slot with a non-zero value to indicate that the struct is initialized
         self.context.storage_write(initialization_slot, 0xdead);
-        self.context.storage_write(self.storage_slot, value);
+        self.context.storage_write(self.storage_slot, WithHash::new(value));
     }
     // docs:end:public_immutable_struct_write
 
     // Note that we don't access the context, but we do call oracles that are only available in public
     // docs:start:public_immutable_struct_read
     pub fn read(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        WithHash::public_storage_read(*self.context, self.storage_slot)
     }
     // docs:end:public_immutable_struct_read
 }
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + Eq,
 {
     pub unconstrained fn read(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        WithHash::unconstrained_public_storage_read(self.context, self.storage_slot)
     }
 }
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + Eq,
 {
     pub fn read(self) -> T {
-        let header = self.context.get_header();
-        let mut fields = [0; T_SERIALIZED_LEN];
-
-        for i in 0..fields.len() {
-            fields[i] = header.public_storage_historical_read(
-                self.storage_slot + i as Field,
-                (*self.context).this_address(),
-            );
-        }
-        T::deserialize(fields)
+        WithHash::historical_public_storage_read(
+            self.context.get_header(),
+            self.context.this_address(),
+            self.storage_slot,
+        )
     }
 }
