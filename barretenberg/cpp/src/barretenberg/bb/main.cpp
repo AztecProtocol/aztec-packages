@@ -9,6 +9,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
@@ -916,98 +917,42 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& outputPat
 /**
  * @brief Compute and write to file the VK for a circuit to be accumulated in the IVC
  *
- * WORKTODO: I worry that this is too complicated/manual/brittle. I wonder if its possible to
- * simply generate the vks by running a full ivc. For a given trace structure setting, a kernel
- * of a given type has a fixed VK. E.g. the init will always have a single oink verifier, the
- * reset will always have a single PG verifier etc. We could run the IVC on a given set of circuits
- * that includes all these kernels.. eh no seems to interdependent.
- *
- * It seems like we really want something that can be called on an individual circuit and return
- * a deterministic VK. The only issue with this is any location dependence on the kernels. I think
- * the only place this could arise is in the databus but lets see. The propagation of return data
- * commitments on the PI is just based on how many proofs are being recursively verified so thats
- * fully determined by the number of ivc rec constraints. The consistency checks would seem to be
- * somewhat order dependent because they check a transfer of data that happened in the past. This
- * means that we can only independently compute the VKs for each kernel type if the ordering of
- * those kernels is always predictable. I think this is likely not the case because take for example
- * a kernel_final or whatever. This might fall after an inner-reset pair or maybe just after an
- * inner. In general it would seem that the ordering will determine the databus consistency checks
- * which add copy constraints and thus effect the circuit.
- *
- * Perhaps the only thing that could be done is simply enforce such copy constraints always. Not
- * sure its possible but we would have to assume that an input proof always had the alloted
- * public inputs for two databus commitments. We would then assert equality between those public
- * inputs and the two calldata commitments in the proof. The only difficulty is I'm not sure we
- * can assume the apps have these public inputs, se we'd have to somehow know whether the ivc
- * recursion constraint in the program corresponds to the verification of an app or a kernel.
- * I suppose we may be able to make assumptions about this though because I think certain kernels
- * will only ever recursively verifiy kernels. Still tricky though because we dont know the type of
- * kernel by the program data alone. Or do we? Maybe a reset/final are the only ones that will have
- * a single PG rec verifier? So there are only so many options (1 Oink, 2 PG, 1 PG) and they all
- * come with a different set of behaviors. (Or maybe 1 or 2 PG doesnt matter; its the data in a kernel
- * proof that's used to set up copy constraints so if you have either 1 or 2 then one must be a kernel
- * proof so you impose the copy constraints on that. Fine, but we also now need to ensure that the
- * ordering of the verifiers in the kernels is always fixed, e.g. the kernel proof rec verifier always
- * comes first/second. When generating the mock kernel completion logic, we'll need to create a mock
- * "kernel" proof and a mock app proof - the only difference being the presence of the databus commit
- * propagation data in the public inputs. Yikes very complicated.
- *
- *
- *
  * @param bytecodePath
  * @param witnessPath
  */
 void write_vk_for_ivc(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
-    using Flavor = MegaFlavor;
-    using Builder = MegaCircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using StdlibVerificationKey = MegaRecursiveFlavor_<Builder>::VerificationKey;
-    using FF = Flavor::FF;
+    using Builder = ClientIVC::ClientCircuit;
+    using Prover = ClientIVC::MegaProver;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using VerificationKey = ClientIVC::MegaVerificationKey;
 
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_format::WitnessVector witness = {};
     if (!witnessPath.empty()) {
         witness = get_witness(witnessPath);
     }
+    // WORKTODO: should be based on some default maybe?
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 
     // The presence of ivc recursion constraints determines whther or not the program is a kernel
-    bool is_kernel = !constraint_system.ivc_recursion_constraints.empty();
+    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
 
     Builder builder;
     if (is_kernel) {
-        // if its a kernel, need to populate an ivc with a verification queue corresponding to the ivc recursion
-        // constraints present in the program
-        ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
-        for (const auto& constraint : constraint_system.ivc_recursion_constraints) {
+        // Create a mock IVC instance from the IVC recursion constraints in the kernel program
+        ClientIVC mock_ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, trace_settings);
 
-            // WORKTODO: I need the VKs from the constraints in order to construct the corresponding dummy proofs. Right
-            // now there is no constructor of a native VK from a vector of FFs so I'm using the stdlib version with a
-            // dummy builder. Solution is possibly just to add a constructor for the native vkey.
-            Builder dummy_builder;
-            auto stdlib_vk = StdlibVerificationKey::from_witness_indices(dummy_builder, constraint.key);
-
-            // Construct a dummy proof corresponding to the known VK from the recursion constraint.
-            // databus_propagation_data is needed in order to append the correct number of public inputs due to
-            // propagated databus commitments.
-            std::vector<FF>
-                proof; /* =
-     acir_format::construct_dummy_proof_for_ivc(constraint.proof_type, stdlib_vk.databus_propagation_data);*/
-            auto proof_type = constraint.proof_type == acir_format::PROOF_TYPE::OINK ? bb::ClientIVC::QUEUE_TYPE::OINK
-                                                                                     : bb::ClientIVC::QUEUE_TYPE::PG;
-            // The VK is known via the ivc recursion constraint and does not need to be populated here
-            std::shared_ptr<VerificationKey> vk = nullptr;
-            ivc.verification_queue.emplace_back(proof, vk, proof_type);
-        }
-        builder = acir_format::create_kernel_circuit(constraint_system, ivc, witness);
+        builder = acir_format::create_kernel_circuit(constraints, mock_ivc, witness);
+        builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
     } else {
         builder = acir_format::create_circuit<Builder>(
-            constraint_system, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
+            constraints, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
     }
 
-    // Construct the verification key via the prover-constructed proving key
-    Prover prover{ builder };
+    // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+    Prover prover{ proving_key };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     VerificationKey vk(prover.proving_key->proving_key);
 
