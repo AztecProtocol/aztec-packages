@@ -26,7 +26,7 @@ jobs:
 
     # Set up a variable based on the branch name
     env:
-      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image || 'iamjustmitch/end-to-end:ad3473f08106f66f6c813d0127ada1a686a32935' }}
+      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image || 'iamjustmitch/end-to-end:6e282e5c6ef3b79810f81eb7666fd9e2275a1025' }}
       NAMESPACE: ${{ inputs.namespace || 'smoke' }}
       TEST: ${{ inputs.test || 'spartan/smoke.test.ts' }}
       CHART_PATH: ./spartan/aztec-network
