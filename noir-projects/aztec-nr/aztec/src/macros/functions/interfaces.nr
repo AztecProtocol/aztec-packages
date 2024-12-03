@@ -131,7 +131,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
             $args
             let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field($fn_selector);
             $call_interface_name {
-                target_contract: self.addr,
+                target_contract: self.target_contract,
                 selector,
                 name: $fn_name_str,
                 $args_hash
