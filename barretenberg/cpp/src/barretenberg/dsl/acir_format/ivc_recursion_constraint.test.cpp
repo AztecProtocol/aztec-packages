@@ -45,7 +45,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      *
      * @param input bberg style proof and verification key
      * @param witness Array of witnesses into which the above data is placed
-     * @param num_public_inputs Number of public inputs to be extracted from the proof
      * @return RecursionConstraint
      */
     static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, SlabVector<FF>& witness)
