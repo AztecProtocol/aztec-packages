@@ -45,8 +45,8 @@ export class BlockProvingState {
   public blockRootRollupStarted: boolean = false;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
-  public spongeBlobState: SpongeBlob | undefined = undefined;
-  public totalNumTxs: number | undefined;
+  public spongeBlobState: SpongeBlob | undefined;
+  public totalNumTxs: number;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
 
@@ -63,6 +63,7 @@ export class BlockProvingState {
     private readonly parentEpoch: EpochProvingState,
   ) {
     this.rootParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
+    this.totalNumTxs = 0;
   }
 
   public get blockNumber() {
@@ -71,7 +72,7 @@ export class BlockProvingState {
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumTxs!)) - 1);
+    return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
   }
 
   // Calculates the index and level of the parent rollup circuit
@@ -85,7 +86,7 @@ export class BlockProvingState {
       index >>= 1n;
       return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
     };
-    let [thisLevelSize, shiftUp] = this.totalNumTxs! & 1 ? [this.totalNumTxs! - 1, true] : [this.totalNumTxs!, false];
+    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
     const maxLevel = this.numMergeLevels + 1n;
     let placeholder = currentIndex;
     for (let i = 0; i < maxLevel - currentLevel; i++) {

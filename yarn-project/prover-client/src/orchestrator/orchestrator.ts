@@ -263,7 +263,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         if (tx.isEmpty) {
           logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
-          return;
+          continue;
         }
 
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
@@ -292,7 +292,7 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Block proving state for ${blockNumber} not found`);
     }
 
-    if (provingState.totalNumTxs === undefined) {
+    if (!provingState.spongeBlobState) {
       // If we are completing an empty block, initialise the provingState.
       // We will have 2 padding txs, and => no blob fields.
       provingState.startNewBlock(2, 0);
@@ -303,8 +303,8 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // We may need to pad the rollup with empty transactions
-    const paddingTxCount = provingState.totalNumTxs! - provingState.transactionsReceived;
-    if (paddingTxCount > 0 && provingState.totalNumTxs! > 2) {
+    const paddingTxCount = provingState.totalNumTxs - provingState.transactionsReceived;
+    if (paddingTxCount > 0 && provingState.totalNumTxs > 2) {
       throw new Error(`Block not ready for completion: expecting ${paddingTxCount} more transactions.`);
     }
 
