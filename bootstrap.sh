@@ -141,6 +141,15 @@ case "$CMD" in
     # Test cache by running minio with full and fast bootstraps
     scripts/tests/bootstrap/test-cache
     ;;
+  "test-boxes")
+    $ci3/github/group "test-boxes"
+    source $ci3/base/tmp_source
+    echo "earthly artifact build:"
+    earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    CI=1 $TMP/boxes/bootstrap.sh $@
+    $ci3/github/endgroup
+    exit
+  ;;
   "image-aztec")
     IMAGE=aztecprotocol/aztec:$(git rev-parse HEAD)
     if $ci3/docker/has_image $IMAGE; then
@@ -186,7 +195,7 @@ case "$CMD" in
     exit
   ;;
   *)
-    echo "usage: $0 <clean|full|fast|check|test-e2e|test-cache|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|check|test-e2e|test-cache|test-boxes|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac

@@ -11,7 +11,6 @@ barretenberg-acir-tests-base:
     # Avoid race conditions with bb.
     RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
 
-
 barretenberg-acir-tests-bb:
     FROM +barretenberg-acir-tests-base
     # Fold and verify an ACIR program stack using ClientIvc
@@ -102,9 +101,43 @@ barretenberg-acir-tests-bb.js:
 acir-tests:
     BUILD +barretenberg-acir-tests-bb
     BUILD +barretenberg-acir-tests-bb-ultra-plonk
-    # WORKTODO make issue for crypto team to fix
-    # BUILD +barretenberg-acir-tests-bb-ultra-honk
-    # BUILD +barretenberg-acir-tests-bb-mega-honk
+    BUILD +barretenberg-acir-tests-bb-ultra-honk
+    BUILD +barretenberg-acir-tests-bb-mega-honk
     BUILD +barretenberg-acir-tests-sol
     BUILD +barretenberg-acir-tests-sol-honk
     BUILD +barretenberg-acir-tests-bb.js
+
+barretenberg-acir-tests-base:
+  FROM ../+bootstrap-noir-bb
+  WORKDIR /usr/src/barretenberg/acir_tests
+
+bench-acir-bb:
+  # This target is used for debugging the benchmarking target.
+  # For precise benchmarks in CI use `bench-publish-acir-bb`
+  FROM +barretenberg-acir-benches-bb
+  RUN ./bench_acir_tests.sh
+
+export-bench-acir-bb:
+  ARG EARTHLY_GIT_HASH
+  FROM +barretenberg-acir-benches-bb
+  SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
+
+bench-publish-acir-bb:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG EARTHLY_GIT_HASH
+  LOCALLY
+
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD +export-bench-acir-bb
+    END
+  END
+
+  RUN mkdir -p ./log
+  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh
+
+  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$EARTHLY_GIT_HASH

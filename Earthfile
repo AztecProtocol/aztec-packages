@@ -8,14 +8,14 @@ bootstrap-noir-bb:
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
   WORKDIR /build-volume
-  ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
+  # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
   # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init 2>/dev/null && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-    git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
+    ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/bootstrap.sh && \
@@ -34,7 +34,7 @@ bootstrap:
     git init 2>/dev/null && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-    git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null && \
+    ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>/dev/null) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
     CI=1 TEST=0 ./bootstrap.sh fast && \

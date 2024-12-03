@@ -12,7 +12,7 @@ CACHE:
     --build_artifacts="$build_artifacts"
 
 deps:
-    FROM ../../build-images+from-registry
+    FROM ../../+bootstrap-noir-bb
     WORKDIR /usr/src/barretenberg/ts
 
     # minimum files to download yarn packages

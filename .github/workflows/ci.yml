@@ -142,8 +142,42 @@ jobs:
         run: |
           earthly-ci --push ./build-images/+build
 
-  build:
+  bootstrap-noir-bb:
     needs: [build-images, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: bootstrap-noir-bb
+      # prepare images locally, tagged by commit hash
+      - name: "Build"
+        timeout-minutes: 40
+        run: earthly +bootstrap-noir-bb
+
+  bootstrap:
+    needs: [bootstrap-noir-bb, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: bootstrap
+      # prepare images locally, tagged by commit hash
+      - name: "Build"
+        timeout-minutes: 40
+        run: earthly +bootstrap
+
+  bootstrap-images:
+    needs: [bootstrap-noir-bb, configure]
     # NOTE: we don't skip this job here instead using if's below to avoid gotcha if dependent jobs have their own if's
     runs-on: ${{ needs.configure.outputs.username }}-x86
     outputs:
@@ -188,7 +222,7 @@ jobs:
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
-    needs: [build, configure]
+    needs: [bootstrap-images, configure]
     if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
     strategy:
@@ -223,7 +257,7 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: [build, configure]
+    needs: [bootstrap-images, configure]
     if: needs.build.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
     runs-on: ubuntu-20.04
     strategy:
@@ -265,32 +299,24 @@ jobs:
 
   acir-bench:
     runs-on: ubuntu-20.04
-    needs: [build, configure]
+    needs: [bootstrap-noir-bb, configure]
     # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
     if: needs.configure.outputs.non-barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-      - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
+      - name: "Setup and Test"
+        uses: ./.github/ensure-tester
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
-        timeout-minutes: 40
+        # note: tester by default times out at 30, would need to delay shutdown for more
+        timeout-minutes: 30
         with:
           runner_type: 16core-tester-x86
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/barretenberg-acir-benches:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: cd noir && ../scripts/earthly-ci +export-bench-acir-bb
           run: |
-            set -eux
-            cd ./noir/
-            export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../scripts/earthly-ci -P --no-output +bench-publish-acir-bb
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci -P --no-output +bench-publish-acir-bb
 
   bench-summary:
     needs:
@@ -332,7 +358,7 @@ jobs:
           AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
   bb-gcc:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg-cpp == 'true'
     steps:
@@ -372,7 +398,7 @@ jobs:
             scripts/earthly-ci --exec-stats --no-output --no-cache ./barretenberg/cpp+test --hardware_concurrency=32
 
   bb-js-test:
-    needs: [build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true'
     steps:
@@ -386,22 +412,8 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+test
 
-  noir-build-acir-tests:
-    needs: [build-images, configure]
-    runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: build-acir-tests-x86
-      - name: "Build Acir Tests"
-        timeout-minutes: 40
-        run: earthly-ci --no-output ./noir/+build-acir-tests
-
   bb-acir-tests-bb:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -416,7 +428,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
 
   bb-acir-tests-bb-ultra-plonk:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -431,7 +443,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-plonk
 
   bb-acir-tests-bb-ultra-honk:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -446,7 +458,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
 
   bb-acir-tests-bb-mega-honk:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -461,7 +473,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-mega-honk
 
   bb-acir-tests-sol:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -476,7 +488,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
 
   bb-acir-tests-sol-honk:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -491,7 +503,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol-honk
 
   bb-acir-tests-bb-js:
-    needs: [noir-build-acir-tests, build, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -791,7 +803,7 @@ jobs:
 
   bb-bench:
     runs-on: ubuntu-20.04
-    needs: [build, configure]
+    needs: [bootstrap-noir-bb, configure]
     if: needs.configure.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -839,23 +851,8 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  boxes:
-    needs: [build, configure]
-    runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'boxes') || contains(github.event.pull_request.labels.*.name, 'e2e-all')
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ github.event.pull_request.head.sha }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: boxes
-      - name: Build
-        working-directory: ./boxes
-        timeout-minutes: 40
-        run: earthly-ci +export-boxes
-
   boxes-test:
-    needs: [boxes, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false

@@ -47,11 +47,12 @@ function build {
   fi
   $ci3/github/endgroup
 
-  if $ci3/cache/should_run yarn-project-tests"$HASH"; then
+  if $ci3/cache/should_run yarn-project-tests-"$HASH"; then
     yarn test
     export ci3 YELLOW BLUE GREEN BOLD RESET CMD
     export -f run_e2e_tests
     denoise run_e2e_tests
+    $ci3/cache/upload yarn-project-tests-"$HASH"
   fi
 }
 

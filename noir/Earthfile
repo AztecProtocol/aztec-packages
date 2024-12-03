@@ -92,39 +92,3 @@ packages-test-browser:
 packages-test:
   BUILD +packages-test-node
   BUILD +packages-test-browser
-
-barretenberg-acir-benches-bb:
-  FROM ../+bootstrap-noir-bb
-  ENV TEST_SRC=/usr/src/acir_artifacts
-  WORKDIR /usr/src/barretenberg/acir_tests
-
-bench-acir-bb:
-  # This target is used for debugging the benchmarking target.
-  # For precise benchmarks in CI use `bench-publish-acir-bb`
-  FROM +barretenberg-acir-benches-bb
-  RUN ./bench_acir_tests.sh
-
-export-bench-acir-bb:
-  ARG EARTHLY_GIT_HASH
-  FROM +barretenberg-acir-benches-bb
-  SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
-
-bench-publish-acir-bb:
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG EARTHLY_GIT_HASH
-  LOCALLY
-
-  # Let docker compose know about the pushed tags above
-  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
-  # Optimize to not cause serial behavior if image already exists
-  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG"
-    WAIT
-      BUILD +export-bench-acir-bb
-    END
-  END
-
-  RUN mkdir -p ./log
-  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh
-
-  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$EARTHLY_GIT_HASH
