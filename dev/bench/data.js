@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733227269817,
+  "lastUpdate": 1733237977964,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9b10f7f46755814cb8633cf55621faa8e9b37344",
-          "message": "chore: Revert \"feat: IPA Accumulator in Builder\" (#10036)\n\nReverts AztecProtocol/aztec-packages#9846 due to a failure in the\r\nprover-full test",
-          "timestamp": "2024-11-19T18:11:17Z",
-          "tree_id": "012c7b28f2a006125323501e13d42088d13c0537",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9b10f7f46755814cb8633cf55621faa8e9b37344"
-        },
-        "date": 1732041887710,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28686.36669899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27100.854763 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5340.372875999989,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5030.757033 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84108.95021899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84108951000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15130.150371,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15130151000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3057516737,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3057516737 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140582209,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140582209 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2978,6 +2918,66 @@ window.BENCHMARK_DATA = {
             "value": 140973381,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140973381 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cc54a1e1ef75b29d160a02d03cf9b29e28d3e4ca",
+          "message": "feat: Client IVC API (#10217)\n\n- Establish API in purely virtual class\r\n- This is just a first pass. I will continue to work on this before\r\nshowing dev rel and others to get buy-in.\r\n- Implement some API functions for ClientIVC: prove, verify,\r\nprove_and_verify\r\n- Support for constructing CIVC proof for input a single circuit\r\n  - This is interpreted as a \"compiletime stack\"\r\n- Produces ECCVM and Translator proofs from dummy/empty data; future\r\noptimization could avoid.\r\n- Add `one_circuit` to CIVC to encode whether the MH part of the CIVC\r\nproof should be a hiding circuit (which takes a folding proof) or a\r\nproof for the single circuit.\r\n- Run almost all ACIR tests against ClientIVC\r\n- Previously only ran MegaHonk tests, which are not totally meaningful.\r\n- Four are skipped because they fail. These failures are expected to be\r\nsuperficial (see\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1164 and the\r\nreferences to it in the PR's new code).\r\n- fold_and_verify and mega honk flows go away in bb, but remain until\r\nbb.js alignment.\r\n- Delete large log file that should not be track (accounts for big\r\nnegative diff).",
+          "timestamp": "2024-12-03T09:18:40-05:00",
+          "tree_id": "fd1f89f19c186899ac0b6dff4a4554775b7c33c4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc54a1e1ef75b29d160a02d03cf9b29e28d3e4ca"
+        },
+        "date": 1733237970951,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28037.81463200002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26323.953417999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5009.527340000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4690.045214000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86074.169488,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86074170000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15090.203081,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15090204000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3046228577,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3046228577 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140944710,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140944710 ns\nthreads: 1"
           }
         ]
       }
