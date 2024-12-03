@@ -143,9 +143,11 @@ mod tests {
         fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
             Self { value: self.value, next_value }
         }
+
         fn update_value(self, value: Field) -> Self {
             Self { value, next_value: self.next_value }
         }
+
         fn build_insertion_leaf(value: Field, low_leaf: Self) -> Self {
             Self { value, next_value: low_leaf.next_value }
         }
