@@ -100,13 +100,13 @@ jobs:
         with:
           concurrency_key: build-aztec
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: Build & Push Aztec x86_64
+      - name: Build & Push Aztec and End-to-End x86_64
         timeout-minutes: 40
         run: |
           earthly-ci \
             --no-output \
             --push \
-            ./yarn-project+export-aztec-arch \
+            ./yarn-project+export-images-arch \
             --DIST_TAG=${{ env.GIT_COMMIT }} \
             --ARCH=x86_64
 

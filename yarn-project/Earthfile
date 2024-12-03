@@ -270,9 +270,21 @@ export-end-to-end:
     FROM +end-to-end
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
 
+export-end-to-end-arch:
+    FROM +end-to-end
+    ARG DIST_TAG="latest"
+    ARG ARCH
+    SAVE IMAGE --push aztecprotocol/end-to-end:${DIST_TAG}${ARCH:+-$ARCH}
+
 export-e2e-test-images:
     BUILD +export-aztec
     BUILD +export-end-to-end
+
+export-images-arch:
+    ARG DIST_TAG="latest"
+    ARG ARCH
+    BUILD +export-aztec-arch
+    BUILD +export-end-to-end-arch
 
 format-check:
     FROM +build
