@@ -6,8 +6,8 @@ use crate::{
 use std::ops::{Add, Sub};
 
 pub struct Gas {
-    da_gas: u32,
-    l2_gas: u32,
+    pub da_gas: u32,
+    pub l2_gas: u32,
 }
 
 impl Gas {

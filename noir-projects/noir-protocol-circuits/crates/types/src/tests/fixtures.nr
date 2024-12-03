@@ -5,9 +5,9 @@ pub(crate) mod vk_tree;
 
 use crate::address::AztecAddress;
 
-pub(crate) global MSG_SENDER: AztecAddress = AztecAddress { inner: 27 };
+pub global MSG_SENDER: AztecAddress = AztecAddress { inner: 27 };
 
-pub(crate) global CHAIN_ID: Field = 1;
+pub global CHAIN_ID: Field = 1;
 
-pub(crate) global VERSION: Field = 3;
+pub global VERSION: Field = 3;
 

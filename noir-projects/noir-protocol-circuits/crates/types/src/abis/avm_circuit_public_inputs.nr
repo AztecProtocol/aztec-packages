@@ -24,25 +24,25 @@ use crate::{
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
-    global_variables: GlobalVariables,
-    start_tree_snapshots: TreeSnapshots,
-    start_gas_used: Gas,
-    gas_settings: GasSettings,
-    public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    public_teardown_call_request: PublicCallRequest,
-    previous_non_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    previous_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData,
-    previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
+    pub global_variables: GlobalVariables,
+    pub start_tree_snapshots: TreeSnapshots,
+    pub start_gas_used: Gas,
+    pub gas_settings: GasSettings,
+    pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_teardown_call_request: PublicCallRequest,
+    pub previous_non_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
+    pub previous_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
+    pub previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData,
+    pub previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
 
     ///////////////////////////////////
     // Outputs.
-    end_tree_snapshots: TreeSnapshots,
-    end_gas_used: Gas,
-    accumulated_data: AvmAccumulatedData,
-    transaction_fee: Field,
-    reverted: bool,
+    pub end_tree_snapshots: TreeSnapshots,
+    pub end_gas_used: Gas,
+    pub accumulated_data: AvmAccumulatedData,
+    pub transaction_fee: Field,
+    pub reverted: bool,
 }
 
 impl Empty for AvmCircuitPublicInputs {

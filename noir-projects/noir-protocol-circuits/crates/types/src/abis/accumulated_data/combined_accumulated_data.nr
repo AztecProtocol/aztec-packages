@@ -3,7 +3,7 @@ use crate::{
     constants::{
         COMBINED_ACCUMULATED_DATA_LENGTH, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
@@ -24,7 +24,7 @@ pub struct CombinedAccumulatedData {
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
 
-    pub public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    pub public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
 impl Empty for CombinedAccumulatedData {
@@ -38,7 +38,9 @@ impl Empty for CombinedAccumulatedData {
             contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             unencrypted_log_preimages_length: 0,
             contract_class_log_preimages_length: 0,
-            public_data_writes: [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            public_data_writes: [
+                PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+            ],
         }
     }
 }
@@ -64,7 +66,7 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         fields.push(self.unencrypted_log_preimages_length);
         fields.push(self.contract_class_log_preimages_length);
 
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+        for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             fields.extend_from_array(self.public_data_writes[i].serialize());
         }
 
@@ -101,7 +103,7 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
             contract_class_log_preimages_length: reader.read(),
             public_data_writes: reader.read_struct_array(
                 PublicDataWrite::deserialize,
-                [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             ),
         };
         reader.finish();

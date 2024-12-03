@@ -89,7 +89,7 @@ impl VariableMerkleTree {
     }
 }
 
-mod tests {
+pub mod tests {
     use crate::{
         hash::accumulate_sha256,
         merkle_tree::{merkle_tree::MerkleTree, variable_merkle_tree::VariableMerkleTree},
