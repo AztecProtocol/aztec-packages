@@ -11,12 +11,7 @@ pub fn recover_address(message_hash: Field, witness: AuthWitness) -> AztecAddres
     };
 
     // In a single key account contract we re-used ivpk_m as signing key
-
-    schnorr::assert_valid_signature(
-        public_key,
-        witness.signature,
-        message_bytes,
-    );
+    schnorr::assert_valid_signature(public_key, witness.signature, message_bytes);
 
     AztecAddress::compute(witness.keys, witness.partial_address)
 }
