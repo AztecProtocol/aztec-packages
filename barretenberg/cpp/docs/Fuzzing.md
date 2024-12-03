@@ -2,7 +2,7 @@
 
 ## Intro
 
-We are gradually introducing fuzzing of various primitives into barretenberg, focusing first and foremost on in-cicruit types. If you are developing / patching a primitive and there is a fuzzer available for it, please take the time to update the fuzzer (if you've added new functionality) and run it for at least a few hours to increase security.
+We are gradually introducing fuzzing of various primitives into barretenberg, focusing first and foremost on in-circuit types. If you are developing / patching a primitive and there is a fuzzer available for it, please take the time to update the fuzzer (if you've added new functionality) and run it for at least a few hours to increase security.
 
 ## Build
 
