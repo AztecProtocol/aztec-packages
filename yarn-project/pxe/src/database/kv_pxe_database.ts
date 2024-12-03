@@ -622,7 +622,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
-    return Promise.resolve(this.#getCompleteAddress(account));
+    return this.#getCompleteAddress(account);
   }
 
   async getCompleteAddresses(): Promise<CompleteAddress[]> {

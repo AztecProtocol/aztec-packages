@@ -423,6 +423,16 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(result).toEqual(expect.arrayContaining(addresses));
       });
 
+      it('returns a single address', async () => {
+        const addresses = Array.from({ length: 10 }).map(() => CompleteAddress.random());
+        for (const address of addresses) {
+          await database.addCompleteAddress(address);
+        }
+
+        const result = await database.getCompleteAddress(addresses[0].address);
+        expect(result).toEqual(addresses[0]);
+      });
+
       it("returns an empty array if it doesn't have addresses", async () => {
         expect(await database.getCompleteAddresses()).toEqual([]);
       });
