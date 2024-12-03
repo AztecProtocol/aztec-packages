@@ -1,9 +1,6 @@
 name: Aztec Network Test
 
 on:
-  push:
-    branches:
-      - 10247-feat-test-release-network-via-ci-workflow
   workflow_dispatch:
     inputs:
       namespace:
@@ -26,12 +23,13 @@ jobs:
 
     # Set up a variable based on the branch name
     env:
-      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image || 'iamjustmitch/end-to-end:e4ca85ec5cdb510396d965c49df91d2c7cdaf8a8' }}
-      NAMESPACE: ${{ inputs.namespace || 'smoke' }}
-      TEST: ${{ inputs.test || 'spartan/smoke.test.ts' }}
+      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image }}
+      NAMESPACE: ${{ inputs.namespace }}
+      TEST: ${{ inputs.test }}
       CHART_PATH: ./spartan/aztec-network
       CLUSTER_NAME: aztec-gke
       REGION: us-west1-a
+      PROJECT_ID: testnet-440309
       GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
 
     steps:
@@ -65,7 +63,7 @@ jobs:
 
           export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
-          gcloud config set project testnet-440309
+          gcloud config set project ${{ env.PROJECT_ID }}
 
           GCLOUD_CONFIG_DIR=$(gcloud info --format='value(config. paths. global_config_dir)')
 
