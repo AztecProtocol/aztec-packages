@@ -2,7 +2,7 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
-CMD=${1:-}
+CMD=${1:-fast}
 NO_TERMINATE=${NO_TERMINATE:-0}
 # picked up by $ci3/github/group and $ci3/github/endgroup
 GITHUB_LOG=${GITHUB_LOG:-}
@@ -20,7 +20,7 @@ function on_exit {
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
-if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]] ; then
+if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
   echo "Commit $current_commit is not pushed, exiting."
   exit 1
 fi
@@ -75,10 +75,10 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       mkdir -p /root/aztec-packages
       cd /root/aztec-packages
       git init &>/dev/null
-      git remote add origin http://github.com/aztecprotocol/aztec-packages
+      git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
-      CI=1 ./bootstrap.sh fast || exec bash
+      CI=1 ./bootstrap.sh $CMD || exec bash
     '
 "

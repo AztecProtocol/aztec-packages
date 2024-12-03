@@ -16,12 +16,10 @@ if [ -n "$CMD" ]; then
 fi
 
 # Attempt to just pull artefacts from CI and exit on success.
-if [[ "$OSTYPE" != "darwin"* ]] && [ -n "${USE_CACHE:-}" ]; then
-  ./bootstrap_cache.sh && exit
-fi
-
 $ci3/github/group "avm-transpiler build"
-./scripts/bootstrap_native.sh
-export AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native .rebuild_patterns"
-$ci3/cache/upload avm-transpiler-$($ci3/cache/content_hash).tar.gz target
+ARTIFACT=avm-transpiler-$($ci3/cache/content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
+if ! $ci3/cache/download $ARTIFACT; then
+  ./scripts/bootstrap_native.sh
+  $ci3/cache/upload $ARTIFACT target
+fi
 $ci3/github/endgroup

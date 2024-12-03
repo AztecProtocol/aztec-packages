@@ -18,7 +18,7 @@ shift
 export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 export FAKE_PROOFS="${FAKE_PROOFS:-}"
 export COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
-export AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+export AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 
 # Function to load test configuration
 load_test_config() {

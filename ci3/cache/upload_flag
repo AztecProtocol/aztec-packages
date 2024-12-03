@@ -1,4 +1,5 @@
 #!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
 set -eu
 
 if [ "$#" -lt 1 ]; then
@@ -6,8 +7,9 @@ if [ "$#" -lt 1 ]; then
   exit 1
 fi
 
-if [ "${CI:-0}" -lt 1 ] ; then
-  # Don't upload if CI isn't set. No need to muddle with dev runs.
+if [ "${CI:-0}" -lt 1 ]; then
+  # Don't upload if CI isn't set. No need to muddle with dev runs.A
+  echo "Not uploading remote test flag $1 because CI=0."
   exit 0
 fi
 
@@ -20,7 +22,11 @@ trap on_exit EXIT
 NAME="$1"
 
 shift 1
-echo "success" > .success
+if [ -n "${GITHUB_RUN_URL:-}" ]; then
+  CONTENT="Flag $NAME success cached: See $GITHUB_RUN_URL."
+else
+  CONTENT="Flag $NAME success cached: Ran outside of Github Actions."
+fi
 
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp .success "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
-echo "Cache upload of $NAME.flag complete." >&2
+echo "$CONTENT" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress
+echo "Cache upload of $NAME.flag complete."

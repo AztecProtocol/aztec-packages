@@ -14,17 +14,19 @@ CMD=${1:-}
 function build {
   $ci3/github/group "yarn-project build"
 
-  export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../noir/.rebuild_patterns* ../{avm-transpiler,l1-contracts,noir-projects,yarn-project}/.rebuild_patterns ../barretenberg/*/.rebuild_patterns)
-  HASH=$($ci3/cache/content_hash)
+  HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
+    ../noir-projects/.rebuild_patterns \
+    ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
+    ../barretenberg/*/.rebuild_patterns)
   # Generate l1-artifacts before creating lock file
-  (cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
 
   # Fast build does not delete everything first.
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
   echo
-  echo -n "yarn install: "
-  $ci3/base/denoise yarn install
+  echo "yarn install: "
+  denoise yarn install
 
   if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
@@ -45,9 +47,11 @@ function build {
   fi
   $ci3/github/endgroup
 
-  if $ci3/base/is_test; then
+  if $ci3/cache/should_run yarn-project-tests"$HASH"; then
     yarn test
-    run_e2e_tests
+    export ci3 YELLOW BLUE GREEN BOLD RESET CMD
+    export -f run_e2e_tests
+    denoise run_e2e_tests
   fi
 }
 

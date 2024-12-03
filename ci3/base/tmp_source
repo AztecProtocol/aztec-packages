@@ -1,0 +1,6 @@
+# Injects an automatically cleaned up $TMP into the current bash environment
+TMP=$(mktemp -d)
+function __tmp_cleanup() {
+  rm -rf "$TMP" &>/dev/null || true
+}
+trap __tmp_cleanup EXIT

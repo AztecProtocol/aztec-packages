@@ -29,7 +29,7 @@ fi
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
-if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]] ; then
+if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
   echo "Commit $current_commit is not pushed, exiting."
   exit 1
 fi
@@ -44,8 +44,10 @@ ip=$(aws ec2 describe-instances \
 
 case "$CMD" in
   "ec2")
+    # allows for e.g. ec2 full or ec2 cache-sanity-test
+    shift 1
     # Spin up ec2 instance and bootstrap.
-    $ci3/bootstrap/ec2
+    $ci3/bootstrap/ec2 "$@"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.

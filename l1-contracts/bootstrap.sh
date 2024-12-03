@@ -15,14 +15,12 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-# Attempt to just pull artefacts from CI and elide the build on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && SKIP_BUILD=1
+HASH=$($ci3/cache/content_hash .rebuild_patterns)
+ARTIFACT=l1-contracts-$HASH.tar.gz
+TEST_FLAG=l1-contracts-test-$HASH
 
-export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns
-HASH=$($ci3/cache/content_hash)
-
-if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
-  $ci3/github/group "l1-contracts build"
+$ci3/github/group "l1-contracts build"
+if ! $ci3/cache/download $ARTIFACT; then
   # Clean
   rm -rf broadcast cache out serve
 
@@ -35,13 +33,13 @@ if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
   # Compile contracts
   forge build
 
-  $ci3/cache/upload l1-contracts-$HASH.tar.gz out
-  $ci3/github/endgroup
+  $ci3/cache/upload $ARTIFACT out
 fi
+$ci3/github/endgroup
 
-if $ci3/base/is_test || $ci3/cache/should_run l1-contracts-test-$HASH; then
+if $ci3/cache/should_run $TEST_FLAG; then
   $ci3/github/group "l1-contracts test"
   forge test --no-match-contract UniswapPortalTest
-  $ci3/cache/upload_flag l1-contracts-test-$HASH
+  $ci3/cache/upload_flag $TEST_FLAG
   $ci3/github/endgroup
 fi

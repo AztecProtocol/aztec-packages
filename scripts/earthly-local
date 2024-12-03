@@ -27,16 +27,6 @@ function start_minio() {
     aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
 }
 
-earthly_config_tmp=$(mktemp)
-function cleanup() {
-  echo "Cleaning up..."
-  rm -f $earthly_config_tmp
-  # Optionally stop MinIO if needed
-  # docker stop minio && docker rm minio
-}
-
-trap cleanup EXIT
-
 # Local file server for a quicker cache layer
 start_minio
 
@@ -47,7 +37,7 @@ S3_BUILD_CACHE_MINIO_URL="http://$(hostname -I | awk '{print $1}'):12000"
 
 # Check for unstaged changes to avoid polluting the cache
 if ! git diff-index --quiet HEAD --; then
-  echo "Warning: You have unstaged changes. Disabling S3 and local MinIO caching for Earthly to avoid polluting the cache." >&2
+  echo "Warning: You have unstaged changes. The build will run in the context of the last commit." >&2
   S3_BUILD_CACHE_UPLOAD=false
   S3_BUILD_CACHE_DOWNLOAD=false
   S3_BUILD_CACHE_MINIO_URL=""

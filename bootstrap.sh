@@ -7,6 +7,9 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/base/source
 
+# Enable abbreviated output.
+export DENOISE=1
+
 CMD=${1:-}
 
 YELLOW="\033[93m"
@@ -128,8 +131,55 @@ case "$CMD" in
     echo "Toolchains look good! 🎉"
     exit 0
   ;;
+  "test-e2e")
+    ./bootstrap.sh image-aztec
+    ./bootstrap.sh image-e2e
+    yarn-project/end-to-end/scripts/e2e_test.sh $@
+    exit
+  ;;
+  "test-cache")
+    # Spin up ec2 instance and bootstrap.
+    scripts/tests/bootstrap/test-cache
+    ;;
+  "image-aztec")
+    $ci3/github/group "image-aztec"
+    source $ci3/base/tmp_source
+    mkdir -p $TMP/usr/src
+    # TODO(ci3) eventually this will just be a normal mounted docker build
+    denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    GIT_HASH=$(git rev-parse --short HEAD)
+    shift 1 # remove command parameter
+    docker build -f Dockerfile.aztec -t aztecprotocol/aztec:$GIT_HASH $TMP $@
+    $ci3/github/endgroup
+    exit
+  ;;
+  "image-e2e")
+    $ci3/github/group "image-aztec"
+    source $ci3/base/tmp_source
+    mkdir -p $TMP/usr
+    # TODO(ci3) eventually this will just be a normal mounted docker build
+    denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
+    denoise earthly --artifact +bootstrap-aztec/anvil $TMP/anvil
+    GIT_HASH=$(git rev-parse --short HEAD)
+    shift 1 # remove command parameter
+    docker build -f Dockerfile.end-to-end -t aztecprotocol/end-to-end:$GIT_HASH $TMP $@
+    $ci3/github/endgroup
+    exit
+  ;;
+  "image-faucet")
+    $ci3/github/group "image-faucet"
+    source $ci3/base/tmp_source
+    mkdir -p $TMP/usr
+    # TODO(ci3) eventually this will just be a normal mounted docker build
+    earthly --artifact +bootstrap-faucet/usr/src $TMP/usr
+    GIT_HASH=$(git rev-parse --short HEAD)
+    shift 1 # remove command parameter
+    docker build -f Dockerfile.aztec-faucet -t aztecprotocol/aztec-faucet:$GIT_HASH $TMP $@
+    $ci3/github/endgroup
+    exit
+  ;;
   *)
-    echo "usage: $0 <full|fast|check|clean>"
+    echo "usage: $0 <clean|full|fast|check|test-e2e|test-cache|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
@@ -140,7 +190,7 @@ echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
 $ci3/github/group "Pull Submodules"
-$ci3/base/denoise git submodule update --init --recursive
+denoise git submodule update --init --recursive
 $ci3/github/endgroup
 
 check_toolchains

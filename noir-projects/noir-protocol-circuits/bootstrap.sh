@@ -6,6 +6,7 @@ CMD=${1:-}
 export RAYON_NUM_THREADS=16
 export HARDWARE_CONCURRENCY=16
 
+export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns

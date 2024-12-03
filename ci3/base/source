@@ -12,3 +12,8 @@ ci3="$(git rev-parse --show-toplevel)/ci3"
 
 # Conditionally print all statements ran in CI scripts. Useful for debugging commands that weren't expected to error out.
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+
+function denoise(){
+  $(git rev-parse --show-toplevel)/ci3/base/denoise $@
+}
+export -f denoise

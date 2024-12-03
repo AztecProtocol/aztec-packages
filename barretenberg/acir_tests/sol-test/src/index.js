@@ -93,6 +93,9 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
+if (output.errors) {
+  throw new Error(JSON.stringify(output.errors, null, 2));
+}
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;

@@ -14,38 +14,28 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-# Attempt to pull artifacts from CI if USE_CACHE is set and verify nargo usability.
-if [ -n "${USE_CACHE:-}" ]; then
-  if ./bootstrap_cache.sh && ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
-    # Cause the check below to fail
-    SKIP_BUILD=1
-  fi
-fi
-
-export AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns_native
-NATIVE_HASH=$($ci3/cache/content_hash)
-
-export AZTEC_CACHE_REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
-PACKAGES_HASH=$($ci3/cache/content_hash)
-
-if [ "${SKIP_BUILD:-0}" -eq 0 ] ; then
-  $ci3/github/group "noir build"
+$ci3/github/group "noir build"
+NATIVE_HASH=$($ci3/cache/content_hash .rebuild_patterns_native)
+# Fake this so artifacts have a consistent hash in the cache and not git hash dependent
+export COMMIT_HASH="$(echo "$NATIVE_HASH" | sed 's/-.*//g')"
+if ! $ci3/cache/download noir-nargo-$NATIVE_HASH.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
   # Continue with native bootstrapping if the cache was not used or nargo verification failed.
-  ./scripts/bootstrap_native.sh
+  denoise ./scripts/bootstrap_native.sh
   $ci3/cache/upload noir-nargo-$NATIVE_HASH.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
-
-  ./scripts/bootstrap_packages.sh
-  $ci3/cache/upload noir-packages-$PACKAGES_HASH.tar.gz packages
-  $ci3/github/endgroup
 fi
+PACKAGES_HASH=$($ci3/cache/content_hash ../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages .rebuild_patterns_native)
+if ! $ci3/cache/download noir-packages-$PACKAGES_HASH.tar.gz ; then
+  denoise ./scripts/bootstrap_packages.sh
+  $ci3/cache/upload noir-packages-$PACKAGES_HASH.tar.gz packages
+fi
+$ci3/github/endgroup
 
-if $ci3/base/is_test && $ci3/cache/should_run noir-test-$NATIVE_HASH-$PACKAGES_HASH; then
-  $ci3/github/group "noir test native"
+TEST_FLAG=noir-test-$NATIVE_HASH-$PACKAGES_HASH-$($ci3/cache/content_hash .rebuild_patterns_tests)
+if $ci3/cache/should_run $TEST_FLAG; then
+  $ci3/github/group "noir test"
   export PATH="$PWD/noir-repo/target/release/:$PATH"
-  ./scripts/test_native.sh
-  $ci3/github/endgroup
-  $ci3/github/group "noir test packages"
-  ./scripts/test_js_packages.sh
-  $ci3/cache/upload_flag noir-test-$NATIVE_HASH-$PACKAGES_HASH
+  denoise ./scripts/test_native.sh
+  denoise ./scripts/test_js_packages.sh
+  $ci3/cache/upload_flag $TEST_FLAG
   $ci3/github/endgroup
 fi

@@ -15,7 +15,7 @@ export AZTEC_CACHE_REBUILD_PATTERNS=$(echo \
   ../../barretenberg/ts/.rebuild_patterns)
 HASH=$($ci3/cache/content_hash)
 
-if ! $ci3/base/is_test || ! $ci3/cache/should_run barretenberg-acir-test-$HASH; then
+if ! $ci3/cache/should_run barretenberg-acir-test-$HASH; then
   exit 0
 fi
 
