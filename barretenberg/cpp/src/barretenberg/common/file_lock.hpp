@@ -12,41 +12,28 @@ namespace bb {
 class FileLock {
   public:
     explicit FileLock(const std::string& lockFileName)
+        : fileName(lockFileName)
     {
         // Open the lock file
-        fd = open(lockFileName.c_str(), O_CREAT | O_RDWR, 0666);
+        fd = open(lockFileName.c_str(), O_CREAT | O_RDWR | O_EXCL, 0666);
         if (fd == -1) {
             throw_or_abort("Failed to open lock file: " + lockFileName);
-        } else {
-            lock();
         }
     }
 
     ~FileLock()
     {
         if (fd != -1) {
-            unlock();
             close(fd);
+            // Delete the lock file - if others have it open, it is ok
+            unlink(fileName.c_str());
         }
     }
 
   private:
-    void lock()
-    {
-        // Acquire an exclusive lock
-        if (flock(fd, LOCK_EX) == -1) {
-            throw_or_abort("Failed to acquire lock on file descriptor");
-        }
-    }
-
-    void unlock()
-    {
-        // Release the lock
-        if (flock(fd, LOCK_UN) == -1) {
-            throw_or_abort("Failed to release lock on file descriptor");
-        }
-    }
+    void unlock() { unlink(); }
     int fd = -1;
+    std::string fileName;
 };
 
 #else // Non-POSIX systems
