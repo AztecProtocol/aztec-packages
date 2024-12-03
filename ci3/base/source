@@ -7,8 +7,8 @@ set -eu
 [ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
 
 # Expose $ci3 as a base path.
-root="$(git rev-parse --show-toplevel)"
-ci3="$root/ci3"
+ci3="$(git rev-parse --show-toplevel)/ci3"
+[[ "$PATH" != *"$ci3/base:" ]] && PATH=$ci3/base:$PATH
 
 # Conditionally print all statements ran in CI scripts. Useful for debugging commands that weren't expected to error out.
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true

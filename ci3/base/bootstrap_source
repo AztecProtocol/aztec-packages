@@ -1,16 +1,6 @@
-# Usage: source $(git rev-parse --show-toplevel)/ci3/base/source
 # Source this first in all bootstrap scripts.
-set -eu
-
-# Enter our script directory, allowing usage of scripts from any directory.
-[ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
-
-# Expose $ci3 as a base path.
-ci3="$(git rev-parse --show-toplevel)/ci3"
-[[ "$PATH" != *"$ci3/base:" ]] && PATH=$ci3/base:$PATH
-
-# Conditionally print all statements ran in CI scripts. Useful for debugging commands that weren't expected to error out.
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+# Usage: source $(git rev-parse --show-toplevel)/ci3/base/bootstrap_source
+source $(git rev-parse --show-toplevel)/ci3/base/source
 
 case "${1:-}" in
   "ci")
