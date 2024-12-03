@@ -111,10 +111,6 @@ mod tests {
         fn get_key(self) -> Field {
             self.value
         }
-
-        fn as_leaf(self) -> Field {
-            pedersen_hash([self.value])
-        }
     }
 
     impl Eq for TestLeafPreimage {

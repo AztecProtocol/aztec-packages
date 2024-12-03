@@ -21,10 +21,6 @@ impl LeafPreimage for NoteHashLeafPreimage {
     fn get_key(self) -> Field {
         self.value
     }
-
-    fn as_leaf(self) -> Field {
-        self.value
-    }
 }
 
 impl Readable<ScopedReadRequest> for NoteHashLeafPreimage {
