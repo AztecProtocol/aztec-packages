@@ -56,6 +56,8 @@ struct SubmitEpochRootProofInterimValues {
   uint256 endBlockNumber;
   Epoch epochToProve;
   Epoch startEpoch;
+  bool isFeeCanonical;
+  bool isRewardDistributorCanonical;
 }
 
 /**
@@ -329,20 +331,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
     //        Otherwise, the fees are unbacked #7938.
-    bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-    bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
+    interimValues.isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+    interimValues.isRewardDistributorCanonical =
+      address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
     uint256 totalProverReward = 0;
     uint256 totalBurn = 0;
 
-    if (isFeeCanonical || isRewardDistributorCanonical) {
+    if (interimValues.isFeeCanonical || interimValues.isRewardDistributorCanonical) {
       for (uint256 i = 0; i < _args.epochSize; i++) {
         address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
         uint256 reward = 0;
         uint256 toProver = 0;
         uint256 burn = 0;
 
-        if (isFeeCanonical) {
+        if (interimValues.isFeeCanonical) {
           uint256 fees = uint256(publicInputs[10 + i * 2]);
           if (fees > 0) {
             // This is insanely expensive, and will be fixed as part of the general storage cost reduction.
@@ -356,7 +359,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
           }
         }
 
-        if (isRewardDistributorCanonical) {
+        if (interimValues.isRewardDistributorCanonical) {
           reward += REWARD_DISTRIBUTOR.claim(address(this));
         }
 

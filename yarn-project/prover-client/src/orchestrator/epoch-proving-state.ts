@@ -50,10 +50,11 @@ export class EpochProvingState {
   private mergeRollupInputs: BlockMergeRollupInputData[] = [];
   public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
   public finalProof: Proof | undefined;
-  public blocks: BlockProvingState[] = [];
+  public blocks: (BlockProvingState | undefined)[] = [];
 
   constructor(
     public readonly epochNumber: number,
+    public readonly firstBlockNumber: number,
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
@@ -105,8 +106,9 @@ export class EpochProvingState {
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
   ): BlockProvingState {
+    const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
     const block = new BlockProvingState(
-      this.blocks.length,
+      index,
       globalVariables,
       padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
       messageTreeSnapshot,
@@ -117,8 +119,8 @@ export class EpochProvingState {
       previousBlockHash,
       this,
     );
-    this.blocks.push(block);
-    if (this.blocks.length === this.totalNumBlocks) {
+    this.blocks[index] = block;
+    if (this.blocks.filter(b => !!b).length === this.totalNumBlocks) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
     return block;
@@ -174,7 +176,7 @@ export class EpochProvingState {
 
   // Returns a specific transaction proving state
   public getBlockProvingStateByBlockNumber(blockNumber: number) {
-    return this.blocks.find(block => block.blockNumber === blockNumber);
+    return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
   // Returns a set of merge rollup inputs

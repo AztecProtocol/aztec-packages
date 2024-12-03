@@ -444,7 +444,7 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
 
-  bb-acir-tests-bb-mega-honk:
+  bb-acir-tests-bb-client-ivc:
     needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
@@ -453,11 +453,11 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: barretenberg-acir-tests-bb-mega-honk-x86
-      - name: "BB Native Acir Tests (Megahonk)"
+          concurrency_key: barretenberg-acir-tests-bb-client-ivc-x86
+      - name: "BB Native Acir Tests (ClientIVC)"
         working-directory: ./barretenberg/
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-mega-honk
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-client-ivc
 
   bb-acir-tests-sol:
     needs: [noir-build-acir-tests, build, configure]
@@ -969,7 +969,7 @@ jobs:
       - bb-acir-tests-bb
       - bb-acir-tests-bb-ultra-plonk
       - bb-acir-tests-bb-ultra-honk
-      - bb-acir-tests-bb-mega-honk
+      - bb-acir-tests-bb-client-ivc
       - bb-acir-tests-sol
       - bb-acir-tests-sol-honk
       - bb-acir-tests-bb-js

@@ -25,7 +25,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      context.orchestrator.startNewEpoch(1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1);
       await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
       await context.orchestrator.addTxs(txs);
 
@@ -39,7 +39,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      context.orchestrator.startNewEpoch(1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1);
       await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
 
       await context.orchestrator.addTxs(txs);

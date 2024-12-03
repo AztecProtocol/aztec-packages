@@ -75,7 +75,7 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        orchestrator.startNewEpoch(1, 1);
+        orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(globalVariables, [message]);
 
         await sleep(10);
@@ -104,7 +104,7 @@ describe('prover/orchestrator', () => {
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
-        orchestrator.startNewEpoch(1, 1);
+        orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(globalVariables, []);
         await orchestrator.addTxs([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
 

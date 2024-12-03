@@ -37,7 +37,7 @@ describe('prover/orchestrator/lifecycle', () => {
         return deferred.promise;
       });
 
-      orchestrator.startNewEpoch(1, 1);
+      orchestrator.startNewEpoch(1, 1, 1);
       await orchestrator.startNewBlock(context.globalVariables, []);
 
       await sleep(1);
