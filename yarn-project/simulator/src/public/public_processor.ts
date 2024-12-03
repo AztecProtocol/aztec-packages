@@ -160,10 +160,9 @@ export class PublicProcessor {
           }
         }
 
-        await this.db.batchInsert(
+        await this.db.sequentialInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
           processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
-          0,
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);

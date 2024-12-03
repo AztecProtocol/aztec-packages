@@ -53,18 +53,18 @@ import {
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
+
+import { jest } from '@jest/globals';
+
 import {
   buildBaseRollupHints,
   buildHeaderFromCircuitOutputs,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
-} from '@aztec/prover-client/helpers';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
-
-import { jest } from '@jest/globals';
-
+} from '../orchestrator/block-building-helpers.js';
 import { LightweightBlockBuilder } from './light.js';
 
 jest.setTimeout(50_000);
