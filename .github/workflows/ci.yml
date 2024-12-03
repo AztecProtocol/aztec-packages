@@ -880,10 +880,10 @@ jobs:
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - name: Rough Rhino Docker Installer
-        working-directory: ./spartan/releases/rough-rhino
+        working-directory: spartan/releases/rough-rhino
         run: earthly-ci +test-install
       - name: Rough Rhino Installer
-        working-directory: ./spartan/releases/rough-rhino
+        working-directory: spartan/releases/rough-rhino
         run: earthly-ci +test-functionality
 
   protocol-circuits-gates-report:
