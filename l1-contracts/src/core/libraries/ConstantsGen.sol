@@ -205,7 +205,7 @@ library Constants {
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 25;
   uint256 internal constant HEADER_LENGTH_BYTES = 648;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 731;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 739;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 38;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
