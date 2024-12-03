@@ -920,7 +920,7 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& outputPat
  * @param bytecodePath
  * @param witnessPath
  */
-void write_vk_for_ivc(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
+void write_vk_for_ivc(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Builder = ClientIVC::ClientCircuit;
     using Prover = ClientIVC::MegaProver;
@@ -929,9 +929,7 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& witnes
 
     auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_format::WitnessVector witness = {};
-    if (!witnessPath.empty()) {
-        witness = get_witness(witnessPath);
-    }
+
     // WORKTODO: should be based on some default maybe?
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 
@@ -1361,6 +1359,7 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_mega_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<MegaFlavor>(bytecode_path, output_path, recursive);
+            // write_vk_for_ivc(bytecode_path, output_path);
         } else if (command == "proof_as_fields_honk") {
             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
             proof_as_fields_honk(proof_path, output_path);
