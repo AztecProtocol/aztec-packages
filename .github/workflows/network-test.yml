@@ -83,4 +83,4 @@ jobs:
             -e DEBUG="aztec:*" \
             -e LOG_JSON=1 \
             -e LOG_LEVEL=debug \
-             ${{ env.TEST }}
+            ${{ env.TEST_DOCKER_IMAGE }} ${{ env.TEST }}
