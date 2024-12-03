@@ -1,12 +1,9 @@
 import {
-  type FromLogType,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
-  type L2BlockL2Logs,
   type LogFilter,
-  type LogType,
   type TxHash,
   type TxReceipt,
   type TxScopedL2Log,
@@ -17,6 +14,7 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
   type Header,
+  type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
@@ -266,19 +264,14 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param start - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    start: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
     try {
-      return Promise.resolve(Array.from(this.#logStore.getLogs(start, limit, logType)));
+      return Promise.resolve(Array.from(this.#logStore.getPrivateLogs(from, limit)));
     } catch (err) {
       return Promise.reject(err);
     }

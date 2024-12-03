@@ -165,6 +165,8 @@ Service Address Setup Container
       value: "{{ .Values.proverNode.externalHost }}"
     - name: PROVER_NODE_PORT
       value: "{{ .Values.proverNode.service.nodePort }}"
+    - name: PROVER_BROKER_PORT
+      value: "{{ .Values.proverBroker.service.nodePort }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
   volumeMounts:

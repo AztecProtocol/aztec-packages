@@ -35,13 +35,6 @@ describe('e2e_fees failures', () => {
     await t.teardown();
   });
 
-  beforeEach(async () => {
-    gasSettings = GasSettings.from({
-      ...t.gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
-    });
-  });
-
   it('reverts transactions but still pays fees using PrivateFeePaymentMethod', async () => {
     const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;

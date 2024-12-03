@@ -7,7 +7,6 @@ import { type AztecAddress } from '@aztec/circuits.js';
 import { type PXEService } from '@aztec/pxe';
 
 import getPort from 'get-port';
-import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
@@ -32,22 +31,8 @@ export function generateNodePrivateKeys(startIndex: number, numberOfNodes: numbe
   return nodePrivateKeys;
 }
 
-export function generatePeerIdPrivateKey(): string {
-  // magic number is multiaddr prefix: https://multiformats.io/multiaddr/ for secp256k1
-  return '08021220' + generatePrivateKey().substr(2, 66);
-}
-
-export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
-  const peerIdPrivateKeys = [];
-  for (let i = 0; i < numberOfPeers; i++) {
-    peerIdPrivateKeys.push(generatePeerIdPrivateKey());
-  }
-  return peerIdPrivateKeys;
-}
-
 export function createNodes(
   config: AztecNodeConfig,
-  peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
@@ -60,15 +45,7 @@ export function createNodes(
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
-    const nodePromise = createNode(
-      config,
-      peerIdPrivateKeys[i],
-      port,
-      bootstrapNodeEnr,
-      i + PRIVATE_KEYS_START_INDEX,
-      dataDir,
-      metricsPort,
-    );
+    const nodePromise = createNode(config, port, bootstrapNodeEnr, i + PRIVATE_KEYS_START_INDEX, dataDir, metricsPort);
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);
@@ -77,7 +54,6 @@ export function createNodes(
 // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
   config: AztecNodeConfig,
-  peerIdPrivateKey: string,
   tcpPort: number,
   bootstrapNode: string | undefined,
   publisherAddressIndex: number,
@@ -88,7 +64,6 @@ export async function createNode(
     config,
     bootstrapNode,
     tcpPort,
-    peerIdPrivateKey,
     publisherAddressIndex,
     dataDirectory,
   );
@@ -105,11 +80,9 @@ export async function createValidatorConfig(
   config: AztecNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
-  peerIdPrivateKey?: string,
   accountIndex: number = 1,
   dataDirectory?: string,
 ) {
-  peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
   port = port ?? (await getPort());
 
   const privateKey = getPrivateKeyFromIndex(accountIndex);
@@ -120,7 +93,6 @@ export async function createValidatorConfig(
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
-    peerIdPrivateKey: peerIdPrivateKey,
     udpListenAddress: `0.0.0.0:${port}`,
     tcpListenAddress: `0.0.0.0:${port}`,
     tcpAnnounceAddress: `127.0.0.1:${port}`,

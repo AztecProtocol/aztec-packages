@@ -75,16 +75,13 @@ contract SchnorrAccount {
             signature[i] = witness[i] as u8;
         }
 
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
+            x: public_key.x,
+            y: public_key.y,
+            is_infinite: false,
+        };
         // Verify signature of the payload bytes
-        schnorr::verify_signature(
-            std::embedded_curve_ops::EmbeddedCurvePoint {
-                x: public_key.x,
-                y: public_key.y,
-                is_infinite: false,
-            },
-            signature,
-            outer_hash.to_be_bytes::<32>(),
-        )
+        schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
     }
 
@@ -109,12 +106,13 @@ contract SchnorrAccount {
         for i in 0..64 {
             signature[i] = witness[i] as u8;
         }
-        let valid_in_private = std::schnorr::verify_signature(
-            public_key.x,
-            public_key.y,
-            signature,
-            message_hash.to_be_bytes::<32>(),
-        );
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
+            x: public_key.x,
+            y: public_key.y,
+            is_infinite: false,
+        };
+        let valid_in_private =
+            std::schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
 
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and

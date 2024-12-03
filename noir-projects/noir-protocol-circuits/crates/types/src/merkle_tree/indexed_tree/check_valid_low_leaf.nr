@@ -16,10 +16,17 @@ mod tests {
         indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
         leaf_preimage::IndexedTreeLeafPreimage,
     };
+    use crate::traits::Empty;
 
     struct TestLeafPreimage {
         value: Field,
         next_value: Field,
+    }
+
+    impl Empty for TestLeafPreimage {
+        fn empty() -> Self {
+            Self { value: 0, next_value: 0 }
+        }
     }
 
     impl IndexedTreeLeafPreimage for TestLeafPreimage {

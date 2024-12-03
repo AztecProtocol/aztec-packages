@@ -44,7 +44,7 @@ interface ITestRollup {
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
-  function getManaBaseFeeComponents(bool _inFeeAsset)
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
     view
     returns (ManaBaseFeeComponents memory);
@@ -120,8 +120,8 @@ interface IRollup {
     returns (bytes32);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
   function getFeeAssetPrice() external view returns (uint256);
-  function getManaBaseFee(bool _inFeeAsset) external view returns (uint256);
-  function getCurrentL1Fees() external view returns (L1FeeData memory);
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
+  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);

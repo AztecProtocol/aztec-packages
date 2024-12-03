@@ -57,6 +57,8 @@ struct SubmitEpochRootProofInterimValues {
   uint256 endBlockNumber;
   Epoch epochToProve;
   Epoch startEpoch;
+  bool isFeeCanonical;
+  bool isRewardDistributorCanonical;
 }
 
 /**
@@ -319,20 +321,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
     //        Otherwise, the fees are unbacked #7938.
-    bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-    bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
+    interimValues.isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+    interimValues.isRewardDistributorCanonical =
+      address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
     uint256 totalProverReward = 0;
     uint256 totalBurn = 0;
 
-    if (isFeeCanonical || isRewardDistributorCanonical) {
+    if (interimValues.isFeeCanonical || interimValues.isRewardDistributorCanonical) {
       for (uint256 i = 0; i < _args.epochSize; i++) {
         address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
         uint256 reward = 0;
         uint256 toProver = 0;
         uint256 burn = 0;
 
-        if (isFeeCanonical) {
+        if (interimValues.isFeeCanonical) {
           uint256 fees = uint256(publicInputs[10 + i * 2]);
           if (fees > 0) {
             // This is insanely expensive, and will be fixed as part of the general storage cost reduction.
@@ -346,7 +349,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
           }
         }
 
-        if (isRewardDistributorCanonical) {
+        if (interimValues.isRewardDistributorCanonical) {
           reward += REWARD_DISTRIBUTOR.claim(address(this));
         }
 
@@ -463,7 +466,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
-    uint256 manaBaseFee = getManaBaseFee(true);
+    uint256 manaBaseFee = getManaBaseFeeAt(_currentTime, true);
     HeaderLib.Header memory header = HeaderLib.decode(_header);
     _validateHeader(
       header, _signatures, _digest, _currentTime, manaBaseFee, _txsEffectsHash, _flags
@@ -552,7 +555,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     HeaderLib.Header memory header = HeaderLib.decode(_args.header);
 
     setupEpoch();
-    ManaBaseFeeComponents memory components = getManaBaseFeeComponents(true);
+    ManaBaseFeeComponents memory components =
+      getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     uint256 manaBaseFee = FeeMath.summedBaseFee(components);
     _validateHeader({
       _header: header,
@@ -657,13 +661,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     );
   }
 
-  /**
-   * @notice  Gets the current l1 fees
-   *
-   * @return  The current l1 fees
-   */
-  function getCurrentL1Fees() public view override(IRollup) returns (L1FeeData memory) {
-    Slot slot = getCurrentSlot();
+  function getL1FeesAt(Timestamp _timestamp)
+    public
+    view
+    override(IRollup)
+    returns (L1FeeData memory)
+  {
+    Slot slot = getSlotAt(_timestamp);
     if (slot < l1GasOracleValues.slotOfChange) {
       return l1GasOracleValues.pre;
     }
@@ -677,9 +681,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *
    * @return The mana base fee
    */
-  function getManaBaseFee(bool _inFeeAsset) public view override(IRollup) returns (uint256) {
-    ManaBaseFeeComponents memory components = getManaBaseFeeComponents(_inFeeAsset);
-    return components.summedBaseFee();
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset)
+    public
+    view
+    override(IRollup)
+    returns (uint256)
+  {
+    return getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset).summedBaseFee();
   }
 
   /**
@@ -694,18 +702,22 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *
    * @return The mana base fee components
    */
-  function getManaBaseFeeComponents(bool _inFeeAsset)
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     public
     view
     override(ITestRollup)
     returns (ManaBaseFeeComponents memory)
   {
-    FeeHeader storage parentFeeHeader = blocks[tips.pendingBlockNumber].feeHeader;
+    // If we can prune, we use the proven block, otherwise the pending block
+    uint256 blockOfInterest =
+      canPruneAtTime(_timestamp) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+
+    FeeHeader storage parentFeeHeader = blocks[blockOfInterest].feeHeader;
     uint256 excessMana = (parentFeeHeader.excessMana + parentFeeHeader.manaUsed).clampedAdd(
       -int256(FeeMath.MANA_TARGET)
     );
 
-    L1FeeData memory fees = getCurrentL1Fees();
+    L1FeeData memory fees = getL1FeesAt(_timestamp);
     uint256 dataCost =
       Math.mulDiv(3 * BLOB_GAS_PER_BLOB, fees.blobFee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
     uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
