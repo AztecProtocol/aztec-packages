@@ -6,6 +6,7 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
 
@@ -318,7 +319,8 @@ export type BootnodeConfig = Pick<
   P2PConfig,
   'udpAnnounceAddress' | 'peerIdPrivateKey' | 'minPeerCount' | 'maxPeerCount'
 > &
-  Required<Pick<P2PConfig, 'udpListenAddress'>>;
+  Required<Pick<P2PConfig, 'udpListenAddress'>> &
+  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
@@ -326,6 +328,11 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'minPeerCount',
   'maxPeerCount',
   'udpListenAddress',
+  'dataDirectory',
+  'dataStoreMapSizeKB',
 ];
 
-export const bootnodeConfigMappings = pickConfigMappings(p2pConfigMappings, bootnodeConfigKeys);
+export const bootnodeConfigMappings = pickConfigMappings(
+  { ...p2pConfigMappings, ...dataConfigMappings },
+  bootnodeConfigKeys,
+);
