@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 CMD=${1:-}
 
@@ -15,12 +15,12 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-HASH=$($ci3/cache/content_hash .rebuild_patterns)
+HASH=$(cache_content_hash .rebuild_patterns)
 ARTIFACT=l1-contracts-$HASH.tar.gz
 TEST_FLAG=l1-contracts-test-$HASH
 
-$ci3/github/group "l1-contracts build"
-if ! $ci3/cache/download $ARTIFACT; then
+github_group "l1-contracts build"
+if ! cache_download $ARTIFACT; then
   # Clean
   rm -rf broadcast cache out serve
 
@@ -33,13 +33,13 @@ if ! $ci3/cache/download $ARTIFACT; then
   # Compile contracts
   forge build
 
-  $ci3/cache/upload $ARTIFACT out
+  cache_upload $ARTIFACT out
 fi
-$ci3/github/endgroup
+github_endgroup
 
-if $ci3/cache/should_run $TEST_FLAG; then
-  $ci3/github/group "l1-contracts test"
+if test_should_run $TEST_FLAG; then
+  github_group "l1-contracts test"
   forge test --no-match-contract UniswapPortalTest
-  $ci3/cache/upload_flag $TEST_FLAG
-  $ci3/github/endgroup
+  cache_upload_flag $TEST_FLAG
+  github_endgroup
 fi

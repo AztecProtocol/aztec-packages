@@ -5,7 +5,7 @@
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 # Enable abbreviated output.
 export DENOISE=1
@@ -16,8 +16,6 @@ YELLOW="\033[93m"
 RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
-
-export DENOISE=1
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${RESET}"
@@ -142,20 +140,20 @@ case "$CMD" in
     scripts/tests/bootstrap/test-cache
     ;;
   "image-aztec")
-    $ci3/github/group "image-aztec"
-    source $ci3/base/tmp_source
+    github_group "image-aztec"
+    source $ci3/source_tmp
     mkdir -p $TMP/usr/src
     # TODO(ci3) eventually this will just be a normal mounted docker build
     denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     GIT_HASH=$(git rev-parse --short HEAD)
     shift 1 # remove command parameter
     docker build -f Dockerfile.aztec -t aztecprotocol/aztec:$GIT_HASH $TMP $@
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   "image-e2e")
-    $ci3/github/group "image-aztec"
-    source $ci3/base/tmp_source
+    github_group "image-aztec"
+    source $ci3/source_tmp
     mkdir -p $TMP/usr
     # TODO(ci3) eventually this will just be a normal mounted docker build
     denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
@@ -163,19 +161,19 @@ case "$CMD" in
     GIT_HASH=$(git rev-parse --short HEAD)
     shift 1 # remove command parameter
     docker build -f Dockerfile.end-to-end -t aztecprotocol/end-to-end:$GIT_HASH $TMP $@
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   "image-faucet")
-    $ci3/github/group "image-faucet"
-    source $ci3/base/tmp_source
+    github_group "image-faucet"
+    source $ci3/source_tmp
     mkdir -p $TMP/usr
     # TODO(ci3) eventually this will just be a normal mounted docker build
     earthly --artifact +bootstrap-faucet/usr/src $TMP/usr
     GIT_HASH=$(git rev-parse --short HEAD)
     shift 1 # remove command parameter
     docker build -f Dockerfile.aztec-faucet -t aztecprotocol/aztec-faucet:$GIT_HASH $TMP $@
-    $ci3/github/endgroup
+    github_endgroup
     exit
   ;;
   *)
@@ -189,9 +187,9 @@ HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
-$ci3/github/group "Pull Submodules"
+github_group "Pull Submodules"
 denoise git submodule update --init --recursive
-$ci3/github/endgroup
+github_endgroup
 
 check_toolchains
 

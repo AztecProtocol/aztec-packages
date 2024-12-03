@@ -1,4 +1,5 @@
 #!/bin/bash
+# If you want to completely silence a command, unless it fails, wrap with a call to this.
 set -uo pipefail
 
 if [ "$#" -lt 1 ]; then

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 CMD=${1:-}
 BUILD_CMD="build"
@@ -18,26 +18,26 @@ if [ -n "$CMD" ]; then
 fi
 
 # Attempt to just pull artefacts from CI and exit on success.
-$ci3/github/group "bb.js build"
-HASH=$($ci3/cache/content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
-if ! $ci3/cache/download bb.js-$HASH.tar.gz; then
+github_group "bb.js build"
+HASH=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
+if ! cache_download bb.js-$HASH.tar.gz; then
   echo -n "yarn install"
   denoise yarn install
   find . -exec touch -d "@0" {} + 2>/dev/null || true
 
   echo "Building with command 'yarn $BUILD_CMD'..."
   denoise yarn $BUILD_CMD
-  $ci3/cache/upload bb.js-$HASH.tar.gz dest
+  cache_upload bb.js-$HASH.tar.gz dest
 else
   echo -n "yarn install (post-cache):"
   denoise yarn install
 fi
 echo "Barretenberg ts build successful"
-$ci3/github/endgroup
+github_endgroup
 
-if $ci3/cache/should_run bb.js-tests-$HASH; then
-  $ci3/github/group "bb.js test"
+if test_should_run bb.js-tests-$HASH; then
+  github_group "bb.js test"
   denoise yarn test
-  $ci3/cache/upload_flag bb.js-tests-$HASH
-  $ci3/github/endgroup
+  cache_upload_flag bb.js-tests-$HASH
+  github_endgroup
 fi

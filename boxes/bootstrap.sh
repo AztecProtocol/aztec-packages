@@ -1,6 +1,8 @@
 #!/bin/bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+
+cmd=${1:-}
 
 export TRANSPILER=$PWD/../avm-transpiler/target/release/avm-transpiler
 export BB=$PWD/../barretenberg/cpp/build/bin/bb
@@ -8,13 +10,41 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
-  ../noir-projects/.rebuild_patterns \
-  ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
-  ../barretenberg/*/.rebuild_patterns)
+function build {
+  denoise "yarn && echo "Building... " && yarn build"
+}
 
-denoise "yarn && yarn build"
-if $ci3/cache/should_run "boxes-test-$HASH"; then
-  parallel --timeout 5m --verbose --halt now,fail=1 \
-      BOX={} docker compose -p {} up --exit-code-from=boxes --force-recreate ::: vanilla react
-fi
+function test {
+  function test_box {
+    BOX=$1 BROWSER=$2 denoise docker compose -p $1-$2 up --exit-code-from=boxes --force-recreate
+  }
+  export -f test_box
+
+  HASH=$(cache_content_hash ../noir/.rebuild_patterns* \
+    ../noir-projects/.rebuild_patterns \
+    ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
+    ../barretenberg/*/.rebuild_patterns)
+
+  if test_should_run "boxes-test-$HASH"; then
+    parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
+  fi
+}
+
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  ""|"fast"|"full")
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  *)
+    echo "Unknown command: $CMD"
+    exit 1
+esac

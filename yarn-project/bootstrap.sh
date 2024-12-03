@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 YELLOW="\033[93m"
 BLUE="\033[34m"
@@ -12,9 +12,9 @@ RESET="\033[0m"
 CMD=${1:-}
 
 function build {
-  $ci3/github/group "yarn-project build"
+  github_group "yarn-project build"
 
-  HASH=$($ci3/cache/content_hash ../noir/.rebuild_patterns* \
+  HASH=$(cache_content_hash ../noir/.rebuild_patterns* \
     ../noir-projects/.rebuild_patterns \
     ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns)
@@ -28,7 +28,7 @@ function build {
   echo "yarn install: "
   denoise yarn install
 
-  if ! $ci3/cache/download yarn-project-$HASH.tar.gz ; then
+  if ! cache_download yarn-project-$HASH.tar.gz ; then
     case "${1:-}" in
       "fast") yarn build:fast;;
       "full") yarn build;;
@@ -41,22 +41,25 @@ function build {
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     FILES_TO_UPLOAD=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
-    $ci3/cache/upload yarn-project-$HASH.tar.gz $FILES_TO_UPLOAD
+    cache_upload yarn-project-$HASH.tar.gz $FILES_TO_UPLOAD
     echo
     echo -e "${GREEN}Yarn project successfully built!${RESET}"
   fi
-  $ci3/github/endgroup
+  github_endgroup
 
-  if $ci3/cache/should_run yarn-project-tests"$HASH"; then
-    yarn test
-    export ci3 YELLOW BLUE GREEN BOLD RESET CMD
+  if test_should_run yarn-project-tests"$HASH"; then
+    github_group "yarn-project unit test"
+    denoise yarn test
+    github_endgroup
+
+    github_group "yarn-project e2e tests"
     export -f run_e2e_tests
     denoise run_e2e_tests
+    github_endgroup
   fi
 }
 
 function run_e2e_tests {
-  $ci3/github/group "yarn-project test"
   cd end-to-end
 
   # Pre-pull the required image for visibility.
@@ -187,7 +190,6 @@ function run_e2e_tests {
   echo "=== Job Log ==="
   cat joblog.txt
 
-  $ci3/github/endgroup
   exit $code
 }
 

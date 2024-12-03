@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/base/bootstrap_source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 CMD=${1:-}
 
@@ -10,7 +10,7 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-$ci3/github/group "noir-projects build"
+github_group "noir-projects build"
 
 # Use fmt as a trick to download dependencies.
 # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
@@ -30,6 +30,6 @@ parallel -v --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
   "denoise ./noir-protocol-circuits/bootstrap.sh $CMD" \
   "denoise ./noir-contracts/bootstrap.sh $CMD"
 
-$ci3/github/endgroup
+github_endgroup
 
 # TODO: Testing aztec.nr/contracts requires TXE, so must be pushed to after the final yarn project build.

@@ -30,7 +30,7 @@ bootstrap-aztec:
   ENV DENOISE=1
   LET ci3=$(git rev-parse --show-toplevel)/ci3
   # TODO Copied from yarn-project+build, move into bootstrap.sh before yarn test
-  RUN cd ivc-integration && $ci3/base/denoise npx playwright install && $ci3/base/denoise npx playwright install-deps
+  RUN cd ivc-integration && $ci3/denoise npx playwright install && $ci3/denoise npx playwright install-deps
   RUN rm -rf node_modules && yarn workspaces focus @aztec/aztec --production && yarn cache clean
   COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
   WORKDIR /usr/src

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/source
 
 CMD=${1:-}
 
@@ -16,10 +16,10 @@ if [ -n "$CMD" ]; then
 fi
 
 # Attempt to just pull artefacts from CI and exit on success.
-$ci3/github/group "avm-transpiler build"
-ARTIFACT=avm-transpiler-$($ci3/cache/content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
-if ! $ci3/cache/download $ARTIFACT; then
+github_group "avm-transpiler build"
+ARTIFACT=avm-transpiler-$(cache_content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
+if ! cache_download $ARTIFACT; then
   ./scripts/bootstrap_native.sh
-  $ci3/cache/upload $ARTIFACT target
+  cache_upload $ARTIFACT target
 fi
-$ci3/github/endgroup
+github_endgroup
