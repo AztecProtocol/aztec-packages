@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733242486189,
+  "lastUpdate": 1733254354316,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "95a12b7d4ec181fdf33cc16bff395a3a810af9f0",
-          "message": "chore(master): Release 0.63.1 (#10038)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.63.1</summary>\r\n\r\n##\r\n[0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.0...aztec-package-v0.63.1)\r\n(2024-11-19)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **aztec-package:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.63.1</summary>\r\n\r\n##\r\n[0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.63.0...barretenberg.js-v0.63.1)\r\n(2024-11-19)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.63.1</summary>\r\n\r\n##\r\n[0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.63.0...aztec-packages-v0.63.1)\r\n(2024-11-19)\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Fix npm publishing\r\n([#10041](https://github.com/AztecProtocol/aztec-packages/issues/10041))\r\n([1dae760](https://github.com/AztecProtocol/aztec-packages/commit/1dae760b6e2bc6d24cacdea87b3dfa3829d1c6c4))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Revert \"feat: IPA Accumulator in Builder\"\r\n([#10036](https://github.com/AztecProtocol/aztec-packages/issues/10036))\r\n([9b10f7f](https://github.com/AztecProtocol/aztec-packages/commit/9b10f7f46755814cb8633cf55621faa8e9b37344))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.63.1</summary>\r\n\r\n##\r\n[0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.63.0...barretenberg-v0.63.1)\r\n(2024-11-19)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Revert \"feat: IPA Accumulator in Builder\"\r\n([#10036](https://github.com/AztecProtocol/aztec-packages/issues/10036))\r\n([9b10f7f](https://github.com/AztecProtocol/aztec-packages/commit/9b10f7f46755814cb8633cf55621faa8e9b37344))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
-          "timestamp": "2024-11-19T20:29:56Z",
-          "tree_id": "90e480be534a266ac679cd843e2d5e1a6525253d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/95a12b7d4ec181fdf33cc16bff395a3a810af9f0"
-        },
-        "date": 1732049517133,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28733.826354,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26978.151542000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5347.376468999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5063.377039000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84249.966692,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84249968000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15140.830605000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15140832000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3055092067,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3055092067 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142196026,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142196026 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 140592705,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140592705 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac7c0da38ff05d6f11c4d6a6244c4526ac00232e",
+          "message": "feat: mock IVC state from arbitrary acir IVC recursion constraints (#10314)\n\nGenerating a bberg kernel circuit from a noir kernel program represented\r\nas acir requires an IVC instance containing certain state including a\r\nverifier accumulator and verification queue containing proofs/VKs for\r\ninput to recursive verifiers. In the context of a write_vk flow, this\r\ndata is not known and must be mocked so that the recursive verifiers in\r\nthe kernel can be constructed properly. (Similar to how we construct a\r\ndummy proof to generate a Honk recursive verifier).\r\n\r\nThe main method in this PR is `create_mock_ivc_from_constraints()` which\r\nconstructs an IVC instance with mocked state based on the IVC recursion\r\nconstraints present in the acir data. For example, if there are two PG\r\nrecursive verifications in the constraint system, we must generate two\r\nmocked PG proofs plus some other auxiliary data.\r\n\r\nSo no actual write_vk flow exists but the logic is tested though the\r\n`IvcRecursionConstraintTest` suite which constructs VKs from programs\r\ncontaining each of the 3 different possible combinations of IVC\r\nrecursion constraints that appear in Aztec kernel circuits. (These are:\r\n(a) 1 Oink recursive verification (init kernel), (b) 1 PG recursive\r\nverification (reset or tail kernel), and (c) 2 PG recursive\r\nverifications (inner kernel)).",
+          "timestamp": "2024-12-03T11:50:53-07:00",
+          "tree_id": "9835e31dcba1d81f93920cded826facf31b0cea1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac7c0da38ff05d6f11c4d6a6244c4526ac00232e"
+        },
+        "date": 1733254346529,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28276.316141999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26358.961927 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5117.060768000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4738.289079 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86761.711741,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86761713000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15287.610942,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15287611000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3122349811,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3122349811 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143279314,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143279314 ns\nthreads: 1"
           }
         ]
       }
