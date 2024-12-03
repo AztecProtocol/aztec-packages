@@ -137,7 +137,7 @@ mod tests {
         }
 
         fn as_leaf(self) -> Field {
-            self.value
+            pedersen_hash([self.value])
         }
 
         fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
