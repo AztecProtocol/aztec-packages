@@ -327,12 +327,16 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     }
 
     // Temporary spot for private non-revertible insertion
-    std::vector<FF> siloed_nullifier;
-    siloed_nullifier.insert(siloed_nullifier.end(),
-                            public_inputs.accumulated_data.nullifiers.begin(),
-                            public_inputs.accumulated_data.nullifiers.begin() +
-                                public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
-    trace_builder.insert_private_state(siloed_nullifier, {});
+    std::vector<FF> siloed_nullifiers;
+    siloed_nullifiers.insert(siloed_nullifiers.end(),
+                             public_inputs.accumulated_data.nullifiers.begin(),
+                             public_inputs.accumulated_data.nullifiers.begin() +
+                                 public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
+    trace_builder.insert_private_state(siloed_nullifiers, {});
+    trace_builder.checkpoint_non_revertible_state();
+
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_teardown_call_requests{};
+    public_teardown_call_requests[0] = public_inputs.public_teardown_call_request;
 
     // Loop over all the public call requests
     uint8_t call_ctx = 0;
