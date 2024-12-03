@@ -11,9 +11,7 @@ For once, there's no rocket science here. This script does the following:
 - Outputs a templated docker-compose file with your variables
 - Runs the docker compose file
 
-## Prerequisites
-
-This script should work in most UNIX-based machines. You should [have Node installed](https://github.com/nvm-sh/nvm/blob/master/README.md#install--update-script).
+It should work in most UNIX-based machines.
 
 ## Installation
 
@@ -21,12 +19,12 @@ To configure a new node, create a new directory and run the install script:
 
 ```bash
 cd val1
-npx aztec-spartan install
+curl -L https://github.com/AztecProtocol/aztec-packages/blob/master/spartan/releases/rough-rhino/validator.sh | bash
 ```
 
-If you don't have Docker installed, the script will do it for you. It will then prompt for any required environment variables and output a `docker-compose.yml` file and a `.env` file.
+If you don't have Docker installed, the script will do it for you. It will then prompt for any required environment variables and output a `docker-compose.yml` file.
 
-You can run the command with `-h` to see all available options, and pass them as flags, i.e. `npx aztec-spartan install -p 8080 -p2p 40400 -n nameme`.
+You can run the command without any command to see all available options, and pass them as flags, i.e. `npx aztec-spartan install -p 8080 -p2p 40400 -n nameme`.
 
 ## Running
 

@@ -3,6 +3,5 @@
   "yarn-project/cli": "0.35.1",
   "yarn-project/aztec": "0.65.2",
   "barretenberg": "0.65.2",
-  "barretenberg/ts": "0.65.2",
-  "spartan/releases/rough-rhino": "1.0.0"
+  "barretenberg/ts": "0.65.2"
 }
