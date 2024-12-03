@@ -8,6 +8,7 @@ bootstrap-noir-bb:
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
   WORKDIR /build-volume
+  ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
   # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
