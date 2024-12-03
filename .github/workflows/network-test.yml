@@ -26,7 +26,7 @@ jobs:
 
     # Set up a variable based on the branch name
     env:
-      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image || 'iamjustmitch/end-to-end:ad3473f08106f66f6c813d0127ada1a686a32935' }}
+      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image || 'iamjustmitch/end-to-end:e4ca85ec5cdb510396d965c49df91d2c7cdaf8a8' }}
       NAMESPACE: ${{ inputs.namespace || 'smoke' }}
       TEST: ${{ inputs.test || 'spartan/smoke.test.ts' }}
       CHART_PATH: ./spartan/aztec-network
@@ -66,17 +66,17 @@ jobs:
           export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
           gcloud config set project testnet-440309
-          gcloud components install gke-gcloud-auth-plugin --quiet
-          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
 
           GCLOUD_CONFIG_DIR=$(gcloud info --format='value(config. paths. global_config_dir)')
 
-          echo "GCloud config dir: [$GCLOUD_CONFIG_DIR]"
+          echo "gcloud config dir: [$GCLOUD_CONFIG_DIR]"
 
           docker run --rm --network=host \
             -v ~/.kube:/root/.kube \
             -v $GCLOUD_CONFIG_DIR:/root/.config/gcloud \
             -e K8S=gcloud \
+            -e CLUSTER_NAME=${{ env.CLUSTER_NAME }} \
+            -e REGION=${{ env.REGION }} \
             -e INSTANCE_NAME=${{ env.NAMESPACE }} \
             -e SPARTAN_DIR="/usr/src/spartan" \
             -e NAMESPACE=${{ env.NAMESPACE }} \
@@ -87,7 +87,7 @@ jobs:
             -e HOST_METRICS_PORT=$METRICS_PORT \
             -e CONTAINER_METRICS_PORT=80 \
             -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-            -e DEBUG="aztec:*,k8s-utils" \
+            -e DEBUG="aztec:*" \
             -e LOG_JSON=1 \
             -e LOG_LEVEL=debug \
             ${{ env.TEST_DOCKER_IMAGE }} ${{ env.TEST }}
