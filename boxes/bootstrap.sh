@@ -8,7 +8,7 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-yarn && yarn build
+denoise "yarn && yarn build"
 
 if $ci3/base/is_test; then
   parallel --timeout 5m --verbose --halt now,fail=1 \

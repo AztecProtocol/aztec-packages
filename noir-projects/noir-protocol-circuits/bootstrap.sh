@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/base/bootstrap_source
 
 CMD=${1:-}
 
@@ -97,12 +97,13 @@ function test {
   export REBUILD_PATTERNS="^noir-projects/$name"
   export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns_native)
   CIRCUITS_HASH=$($ci3/cache/content_hash)
-  if $ci3/base/is_test || $ci3/cache/should_run $name-tests-$CIRCUITS_HASH; then
-    $ci3/github/group "$name test"
-    RAYON_NUM_THREADS= $NARGO test --silence-warnings
-    $ci3/cache/upload_flag $name-tests-$CIRCUITS_HASH
-    $ci3/github/endgroup
+  if ! $ci3/cache/should_run $name-tests-$CIRCUITS_HASH; then
+    return
   fi
+  $ci3/github/group "$name test"
+  RAYON_NUM_THREADS= $NARGO test --silence-warnings
+  $ci3/cache/upload_flag $name-tests-$CIRCUITS_HASH
+  $ci3/github/endgroup
 }
 
 export -f compile test build
@@ -114,17 +115,14 @@ case "$CMD" in
   "clean-keys")
     rm -rf target/keys
     ;;
-  ""|"fast")
-    USE_CACHE=1 build
-    ;;
-  "full")
+  ""|"fast"|"full")
     build
     ;;
   "test")
     test
     ;;
   "ci")
-    USE_CACHE=1 parallel --line-buffered bash -c {} ::: build test
+    parallel --line-buffered bash -c {} ::: build test
     ;;
   *)
     echo "Unknown command: $CMD"

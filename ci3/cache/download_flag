@@ -22,6 +22,5 @@ else
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
 fi
 # Attempt to download the cache file
-curl -s -f -O "${S3_ENDPOINT}/build-cache/$NAME.flag" || (echo "Flag $NAME not found." && exit 1)
-rm $NAME.flag
+curl -s -f -o /dev/null "${S3_ENDPOINT}/build-cache/$NAME.flag" || (echo "Flag $NAME not found." && exit 1)
 echo "Flag $NAME exists."

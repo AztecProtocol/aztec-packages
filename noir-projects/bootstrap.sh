@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/base/source
+source $(git rev-parse --show-toplevel)/ci3/base/bootstrap_source
 
 CMD=${1:-}
 
@@ -16,15 +15,20 @@ $ci3/github/group "noir-projects build"
 # Use fmt as a trick to download dependencies.
 # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
 # Also doubles up as our formatting check.
-(cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
-for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
-  (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)
-done
+function prep {
+  (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
+  for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
+    (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)
+  done
+}
+export -f prep
+
+denoise prep
 
 parallel -v --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
-  "./mock-protocol-circuits/bootstrap.sh $CMD" \
-  "./noir-protocol-circuits/bootstrap.sh $CMD" \
-  "./noir-contracts/bootstrap.sh $CMD"
+  "denoise ./mock-protocol-circuits/bootstrap.sh $CMD" \
+  "denoise ./noir-protocol-circuits/bootstrap.sh $CMD" \
+  "denoise ./noir-contracts/bootstrap.sh $CMD"
 
 $ci3/github/endgroup
 
