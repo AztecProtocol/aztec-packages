@@ -1,23 +1,10 @@
 VERSION 0.8
 
-acir-tests:
-    FROM ../build-images+from-registry
-    WORKDIR /usr/src/barretenberg
-    COPY ./acir_tests .
-    SAVE ARTIFACT ./*
-
-sol:
-  FROM ../build-images+from-registry
-  WORKDIR /usr/src/barretenberg
-  COPY ./sol .
-  SAVE ARTIFACT ./*
-
-
 barretenberg-acir-tests-bb:
     FROM ../build-images/+from-registry
 
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -38,8 +25,8 @@ barretenberg-acir-tests-bb:
 barretenberg-acir-tests-bb-ultra-plonk:
     FROM ../build-images/+from-registry
 
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -55,8 +42,8 @@ barretenberg-acir-tests-bb-ultra-plonk:
 barretenberg-acir-tests-bb-ultra-honk:
     FROM ../build-images/+from-registry
 
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -82,8 +69,8 @@ barretenberg-acir-tests-bb-ultra-honk:
 barretenberg-acir-tests-bb-mega-honk:
     FROM ../build-images/+from-registry
 
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -103,9 +90,10 @@ barretenberg-acir-tests-sol:
     FROM ../build-images/+from-registry
 
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ./+acir-tests/ /usr/src/barretenberg/acir_tests
-    COPY ./+sol/ /usr/src/barretenberg/sol
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/sol /usr/src/barretenberg/sol
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -120,9 +108,9 @@ barretenberg-acir-tests-sol-honk:
     FROM ../build-images/+from-registry
 
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ./+acir-tests/ /usr/src/barretenberg/acir_tests
-    COPY ./+sol/ /usr/src/barretenberg/sol
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/sol /usr/src/barretenberg/sol
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -138,8 +126,8 @@ barretenberg-acir-tests-bb.js:
     FROM ../build-images/+base-slim-node
     RUN apt update && apt install -y curl jq lsof
 
-    COPY ./ts/+build/build/ /usr/src/barretenberg/ts
-    COPY ./+acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/ts /usr/src/barretenberg/ts
+    COPY ../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -176,3 +164,12 @@ barretenberg-acir-tests-bb.js:
     RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
+
+acir-tests:
+    BUILD +barretenberg-acir-tests-bb
+    BUILD +barretenberg-acir-tests-bb-ultra-plonk
+    BUILD +barretenberg-acir-tests-bb-ultra-honk
+    BUILD +barretenberg-acir-tests-bb-mega-honk
+    BUILD +barretenberg-acir-tests-sol
+    BUILD +barretenberg-acir-tests-sol-honk
+    BUILD +barretenberg-acir-tests-bb.js

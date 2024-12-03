@@ -138,7 +138,7 @@ case "$CMD" in
     exit
   ;;
   "test-cache")
-    # Spin up ec2 instance and bootstrap.
+    # Test cache by running minio with full and fast bootstraps
     scripts/tests/bootstrap/test-cache
     ;;
   "image-aztec")
@@ -168,10 +168,10 @@ case "$CMD" in
   ;;
   "image-faucet")
     IMAGE=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
-    $ci3/github/group "image-faucet"
     if $ci3/docker/has_image $IMAGE; then
       echo "Image $IMAGE already exists." && exit
     fi
+    $ci3/github/group "image-faucet"
     source $ci3/base/tmp_source
     mkdir -p $TMP/usr
     earthly --artifact +bootstrap-faucet/usr/src $TMP/usr/src
