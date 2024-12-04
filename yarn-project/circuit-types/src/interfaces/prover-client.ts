@@ -6,7 +6,6 @@ import { z } from 'zod';
 
 import { type TxHash } from '../tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
-import { type MerkleTreeReadOperations } from './merkle_tree_operations.js';
 import { type ProvingJobConsumer } from './prover-broker.js';
 import { type ProvingJobStatus } from './proving-job.js';
 
@@ -105,7 +104,7 @@ export interface ProverCache {
  * Provides the ability to generate proofs and build rollups.
  */
 export interface EpochProverManager {
-  createEpochProver(db: MerkleTreeReadOperations, cache?: ProverCache): EpochProver;
+  createEpochProver(cache?: ProverCache): EpochProver;
 
   start(): Promise<void>;
 

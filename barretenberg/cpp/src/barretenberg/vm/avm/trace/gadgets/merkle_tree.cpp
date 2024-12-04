@@ -102,12 +102,8 @@ FF AvmMerkleTreeTraceBuilder::perform_storage_write([[maybe_unused]] uint32_t cl
         //  We update the low value
         low_preimage.value = value;
         FF low_preimage_hash = unconstrained_hash_public_data_preimage(low_preimage);
-        // Update the low leaf - this will be returned in future
-        [[maybe_unused]] FF root =
-            unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
-        // TEMPORARY UNTIL WE CHANGE HOW UPDATES WORK
-        // Insert a zero leaf at the insertion index
-        return unconstrained_update_leaf_index(FF::zero(), static_cast<uint64_t>(insertion_index), insertion_path);
+        // Update the low leaf
+        return unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
     }
     // The new leaf for an insertion is
     PublicDataTreeLeafPreimage new_preimage{

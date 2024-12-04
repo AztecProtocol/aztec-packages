@@ -101,6 +101,19 @@ library Errors {
   error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
   error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
 
+  // Staking
+  error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__AlreadyRegistered(address); // 0x18047699
+  error Staking__CannotSlashExitedStake(address); // 0x45bf4940
+  error Staking__FailedToRemove(address); // 0xa7d7baab
+  error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
+  error Staking__NoOneToSlash(address); // 0x7e2f7f1c
+  error Staking__NotExiting(address); // 0xef566ee0
+  error Staking__NotSlasher(address, address); // 0x23a6f432
+  error Staking__NotWithdrawer(address, address); // 0x8e668e5d
+  error Staking__NothingToExit(address); // 0xd2aac9b6
+  error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
+
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
   error FeeJuicePortal__InvalidInitialization(); // 0xfd9b3208

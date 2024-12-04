@@ -153,9 +153,9 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -164,6 +164,8 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: PEER_ID_PRIVATE_KEY
+              value: "{{ .Values.bootNode.peerIdPrivateKey }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}

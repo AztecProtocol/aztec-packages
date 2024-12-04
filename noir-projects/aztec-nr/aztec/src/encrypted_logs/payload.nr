@@ -1,10 +1,11 @@
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_BYTES},
-    hash::poseidon2_hash_with_separator,
+    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_FIELDS},
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
     point::Point,
     public_keys::{AddressPoint, OvpkM},
     scalar::Scalar,
+    utils::arrays::array_concat,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -15,33 +16,36 @@ use crate::{
     encrypted_logs::header::EncryptedLogHeader,
     keys::point_to_symmetric_key::point_to_symmetric_key,
     oracle::{
-        notes::{get_app_tag_bytes_as_sender, increment_app_tagging_secret_index_as_sender},
+        notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random,
     },
-    utils::point::point_to_bytes,
+    utils::{bytes::bytes_to_fields, point::point_to_bytes},
 };
 
-pub comptime global PRIVATE_LOG_OVERHEAD_IN_BYTES: u32 = 304;
+// 1 field is reserved for tag.
+global ENCRYPTED_PAYLOAD_SIZE_IN_BYTES: u32 = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
 
-// 1 byte for storage slot, 1 byte for note type id, allowing 6 bytes for custom note fields.
-global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = 8 * 32;
+comptime global HEADER_SIZE: u32 = 48;
 
-global MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 =
-    MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES - 32; // Reserve 1 field for address tag.
+comptime global OUTGOING_BODY_SIZE: u32 = 112;
 
-// PRIVATE_LOG_SIZE_IN_BYTES
-// - PRIVATE_LOG_OVERHEAD_IN_BYTES, consisting of:
-//   - 32 bytes for incoming_tag
-//   - 32 bytes for eph_pk
-//   - 48 bytes for incoming_header
-//   - 48 bytes for outgoing_header
-//   - 144 bytes for outgoing_body
-// - 16 + MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES for incoming_body, consisting of:
-//   - 1 byte for plaintext length
-//   - MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES for the actual plaintext and padded random values
-//   - 15 bytes for AES padding
+// Bytes padded to the overhead, so that the size of the incoming body ciphertext will be a multiple of 16.
+comptime global OVERHEAD_PADDING: u32 = 15;
 
-// Note: Update PRIVATE_LOG_SIZE_IN_BYTES in `constants.nr` if any of the above fields change.
+pub comptime global OVERHEAD_SIZE: u32 = 32 /* eph_pk */
+    + HEADER_SIZE /* incoming_header */
+    + HEADER_SIZE /* outgoing_header */
+    + OUTGOING_BODY_SIZE /* outgoing_body */
+    + OVERHEAD_PADDING /* padding */;
+
+global PLAINTEXT_LENGTH_SIZE: u32 = 2;
+
+// This is enough for 8 fields of data.
+// 1 field for storage slot, 1 field for note/event type id, allowing 6 fields for custom values.
+global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 =
+    ENCRYPTED_PAYLOAD_SIZE_IN_BYTES - OVERHEAD_SIZE - PLAINTEXT_LENGTH_SIZE - 1 /* aes padding */;
+
+// Note: Might have to update PRIVATE_LOG_SIZE_IN_FIELDS in `constants.nr` if the above changes.
 // This value ideally should be set by the protocol, allowing users (or `aztec-nr`) to fit data within the defined size limits.
 // Currently, we adjust this value as the structure changes, then update `constants.nr` to match.
 // Once the structure is finalized with defined overhead and max note field sizes, this value will be fixed and should remain unaffected by further payload composition changes.
@@ -53,37 +57,29 @@ pub fn compute_private_log_payload<let P: u32>(
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
-) -> [u8; PRIVATE_LOG_SIZE_IN_BYTES] {
-    let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + 1] =
-        extend_private_log_plaintext(plaintext);
-    compute_encrypted_log(
-        contract_address,
-        ovsk_app,
-        ovpk,
-        recipient,
-        sender,
-        extended_plaintext,
-    )
-}
+) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
+    assert(
+        P < MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES,
+        f"plaintext for log must not exceed {MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES}",
+    );
 
-pub fn compute_event_log_payload<let P: u32>(
-    contract_address: AztecAddress,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    recipient: AztecAddress,
-    sender: AztecAddress,
-    plaintext: [u8; P],
-) -> [u8; PRIVATE_LOG_SIZE_IN_BYTES] {
-    let extended_plaintext: [u8; MAX_PRIVATE_EVENT_LOG_PLAINTEXT_SIZE_IN_BYTES + 1] =
+    let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
-    compute_encrypted_log(
+    let encrypted: [u8; ENCRYPTED_PAYLOAD_SIZE_IN_BYTES] = compute_encrypted_log(
         contract_address,
         ovsk_app,
         ovpk,
         recipient,
-        sender,
         extended_plaintext,
-    )
+    );
+
+    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
+    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
+    // automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
+
+    array_concat([tag], bytes_to_fields(encrypted))
 }
 
 pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
@@ -94,15 +90,40 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
-    let extended_plaintext: [u8; P + 1] = extend_private_log_plaintext(plaintext);
-    compute_encrypted_log(
+    let extended_plaintext: [u8; P + PLAINTEXT_LENGTH_SIZE] =
+        extend_private_log_plaintext(plaintext);
+    let encrypted: [u8; M - 32] = compute_encrypted_log(
         contract_address,
         ovsk_app,
         ovpk,
         recipient,
-        sender,
         extended_plaintext,
-    )
+    );
+
+    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
+    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
+    // automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
+    // Silo the tag with contract address.
+    // This is done by the kernel circuit to the private logs, but since the partial log will be finalized and emitted
+    // in public as unencrypted log, its tag is not siloed at the moment.
+    // To avoid querying logs using two types of tags, we silo the tag manually here.
+    // TODO(#10273) This should be done by the AVM when it's processing the raw logs instead of their hashes.
+    let siloed_tag_bytes: [u8; 32] =
+        poseidon2_hash([contract_address.to_field(), tag]).to_be_bytes();
+
+    // Temporary hack so that the partial public log remains the same format.
+    // It should return field array and make the tag the first field as compute_private_log_payload does.
+    let mut log_bytes = [0; M];
+    for i in 0..32 {
+        log_bytes[i] = siloed_tag_bytes[i];
+    }
+    for i in 0..encrypted.len() {
+        log_bytes[i + 32] = encrypted[i];
+    }
+
+    log_bytes
 }
 
 fn compute_encrypted_log<let P: u32, let M: u32>(
@@ -110,7 +131,6 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
-    sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
     let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
@@ -122,22 +142,11 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
     let incoming_body_ciphertext =
         compute_incoming_body_ciphertext(plaintext, eph_sk, recipient.to_address_point());
-    let outgoing_body_ciphertext: [u8; 144] =
+    let outgoing_body_ciphertext: [u8; 112] =
         compute_outgoing_body_ciphertext(recipient, fr_to_fq(ovsk_app), eph_sk, eph_pk);
 
     let mut encrypted_bytes = [0; M];
     let mut offset = 0;
-
-    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
-    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
-    // automatically.
-    let tag_bytes = unsafe { get_app_tag_bytes_as_sender(sender, recipient) };
-    increment_app_tagging_secret_index_as_sender(sender, recipient);
-
-    for i in 0..32 {
-        encrypted_bytes[offset + i] = tag_bytes[i];
-    }
-    offset += 32;
 
     // eph_pk
     let eph_pk_bytes = point_to_bytes(eph_pk);
@@ -148,17 +157,20 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 
     // incoming_header
     // outgoing_header
-    for i in 0..48 {
+    for i in 0..HEADER_SIZE {
         encrypted_bytes[offset + i] = incoming_header_ciphertext[i];
-        encrypted_bytes[offset + 48 + i] = outgoing_header_ciphertext[i];
+        encrypted_bytes[offset + HEADER_SIZE + i] = outgoing_header_ciphertext[i];
     }
-    offset += 48 * 2;
+    offset += HEADER_SIZE * 2;
 
     // outgoing_body
-    for i in 0..144 {
+    for i in 0..OUTGOING_BODY_SIZE {
         encrypted_bytes[offset + i] = outgoing_body_ciphertext[i];
     }
-    offset += 144;
+    offset += OUTGOING_BODY_SIZE;
+
+    // Padding.
+    offset += OVERHEAD_PADDING;
 
     // incoming_body
     // Then we fill in the rest as the incoming body ciphertext
@@ -175,9 +187,10 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 // Fill the remaining bytes with random values to reach a fixed length of N.
 fn extend_private_log_plaintext<let P: u32, let N: u32>(plaintext: [u8; P]) -> [u8; N] {
     let mut padded = unsafe { get_random_bytes() };
-    padded[0] = P as u8;
+    padded[0] = (P >> 8) as u8;
+    padded[1] = P as u8;
     for i in 0..P {
-        padded[i + 1] = plaintext[i];
+        padded[i + PLAINTEXT_LENGTH_SIZE] = plaintext[i];
     }
     padded
 }
@@ -244,10 +257,10 @@ pub fn compute_outgoing_body_ciphertext(
     ovsk_app: Scalar,
     eph_sk: Scalar,
     eph_pk: Point,
-) -> [u8; 144] {
+) -> [u8; OUTGOING_BODY_SIZE] {
     // Again, we could compute `eph_pk` here, but we keep the interface more similar
     // and also make it easier to optimise it later as we just pass it along
-    let mut buffer = [0 as u8; 128];
+    let mut buffer = [0 as u8; 96];
 
     let serialized_eph_sk_high: [u8; 32] = eph_sk.hi.to_be_bytes();
     let serialized_eph_sk_low: [u8; 32] = eph_sk.lo.to_be_bytes();
@@ -256,13 +269,13 @@ pub fn compute_outgoing_body_ciphertext(
     let serialized_recipient_address_point =
         point_to_bytes(recipient.to_address_point().to_point());
 
-    for i in 0..32 {
-        buffer[i] = serialized_eph_sk_high[i];
-        buffer[i + 32] = serialized_eph_sk_low[i];
-        buffer[i + 64] = address_bytes[i];
+    for i in 0..16 {
+        buffer[i] = serialized_eph_sk_high[i + 16];
+        buffer[i + 16] = serialized_eph_sk_low[i + 16];
     }
     for i in 0..32 {
-        buffer[i + 96] = serialized_recipient_address_point[i];
+        buffer[i + 32] = address_bytes[i];
+        buffer[i + 64] = serialized_recipient_address_point[i];
     }
 
     // We compute the symmetric key using poseidon.
@@ -318,7 +331,7 @@ mod test {
             101, 153, 0, 0, 16, 39,
         ];
 
-        let randomness = 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
+        let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
         let _ = OracleMock::mock("getRandomField").returns(randomness).times(
             (MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES as u64 + 1 + 30) / 31,
         );
@@ -338,7 +351,7 @@ mod test {
 
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
-        let log = compute_private_log_payload(
+        let payload = compute_private_log_payload(
             contract_address,
             ovsk_app,
             ovpk_m,
@@ -349,40 +362,28 @@ mod test {
 
         // The following value was generated by `encrypted_log_payload.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
-        let encrypted_log_from_typescript = [
-            14, 156, 255, 195, 221, 215, 70, 175, 251, 2, 65, 13, 143, 10, 130, 62, 137, 147, 151,
-            133, 188, 200, 232, 142, 228, 243, 202, 224, 94, 115, 124, 54, 141, 70, 12, 14, 67, 77,
-            132, 110, 193, 234, 40, 110, 64, 144, 235, 86, 55, 111, 242, 123, 221, 193, 170, 202,
-            225, 216, 86, 84, 159, 112, 31, 167, 5, 119, 121, 10, 234, 188, 194, 216, 30, 200, 208,
-            201, 158, 127, 93, 43, 242, 241, 69, 32, 37, 220, 119, 122, 23, 132, 4, 248, 81, 217,
-            61, 232, 24, 146, 63, 133, 24, 120, 113, 217, 155, 223, 149, 214, 149, 239, 240, 169,
-            224, 155, 161, 81, 83, 252, 155, 77, 34, 75, 110, 30, 113, 223, 189, 202, 171, 6, 192,
-            157, 91, 60, 116, 155, 254, 190, 28, 4, 7, 236, 205, 4, 245, 27, 187, 89, 20, 38, 128,
-            200, 160, 145, 185, 127, 198, 203, 207, 97, 246, 194, 175, 155, 142, 188, 143, 120, 83,
-            122, 178, 63, 208, 197, 232, 24, 228, 212, 45, 69, 157, 38, 90, 219, 119, 194, 239, 130,
-            155, 246, 143, 135, 242, 196, 123, 71, 139, 181, 122, 231, 228, 26, 7, 100, 63, 101,
-            195, 83, 8, 61, 85, 123, 148, 227, 29, 164, 162, 161, 49, 39, 73, 141, 46, 179, 240, 52,
-            109, 165, 238, 210, 233, 188, 36, 90, 175, 2, 42, 149, 78, 208, 176, 145, 50, 180, 152,
-            245, 55, 112, 40, 153, 180, 78, 54, 102, 119, 98, 56, 235, 246, 51, 179, 86, 45, 127,
-            18, 77, 187, 168, 41, 24, 232, 113, 149, 138, 148, 33, 143, 215, 150, 188, 105, 131,
-            254, 236, 199, 206, 56, 44, 130, 134, 29, 99, 254, 69, 153, 146, 68, 234, 148, 148, 178,
-            38, 221, 182, 103, 252, 139, 7, 246, 132, 29, 232, 78, 102, 126, 28, 136, 8, 219, 180,
-            162, 14, 62, 71, 118, 40, 147, 93, 87, 188, 231, 32, 93, 56, 193, 194, 197, 120, 153,
-            164, 139, 114, 18, 149, 2, 226, 19, 170, 250, 249, 128, 56, 236, 93, 14, 101, 115, 20,
-            173, 73, 192, 53, 229, 7, 23, 59, 11, 176, 9, 147, 175, 168, 206, 48, 127, 126, 76, 51,
-            211, 66, 232, 16, 132, 243, 14, 196, 181, 118, 12, 71, 236, 250, 253, 71, 249, 122, 30,
-            23, 23, 19, 89, 47, 193, 69, 240, 164, 34, 128, 110, 13, 133, 198, 7, 165, 14, 31, 239,
-            210, 146, 78, 67, 86, 32, 159, 244, 214, 246, 121, 246, 233, 252, 20, 131, 221, 28, 146,
-            222, 119, 222, 162, 250, 252, 189, 18, 147, 12, 142, 177, 222, 178, 122, 248, 113, 197,
-            40, 199, 152, 251, 91, 81, 243, 25, 156, 241, 141, 60, 12, 99, 103, 169, 97, 32, 112,
-            37, 244, 255, 126, 46, 114, 226, 113, 223, 249, 27, 3, 31, 41, 233, 28, 8, 23, 84, 99,
-            25, 186, 65, 33, 9, 35, 74, 16, 52, 169, 48, 161, 134, 233, 242, 136, 39, 162, 105, 205,
-            43, 253, 183, 36, 138, 186, 87, 31, 7, 248, 125, 227, 193, 172, 155, 98, 33, 61, 186,
-            158, 241, 192, 23, 28, 186, 100, 222, 174, 19, 64, 224, 113, 251, 143, 45, 152, 81, 67,
-            116, 16, 95, 189, 83, 31, 124, 39, 155, 142, 66, 0, 120, 197, 221, 161, 62, 75, 192,
-            255, 186, 200, 10, 135, 7,
+        let private_log_payload_from_typescript = [
+            0x0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c36,
+            0x008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701f,
+            0x00a70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d9,
+            0x003de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71,
+            0x00dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97f,
+            0x00c6cbcf615def593ab09e5b3f7f58f6fc235c90e7c77ed8dadb3b05ee4545a7,
+            0x00bc612c9139475fee6070be47efcc43a5cbbc873632f1428fac952df9c181db,
+            0x005f9e850b21fe11fedef37b88caee95111bce776e488df219732d0a77d19201,
+            0x007047186f41445ecd5c603487f7fb3c8f31010a22af69ce0000000000000000,
+            0x0000000000000000a600a61f7d59eeaf52eb51bc0592ff981d9ba3ea8e6ea8ba,
+            0x009dc0cec8c70b81e84556a77ce6c3ca47a527f99ffe7b2524bb885a23020b72,
+            0x0095748ad19c1083618ad96298b76ee07eb1a56d19cc798710e9f5de96501bd5,
+            0x009b3781c9c02a6c95c5912f8936b1500d362afbf0922c85b1ada18db8b95162,
+            0x00a6e9d067655cdf669eb387f8e0492a95fdcdb39429d5340b4bebc250ba9bf6,
+            0x002c2f49f549f37beed75a668aa51967e0e57547e5a655157bcf381e22f30e25,
+            0x00881548ec9606a151b5fbfb2d14ee4b34bf4c1dbd71c7be15ad4c63474bb6f8,
+            0x009970aeb3d9489c8edbdff80a1a3a5c28370e534abc870a85ea4318326ea192,
+            0x0022fb10df358c765edada497db4284ae30507a2e03e983d23cfa0bd831577e8,
         ];
-        assert_eq(encrypted_log_from_typescript, log);
+
+        assert_eq(payload, private_log_payload_from_typescript);
     }
 
     #[test]
@@ -457,14 +458,12 @@ mod test {
         // The following value was generated by `encrypted_log_payload.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
         let outgoing_body_ciphertext_from_typescript = [
-            127, 182, 227, 75, 192, 197, 54, 47, 168, 134, 233, 148, 251, 46, 86, 12, 73, 50, 238,
-            50, 31, 174, 27, 202, 110, 77, 161, 197, 244, 124, 17, 100, 143, 150, 232, 14, 156, 248,
-            43, 177, 16, 82, 244, 103, 88, 74, 84, 200, 15, 65, 187, 14, 163, 60, 91, 22, 104, 31,
-            211, 190, 124, 121, 79, 92, 238, 182, 194, 225, 34, 71, 67, 116, 27, 231, 68, 161, 147,
-            94, 53, 195, 83, 237, 172, 52, 173, 229, 26, 234, 107, 43, 82, 68, 16, 105, 37, 125,
-            117, 86, 133, 50, 21, 92, 74, 229, 105, 141, 83, 229, 255, 251, 21, 61, 234, 61, 168,
-            221, 106, 231, 8, 73, 208, 60, 251, 46, 251, 228, 148, 144, 187, 195, 38, 18, 223, 153,
-            8, 121, 178, 84, 237, 148, 254, 219, 59, 62,
+            97, 221, 53, 168, 242, 56, 217, 184, 114, 127, 137, 98, 31, 63, 86, 179, 139, 198, 162,
+            162, 216, 158, 255, 205, 90, 212, 141, 55, 9, 245, 6, 146, 202, 137, 129, 36, 190, 31,
+            17, 89, 151, 203, 43, 196, 203, 233, 178, 79, 202, 70, 250, 182, 18, 191, 79, 42, 205,
+            204, 145, 14, 13, 35, 255, 139, 142, 66, 193, 240, 175, 233, 180, 37, 153, 235, 41, 88,
+            232, 52, 235, 213, 50, 26, 153, 227, 25, 242, 161, 92, 45, 152, 100, 106, 29, 192, 131,
+            101, 121, 126, 31, 118, 191, 90, 238, 43, 24, 82, 49, 18, 199, 107, 83, 7,
         ];
 
         assert_eq(outgoing_body_ciphertext_from_typescript, ciphertext);
