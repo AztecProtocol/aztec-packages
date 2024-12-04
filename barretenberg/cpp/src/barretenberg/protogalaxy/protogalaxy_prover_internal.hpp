@@ -43,19 +43,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
         Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + DeciderPKs::NUM - 1) * (DeciderPKs::NUM - 1) + 1>;
-    // TODO: use the Monomial type directly
+
     // TODO: describe wtf is going on here
-    // using ShortUnivariatesNoOptimisticSkipping = typename Flavor::template ProverUnivariates<2>;
     using ShortUnivariates = typename Flavor::template ProverUnivariates<2>;
-    // typename Flavor::template ProverUnivariatesWithOptimisticSkipping<2, DeciderPKs::NUM - 1>;
     static constexpr size_t SHORT_LENGTH = 2;
 
-    // using ShortUnivariatesNoOptimisticSkipping =
-    //     typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
-    // using ShortUnivariates =
-    //     typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
-    //                                                                       /* SKIP_COUNT= */ DeciderPKs::NUM - 1>;
-    // static constexpr size_t SHORT_LENGTH = ExtendedUnivariate::LENGTH;
     using ExtendedUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
     using ExtendedUnivariates =
@@ -307,7 +299,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     template <size_t skip_count = 0>
     BB_INLINE static void extend_univariates(
         std::conditional_t<
-            std::same_as<Flavor, MegaFlavor>,
+            Flavor::USE_SHORT_MONOMIALS,
             ShortUnivariates,
             std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>>&
             extended_univariates,
@@ -318,10 +310,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // we want to access, for each univariate, a parameter that defines the maximu mdegree
         PROFILE_THIS_NAME("PG::extend_univariates");
 
-        static constexpr size_t len = std::same_as<Flavor, MegaFlavor> ? SHORT_LENGTH : ExtendedUnivariate::LENGTH;
+        static constexpr size_t len = Flavor::USE_SHORT_MONOMIALS ? SHORT_LENGTH : ExtendedUnivariate::LENGTH;
         // what is going on here... is that we want to, if we are using a flavor that allows for a short univariate
         // representation, we
-        constexpr size_t _skip_count = std::same_as<Flavor, MegaFlavor> ? 0 : skip_count;
+        constexpr size_t _skip_count = Flavor::USE_SHORT_MONOMIALS ? 0 : skip_count;
         auto incoming_univariates = keys.template row_to_univariates<len, _skip_count>(row_idx);
         for (auto [extended_univariate, incoming_univariate] :
              zip_view(extended_univariates.get_all(), incoming_univariates)) {
@@ -417,7 +409,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
 
-            std::conditional_t<std::same_as<Flavor, MegaFlavor>,
+            std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                ShortUnivariates,
                                std::conditional_t<skip_zero_computations,
                                                   ExtendedUnivariates,

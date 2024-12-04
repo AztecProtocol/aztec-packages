@@ -39,7 +39,9 @@ template <typename Flavor> class SumcheckProverRound {
 
   public:
     using FF = typename Flavor::FF;
-    using ExtendedEdges = typename Flavor::ExtendedEdges;
+    using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
+                                             typename Flavor::template ProverUnivariates<2>,
+                                             typename Flavor::ExtendedEdges>;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -108,7 +110,11 @@ template <typename Flavor> class SumcheckProverRound {
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+                extended_edge = edge;
+            } else {
+                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            }
         }
     }
 
