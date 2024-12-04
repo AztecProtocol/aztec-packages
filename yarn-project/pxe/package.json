@@ -27,9 +27,6 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
     "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
   },
-  "inherits": [
-    "../package.common.json"
-  ],
   "jest": {
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"

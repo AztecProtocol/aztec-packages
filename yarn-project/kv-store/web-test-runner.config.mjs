@@ -3,7 +3,6 @@ import { summaryReporter } from '@web/test-runner';
 import { fileURLToPath } from 'url';
 import { esbuildPlugin } from '@web/dev-server-esbuild';
 import { playwrightLauncher } from '@web/test-runner-playwright';
-import { importMapsPlugin } from '@web/dev-server-import-maps';
 
 const reporter = process.env.CI ? summaryReporter() : defaultReporter();
 
@@ -14,7 +13,6 @@ export default {
     // playwrightLauncher({ product: "firefox" }),
   ],
   plugins: [
-    importMapsPlugin(),
     esbuildPlugin({
       ts: true,
     }),
