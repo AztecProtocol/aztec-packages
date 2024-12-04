@@ -17,6 +17,7 @@ import {
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   SerializableContractInstance,
@@ -238,6 +239,7 @@ describe('Enqueued-call Side Effect Trace', () => {
         0,
         new SideEffectArrayLengths(
           MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
           MAX_NOTE_HASHES_PER_TX,
           MAX_NULLIFIERS_PER_TX,
           MAX_L2_TO_L1_MSGS_PER_TX,
@@ -245,6 +247,9 @@ describe('Enqueued-call Side Effect Trace', () => {
         ),
       );
       expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
       expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(

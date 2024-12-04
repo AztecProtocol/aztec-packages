@@ -90,6 +90,7 @@ export class PublicTxContext {
     const innerCallTrace = new PublicSideEffectTrace();
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
+      /*protocolPublicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),

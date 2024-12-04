@@ -33,6 +33,7 @@ import {
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -85,6 +86,7 @@ export type SideEffects = {
 export class SideEffectArrayLengths {
   constructor(
     public readonly publicDataWrites: number,
+    public readonly protocolPublicDataWrites: number,
     public readonly noteHashes: number,
     public readonly nullifiers: number,
     public readonly l2ToL1Msgs: number,
@@ -92,7 +94,7 @@ export class SideEffectArrayLengths {
   ) {}
 
   static empty() {
-    return new this(0, 0, 0, 0, 0);
+    return new this(0, 0, 0, 0, 0, 0);
   }
 }
 
@@ -108,6 +110,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private enqueuedCalls: PublicCallRequest[] = [];
 
   private publicDataWrites: PublicDataUpdateRequest[] = [];
+  private protocolPublicDataWritesLength: number = 0;
+  private userPublicDataWritesLength: number = 0;
   private noteHashes: ScopedNoteHash[] = [];
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
@@ -136,7 +140,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new PublicEnqueuedCallSideEffectTrace(
       this.sideEffectCounter,
       new SideEffectArrayLengths(
-        this.previousSideEffectArrayLengths.publicDataWrites + this.publicDataWrites.length,
+        this.previousSideEffectArrayLengths.publicDataWrites + this.userPublicDataWritesLength,
+        this.previousSideEffectArrayLengths.protocolPublicDataWrites + this.protocolPublicDataWritesLength,
         this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length,
         this.previousSideEffectArrayLengths.nullifiers + this.nullifiers.length,
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
@@ -232,14 +237,28 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       // if we have real merkle hint content, make sure the value matches the the provided preimage
       assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
     }
-    if (
-      this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
-      (protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-    ) {
-      throw new SideEffectLimitReachedError(
-        'public data (contract storage) write',
-        protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      );
+    if (protocolWrite) {
+      if (
+        this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
+        PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      ) {
+        throw new SideEffectLimitReachedError(
+          'protocol public data (contract storage) write',
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.protocolPublicDataWritesLength++;
+    } else {
+      if (
+        this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      ) {
+        throw new SideEffectLimitReachedError(
+          'public data (contract storage) write',
+          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.userPublicDataWritesLength++;
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);

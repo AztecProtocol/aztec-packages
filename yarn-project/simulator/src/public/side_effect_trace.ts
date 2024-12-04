@@ -30,13 +30,13 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   type PublicCallRequest,
   PublicDataTreeLeafPreimage,
@@ -91,6 +91,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private allUnencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: LogHash[] = [];
 
+  private userPublicDataWritesLength = 0;
+  private protocolPublicDataWritesLength = 0;
   private publicCallRequests: PublicInnerCallRequest[] = [];
 
   private nestedExecutions: PublicFunctionCallResult[] = [];
@@ -160,14 +162,22 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       // if we have real merkle hint content, make sure the value matches the the provided preimage
       assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
     }
-    if (
-      this.contractStorageUpdateRequests.length >=
-      (protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-    ) {
-      throw new SideEffectLimitReachedError(
-        'contract storage write',
-        protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      );
+    if (protocolWrite) {
+      if (this.protocolPublicDataWritesLength >= PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        throw new SideEffectLimitReachedError(
+          'protocol public data (contract storage) write',
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.protocolPublicDataWritesLength++;
+    } else {
+      if (this.userPublicDataWritesLength >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        throw new SideEffectLimitReachedError(
+          'public data (contract storage) write',
+          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.userPublicDataWritesLength++;
     }
 
     this.contractStorageUpdateRequests.push(
