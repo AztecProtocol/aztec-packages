@@ -8,7 +8,7 @@ import {
   type ProvingJobSettledResult,
   type ProvingJobStatus,
   ProvingRequestType,
-  ReportProgressResponse,
+  type ReportProgressResponse,
 } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';

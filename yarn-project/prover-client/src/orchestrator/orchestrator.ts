@@ -1,27 +1,17 @@
-import {
-  L2Block,
-  MerkleTreeId,
-  type ProcessedTx,
-  type ServerCircuitProver,
-  makeEmptyProcessedTx,
-} from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId, type ProcessedTx, makeEmptyProcessedTx } from '@aztec/circuit-types';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
   type ProofAndVerificationKey,
-  ProverCache,
-  ProvingJob,
-  ProvingJobId,
-  ProvingJobInputsMap,
-  ProvingJobProducer,
-  ProvingJobResultsMap,
+  type ProverCache,
+  type ProvingJobId,
+  type ProvingJobInputsMap,
+  type ProvingJobProducer,
+  type ProvingJobResultsMap,
   ProvingRequestType,
 } from '@aztec/circuit-types/interfaces';
-import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -43,8 +33,6 @@ import {
   RootParityInput,
   RootParityInputs,
   type VerificationKeyAsFields,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
@@ -57,11 +45,11 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
-import { InlineProofStore, ProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
 import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
 import {
   buildBaseRollupHints,
@@ -704,7 +692,6 @@ export class ProvingOrchestrator implements EpochProver {
         logger.warn(`Failed to cache proving job id=${id} resultStatus=${result.status}: ${err}`);
       }
 
-      console.log('Job has settled', result);
       if (result.status === 'fulfilled') {
         const output = await this.proofStore.getProofOutput(result.value);
         if (output.type === type) {

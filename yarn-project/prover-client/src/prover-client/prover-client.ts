@@ -16,11 +16,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { join } from 'path';
-
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { CachingBrokerFacade } from '../proving_broker/caching_broker_facade.js';
 import { InlineProofStore } from '../proving_broker/proof_store.js';
 import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
@@ -29,8 +26,7 @@ import { ProvingAgent } from '../proving_broker/proving_agent.js';
 export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
-
-  private cacheDir?: string;
+  private proofStore = new InlineProofStore();
 
   private constructor(
     private config: ProverClientConfig,
@@ -42,11 +38,17 @@ export class ProverClient implements EpochProverManager {
   ) {
     // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
     // so it can be reused across multiple ones and not recomputed every time.
-    this.cacheDir = this.config.cacheDir ? join(this.config.cacheDir, `tx_prover_${this.config.proverId}`) : undefined;
   }
 
   public createEpochProver(cache: ProverCache = new InMemoryProverCache()): EpochProver {
-    return new ProvingOrchestrator(this.worldState, this.orchestratorClient, this.telemetry, this.config.proverId);
+    return new ProvingOrchestrator(
+      this.worldState,
+      this.orchestratorClient,
+      this.telemetry,
+      this.config.proverId,
+      this.proofStore,
+      cache,
+    );
   }
 
   public getProverId(): Fr {

@@ -35,8 +35,6 @@ import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
-import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
-import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
@@ -115,7 +113,6 @@ export class TestContext {
 
     const testBroker = new TestBroker(proverCount, localProver);
     const orchestrator = new TestProvingOrchestrator(ws, testBroker, telemetry, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount);
 
     await testBroker.start();
 

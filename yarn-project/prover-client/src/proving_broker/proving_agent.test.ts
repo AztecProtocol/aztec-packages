@@ -7,7 +7,7 @@ import {
   type ProvingJobInputs,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
-  ReportProgressResponse,
+  type ReportProgressResponse,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
