@@ -6,7 +6,8 @@ VERSION 0.8
 bootstrap-noir-bb:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
-  ARG EARTHLY_GIT_HASH
+  #ARG EARTHLY_GIT_HASH
+  ENV EARTHLY_GIT_HASH=59a85d12630b078a9e1d41df3f608f6a9b761704
   ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
@@ -27,7 +28,8 @@ bootstrap-noir-bb:
 bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
-  ARG EARTHLY_GIT_HASH
+  #ARG EARTHLY_GIT_HASH
+  ENV EARTHLY_GIT_HASH=59a85d12630b078a9e1d41df3f608f6a9b761704
   ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # Use a cache volume for performance
