@@ -3,6 +3,20 @@ title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
 keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 ---
+# Table of Contents
+
+| № | Version | № | Version | № | Version |
+| --- | --- | --- | --- | --- | --- |
+| 1 | [Version 0.65](#065) | 11 | [Version 0.45.0](#0450) | 21 | [Version 0.31.0](#0310) |
+| 2 | [Version 0.63.0](#0630) | 12 | [Version 0.44.0](#0440) | 22 | [Version 0.30.0](#0300) |
+| 3 | [Version 0.62.0](#0620) | 13 | [Version 0.43.0](#0430) | 23 | [Version 0.27.0](#0270) |
+| 4 | [Version 0.58.0](#0580) | 14 | [Version 0.42.0](#0420) | 24 | [Version 0.25.0](#0250) |
+| 5 | [Version 0.57.0](#0570) | 15 | [Version 0.41.0](#0410) | 25 | [Version 0.24.0](#0240) |
+| 6 | [Version 0.56.0](#0560) | 16 | [Version 0.40.0](#0400) | 26 | [Version 0.22.0](#0220) |
+| 7 | [Version 0.53.0](#0530) | 17 | [Version 0.39.0](#0390) | 27 | [Version 0.20.0](#0200) |
+| 8 | [Version 0.49.0](#0490) | 18 | [Version 0.38.0](#0380) | 28 | [Version 0.18.0](#0180) |
+| 9 | [Version 0.48.0](#0480) | 19 | [Version 0.36.0](#0360) | 29 | [Version 0.17.0](#0170) |
+| 10 | [Version 0.47.0](#0470) | 20 | [Version 0.33](#033) | |  |
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
