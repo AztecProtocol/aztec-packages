@@ -835,7 +835,9 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& outputPat
 }
 
 /**
- * @brief Compute and write to file the VK for a circuit to be accumulated in the IVC
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
+ * treatment. (i.e. they require construction of mock IVC state to correctly complete the kernel logic).
  *
  * @param bytecodePath
  * @param witnessPath
@@ -862,9 +864,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
 
     Builder builder;
     if (is_kernel) {
-        // Create a mock IVC instance from the IVC recursion constraints in the kernel program
+        // Create a mock IVC instance based on the IVC recursion constraints in the kernel program
         ClientIVC mock_ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, trace_settings);
-
         builder = acir_format::create_kernel_circuit(constraints, mock_ivc, witness);
     } else {
         builder = acir_format::create_circuit<Builder>(

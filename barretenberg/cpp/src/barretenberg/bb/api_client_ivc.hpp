@@ -132,11 +132,6 @@ class ClientIVCAPI : public API {
 
         using namespace acir_format;
 
-        // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        // vinfo("initializing BN254 CRS...");
-        // init_bn254_crs(1 << 20);
-        // init_grumpkin_crs(1 << 15);
-
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
         ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
@@ -170,10 +165,6 @@ class ClientIVCAPI : public API {
         using Program = acir_format::AcirProgram;
 
         using namespace acir_format;
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
 
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
@@ -223,13 +214,11 @@ class ClientIVCAPI : public API {
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        vinfo("initializing BN254 CRS...");
         init_bn254_crs(1 << 20);
         init_grumpkin_crs(1 << 15);
 
         ClientIVC ivc;
         if (flags.no_auto_verify) {
-            // if (false) {
             vinfo("performing accumulation WITHOUT auto-verify");
             ivc = _accumulate_without_auto_verify(folding_stack);
         } else {

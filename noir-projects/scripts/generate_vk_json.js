@@ -147,7 +147,6 @@ async function generateVKData(
     return "write_vk_ultra_honk";
   }
 
-  // WORKTODO: possibly just co-opt write_vk_mega_honk to handle apps/kernels
   const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
     isRecursive ? "--recursive" : ""
   }`;

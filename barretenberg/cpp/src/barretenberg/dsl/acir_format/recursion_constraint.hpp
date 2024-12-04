@@ -2,7 +2,6 @@
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include <vector>
 
 namespace acir_format {

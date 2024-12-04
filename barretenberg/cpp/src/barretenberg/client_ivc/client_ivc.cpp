@@ -136,10 +136,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Peform recursive verification and databus consistency checks for each entry in the verification queue
     for (auto& [proof, vkey, type] : stdlib_verification_queue) {
-        info("");
-        info("Processing VK: ");
-        info("is_kernel = ", vkey->databus_propagation_data.is_kernel);
-        info("");
         perform_recursive_verification_and_databus_consistency_checks(circuit, proof, vkey, type);
     }
     stdlib_verification_queue.clear();

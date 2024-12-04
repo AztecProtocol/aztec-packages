@@ -497,9 +497,6 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
-    // DEBUG: allow client ivc to auto-populate valid keys
-    // ivc.instantiate_stdlib_verification_queue(circuit);
-
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
     // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
     // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).

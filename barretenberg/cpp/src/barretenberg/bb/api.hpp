@@ -8,7 +8,7 @@ class API {
     struct Flags {
         std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
         std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
-        std::optional<bool> no_auto_verify;     // WORKTODO: will go away when this is only option
+        std::optional<bool> no_auto_verify; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove
     };
 
     virtual void prove(const Flags& flags,
