@@ -187,6 +187,6 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
-    throw new Error('Method not implemented.');
+    return { mappingSize: 0, actualSize: 0, numItems: 0 };
   }
 }

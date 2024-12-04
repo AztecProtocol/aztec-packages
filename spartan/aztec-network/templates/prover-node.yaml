@@ -121,7 +121,7 @@ spec:
             - name: DEBUG
               value: "{{ .Values.proverNode.debug }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.proverNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_AGENT_COUNT
               value: "{{ .Values.proverNode.proverAgent.count }}"
             - name: PROVER_AGENT_POLL_INTERVAL_MS

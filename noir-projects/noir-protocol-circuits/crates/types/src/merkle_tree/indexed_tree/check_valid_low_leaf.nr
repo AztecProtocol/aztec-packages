@@ -1,8 +1,11 @@
 use crate::merkle_tree::leaf_preimage::IndexedTreeLeafPreimage;
 
-pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(key: Field, low_leaf_preimage: LEAF_PREIMAGE)
+pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE, VALUE>(
+    key: Field,
+    low_leaf_preimage: LEAF_PREIMAGE,
+)
 where
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
 {
     let low_key = low_leaf_preimage.get_key();
     let next_key = low_leaf_preimage.get_next_key();
@@ -29,7 +32,13 @@ mod tests {
         }
     }
 
-    impl IndexedTreeLeafPreimage for TestLeafPreimage {
+    impl Eq for TestLeafPreimage {
+        fn eq(self, other: Self) -> bool {
+            (self.value == other.value) & (self.next_value == other.next_value)
+        }
+    }
+
+    impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
         fn get_key(self) -> Field {
             self.value
         }
@@ -38,8 +47,22 @@ mod tests {
             self.next_value
         }
 
+        fn points_to_infinity(self) -> bool {
+            (self.next_value == 0)
+        }
+
         fn as_leaf(self) -> Field {
             self.value
+        }
+
+        fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
+            Self { value: self.value, next_value }
+        }
+        fn update_value(self, value: Field) -> Self {
+            Self { value, next_value: self.next_value }
+        }
+        fn build_insertion_leaf(value: Field, low_leaf: Self) -> Self {
+            Self { value, next_value: low_leaf.next_value }
         }
     }
 

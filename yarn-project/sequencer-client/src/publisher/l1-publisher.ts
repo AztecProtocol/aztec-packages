@@ -17,7 +17,13 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { type EthereumChain, type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
+import {
+  type EthereumChain,
+  type L1ContractsConfig,
+  L1TxUtils,
+  type L1TxUtilsConfig,
+  createEthereumChain,
+} from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -44,6 +50,7 @@ import {
   type PublicActions,
   type PublicClient,
   type PublicRpcSchema,
+  type TransactionReceipt,
   type WalletActions,
   type WalletClient,
   type WalletRpcSchema,
@@ -161,8 +168,10 @@ export class L1Publisher {
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
+  private readonly l1TxUtils: L1TxUtils;
+
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'> & L1TxUtilsConfig,
     client: TelemetryClient,
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -195,6 +204,8 @@ export class L1Publisher {
         client: this.walletClient,
       });
     }
+
+    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
   }
 
   protected createWalletClient(
@@ -296,8 +307,13 @@ export class L1Publisher {
   }
 
   public async getProofClaim(): Promise<EpochProofClaim | undefined> {
-    const [epochToProve, basisPointFee, bondAmount, bondProviderHex, proposerClaimantHex] =
-      await this.rollupContract.read.proofClaim();
+    const {
+      epochToProve,
+      basisPointFee,
+      bondAmount,
+      bondProvider: bondProviderHex,
+      proposerClaimant: proposerClaimantHex,
+    } = await this.rollupContract.read.getProofClaim();
 
     const bondProvider = EthAddress.fromString(bondProviderHex);
     const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
@@ -503,36 +519,30 @@ export class L1Publisher {
     });
 
     this.log.verbose(`Submitting propose transaction`);
-
-    const tx = proofQuote
+    const result = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
 
-    if (!tx) {
+    if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
 
-    const { hash: txHash, args, functionName, gasLimit } = tx;
-
-    const receipt = await this.getTransactionReceipt(txHash);
-    if (!receipt) {
-      this.log.info(`Failed to get receipt for tx ${txHash}`, ctx);
-      return false;
-    }
+    const { receipt, args, functionName } = result;
 
     // Tx was mined successfully
-    if (receipt.status) {
-      const tx = await this.getTransactionStats(txHash);
+    if (receipt.status === 'success') {
+      const tx = await this.getTransactionStats(receipt.transactionHash);
       const stats: L1PublishBlockStats = {
-        ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
+        gasPrice: receipt.effectiveGasPrice,
+        gasUsed: receipt.gasUsed,
+        transactionHash: receipt.transactionHash,
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
       };
       this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
       return true;
     }
 
@@ -541,7 +551,6 @@ export class L1Publisher {
     const errorMsg = await this.tryGetErrorFromRevertedTx({
       args,
       functionName,
-      gasLimit,
       abi: RollupAbi,
       address: this.rollupContract.address,
       blockNumber: receipt.blockNumber,
@@ -557,7 +566,6 @@ export class L1Publisher {
   private async tryGetErrorFromRevertedTx(args: {
     args: any[];
     functionName: string;
-    gasLimit: bigint;
     abi: any;
     address: Hex;
     blockNumber: bigint | undefined;
@@ -633,7 +641,7 @@ export class L1Publisher {
     const { fromBlock, toBlock, publicInputs, proof } = args;
 
     // Check that the block numbers match the expected epoch to be proven
-    const [pending, proven] = await this.rollupContract.read.tips();
+    const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.read.getTips();
     if (proven !== BigInt(fromBlock) - 1n) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
     }
@@ -720,17 +728,25 @@ export class L1Publisher {
       ] as const;
 
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
-      await this.rollupContract.simulate.submitEpochRootProof(txArgs, { account: this.account });
-      return await this.rollupContract.write.submitEpochRootProof(txArgs, { account: this.account });
+
+      const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: this.rollupContract.abi,
+          functionName: 'submitEpochRootProof',
+          args: txArgs,
+        }),
+      });
+
+      return txReceipt.transactionHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
       return undefined;
     }
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
-    // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-    const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
+  private async prepareProposeTx(encodedData: L1ProcessArgs) {
+    const computeTxsEffectsHashGas = await this.l1TxUtils.estimateGas(this.account, {
       to: this.rollupContract.address,
       data: encodeFunctionData({
         abi: this.rollupContract.abi,
@@ -744,7 +760,7 @@ export class L1Publisher {
     //        we will fail estimation in the case where we are simulating for the
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
-    const gasGuesstimate = computeTxsEffectsHashGas + gasGuess;
+    const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS;
 
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
@@ -766,7 +782,7 @@ export class L1Publisher {
       `0x${encodedData.body.toString('hex')}`,
     ] as const;
 
-    return { args, gasGuesstimate };
+    return { args, gas: gasGuesstimate };
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -797,25 +813,34 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
+  ): Promise<{ receipt: TransactionReceipt; args: any; functionName: string } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
     try {
-      const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
-
+      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: this.rollupContract.address,
+          data: encodeFunctionData({
+            abi: this.rollupContract.abi,
+            functionName: 'propose',
+            args,
+          }),
+        },
+        {
+          fixedGas: gas,
+        },
+      );
       return {
-        hash: await this.rollupContract.write.propose(args, {
-          account: this.account,
-          gas: gasGuesstimate,
-        }),
+        receipt,
         args,
         functionName: 'propose',
-        gasLimit: gasGuesstimate,
       };
     } catch (err) {
       prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.log.error(`Rollup publish failed`, errorMessage);
       return undefined;
     }
   }
@@ -823,30 +848,36 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
+  ): Promise<{ receipt: TransactionReceipt; args: any; functionName: string } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
     try {
-      const { args, gasGuesstimate } = await this.prepareProposeTx(
-        encodedData,
-        L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
-      );
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
+      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: this.rollupContract.address,
+          data: encodeFunctionData({
+            abi: this.rollupContract.abi,
+            functionName: 'proposeAndClaim',
+            args: [...args, quote.toViemArgs()],
+          }),
+        },
+        { fixedGas: gas },
+      );
+
       return {
-        hash: await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
-          account: this.account,
-          gas: gasGuesstimate,
-        }),
-        functionName: 'proposeAndClaim',
+        receipt,
         args,
-        gasLimit: gasGuesstimate,
+        functionName: 'proposeAndClaim',
       };
     } catch (err) {
       prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.log.error(`Rollup publish failed`, errorMessage);
       return undefined;
     }
   }

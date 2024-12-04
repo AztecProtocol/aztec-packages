@@ -3,7 +3,9 @@ set -eu
 
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
-FLAGS="-c $CRS_PATH $VFLAG"
+INFLAG=${INPUT_TYPE=compiletime_stack}
 
-$BIN client_ivc_prove_output_all $FLAGS $BFLAG
-$BIN verify_client_ivc $FLAGS
+FLAGS="--scheme client_ivc -c $CRS_PATH $VFLAG"
+
+$BIN prove $FLAGS $BFLAG --input_type $INFLAG
+$BIN verify $FLAGS

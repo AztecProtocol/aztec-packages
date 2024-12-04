@@ -4,7 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
-import {OracleInput as FeeMathOracleInput} from "@aztec/core/libraries/FeeMath.sol";
+import {OracleInput as FeeMathOracleInput} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 // Remember that foundry json parsing is alphabetically done, so you MUST
 // sort the struct fields alphabetically or prepare for a headache.
