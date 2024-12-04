@@ -10,6 +10,7 @@ import {
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
+  IPA_CLAIM_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
@@ -761,7 +762,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
       const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
 
@@ -873,7 +874,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const json = JSON.parse(proofString);
 
-    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
 
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)

@@ -355,6 +355,7 @@ pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 =
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 pub global AGGREGATION_OBJECT_LENGTH: u32 = 16;
+pub global IPA_CLAIM_LENGTH: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
@@ -484,13 +485,14 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
-// WORKTODO: change these lengths to include IPA proofs/claims
 // Lengths of the different types of proofs in fields
-pub global RECURSIVE_PROOF_LENGTH: u32 = 463;
-pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 463;
+pub global IPA_PROOF_LENGTH: u32 = 129;
+pub global RECURSIVE_PROOF_LENGTH: u32 = 463 + 10 + IPA_PROOF_LENGTH;
+pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
 pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128; // size of an Ultra verification key
+pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128 + 11; // size of an Ultra verification key
 
 pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // VK is composed of
@@ -712,4 +714,5 @@ pub global PROOF_TYPE_HONK: u32 = 1;
 pub global PROOF_TYPE_OINK: u32 = 2;
 pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
-// WORKTODO: add PROOF_TYPE_ROLLUP_HONK
+pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
+pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
