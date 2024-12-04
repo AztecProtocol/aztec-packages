@@ -25,6 +25,7 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
@@ -220,6 +221,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
+    protocolWrite: boolean,
     lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyPublicDataPath(),
@@ -232,11 +234,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
     if (
       this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      (protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
     ) {
       throw new SideEffectLimitReachedError(
         'public data (contract storage) write',
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       );
     }
 

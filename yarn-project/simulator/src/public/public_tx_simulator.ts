@@ -444,6 +444,6 @@ export class PublicTxSimulator {
     }
 
     const updatedBalance = currentBalance.sub(txFee);
-    await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance);
+    await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance, true);
   }
 }

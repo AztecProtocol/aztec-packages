@@ -92,7 +92,7 @@ describe('Side Effect Trace', () => {
     const lowLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
     const newLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
 
-    trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+    trace.tracePublicStorageWrite(address, slot, value, false, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -263,7 +263,7 @@ describe('Side Effect Trace', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
         const newLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i + 1), new Fr(i + 1), Fr.ZERO, 0n);
-        trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+        trace.tracePublicStorageWrite(address, slot, value, false, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
       }
       const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
       expect(() =>
@@ -271,6 +271,7 @@ describe('Side Effect Trace', () => {
           AztecAddress.fromNumber(42),
           new Fr(42),
           value,
+          false,
           leafPreimage,
           Fr.ZERO,
           [],
@@ -404,7 +405,7 @@ describe('Side Effect Trace', () => {
     const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
     nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
     testCounter++;
-    nestedTrace.tracePublicStorageWrite(address, slot, value, leafPreimage, Fr.ZERO, [], leafPreimage, []);
+    nestedTrace.tracePublicStorageWrite(address, slot, value, false, leafPreimage, Fr.ZERO, [], leafPreimage, []);
     testCounter++;
     nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
     // counter does not increment for note hash checks

@@ -30,6 +30,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -148,6 +149,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
+    protocolWrite: boolean,
     lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyPublicDataPath(),
@@ -158,8 +160,14 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       // if we have real merkle hint content, make sure the value matches the the provided preimage
       assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
     }
-    if (this.contractStorageUpdateRequests.length >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
-      throw new SideEffectLimitReachedError('contract storage write', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    if (
+      this.contractStorageUpdateRequests.length >=
+      (protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+    ) {
+      throw new SideEffectLimitReachedError(
+        'contract storage write',
+        protocolWrite ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      );
     }
 
     this.contractStorageUpdateRequests.push(
