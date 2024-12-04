@@ -2,25 +2,25 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {
   RollupStore, SubmitEpochRootProofArgs, FeeHeader
 } from "@aztec/core/interfaces/IRollup.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 struct SubmitEpochRootProofAddresses {
-  IProofCommitmentEscrow PROOF_COMMITMENT_ESCROW;
-  IFeeJuicePortal FEE_JUICE_PORTAL;
-  IRewardDistributor REWARD_DISTRIBUTOR;
-  IERC20 ASSET;
-  address CUAUHXICALLI;
+  IProofCommitmentEscrow proofCommitmentEscrow;
+  IFeeJuicePortal feeJuicePortal;
+  IRewardDistributor rewardDistributor;
+  IERC20 asset;
+  address cuauhxicalli;
 }
 
 struct SubmitEpochRootProofInterimValues {
@@ -36,6 +36,103 @@ struct SubmitEpochRootProofInterimValues {
 
 library EpochProofLib {
   using SafeERC20 for IERC20;
+
+  function submitEpochRootProof(
+    RollupStore storage _rollupStore,
+    SubmitEpochRootProofArgs calldata _args,
+    SubmitEpochRootProofInterimValues memory _interimValues,
+    SubmitEpochRootProofAddresses memory _addresses
+  ) internal returns (uint256) {
+    // Ensure that the proof is not across epochs
+    require(
+      _interimValues.startEpoch == _interimValues.epochToProve,
+      Errors.Rollup__InvalidEpoch(_interimValues.startEpoch, _interimValues.epochToProve)
+    );
+
+    bytes32[] memory publicInputs = getEpochProofPublicInputs(
+      _rollupStore, _args.epochSize, _args.args, _args.fees, _args.aggregationObject
+    );
+
+    require(
+      _rollupStore.epochProofVerifier.verify(_args.proof, publicInputs),
+      Errors.Rollup__InvalidProof()
+    );
+
+    if (_rollupStore.proofClaim.epochToProve == _interimValues.epochToProve) {
+      _addresses.proofCommitmentEscrow.unstakeBond(
+        _rollupStore.proofClaim.bondProvider, _rollupStore.proofClaim.bondAmount
+      );
+    }
+
+    _rollupStore.tips.provenBlockNumber = _interimValues.endBlockNumber;
+
+    // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
+    //        Otherwise, the fees are unbacked #7938.
+    _interimValues.isFeeCanonical = address(this) == _addresses.feeJuicePortal.canonicalRollup();
+    _interimValues.isRewardDistributorCanonical =
+      address(this) == _addresses.rewardDistributor.canonicalRollup();
+
+    _interimValues.totalProverReward = 0;
+    _interimValues.totalBurn = 0;
+
+    if (_interimValues.isFeeCanonical || _interimValues.isRewardDistributorCanonical) {
+      for (uint256 i = 0; i < _args.epochSize; i++) {
+        address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
+        uint256 reward = 0;
+        uint256 toProver = 0;
+        uint256 burn = 0;
+
+        if (_interimValues.isFeeCanonical) {
+          uint256 fees = uint256(publicInputs[10 + i * 2]);
+          if (fees > 0) {
+            // This is insanely expensive, and will be fixed as part of the general storage cost reduction.
+            // See #9826.
+            FeeHeader storage feeHeader =
+              _rollupStore.blocks[_interimValues.previousBlockNumber + 1 + i].feeHeader;
+            burn += feeHeader.congestionCost * feeHeader.manaUsed;
+
+            reward += (fees - burn);
+            _addresses.feeJuicePortal.distributeFees(address(this), fees);
+          }
+        }
+
+        if (_interimValues.isRewardDistributorCanonical) {
+          reward += _addresses.rewardDistributor.claim(address(this));
+        }
+
+        if (coinbase == address(0)) {
+          toProver = reward;
+        } else {
+          // @note  We are getting value from the `proofClaim`, which are not cleared.
+          //        So if someone is posting the proof before a new claim is made,
+          //        the reward will calculated based on the previous values.
+          toProver = Math.mulDiv(reward, _rollupStore.proofClaim.basisPointFee, 10_000);
+        }
+
+        uint256 toCoinbase = reward - toProver;
+        if (toCoinbase > 0) {
+          _addresses.asset.safeTransfer(coinbase, toCoinbase);
+        }
+
+        _interimValues.totalProverReward += toProver;
+        _interimValues.totalBurn += burn;
+      }
+
+      if (_interimValues.totalProverReward > 0) {
+        // If there is a bond-provider give him the reward, otherwise give it to the submitter.
+        address proofRewardRecipient = _rollupStore.proofClaim.bondProvider == address(0)
+          ? msg.sender
+          : _rollupStore.proofClaim.bondProvider;
+        _addresses.asset.safeTransfer(proofRewardRecipient, _interimValues.totalProverReward);
+      }
+
+      if (_interimValues.totalBurn > 0) {
+        _addresses.asset.safeTransfer(_addresses.cuauhxicalli, _interimValues.totalBurn);
+      }
+    }
+
+    return _interimValues.endBlockNumber;
+  }
 
   /**
    * @notice Returns the computed public inputs for the given epoch proof.
@@ -175,102 +272,5 @@ library EpochProofLib {
     }
 
     return publicInputs;
-  }
-
-  function submitEpochRootProof(
-    RollupStore storage _rollupStore,
-    SubmitEpochRootProofArgs calldata _args,
-    SubmitEpochRootProofInterimValues memory _interimValues,
-    SubmitEpochRootProofAddresses memory _addresses
-  ) internal returns (uint256) {
-    // Ensure that the proof is not across epochs
-    require(
-      _interimValues.startEpoch == _interimValues.epochToProve,
-      Errors.Rollup__InvalidEpoch(_interimValues.startEpoch, _interimValues.epochToProve)
-    );
-
-    bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _rollupStore, _args.epochSize, _args.args, _args.fees, _args.aggregationObject
-    );
-
-    require(
-      _rollupStore.epochProofVerifier.verify(_args.proof, publicInputs),
-      Errors.Rollup__InvalidProof()
-    );
-
-    if (_rollupStore.proofClaim.epochToProve == _interimValues.epochToProve) {
-      _addresses.PROOF_COMMITMENT_ESCROW.unstakeBond(
-        _rollupStore.proofClaim.bondProvider, _rollupStore.proofClaim.bondAmount
-      );
-    }
-
-    _rollupStore.tips.provenBlockNumber = _interimValues.endBlockNumber;
-
-    // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
-    //        Otherwise, the fees are unbacked #7938.
-    _interimValues.isFeeCanonical = address(this) == _addresses.FEE_JUICE_PORTAL.canonicalRollup();
-    _interimValues.isRewardDistributorCanonical =
-      address(this) == _addresses.REWARD_DISTRIBUTOR.canonicalRollup();
-
-    _interimValues.totalProverReward = 0;
-    _interimValues.totalBurn = 0;
-
-    if (_interimValues.isFeeCanonical || _interimValues.isRewardDistributorCanonical) {
-      for (uint256 i = 0; i < _args.epochSize; i++) {
-        address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
-        uint256 reward = 0;
-        uint256 toProver = 0;
-        uint256 burn = 0;
-
-        if (_interimValues.isFeeCanonical) {
-          uint256 fees = uint256(publicInputs[10 + i * 2]);
-          if (fees > 0) {
-            // This is insanely expensive, and will be fixed as part of the general storage cost reduction.
-            // See #9826.
-            FeeHeader storage feeHeader =
-              _rollupStore.blocks[_interimValues.previousBlockNumber + 1 + i].feeHeader;
-            burn += feeHeader.congestionCost * feeHeader.manaUsed;
-
-            reward += (fees - burn);
-            _addresses.FEE_JUICE_PORTAL.distributeFees(address(this), fees);
-          }
-        }
-
-        if (_interimValues.isRewardDistributorCanonical) {
-          reward += _addresses.REWARD_DISTRIBUTOR.claim(address(this));
-        }
-
-        if (coinbase == address(0)) {
-          toProver = reward;
-        } else {
-          // @note  We are getting value from the `proofClaim`, which are not cleared.
-          //        So if someone is posting the proof before a new claim is made,
-          //        the reward will calculated based on the previous values.
-          toProver = Math.mulDiv(reward, _rollupStore.proofClaim.basisPointFee, 10_000);
-        }
-
-        uint256 toCoinbase = reward - toProver;
-        if (toCoinbase > 0) {
-          _addresses.ASSET.safeTransfer(coinbase, toCoinbase);
-        }
-
-        _interimValues.totalProverReward += toProver;
-        _interimValues.totalBurn += burn;
-      }
-
-      if (_interimValues.totalProverReward > 0) {
-        // If there is a bond-provider give him the reward, otherwise give it to the submitter.
-        address proofRewardRecipient = _rollupStore.proofClaim.bondProvider == address(0)
-          ? msg.sender
-          : _rollupStore.proofClaim.bondProvider;
-        _addresses.ASSET.safeTransfer(proofRewardRecipient, _interimValues.totalProverReward);
-      }
-
-      if (_interimValues.totalBurn > 0) {
-        _addresses.ASSET.safeTransfer(_addresses.CUAUHXICALLI, _interimValues.totalBurn);
-      }
-    }
-
-    return _interimValues.endBlockNumber;
   }
 }

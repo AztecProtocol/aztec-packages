@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -10,12 +11,11 @@ import {
   EpochProofQuote,
   SignedEpochProofQuote
 } from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
-import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;
@@ -112,6 +112,9 @@ interface IRollup {
 
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
+
+  function getProofClaim() external view returns (DataStructures.EpochProofClaim memory);
+  function getTips() external view returns (ChainTips memory);
 
   function status(uint256 _myHeaderBlockNumber)
     external

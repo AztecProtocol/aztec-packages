@@ -2,32 +2,52 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DataStructures} from "../DataStructures.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {BlockLog, RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-
-import {Slot, Epoch} from "../TimeMath.sol";
-
-import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
-import {HeaderLib, Header} from "./HeaderLib.sol";
-import {TxsDecoder} from "./TxsDecoder.sol";
-
-import {FeeMath, ManaBaseFeeComponents, FeeHeader, L1FeeData} from "./FeeMath.sol";
+import {DataStructures} from "./../DataStructures.sol";
+import {Slot, Epoch} from "./../TimeMath.sol";
 import {
   EpochProofLib,
   SubmitEpochRootProofAddresses,
   SubmitEpochRootProofInterimValues
 } from "./EpochProofLib.sol";
+import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
+import {FeeMath, ManaBaseFeeComponents, FeeHeader, L1FeeData} from "./FeeMath.sol";
+import {HeaderLib, Header} from "./HeaderLib.sol";
+import {TxsDecoder} from "./TxsDecoder.sol";
+import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
 
 library ExtRollupLib {
+  function submitEpochRootProof(
+    RollupStore storage _rollupStore,
+    SubmitEpochRootProofArgs calldata _args,
+    SubmitEpochRootProofInterimValues memory _interimValues,
+    IProofCommitmentEscrow _proofCommitmentEscrow,
+    IFeeJuicePortal _feeJuicePortal,
+    IRewardDistributor _rewardDistributor,
+    IERC20 _asset,
+    address _cuauhxicalli
+  ) external returns (uint256) {
+    return EpochProofLib.submitEpochRootProof(
+      _rollupStore,
+      _args,
+      _interimValues,
+      SubmitEpochRootProofAddresses({
+        proofCommitmentEscrow: _proofCommitmentEscrow,
+        feeJuicePortal: _feeJuicePortal,
+        rewardDistributor: _rewardDistributor,
+        asset: _asset,
+        cuauhxicalli: _cuauhxicalli
+      })
+    );
+  }
+
   function validateHeaderForSubmissionBase(
     ValidateHeaderArgs memory _args,
     mapping(uint256 blockNumber => BlockLog log) storage _blocks
@@ -61,14 +81,6 @@ library ExtRollupLib {
     );
   }
 
-  function decodeHeader(bytes calldata _header) external pure returns (Header memory) {
-    return HeaderLib.decode(_header);
-  }
-
-  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32) {
-    return TxsDecoder.decode(_body);
-  }
-
   function getManaBaseFeeComponentsAt(
     FeeHeader storage _parentFeeHeader,
     L1FeeData memory _fees,
@@ -91,27 +103,11 @@ library ExtRollupLib {
     );
   }
 
-  function submitEpochRootProof(
-    RollupStore storage _rollupStore,
-    SubmitEpochRootProofArgs calldata _args,
-    SubmitEpochRootProofInterimValues memory _interimValues,
-    IProofCommitmentEscrow PROOF_COMMITMENT_ESCROW,
-    IFeeJuicePortal FEE_JUICE_PORTAL,
-    IRewardDistributor REWARD_DISTRIBUTOR,
-    IERC20 ASSET,
-    address CUAUHXICALLI
-  ) external returns (uint256) {
-    return EpochProofLib.submitEpochRootProof(
-      _rollupStore,
-      _args,
-      _interimValues,
-      SubmitEpochRootProofAddresses({
-        PROOF_COMMITMENT_ESCROW: PROOF_COMMITMENT_ESCROW,
-        FEE_JUICE_PORTAL: FEE_JUICE_PORTAL,
-        REWARD_DISTRIBUTOR: REWARD_DISTRIBUTOR,
-        ASSET: ASSET,
-        CUAUHXICALLI: CUAUHXICALLI
-      })
-    );
+  function decodeHeader(bytes calldata _header) external pure returns (Header memory) {
+    return HeaderLib.decode(_header);
+  }
+
+  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32) {
+    return TxsDecoder.decode(_body);
   }
 }

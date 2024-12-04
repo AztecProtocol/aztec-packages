@@ -25,6 +25,14 @@ import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {
+  ExtRollupLib,
+  ValidateHeaderArgs,
+  Header,
+  SignedEpochProofQuote,
+  SubmitEpochRootProofInterimValues
+} from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
+import {IntRollupLib, EpochProofQuote} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -33,20 +41,7 @@ import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {Math} from "@oz/utils/math/Math.sol";
-
-import {
-  ExtRollupLib,
-  ValidateHeaderArgs,
-  Header,
-  SignedEpochProofQuote,
-  SubmitEpochRootProofInterimValues
-} from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
-
-import {IntRollupLib, EpochProofQuote} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
-
 import {Vm} from "forge-std/Vm.sol";
 
 struct Config {
@@ -65,7 +60,6 @@ struct Config {
 contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
-  using SafeERC20 for IERC20;
   using ProposeLib for ProposeArgs;
   using IntRollupLib for uint256;
   using IntRollupLib for ManaBaseFeeComponents;
@@ -155,14 +149,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       _addValidator(_validators[i]);
     }
     setupEpoch();
-  }
-
-  function getProofClaim() external view returns (DataStructures.EpochProofClaim memory) {
-    return rollupStore.proofClaim;
-  }
-
-  function getTips() external view returns (ChainTips memory) {
-    return rollupStore.tips;
   }
 
   /**
@@ -295,6 +281,19 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     emit L2ProofVerified(endBlockNumber, _args.args[6]);
   }
 
+  function getProofClaim()
+    external
+    view
+    override(IRollup)
+    returns (DataStructures.EpochProofClaim memory)
+  {
+    return rollupStore.proofClaim;
+  }
+
+  function getTips() external view override(IRollup) returns (ChainTips memory) {
+    return rollupStore.tips;
+  }
+
   function status(uint256 _myHeaderBlockNumber)
     external
     view
@@ -315,6 +314,29 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       rollupStore.blocks[rollupStore.tips.pendingBlockNumber].archive,
       archiveAt(_myHeaderBlockNumber),
       getEpochForBlock(rollupStore.tips.provenBlockNumber)
+    );
+  }
+
+  /**
+   * @notice Returns the computed public inputs for the given epoch proof.
+   *
+   * @dev Useful for debugging and testing. Allows submitter to compare their
+   * own public inputs used for generating the proof vs the ones assembled
+   * by this contract when verifying it.
+   *
+   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
+   * @param  _aggregationObject - The aggregation object for the proof
+   */
+  function getEpochProofPublicInputs(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[] calldata _fees,
+    bytes calldata _aggregationObject
+  ) external view override(IRollup) returns (bytes32[] memory) {
+    return ExtRollupLib.getEpochProofPublicInputs(
+      rollupStore, _epochSize, _args, _fees, _aggregationObject
     );
   }
 
@@ -632,29 +654,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     returns (bytes32)
   {
     return _hashTypedDataV4(IntRollupLib.computeQuoteHash(_quote));
-  }
-
-  /**
-   * @notice Returns the computed public inputs for the given epoch proof.
-   *
-   * @dev Useful for debugging and testing. Allows submitter to compare their
-   * own public inputs used for generating the proof vs the ones assembled
-   * by this contract when verifying it.
-   *
-   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
-   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
-   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   * @param  _aggregationObject - The aggregation object for the proof
-   */
-  function getEpochProofPublicInputs(
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
-    bytes32[] calldata _fees,
-    bytes calldata _aggregationObject
-  ) external view override(IRollup) returns (bytes32[] memory) {
-    return ExtRollupLib.getEpochProofPublicInputs(
-      rollupStore, _epochSize, _args, _fees, _aggregationObject
-    );
   }
 
   function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)

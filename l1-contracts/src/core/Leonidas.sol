@@ -5,12 +5,12 @@ pragma solidity >=0.8.27;
 import {ILeonidas, EpochData, LeonidasStorage} from "@aztec/core/interfaces/ILeonidas.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {LeonidasLib} from "@aztec/core/libraries/LeonidasLib/LeonidasLib.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
 } from "@aztec/core/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
-import {LeonidasLib} from "@aztec/core/libraries/LeonidasLib/LeonidasLib.sol";
 
 /**
  * @title   Leonidas

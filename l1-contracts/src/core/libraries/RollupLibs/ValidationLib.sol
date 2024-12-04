@@ -2,15 +2,15 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Errors} from "../Errors.sol";
-import {Header} from "./HeaderLib.sol";
-import {Timestamp, Slot, Epoch} from "../TimeMath.sol";
-import {DataStructures} from "../DataStructures.sol";
-import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
+import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {DataStructures} from "./../DataStructures.sol";
+import {Errors} from "./../Errors.sol";
+import {Timestamp, Slot, Epoch} from "./../TimeMath.sol";
+import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
+import {Header} from "./HeaderLib.sol";
 
 struct ValidateHeaderArgs {
   Header header;

@@ -8,6 +8,25 @@ import {SignedMath} from "@oz/utils/math/SignedMath.sol";
 
 import {Errors} from "../Errors.sol";
 
+// These values are taken from the model, but mostly pulled out of the ass
+uint256 constant MINIMUM_PROVING_COST_PER_MANA = 5415357955;
+uint256 constant MAX_PROVING_COST_MODIFIER = 1000000000;
+uint256 constant PROVING_UPDATE_FRACTION = 100000000000;
+
+uint256 constant MINIMUM_FEE_ASSET_PRICE = 10000000000;
+uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1000000000;
+uint256 constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100000000000;
+
+uint256 constant L1_GAS_PER_BLOCK_PROPOSED = 150000;
+uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
+
+uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1000000000;
+uint256 constant MANA_TARGET = 100000000;
+uint256 constant CONGESTION_UPDATE_FRACTION = 854700854;
+
+uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
+uint256 constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
+
 struct OracleInput {
   int256 provingCostModifier;
   int256 feeAssetPriceModifier;
@@ -33,25 +52,6 @@ struct L1FeeData {
   uint256 baseFee;
   uint256 blobFee;
 }
-
-// These values are taken from the model, but mostly pulled out of the ass
-uint256 constant MINIMUM_PROVING_COST_PER_MANA = 5415357955;
-uint256 constant MAX_PROVING_COST_MODIFIER = 1000000000;
-uint256 constant PROVING_UPDATE_FRACTION = 100000000000;
-
-uint256 constant MINIMUM_FEE_ASSET_PRICE = 10000000000;
-uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1000000000;
-uint256 constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100000000000;
-
-uint256 constant L1_GAS_PER_BLOCK_PROPOSED = 150000;
-uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
-
-uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1000000000;
-uint256 constant MANA_TARGET = 100000000;
-uint256 constant CONGESTION_UPDATE_FRACTION = 854700854;
-
-uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
-uint256 constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
 library FeeMath {
   using Math for uint256;

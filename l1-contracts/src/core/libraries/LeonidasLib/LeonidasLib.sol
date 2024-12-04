@@ -191,24 +191,6 @@ library LeonidasLib {
     return committee;
   }
 
-  /**
-   * @notice  Computes the index of the committee member that acts as proposer for a given slot
-   *
-   * @param _epoch - The epoch to compute the proposer index for
-   * @param _slot - The slot to compute the proposer index for
-   * @param _seed - The seed to use for the computation
-   * @param _size - The size of the committee
-   *
-   * @return The index of the proposer
-   */
-  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
-    private
-    pure
-    returns (uint256)
-  {
-    return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
-  }
-
   function _getProposerAt(
     LeonidasStorage storage _store,
     Slot _slot,
@@ -251,5 +233,23 @@ library LeonidasLib {
     // Emulate a sampling of the validators
     uint256 sampleSeed = getSampleSeed(_store, _epochNumber);
     return _sampleValidators(_store, sampleSeed, _targetCommitteeSize);
+  }
+
+  /**
+   * @notice  Computes the index of the committee member that acts as proposer for a given slot
+   *
+   * @param _epoch - The epoch to compute the proposer index for
+   * @param _slot - The slot to compute the proposer index for
+   * @param _seed - The seed to use for the computation
+   * @param _size - The size of the committee
+   *
+   * @return The index of the proposer
+   */
+  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
+    private
+    pure
+    returns (uint256)
+  {
+    return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
 }
