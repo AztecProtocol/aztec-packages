@@ -73,6 +73,7 @@ const { bold, reset } = createColors({ useColor });
 const prettyTransport: LoggerOptions['transport'] = {
   target: 'pino-pretty',
   options: {
+    destination: 2,
     sync: true,
     colorize: useColor,
     ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
@@ -82,10 +83,10 @@ const prettyTransport: LoggerOptions['transport'] = {
   },
 };
 
-// Transport for vanilla stdout logging as JSON.
-const stdoutTransport: LoggerOptions['transport'] = {
+// Transport for vanilla stdio logging as JSON.
+const stdioTransport: LoggerOptions['transport'] = {
   target: 'pino/file',
-  options: { destination: 1 },
+  options: { destination: 2 },
 };
 
 // Define custom logging levels for pino.
@@ -117,7 +118,7 @@ const logger = isNode
       pinoOpts,
       pino.transport({
         targets: compactArray([
-          ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdoutTransport : prettyTransport,
+          ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
           process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ? otelTransport : undefined,
         ]),
       }),
@@ -125,7 +126,7 @@ const logger = isNode
   : pino({ ...pinoOpts, browser: { asObject: false } });
 
 // Log the logger configuration.
-logger.info(
+logger.verbose(
   {
     module: 'logger',
     ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}),
