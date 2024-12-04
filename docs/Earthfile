@@ -14,7 +14,7 @@ build:
   ENV COMMIT_TAG=$COMMIT_TAG
   WORKDIR /usr/src/docs
   RUN CI=1 yarn install
-  RUN ./scripts/build.sh
+  RUN false #./scripts/build.sh
   SAVE ARTIFACT build
 
 serve:

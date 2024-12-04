@@ -6653,6 +6653,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/prop-types@npm:^15":
+  version: 15.7.13
+  resolution: "@types/prop-types@npm:15.7.13"
+  checksum: 10c0/1b20fc67281902c6743379960247bc161f3f0406ffc0df8e7058745a85ea1538612109db0406290512947f9632fe9e10e7337bf0ce6338a91d6c948df16a7c61
+  languageName: node
+  linkType: hard
+
 "@types/qs@npm:*":
   version: 6.9.15
   resolution: "@types/qs@npm:6.9.15"
@@ -17064,6 +17071,7 @@ __metadata:
     "@mdx-js/react": "npm:^3.0.1"
     "@slorber/react-ideal-image": "npm:^0.0.12"
     "@tsconfig/docusaurus": "npm:^1.0.5"
+    "@types/prop-types": "npm:^15"
     axios: "npm:^1.4.0"
     clsx: "npm:^1.1.1"
     concurrently: "npm:^8.0.1"
@@ -17073,6 +17081,7 @@ __metadata:
     netlify-cli: "npm:^17.23.0"
     nodemon: "npm:^3.0.1"
     prism-react-renderer: "npm:^2.1.0"
+    prop-types: "npm:^15.8.1"
     react: "npm:^18.2.0"
     react-dom: "npm:^18.2.0"
     react-markdown: "npm:6.0.0"

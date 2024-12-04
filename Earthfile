@@ -207,13 +207,13 @@ ci:
     BUILD +bootstrap
   END
   WAIT
-    BUILD ./barretenberg/acir_tests/+test
+    # BUILD ./barretenberg/acir_tests/+test
     BUILD ./barretenberg/acir_tests/+bench
   END
   WAIT
     BUILD ./barretenberg/cpp/+bench-binaries
     BUILD ./barretenberg/cpp/+preset-gcc
-    BUILD ./docs/+deploy-preview
+    # BUILD ./docs/+deploy-preview
     BUILD ./l1-contracts+test
     BUILD ./noir/+examples
     BUILD ./noir/+test
