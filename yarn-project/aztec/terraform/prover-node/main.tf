@@ -275,6 +275,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "OUTBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address },
         { name = "REGISTRY_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address },
         { name = "FEE_JUICE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address },
+        { name = "STAKING_ASSET_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.staking_asset_contract_address },
         { name = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS },
 
         // P2P (disabled)

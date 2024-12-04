@@ -325,6 +325,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address
         },
         {
+          name  = "STAKING_ASSET_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.staking_asset_contract_address
+        },
+        {
           name  = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS"
           value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
         },
