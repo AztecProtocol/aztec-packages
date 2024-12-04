@@ -866,11 +866,12 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
         ClientIVC mock_ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, trace_settings);
 
         builder = acir_format::create_kernel_circuit(constraints, mock_ivc, witness);
-        builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
     } else {
         builder = acir_format::create_circuit<Builder>(
             constraints, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
     }
+    // Add public inputs corresponding to pairing point accumulator
+    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
