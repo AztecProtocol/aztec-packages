@@ -1,4 +1,4 @@
-import { bold, reset } from 'colorette';
+import { createColors } from 'colorette';
 import isNode from 'detect-node';
 import { type LoggerOptions, pino } from 'pino';
 import { inspect } from 'util';
@@ -68,10 +68,13 @@ const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Transport options for pretty logging to stdout via pino-pretty.
+const useColor = true;
+const { bold, reset } = createColors({ useColor });
 const prettyTransport: LoggerOptions['transport'] = {
   target: 'pino-pretty',
   options: {
     sync: true,
+    colorize: useColor,
     ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
     messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
     customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
