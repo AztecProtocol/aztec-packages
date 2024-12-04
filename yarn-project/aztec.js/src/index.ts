@@ -42,7 +42,6 @@ export { ContractDeployer } from './deployment/index.js';
 export {
   AnvilTestWatcher,
   CheatCodes,
-  EthCheatCodes,
   L1FeeJuicePortalManager,
   L1ToL2TokenPortalManager,
   L1TokenManager,
@@ -165,7 +164,7 @@ export { elapsed } from '@aztec/foundation/timer';
 export { type FieldsOf } from '@aztec/foundation/types';
 export { fileURLToPath } from '@aztec/foundation/url';
 
-export { deployL1Contract, deployL1Contracts, type DeployL1Contracts } from '@aztec/ethereum';
+export { type DeployL1Contracts, EthCheatCodes, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 
 // Start of section that exports public api via granular api.
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.

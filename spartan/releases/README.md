@@ -18,7 +18,7 @@ It should work in most UNIX-based machines.
 To configure a new node, create a new directory and run the install script:
 
 ```bash
-cd val1
+mkdir val1 && cd val1
 curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/spartan/releases/rough-rhino/create-spartan.sh | bash
 ```
 

@@ -1,6 +1,12 @@
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
-import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import {
+  type L1ContractsConfig,
+  type L1TxRequest,
+  type L1TxUtilsConfig,
+  defaultL1TxUtilsConfig,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
 import { Blob } from '@aztec/foundation/blob';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
@@ -12,12 +18,14 @@ import {
   type GetTransactionReceiptReturnType,
   type Kzg,
   type PrivateKeyAccount,
-  type SendTransactionReturnType,
+  type TransactionReceipt,
   encodeFunctionData,
 } from 'viem';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1Publisher } from './l1-publisher.js';
+
+const mockRollupAddress = '0xcafe';
 
 interface MockPublicClient {
   getTransactionReceipt: ({ hash }: { hash: '0x${string}' }) => Promise<GetTransactionReceiptReturnType>;
@@ -25,22 +33,18 @@ interface MockPublicClient {
   getTransaction: ({ hash }: { hash: '0x${string}' }) => Promise<{ input: `0x${string}`; hash: `0x${string}` }>;
 }
 
-interface MockWalletClient {
-  sendTransaction: ({
-    data,
-    account,
-    to,
-    blobs,
-    kzg,
-    maxFeePerBlobGas,
-  }: {
-    data: '0x${string}';
-    account: '0x${string}';
-    to: '0x${string}';
-    blobs: [Buffer];
-    kzg: Kzg;
-    maxFeePerBlobGas: bigint;
-  }) => Promise<SendTransactionReturnType>;
+interface MockL1TxUtils {
+  sendAndMonitorTransaction: (
+    request: L1TxRequest,
+    _gasConfig?: Partial<L1TxUtilsConfig>,
+  ) => Promise<TransactionReceipt>;
+}
+
+interface MockRollupContractWrite {
+  propose: (
+    args: readonly [`0x${string}`, `0x${string}`] | readonly [`0x${string}`, `0x${string}`, `0x${string}`],
+    options: { account: PrivateKeyAccount },
+  ) => Promise<`0x${string}`>;
 }
 
 interface MockRollupContractRead {
@@ -58,11 +62,10 @@ interface MockRollupContractRead {
 }
 
 class MockRollupContract {
-  constructor(
-    public read: MockRollupContractRead,
-    public abi = RollupAbi,
-    public address = EthAddress.fromField(new Fr(1)).toString(),
-  ) {}
+  constructor(public write: MockRollupContractWrite, public read: MockRollupContractRead, public abi = RollupAbi) {}
+  get address() {
+    return mockRollupAddress;
+  }
 }
 
 describe('L1Publisher', () => {
@@ -70,7 +73,7 @@ describe('L1Publisher', () => {
   let rollupContract: MockRollupContract;
 
   let publicClient: MockProxy<MockPublicClient>;
-  let walletClient: MockProxy<MockWalletClient>;
+  let l1TxUtils: MockProxy<MockL1TxUtils>;
 
   let proposeTxHash: `0x${string}`;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
@@ -80,8 +83,6 @@ describe('L1Publisher', () => {
   let archive: Buffer;
   let blockHash: Buffer;
   let body: Buffer;
-
-  let account: PrivateKeyAccount;
 
   let publisher: L1Publisher;
 
@@ -105,8 +106,7 @@ describe('L1Publisher', () => {
     rollupContract = new MockRollupContract(rollupContractRead);
 
     publicClient = mock<MockPublicClient>();
-    walletClient = mock<MockWalletClient>();
-
+    l1TxUtils = mock<MockL1TxUtils>();
     const config = {
       l1RpcUrl: `http://127.0.0.1:8545`,
       l1ChainId: 1,
@@ -116,25 +116,29 @@ describe('L1Publisher', () => {
       },
       l1PublishRetryIntervalMS: 1,
       ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
-    } as unknown as TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
+      ...defaultL1TxUtilsConfig,
+    } as unknown as TxSenderConfig &
+      PublisherConfig &
+      Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
+      L1TxUtilsConfig;
 
     publisher = new L1Publisher(config, new NoopTelemetryClient());
 
     (publisher as any)['rollupContract'] = rollupContract;
     (publisher as any)['publicClient'] = publicClient;
-    (publisher as any)['walletClient'] = walletClient;
-
-    account = (publisher as any)['account'];
+    (publisher as any)['l1TxUtils'] = l1TxUtils;
+    publisher as any;
 
     rollupContractRead.getCurrentSlot.mockResolvedValue(l2Block.header.globalVariables.slotNumber.toBigInt());
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
+    publicClient.estimateGas.mockResolvedValue(GAS_GUESS);
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValue(proposeTxReceipt);
+    (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
   });
 
   it('publishes and propose l2 block to l1', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     walletClient.sendTransaction.mockResolvedValueOnce(proposeTxHash);
-
-    publicClient.getTransactionReceipt.mockResolvedValueOnce(proposeTxReceipt);
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -159,33 +163,22 @@ describe('L1Publisher', () => {
       `0x${body.toString('hex')}`,
       blobInput,
     ] as const;
-
-    const data = encodeFunctionData({
-      abi: RollupAbi,
-      functionName: 'propose',
-      args,
-    });
-
-    const kzg = Blob.getViemKzgInstance();
-    expect(walletClient.sendTransaction).toHaveBeenCalledWith({
-      data,
-      account,
-      to: rollupContract.address,
-      blobs: blobs.map(blob => blob.data),
-      kzg,
-      maxFeePerBlobGas: 10000000000n,
-    });
-    expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
+    expect(l1TxUtils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+      {
+        to: mockRollupAddress,
+        data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
+      },
+      { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
+    );
   });
 
   it('does not retry if sending a propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxHash);
+    l1TxUtils.sendAndMonitorTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
 
     const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(false);
-    expect(walletClient.sendTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry if simulating a publish and propose tx fails', async () => {
@@ -195,45 +188,20 @@ describe('L1Publisher', () => {
     await expect(publisher.proposeL2Block(l2Block)).rejects.toThrow();
 
     expect(rollupContractRead.validateHeader).toHaveBeenCalledTimes(1);
-    expect(walletClient.sendTransaction).toHaveBeenCalledTimes(0);
   });
 
   it('does not retry if sending a publish and propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockRejectedValueOnce(new Error());
+    l1TxUtils.sendAndMonitorTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
 
     const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(false);
-    expect(walletClient.sendTransaction).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries if fetching the receipt fails (propose)', async () => {
-    rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockResolvedValueOnce(proposeTxHash);
-    publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
-
-    const result = await publisher.proposeL2Block(l2Block);
-
-    expect(result).toEqual(true);
-    expect(publicClient.getTransactionReceipt).toHaveBeenCalledTimes(2);
-  });
-
-  it('retries if fetching the receipt fails (publish propose)', async () => {
-    rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockResolvedValueOnce(proposeTxHash as `0x${string}`);
-    publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
-
-    const result = await publisher.proposeL2Block(l2Block);
-
-    expect(result).toEqual(true);
-    expect(publicClient.getTransactionReceipt).toHaveBeenCalledTimes(2);
   });
 
   it('returns false if publish and propose tx reverts', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockResolvedValueOnce(proposeTxHash);
-    publicClient.getTransactionReceipt.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -243,7 +211,7 @@ describe('L1Publisher', () => {
   it('returns false if propose tx reverts', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
 
-    publicClient.getTransactionReceipt.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -252,8 +220,9 @@ describe('L1Publisher', () => {
 
   it('returns false if sending publish and progress tx is interrupted', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockImplementationOnce(() => sleep(10, proposeTxHash) as Promise<`0x${string}`>);
-
+    l1TxUtils.sendAndMonitorTransaction.mockImplementationOnce(
+      () => sleep(10, proposeTxReceipt) as Promise<TransactionReceipt>,
+    );
     const resultPromise = publisher.proposeL2Block(l2Block);
     publisher.interrupt();
     const result = await resultPromise;
@@ -264,7 +233,9 @@ describe('L1Publisher', () => {
 
   it('returns false if sending propose tx is interrupted', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockImplementationOnce(() => sleep(10, proposeTxHash) as Promise<`0x${string}`>);
+    l1TxUtils.sendAndMonitorTransaction.mockImplementationOnce(
+      () => sleep(10, proposeTxReceipt) as Promise<TransactionReceipt>,
+    );
 
     const resultPromise = publisher.proposeL2Block(l2Block);
     publisher.interrupt();
