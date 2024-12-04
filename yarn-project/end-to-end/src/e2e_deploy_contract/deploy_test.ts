@@ -5,12 +5,12 @@ import {
   type AztecNode,
   type ContractArtifact,
   type ContractBase,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   type PublicKeys,
   type Wallet,
-  createDebugLogger,
+  createLogger,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { type StatefulTestContract } from '@aztec/noir-contracts.js';
@@ -23,13 +23,13 @@ export class DeployTest {
   private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
-  public logger: DebugLogger;
+  public logger: Logger;
   public pxe!: PXE;
   public wallet!: AccountWallet;
   public aztecNode!: AztecNode;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_deploy_contract:${testName}`);
+    this.logger = createLogger(`aztec:e2e_deploy_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
   }
 

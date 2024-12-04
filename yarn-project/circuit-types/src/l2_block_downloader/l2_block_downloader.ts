@@ -1,12 +1,12 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
 import { type L2Block } from '../l2_block.js';
 import { type L2BlockSource } from '../l2_block_source.js';
 
-const log = createDebugLogger('aztec:l2_block_downloader');
+const log = createLogger('l2_block_downloader');
 
 /**
  * Downloads L2 blocks from a L2BlockSource.

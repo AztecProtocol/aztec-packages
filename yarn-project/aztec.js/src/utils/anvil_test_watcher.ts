@@ -1,4 +1,4 @@
-import { type DebugLogger, type EthCheatCodes, createDebugLogger } from '@aztec/aztec.js';
+import { type EthCheatCodes, type Logger, createLogger } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -18,7 +18,7 @@ export class AnvilTestWatcher {
 
   private filledRunningPromise?: RunningPromise;
 
-  private logger: DebugLogger = createDebugLogger(`aztec:utils:watcher`);
+  private logger: Logger = createLogger(`aztec:utils:watcher`);
 
   constructor(
     private cheatcodes: EthCheatCodes,

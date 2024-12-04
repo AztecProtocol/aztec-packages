@@ -1,4 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { ungzip } from 'pako';
@@ -27,7 +27,7 @@ import {
 
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:clientivc-integration');
+const logger = createLogger('clientivc-integration');
 
 jest.setTimeout(120_000);
 

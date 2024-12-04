@@ -1,7 +1,7 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -284,7 +284,7 @@ export const deployL1Contracts = async (
   rpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
-  logger: DebugLogger,
+  logger: Logger,
   args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
@@ -576,7 +576,7 @@ class L1Deployer {
     private walletClient: WalletClient<HttpTransport, Chain, Account>,
     private publicClient: PublicClient<HttpTransport, Chain>,
     maybeSalt: number | undefined,
-    private logger: DebugLogger,
+    private logger: Logger,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
   }
@@ -666,7 +666,7 @@ export async function deployL1Contract(
   args: readonly unknown[] = [],
   maybeSalt?: Hex,
   libraries?: Libraries,
-  logger?: DebugLogger,
+  logger?: Logger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;

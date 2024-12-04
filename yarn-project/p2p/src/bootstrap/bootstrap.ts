@@ -1,4 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
@@ -21,7 +21,7 @@ export class BootstrapNode {
   constructor(
     private store: AztecKVStore,
     private telemetry: TelemetryClient,
-    private logger = createDebugLogger('aztec:p2p_bootstrap'),
+    private logger = createLogger('p2p_bootstrap'),
   ) {}
 
   /**

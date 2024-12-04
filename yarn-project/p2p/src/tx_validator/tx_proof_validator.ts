@@ -1,8 +1,8 @@
 import { type ClientProtocolCircuitVerifier, Tx, type TxValidator } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 export class TxProofValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:private_proof');
+  #log = createLogger('sequencer:tx_validator:private_proof');
 
   constructor(private verifier: ClientProtocolCircuitVerifier) {}
 

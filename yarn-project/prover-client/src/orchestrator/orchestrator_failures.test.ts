@@ -1,7 +1,7 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-failures');
+const logger = createLogger('orchestrator-failures');
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;

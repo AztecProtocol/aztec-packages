@@ -1,8 +1,8 @@
 import { Tx, type TxValidator } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 export class DataTxValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_data');
+  #log = createLogger('sequencer:tx_validator:tx_data');
 
   validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
     const validTxs: Tx[] = [];

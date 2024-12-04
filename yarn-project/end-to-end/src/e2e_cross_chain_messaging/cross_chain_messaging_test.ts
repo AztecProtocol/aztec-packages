@@ -5,10 +5,10 @@ import {
   AztecAddress,
   type AztecNode,
   type CompleteAddress,
-  type DebugLogger,
   EthAddress,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -30,7 +30,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   aztecNode!: AztecNode;
@@ -52,7 +52,7 @@ export class CrossChainMessagingTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_cross_chain_messaging:${testName}`);
+    this.logger = createLogger(`aztec:e2e_cross_chain_messaging:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath);
   }
 

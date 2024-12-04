@@ -28,7 +28,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
@@ -149,7 +149,7 @@ export class L1Publisher {
   private payload: EthAddress = EthAddress.ZERO;
   private myLastVote: bigint = 0n;
 
-  protected log = createDebugLogger('aztec:sequencer:publisher');
+  protected log = createLogger('sequencer:publisher');
 
   protected rollupContract: GetContractReturnType<
     typeof RollupAbi,

@@ -1,7 +1,7 @@
-import { createDebugLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 import { type WasmWorker } from './wasm_worker.js';
 
-const log = createDebugLogger('bb:worker_pool');
+const log = createLogger('bb:worker_pool');
 
 /**
  * Type of a worker factory.

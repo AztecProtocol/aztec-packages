@@ -18,7 +18,7 @@ import {
   type PublicCallRequest,
   type RevertCode,
 } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -53,7 +53,7 @@ export type PublicTxResult = {
 export class PublicTxSimulator {
   metrics: ExecutorMetrics;
 
-  private log: DebugLogger;
+  private log: Logger;
 
   constructor(
     private db: MerkleTreeReadOperations,
@@ -62,7 +62,7 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_simulator`);
+    this.log = createLogger(`aztec:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 

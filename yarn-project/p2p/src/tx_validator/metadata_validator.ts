@@ -1,9 +1,9 @@
 import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_metadata');
+  #log = createLogger('sequencer:tx_validator:tx_metadata');
 
   constructor(private chainId: Fr, private blockNumber: Fr) {}
 

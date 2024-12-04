@@ -10,8 +10,7 @@ import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
 
-// TODO(palla/log): Rename to createLogger
-export function createDebugLogger(module: string): DebugLogger {
+export function createLogger(module: string): Logger {
   // TODO(palla/log): Rename all module names to remove the aztec prefix
   const pinoLogger = logger.child(
     { module: module.replace(/^aztec:/, '') },
@@ -177,13 +176,6 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
   level: LogLevel;
   isLevelEnabled: (level: LogLevel) => boolean;
 };
-
-/**
- * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
- * Intended as a drop-in replacement for the debug module.
- * TODO(palla/log): Remove this alias
- */
-export type DebugLogger = Logger;
 
 /**
  * Concatenates a log message and an exception.

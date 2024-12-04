@@ -10,7 +10,7 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FunctionsOf } from '@aztec/foundation/types';
 
 import { strict as assert } from 'assert';
@@ -227,7 +227,7 @@ export enum TypeTag {
 export type TaggedMemoryInterface = FunctionsOf<TaggedMemory>;
 
 export class TaggedMemory implements TaggedMemoryInterface {
-  static readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:memory');
+  static readonly log: Logger = createLogger('avm_simulator:memory');
 
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';

@@ -1,4 +1,4 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { type Anvil } from '@viem/anvil';
 import { type PrivateKeyAccount } from 'viem';
@@ -10,10 +10,10 @@ describe('deploy_l1_contracts', () => {
   let anvil: Anvil;
   let rpcUrl: string;
   let privateKey: PrivateKeyAccount;
-  let logger: DebugLogger;
+  let logger: Logger;
 
   beforeAll(async () => {
-    logger = createDebugLogger('aztec:setup_l1_contracts');
+    logger = createLogger('setup_l1_contracts');
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
 
     ({ anvil, rpcUrl } = await startAnvil());
