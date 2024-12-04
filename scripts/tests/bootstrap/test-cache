@@ -6,17 +6,12 @@ set -o pipefail
 
 export DENOISE=${DENOISE:-1}
 # Tests the various modes of bootstrap test usage.
-# We wrap and mock ci3/test_should_run to detect when a test tries to run.
-# We never return true, as we don't actually want to run tests here.
-# - First, with CI=0, we assert that should_run returns true to each test.
-# - Then, with CI=1, we assert that should_run returns true to each test, as it is a first pass.
-# - Next, with CI=1, we assert that should_run returns false to each test, as it is a second pass.
-# We mock ci3/test_should_run for this purpose.
+# We mock ci3/test_should_run and ci3/cache_download for this purpose.
 function run_cleanup() {
-  rm -f cache_download.bkup
-  rm -f test_should_run.bkup
-  git checkout -- test_should_run
-  git checkout -- cache_download
+  rm -f $ci3/cache_download.bkup
+  rm -f $ci3/test_should_run.bkup
+  git checkout -- $ci3/test_should_run
+  git checkout -- $ci3/cache_download
 }
 function exit_cleanup() {
   run_cleanup

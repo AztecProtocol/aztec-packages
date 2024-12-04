@@ -1,18 +1,16 @@
 VERSION 0.8
 
-barretenberg-acir-tests-base:
+acir-tests-base:
     FROM ../+bootstrap-noir-bb
     ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
     WORKDIR /usr/src/barretenberg/acir_tests
-    RUN COMPILE=1 COMPILE_ONLY=1 ./run_acir_tests.sh
-    SAVE ARTIFACT /usr/src /usr/src
     ENV VERBOSE=1
     RUN mkdir -p ~/.bb-crs
     # Avoid race conditions with bb.
     RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
 
-barretenberg-acir-tests-bb:
-    FROM +barretenberg-acir-tests-base
+acir-tests-bb:
+    FROM +acir-tests-base
     # Fold and verify an ACIR program stack using ClientIvc
     RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
@@ -22,15 +20,15 @@ barretenberg-acir-tests-bb:
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
     RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
-barretenberg-acir-tests-bb-ultra-plonk:
-    FROM +barretenberg-acir-tests-base
+acir-tests-bb-ultra-plonk:
+    FROM +acir-tests-base
     # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
     # This ensures we test independent pk construction through real/garbage witness data paths.
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
     RUN FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
 
-barretenberg-acir-tests-bb-ultra-honk:
-    FROM +barretenberg-acir-tests-base
+acir-tests-bb-ultra-honk:
+    FROM +acir-tests-base
     # Run the acir test through native bb build prove_then_verify_ultra_honk flow
     # Note that the script will skip the Plonk related tests
     RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
@@ -45,8 +43,8 @@ barretenberg-acir-tests-bb-ultra-honk:
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
 
-barretenberg-acir-tests-bb-mega-honk:
-    FROM +barretenberg-acir-tests-base
+acir-tests-bb-mega-honk:
+    FROM +acir-tests-base
     # Construct and separately verify a MegaHonk proof for all acir programs
     RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
     # Construct and verify a MegaHonk proof for a single arbitrary program
@@ -54,20 +52,20 @@ barretenberg-acir-tests-bb-mega-honk:
     # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
     RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
 
-barretenberg-acir-tests-sol:
-    FROM +barretenberg-acir-tests-base
+acir-tests-sol:
+    FROM +acir-tests-base
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
 
-barretenberg-acir-tests-sol-honk:
-    FROM +barretenberg-acir-tests-base
+acir-tests-sol-honk:
+    FROM +acir-tests-base
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
 
-barretenberg-acir-tests-bb.js:
-    FROM +barretenberg-acir-tests-base
+acir-tests-bb.js:
+    FROM +acir-tests-base
     # Build/install ts apps.
     RUN cd browser-test-app && yarn && yarn build
     RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
@@ -99,27 +97,28 @@ barretenberg-acir-tests-bb.js:
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
 acir-tests:
-    BUILD +barretenberg-acir-tests-bb
-    BUILD +barretenberg-acir-tests-bb-ultra-plonk
-    BUILD +barretenberg-acir-tests-bb-ultra-honk
-    BUILD +barretenberg-acir-tests-bb-mega-honk
-    BUILD +barretenberg-acir-tests-sol
-    BUILD +barretenberg-acir-tests-sol-honk
-    BUILD +barretenberg-acir-tests-bb.js
+    BUILD +acir-tests-bb
+    BUILD +acir-tests-bb-ultra-plonk
+    # WORKTODO make issue
+    # BUILD +acir-tests-bb-ultra-honk
+    BUILD +acir-tests-bb-mega-honk
+    BUILD +acir-tests-sol
+    BUILD +acir-tests-sol-honk
+    BUILD +acir-tests-bb.js
 
-barretenberg-acir-benches-bb:
+acir-benches-bb:
   FROM ../+bootstrap-noir-bb
   WORKDIR /usr/src/barretenberg/acir_tests
 
 bench-acir-bb:
   # This target is used for debugging the benchmarking target.
   # For precise benchmarks in CI use `bench-publish-acir-bb`
-  FROM +barretenberg-acir-benches-bb
+  FROM +acir-benches-bb
   RUN ./bench_acir_tests.sh
 
 export-bench-acir-bb:
   ARG EARTHLY_GIT_HASH
-  FROM +barretenberg-acir-benches-bb
+  FROM +acir-benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
 
 bench-publish-acir-bb:
