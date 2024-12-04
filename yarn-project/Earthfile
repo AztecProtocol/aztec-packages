@@ -6,10 +6,6 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN cd ivc-integration && npx playwright install && npx playwright install-deps
 
-build-dev:
-    FROM +build
-    SAVE ARTIFACT /usr/src /usr/src
-
 cli-base:
     FROM +build
     # Remove a bunch of stuff that we don't need that takes up space.
