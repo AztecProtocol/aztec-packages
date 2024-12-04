@@ -229,7 +229,6 @@ template <typename Flavor> class SumcheckProverRound {
         size_t start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
 
         for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
-            info(edge_idx);
             extend_edges(extended_edges, polynomials, edge_idx);
             accumulate_relation_univariates(univariate_accumulator,
                                             extended_edges,
