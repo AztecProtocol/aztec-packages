@@ -11,10 +11,10 @@ import {
   applyValidatorKill,
   awaitL2BlockNumber,
   enableValidatorDynamicBootNode,
-  getConfig,
   isK8sConfig,
   restartBot,
   runAlertCheck,
+  setupEnvironment,
   startPortForward,
 } from './utils.js';
 
@@ -28,7 +28,7 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
