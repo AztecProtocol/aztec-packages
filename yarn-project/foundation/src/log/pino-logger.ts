@@ -1,4 +1,5 @@
 import { bold, reset } from 'colorette';
+import isNode from 'detect-node';
 import { type LoggerOptions, pino } from 'pino';
 import { inspect } from 'util';
 
@@ -16,8 +17,9 @@ export function createDebugLogger(module: string): DebugLogger {
   );
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
+  // Note that isLevelEnabled is missing from the browser version of pino.
   const logFn = (level: LogLevel, msg: string, data?: LogData) =>
-    pinoLogger.isLevelEnabled(level) && pinoLogger[level](processLogData(data ?? {}), msg);
+    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData(data ?? {}), msg);
 
   return {
     silent: () => {},
@@ -37,7 +39,7 @@ export function createDebugLogger(module: string): DebugLogger {
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
     trace: (msg: string, data?: LogData) => logFn('trace', msg, data),
     level: pinoLogger.level as LogLevel,
-    isLevelEnabled: pinoLogger.isLevelEnabled.bind(pinoLogger),
+    isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
   };
 }
 
@@ -52,6 +54,13 @@ export function addLogDataHandler(handler: LogDataHandler): void {
 
 function processLogData(data: LogData): LogData {
   return logDataHandlers.reduce((accum, handler) => handler(accum), data);
+}
+
+// Patch isLevelEnabled missing from pino/browser.
+function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel): boolean {
+  return typeof logger.isLevelEnabled === 'function'
+    ? logger.isLevelEnabled(level)
+    : logger.levels.values[level] >= logger.levels.values[logger.level];
 }
 
 // Load log levels from environment variables.
@@ -76,36 +85,51 @@ const stdoutTransport: LoggerOptions['transport'] = {
   options: { destination: 1 },
 };
 
+// Define custom logging levels for pino.
+const customLevels = { verbose: 25 };
+const pinoOpts = { customLevels, useOnlyCustomLevels: false, level: logLevel };
+const levels = {
+  labels: { ...pino.levels.labels, ...Object.fromEntries(Object.entries(customLevels).map(e => e.reverse())) },
+  values: { ...pino.levels.values, ...customLevels },
+};
+
 // Transport for OpenTelemetry logging. While defining this here is an abstraction leakage since this
 // should live in the telemetry-client, it is necessary to ensure that the logger is initialized with
 // the correct transport. Tweaking transports of a live pino instance is tricky, and creating a new instance
 // would mean that all child loggers created before the telemetry-client is initialized would not have
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
-const customLevels = { verbose: 25 };
-const { levels } = pino({ customLevels, useOnlyCustomLevels: false });
+
 const otelTransport: LoggerOptions['transport'] = {
   target: '@aztec/telemetry-client/otel-pino-stream',
   options: { levels, messageKey: 'msg' },
 };
 
-// Create a new pino instance with an stdout transport (either vanilla or json), and optionally
-// an OTLP transport if the OTLP endpoint is provided. Note that transports are initialized in a
-// worker thread.
+// In nodejs, create a new pino instance with an stdout transport (either vanilla or json), and optionally
+// an OTLP transport if the OTLP endpoint is provided. Note that transports are initialized in a worker thread.
+// On the browser, we just log to the console.
 const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
-const logger = pino(
-  { customLevels, useOnlyCustomLevels: false, level: logLevel },
-  pino.transport({
-    targets: compactArray([
-      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdoutTransport : prettyTransport,
-      process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ? otelTransport : undefined,
-    ]),
-  }),
-);
+const logger = isNode
+  ? pino(
+      pinoOpts,
+      pino.transport({
+        targets: compactArray([
+          ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdoutTransport : prettyTransport,
+          process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ? otelTransport : undefined,
+        ]),
+      }),
+    )
+  : pino({ ...pinoOpts, browser: { asObject: false } });
 
+// Log the logger configuration.
 logger.info(
-  { module: 'logger', ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}) },
-  `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : ''),
+  {
+    module: 'logger',
+    ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}),
+  },
+  isNode
+    ? `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : '')
+    : `Browser console logger initialized with level ${logLevel}`,
 );
 
 /** Log function that accepts an exception object */
