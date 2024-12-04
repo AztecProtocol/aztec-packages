@@ -145,9 +145,6 @@ jobs:
   bootstrap-noir-bb:
     needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.list }}
-      bench_list: ${{ steps.bench_list.outputs.list }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
