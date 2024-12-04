@@ -154,7 +154,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build"
         timeout-minutes: 40
-        run: earthly +bootstrap-noir-bb
+        run: earthly-ci +bootstrap-noir-bb
 
   bootstrap:
     needs: [bootstrap-noir-bb, configure]
@@ -171,7 +171,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build"
         timeout-minutes: 40
-        run: earthly +bootstrap
+        run: earthly-ci +bootstrap
 
   bootstrap-images:
     needs: [bootstrap-noir-bb, configure]
