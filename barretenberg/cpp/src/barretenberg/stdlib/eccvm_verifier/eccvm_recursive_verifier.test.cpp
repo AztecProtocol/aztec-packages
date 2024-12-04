@@ -77,13 +77,14 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     {
         InnerBuilder builder = generate_circuit(&engine);
         InnerProver prover(builder);
-        auto proof = prover.construct_proof();
+        ECCVMProof proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
         info("ECCVM Recursive Verifier");
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.verify_proof(proof);
+        auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
+
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -95,7 +96,6 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         InnerVerifier native_verifier(prover.key);
         bool native_result = native_verifier.verify_proof(proof);
         EXPECT_TRUE(native_result);
-
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
@@ -129,7 +129,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         InnerBuilder builder = generate_circuit(&engine);
         builder.op_queue->add_erroneous_equality_op_for_testing();
         InnerProver prover(builder);
-        auto proof = prover.construct_proof();
+        ECCVMProof proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
         OuterBuilder outer_circuit;

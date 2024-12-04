@@ -1,23 +1,24 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
+#include <utility>
+
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
 
-template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaArith<FF>> {
+template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaExecutionTraceBlocks> {
   private:
     DataBus databus; // Container for public calldata/returndata
 
   public:
-    using Arithmetization = MegaArith<FF>;
+    using ExecutionTrace = MegaExecutionTraceBlocks;
 
-    static constexpr std::string_view NAME_STRING = "MegaArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
-        UltraCircuitBuilder_<MegaArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
@@ -45,8 +46,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<MegaArith<FF>>(size_hint)
-        , op_queue(op_queue_in)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
+        , op_queue(std::move(op_queue_in))
     {
         PROFILE_THIS();
 
@@ -75,8 +76,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                         auto& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
-        : UltraCircuitBuilder_<MegaArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
-        , op_queue(op_queue_in)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+        , op_queue(std::move(op_queue_in))
     {
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
@@ -129,7 +130,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      */
     size_t get_estimated_num_finalized_gates() const override
     {
-        auto num_ultra_gates = UltraCircuitBuilder_<MegaArith<FF>>::get_estimated_num_finalized_gates();
+        auto num_ultra_gates = UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_estimated_num_finalized_gates();
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
         return num_ultra_gates + num_goblin_ecc_op_gates;
     }
@@ -154,14 +155,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_estimated_finalized_gates() const override
+    void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<MegaArith<FF>>::get_num_estimated_gates_split_into_components(
+        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_num_estimated_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
 
@@ -236,6 +237,44 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    uint64_t estimate_memory() const
+    {
+        vinfo("++Estimating builder memory++");
+        uint64_t result{ 0 };
+
+        // gates:
+        for (auto [block, label] : zip_view(this->blocks.get(), this->blocks.get_labels())) {
+            uint64_t size{ 0 };
+            for (const auto& wire : block.wires) {
+                size += wire.capacity() * sizeof(uint32_t);
+            }
+            for (const auto& selector : block.selectors) {
+                size += selector.capacity() * sizeof(FF);
+            }
+            vinfo(label, " size ", size >> 10, " KiB");
+            result += size;
+        }
+
+        // variables
+        size_t to_add{ this->variables.capacity() * sizeof(FF) };
+        result += to_add;
+        vinfo("variables: ", to_add);
+
+        // public inputs
+        to_add = this->public_inputs.capacity() * sizeof(uint32_t);
+        result += to_add;
+        vinfo("public inputs: ", to_add);
+
+        // other variable indices
+        to_add = this->next_var_index.capacity() * sizeof(uint32_t);
+        to_add += this->prev_var_index.capacity() * sizeof(uint32_t);
+        to_add += this->real_variable_index.capacity() * sizeof(uint32_t);
+        to_add += this->real_variable_tags.capacity() * sizeof(uint32_t);
+        result += to_add;
+        vinfo("variable indices: ", to_add);
+
+        return result;
+    }
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

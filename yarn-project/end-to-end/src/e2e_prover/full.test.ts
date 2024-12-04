@@ -1,5 +1,5 @@
 import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
-import { RollupAbi, SysstiaAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
@@ -22,7 +22,7 @@ describe('full_prover', () => {
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let feeJuice: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
-  let sysstia: GetContractReturnType<typeof SysstiaAbi, PublicClient<HttpTransport, Chain>>;
+  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -45,9 +45,9 @@ describe('full_prover', () => {
       client: t.l1Contracts.publicClient,
     });
 
-    sysstia = getContract({
-      abi: SysstiaAbi,
-      address: t.l1Contracts.l1ContractAddresses.sysstiaAddress.toString(),
+    rewardDistributor = getContract({
+      abi: RewardDistributorAbi,
+      address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
       client: t.l1Contracts.publicClient,
     });
   });
@@ -74,7 +74,7 @@ describe('full_prover', () => {
       const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
       const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAssets[1].methods.transfer_public(sender, recipient, publicSendAmount, 0);
+      const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
       // Prove them
       logger.info(`Proving txs`);
@@ -140,7 +140,7 @@ describe('full_prover', () => {
       const provenBn = await rollup.read.getProvenBlockNumber();
       const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
       const balanceAfterProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
-      const blockReward = (await sysstia.read.BLOCK_REWARD()) as bigint;
+      const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
       const fees = (
         await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
       ).map(b => b!.header.totalFees.toBigInt());
@@ -166,7 +166,7 @@ describe('full_prover', () => {
     }
 
     const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
-    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(sender, recipient, 1n, 0);
+    const publicInteraction = t.fakeProofsAsset.methods.transfer_in_public(sender, recipient, 1n, 0);
 
     const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
     const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });

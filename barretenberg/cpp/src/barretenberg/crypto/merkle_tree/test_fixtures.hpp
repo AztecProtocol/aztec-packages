@@ -10,7 +10,10 @@
 
 namespace bb::crypto::merkle_tree {
 
-void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess)
+void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db,
+                                      block_number_t blockNumber,
+                                      fr root,
+                                      bool expectedSuccess)
 {
     BlockPayload blockData;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
@@ -25,7 +28,7 @@ void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t block
 }
 
 void inline check_block_and_root_data(
-    LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
+    LMDBTreeStore::SharedPtr db, block_number_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
 {
     BlockPayload blockData;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
@@ -40,7 +43,7 @@ void inline check_block_and_root_data(
 }
 
 void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
-                                      index_t blockNumber,
+                                      block_number_t blockNumber,
                                       index_t expectedSize,
                                       bool expectedSuccess)
 {
@@ -56,13 +59,12 @@ void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
 void inline check_indices_data(
     LMDBTreeStore::SharedPtr db, fr leaf, index_t index, bool entryShouldBePresent, bool indexShouldBePresent)
 {
-    Indices indices;
+    index_t retrieved = 0;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    bool success = db->read_leaf_indices(leaf, indices, *tx);
+    bool success = db->read_leaf_index(leaf, retrieved, *tx);
     EXPECT_EQ(success, entryShouldBePresent);
     if (entryShouldBePresent) {
-        bool found = std::find(indices.indices.begin(), indices.indices.end(), index) != std::end(indices.indices);
-        EXPECT_EQ(found, indexShouldBePresent);
+        EXPECT_EQ(index == retrieved, indexShouldBePresent);
     }
 }
 
@@ -75,30 +77,6 @@ void check_leaf_by_hash(LMDBTreeStore::SharedPtr db, IndexedLeaf<LeafType> leaf,
     EXPECT_EQ(success, shouldBePresent);
     if (success) {
         EXPECT_EQ(fromStore, leaf);
-    }
-}
-
-void inline check_leaf_keys_are_present(LMDBTreeStore::SharedPtr db,
-                                        uint64_t startIndex,
-                                        uint64_t endIndex,
-                                        const std::vector<fr>& keys)
-{
-    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    for (uint64_t i = startIndex; i <= endIndex; i++) {
-        fr leafKey;
-        bool success = db->read_leaf_key_by_index(i, leafKey, *tx);
-        EXPECT_TRUE(success);
-        EXPECT_EQ(leafKey, keys[i - startIndex]);
-    }
-}
-
-void inline check_leaf_keys_are_not_present(LMDBTreeStore::SharedPtr db, uint64_t startIndex, uint64_t endIndex)
-{
-    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    for (uint64_t i = startIndex; i < endIndex; i++) {
-        fr leafKey;
-        bool success = db->read_leaf_key_by_index(i, leafKey, *tx);
-        EXPECT_FALSE(success);
     }
 }
 

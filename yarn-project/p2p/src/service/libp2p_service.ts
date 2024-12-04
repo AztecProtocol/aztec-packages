@@ -12,13 +12,14 @@ import {
   Tx,
   TxHash,
   type WorldStateSynchronizer,
+  metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -29,7 +30,6 @@ import { identify } from '@libp2p/identify';
 import type { PeerId } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
-import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
@@ -60,22 +60,6 @@ import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 
 /**
- * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
- * @param privateKey - Optional peer ID private key as hex string
- * @returns The peer ID.
- */
-export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
-  if (!privateKey?.length) {
-    return await createSecp256k1PeerId();
-  }
-  const base64 = Buffer.from(privateKey, 'hex').toString('base64');
-  return await createFromJSON({
-    id: '',
-    privKey: base64,
-  });
-}
-
-/**
  * Lib P2P implementation of the P2PService interface.
  */
 export class LibP2PService extends WithTracer implements P2PService {
@@ -84,7 +68,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
 
   // Request and response sub service
-  private reqresp: ReqResp;
+  public reqresp: ReqResp;
 
   /**
    * Callback for when a block is received from a peer.
@@ -101,11 +85,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    telemetry: TelemetryClient,
+    private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    // Instatntiate tracer
     super(telemetry, 'LibP2PService');
 
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
@@ -218,6 +201,8 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const datastore = new AztecDatastore(store);
 
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -257,6 +242,8 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          metricsRegister: otelMetricsAdapter,
+          metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({

@@ -2,6 +2,8 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
 
+import { bufferToHex } from '../string/index.js';
+
 /**
  * A class representing a 32 byte Buffer.
  */
@@ -67,11 +69,11 @@ export class Buffer32 {
    * @returns The hex string.
    */
   public toString() {
-    return this.buffer.toString('hex');
+    return bufferToHex(this.buffer);
   }
 
-  public to0xString(): `0x${string}` {
-    return `0x${this.buffer.toString('hex')}`;
+  toJSON() {
+    return this.toString();
   }
 
   /**
@@ -89,6 +91,7 @@ export class Buffer32 {
   public static fromBigInt(hash: bigint) {
     return new Buffer32(serializeBigInt(hash, Buffer32.SIZE));
   }
+
   public static fromField(hash: Fr) {
     return new Buffer32(serializeBigInt(hash.toBigInt()));
   }
@@ -109,18 +112,6 @@ export class Buffer32 {
 
   /**
    * Converts a string into a Buffer32 object.
-   * @param str - The TX hash in string format.
-   * @returns A new Buffer32 object.
-   */
-  public static fromStringUnchecked(str: string): Buffer32 {
-    return new Buffer32(Buffer.from(str, 'hex'));
-  }
-
-  /**
-   * Converts a string into a Buffer32 object.
-   * NOTE: this method includes checks for the 0x prefix and the length of the string.
-   *       if you dont need this checks, use fromStringUnchecked instead.
-   *
    * @param str - The TX hash in string format.
    * @returns A new Buffer32 object.
    */

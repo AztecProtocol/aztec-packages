@@ -2,7 +2,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
@@ -560,18 +560,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     af.constrained_witness.insert(output);
                 }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SchnorrVerify>) {
-                auto input_pkey_x = get_witness_from_function_input(arg.public_key_x);
-                auto input_pkey_y = get_witness_from_function_input(arg.public_key_y);
-                af.schnorr_constraints.push_back(SchnorrConstraint{
-                    .message = map(arg.message, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .public_key_x = input_pkey_x,
-                    .public_key_y = input_pkey_y,
-                    .result = arg.output.value,
-                    .signature = map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
-                });
-                af.original_opcode_indices.schnorr_constraints.push_back(opcode_index);
-                af.constrained_witness.insert(af.schnorr_constraints.back().result);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =

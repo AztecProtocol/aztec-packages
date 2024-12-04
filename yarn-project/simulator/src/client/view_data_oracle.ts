@@ -14,7 +14,7 @@ import {
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -271,7 +271,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public override async storageRead(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
     numberOfElements: number,
@@ -296,26 +296,27 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
-   * Includes the last known index used for tagging with this secret.
+   * Includes the next index to be used used for tagging with this secret.
    * For this to work, the ivpsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecret(
+  public override async getAppTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
+    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  /**
-   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
-   * @param contractAddress - The contract address to silo the secret for
-   * @param recipient - The address receiving the notes
-   * @returns A list of siloed tagging secrets
-   */
-  public override async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
-    return await this.db.getAppTaggingSecretsForSenders(this.contractAddress, recipient);
+  public override async syncNotes() {
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+      this.contractAddress,
+      await this.aztecNode.getBlockNumber(),
+      this.scopes,
+    );
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
   }
 }

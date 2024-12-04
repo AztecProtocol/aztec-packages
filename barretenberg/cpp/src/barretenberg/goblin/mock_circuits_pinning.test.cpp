@@ -58,7 +58,8 @@ TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
 {
     GoblinProver goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::SMALL_TEST);
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
 }
 
@@ -66,7 +67,8 @@ TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
 {
     GoblinProver goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::CLIENT_IVC_BENCH);
+    TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
 }
 
@@ -74,6 +76,7 @@ TEST_F(MegaMockCircuitsPinning, E2EStructuredCircuitSize)
 {
     GoblinProver goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::E2E_FULL_TEST);
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 20);
 }

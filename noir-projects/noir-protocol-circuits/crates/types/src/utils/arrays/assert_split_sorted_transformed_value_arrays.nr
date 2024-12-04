@@ -1,4 +1,4 @@
-mod get_split_order_hints;
+pub mod get_split_order_hints;
 
 use crate::{
     abis::side_effect::Ordered,
@@ -140,7 +140,7 @@ mod tests {
         },
     };
 
-    global original_array = [
+    global original_array: [TestTwoValues; 8] = [
         TestTwoValues { value_1: 1, value_2: 0, counter: 33 },
         TestTwoValues { value_1: 10, value_2: 6, counter: 44 },
         TestTwoValues { value_1: 20, value_2: 7, counter: 11 },

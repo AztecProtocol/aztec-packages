@@ -1,10 +1,7 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -69,8 +66,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        AggregationObjectIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
-        builder.add_recursive_proof(agg_obj_indices);
+        PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
+        builder.add_pairing_point_accumulator(agg_obj_indices);
         return builder;
     };
 
@@ -126,8 +123,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     static void test_independent_vk_hash()
     {
         // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-        auto get_blocks = [](size_t inner_size)
-            -> std::tuple<typename OuterBuilder::GateBlocks, std::shared_ptr<typename OuterFlavor::VerificationKey>> {
+        auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
+                                                              std::shared_ptr<typename OuterFlavor::VerificationKey>> {
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit(inner_size);
 
@@ -214,7 +211,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
             init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
-        auto pairing_points = verifier.verify_proof(inner_proof, agg_obj);
+        bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor> output =
+            verifier.verify_proof(inner_proof, agg_obj);
+        aggregation_state<typename RecursiveFlavor::Curve> pairing_points = output.agg_obj;
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -295,7 +294,9 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                               MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                               MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                               MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 

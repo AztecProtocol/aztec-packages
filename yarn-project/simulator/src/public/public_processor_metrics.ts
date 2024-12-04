@@ -1,5 +1,5 @@
-import { type PublicKernelPhase } from '@aztec/circuit-types';
-import { type ContractClassRegisteredEvent } from '@aztec/circuits.js';
+import { type TxExecutionPhase } from '@aztec/circuit-types';
+import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts';
 import {
   Attributes,
   type Histogram,
@@ -56,7 +56,7 @@ export class PublicProcessorMetrics {
     });
   }
 
-  recordPhaseDuration(phaseName: PublicKernelPhase, durationMs: number) {
+  recordPhaseDuration(phaseName: TxExecutionPhase, durationMs: number) {
     this.phaseCount.add(1, { [Attributes.TX_PHASE_NAME]: phaseName, [Attributes.OK]: true });
     this.phaseDuration.record(Math.ceil(durationMs), { [Attributes.TX_PHASE_NAME]: phaseName });
   }
@@ -75,7 +75,7 @@ export class PublicProcessorMetrics {
     });
   }
 
-  recordRevertedPhase(phaseName: PublicKernelPhase) {
+  recordRevertedPhase(phaseName: TxExecutionPhase) {
     this.phaseCount.add(1, { [Attributes.TX_PHASE_NAME]: phaseName, [Attributes.OK]: false });
   }
 

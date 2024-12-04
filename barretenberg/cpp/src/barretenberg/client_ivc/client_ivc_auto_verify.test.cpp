@@ -61,8 +61,7 @@ class ClientIVCAutoVerifyTests : public ::testing::Test {
  */
 TEST_F(ClientIVCAutoVerifyTests, Basic)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false);
@@ -81,8 +80,7 @@ TEST_F(ClientIVCAutoVerifyTests, Basic)
  */
 TEST_F(ClientIVCAutoVerifyTests, BasicOdd)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false);
@@ -105,8 +103,7 @@ TEST_F(ClientIVCAutoVerifyTests, BasicOdd)
  */
 TEST_F(ClientIVCAutoVerifyTests, BasicLarge)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
 
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 6;
@@ -130,9 +127,7 @@ TEST_F(ClientIVCAutoVerifyTests, BasicLarge)
  */
 TEST_F(ClientIVCAutoVerifyTests, BasicStructured)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Construct some circuits of varying size
     Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false, /*log2_num_gates=*/5);
@@ -155,8 +150,7 @@ TEST_F(ClientIVCAutoVerifyTests, BasicStructured)
  */
 TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
 
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 4;
@@ -171,7 +165,7 @@ TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
 
     // Accumulate each circuit using the precomputed VKs
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vk);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -183,9 +177,7 @@ TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
  */
 TEST_F(ClientIVCAutoVerifyTests, StructuredPrecomputedVKs)
 {
-    ClientIVC ivc;
-    ivc.auto_verify_mode = true;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 4;
@@ -200,7 +192,7 @@ TEST_F(ClientIVCAutoVerifyTests, StructuredPrecomputedVKs)
 
     // Accumulate each circuit
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vk);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

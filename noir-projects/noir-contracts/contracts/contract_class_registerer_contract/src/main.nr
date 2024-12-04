@@ -42,6 +42,7 @@ contract ContractClassRegisterer {
         artifact_hash: Field,
         private_functions_root: Field,
         public_bytecode_commitment: Field,
+        emit: bool,
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
@@ -81,13 +82,6 @@ contract ContractClassRegisterer {
         );
 
         // Emit the contract class id as a nullifier to be able to prove that this class has been (not) registered
-        let event = ContractClassRegistered {
-            contract_class_id,
-            version: 1,
-            artifact_hash,
-            private_functions_root,
-            packed_public_bytecode,
-        };
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode
@@ -100,7 +94,19 @@ contract ContractClassRegisterer {
                 public_bytecode_commitment,
             ],
         );
-        emit_contract_class_unencrypted_log(&mut context, event.serialize());
+
+        // TODO(#10007): Drop this conditional and always emit the bytecode. We allow skipping the broadcast
+        // as a stopgap solution to allow txs to fit in Sepolia when we broadcast public bytecode.
+        if emit {
+            let event = ContractClassRegistered {
+                contract_class_id,
+                version: 1,
+                artifact_hash,
+                private_functions_root,
+                packed_public_bytecode,
+            };
+            emit_contract_class_log(&mut context, event.serialize());
+        }
     }
 
     #[private]
@@ -143,7 +149,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_unencrypted_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize());
     }
 
     #[private]
@@ -179,14 +185,11 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_unencrypted_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize());
     }
 
     #[contract_library_method]
-    fn emit_contract_class_unencrypted_log<let N: u32>(
-        context: &mut PrivateContext,
-        log: [Field; N],
-    ) {
+    fn emit_contract_class_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
         let contract_address = context.this_address();
         let counter = context.next_counter();
 
@@ -203,7 +206,7 @@ contract ContractClassRegisterer {
         let log_hash = emit_contract_class_unencrypted_log_private(contract_address, log, counter);
 
         // 40 = addr (32) + raw log len (4) + processed log len (4)
-        context.unencrypted_logs_hashes.push(
+        context.contract_class_logs_hashes.push(
             LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 },
         );
     }

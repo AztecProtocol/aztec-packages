@@ -25,7 +25,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     size_t key_idx = 0;
     for (auto& [proof, vkey, type] : verification_queue) {
         // Construct stdlib proof directly from the internal native queue data
-        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+        auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
         auto stdlib_vkey =
@@ -156,7 +156,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * @param circuit
  * @param precomputed_vk
  */
-void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
+void ClientIVC::accumulate(ClientCircuit& circuit,
+                           const bool _one_circuit,
+                           const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
+                           const bool mock_vk)
 {
     if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
         complete_kernel_circuit_logic(circuit);
@@ -168,31 +171,49 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
     // verifier.
-    circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
+    circuit.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the proving key for circuit
-    std::shared_ptr<DeciderProvingKey> proving_key;
-    if (!initialized) {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_structure);
-        trace_usage_tracker = ExecutionTraceUsageTracker(trace_structure);
-    } else {
-        proving_key = std::make_shared<DeciderProvingKey>(
-            circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
-    }
+    std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
+    // The commitment key is initialised with the number of points determined by the trace_settings' dyadic size. If a
+    // circuit overflows past the dyadic size the commitment key will not have enough points so we need to increase it
+    if (proving_key->proving_key.circuit_size > trace_settings.dyadic_size()) {
+        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
+        goblin.commitment_key = bn254_commitment_key;
+    }
+    proving_key->proving_key.commitment_key = bn254_commitment_key;
+
+    vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
-    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
+    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
+        vinfo("set honk vk metadata");
     }
 
-    // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
-    if (!initialized) {
-        OinkProver<Flavor> oink_prover{ proving_key };
+    if (_one_circuit) {
+        one_circuit = _one_circuit;
+        MegaProver prover{ proving_key };
+        vinfo("computing mega proof...");
+        mega_proof = prover.prove();
+        vinfo("mega proof computed");
+
+        proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
+        // Initialize the gate challenges to zero for use in first round of folding
+        proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+
+        fold_output.accumulator = proving_key;
+    } else if (!initialized) {
+        // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
+        // proof
+        MegaOinkProver oink_prover{ proving_key };
+        vinfo("computing oink proof...");
         oink_prover.prove();
+        vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
         proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
@@ -205,8 +226,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
+        vinfo("computing folding proof");
         FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
         fold_output = folding_prover.prove();
+        vinfo("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
@@ -237,10 +260,8 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
-    vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION", num_public_inputs);
-    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // exclude aggregation object
+    num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
-    vinfo("num_public_inputs of the last folding proof ", num_public_inputs);
     for (size_t i = 0; i < num_public_inputs; i++) {
         size_t offset = HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder.add_public_variable(fold_proof[i + offset]);
@@ -255,7 +276,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     auto stdlib_decider_vk =
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
 
-    auto stdlib_proof = bb::convert_proof_to_witness(&builder, fold_proof);
+    auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
 
     // Perform recursive folding verification of the last folding proof
     FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
@@ -266,14 +287,14 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     decider.verify_proof(decider_proof);
 
-    builder.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
+    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
 
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);
     merge_verification_queue.emplace_back(merge_proof);
 
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
-    honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
+    auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
+    honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
     MegaProver prover(decider_pk);
 
     HonkProof proof = prover.construct_proof();
@@ -288,27 +309,27 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    HonkProof mega_proof = construct_and_prove_hiding_circuit();
-    ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+    if (!one_circuit) {
+        mega_proof = construct_and_prove_hiding_circuit();
+        ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+    }
+
     MergeProof& merge_proof = merge_verification_queue[0];
     return { mega_proof, goblin.prove(merge_proof) };
 };
 
-bool ClientIVC::verify(const Proof& proof,
-                       const std::shared_ptr<VerificationKey>& ultra_vk,
-                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
-                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
+bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
 
     // Verify the hiding circuit proof
-    MegaVerifier verifer{ ultra_vk };
-    bool ultra_verified = verifer.verify_proof(proof.mega_proof);
-    vinfo("Mega verified: ", ultra_verified);
+    MegaVerifier verifer{ vk.mega };
+    bool mega_verified = verifer.verify_proof(proof.mega_proof);
+    vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
+    GoblinVerifier goblin_verifier{ vk.eccvm, vk.translator };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);
-    return goblin_verified && ultra_verified;
+    return goblin_verified && mega_verified;
 }
 
 /**
@@ -321,7 +342,7 @@ bool ClientIVC::verify(const Proof& proof)
 {
     auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    return verify(proof, honk_vk, eccvm_vk, translator_vk);
+    return verify(proof, { honk_vk, eccvm_vk, translator_vk });
 }
 
 /**
@@ -331,7 +352,10 @@ bool ClientIVC::verify(const Proof& proof)
  */
 HonkProof ClientIVC::decider_prove() const
 {
+    vinfo("prove decider...");
+    fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
+    vinfo("finished decider proving.");
     return decider_prover.construct_proof();
 }
 
@@ -343,8 +367,20 @@ HonkProof ClientIVC::decider_prove() const
  */
 bool ClientIVC::prove_and_verify()
 {
-    auto proof = prove();
-    return verify(proof);
+    auto start = std::chrono::steady_clock::now();
+    const auto proof = prove();
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
+
+    start = end;
+    const bool verified = verify(proof);
+    end = std::chrono::steady_clock::now();
+
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
+
+    return verified;
 }
 
 /**
@@ -357,12 +393,12 @@ bool ClientIVC::prove_and_verify()
  * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
  *
  * @param circuits A copy of the circuits to be accumulated (passing by reference would alter the original circuits)
- * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
+ * @return std::vector<std::shared_ptr<MegaFlavor::VerificationKey>>
  */
-std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
+std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
     std::vector<ClientCircuit> circuits)
 {
-    std::vector<std::shared_ptr<VerificationKey>> vkeys;
+    std::vector<std::shared_ptr<MegaVerificationKey>> vkeys;
 
     for (auto& circuit : circuits) {
         accumulate(circuit);
@@ -370,10 +406,10 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     }
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
-    TraceStructure structure = trace_structure;
+    TraceSettings settings = trace_settings;
     bool auto_verify = auto_verify_mode;
     *this = ClientIVC();
-    this->trace_structure = structure;
+    this->trace_settings = settings;
     this->auto_verify_mode = auto_verify;
 
     return vkeys;

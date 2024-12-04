@@ -1,0 +1,6 @@
+apiVersion: v2
+name: aztec-chaos-scenarios
+description: Chaos scenarios for spartan using chaos-mesh
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

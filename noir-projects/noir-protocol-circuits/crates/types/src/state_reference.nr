@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub struct StateReference {
-    l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
-    partial: PartialStateReference,
+    pub l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
+    pub partial: PartialStateReference,
 }
 
 impl Eq for StateReference {
@@ -24,7 +24,7 @@ impl Serialize<STATE_REFERENCE_LENGTH> for StateReference {
         fields.extend_from_array(self.l1_to_l2_message_tree.serialize());
         fields.extend_from_array(self.partial.serialize());
 
-        fields.storage
+        fields.storage()
     }
 }
 

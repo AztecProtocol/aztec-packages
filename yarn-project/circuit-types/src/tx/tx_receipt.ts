@@ -1,8 +1,11 @@
-import { RevertCode } from '@aztec/circuits.js';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { type UniqueNote } from '../notes/extended_note.js';
-import { type PublicDataWrite } from '../public_data_write.js';
+import { z } from 'zod';
+
+import { L2BlockHash } from './block_hash.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -25,64 +28,50 @@ export enum TxStatus {
  */
 export class TxReceipt {
   constructor(
-    /**
-     * A unique identifier for a transaction.
-     */
+    /** A unique identifier for a transaction. */
     public txHash: TxHash,
-    /**
-     * The transaction's status.
-     */
+    /** The transaction's status. */
     public status: TxStatus,
-    /**
-     * Description of transaction error, if any.
-     */
+    /** Description of transaction error, if any. */
     public error: string,
-    /**
-     * The transaction fee paid for the transaction.
-     */
+    /** The transaction fee paid for the transaction. */
     public transactionFee?: bigint,
-    /**
-     * The hash of the block containing the transaction.
-     */
-    public blockHash?: Buffer,
-    /**
-     * The block number in which the transaction was included.
-     */
+    /** The hash of the block containing the transaction. */
+    public blockHash?: L2BlockHash,
+    /** The block number in which the transaction was included. */
     public blockNumber?: number,
-    /**
-     * Information useful for testing/debugging, set when test flag is set to true in `waitOpts`.
-     */
+    /** Information useful for testing/debugging, set when test flag is set to true in `waitOpts`. */
     public debugInfo?: DebugInfo,
   ) {}
 
-  /**
-   * Convert a Tx class object to a plain JSON object.
-   * @returns A plain object with Tx properties.
-   */
-  public toJSON() {
-    return {
-      txHash: this.txHash.toString(),
-      status: this.status.toString(),
-      error: this.error,
-      blockHash: this.blockHash?.toString('hex'),
-      blockNumber: this.blockNumber,
-      transactionFee: this.transactionFee?.toString(),
-    };
+  static empty() {
+    return new TxReceipt(TxHash.zero(), TxStatus.DROPPED, '');
   }
 
-  /**
-   * Convert a plain JSON object to a Tx class object.
-   * @param obj - A plain Tx JSON object.
-   * @returns A Tx class object.
-   */
-  public static fromJSON(obj: any) {
-    const txHash = TxHash.fromString(obj.txHash);
-    const status = obj.status as TxStatus;
-    const error = obj.error;
-    const transactionFee = obj.transactionFee ? BigInt(obj.transactionFee) : undefined;
-    const blockHash = obj.blockHash ? Buffer.from(obj.blockHash, 'hex') : undefined;
-    const blockNumber = obj.blockNumber ? Number(obj.blockNumber) : undefined;
-    return new TxReceipt(txHash, status, error, transactionFee, blockHash, blockNumber);
+  static get schema() {
+    return z
+      .object({
+        txHash: TxHash.schema,
+        status: z.nativeEnum(TxStatus),
+        error: z.string(),
+        blockHash: L2BlockHash.schema.optional(),
+        blockNumber: z.number().optional(),
+        transactionFee: schemas.BigInt.optional(),
+        debugInfo: DebugInfoSchema.optional(),
+      })
+      .transform(TxReceipt.from);
+  }
+
+  static from(fields: FieldsOf<TxReceipt>) {
+    return new TxReceipt(
+      fields.txHash,
+      fields.status,
+      fields.error,
+      fields.transactionFee,
+      fields.blockHash,
+      fields.blockNumber,
+      fields.debugInfo,
+    );
   }
 
   public static statusFromRevertCode(revertCode: RevertCode) {
@@ -121,16 +110,11 @@ interface DebugInfo {
    * New L2 to L1 messages created by the transaction.
    */
   l2ToL1Msgs: Fr[];
-  /**
-   * Notes created in this tx which were successfully decoded with the incoming keys of accounts which are registered
-   * in the PXE which was used to submit the tx. You will not get notes of accounts which are not registered in
-   * the PXE here even though they were created in this tx.
-   */
-  visibleIncomingNotes: UniqueNote[];
-  /**
-   * Notes created in this tx which were successfully decoded with the outgoing keys of accounts which are registered
-   * in the PXE which was used to submit the tx. You will not get notes of accounts which are not registered in
-   * the PXE here even though they were created in this tx.
-   */
-  visibleOutgoingNotes: UniqueNote[];
 }
+
+const DebugInfoSchema = z.object({
+  noteHashes: z.array(schemas.Fr),
+  nullifiers: z.array(schemas.Fr),
+  publicDataWrites: z.array(PublicDataWrite.schema),
+  l2ToL1Msgs: z.array(schemas.Fr),
+});

@@ -1,4 +1,5 @@
-import { SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress, SerializableContractInstance } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -16,7 +17,7 @@ import {
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
-  const address = Fr.random();
+  const address = AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -44,7 +45,7 @@ describe('journal', () => {
       expect(cacheMissResult).toEqual(storedValue);
 
       // Write to storage
-      persistableState.writeStorage(address, slot, cachedValue);
+      await persistableState.writeStorage(address, slot, cachedValue);
 
       // Get the storage value
       const cachedResult = await persistableState.readStorage(address, slot);
@@ -54,22 +55,8 @@ describe('journal', () => {
 
       // We expect the journal to store the access in [storedVal, cachedVal] - [time0, time1]
       expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(2);
-      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(
-        /*nthCall=*/ 1,
-        address,
-        slot,
-        storedValue,
-        /*exists=*/ true,
-        /*cached=*/ false,
-      );
-      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(
-        /*nthCall=*/ 2,
-        address,
-        slot,
-        cachedValue,
-        /*exists=*/ true,
-        /*cached=*/ true,
-      );
+      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(/*nthCall=*/ 1, address, slot, storedValue);
+      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(/*nthCall=*/ 2, address, slot, cachedValue);
     });
   });
 
@@ -98,27 +85,25 @@ describe('journal', () => {
     it('checkNullifierExists works for missing nullifiers', async () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
+      const siloedNullifier = siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-        address,
-        utxo,
-        /*leafIndex=*/ Fr.ZERO,
-        exists,
-        /*isPending=*/ false,
-      );
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
+      const siloedNullifier = siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists, /*isPending=*/ false);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ utxo);
+      const siloedNullifier = siloNullifier(address, utxo);
+      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier);
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {
@@ -168,7 +153,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 2
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);
@@ -301,7 +286,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 1
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);

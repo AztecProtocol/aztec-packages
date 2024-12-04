@@ -1,0 +1,113 @@
+nameOverride: null
+fullnameOverride: null
+
+global:
+  # When deploying, override the namespace to where spartan will deploy to, this will apply all chaos experiments to all pods within that namespace
+  # run deployment with --values global.namespace=your-namespace
+  targetNamespace: smoke
+  chaosMeshNamespace: chaos-mesh
+
+# Network shaping configuration
+networkShaping:
+  # Master switch to enable network shaping
+  enabled: false
+
+  # Default settings
+  defaultSettings:
+    mode: all
+    # Set duration to 1 year so the experiment will run indefinitely unless overridden
+    duration: 8760h
+
+  # Network conditions to apply
+  conditions:
+    # Latency Simulation
+    latency:
+      # Enable / disable latency configuration
+      enabled: false
+      delay:
+        # Base latency of all network traffic
+        # can be defined in ms / s
+        latency: "100ms"
+
+        # Random variation in latency
+        # Actual will be latency +- jitter
+        jitter: "50ms"
+
+        # Correlation
+        # This means previous delays will impact the immediate next delay
+        # Eg: 75 means the current delay will be 75% influenced by the previous delay
+        correlation: "75"
+
+    packetLoss:
+      # Enable / disable packet loss configuration
+      enabled: false
+      # Packet drop percentage
+      # 2 = 2% of packets will disappear into the ether
+      loss: "2"
+
+      # Correlation
+      # Higher values mean packet losses happen in bursts
+      # 25 = 25% influenced by the previous loss
+      correlation: "25"
+
+    bandwidth:
+      # Enable / disable bandwidth configuration
+      enabled: false
+
+      # Target bandwidth rate
+      # kbps, mbps, gbps
+      rate: "1024kbps"
+
+      # Burst size, buffer to allow before bandwidth limiting is applied
+      # Not a string!
+      limit: 20971520
+
+      # Buffer = smoother bandwidth restriction but higher memory usage
+      buffer: 1000
+
+proverFailure:
+  enabled: false
+  duration: 13m
+
+validatorKill:
+  enabled: false
+  percent: 30
+
+bootNodeFailure:
+  enabled: false
+  duration: 60m
+## Here are some exciting example configurations created by claude:
+# Example use cases for different configurations:
+
+# High latency network simulation (e.g., satellite)
+# latency:
+#   enabled: true
+#   delay:
+#     latency: 500ms
+#     jitter: 50ms
+#     correlation: "75"
+
+# Mobile network simulation (3G)
+# bandwidth:
+#   enabled: true
+#   rate: 1500kbps
+#   limit: 1500kb
+#   buffer: 1000
+# latency:
+#   enabled: true
+#   delay:
+#     latency: 100ms
+#     jitter: 40ms
+#     correlation: "75"
+
+# Unreliable network simulation
+# packetLoss:
+#   enabled: true
+#   loss: "5"
+#   correlation: "75"
+# latency:
+#   enabled: true
+#   delay:
+#     latency: 150ms
+#     jitter: 30ms
+#     correlation: "75"

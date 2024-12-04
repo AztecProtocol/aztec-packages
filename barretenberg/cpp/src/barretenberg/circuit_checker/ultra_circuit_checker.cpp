@@ -5,7 +5,7 @@
 
 namespace bb {
 
-template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
+template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>()
 {
     return UltraFlavor::AllValues{};
 }
@@ -298,7 +298,7 @@ void UltraCircuitChecker::populate_values(
 }
 
 // Template method instantiations for each check method
-template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
-    const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in);
+template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(
+    const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in);
 template bool UltraCircuitChecker::check<MegaCircuitBuilder_<bb::fr>>(const MegaCircuitBuilder_<bb::fr>& builder_in);
 } // namespace bb

@@ -42,7 +42,6 @@ export { ContractDeployer } from './deployment/index.js';
 export {
   AnvilTestWatcher,
   CheatCodes,
-  EthCheatCodes,
   L1FeeJuicePortalManager,
   L1ToL2TokenPortalManager,
   L1TokenManager,
@@ -53,7 +52,6 @@ export {
   generateClaimSecret,
   generatePublicKey,
   readFieldCompressedString,
-  waitForAccountSynch,
   waitForPXE,
   type AztecAddressLike,
   type EthAddressLike,
@@ -62,7 +60,7 @@ export {
   type FunctionSelectorLike,
   type L2AmountClaim,
   type L2Claim,
-  type L2RedeemableAmountClaim,
+  type L2AmountClaimWithRecipient,
   type WrappedFieldLike,
 } from './utils/index.js';
 
@@ -112,9 +110,8 @@ export {
   Body,
   Comparator,
   CompleteAddress,
-  EncryptedL2BlockL2Logs,
+  ContractClass2BlockL2Logs,
   EncryptedLogPayload,
-  EncryptedNoteL2BlockL2Logs,
   EpochProofQuote,
   EpochProofQuotePayload,
   EventMetadata,
@@ -127,9 +124,7 @@ export {
   L1ToL2Message,
   L2Actor,
   L2Block,
-  L2BlockL2Logs,
   LogId,
-  LogType,
   MerkleTreeId,
   Note,
   PackedValues,
@@ -169,7 +164,7 @@ export { elapsed } from '@aztec/foundation/timer';
 export { type FieldsOf } from '@aztec/foundation/types';
 export { fileURLToPath } from '@aztec/foundation/url';
 
-export { deployL1Contract, deployL1Contracts, type DeployL1Contracts } from '@aztec/ethereum';
+export { type DeployL1Contracts, EthCheatCodes, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 
 // Start of section that exports public api via granular api.
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.

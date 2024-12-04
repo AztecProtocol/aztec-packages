@@ -19,10 +19,6 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {
@@ -64,4 +60,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_grand_product_computation_round();
     RelationSeparator generate_alphas_round();
 };
+
+using MegaOinkProver = OinkProver<MegaFlavor>;
+
 } // namespace bb

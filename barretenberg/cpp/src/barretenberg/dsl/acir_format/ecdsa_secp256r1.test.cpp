@@ -134,7 +134,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
@@ -189,7 +189,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
@@ -242,7 +242,7 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
@@ -291,7 +291,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},

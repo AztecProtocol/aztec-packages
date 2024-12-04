@@ -109,6 +109,33 @@ in size) is loaded and keeps page load times responsive.
 const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
 ```
 
+### Multithreading in browser
+
+Multithreading in bb.js requires [`SharedArrayBuffer`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer) to be enabled. It is only enabled in browsers if COOP and COEP headers are set by the server. Read more [here](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements).
+
+You can configure your server to set these headers for pages that perform proof generation. See [this example project](https://github.com/saleel/gitclaim/blob/main/app/next.config.mjs#L48-L67) that implements multi-threaded browser proving, which contains the below Next.js config:
+
+```typescript
+{
+  ...
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+        ],
+      },
+    ];
+  },
+}
+```
+
+Note that adding COOP and COEP headers will disable loading of external scripts, which might be required by your application.
+
+You can enable these headers for specific pages that perform proof generation, but this may be challenging, especially in single-page applications. One workaround is to move the proof generation to a separate page, load it in an invisible iframe within your main application, and then use `postMessage` to communicate between the pages for generating proofs.
+
 ## Development
 
 Create a symlink to the root script `bb.js-dev` in your path. You can now run the current state of the code from

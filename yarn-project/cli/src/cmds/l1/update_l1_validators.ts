@@ -1,6 +1,6 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
-import { ETHEREUM_SLOT_DURATION, type EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type EthAddress } from '@aztec/circuits.js';
+import { createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
@@ -53,9 +53,18 @@ export async function addL1Validator({
   const txHash = await rollup.write.addValidator([validatorAddress.toString()]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
-  dualLog(`Funding validator on L1`);
-  const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  if (isAnvilTestChain(chainId)) {
+    dualLog(`Funding validator on L1`);
+    const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
+    await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  } else {
+    const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
+    const balanceInEth = Number(balance) / 10 ** 18;
+    dualLog(`Validator balance: ${balanceInEth.toFixed(6)} ETH`);
+    if (balanceInEth === 0) {
+      dualLog(`WARNING: Validator has no balance. Remember to fund it!`);
+    }
+  }
 }
 
 export async function removeL1Validator({
@@ -142,6 +151,7 @@ export async function fastForwardEpochs({
 }
 
 export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
+  const config = getL1ContractsConfigEnvVars();
   const publicClient = getPublicClient(rpcUrl, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
@@ -167,7 +177,7 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Current slot: ${slot}`);
   const proposerDuringPrevL1Block = await rollup.read.getCurrentProposer();
   log(`Proposer during previous L1 block: ${proposerDuringPrevL1Block}`);
-  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(config.ethereumSlotDuration));
   const proposer = await rollup.read.getProposerAt([nextBlockTS]);
   log(`Proposer NOW: ${proposer.toString()}`);
 }

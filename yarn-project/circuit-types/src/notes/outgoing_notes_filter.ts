@@ -1,6 +1,9 @@
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
-import { type TxHash } from '../tx/tx_hash.js';
+import { z } from 'zod';
+
+import { TxHash } from '../tx/tx_hash.js';
 
 /**
  * A filter used to fetch outgoing notes.
@@ -16,3 +19,10 @@ export type OutgoingNotesFilter = {
   /** The owner of the note (whose public key was used to encrypt the note). */
   owner?: AztecAddress;
 };
+
+export const OutgoingNotesFilterSchema: ZodFor<OutgoingNotesFilter> = z.object({
+  txHash: TxHash.schema.optional(),
+  contractAddress: schemas.AztecAddress.optional(),
+  storageSlot: schemas.Fr.optional(),
+  owner: schemas.AztecAddress.optional(),
+});

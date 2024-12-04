@@ -43,6 +43,7 @@ export type BBSuccess = {
 export type BBFailure = {
   status: BB_RESULT.FAILURE;
   reason: string;
+  retry?: boolean;
 };
 
 export type BBResult = BBSuccess | BBFailure;
@@ -175,6 +176,7 @@ export async function generateKeyForNoirCircuit(
       return {
         status: BB_RESULT.FAILURE,
         reason: `Failed to generate key. Exit code: ${result.exitCode}. Signal ${result.signal}.`,
+        retry: !!result.signal,
       };
     } catch (error) {
       return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -223,13 +225,25 @@ export async function executeBbClientIvcProof(
     // Write the bytecode to the working directory
     log(`bytecodePath ${bytecodeStackPath}`);
     log(`outputPath ${outputPath}`);
-    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
+    const args = [
+      '-o',
+      outputPath,
+      '-b',
+      bytecodeStackPath,
+      '-w',
+      witnessStackPath,
+      '-v',
+      '--scheme',
+      'client_ivc',
+      '--input_type',
+      'runtime_stack',
+    ];
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`client ivc proof BB out - ${message}`);
+      log(`bb - ${message}`);
     };
 
-    const result = await executeBB(pathToBB, 'client_ivc_prove_output_all_msgpack', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -245,6 +259,7 @@ export async function executeBbClientIvcProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -324,6 +339,7 @@ export async function computeVerificationKey(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to write VK. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -396,6 +412,7 @@ export async function generateProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -426,10 +443,8 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'mega_vk.bin');
+  const vkPath = join(workingDirectory, 'client_ivc_vk.bin');
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
-  const translatorVkPath = join(workingDirectory, 'translator_vk.bin');
-  const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -445,7 +460,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!filePresent(vkPath) || !filePresent(proofPath) || !filePresent(translatorVkPath) || !filePresent(eccVkPath)) {
+    if (!filePresent(vkPath) || !filePresent(proofPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
@@ -470,6 +485,7 @@ export async function generateTubeProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -527,12 +543,7 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
     }
 
-    // public inputs are used directly as a vector of fields in C++,
-    // so we serialize them as such here instead of just using toBuffer
-    await fs.writeFile(
-      publicInputsPath,
-      input.publicInputs.toFields().map(fr => fr.toBuffer()),
-    );
+    await fs.writeFile(publicInputsPath, input.output.toBuffer());
     if (!filePresent(publicInputsPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
     }
@@ -573,6 +584,7 @@ export async function generateAvmProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -636,9 +648,9 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['-o', targetPath];
+    const args = ['-o', targetPath, '--scheme', 'client_ivc'];
     const timer = new Timer();
-    const command = 'verify_client_ivc';
+    const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
@@ -648,6 +660,7 @@ export async function verifyClientIvcProof(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -690,6 +703,7 @@ async function verifyProofInternal(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -730,6 +744,7 @@ export async function writeVkAsFields(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to create vk as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -772,6 +787,7 @@ export async function writeProofAsFields(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to create proof as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: !!result.signal,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -813,6 +829,7 @@ export async function generateContractForVerificationKey(
       return {
         status: BB_RESULT.FAILURE,
         reason: `Failed to write verifier contract. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+        retry: !!result.signal,
       };
     } catch (error) {
       return { status: BB_RESULT.FAILURE, reason: `${error}` };

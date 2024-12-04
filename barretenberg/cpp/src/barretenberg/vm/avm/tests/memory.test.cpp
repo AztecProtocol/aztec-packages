@@ -1,4 +1,5 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 
 namespace tests_avm {
@@ -16,7 +17,7 @@ class AvmMemoryTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 };
 
@@ -43,7 +44,8 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
     trace_builder.op_set(0, 12, 1, AvmMemoryTag::U16);
 
     trace_builder.op_add(0, 0, 1, 4);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the addition selector
@@ -90,7 +92,8 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     trace_builder.op_set(0, 5, 1, AvmMemoryTag::U16);
 
     trace_builder.op_eq(0, 0, 1, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the equality selector
@@ -134,7 +137,8 @@ TEST_F(AvmMemoryTests, mLastAccessViolation)
 
     //                           Memory layout:     [4,9,0,0,0,0,....]
     trace_builder.op_sub(0, 1, 0, 2); // [4,9,5,0,0,0.....]
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the row with subtraction operation
@@ -165,14 +169,15 @@ TEST_F(AvmMemoryTests, readWriteConsistencyValViolation)
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
     trace_builder.op_mul(0, 1, 0, 2); // [4,9,36,0,0,0.....]
-    trace_builder.op_return(0, 2, 1); // Return single memory word at position 2 (36)
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100); // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == FF(1); });
 
     EXPECT_TRUE(row != trace.end());
-    auto clk = row->main_clk + 1; // return operation is just after the multiplication
+    auto clk = row->main_clk + 2; // return operation is two opcodes after the multiplication
 
     // Find the row for memory trace with last memory entry for address 2 (read for multiplication)
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
@@ -195,14 +200,15 @@ TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
     trace_builder.op_mul(0, 1, 0, 2); // [4,9,36,0,0,0.....]
-    trace_builder.op_return(0, 2, 1); // Return single memory word at position 2 (36)
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 2, 100); // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == FF(1); });
 
     EXPECT_TRUE(row != trace.end());
-    auto clk = row->main_clk + 1; // return operation is just after the multiplication
+    auto clk = row->main_clk + 2; // return operation is two opcodes after the multiplication
 
     // Find the row for memory trace with last memory entry for address 2 (read for multiplication)
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
@@ -220,7 +226,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
 // Testing violation that a memory read at uninitialized location must have value 0.
 TEST_F(AvmMemoryTests, readUninitializedMemoryViolation)
 {
-    trace_builder.op_return(0, 1, 1); // Return single memory word at position 1
+    trace_builder.op_set(0, 1, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 1, 100); // Return single memory word at position 1
     auto trace = trace_builder.finalize();
 
     trace[1].mem_val = 9;
@@ -238,7 +245,8 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
     trace_builder.op_set(0, 12, 1, AvmMemoryTag::U16);
 
     trace_builder.op_sub(0, 0, 1, 4);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the subtraction selector
@@ -269,7 +277,8 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_fdiv(0, 0, 1, 4);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
@@ -298,7 +307,8 @@ TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_fdiv(0, 0, 1, 4);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
@@ -330,7 +340,8 @@ TEST_F(AvmMemoryTests, directRelativeMemory)
     // Addition with direct relative addressing on the 2 input operands and direct addressing on the output
     // indirect byte: 00011000 = 24
     trace_builder.op_add(24, 10, 100, 10);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the add selector
@@ -361,7 +372,8 @@ TEST_F(AvmMemoryTests, indirectRelativeMemory)
     // Output c = a + b = 8 is stored at direct relative offset 2, i.e., address 102.
     // indirect byte: 00111011 = 1 + 2 + 8 + 16 + 32 = 59
     trace_builder.op_add(59, 23, 47, 2);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the add selector

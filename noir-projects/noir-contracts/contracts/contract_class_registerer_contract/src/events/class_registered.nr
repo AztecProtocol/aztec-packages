@@ -6,7 +6,6 @@ use dep::aztec::protocol_types::{
     traits::Serialize,
 };
 
-// #[event]
 pub struct ContractClassRegistered {
     contract_class_id: ContractClassId,
     version: Field,

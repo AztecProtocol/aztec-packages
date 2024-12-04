@@ -1,65 +1,144 @@
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { inspect } from 'util';
 
-import { Fr, fromBuffer } from '../fields/index.js';
+import { Fr, Point, fromBuffer } from '../fields/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { type BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
+import { hexToBuffer } from '../string/index.js';
 
+/** Branding to ensure fields are not interchangeable types. */
+export interface AztecAddress {
+  /** Brand. */
+  _branding: 'AztecAddress';
+}
 /**
- * AztecAddress represents a 32-byte address in the Aztec Protocol.
- * It provides methods to create, manipulate, and compare addresses.
- * The maximum value of an address is determined by the field modulus and all instances of AztecAddress.
- * It should have a value less than or equal to this max value.
- * This class also provides helper functions to convert addresses from strings, buffers, and other formats.
+ * AztecAddress represents a 32-byte address in the Aztec Protocol. It provides methods to create, manipulate, and
+ * compare addresses, as well as conversion to and from strings, buffers, and other formats.
+ * Addresses are the x coordinate of a point in the Grumpkin curve, and therefore their maximum is determined by the
+ * field modulus. An address with a value that is not the x coordinate of a point in the curve is a called an 'invalid
+ * address'. These addresses have a greatly reduced feature set, as they cannot own secrets nor have messages encrypted
+ * to them, making them quite useless. We need to be able to represent them however as they can be encountered in the
+ * wild.
  */
-export class AztecAddress extends Fr {
-  constructor(buffer: Buffer) {
-    if (buffer.length !== 32) {
+export class AztecAddress {
+  private xCoord: Fr;
+
+  constructor(buffer: Buffer | Fr) {
+    if ('length' in buffer && buffer.length !== 32) {
       throw new Error(`Invalid AztecAddress length ${buffer.length}.`);
     }
-    super(buffer);
+    this.xCoord = new Fr(buffer);
   }
 
   [inspect.custom]() {
     return `AztecAddress<${this.toString()}>`;
   }
 
-  static override ZERO = new AztecAddress(Buffer.alloc(32));
+  static isAddress(str: string) {
+    return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
+  }
 
-  static override zero(): AztecAddress {
+  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
+
+  static ZERO = new AztecAddress(Buffer.alloc(32, 0));
+
+  static zero(): AztecAddress {
     return AztecAddress.ZERO;
   }
 
-  static override fromBuffer(buffer: Buffer | BufferReader) {
-    return fromBuffer(buffer, AztecAddress);
+  static fromField(fr: Fr) {
+    return new AztecAddress(fr);
   }
 
-  static fromField(fr: Fr) {
-    return new AztecAddress(fr.toBuffer());
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    return new AztecAddress(fromBuffer(buffer, Fr));
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return AztecAddress.fromField(reader.readField());
+    return new AztecAddress(reader.readField());
   }
 
   static fromBigInt(value: bigint) {
-    return AztecAddress.fromField(new Fr(value));
+    return new AztecAddress(new Fr(value));
   }
 
-  static override fromString(buf: string) {
-    const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
-    return new AztecAddress(buffer);
+  static fromNumber(value: number) {
+    return new AztecAddress(new Fr(value));
   }
 
-  static override random() {
-    return new AztecAddress(super.random().toBuffer());
+  static fromString(buf: string) {
+    return new AztecAddress(hexToBuffer(buf));
   }
 
-  override toJSON() {
-    return {
-      type: 'AztecAddress',
-      value: this.toString(),
-    };
+  /**
+   * @returns a random valid address (i.e. one that can be encrypted to).
+   */
+  static random() {
+    // About half of random field elements result in invalid addresses, so we loop until we get a valid one.
+    while (true) {
+      const candidate = new AztecAddress(Fr.random());
+      if (candidate.isValid()) {
+        return candidate;
+      }
+    }
+  }
+
+  get size() {
+    return this.xCoord.size;
+  }
+
+  equals(other: AztecAddress) {
+    return this.xCoord.equals(other.xCoord);
+  }
+
+  isZero() {
+    return this.xCoord.isZero();
+  }
+
+  /**
+   * @returns true if the address is valid. Invalid addresses cannot receive encrypted messages.
+   */
+  isValid() {
+    // An address is a field value (Fr), which for some purposes is assumed to be the x coordinate of a point in the
+    // Grumpkin curve (notably in order to encrypt to it). An address that is not the x coordinate of such a point is
+    // called an 'invalid' address.
+    //
+    // For Grumpkin, y^2 = x^3 − 17 . There exist values x ∈ Fr for which no y satisfies this equation. This means that
+    // given such an x and t = x^3 − 17, then sqrt(t) does not exist in Fr.
+    return Point.YFromX(this.xCoord) !== null;
+  }
+
+  /**
+   * @returns the Point from which the address is derived. Throws if the address is invalid.
+   */
+  toAddressPoint() {
+    return Point.fromXAndSign(this.xCoord, true);
+  }
+
+  toBuffer() {
+    return this.xCoord.toBuffer();
+  }
+
+  toBigInt() {
+    return this.xCoord.toBigInt();
+  }
+
+  toField() {
+    return this.xCoord;
+  }
+
+  toString() {
+    return this.xCoord.toString();
+  }
+
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(AztecAddress, AztecAddress.isAddress);
   }
 }
 

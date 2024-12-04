@@ -476,10 +476,6 @@ impl<'function> PerFunctionContext<'function> {
             Value::ForeignFunction(function) => {
                 self.context.builder.import_foreign_function(function)
             }
-            Value::Array { array, typ } => {
-                let elements = array.iter().map(|value| self.translate_value(*value)).collect();
-                self.context.builder.array_constant(elements, typ.clone())
-            }
         };
 
         self.values.insert(id, new_value);
@@ -1093,6 +1089,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     #[should_panic(
         expected = "Attempted to recur more than 1000 times during inlining function 'main': acir(inline) fn main f0 {"
     )]

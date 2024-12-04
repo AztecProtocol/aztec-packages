@@ -16,7 +16,7 @@ set -eu
 export TEST="$1"
 # Variables with defaults
 COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
-export DEBUG="${DEBUG:-aztec:*}"
+export DEBUG="${DEBUG:-aztec:*,-aztec:avm_simulator:*}"
 export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 export AZTEC_DOCKER_TAG="${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}"
 

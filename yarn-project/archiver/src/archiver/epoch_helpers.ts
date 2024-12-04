@@ -1,26 +1,54 @@
-import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
+// REFACTOR: This file should go in a package lower in the dependency graph.
+
+export type EpochConstants = {
+  l1GenesisBlock: bigint;
+  l1GenesisTime: bigint;
+  epochDuration: number;
+  slotDuration: number;
+};
 
 /** Returns the slot number for a given timestamp. */
-export function getSlotAtTimestamp(ts: bigint, constants: { l1GenesisTime: bigint }) {
-  return ts < constants.l1GenesisTime ? 0n : (ts - constants.l1GenesisTime) / BigInt(AZTEC_SLOT_DURATION);
+export function getSlotAtTimestamp(ts: bigint, constants: Pick<EpochConstants, 'l1GenesisTime' | 'slotDuration'>) {
+  return ts < constants.l1GenesisTime ? 0n : (ts - constants.l1GenesisTime) / BigInt(constants.slotDuration);
 }
 
 /** Returns the epoch number for a given timestamp. */
-export function getEpochNumberAtTimestamp(ts: bigint, constants: { l1GenesisTime: bigint }) {
-  return getSlotAtTimestamp(ts, constants) / BigInt(AZTEC_EPOCH_DURATION);
+export function getEpochNumberAtTimestamp(
+  ts: bigint,
+  constants: Pick<EpochConstants, 'epochDuration' | 'slotDuration' | 'l1GenesisTime'>,
+) {
+  return getSlotAtTimestamp(ts, constants) / BigInt(constants.epochDuration);
 }
 
-/** Returns the range of slots (inclusive) for a given epoch number. */
-export function getSlotRangeForEpoch(epochNumber: bigint) {
-  const startSlot = epochNumber * BigInt(AZTEC_EPOCH_DURATION);
-  return [startSlot, startSlot + BigInt(AZTEC_EPOCH_DURATION) - 1n];
+/** Returns the range of L2 slots (inclusive) for a given epoch number. */
+export function getSlotRangeForEpoch(epochNumber: bigint, constants: Pick<EpochConstants, 'epochDuration'>) {
+  const startSlot = epochNumber * BigInt(constants.epochDuration);
+  return [startSlot, startSlot + BigInt(constants.epochDuration) - 1n];
 }
 
 /** Returns the range of L1 timestamps (inclusive) for a given epoch number. */
-export function getTimestampRangeForEpoch(epochNumber: bigint, constants: { l1GenesisTime: bigint }) {
-  const [startSlot, endSlot] = getSlotRangeForEpoch(epochNumber);
+export function getTimestampRangeForEpoch(
+  epochNumber: bigint,
+  constants: Pick<EpochConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration'>,
+) {
+  const [startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, constants);
   return [
-    constants.l1GenesisTime + startSlot * BigInt(AZTEC_SLOT_DURATION),
-    constants.l1GenesisTime + endSlot * BigInt(AZTEC_SLOT_DURATION),
+    constants.l1GenesisTime + startSlot * BigInt(constants.slotDuration),
+    constants.l1GenesisTime + endSlot * BigInt(constants.slotDuration),
+  ];
+}
+
+/**
+ * Returns the range of L1 blocks (inclusive) for a given epoch number.
+ * @remarks This assumes no time warp has happened.
+ */
+export function getL1BlockRangeForEpoch(
+  epochNumber: bigint,
+  constants: Pick<EpochConstants, 'l1GenesisBlock' | 'epochDuration' | 'slotDuration'>,
+) {
+  const epochDurationInL1Blocks = BigInt(constants.epochDuration) * BigInt(constants.slotDuration);
+  return [
+    epochNumber * epochDurationInL1Blocks + constants.l1GenesisBlock,
+    (epochNumber + 1n) * epochDurationInL1Blocks + constants.l1GenesisBlock - 1n,
   ];
 }

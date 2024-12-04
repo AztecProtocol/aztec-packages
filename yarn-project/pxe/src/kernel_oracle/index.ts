@@ -70,7 +70,7 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   async getNoteHashTreeRoot(): Promise<Fr> {
-    const header = await this.node.getHeader(this.blockNumber);
+    const header = await this.node.getBlockHeader(this.blockNumber);
     return header.state.partial.noteHashTree.root;
   }
 
