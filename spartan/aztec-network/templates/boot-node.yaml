@@ -72,6 +72,8 @@ spec:
           env:
             - name: INIT_VALIDATORS
               value: "true"
+            - name: MNEMONIC
+              value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION

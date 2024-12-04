@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
-    key    = "spartan-gke-cluster/terraform.tfstate"
+    key    = "aztec-gke-cluster/terraform.tfstate"
     region = "eu-west-2"
   }
   required_providers {
@@ -49,7 +49,8 @@ resource "google_service_account" "helm_sa" {
 resource "google_project_iam_member" "helm_sa_roles" {
   for_each = toset([
     "roles/container.admin",
-    "roles/storage.admin"
+    "roles/storage.admin",
+    "roles/secretmanager.admin"
   ])
   project = var.project
   role    = each.key
@@ -58,7 +59,7 @@ resource "google_project_iam_member" "helm_sa_roles" {
 
 # Create a GKE cluster
 resource "google_container_cluster" "primary" {
-  name     = "spartan-gke"
+  name     = var.cluster_name
   location = var.zone
 
   initial_node_count = 1
