@@ -49,7 +49,7 @@ function tryExtractEvent<
   logger?: DebugLogger,
 ): TEventType | undefined {
   for (const log of logs) {
-    if (log.address === address) {
+    if (log.address.toLowerCase() === address.toLowerCase()) {
       try {
         const decodedEvent = decodeEventLog({ abi, ...log });
         if (decodedEvent.eventName === eventName) {

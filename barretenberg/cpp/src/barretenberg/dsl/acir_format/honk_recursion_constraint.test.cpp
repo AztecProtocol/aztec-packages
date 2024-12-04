@@ -96,7 +96,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .range_constraints = { range_a, range_b },
             .aes128_constraints = {},
             .sha256_compression = {},
-            .schnorr_constraints = {},
+
             .ecdsa_k1_constraints = {},
             .ecdsa_r1_constraints = {},
             .blake2s_constraints = {},
@@ -153,10 +153,11 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             std::vector<fr> proof_witnesses = inner_proof;
-            const size_t num_public_inputs = inner_circuit.get_public_inputs().size();
+            const size_t num_public_inputs_to_extract =
+                inner_circuit.get_public_inputs().size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
 
             auto [key_indices, proof_indices, inner_public_inputs] = ProofSurgeon::populate_recursion_witness_data(
-                witness, proof_witnesses, key_witnesses, num_public_inputs);
+                witness, proof_witnesses, key_witnesses, num_public_inputs_to_extract);
 
             RecursionConstraint honk_recursion_constraint{
                 .key = key_indices,

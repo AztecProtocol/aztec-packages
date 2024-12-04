@@ -100,13 +100,13 @@ jobs:
         with:
           concurrency_key: build-aztec
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: Build & Push Aztec x86_64
+      - name: Build & Push Aztec and End-to-End x86_64
         timeout-minutes: 40
         run: |
           earthly-ci \
             --no-output \
             --push \
-            ./yarn-project+export-aztec-arch \
+            ./yarn-project+export-images-arch \
             --DIST_TAG=${{ env.GIT_COMMIT }} \
             --ARCH=x86_64
 
@@ -308,6 +308,18 @@ jobs:
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./l1-contracts+publish-npm \
+            --DIST_TAG=latest \
+            --VERSION=$VERSION \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+      - name: Publish spartan NPM package
+        run: |
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v}
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./spartan/releases/rough-rhino+publish-npm \
             --DIST_TAG=latest \
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
