@@ -54,7 +54,8 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" $1
     ;;
   "ec2-e2e-grind")
-    seq 0 ${1:-2} | parallel -t --line-buffered denoise $0 ec2-e2e {}
+    export DENOISE=1
+    seq 0 ${1:-4} | parallel --tag --line-buffered denoise $0 ec2-e2e {}
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
