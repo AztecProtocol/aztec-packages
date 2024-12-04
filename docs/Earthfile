@@ -5,7 +5,7 @@ deps:
   RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
   COPY ./yarn.lock ./yarn.lock
   COPY ./package.json ./package.json
-  RUN yarn install --frozen-lockfile
+  RUN CI=1 yarn install
 
 build:
   FROM ../+bootstrap
@@ -13,7 +13,7 @@ build:
   ARG COMMIT_TAG
   ENV COMMIT_TAG=$COMMIT_TAG
   WORKDIR /usr/src/docs
-  RUN yarn install --frozen-lockfile
+  RUN CI=1 yarn install
   RUN ./scripts/build.sh
   SAVE ARTIFACT build
 

@@ -6,10 +6,12 @@ test:
 
 test-protocol-circuits:
   FROM ../+bootstrap
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
 
 test-aztec-nr:
   FROM ../+bootstrap
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   RUN cd /usr/src/yarn-project/txe && yarn start & \
       # Wait for TXE to initialize
       sleep 5 && \
@@ -18,6 +20,7 @@ test-aztec-nr:
 
 test-contracts:
   FROM ../+bootstrap
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   RUN cd /usr/src/yarn-project/txe && yarn start & \
       # Wait for TXE to initialize
       sleep 5 && \

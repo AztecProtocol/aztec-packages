@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test-base:
-    FROM ../+bootstrap-noir-bb
+    FROM ../../+bootstrap-noir-bb
     ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
     WORKDIR /usr/src/barretenberg/acir_tests
     ENV VERBOSE=1
@@ -62,13 +62,13 @@ test-bb-mega-honk:
 
 test-sol:
     FROM +test-base
-    COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
+    COPY ../cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
 
 test-sol-honk:
     FROM +test-base
-    COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
+    COPY ../cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
 
@@ -118,7 +118,7 @@ test:
     BUILD +test-bb.js
 
 benches-bb:
-  FROM ../+bootstrap-noir-bb
+  FROM ../../+bootstrap-noir-bb
   WORKDIR /usr/src/barretenberg/acir_tests
 
 bench:
@@ -129,7 +129,7 @@ bench:
 
 export-bench-acir-bb:
   ARG EARTHLY_GIT_HASH
-  FROM +acir-benches-bb
+  FROM +benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
 
 bench-publish:
@@ -150,4 +150,4 @@ bench-publish:
   RUN mkdir -p ./log
   RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh
 
-  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$EARTHLY_GIT_HASH
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$EARTHLY_GIT_HASH

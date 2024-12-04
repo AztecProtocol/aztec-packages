@@ -6,8 +6,7 @@ VERSION 0.8
 bootstrap-noir-bb:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
-  #ARG EARTHLY_GIT_HASH
-  ENV EARTHLY_GIT_HASH=3fb326ea2e737b0293000a9424a08dea46b9eb67
+  ARG EARTHLY_GIT_HASH
   ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
@@ -28,8 +27,7 @@ bootstrap-noir-bb:
 bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
-  #ARG EARTHLY_GIT_HASH
-  ENV EARTHLY_GIT_HASH=3fb326ea2e737b0293000a9424a08dea46b9eb67
+  ARG EARTHLY_GIT_HASH
   ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # Use a cache volume for performance
@@ -202,19 +200,33 @@ base-log-uploader:
   COPY +scripts/scripts /usr/src/scripts
 
 ci:
-  BUILD ./barretenberg/acir_tests/+test
-  BUILD ./barretenberg/acir_tests/+bench
-  BUILD ./barretenberg/+bench-publish-acir-bb
-  BUILD ./barretenberg/cpp/+bench-binaries
-  BUILD ./barretenberg/cpp/+preset-gcc
-  BUILD ./barretenberg/cpp+test
-  BUILD ./docs/+deploy-preview
-  BUILD ./l1-contracts+test
-  BUILD ./noir/+examples
-  BUILD ./noir/+test
-  BUILD ./noir-projects/+test
-  BUILD ./scripts/logs+pack-base-benchmark
-  BUILD ./yarn-project/+format-check
-  BUILD ./yarn-project/+network-test
-  BUILD ./yarn-project/+prover-client-test
-  BUILD ./yarn-project/+test
+  WAIT
+    BUILD +bootstrap-noir-bb
+  END
+  WAIT
+    BUILD +bootstrap
+  END
+  WAIT
+    BUILD ./barretenberg/acir_tests/+test
+    BUILD ./barretenberg/acir_tests/+bench
+  END
+  WAIT
+    BUILD ./barretenberg/cpp/+bench-binaries
+    BUILD ./barretenberg/cpp/+preset-gcc
+    BUILD ./docs/+deploy-preview
+    BUILD ./l1-contracts+test
+    BUILD ./noir/+examples
+    BUILD ./noir/+test
+    BUILD ./noir-projects/+test
+    BUILD ./yarn-project/+format-check
+  END
+  WAIT
+    BUILD ./yarn-project/+network-test
+  END
+  WAIT
+    BUILD ./barretenberg/cpp+test
+  END
+  WAIT
+    BUILD ./yarn-project/+prover-client-test
+    BUILD ./yarn-project/+test
+  END

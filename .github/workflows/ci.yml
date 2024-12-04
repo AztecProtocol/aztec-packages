@@ -419,7 +419,7 @@ jobs:
       - name: "BB Native Acir Tests (Misc)"
         working-directory: ./barretenberg/acir_tests
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+acir-tests
+        run: earthly-ci --no-output ./+test
 
   noir-format:
     needs: [bootstrap-noir-bb, configure]
