@@ -162,7 +162,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
       container.db = tx.store;
     }
     // Avoid awaiting this promise so it doesn't get scheduled in the next microtask
-    // when the tx is closed
+    // By then, the tx would be closed
     const runningPromise = callback();
     // Wait for the transaction to finish
     await tx.done;
