@@ -32,7 +32,7 @@ docker run --name aztec_build -ti --rm \
   # Ensure we get a clean clone of the repo.
   git init &>/dev/null
   git remote add origin https://github.com/aztecprotocol/aztec-packages
-  git fetch --depth 1 origin $current_commit 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)
+  git fetch --depth 1 origin $current_commit 2>/dev/null || (echo 'The commit was not pushed, run aborted.' && exit 1)
   git checkout FETCH_HEAD &>/dev/null
   $CMD
 "
