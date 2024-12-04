@@ -17,13 +17,19 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
-import { L1TxUtils } from './l1_tx_utils.js';
+import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
 // Simple contract that just returns 42
 const SIMPLE_CONTRACT_BYTECODE = '0x69602a60005260206000f3600052600a6016f3';
+
+export type PendingTransaction = {
+  hash: `0x${string}`;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+};
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtils;
@@ -224,4 +230,73 @@ describe('GasUtils', () => {
     expect(bufferedDetails.gas).toBeGreaterThan(baselineDetails.gas);
     expect(bufferedDetails.gas).toBeLessThanOrEqual((baselineDetails.gas * 120n) / 100n);
   }, 20_000);
+
+  it('calculates correct gas prices for initial attempt', async () => {
+    // Set base fee to 1 gwei
+    await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+    await cheatCodes.evmMine();
+
+    const basePriorityFee = await publicClient.estimateMaxPriorityFeePerGas();
+    const gasPrice = await gasUtils['getGasPrice']();
+
+    // With default config, priority fee should be bumped by 20%
+    const expectedPriorityFee = (basePriorityFee * 120n) / 100n;
+
+    // Base fee should be bumped for potential stalls (1.125^(stallTimeMs/12000) = ~1.125 for default config)
+    const expectedMaxFee = (WEI_CONST * 1125n) / 1000n + expectedPriorityFee;
+
+    expect(gasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+    expect(gasPrice.maxFeePerGas).toBe(expectedMaxFee);
+  });
+
+  it('calculates correct gas prices for retry attempts', async () => {
+    await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+    await cheatCodes.evmMine();
+
+    const initialGasPrice = await gasUtils['getGasPrice']();
+
+    // Get retry gas price for 2nd attempt
+    const retryGasPrice = await gasUtils['getGasPrice'](undefined, 1, initialGasPrice);
+
+    // With default config, retry should bump fees by 50%
+    const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
+    const expectedMaxFee = (initialGasPrice.maxFeePerGas * 150n) / 100n;
+
+    expect(retryGasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+    expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
+  });
+
+  it('respects minimum gas price bump for replacements', async () => {
+    const gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+      ...defaultL1TxUtilsConfig,
+      priorityFeeRetryBumpPercentage: 5n, // Set lower than minimum 10%
+    });
+
+    const initialGasPrice = await gasUtils['getGasPrice']();
+
+    // Get retry gas price with attempt = 1
+    const retryGasPrice = await gasUtils['getGasPrice'](undefined, 1, initialGasPrice);
+
+    // Should use 10% minimum bump even though config specified 5%
+    const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 110n) / 100n;
+    const expectedMaxFee = (initialGasPrice.maxFeePerGas * 110n) / 100n;
+
+    expect(retryGasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+    expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
+  });
+
+  it('adds correct buffer to gas estimation', async () => {
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    const baseEstimate = await publicClient.estimateGas(request);
+    const bufferedEstimate = await gasUtils.estimateGas(walletClient.account!, request);
+
+    // adds 20% buffer
+    const expectedEstimate = baseEstimate + (baseEstimate * 20n) / 100n;
+    expect(bufferedEstimate).toBe(expectedEstimate);
+  });
 });

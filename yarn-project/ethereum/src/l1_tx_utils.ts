@@ -358,16 +358,17 @@ export class L1TxUtils {
       const minPriorityFee = (previousGasPrice!.maxPriorityFeePerGas * (100n + bumpPercentage)) / 100n;
       const minMaxFee = (previousGasPrice!.maxFeePerGas * (100n + bumpPercentage)) / 100n;
 
+      // Add priority fee to maxFeePerGas
+      maxFeePerGas += priorityFee;
+
       // Use maximum between current network values and minimum required values
       priorityFee = priorityFee > minPriorityFee ? priorityFee : minPriorityFee;
       maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
     } else {
       // first attempt, just bump priority fee
       priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
+      maxFeePerGas += priorityFee;
     }
-
-    // Add priority fee to maxFeePerGas
-    maxFeePerGas += priorityFee;
 
     // Ensure we don't exceed maxGwei
     const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
