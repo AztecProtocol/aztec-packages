@@ -15,10 +15,10 @@ examples:
   WORKDIR /usr/src/noir/noir-repo/examples/codegen_verifier
   RUN ./test.sh
 
-  WORKDIR /usr/src/noir/noir-repo/prove_and_verify
+  WORKDIR /usr/src/noir/noir-repo/examples/prove_and_verify
   RUN ./test.sh
 
-  WORKDIR /usr/src/noir/noir-repo/recursion
+  WORKDIR /usr/src/noir/noir-repo/examples/recursion
   RUN ./test.sh
 
 format:

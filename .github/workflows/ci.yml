@@ -313,7 +313,7 @@ jobs:
           runner_type: 16core-tester-x86
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci -P --no-output +bench-publish-acir-bb
+            scripts/earthly-ci -P --no-output ./barretenberg/+bench-publish-acir-bb
 
   bench-summary:
     needs:
