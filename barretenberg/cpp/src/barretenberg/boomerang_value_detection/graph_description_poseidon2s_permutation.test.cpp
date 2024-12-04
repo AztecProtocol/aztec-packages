@@ -51,6 +51,7 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     for (const auto& elem : variables_in_one_gate) {
+        info("elem = ", elem);
         if (!check_in_input_vector(inputs, elem) && elem != res_index) {
             bool check = (elem - res_index == 1) || (elem - res_index == 2) || (elem - res_index == 3);
             EXPECT_EQ(check, true);
@@ -98,6 +99,7 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
+    graph.print_connected_components();
 }
 
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s)
