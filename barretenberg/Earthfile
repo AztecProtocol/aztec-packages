@@ -97,6 +97,10 @@ acir-tests-bb.js:
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
 acir-tests:
+    # cleaner output:
+    WAIT
+      BUILD +acir-tests-base
+    END
     BUILD +acir-tests-bb
     BUILD +acir-tests-bb-ultra-plonk
     # WORKTODO make issue
