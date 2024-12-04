@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733255441639,
+  "lastUpdate": 1733323531494,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4c560abebcf390ec3ba8ebdc18b287b29f148450",
-          "message": "feat: improve trace utilization tracking (#10008)\n\nAdd functionality for considering previous active ranges in\r\n`ExecutionTraceUsageTracker` (needed for perturbator calculation in PG).\r\nAlso update active ranges calculation to separately consider rows for\r\nlookup tables / databus vectors rather than a single range which covers\r\nboth.",
-          "timestamp": "2024-11-20T07:39:49-07:00",
-          "tree_id": "cd2c9c285393f198d18c44d433710f636911617e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c560abebcf390ec3ba8ebdc18b287b29f148450"
-        },
-        "date": 1732115801994,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28885.256529000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27238.613352999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5344.822013999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4994.5747790000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84337.507536,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84337509000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15171.439703999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15171440000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3074657095,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3074657095 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143391797,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143391797 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 141991981,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141991981 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a1e5966ffe98351d848bfa47608a2f22c381acfb",
+          "message": "chore(avm): Fake verification routine for avm recursion in public base rollup (#10382)\n\nResolves #10243",
+          "timestamp": "2024-12-04T15:14:40+01:00",
+          "tree_id": "df55ccdacab4a5a11448ba0c2a7f24f034773e7d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a1e5966ffe98351d848bfa47608a2f22c381acfb"
+        },
+        "date": 1733323524506,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28253.117745999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26532.772844 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5041.187059999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4715.030212000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86911.401326,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86911402000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15144.797168000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15144798000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3151999153,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3151999153 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140944261,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140944261 ns\nthreads: 1"
           }
         ]
       }
