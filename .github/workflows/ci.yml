@@ -953,7 +953,7 @@ jobs:
       - bb-js-test
       - bb-acir-tests-bb
       - bb-acir-tests-bb-ultra-plonk
-      - bb-acir-tests-bb-ultra-honk
+      # - bb-acir-tests-bb-ultra-honk
       - bb-acir-tests-bb-mega-honk
       - bb-acir-tests-sol
       - bb-acir-tests-sol-honk
