@@ -6,6 +6,12 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.66
+
+### DEBUG env var is removed
+
+The `DEBUG` variable is no longer used. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
+
 ## 0.65
 
 ### [aztec.nr] Removed SharedImmutable
