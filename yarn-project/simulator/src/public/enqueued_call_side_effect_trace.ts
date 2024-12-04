@@ -271,7 +271,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
 
     this.log.debug(
-      `Traced public data write (address=${contractAddress}, slot=${slot}, leafSlot=${leafSlot}): value=${value} (counter=${this.sideEffectCounter})`,
+      `Traced public data write (address=${contractAddress}, slot=${slot}, leafSlot=${leafSlot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
     );
     this.incrementSideEffectCounter();
   }
