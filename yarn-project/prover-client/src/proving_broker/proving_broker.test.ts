@@ -368,7 +368,7 @@ describe.each([
       });
       await expect(
         broker.reportProvingJobProgress(id, now(), { allowList: [ProvingRequestType.BASE_PARITY] }),
-      ).resolves.toEqual({ job: expect.objectContaining({ id: id2 }), time: expect.any(Number) });
+      ).resolves.toEqual({ status: 'abort', job: expect.objectContaining({ id: id2 }), time: expect.any(Number) });
     });
 
     it('returns a new job if job is already in progress elsewhere', async () => {
@@ -402,7 +402,7 @@ describe.each([
         broker.reportProvingJobProgress(job1.id, firstAgentStartedAt, {
           allowList: [ProvingRequestType.BASE_PARITY],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ status: 'continue' });
 
       // restart the broker!
       await broker.stop();
@@ -429,14 +429,14 @@ describe.each([
         broker.reportProvingJobProgress(job1.id, firstAgentStartedAt, {
           allowList: [ProvingRequestType.BASE_PARITY],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ status: 'continue' });
 
       // second agent should get a new job now
       await expect(
         broker.reportProvingJobProgress(job1.id, secondAgentStartedAt, {
           allowList: [ProvingRequestType.BASE_PARITY],
         }),
-      ).resolves.toEqual({ job: job2, time: expect.any(Number) });
+      ).resolves.toEqual({ status: 'abort', job: job2, time: expect.any(Number) });
     });
 
     it('avoids sending the same job to a new agent after a restart', async () => {
@@ -482,7 +482,7 @@ describe.each([
         broker.reportProvingJobProgress(job1.id, firstAgentStartedAt, {
           allowList: [ProvingRequestType.BASE_PARITY],
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ status: 'continue' });
 
       const { job: secondAgentJob } = (await broker.getProvingJob({
         allowList: [ProvingRequestType.BASE_PARITY],

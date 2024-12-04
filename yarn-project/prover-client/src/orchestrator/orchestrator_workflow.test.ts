@@ -78,11 +78,11 @@ describe('prover/orchestrator', () => {
         orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(2, globalVariables, [message]);
 
-        await sleep(10);
+        await sleep(100);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
         expect(mockProver.getRootParityProof).not.toHaveBeenCalled();
 
-        await sleep(10);
+        await sleep(100);
         // even now the root parity should not have been called
         expect(mockProver.getRootParityProof).not.toHaveBeenCalled();
 
@@ -90,7 +90,7 @@ describe('prover/orchestrator', () => {
         pendingBaseParityResult.resolve(expectedBaseParityResult);
 
         // give the orchestrator a chance to calls its callbacks
-        await sleep(10);
+        await sleep(100);
         expect(mockProver.getRootParityProof).toHaveBeenCalledTimes(1);
 
         orchestrator.cancel();
