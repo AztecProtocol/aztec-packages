@@ -1,8 +1,4 @@
 VERSION 0.8
-
-FROM ../build-images/+base-slim-node
-WORKDIR /usr/src/docs
-
 deps:
   RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
   COPY ./yarn.lock ./yarn.lock
@@ -13,9 +9,9 @@ build:
   ARG ENV
   ARG COMMIT_TAG
   ENV COMMIT_TAG=$COMMIT_TAG
-  BUILD ../yarn-project/+build-dev
-  BUILD ../+release-meta
-  FROM +deps
+  FROM ../+bootstrap
+  WORKDIR /usr/src/docs
+  RUN yarn install --frozen-lockfile
   COPY --dir ../yarn-project/+build-dev/usr/src /usr
   COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
   COPY . .
@@ -34,7 +30,6 @@ serve:
   EXPOSE 3000
   SAVE ARTIFACT /usr/src/docs
   SAVE IMAGE aztecprotocol/docs-server
-
 
 deploy-preview:
   BUILD ../yarn-project/+scripts-prod
