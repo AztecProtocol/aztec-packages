@@ -148,6 +148,7 @@ case "$cmd" in
     exit
   ;;
   "image-e2e")
+    ./bootstrap.sh image-aztec
     image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
     if docker_has_image $image; then
       echo "Image $image already exists." && exit

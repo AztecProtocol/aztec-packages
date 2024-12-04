@@ -189,7 +189,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Images"
         timeout-minutes: 40
-        run: 'parallel ::: "./bootstrap.sh image-e2e" "./bootstrap.sh image-aztec"'
+        run: ./bootstrap.sh image-e2e
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
@@ -241,8 +241,8 @@ jobs:
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          builder_command: 'parallel ::: "./bootstrap.sh image-e2e" "./bootstrap.sh image-aztec"'
+          builder_images_to_copy: ./bootstrap.sh image-e2e
+          builder_command: ./bootstrap.sh image-e2e
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
@@ -279,7 +279,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: 'parallel ::: "./bootstrap.sh image-e2e" "./bootstrap.sh image-aztec"'
+          builder_command: ./bootstrap.sh image-e2e
           tester_ttl: 40
           run: |
             set -eux
@@ -598,7 +598,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: 'parallel ::: "./bootstrap.sh image-e2e" "./bootstrap.sh image-aztec"'
+          builder_command: ./bootstrap.sh image-e2e
           tester_ttl: 60
           run: |
             cd yarn-project/end-to-end
@@ -654,7 +654,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: 'parallel ::: "./bootstrap.sh image-e2e" "./bootstrap.sh image-aztec"'
+          builder_command: ./bootstrap.sh image-e2e
           tester_ttl: ${{ matrix.config.timeout }}
           run: |
             cd yarn-project/end-to-end
