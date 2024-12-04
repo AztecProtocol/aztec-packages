@@ -3,8 +3,9 @@ title: Building in Public
 sidebar_position: 0
 ---
 
-import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";
-import ReactPlayer from "react-player/youtube";
+import ReactPlayer from 'react-player/youtube';
+
+import Disclaimer from '@site/src/components/Disclaimers/wip_disclaimer.mdx';
 
 ## How Aztec is being built
 
@@ -29,20 +30,18 @@ To allow for this, we focus on two main components:
 
 ### Privacy Preserving Smart Contracts
 
-<ReactPlayer
-    controls
-    light
-    width="100%"
-    url="https://www.youtube.com/watch?v=09nDPDN1ORA"
-  />
+Learn about how Aztec implements privacy in smart contracts through this comprehensive overview.
+
+[![Privacy Preserving Smart Contracts](https://img.youtube.com/vi/09nDPDN1ORA/0.jpg)](https://www.youtube.com/watch?v=09nDPDN1ORA)
+
+🔗 [Watch on YouTube](https://www.youtube.com/watch?v=09nDPDN1ORA)
 
 ### Public-private Composability
 
-<ReactPlayer
-    controls
-    light
-    width="100%"
-    url="https://www.youtube.com/watch?v=7Oc0tjdbi70&t=17723s"
-  />
+Discover how Aztec handles public-private composability in its architecture.
+
+[![Public-private Composability](https://img.youtube.com/vi/7Oc0tjdbi70/0.jpg)](https://www.youtube.com/watch?v=7Oc0tjdbi70&t=17723s)
+
+🔗 [Watch on YouTube](https://www.youtube.com/watch?v=7Oc0tjdbi70&t=17723s)
 
 <Disclaimer />
