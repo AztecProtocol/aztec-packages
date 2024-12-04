@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # URL of the aztec-spartan.sh script
-DEFAULT_URL="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/zpedro/testnet_docker_compose/spartan/releases/rough-rhino/aztec-spartan.sh"
+DEFAULT_URL="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/spartan/releases/rough-rhino/aztec-spartan.sh"
 
 # Colors for output
 GREEN='\033[0;32m'
