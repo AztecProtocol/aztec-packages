@@ -54,7 +54,7 @@ function test {
 }
 
 function test_e2e {
-  test_should_run yarn-project-unit-tests-$hash || return
+  test_should_run yarn-project-e2e-tests-$hash || return
 
   github_group "yarn-project e2e tests"
   cd end-to-end
@@ -188,6 +188,7 @@ function test_e2e {
   cat joblog.txt
 
   github_endgroup
+  cache_upload_flag yarn-project-e2e-tests-$hash
   return $code
 }
 

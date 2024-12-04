@@ -2,11 +2,12 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source
 
-CMD=${1:-}
+cmd=${1:-}
+shift
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
-if [ -z "$CMD" ]; then
+if [ -z "$cmd" ]; then
   echo "usage: $0 <cmd>"
   echo
   echo "The following commands all set CI=1 before bootstrapping."
@@ -36,18 +37,24 @@ fi
 
 instance_name="${BRANCH//\//_}"
 
-ip=$(aws ec2 describe-instances \
-  --region us-east-2 \
-  --filters "Name=tag:Name,Values=$instance_name" \
-  --query "Reservations[].Instances[].PublicIpAddress" \
-  --output text)
+function get_ip_for_instance {
+  ip=$(aws ec2 describe-instances \
+    --region us-east-2 \
+    --filters "Name=tag:Name,Values=$instance_name" \
+    --query "Reservations[].Instances[].PublicIpAddress" \
+    --output text)
+}
 
-case "$CMD" in
+case "$cmd" in
   "ec2")
-    # allows for e.g. ec2 full or ec2 cache-sanity-test
-    shift 1
     # Spin up ec2 instance and bootstrap.
     bootstrap_ec2 "$@"
+    ;;
+  "ec2-e2e")
+    bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" $1
+    ;;
+  "ec2-e2e-grind")
+    seq 0 ${1:-2} | parallel -t --line-buffered denoise $0 ec2-e2e {}
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
@@ -60,21 +67,21 @@ case "$CMD" in
     ;;
   "wt")
     # Runs bootstrap in current working tree.
-    CI=1 ./bootstrap.sh fast
+    ./bootstrap.sh ci
     ;;
   "trigger")
     # Trigger workflow and drop through to start logging.
     # We use this label trick because triggering the workflow direct doesn't associate with the PR.
-    PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    if [ -z "$PR_NUMBER" ]; then
+    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    if [ -z "$pr_number" ]; then
       echo "No pull request found for branch $BRANCH."
       exit 1
     fi
-    echo "Triggering CI workflow for PR: $PR_NUMBER"
-    gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow" &> /dev/null
-    gh pr edit "$PR_NUMBER" --add-label "trigger-workflow" &> /dev/null
+    echo "Triggering CI workflow for PR: $pr_number"
+    gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
+    gh pr edit "$pr_number" --add-label "trigger-workflow" &> /dev/null
     sleep 5
-    gh pr edit "$PR_NUMBER" --remove-label "trigger-workflow" &> /dev/null
+    gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
     ;&
   "log")
     # Get workflow id of most recent CI3 run for this given branch.
@@ -84,6 +91,7 @@ case "$CMD" in
     if gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json status --jq '.[] | select(.status == "in_progress" or .status == "queued")' | grep -q .; then
       # If we're in progress, tail live logs from launched instance,
       while true; do
+        get_ip_for_instance
         if [ -z "$ip" ]; then
           echo "Waiting on instance with name: $instance_name"
           sleep 5
@@ -111,42 +119,45 @@ case "$CMD" in
     exit 0
     ;;
   "shell")
+      get_ip_for_instance
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
       exit 0
     ;;
   "attach")
+      get_ip_for_instance
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
       exit 0
     ;;
   "ssh-host")
+      get_ip_for_instance
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip
       exit 0
     ;;
   "draft")
-    PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    if [ -n "$PR_NUMBER" ]; then
-      gh pr ready "$PR_NUMBER" --undo
-      echo "Pull request #$PR_NUMBER has been set to draft."
+    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    if [ -n "$pr_number" ]; then
+      gh pr ready "$pr_number" --undo
+      echo "Pull request #$pr_number has been set to draft."
     else
       echo "No pull request found for branch $BRANCH."
     fi
     exit 0
     ;;
   "ready")
-    PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    if [ -n "$PR_NUMBER" ]; then
-      gh pr ready "$PR_NUMBER"
-      echo "Pull request #$PR_NUMBER has been set to ready."
+    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    if [ -n "$pr_number" ]; then
+      gh pr ready "$pr_number"
+      echo "Pull request #$pr_number has been set to ready."
     else
       echo "No pull request found for branch $BRANCH."
     fi
     exit 0
     ;;
   *)
-    echo "Unknown command: $CMD"
+    echo "Unknown command: $cmd"
     exit 1
     ;;
 esac
