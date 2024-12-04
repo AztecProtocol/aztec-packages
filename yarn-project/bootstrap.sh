@@ -59,9 +59,11 @@ function test_e2e {
   github_group "yarn-project e2e tests"
   cd end-to-end
 
+  denoise yarn build:web
+
   # Pre-pull the required image for visibility.
   # TODO: We want to avoid this time burden. Slim the image? Preload it in from host?
-  docker pull aztecprotocol/build:2.0
+  denoise docker pull aztecprotocol/build:2.0
 
   # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource management.
   # If a test flakes out, mark it as flake in your PR so it no longer runs, and post a message in slack about it.
@@ -140,7 +142,7 @@ function test_e2e {
     "flake flakey_e2e_inclusion_proofs_contract"
 
     "compose composed/docs_examples"
-    "flake composed/e2e_aztec_js_browser"
+    "compose composed/e2e_aztec_js_browser"
     "compose composed/e2e_pxe"
     "flake composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"

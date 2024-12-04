@@ -55,7 +55,8 @@ case "$cmd" in
     ;;
   "ec2-e2e-grind")
     export DENOISE=1
-    seq 0 ${1:-4} | parallel --tag --line-buffered denoise $0 ec2-e2e {}
+    num=${1:-5}
+    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise $0 ec2-e2e {}
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
