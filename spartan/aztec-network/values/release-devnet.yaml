@@ -1,0 +1,48 @@
+# Deploy metrics helm chart before using this values file.
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://34.150.160.154:4318
+
+images:
+  aztec:
+    pullPolicy: Always
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false # devnet does not use real proofs
+
+network:
+  public: true
+
+validator:
+  replicas: 1
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  validator:
+    disabled: false
+
+bootNode:
+  peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
+  validator:
+    disabled: true
+
+# use small provers to produce fake proofs
+provateAgent:
+  replicas: 4
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "1"
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 200
+
+jobs:
+  deployL1Verifier:
+    enable: false
+

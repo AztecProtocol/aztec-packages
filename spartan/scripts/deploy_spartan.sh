@@ -8,7 +8,7 @@ NAMESPACE=${3:-spartan}
 PROD=${4:-true}
 PROD_ARGS=""
 if [ "$PROD" = "true" ] ; then
-  PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
+  PROD_ARGS="--set network.public=true"
 fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
