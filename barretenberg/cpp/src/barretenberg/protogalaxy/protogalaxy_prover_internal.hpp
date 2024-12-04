@@ -310,17 +310,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // we want to access, for each univariate, a parameter that defines the maximu mdegree
         PROFILE_THIS_NAME("PG::extend_univariates");
 
-        static constexpr size_t len = Flavor::USE_SHORT_MONOMIALS ? SHORT_LENGTH : ExtendedUnivariate::LENGTH;
-        // what is going on here... is that we want to, if we are using a flavor that allows for a short univariate
-        // representation, we
-        constexpr size_t _skip_count = Flavor::USE_SHORT_MONOMIALS ? 0 : skip_count;
-        auto incoming_univariates = keys.template row_to_univariates<len, _skip_count>(row_idx);
-        for (auto [extended_univariate, incoming_univariate] :
-             zip_view(extended_univariates.get_all(), incoming_univariates)) {
-            if constexpr (!std::same_as<Flavor, MegaFlavor>) {
+        if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+            extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
+        } else {
+            constexpr size_t _skip_count = Flavor::USE_SHORT_MONOMIALS ? 0 : skip_count;
+            auto incoming_univariates =
+                keys.template row_to_univariates<ExtendedUnivariate::LENGTH, _skip_count>(row_idx);
+            for (auto [extended_univariate, incoming_univariate] :
+                 zip_view(extended_univariates.get_all(), incoming_univariates)) {
                 incoming_univariate.template self_extend_from<NUM_KEYS>();
+                extended_univariate = std::move(incoming_univariate);
             }
-            extended_univariate = std::move(incoming_univariate);
         }
     }
 

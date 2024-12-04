@@ -50,7 +50,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
 
-    BB_INLINE explicit operator UnivariateMonomial<Fr, 2, true>() const
+    explicit operator UnivariateMonomial<Fr, 2, true>() const
         requires(LENGTH > 1)
     {
         static_assert(domain_end >= 2);
@@ -63,7 +63,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return result;
     }
 
-    template <bool has_a0_plus_a1> BB_INLINE Univariate(UnivariateMonomial<Fr, 2, has_a0_plus_a1> monomial)
+    template <bool has_a0_plus_a1> Univariate(UnivariateMonomial<Fr, 2, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
         Fr to_add = monomial.coefficients[1];
@@ -80,7 +80,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
 
-    template <bool has_a0_plus_a1> BB_INLINE Univariate(UnivariateMonomial<Fr, 3, has_a0_plus_a1> monomial)
+    template <bool has_a0_plus_a1> Univariate(UnivariateMonomial<Fr, 3, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
         Fr to_add = monomial.coefficients[1];                                // a1 + a2
@@ -123,7 +123,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
      *
      * @return Univariate<Fr, domain_end, domain_start>
      */
-    BB_INLINE Univariate<Fr, domain_end, domain_start> convert() const noexcept
+    Univariate<Fr, domain_end, domain_start> convert() const noexcept
     {
         Univariate<Fr, domain_end, domain_start, 0> result;
         result.evaluations[0] = evaluations[0];
@@ -137,7 +137,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     }
     // Construct constant Univariate from scalar which represents the value that all the points in the domain
     // evaluate to
-    BB_INLINE explicit Univariate(Fr value)
+    explicit Univariate(Fr value)
         : evaluations{}
     {
         for (size_t i = 0; i < LENGTH; ++i) {
@@ -145,7 +145,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
     // Construct Univariate from UnivariateView
-    BB_INLINE explicit Univariate(UnivariateView<Fr, domain_end, domain_start, skip_count> in)
+    explicit Univariate(UnivariateView<Fr, domain_end, domain_start, skip_count> in)
         : evaluations{}
     {
         for (size_t i = 0; i < in.evaluations.size(); ++i) {
@@ -172,7 +172,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     size_t size() { return evaluations.size(); };
 
     // Check if the univariate is identically zero
-    BB_INLINE bool is_zero() const
+    bool is_zero() const
     {
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
             if (!evaluations[i].is_zero()) {
@@ -218,7 +218,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     // Operations between Univariate and other Univariate
     bool operator==(const Univariate& other) const = default;
 
-    BB_INLINE Univariate& operator+=(const Univariate& other)
+    Univariate& operator+=(const Univariate& other)
     {
         evaluations[0] += other.evaluations[0];
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -226,7 +226,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return *this;
     }
-    BB_INLINE Univariate& operator-=(const Univariate& other)
+    Univariate& operator-=(const Univariate& other)
     {
         evaluations[0] -= other.evaluations[0];
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -235,7 +235,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return *this;
     }
-    BB_INLINE Univariate& operator*=(const Univariate& other)
+    Univariate& operator*=(const Univariate& other)
     {
         evaluations[0] *= other.evaluations[0];
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -243,7 +243,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return *this;
     }
-    BB_INLINE Univariate& self_sqr()
+    Univariate& self_sqr()
     {
         evaluations[0].self_sqr();
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -251,20 +251,20 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return *this;
     }
-    BB_INLINE Univariate operator+(const Univariate& other) const
+    Univariate operator+(const Univariate& other) const
     {
         Univariate res(*this);
         res += other;
         return res;
     }
 
-    BB_INLINE Univariate operator-(const Univariate& other) const
+    Univariate operator-(const Univariate& other) const
     {
         Univariate res(*this);
         res -= other;
         return res;
     }
-    BB_INLINE Univariate operator-() const
+    Univariate operator-() const
     {
         Univariate res(*this);
         size_t i = 0;
@@ -277,14 +277,14 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return res;
     }
 
-    BB_INLINE Univariate operator*(const Univariate& other) const
+    Univariate operator*(const Univariate& other) const
     {
         Univariate res(*this);
         res *= other;
         return res;
     }
 
-    BB_INLINE Univariate sqr() const
+    Univariate sqr() const
     {
         Univariate res(*this);
         res.self_sqr();
@@ -292,7 +292,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     }
 
     // Operations between Univariate and scalar
-    BB_INLINE Univariate& operator+=(const Fr& scalar)
+    Univariate& operator+=(const Fr& scalar)
     {
         size_t i = 0;
         for (auto& eval : evaluations) {
@@ -304,7 +304,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return *this;
     }
 
-    BB_INLINE Univariate& operator-=(const Fr& scalar)
+    Univariate& operator-=(const Fr& scalar)
     {
         size_t i = 0;
         for (auto& eval : evaluations) {
@@ -317,7 +317,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return *this;
     }
-    BB_INLINE Univariate& operator*=(const Fr& scalar)
+    Univariate& operator*=(const Fr& scalar)
     {
         size_t i = 0;
         for (auto& eval : evaluations) {
@@ -331,21 +331,21 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return *this;
     }
 
-    BB_INLINE Univariate operator+(const Fr& scalar) const
+    Univariate operator+(const Fr& scalar) const
     {
         Univariate res(*this);
         res += scalar;
         return res;
     }
 
-    BB_INLINE Univariate operator-(const Fr& scalar) const
+    Univariate operator-(const Fr& scalar) const
     {
         Univariate res(*this);
         res -= scalar;
         return res;
     }
 
-    BB_INLINE Univariate operator*(const Fr& scalar) const
+    Univariate operator*(const Fr& scalar) const
     {
         Univariate res(*this);
         res *= scalar;
@@ -353,7 +353,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     }
 
     // Operations between Univariate and UnivariateView
-    BB_INLINE Univariate& operator+=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
+    Univariate& operator+=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
     {
         evaluations[0] += view.evaluations[0];
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -362,7 +362,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return *this;
     }
 
-    BB_INLINE Univariate& operator-=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
+    Univariate& operator-=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
     {
         evaluations[0] -= view.evaluations[0];
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -371,7 +371,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return *this;
     }
 
-    BB_INLINE Univariate& operator*=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
+    Univariate& operator*=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
     {
         evaluations[0] *= view.evaluations[0];
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -380,21 +380,21 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return *this;
     }
 
-    BB_INLINE Univariate operator+(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view) const
+    Univariate operator+(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view) const
     {
         Univariate res(*this);
         res += view;
         return res;
     }
 
-    BB_INLINE Univariate operator-(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view) const
+    Univariate operator-(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view) const
     {
         Univariate res(*this);
         res -= view;
         return res;
     }
 
-    BB_INLINE Univariate operator*(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view) const
+    Univariate operator*(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view) const
     {
         Univariate res(*this);
         res *= view;

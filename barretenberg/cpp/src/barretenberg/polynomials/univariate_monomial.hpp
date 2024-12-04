@@ -30,7 +30,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
 
     UnivariateMonomial() = default;
 
-    BB_INLINE UnivariateMonomial(const UnivariateMonomial<Fr, domain_end, true>& other)
+    UnivariateMonomial(const UnivariateMonomial<Fr, domain_end, true>& other)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] = other.coefficients[0];
@@ -47,7 +47,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     UnivariateMonomial& operator=(UnivariateMonomial&& other) noexcept = default;
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1 = true>
-    BB_INLINE UnivariateMonomial(const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
+    UnivariateMonomial(const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
         requires(domain_end > other_domain_end)
     {
         coefficients[0] = other.coefficients[0];
@@ -60,14 +60,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     size_t size() { return coefficients.size(); };
 
     // Check if the UnivariateMonomial is identically zero
-    BB_INLINE bool is_zero() const
+    bool is_zero() const
         requires(LENGTH == 2)
     {
         return coefficients[0].is_zero() || coefficients[1].is_zero();
     }
 
     // Check if the UnivariateMonomial is identically zero
-    BB_INLINE bool is_zero() const
+    bool is_zero() const
         requires(LENGTH == 3)
     {
         return coefficients[2].is_zero() || coefficients[0].is_zero() || coefficients[1].is_zero();
@@ -95,7 +95,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return output;
     };
 
-    BB_INLINE static UnivariateMonomial zero()
+    static UnivariateMonomial zero()
     {
         auto output = UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>();
         for (size_t i = 0; i != LENGTH; ++i) {
@@ -110,7 +110,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     bool operator==(const UnivariateMonomial& other) const = default;
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false>& operator+=(
+    UnivariateMonomial<Fr, domain_end, false>& operator+=(
         const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
     {
         // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
@@ -125,7 +125,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false>& operator-=(
+    UnivariateMonomial<Fr, domain_end, false>& operator-=(
         const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
     {
         // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
@@ -140,7 +140,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <bool other_has_a0_plus_a1>
-    BB_INLINE UnivariateMonomial<Fr, 3, false> operator*(
+    UnivariateMonomial<Fr, 3, false> operator*(
         const UnivariateMonomial<Fr, domain_end, other_has_a0_plus_a1>& other) const
         requires(LENGTH == 2)
     {
@@ -181,7 +181,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     //     return *this;
     // }
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false> operator+(
+    UnivariateMonomial<Fr, domain_end, false> operator+(
         const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
     {
         UnivariateMonomial<Fr, domain_end, false> res(*this);
@@ -197,7 +197,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false> operator-(
+    UnivariateMonomial<Fr, domain_end, false> operator-(
         const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
     {
         UnivariateMonomial<Fr, domain_end, false> res(*this);
@@ -212,7 +212,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return res;
     }
 
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false> operator-() const
+    UnivariateMonomial<Fr, domain_end, false> operator-() const
     {
         UnivariateMonomial res;
         res.coefficients[0] = -coefficients[0];
@@ -224,7 +224,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return res;
     }
 
-    BB_INLINE UnivariateMonomial<Fr, 3, false> sqr() const
+    UnivariateMonomial<Fr, 3, false> sqr() const
         requires(LENGTH == 2)
     {
         UnivariateMonomial<Fr, 3, false> result;
@@ -247,20 +247,20 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     // Operations between Univariate and scalar
-    BB_INLINE UnivariateMonomial& operator+=(const Fr& scalar)
+    UnivariateMonomial& operator+=(const Fr& scalar)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] += scalar;
         return *this;
     }
 
-    BB_INLINE UnivariateMonomial& operator-=(const Fr& scalar)
+    UnivariateMonomial& operator-=(const Fr& scalar)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] -= scalar;
         return *this;
     }
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false>& operator*=(const Fr& scalar)
+    UnivariateMonomial<Fr, domain_end, false>& operator*=(const Fr& scalar)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] *= scalar;
@@ -271,21 +271,21 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return *this;
     }
 
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false> operator+(const Fr& scalar) const
+    UnivariateMonomial<Fr, domain_end, false> operator+(const Fr& scalar) const
     {
         UnivariateMonomial<Fr, domain_end, false> res(*this);
         res += scalar;
         return res;
     }
 
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false> operator-(const Fr& scalar) const
+    UnivariateMonomial<Fr, domain_end, false> operator-(const Fr& scalar) const
     {
         UnivariateMonomial<Fr, domain_end, false> res(*this);
         res -= scalar;
         return res;
     }
 
-    BB_INLINE UnivariateMonomial<Fr, domain_end, false> operator*(const Fr& scalar) const
+    UnivariateMonomial<Fr, domain_end, false> operator*(const Fr& scalar) const
     {
         UnivariateMonomial<Fr, domain_end, false> res(*this);
         res.coefficients[0] *= scalar;
