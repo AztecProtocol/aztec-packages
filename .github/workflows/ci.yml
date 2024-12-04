@@ -552,7 +552,7 @@ jobs:
 
   noir-examples:
     # We delay this job until after the `build` job has completed as it depends on bb being built.
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
     steps:
@@ -566,7 +566,7 @@ jobs:
 
   noir-packages-test:
     # We delay this job until after the `build` job has completed as it depends on bb.js being built.
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -580,7 +580,7 @@ jobs:
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true' || needs.configure.outputs.txe == 'true'
     steps:
@@ -595,7 +595,7 @@ jobs:
           earthly-ci --no-output ./noir-projects/+test --RAYON_NUM_THREADS=$(nproc)
 
   avm-format:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.avm-transpiler == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -610,7 +610,7 @@ jobs:
         run: earthly-ci --no-output ./+format
 
   yarn-project-formatting:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
@@ -624,7 +624,7 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+format-check
 
   yarn-project-test:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
@@ -638,7 +638,7 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+test
 
   prover-client-test:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     steps:
@@ -653,7 +653,7 @@ jobs:
 
   # proving disabled
   network-test:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
@@ -674,7 +674,7 @@ jobs:
         run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
 
   kind-smoke-test:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
@@ -705,7 +705,7 @@ jobs:
 
   # note: proving disabled
   kind-network-test:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
@@ -783,7 +783,7 @@ jobs:
         run: earthly-ci --no-output ./l1-contracts+test
 
   docs-preview:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.non-barretenberg-cpp == 'true'
     steps:
@@ -866,15 +866,14 @@ jobs:
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
-          # must be globally unique for build x runner
-          concurrency_key: boxes-${{ needs.configure.outputs.username }}-x86-${{ matrix.box }}-${{ matrix.browser }}
+          concurrency_key: boxes
       - name: Box test
         working-directory: ./boxes
         timeout-minutes: 40
-        run: earthly-ci -P --no-output +test --box=${{ matrix.box }} --browser=${{ matrix.browser }} --mode=cache
+        run: ./bootstrap.sh test-boxes
 
   protocol-circuits-gates-report:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     permissions:
@@ -910,7 +909,7 @@ jobs:
           message: ${{ steps.gates_diff.outputs.markdown }}
 
   public-functions-size-report:
-    needs: [build, configure]
+    needs: [bootstrap, configure]
     if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     permissions:
@@ -955,15 +954,12 @@ jobs:
     needs:
       - setup
       - configure
-      - build
+      - bootstrap
+      - bootstrap-noir-bb
       - e2e
-      # - bench-e2e # non-blocking
-      # - acir-bench # non-blocking
-      # - bench-summary # non-blocking
       - bb-gcc
       - bb-native-tests
       - bb-js-test
-      - noir-build-acir-tests
       - bb-acir-tests-bb
       - bb-acir-tests-bb-ultra-plonk
       - bb-acir-tests-bb-ultra-honk
@@ -986,7 +982,6 @@ jobs:
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
-      - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
     if: always()
