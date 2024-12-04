@@ -252,7 +252,7 @@ contract Token {
         }
 
         let from_ovpk_m = get_public_keys(from).ovpk_m;
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // TODO: constrain encryption below - we are using unconstrained here only because of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
             encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
