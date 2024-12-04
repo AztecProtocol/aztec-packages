@@ -14,7 +14,7 @@ if [ "${TEST:-}" != 1 ] && [ "${CI:-}" != 1 ]; then
 fi
 
 # if we download the test s3 flag, don't run this
-if cache_download_flag "$1" ; then
+if cache_download_flag "$1"; then
   exit 1
 fi
 

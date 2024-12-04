@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-yellow="\033[93m"
-blue="\033[34m"
-green="\033[32m"
-bold="\033[1m"
-reset="\033[0m"
-
 cmd=${1:-}
 
 hash=$(cache_content_hash ../noir/.rebuild_patterns* \
