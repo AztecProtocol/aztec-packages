@@ -46,7 +46,7 @@ jobs:
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
       avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
-      build-images: ${{ steps.filter.outputs.build-images }}
+      base-images: ${{ steps.filter.outputs.base-images }}
       barretenberg: ${{ steps.filter.outputs.barretenberg }}
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
@@ -86,8 +86,8 @@ jobs:
               - 'barretenberg/**'
             barretenberg-cpp:
               - 'barretenberg/cpp/**'
-            build-images:
-              - 'build-images/**'
+            base-images:
+              - 'base-images/**'
             noir:
               - 'noir/**'
             avm-transpiler:
@@ -124,26 +124,26 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
-  build-images:
+  base-images:
     needs: [setup, configure]
     # Note we don't put an 'if' here as that would also apply to dependent jobs, instead we just copy it into each step
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
-        if: needs.configure.outputs.build-images == 'true'
+        if: needs.configure.outputs.base-images == 'true'
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: needs.configure.outputs.build-images == 'true'
+        if: needs.configure.outputs.base-images == 'true'
         with:
-          concurrency_key: build-images-x86
+          concurrency_key: base-images-x86
       - name: "Push Build Images If Changed"
-        if: needs.configure.outputs.build-images == 'true'
+        if: needs.configure.outputs.base-images == 'true'
         timeout-minutes: 40
         run: |
-          earthly-ci --push ./build-images/+build
+          earthly-ci --push ./base-images/+build
 
   bootstrap-noir-bb:
-    needs: [build-images, configure]
+    needs: [base-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -355,7 +355,7 @@ jobs:
           AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
   bb-gcc:
-    needs: [build-images, configure]
+    needs: [base-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg-cpp == 'true'
     steps:
@@ -376,7 +376,7 @@ jobs:
   # ran on own runner for resource reasons (memory x cpu intensive)
   bb-native-tests:
     runs-on: ubuntu-20.04
-    needs: [build-images, configure]
+    needs: [base-images, configure]
     if: needs.configure.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -515,7 +515,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   noir-format:
-    needs: [build-images, configure]
+    needs: [base-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true'
     steps:
@@ -535,7 +535,7 @@ jobs:
           earthly-ci --no-output ./+format
 
   noir-test:
-    needs: [build-images, configure]
+    needs: [base-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
     steps:
@@ -767,7 +767,7 @@ jobs:
           path: network-test.log
 
   l1-contracts-test:
-    needs: [build-images, configure]
+    needs: [base-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.l1-contracts == 'true'
     steps:

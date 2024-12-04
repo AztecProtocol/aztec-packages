@@ -107,7 +107,7 @@ acir-tests:
     BUILD +barretenberg-acir-tests-sol-honk
     BUILD +barretenberg-acir-tests-bb.js
 
-barretenberg-acir-tests-base:
+barretenberg-acir-benches-bb:
   FROM ../+bootstrap-noir-bb
   WORKDIR /usr/src/barretenberg/acir_tests
 
