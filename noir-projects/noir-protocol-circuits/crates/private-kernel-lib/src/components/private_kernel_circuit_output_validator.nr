@@ -13,8 +13,8 @@ use dep::types::{
     traits::is_empty,
     transaction::tx_request::TxRequest,
     utils::arrays::{
-        assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
-        assert_array_prepended,
+        assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+        assert_array_appended_scoped, assert_array_prepended,
     },
 };
 
@@ -232,14 +232,9 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.l2_to_l1_msgs,
         );
         assert_array_prepended(
-            self.output.end.note_encrypted_logs_hashes,
-            previous_kernel.end.note_encrypted_logs_hashes,
-            array_lengths.note_encrypted_logs_hashes,
-        );
-        assert_array_prepended(
-            self.output.end.encrypted_logs_hashes,
-            previous_kernel.end.encrypted_logs_hashes,
-            array_lengths.encrypted_logs_hashes,
+            self.output.end.private_logs,
+            previous_kernel.end.private_logs,
+            array_lengths.private_logs,
         );
         assert_array_prepended(
             self.output.end.contract_class_logs_hashes,
@@ -310,17 +305,11 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.l2_to_l1_msgs,
             contract_address,
         );
-        assert_array_appended(
-            self.output.end.note_encrypted_logs_hashes,
-            private_call.note_encrypted_logs_hashes,
-            array_lengths.note_encrypted_logs_hashes,
-            offsets.note_encrypted_logs_hashes,
-        );
-        assert_array_appended_scoped(
-            self.output.end.encrypted_logs_hashes,
-            private_call.encrypted_logs_hashes,
-            array_lengths.encrypted_logs_hashes,
-            offsets.encrypted_logs_hashes,
+        assert_array_appended_and_scoped(
+            self.output.end.private_logs,
+            private_call.private_logs,
+            array_lengths.private_logs,
+            offsets.private_logs,
             contract_address,
         );
         assert_array_appended_scoped(

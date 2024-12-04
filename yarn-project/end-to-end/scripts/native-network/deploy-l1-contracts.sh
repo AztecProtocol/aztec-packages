@@ -18,21 +18,33 @@ else
   INIT_VALIDATORS="false"
 fi
 
-echo "Waiting for Anvil to be up at port 8545..."
+export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export L1_CHAIN_ID=${L1_CHAIN_ID:-"31337"}
+export PRIVATE_KEY=${PRIVATE_KEY:-""}
+export SALT=${SALT:-"1337"}
+
+echo "Waiting for Ethereum node to be up..."
 until curl -s -X POST -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  http://127.0.0.1:8545 2>/dev/null | grep -q 'result' ; do
+  $ETHEREUM_HOST 2>/dev/null | grep -q 'result'; do
   sleep 1
 done
 echo "Done waiting."
 
-# Run the deploy-l1-contracts command and capture the output
-export ETHEREUM_HOST="http://127.0.0.1:8545"
-if [ "$INIT_VALIDATORS" = "true" ]; then
-  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators "$VALIDATOR_ADDRESSES" --salt 1337)
-else
-  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --salt 1337)
-fi
+# Construct base command
+COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js \
+  deploy-l1-contracts \
+  --rpc-url $ETHEREUM_HOST \
+  --l1-chain-id $L1_CHAIN_ID \
+  --salt $SALT"
+
+# Add validators if specified
+[ "$INIT_VALIDATORS" = "true" ] && COMMAND="$COMMAND --validators $VALIDATOR_ADDRESSES"
+
+# Add private key if provided
+[ -n "$PRIVATE_KEY" ] && COMMAND="$COMMAND --private-key $PRIVATE_KEY"
+
+output=$($COMMAND)
 
 echo "$output"
 
@@ -48,9 +60,8 @@ REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'RewardDistribut
 GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 GOVERNANCE_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 
-
 # Save contract addresses to state/l1-contracts.env
-cat << EOCONFIG > $(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
+cat <<EOCONFIG >$(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 export ROLLUP_CONTRACT_ADDRESS=$ROLLUP_CONTRACT_ADDRESS
 export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
 export INBOX_CONTRACT_ADDRESS=$INBOX_CONTRACT_ADDRESS
