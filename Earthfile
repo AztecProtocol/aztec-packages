@@ -7,7 +7,7 @@ bootstrap-noir-bb:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   #ARG EARTHLY_GIT_HASH
-  ENV EARTHLY_GIT_HASH=59a85d12630b078a9e1d41df3f608f6a9b761704
+  ENV EARTHLY_GIT_HASH=3fb326ea2e737b0293000a9424a08dea46b9eb67
   ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
@@ -29,7 +29,7 @@ bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   #ARG EARTHLY_GIT_HASH
-  ENV EARTHLY_GIT_HASH=59a85d12630b078a9e1d41df3f608f6a9b761704
+  ENV EARTHLY_GIT_HASH=3fb326ea2e737b0293000a9424a08dea46b9eb67
   ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   WORKDIR /build-volume
   # Use a cache volume for performance
@@ -200,3 +200,21 @@ base-log-uploader:
     ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
     rm -rf aws awscliv2.zip
   COPY +scripts/scripts /usr/src/scripts
+
+ci:
+  BUILD ./barretenberg/+acir-tests
+  BUILD ./barretenberg/+bench-publish-acir-bb
+  BUILD ./barretenberg/cpp/+bench-binaries
+  BUILD ./barretenberg/cpp/+preset-gcc
+  BUILD ./barretenberg/cpp+test
+  BUILD ./docs/+deploy-preview
+  BUILD ./l1-contracts+test
+  BUILD ./noir/+examples
+  BUILD ./noir/+test
+  BUILD ./noir-projects/+test
+  BUILD ./scripts/logs+pack-base-benchmark
+  BUILD ./yarn-project/+format-check
+  BUILD ./yarn-project/+network-test
+  BUILD ./yarn-project/+prover-client-test
+  BUILD ./yarn-project/+test
+  BUILD ./yarn-project+export-e2e-test-images
