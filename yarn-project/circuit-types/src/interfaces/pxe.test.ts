@@ -87,6 +87,10 @@ describe('PXESchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
+  it('isL1ToL2MessageSynced', async () => {
+    await context.client.isL1ToL2MessageSynced(Fr.random());
+  });
+
   it('addAuthWitness', async () => {
     await context.client.addAuthWitness(AuthWitness.random());
   });
