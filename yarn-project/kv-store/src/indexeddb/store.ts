@@ -70,7 +70,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /**
-   * Forks the current DB into a new DB by backing it up to a temporary location and opening a new jungleDB db.
+   * Forks the current DB into a new DB by backing it up to a temporary location and opening a new indexedb.
    * @returns A new AztecIndexedDBStore.
    */
   async fork(): Promise<AztecAsyncKVStore> {
@@ -161,11 +161,16 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     for (const container of this.#containers) {
       container.db = tx.store;
     }
+    // Avoid awaiting this promise so it doesn't get scheduled in the next microtask
+    // when the tx is closed
     const runningPromise = callback();
+    // Wait for the transaction to finish
     await tx.done;
     for (const container of this.#containers) {
       container.db = undefined;
     }
+    // Return the result of the callback.
+    // Tx is guaranteed to already be closed, so the await doesn't hurt anything here
     return await runningPromise;
   }
 
@@ -178,6 +183,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
   /** Deletes this store and removes the database */
   delete() {
+    this.#containers.clear();
     return Promise.resolve(this.#rootDB.deleteObjectStore('data'));
   }
 

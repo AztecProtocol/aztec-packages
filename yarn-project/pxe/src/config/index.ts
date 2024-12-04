@@ -124,13 +124,3 @@ export function getCliPXEOptions(): CliPXEOptions & PXEServiceConfig {
     proverEnabled: pxeConfig.proverEnabled || !!cliOptions.network,
   };
 }
-
-/**
- * Returns package name and version.
- */
-export function getPackageInfo() {
-  // const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  // const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
-
-  return { version: '3', name: 'whatever' };
-}

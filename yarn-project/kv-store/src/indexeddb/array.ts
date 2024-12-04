@@ -4,7 +4,7 @@ import { type AztecAsyncArray } from '../interfaces/array.js';
 import { type AztecIDBSchema } from './store.js';
 
 /**
- * An persistent array backed by IndexedDB.
+ * A persistent array backed by IndexedDB.
  */
 export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
   #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;

@@ -69,7 +69,8 @@ import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
-import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { type PXEServiceConfig } from '../config/index.js';
+import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
