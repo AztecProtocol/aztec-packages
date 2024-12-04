@@ -198,7 +198,7 @@ class ClientIVCAPI : public API {
             }
 
             // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-            // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
+            // case, no work is added to the Goblin opqueue, but VM proofs for trivial inputs are produced.
             ivc.accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
         }
 
