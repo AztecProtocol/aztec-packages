@@ -46,7 +46,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private peerId: PeerId,
     config: P2PConfig,
     telemetry: TelemetryClient,
-    private logger = createLogger('discv5_service'),
+    private logger = createLogger('p2p:discv5_service'),
   ) {
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;

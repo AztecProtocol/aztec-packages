@@ -3,7 +3,7 @@ import { type AccountWallet, Fr, createPXEClient } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createLogger('http-rpc-client');
+const logger = createLogger('example:token');
 
 export const alicePrivateKey = Fr.random();
 export const bobPrivateKey = Fr.random();

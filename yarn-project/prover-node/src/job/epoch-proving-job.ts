@@ -29,7 +29,7 @@ import { type ProverNodeMetrics } from '../metrics.js';
  */
 export class EpochProvingJob {
   private state: EpochProvingJobState = 'initialized';
-  private log = createLogger('epoch-proving-job');
+  private log = createLogger('prover-node:epoch-proving-job');
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;

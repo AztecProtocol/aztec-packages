@@ -227,7 +227,7 @@ export enum TypeTag {
 export type TaggedMemoryInterface = FunctionsOf<TaggedMemory>;
 
 export class TaggedMemory implements TaggedMemoryInterface {
-  static readonly log: Logger = createLogger('avm_simulator:memory');
+  static readonly log: Logger = createLogger('simulator:avm:memory');
 
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';

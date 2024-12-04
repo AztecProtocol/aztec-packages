@@ -2,7 +2,7 @@ import { Tx, type TxValidator } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 
 export class DataTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_data');
+  #log = createLogger('p2p:tx_validator:tx_data');
 
   validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
     const validTxs: Tx[] = [];

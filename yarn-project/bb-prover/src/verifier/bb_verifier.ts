@@ -36,7 +36,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   public static async new(
     config: BBConfig,
     initialCircuits: ProtocolArtifact[] = [],
-    logger = createLogger('bb-verifier'),
+    logger = createLogger('bb-prover:verifier'),
   ) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     const keys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>();

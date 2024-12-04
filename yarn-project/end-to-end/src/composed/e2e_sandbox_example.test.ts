@@ -14,7 +14,7 @@ describe('e2e_sandbox_example', () => {
   it('sandbox example works', async () => {
     // docs:start:setup
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
-    const logger = createLogger('token');
+    const logger = createLogger('e2e:token');
 
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
@@ -118,7 +118,7 @@ describe('e2e_sandbox_example', () => {
   });
 
   it('can create accounts on the sandbox', async () => {
-    const logger = createLogger('token');
+    const logger = createLogger('e2e:token');
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready

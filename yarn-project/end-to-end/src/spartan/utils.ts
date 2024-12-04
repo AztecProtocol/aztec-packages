@@ -11,7 +11,7 @@ import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_chec
 
 const execAsync = promisify(exec);
 
-const logger = createLogger('k8s-utils');
+const logger = createLogger('e2e:k8s-utils');
 
 const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),

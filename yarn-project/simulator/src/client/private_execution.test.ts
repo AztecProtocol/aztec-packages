@@ -184,7 +184,7 @@ describe('Private Execution test suite', () => {
   };
 
   beforeAll(() => {
-    logger = createLogger('test:private_execution');
+    logger = createLogger('simulator:test:private_execution');
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);

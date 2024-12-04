@@ -11,7 +11,7 @@ import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prov
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('orchestrator-lifecycle');
+const logger = createLogger('prover-client:test:orchestrator-lifecycle');
 
 describe('prover/orchestrator/lifecycle', () => {
   let context: TestContext;

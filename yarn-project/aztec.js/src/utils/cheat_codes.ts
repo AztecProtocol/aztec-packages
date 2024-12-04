@@ -51,7 +51,7 @@ export class RollupCheatCodes {
   private client: WalletClient & PublicClient;
   private rollup: GetContractReturnType<typeof RollupAbi, WalletClient>;
 
-  private logger = createLogger('js:cheat_codes');
+  private logger = createLogger('aztecjs:cheat_codes');
 
   constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
     this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
@@ -197,7 +197,7 @@ export class AztecCheatCodes {
     /**
      * The logger to use for the aztec cheatcodes
      */
-    public logger = createLogger('cheat_codes:aztec'),
+    public logger = createLogger('aztecjs:cheat_codes'),
   ) {}
 
   /**

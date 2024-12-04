@@ -33,7 +33,7 @@ export class ProofVerifier {
   }
 
   static async new(config: ProofVerifierConfig, telemetryClient: TelemetryClient): Promise<ProofVerifier> {
-    const logger = createLogger('block-verifier-bot');
+    const logger = createLogger('proof-verifier:block-verifier-bot');
     const verifier = await BBCircuitVerifier.new(config, [], logger);
     const client = createPublicClient({
       chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,

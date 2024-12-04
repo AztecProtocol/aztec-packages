@@ -38,7 +38,7 @@ describe('GasUtils', () => {
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
-  const logger = createLogger('l1_gas_test');
+  const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
     const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);

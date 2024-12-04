@@ -22,7 +22,7 @@ import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
-const logger = createLogger('avm-integration');
+const logger = createLogger('ivc-integration:test:avm-integration');
 
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
@@ -122,7 +122,7 @@ describe('AVM Integration', () => {
 async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): Promise<BBSuccess> {
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
 
-  const internalLogger = createLogger('avm-proving-test');
+  const internalLogger = createLogger('ivc-integration:test:avm-proving');
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');

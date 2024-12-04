@@ -9,7 +9,7 @@ import { Instruction } from './instruction.js';
 export class DebugLog extends Instruction {
   static type: string = 'DEBUGLOG';
   static readonly opcode: Opcode = Opcode.DEBUGLOG;
-  static readonly logger = createLogger('avm_simulator:debug_log');
+  static readonly logger = createLogger('simulator:avm:debug_log');
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [

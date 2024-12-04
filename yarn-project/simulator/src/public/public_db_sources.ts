@@ -39,7 +39,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   private classCache = new Map<string, ContractClassPublic>();
   private bytecodeCommitmentCache = new Map<string, Fr>();
 
-  private log = createLogger('sequencer:contracts-data-source');
+  private log = createLogger('simulator:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
   /**
@@ -152,7 +152,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
  * A public state DB that reads and writes to the world state.
  */
 export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, CommitmentsDB {
-  private logger = createLogger('sequencer:world-state-db');
+  private logger = createLogger('simulator:world-state-db');
 
   private publicCommittedWriteCache: Map<bigint, Fr> = new Map();
   private publicCheckpointedWriteCache: Map<bigint, Fr> = new Map();

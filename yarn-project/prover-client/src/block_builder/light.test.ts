@@ -78,7 +78,7 @@ describe('LightBlockBuilder', () => {
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
   beforeAll(async () => {
-    logger = createLogger('sequencer-client:test:block-builder');
+    logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);

@@ -35,7 +35,7 @@ import { type WitnessMap } from '@noir-lang/types';
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
 export class TestPrivateKernelProver implements PrivateKernelProver {
-  constructor(private log = createLogger('test_proof_creator')) {}
+  constructor(private log = createLogger('pxe:test_proof_creator')) {}
 
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());

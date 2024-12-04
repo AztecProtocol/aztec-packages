@@ -13,7 +13,7 @@ import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } fr
 
 /* eslint-disable camelcase */
 
-const logger = createLogger('clientivc-integration');
+const logger = createLogger('ivc-integration:test:native');
 
 jest.setTimeout(120_000);
 

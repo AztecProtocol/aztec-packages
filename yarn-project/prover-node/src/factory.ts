@@ -39,7 +39,7 @@ export async function createProverNode(
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
-  const log = deps.log ?? createLogger('prover');
+  const log = deps.log ?? createLogger('prover-node');
   const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 

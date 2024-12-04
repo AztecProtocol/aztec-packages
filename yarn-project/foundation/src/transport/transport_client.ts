@@ -6,7 +6,7 @@ import { type EventMessage, type ResponseMessage, isEventMessage } from './dispa
 import { type Connector } from './interface/connector.js';
 import { type Socket } from './interface/socket.js';
 
-const log = createLogger('transport_client');
+const log = createLogger('foundation:transport_client');
 
 /**
  * Represents a pending request in the TransportClient.

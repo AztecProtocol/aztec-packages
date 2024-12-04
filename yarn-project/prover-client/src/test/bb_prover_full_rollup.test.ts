@@ -22,7 +22,7 @@ describe('prover/bb_prover/full-rollup', () => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
-    log = createLogger('bb-prover-full-rollup');
+    log = createLogger('prover-client:test:bb-prover-full-rollup');
     context = await TestContext.new(log, 1, buildProver);
   });
 

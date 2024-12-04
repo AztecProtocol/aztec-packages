@@ -88,7 +88,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private worldStateSynchronizer: WorldStateSynchronizer,
     private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
-    private logger = createLogger('libp2p_service'),
+    private logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
 

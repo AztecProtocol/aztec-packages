@@ -27,7 +27,7 @@ import {
 
 /* eslint-disable camelcase */
 
-const logger = createLogger('clientivc-integration');
+const logger = createLogger('ivc-integration:test:wasm');
 
 jest.setTimeout(120_000);
 

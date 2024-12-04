@@ -30,7 +30,7 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  protected log = createLogger('js:contract_interaction');
+  protected log = createLogger('aztecjs:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 

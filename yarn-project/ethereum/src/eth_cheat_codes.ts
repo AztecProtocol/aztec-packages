@@ -18,7 +18,7 @@ export class EthCheatCodes {
     /**
      * The logger to use for the eth cheatcodes
      */
-    public logger = createLogger('cheat_codes:eth'),
+    public logger = createLogger('ethereum:cheat_codes'),
   ) {}
 
   async rpcCall(method: string, params: any[]) {

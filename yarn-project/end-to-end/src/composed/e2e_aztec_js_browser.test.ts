@@ -15,8 +15,8 @@ const __dirname = dirname(__filename);
 const PORT = 4000;
 const PXE_PORT = 4001;
 
-const logger = createLogger('e2e_aztec_browser.js:web');
-const pageLogger = createLogger('e2e_aztec_browser.js:web:page');
+const logger = createLogger('e2e:aztec_browser.js:web');
+const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
 
 /**
  * This test is a bit of a special case as it's on a web browser and not only on anvil and node.js.

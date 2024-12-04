@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { GrumpkinScalar, type Point } from '../../../index.js';
 import { Grumpkin } from './index.js';
 
-const log = createLogger('bb:grumpkin_test');
+const log = createLogger('circuits:grumpkin_test');
 
 describe('grumpkin', () => {
   let grumpkin!: Grumpkin;

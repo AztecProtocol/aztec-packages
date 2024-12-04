@@ -41,7 +41,7 @@ const {
   SPARTAN_DIR,
   INSTANCE_NAME,
 } = config;
-const debugLogger = createLogger('spartan-test:gating-passive');
+const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes

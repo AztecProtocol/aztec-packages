@@ -5,7 +5,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('orchestrator-public-functions');
+const logger = createLogger('prover-client:test:orchestrator-public-functions');
 
 describe('prover/orchestrator/public-functions', () => {
   let context: TestContext;

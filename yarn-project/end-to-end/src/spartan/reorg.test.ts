@@ -20,7 +20,7 @@ if (!isK8sConfig(config)) {
 }
 const { NAMESPACE, HOST_PXE_PORT, HOST_ETHEREUM_PORT, CONTAINER_PXE_PORT, CONTAINER_ETHEREUM_PORT, SPARTAN_DIR } =
   config;
-const debugLogger = createLogger('spartan-test:reorg');
+const debugLogger = createLogger('e2e:spartan-test:reorg');
 
 async function checkBalances(testWallets: TestWallets, mintAmount: bigint, totalAmountTransferred: bigint) {
   testWallets.wallets.forEach(async w => {

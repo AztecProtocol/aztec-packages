@@ -7,7 +7,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('orchestrator-single-blocks');
+const logger = createLogger('prover-client:test:orchestrator-single-blocks');
 
 describe('prover/orchestrator/blocks', () => {
   let context: TestContext;

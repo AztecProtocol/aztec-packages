@@ -14,7 +14,7 @@ import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js
 import { treeTestSuite } from '../test/test_suite.js';
 import { SparseTree } from './sparse_tree.js';
 
-const log = createLogger('sparse_tree_test');
+const log = createLogger('merkle-tree:test:sparse_tree');
 
 const createDb = async (
   db: AztecKVStore,
