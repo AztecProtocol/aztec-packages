@@ -2,7 +2,7 @@
 
 The Spartan Kubernetes cluster is used to run Aztec's public-facing node infrastructure. This README explains the Spartan cluster and its `staging` and `production` environments.
 
-# Table of Contents
+## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Kubernetes Primer](#kubernetes-primer)
@@ -20,7 +20,7 @@ Before connecting to the Spartan cluster, you will need to complete the followin
 
 - [Install AWS CLI Tools](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 - [Configure CLI Authentication](https://docs.aws.amazon.com/cli/latest/userguide/cli-authentication-user.html)
-- [Install kubectl and ekcl](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html)
+- [Install kubectl and eksctl](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html)
 
 ## Kubernetes Primer
 
