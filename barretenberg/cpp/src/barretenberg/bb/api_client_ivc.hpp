@@ -132,6 +132,10 @@ class ClientIVCAPI : public API {
 
         using namespace acir_format;
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
+
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
         ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
@@ -165,6 +169,10 @@ class ClientIVCAPI : public API {
         using Program = acir_format::AcirProgram;
 
         using namespace acir_format;
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
 
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
@@ -209,7 +217,7 @@ class ClientIVCAPI : public API {
         if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
             throw_or_abort("No input_type or input_type not supported");
         }
-        vinfo("building folding stack...");
+
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
 
@@ -222,7 +230,7 @@ class ClientIVCAPI : public API {
             vinfo("performing accumulation WITHOUT auto-verify");
             ivc = _accumulate_without_auto_verify(folding_stack);
         } else {
-            vinfo("performing accumulation WITH auto-verify");
+            vinfo("performing accumulation with auto-verify");
             ivc = _accumulate(folding_stack);
         }
         ClientIVC::Proof proof = ivc.prove();

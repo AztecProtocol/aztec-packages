@@ -837,7 +837,7 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& outputPat
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
- * treatment. (i.e. they require construction of mock IVC state to correctly complete the kernel logic).
+ * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
  *
  * @param bytecodePath
  * @param witnessPath
@@ -856,10 +856,9 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_format::WitnessVector witness = {};
 
-    // WORKTODO: should be based on some default maybe?
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 
-    // The presence of ivc recursion constraints determines whther or not the program is a kernel
+    // The presence of ivc recursion constraints determines whether or not the program is a kernel
     bool is_kernel = !constraints.ivc_recursion_constraints.empty();
 
     Builder builder;
