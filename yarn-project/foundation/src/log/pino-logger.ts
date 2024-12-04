@@ -19,26 +19,26 @@ export function createLogger(module: string): Logger {
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
-  const logFn = (level: LogLevel, msg: string, data?: LogData) =>
-    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData(data ?? {}), msg);
+  const logFn = (level: LogLevel, msg: string, data?: unknown) =>
+    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData((data as LogData) ?? {}), msg);
 
   return {
     silent: () => {},
     // TODO(palla/log): Should we move err to data instead of the text message?
     /** Log as fatal. Use when an error has brought down the system. */
-    fatal: (msg: string, err?: unknown, data?: LogData) => logFn('fatal', formatErr(msg, err), data),
+    fatal: (msg: string, err?: unknown, data?: unknown) => logFn('fatal', formatErr(msg, err), data),
     /** Log as error. Use for errors in general. */
-    error: (msg: string, err?: unknown, data?: LogData) => logFn('error', formatErr(msg, err), data),
+    error: (msg: string, err?: unknown, data?: unknown) => logFn('error', formatErr(msg, err), data),
     /** Log as warn. Use for when we stray from the happy path. */
-    warn: (msg: string, data?: LogData) => logFn('warn', msg, data),
+    warn: (msg: string, data?: unknown) => logFn('warn', msg, data),
     /** Log as info. Use for providing an operator with info on what the system is doing. */
-    info: (msg: string, data?: LogData) => logFn('info', msg, data),
+    info: (msg: string, data?: unknown) => logFn('info', msg, data),
     /** Log as verbose. Use for when we need additional insight on what a subsystem is doing. */
-    verbose: (msg: string, data?: LogData) => logFn('verbose', msg, data),
+    verbose: (msg: string, data?: unknown) => logFn('verbose', msg, data),
     /** Log as debug. Use for when we need debugging info to troubleshoot an issue on a specific component. */
-    debug: (msg: string, data?: LogData) => logFn('debug', msg, data),
+    debug: (msg: string, data?: unknown) => logFn('debug', msg, data),
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
-    trace: (msg: string, data?: LogData) => logFn('trace', msg, data),
+    trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
     level: pinoLogger.level as LogLevel,
     isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
   };

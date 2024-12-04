@@ -103,7 +103,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       feeRecipient,
       gasFees,
     );
-    this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toFriendlyJSON());
+
     return globalVariables;
   }
 }
