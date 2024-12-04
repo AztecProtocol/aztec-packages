@@ -10,19 +10,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Enable abbreviated output.
 export DENOISE=1
 
-<<<<<<< HEAD
-# Enable abbreviated output.
-export DENOISE=1
-
-CMD=${1:-}
-
-YELLOW="\033[93m"
-RED="\033[31m"
-BOLD="\033[1m"
-RESET="\033[0m"
-=======
 cmd=${1:-}
->>>>>>> origin/cl/ci3
 
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
@@ -160,9 +148,9 @@ case "$cmd" in
     exit
   ;;
   "image-e2e")
-    IMAGE=aztecprotocol/end-to-end:$(git rev-parse HEAD)
-    if docker_has_image $IMAGE; then
-      echo "Image $IMAGE already exists." && exit
+    image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
+    if docker_has_image $image; then
+      echo "Image $image already exists." && exit
     fi
     github_group "image-e2e"
     source $ci3/source_tmp
@@ -170,14 +158,14 @@ case "$cmd" in
     earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
     earthly --artifact +bootstrap-end-to-end/anvil $TMP/anvil
     echo "docker image build:"
-    docker build -f Dockerfile.end-to-end -t $IMAGE $TMP
+    docker build -f Dockerfile.end-to-end -t $image $TMP
     github_endgroup
     exit
   ;;
   "image-faucet")
-    IMAGE=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
-    if docker_has_image $IMAGE; then
-      echo "Image $IMAGE already exists." && exit
+    image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
+    if docker_has_image $image; then
+      echo "Image $image already exists." && exit
     fi
     github_group "image-faucet"
     source $ci3/source_tmp
@@ -185,7 +173,7 @@ case "$cmd" in
     echo "earthly artifact build:"
     earthly --artifact +bootstrap-faucet/usr/src $TMP/usr/src
     echo "docker image build:"
-    docker build -f Dockerfile.aztec-faucet -t $IMAGE $TMP
+    docker build -f Dockerfile.aztec-faucet -t $image $TMP
     github_endgroup
     exit
   ;;

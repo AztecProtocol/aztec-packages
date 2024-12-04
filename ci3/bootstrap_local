@@ -13,7 +13,7 @@
 root=$(git rev-parse --show-toplevel)
 source $root/ci3/source
 current_commit=$(git rev-parse HEAD)
-CMD=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
+cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
 
 if ! git diff --quiet; then
   echo "There are local changes to tracked files."
@@ -34,5 +34,5 @@ docker run --name aztec_build -ti --rm \
   git remote add origin https://github.com/aztecprotocol/aztec-packages
   git fetch --depth 1 origin $current_commit 2>/dev/null || (echo 'The commit was not pushed, run aborted.' && exit 1)
   git checkout FETCH_HEAD &>/dev/null
-  $CMD
+  $cmd
 "
