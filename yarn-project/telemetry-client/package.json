@@ -35,7 +35,6 @@
     "@opentelemetry/exporter-metrics-otlp-http": "^0.55.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
     "@opentelemetry/host-metrics": "^0.35.4",
-    "@opentelemetry/instrumentation-pino": "^0.44.0",
     "@opentelemetry/otlp-exporter-base": "^0.55.0",
     "@opentelemetry/resource-detector-aws": "^1.8.0",
     "@opentelemetry/resources": "^1.28.0",

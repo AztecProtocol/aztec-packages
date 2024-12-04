@@ -102,7 +102,6 @@
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
-    "@opentelemetry/instrumentation-pino": "^0.44.0",
     "bn.js": "^5.2.1",
     "colorette": "^2.0.20",
     "debug": "^4.3.4",
