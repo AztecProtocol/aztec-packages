@@ -24,6 +24,8 @@ acir-tests-bb:
 
 acir-tests-bb-ultra-plonk:
     FROM +acir-tests-base
+    # Do not pass with plonk!
+    RUN rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof}
     # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
     # This ensures we test independent pk construction through real/garbage witness data paths.
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
@@ -31,6 +33,8 @@ acir-tests-bb-ultra-plonk:
 
 acir-tests-bb-ultra-honk:
     FROM +acir-tests-base
+    # Do not pass with honk!
+    RUN rm -rf acir_tests/{single_verify_proof,double_verify_proof,double_verify_nested_proof}
     # Run the acir test through native bb build prove_then_verify_ultra_honk flow
     # Note that the script will skip the Plonk related tests
     RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
@@ -47,6 +51,8 @@ acir-tests-bb-ultra-honk:
 
 acir-tests-bb-mega-honk:
     FROM +acir-tests-base
+    # Do not pass with honk!
+    RUN rm -rf acir_tests/{single_verify_proof,double_verify_proof,double_verify_nested_proof}
     # Construct and separately verify a MegaHonk proof for all acir programs
     RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
     # Construct and verify a MegaHonk proof for a single arbitrary program
@@ -105,8 +111,7 @@ acir-tests:
     END
     BUILD +acir-tests-bb
     BUILD +acir-tests-bb-ultra-plonk
-    # WORKTODO make issue
-    # BUILD +acir-tests-bb-ultra-honk
+    BUILD +acir-tests-bb-ultra-honk
     BUILD +acir-tests-bb-mega-honk
     BUILD +acir-tests-sol
     BUILD +acir-tests-sol-honk
