@@ -6,9 +6,9 @@ namespace bb {
 class API {
   public:
     struct Flags {
-        std::optional<std::string> output_type;      // bytes, fields, bytes_and_fields, fields_msgpack
-        std::optional<std::string> input_type;       // compiletime_stack, runtime_stack
-        std::optional<std::string> skip_auto_verify; // WORKTODO: will go away when this is only option
+        std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
+        std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
+        std::optional<bool> no_auto_verify;     // WORKTODO: will go away when this is only option
     };
 
     virtual void prove(const Flags& flags,

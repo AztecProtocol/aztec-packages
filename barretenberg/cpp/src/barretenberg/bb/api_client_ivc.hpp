@@ -132,10 +132,10 @@ class ClientIVCAPI : public API {
 
         using namespace acir_format;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        vinfo("initializing BN254 CRS...");
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        // vinfo("initializing BN254 CRS...");
+        // init_bn254_crs(1 << 20);
+        // init_grumpkin_crs(1 << 15);
 
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
@@ -177,22 +177,25 @@ class ClientIVCAPI : public API {
 
         // TODO(#7371) dedupe this with the rest of the similar code
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-        ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
+        ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/false };
 
         // Accumulate the entire program stack into the IVC
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once
         // databus has been integrated into noir kernel programs
         bool is_kernel = false;
         for (Program& program : folding_stack) {
-            // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-            Builder circuit = acir_format::create_circuit<Builder>(
-                program.constraints, true, 0, program.witness, false, ivc.goblin.op_queue);
 
-            // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
-            if (!circuit.databus_propagation_data.is_kernel) {
-                circuit.databus_propagation_data.is_kernel = is_kernel;
+            Builder circuit;
+
+            is_kernel = !program.constraints.ivc_recursion_constraints.empty();
+            if (is_kernel) {
+                vinfo("Accumulating KERNEL.");
+                circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
+            } else {
+                vinfo("Accumulating APP.");
+                circuit = create_circuit<Builder>(
+                    program.constraints, /*recursive=*/false, 0, program.witness, false, ivc.goblin.op_queue);
             }
-            is_kernel = !is_kernel;
 
             // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
             // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
@@ -218,14 +221,21 @@ class ClientIVCAPI : public API {
         vinfo("building folding stack...");
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
-        // ClientIVC ivc;
-        // if (flags.skip_auto_verify) {
-        //     vinfo("performing accumulation WITHOUT auto-verify");
-        //     ivc = _accumulate_without_auto_verify(folding_stack);
-        // } else {
-        vinfo("performing accumulation WITH auto-verify");
-        ClientIVC ivc = _accumulate(folding_stack);
-        // }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        vinfo("initializing BN254 CRS...");
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
+
+        ClientIVC ivc;
+        if (flags.no_auto_verify) {
+            // if (false) {
+            vinfo("performing accumulation WITHOUT auto-verify");
+            ivc = _accumulate_without_auto_verify(folding_stack);
+        } else {
+            vinfo("performing accumulation WITH auto-verify");
+            ivc = _accumulate(folding_stack);
+        }
         ClientIVC::Proof proof = ivc.prove();
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems

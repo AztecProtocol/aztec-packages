@@ -1205,7 +1205,8 @@ int main(int argc, char* argv[])
 
         const API::Flags flags = [&args]() {
             return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                               .input_type = get_option(args, "--input_type", "compiletime_stack") };
+                               .input_type = get_option(args, "--input_type", "compiletime_stack"),
+                               .no_auto_verify = flag_present(args, "--no_auto_verify") };
         }();
 
         const std::string command = args[0];

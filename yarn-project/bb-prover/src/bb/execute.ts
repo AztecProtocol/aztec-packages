@@ -202,7 +202,7 @@ export async function executeBbClientIvcProof(
   bytecodeStackPath: string,
   witnessStackPath: string,
   log: LogFn,
-  skipAutoVerify = false,
+  noAutoVerify = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -239,8 +239,8 @@ export async function executeBbClientIvcProof(
       '--input_type',
       'runtime_stack',
     ];
-    if (skipAutoVerify) {
-      args.push('--skip_auto_verify');
+    if (noAutoVerify) {
+      args.push('--no_auto_verify');
     }
     const timer = new Timer();
     const logFunction = (message: string) => {
