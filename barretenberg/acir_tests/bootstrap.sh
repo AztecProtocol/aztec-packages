@@ -12,7 +12,7 @@ function build {
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_5045}
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
     rm -rf acir_tests/regression_5045
-    if [ "{CI25:-0}" = "1" ]; then
+    if [ "{CI25:-0}" = "0" ]; then
       # These honk tests just started failing...
       rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof}
     fi
