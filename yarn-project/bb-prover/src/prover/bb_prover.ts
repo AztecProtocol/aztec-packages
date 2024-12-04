@@ -10,7 +10,6 @@ import {
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
-  IPA_CLAIM_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
@@ -22,6 +21,7 @@ import {
   EmptyNestedCircuitInputs,
   EmptyNestedData,
   Fr,
+  IPA_CLAIM_LENGTH,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
