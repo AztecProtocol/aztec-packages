@@ -137,6 +137,10 @@ export class PXEService implements PXE {
     this.log.info('Stopped Synchronizer');
   }
 
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.node.isL1ToL2MessageSynced(l1ToL2Message);
+  }
+
   /** Returns an estimate of the db size in bytes. */
   public estimateDbSize() {
     return this.db.estimateSize();

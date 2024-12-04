@@ -23,7 +23,6 @@ validator:
   storage: "128Gi"
 
 bootNode:
-  realProofs: true
   validator:
     disabled: true
   resources:
@@ -33,7 +32,6 @@ bootNode:
   storage: "128Gi"
 
 proverNode:
-  realProofs: true
   resources:
     requests:
       memory: "8Gi"
@@ -42,7 +40,6 @@ proverNode:
 
 proverAgent:
   replicas: 120
-  realProofs: true
   bb:
     hardwareConcurrency: 31
   resources:
@@ -50,15 +47,10 @@ proverAgent:
       memory: "116Gi"
       cpu: "31"
 
-pxe:
-  proverEnabled: true
-
 bot:
   replicas: 16
   enabled: true
-  pxeProverEnabled: true
   txIntervalSeconds: 1
-  proverRealProofs: true
   botPrivateKey: ""
   privateTransfersPerTx: 1
   publicTransfersPerTx: 1
@@ -80,3 +72,4 @@ fullnameOverride: sp
 aztec:
   slotDuration: 36
   epochDuration: 32
+  realProofs: true

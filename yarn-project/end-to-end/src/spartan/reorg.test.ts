@@ -8,13 +8,13 @@ import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from '
 import {
   applyProverFailure,
   deleteResourceByLabel,
-  getConfig,
   isK8sConfig,
+  setupEnvironment,
   startPortForward,
   waitForResourceByLabel,
 } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }

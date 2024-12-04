@@ -3,6 +3,27 @@
 pragma solidity >=0.8.27;
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
+
+/**
+ * @notice  The data structure for an epoch
+ * @param committee - The validator set for the epoch
+ * @param sampleSeed - The seed used to sample the validator set of the epoch
+ * @param nextSeed - The seed used to influence the NEXT epoch
+ */
+struct EpochData {
+  address[] committee;
+  uint256 sampleSeed;
+  uint256 nextSeed;
+}
+
+struct LeonidasStorage {
+  EnumerableSet.AddressSet validatorSet;
+  // A mapping to snapshots of the validator set
+  mapping(Epoch => EpochData) epochs;
+  // The last stored randao value, same value as `seed` in the last inserted epoch
+  uint256 lastSeed;
+}
 
 interface ILeonidas {
   // Changing depending on sybil mechanism and slashing enforcement
