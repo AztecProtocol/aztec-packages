@@ -6,8 +6,10 @@ namespace bb {
 class API {
   public:
     struct Flags {
-        std::optional<std::string> output_type; // bytes, fields, bytes-and-fields, fields-msgpack
-        std::optional<std::string> input_type;  // single-circuit, runtime_stack, compiletime_stack
+        bool verbose{ false };
+        std::optional<std::string> scheme;
+        std::optional<std::string> input_type;  // single_circuit, runtime_stack, compiletime_stack
+        std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
     };
 
     virtual void prove(const Flags& flags,
@@ -31,6 +33,7 @@ class API {
                           const std::filesystem::path& output_path,
                           const std::filesystem::path& vk_path) = 0;
 
+    // WORKTODO: should move out?
     virtual void to_fields(const Flags& flags,
                            const std::filesystem::path& proof_path,
                            const std::filesystem::path& vk_path,

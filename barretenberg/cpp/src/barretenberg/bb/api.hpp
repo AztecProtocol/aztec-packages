@@ -14,7 +14,6 @@ class API {
                        const std::filesystem::path& bytecode_path,
                        const std::filesystem::path& witness_path,
                        const std::filesystem::path& output_dir) = 0;
-    // + require scheme, input type, output type?
 
     virtual bool verify(const Flags& flags,
                         const std::filesystem::path& proof_path,
@@ -23,7 +22,6 @@ class API {
     virtual bool prove_and_verify(const Flags& flags,
                                   const std::filesystem::path& bytecode_path,
                                   const std::filesystem::path& witness_path) = 0;
-    // + require scheme, input type
 
     virtual void gates(const Flags& flags,
                        const std::filesystem::path& bytecode_path,

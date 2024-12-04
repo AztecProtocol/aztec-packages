@@ -2,103 +2,181 @@
 
 #include "barretenberg/bb11/CLI11.hpp"
 #include "barretenberg/bb11/api.hpp"
-// #include "barretenberg/bb11/api_client_ivc.hpp"
 #include "barretenberg/bb11/file_io.hpp"
-// #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/log.hpp"
-// #include "barretenberg/common/benchmark.hpp"
-// #include "barretenberg/common/map.hpp"
-// #include "barretenberg/common/serialize.hpp"
-// #include "barretenberg/common/timer.hpp"
-// #include "barretenberg/constants.hpp"
-// #include "barretenberg/dsl/acir_format/acir_format.hpp"
-// #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-// #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
-// #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
-// #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
-// #include "barretenberg/honk/proof_system/types/proof.hpp"
-// #include "barretenberg/numeric/bitop/get_msb.hpp"
-// #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
-// #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
-// #include "barretenberg/serialize/cbind.hpp"
-// #include "barretenberg/srs/global_crs.hpp"
-// #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
-// #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-// #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-// #include "barretenberg/vm/avm/trace/public_inputs.hpp"
-
-// #ifndef DISABLE_AZTEC_VM
-// #include "barretenberg/vm/avm/generated/flavor.hpp"
-// #include "barretenberg/vm/avm/trace/common.hpp"
-// #include "barretenberg/vm/avm/trace/execution.hpp"
-// #include "barretenberg/vm/aztec_constants.hpp"
-// #include "barretenberg/vm/stats.hpp"
-// #endif
 
 using namespace bb;
 
-const std::filesystem::path current_path = std::filesystem::current_path();
-const auto current_dir = current_path.filename().string();
+class Formatter : public CLI::Formatter {
+  public:
+    Formatter() = default;
 
-// // Initializes without loading G1
-// // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
-// acir_proofs::AcirComposer verifier_init()
-// {
-//     acir_proofs::AcirComposer acir_composer(0, verbose_logging);
-//     auto g2_data = get_bn254_g2_data(CRS_PATH);
-//     srs::init_crs_factory({}, g2_data);
-//     return acir_composer;
-// }
+    std::string make_option_opts(const CLI::Option* opt) const override
+    {
+        std::stringstream out;
 
-// std::string to_json(std::vector<bb::fr>& data)
-// {
-//     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-// }
+        // Add environment variable if present
+        if (!opt->get_envname().empty()) {
+            out << " [" << opt->get_envname() << "]";
+        }
 
-// std::string vk_to_json(std::vector<bb::fr> const& data)
-// {
-//     // We need to move vk_hash to the front...
-//     std::vector<bb::fr> rotated(data.begin(), data.end() - 1);
-//     rotated.insert(rotated.begin(), data.at(data.size() - 1));
+        return out.str();
+    }
 
-//     return format("[", join(map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
-// }
+    std::string make_option_desc(const CLI::Option* opt) const override
+    {
+        const size_t wrap_width = 60;
+        std::stringstream out;
 
-// bool flag_present(std::vector<std::string>& args, const std::string& flag)
-// {
-//     return std::find(args.begin(), args.end(), flag) != args.end();
-// }
+        // WORKTODO: do similar for deprecated
+        if (opt->get_required()) {
+            out << "\e[3mREQUIRED\e[0m ";
+        }
 
-// std::string get_option(std::vector<std::string>& args, const std::string& option, const std::string& defaultValue)
-// {
-//     auto itr = std::find(args.begin(), args.end(), option);
-//     return (itr != args.end() && std::next(itr) != args.end()) ? *(std::next(itr)) : defaultValue;
-// }
+        // Main description
+        std::string desc = opt->get_description();
+
+        // Add acceptable options if IsMember validator is used
+        CLI::Validator* is_member_validator = get_validator(const_cast<CLI::Option*>(opt), "is_member");
+
+        wrap_text(out, desc, wrap_width);
+
+        if (is_member_validator) {
+            out << "\n";
+            std::string options = is_member_validator->get_description();
+            wrap_text(out, "Options: " + replace(options, ",", ", "), wrap_width);
+        }
+
+        return out.str();
+    }
+
+    std::string make_help(const CLI::App* app, std::string name, CLI::AppFormatMode mode) const override
+    {
+        // Use default formatting for the app's name and description
+        std::stringstream out;
+        if (mode == CLI::AppFormatMode::Normal) {
+            out << CLI::Formatter::make_help(app, name, mode);
+        }
+        return out.str();
+    }
+
+  private:
+    static void wrap_text(std::ostream& out, const std::string& text, size_t width)
+    {
+        std::istringstream words(text);
+        std::string word;
+        size_t line_length = 0;
+
+        while (words >> word) {
+            if (line_length + word.length() + 1 > width) {
+                out << "\n";
+                line_length = 0;
+            }
+            if (line_length > 0) {
+                out << " ";
+                line_length++;
+            }
+            out << word;
+            line_length += word.length();
+        }
+    }
+
+    CLI::Validator* get_validator(CLI::Option* opt, const std::string& name) const
+    {
+        CLI::Validator* result;
+        try {
+            result = opt->get_validator(name);
+        } catch (const CLI::OptionNotFound& err) {
+            result = nullptr;
+        }
+        return result;
+    };
+
+    std::string replace(std::string& in, const std::string& pat, const std::string& rep) const
+    {
+        size_t pos = 0;
+        while ((pos = in.find(pat, pos)) != std::string::npos) {
+            in.replace(pos, pat.size(), rep);
+            pos += rep.size();
+        }
+        return in;
+    }
+};
 
 int main(int argc, char* argv[])
 {
-    ;
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
     CLI::App app{ name };
     argv = app.ensure_utf8(argv);
+    app.formatter(std::make_shared<Formatter>());
 
-    // std::string filename{ "default" };
-    // std::string file_ext{ "zip" };
-    // app.add_option("-f,--file", filename, "the name of a file")->envname("FILE")->check(CLI::ExistingFile);
-    // app.add_option("--ext", file_ext, "the extension type of a file")
-    //     ->needs("--file")
-    //     ->check(CLI::IsMember({ "zip", "jpeg" }));
+    API::Flags flags;
 
-    // bool myflag{ false };
-    // app.add_flag("--myflag", myflag, "this is the flag I added, wdyt?");
+    app.add_flag("--verbose, -v", flags.verbose, "Output all logs to stderr.");
+    // WORKTODO: name
+    CLI::Option* scheme_option =
+        app.add_option(
+               "--scheme, -s",
+               flags.scheme,
+               "The type of proof to be constructed. This can specify a proving system, an accumulation scheme, or "
+               "a particular type of circuit to be constructed and proven for some implicit scheme.")
+            ->envname("BB_SCHEME")
+            ->check(CLI::IsMember({ "client_ivc", "avm", "tube", "ultra_honk", "ultra_keccak_honk", "ultra_plonk" })
+                        .name("is_member"));
 
-    // CLI::App* prove_sub = app.add_subcommand("prove", "prove some stuff");
-    // prove_sub->add_option("--yoohoo", filename, "overwrite whatever value is set by --file")->required();
+    // WORKTODO: Path creation logic already handled
+    std::filesystem::path crs_path = []() {
+        char* home = std::getenv("HOME");
+        std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
+        return base / ".bb-crs";
+    }();
+    app.add_option("--crs_dir, -c", "Path CRS directory. Missing CRS files will be retrieved from the internet.")
+        ->check(CLI::ExistingDirectory);
+
+    /*******************************************************
+     * Subcommnd: prove
+     *******************************************************/
+    CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
+
+    prove->needs(scheme_option);
+
+    std::filesystem::path bytecode_path{ "./target/program.json" };
+    // WORKTODO: documentation of structure (JSON or msgpack of bytecodes; bytecodes are encoded...)
+    // WORKTODO: fine-grained validation?
+    // WORKTODO: bytecode path is a bad name since bytecode is sometimes actually just a field in the ACIR?
+    prove->add_option("--bytecode_path, -b", bytecode_path, "Path to ACIR bytecode generated by Noir.")
+        ->check(CLI::ExistingFile);
+
+    // WORKTODO: documentation of structure (JSON or msgpack of bytecodes; bytecodes are encoded...)
+    std::filesystem::path witness_path{ "./target/witness.gz" };
+    prove->add_option("--witness_path, -w", witness_path, "Path to partial witness generated by Noir.")
+        ->check(CLI::ExistingFile);
+
+    std::filesystem::path output_dir{ "./target" };
+    prove->add_option("--output_dir, -o", output_dir, "Directory where the proof will be stored.")
+        ->check(CLI::ExistingDirectory);
+
+    auto* input_type_option =
+        prove
+            ->add_option("--input_type",
+                         flags.input_type,
+                         "Is the input a single circuit, a compile-time stack or a run-time stack?")
+            ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
+    // Eventually we should uniformize this the correct proving mode is detected from the inputs.
+    CLI::deprecate_option(input_type_option);
+
+    prove
+        ->add_option("--output_type", flags.output_type, "Format of the output.")
+        // These options currently exist. Probably it's a good idea to just settle on one (fields_msgpack imo) but I'm
+        // less convinced this is the right solution than I am in the input_type case.
+        ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }));
+
+    prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
+
+    /*******************************************************
+     * Subcommnd: verify
+     *******************************************************/
 
     CLI11_PARSE(app, argc, argv);
-
-    // info("filename is: ", filename);
-    // info("myflag is: ", myflag);
-    // info("fext is: ", file_ext);
 }
