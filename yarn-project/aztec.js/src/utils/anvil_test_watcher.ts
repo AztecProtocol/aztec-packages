@@ -31,7 +31,7 @@ export class AnvilTestWatcher {
       client: publicClient,
     });
 
-    this.logger.info(`Watcher created for rollup at ${rollupAddress}`);
+    this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
   }
 
   async start() {
@@ -48,7 +48,7 @@ export class AnvilTestWatcher {
     if (isAutoMining) {
       this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), 1000);
       this.filledRunningPromise.start();
-      this.logger.info(`Watcher started`);
+      this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
       this.logger.info(`Watcher not started because not auto mining`);
     }
