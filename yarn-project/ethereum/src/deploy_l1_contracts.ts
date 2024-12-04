@@ -5,6 +5,8 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  ExtRollupLibAbi,
+  ExtRollupLibBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   GovernanceAbi,
@@ -13,6 +15,8 @@ import {
   GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
+  LeonidasLibAbi,
+  LeonidasLibBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -22,12 +26,8 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
-  SampleLibAbi,
-  SampleLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
-  TxsDecoderAbi,
-  TxsDecoderBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -172,13 +172,13 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     libraries: {
       linkReferences: RollupLinkReferences,
       libraryCode: {
-        TxsDecoder: {
-          contractAbi: TxsDecoderAbi,
-          contractBytecode: TxsDecoderBytecode,
+        LeonidasLib: {
+          contractAbi: LeonidasLibAbi,
+          contractBytecode: LeonidasLibBytecode,
         },
-        SampleLib: {
-          contractAbi: SampleLibAbi,
-          contractBytecode: SampleLibBytecode,
+        ExtRollupLib: {
+          contractAbi: ExtRollupLibAbi,
+          contractBytecode: ExtRollupLibBytecode,
         },
       },
     },
@@ -613,7 +613,16 @@ export async function deployL1Contract(
   const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
 
   if (libraries) {
-    // @note  Assumes that we wont have nested external libraries.
+    // Note that this does NOT work well for linked libraries having linked libraries.
+
+    // Verify that all link references have corresponding code
+    for (const linkRef in libraries.linkReferences) {
+      for (const contractName in libraries.linkReferences[linkRef]) {
+        if (!libraries.libraryCode[contractName]) {
+          throw new Error(`Missing library code for ${contractName}`);
+        }
+      }
+    }
 
     const replacements: Record<string, EthAddress> = {};
 
