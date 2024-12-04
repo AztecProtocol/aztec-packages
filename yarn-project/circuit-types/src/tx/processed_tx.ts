@@ -166,7 +166,6 @@ export function makeProcessedTxFromPrivateOnlyTx(
 export function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,
-  feePaymentPublicDataWrite: PublicDataWrite | undefined,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
@@ -176,14 +175,6 @@ export function makeProcessedTxFromTxWithPublicCalls(
   const constants = CombinedConstantData.combine(tx.data.constants, avmOutput.globalVariables);
 
   const publicDataWrites = avmOutput.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
-  if (feePaymentPublicDataWrite) {
-    const existingIndex = publicDataWrites.findIndex(w => w.leafSlot.equals(feePaymentPublicDataWrite.leafSlot));
-    if (existingIndex >= 0) {
-      publicDataWrites[existingIndex] = feePaymentPublicDataWrite;
-    } else {
-      publicDataWrites.push(feePaymentPublicDataWrite);
-    }
-  }
 
   const privateLogs = [
     ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,

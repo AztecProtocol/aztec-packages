@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AvmCircuitPublicInputs,
+  type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
@@ -70,6 +71,7 @@ export class PublicTxContext {
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly feePayer: AztecAddress,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
@@ -117,6 +119,7 @@ export class PublicTxContext {
       getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
+      tx.data.feePayer,
       enqueuedCallTrace,
     );
   }

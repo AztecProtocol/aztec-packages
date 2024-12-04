@@ -284,21 +284,7 @@ export class PublicProcessor {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs);
 
-    const data = avmProvingRequest.inputs.output;
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      data.accumulatedData.publicDataWrites,
-      data.transactionFee,
-      tx.data.feePayer,
-    );
-
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(
-      tx,
-      avmProvingRequest,
-      feePaymentPublicDataWrite,
-      gasUsed,
-      revertCode,
-      revertReason,
-    );
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 
