@@ -367,10 +367,6 @@ unconstrained fn sender_opcode() -> AztecAddress {}
 #[oracle(avmOpcodePortal)]
 unconstrained fn portal_opcode() -> EthAddress {}
 
-// TODO(9396): Remove.
-//#[oracle(avmOpcodeFunctionSelector)]
-//unconstrained fn function_selector_opcode() -> u32 {}
-
 #[oracle(avmOpcodeTransactionFee)]
 unconstrained fn transaction_fee_opcode() -> Field {}
 

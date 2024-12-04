@@ -235,7 +235,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_fdiv{};
     FF main_sel_op_fee_per_da_gas{};
     FF main_sel_op_fee_per_l2_gas{};
-    FF main_sel_op_function_selector{};
     FF main_sel_op_get_contract_instance{};
     FF main_sel_op_internal_call{};
     FF main_sel_op_internal_return{};
@@ -780,7 +779,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 766;
+    static constexpr size_t SIZE = 765;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

@@ -65,16 +65,6 @@ FF AvmKernelTraceBuilder::op_sender(uint32_t clk)
     return perform_kernel_input_lookup(SENDER_KERNEL_INPUTS_COL_OFFSET);
 }
 
-FF AvmKernelTraceBuilder::op_function_selector(uint32_t clk)
-{
-    KernelTraceEntry entry = {
-        .clk = clk,
-        .operation = KernelTraceOpType::FUNCTION_SELECTOR,
-    };
-    kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET);
-}
-
 FF AvmKernelTraceBuilder::op_transaction_fee(uint32_t clk)
 {
     KernelTraceEntry entry = {
