@@ -13,3 +13,14 @@ ci3="$(git rev-parse --show-toplevel)/ci3"
 # Conditionally print all statements ran in CI scripts.
 # Useful for debugging commands that weren't expected to error out.
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+
+function hash_str {
+  echo $1 | git hash-object --stdin | tr -d '\n'
+}
+export -f hash_str
+
+yellow="\033[93m"
+blue="\033[34m"
+green="\033[32m"
+bold="\033[1m"
+reset="\033[0m"

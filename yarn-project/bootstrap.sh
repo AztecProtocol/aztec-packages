@@ -1,66 +1,62 @@
 #!/usr/bin/env bash
-set -eu
-# Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-YELLOW="\033[93m"
-BLUE="\033[34m"
-GREEN="\033[32m"
-BOLD="\033[1m"
-RESET="\033[0m"
+cmd=${1:-}
 
-CMD=${1:-}
+hash=$(cache_content_hash ../noir/.rebuild_patterns* \
+  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+  ../barretenberg/*/.rebuild_patterns)
 
 function build {
   github_group "yarn-project build"
 
-  HASH=$(cache_content_hash ../noir/.rebuild_patterns* \
-    ../noir-projects/.rebuild_patterns \
-    ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns)
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && ./scripts/generate-artifacts.sh)
 
   # Fast build does not delete everything first.
   # It regenerates all generated code, then performs an incremental tsc build.
-  echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
-  echo
-  echo "yarn install: "
+  echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
   denoise yarn install
 
-  if ! cache_download yarn-project-$HASH.tar.gz ; then
+  if ! cache_download yarn-project-$hash.tar.gz ; then
     case "${1:-}" in
-      "fast") yarn build:fast;;
-      "full") yarn build;;
+      "fast")
+        yarn build:fast
+        ;;
+      "full")
+        yarn build
+        ;;
       *)
         if ! yarn build:fast; then
-          echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}\n"
+          echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
           yarn build
         fi
     esac
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
-    FILES_TO_UPLOAD=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
-    cache_upload yarn-project-$HASH.tar.gz $FILES_TO_UPLOAD
+    files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
+    cache_upload yarn-project-$hash.tar.gz $files_to_upload
     echo
-    echo -e "${GREEN}Yarn project successfully built!${RESET}"
+    echo -e "${green}Yarn project successfully built!${reset}"
   fi
   github_endgroup
-
-  if test_should_run "yarn-project-tests-$HASH"; then
-    github_group "yarn-project unit test"
-    denoise yarn test
-    github_endgroup
-
-    github_group "yarn-project e2e tests"
-    export -f run_e2e_tests
-    denoise run_e2e_tests
-    github_endgroup
-    cache_upload_flag "yarn-project-tests-$HASH"
-  fi
 }
 
-function run_e2e_tests {
+function test {
+  if test_should_run yarn-project-unit-tests-$hash; then
+    github_group "yarn-project unit test"
+    denoise yarn test
+    cache_upload_flag yarn-project-unit-tests-$hash
+    github_endgroup
+  fi
+
+  test_e2e
+}
+
+function test_e2e {
+  test_should_run yarn-project-unit-tests-$hash || return
+
+  github_group "yarn-project e2e tests"
   cd end-to-end
 
   # Pre-pull the required image for visibility.
@@ -191,31 +187,35 @@ function run_e2e_tests {
   echo "=== Job Log ==="
   cat joblog.txt
 
-  exit $code
+  github_endgroup
+  return $code
 }
 
-case "$CMD" in
+case "$cmd" in
   "clean")
     git clean -fdx
-  ;;
+    ;;
   "full")
     build full
-  ;;
+    ;;
   "fast-only")
     build fast
-  ;;
+    ;;
   ""|"fast")
-    case "${CI:-0}" in
-      0|1)
-        build
-      ;;
-      2)
-        run_e2e_tests
-      ;;
-    esac
-  ;;
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "test-e2e")
+    test_e2e
+    ;;
+  "ci")
+    build
+    test
+    ;;
   *)
-    echo "Unknown command: $CMD"
+    echo "Unknown command: $cmd"
     exit 1
   ;;
 esac

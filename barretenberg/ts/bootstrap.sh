@@ -1,43 +1,48 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-CMD=${1:-}
-BUILD_CMD="build"
+cmd=${1:-}
+hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  elif [ "$CMD" = "esm" ]; then
-    BUILD_CMD="build:esm"
+function build {
+  github_group "bb.js build"
+  if ! cache_download bb.js-$hash.tar.gz; then
+    denoise yarn install
+    find . -exec touch -d "@0" {} + 2>/dev/null || true
+
+    denoise yarn build
+    cache_upload bb.js-$hash.tar.gz dest
   else
-    echo "Unknown command: $CMD"
-    exit 1
+    denoise yarn install
   fi
-fi
-
-# Attempt to just pull artefacts from CI and exit on success.
-github_group "bb.js build"
-HASH=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
-if ! cache_download bb.js-$HASH.tar.gz; then
-  echo -n "yarn install"
-  denoise yarn install
-  find . -exec touch -d "@0" {} + 2>/dev/null || true
-
-  echo "Building with command 'yarn $BUILD_CMD'..."
-  denoise yarn $BUILD_CMD
-  cache_upload bb.js-$HASH.tar.gz dest
-else
-  echo -n "yarn install (post-cache):"
-  denoise yarn install
-fi
-echo "Barretenberg ts build successful"
-github_endgroup
-
-if test_should_run bb.js-tests-$HASH; then
-  github_group "bb.js test"
-  denoise yarn test
-  cache_upload_flag bb.js-tests-$HASH
   github_endgroup
-fi
+}
+
+function test {
+  if test_should_run bb.js-tests-$hash; then
+    github_group "bb.js test"
+    denoise yarn test
+    cache_upload_flag bb.js-tests-$hash
+    github_endgroup
+  fi
+}
+
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  ""|"fast"|"full")
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+esac

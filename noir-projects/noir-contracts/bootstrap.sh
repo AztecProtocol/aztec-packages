@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 CMD=${1:-}
 

@@ -2,7 +2,8 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source
 
-CMD=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
+cmd=${1:-fast}
+number=${2:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
 # picked up by github_group and github_endgroup
 GITHUB_LOG=${GITHUB_LOG:-}
@@ -26,6 +27,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
 fi
 
 instance_name="${BRANCH//\//_}"
+[ -n "$number" ] && instance_name+="_$number"
 
 github_group "Request Build Instance"
 # Terminate any existing instance with the same name.
@@ -79,6 +81,6 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD >/dev/null
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
-      $CMD
+      $cmd
     '
 "

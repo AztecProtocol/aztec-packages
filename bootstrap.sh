@@ -5,11 +5,12 @@
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output.
 export DENOISE=1
 
+<<<<<<< HEAD
 # Enable abbreviated output.
 export DENOISE=1
 
@@ -19,9 +20,12 @@ YELLOW="\033[93m"
 RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
+=======
+cmd=${1:-}
+>>>>>>> origin/cl/ci3
 
 function encourage_dev_container {
-  echo -e "${BOLD}${RED}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${RESET}"
+  echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
 
 # Checks for required utilities, toolchains and their versions.
@@ -36,9 +40,9 @@ function check_toolchains {
     fi
   done
   # Check cmake version.
-  CMAKE_MIN_VERSION="3.24"
-  CMAKE_INSTALLED_VERSION=$(cmake --version | head -n1 | awk '{print $3}')
-  if [[ "$(printf '%s\n' "$CMAKE_MIN_VERSION" "$CMAKE_INSTALLED_VERSION" | sort -V | head -n1)" != "$CMAKE_MIN_VERSION" ]]; then
+  local cmake_min_version="3.24"
+  local cmake_installed_version=$(cmake --version | head -n1 | awk '{print $3}')
+  if [[ "$(printf '%s\n' "$cmake_min_version" "$cmake_installed_version" | sort -V | head -n1)" != "$cmake_min_version" ]]; then
     encourage_dev_container
     echo "Minimum cmake version 3.24 not found."
     exit 1
@@ -78,9 +82,9 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  NODE_MIN_VERSION="18.19.0"
-  NODE_INSTALLED_VERSION=$(node --version | cut -d 'v' -f 2)
-  if [[ "$(printf '%s\n' "$NODE_MIN_VERSION" "$NODE_INSTALLED_VERSION" | sort -V | head -n1)" != "$NODE_MIN_VERSION" ]]; then
+  local node_min_version="18.19.0"
+  local node_installed_version=$(node --version | cut -d 'v' -f 2)
+  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
     echo "Minimum Node.js version 18.19.0 not found."
     echo "Installation: nvm install 18"
@@ -97,7 +101,7 @@ function check_toolchains {
   done
 }
 
-case "$CMD" in
+case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
     echo -n "Continue? [y/n] "
@@ -110,8 +114,8 @@ case "$CMD" in
     # Remove hooks and submodules.
     rm -rf .git/hooks/*
     rm -rf .git/modules/*
-    for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
-      rm -rf $SUBMODULE
+    for submodule in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+      rm -rf $submodule
     done
 
     # Remove all untracked files, directories, nested repos, and .gitignore files.
@@ -119,13 +123,6 @@ case "$CMD" in
 
     echo "Cleaning complete"
     exit 0
-  ;;
-  "full")
-    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-    echo
-  ;;
-  "fast")
-    export USE_CACHE=1
   ;;
   "check")
     check_toolchains
@@ -149,8 +146,8 @@ case "$CMD" in
     exit
   ;;
   "image-aztec")
-    IMAGE=aztecprotocol/aztec:$(git rev-parse HEAD)
-    if docker_has_image $IMAGE; then
+    image=aztecprotocol/aztec:$(git rev-parse HEAD)
+    if docker_has_image $image; then
       exit
     fi
     github_group "image-aztec"
@@ -158,7 +155,7 @@ case "$CMD" in
     echo "earthly artifact build:"
     earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     echo "docker image build:"
-    docker build -f Dockerfile.aztec -t $IMAGE $TMP
+    docker build -f Dockerfile.aztec -t $image $TMP
     github_endgroup
     exit
   ;;
@@ -192,16 +189,19 @@ case "$CMD" in
     github_endgroup
     exit
   ;;
+  ""|"fast"|"full"|"test"|"ci")
+    # Drop through. source_bootstrap on script entry has set flags.
+  ;;
   *)
-    echo "usage: $0 <clean|full|fast|check|test-e2e|test-cache|test-boxes|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
 
 # Install pre-commit git hooks.
-HOOKS_DIR=$(git rev-parse --git-path hooks)
-echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
-chmod +x $HOOKS_DIR/pre-commit
+hooks_dir=$(git rev-parse --git-path hooks)
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
+chmod +x $hooks_dir/pre-commit
 
 github_group "Pull Submodules"
 denoise git submodule update --init --recursive
@@ -209,7 +209,7 @@ github_endgroup
 
 check_toolchains
 
-PROJECTS=(
+projects=(
   noir
   barretenberg
   l1-contracts
@@ -221,12 +221,12 @@ PROJECTS=(
 
 # Build projects.
 # Death wrapper ensures no child process exist after exit.
-for project in "${PROJECTS[@]}"; do
+for project in "${projects[@]}"; do
   echo "**************************************"
   echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $project && ./bootstrap.sh)
+  (cd $project && ./bootstrap.sh $cmd)
   echo
   echo
 done
