@@ -247,7 +247,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  public async removeNotesAfter(blockNumber: number): Promise<void> {
+  public removeNotesAfter(blockNumber: number): Promise<void> {
     return this.db.transactionAsync(async () => {
       const notes = await toArray(this.#notes.valuesAsync());
       for (const note of notes) {
@@ -484,9 +484,9 @@ export class KVPxeDatabase implements PxeDatabase {
     return notes;
   }
 
-  async removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
     if (nullifiers.length === 0) {
-      return [];
+      return Promise.resolve([]);
     }
 
     return this.db.transactionAsync(async () => {
@@ -593,7 +593,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return true;
   }
 
-  async addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+  addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       await this.#addScope(completeAddress.address);
 
@@ -710,7 +710,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.all(appTaggingSecrets.map(async secret => (await storageMap.getAsync(`${secret.toString()}`)) ?? 0));
   }
 
-  async resetNoteSyncData(): Promise<void> {
+  resetNoteSyncData(): Promise<void> {
     return this.db.transactionAsync(async () => {
       const recipients = await toArray(this.#taggingSecretIndexesForRecipients.keysAsync());
       await Promise.all(recipients.map(recipient => this.#taggingSecretIndexesForRecipients.delete(recipient)));

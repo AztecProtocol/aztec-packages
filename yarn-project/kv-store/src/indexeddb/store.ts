@@ -1,4 +1,3 @@
-import { Tx } from '@aztec/circuit-types';
 import { type Logger } from '@aztec/foundation/log';
 
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
