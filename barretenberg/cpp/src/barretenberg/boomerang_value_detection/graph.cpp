@@ -221,6 +221,95 @@ inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
     return gate_variables;
 }
 
+template <typename FF>
+inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_builder,
+                                                                                size_t index)
+{
+    std::vector<uint32_t> gate_variables;
+    auto& block = ultra_builder.blocks.aux;
+    if (block.q_aux()[index] == 1) {
+        auto q_1 = block.q_1()[index];
+        auto q_2 = block.q_2()[index];
+        auto q_3 = block.q_3()[index];
+        auto q_4 = block.q_4()[index];
+        auto q_m = block.q_m()[index];
+        auto q_arith = block.q_c()[index];
+
+        if (q_3 == 1 && q_4 == 1) {
+            // bigfield limb accumulation 1
+            if (index < block.size() - 1) {
+                gate_variables.insert(gate_variables.end(),
+                                      { block.w_l()[index],
+                                        block.w_r()[index],
+                                        block.w_o()[index],
+                                        block.w_4()[index],
+                                        block.w_l()[index],
+                                        block.w_l()[index + 1],
+                                        block.w_r()[index + 1] });
+            }
+        }
+        if (q_3 == 1 && q_m == 1) {
+            // bigfield limb accumulation 2
+            if (index < block.size() - 1) {
+                gate_variables.insert(gate_variables.end(),
+                                      { block.w_o()[index],
+                                        block.w_4()[index],
+                                        block.w_l()[index + 1],
+                                        block.w_r()[index + 1],
+                                        block.w_o()[index + 1],
+                                        block.w_4()[index + 1] });
+            }
+        }
+        if (q_2 == 1 && q_3 == 1) {
+            // bigfield product 1
+        }
+        if (q_2 == 1 && q_4 == 1) {
+            // bigfield product 2
+        }
+        if (q_2 == 1 && q_m == 1) {
+            // bigfield product 3
+        }
+        if (q_1 == 1 && q_m == 1) {
+            // ram/rom access gate
+            gate_variables.insert(gate_variables.end(),
+                                  { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
+        }
+        if (q_1 == 1 && q_4 == 1) {
+            // ram timestamp check
+            if (index < block.size() - 1) {
+                gate_variables.insert(gate_variables.end(),
+                                      { block.w_r()[index + 1],
+                                        block.w_r()[index],
+                                        block.w_l()[index],
+                                        block.w_l()[index + 1],
+                                        block.w_o()[index] });
+            }
+        }
+        if (q_1 == 1 && q_2 == 1) {
+            // rom constitency check
+            if (index < block.size() - 1) {
+                gate_variables.insert(
+                    gate_variables.end(),
+                    { block.w_l()[index], block.w_l()[index + 1], block.w_4()[index], block.w_4()[index + 1] });
+            }
+        }
+        if (q_arith == 1) {
+            // ram constitency check
+            if (index < block.size() - 1) {
+                gate_variables.insert(gate_variables.end(),
+                                      { block.w_o()[index],
+                                        block.w_4()[index],
+                                        block.w_l()[index + 1],
+                                        block.w_r()[index + 1],
+                                        block.w_o()[index + 1],
+                                        block.w_4()[index + 1] });
+            }
+        }
+    }
+    this->process_gate_variables(ultra_builder, gate_variables);
+    return gate_variables;
+}
+
 /**
  * @brief Construct a new Graph from Ultra Circuit Builder
  * @tparam FF
