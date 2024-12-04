@@ -197,7 +197,7 @@ template <typename Flavor> class SumcheckProver {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
-        auto row_disabling_polynomial = RowDisablingPolynomial<FF>();
+        RowDisablingPolynomial<FF> row_disabling_polynomial;
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
