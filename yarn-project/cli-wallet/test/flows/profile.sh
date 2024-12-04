@@ -22,14 +22,14 @@ aztec-wallet send mint_to_private -ca token --args accounts:owner accounts:user 
 
 # Create an authwit for the operator to transfer tokens from the user's account (to operator's own acc)
 aztec-wallet create-secret -a auth_nonce
-aztec-wallet create-authwit transfer_from operator -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f user
+aztec-wallet create-authwit transfer_in_private operator -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f user
 aztec-wallet add-authwit authwits:last user -f operator
 
-# Simulate and profile `transfer_from`
-aztec-wallet simulate --profile transfer_from -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f operator
+# Simulate and profile `transfer_in_private`
+aztec-wallet simulate --profile transfer_in_private -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f operator
 
 # Verify gate count is present in the output
-GATE_COUNT=$(aztec-wallet simulate --profile transfer_from -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f operator | grep "Total gates:" | awk '{print $3}')
+GATE_COUNT=$(aztec-wallet simulate --profile transfer_in_private -ca token --args accounts:user accounts:operator 100 secrets:auth_nonce -f operator | grep "Total gates:" | awk '{print $3}')
 if [ -z "$GATE_COUNT" ]; then
     GATE_COUNT_SET=0
 else

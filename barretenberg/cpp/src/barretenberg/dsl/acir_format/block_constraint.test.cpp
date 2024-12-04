@@ -146,7 +146,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -196,7 +196,7 @@ TEST_F(MegaHonk, Databus)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -301,7 +301,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},

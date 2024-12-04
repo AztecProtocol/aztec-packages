@@ -39,20 +39,11 @@ fn validate_call_is_static_creating_l2_to_l1_msgs_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "note_encrypted_logs_hashes must be empty for static calls")]
-fn validate_call_is_static_creating_note_encrypted_logs_hashes_fails() {
+#[test(should_fail_with = "private_logs must be empty for static calls")]
+fn validate_call_is_static_creating_private_logs_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.append_note_encrypted_log_hashes(1);
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "encrypted_logs_hashes must be empty for static calls")]
-fn validate_call_is_static_creating_encrypted_logs_hashes_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
-
-    builder.private_call.append_encrypted_log_hashes(1);
+    builder.private_call.append_private_logs(1);
 
     builder.validate();
 }

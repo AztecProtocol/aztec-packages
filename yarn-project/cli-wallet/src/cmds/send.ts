@@ -42,7 +42,7 @@ export async function send(
       log(` Tx fee: ${receipt.transactionFee}`);
       log(` Status: ${receipt.status}`);
       log(` Block number: ${receipt.blockNumber}`);
-      log(` Block hash: ${receipt.blockHash?.toString('hex')}`);
+      log(` Block hash: ${receipt.blockHash?.toString()}`);
     } catch (err: any) {
       log(`Transaction failed\n ${err.message}`);
     }

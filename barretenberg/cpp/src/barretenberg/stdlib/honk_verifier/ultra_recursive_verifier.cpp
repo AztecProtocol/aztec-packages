@@ -133,7 +133,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Extract the IPA claim from the public inputs
     // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        const auto recover_fq_from_public_inputs = [](std::array<FF, 4>& limbs) {
+        const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
             for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
                 limbs[k].create_range_constraint(Curve::BaseField::NUM_LIMB_BITS, "limb_" + std::to_string(k));
             }
@@ -142,18 +142,25 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
         if (verification_key->verification_key->contains_ipa_claim) {
             OpeningClaim<grumpkin<Builder>> ipa_claim;
-            std::array<FF, 4> bigfield_limbs;
-            for (size_t k = 0; k < 4; k++) {
-                bigfield_limbs[k] =
+            std::array<FF, Curve::BaseField::NUM_LIMBS> challenge_bigfield_limbs;
+            for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
+                challenge_bigfield_limbs[k] =
                     verification_key
                         ->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
             }
-            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(bigfield_limbs);
-            ipa_claim.opening_pair.evaluation = 0;
+            std::array<FF, Curve::BaseField::NUM_LIMBS> evaluation_bigfield_limbs;
+            for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
+                evaluation_bigfield_limbs[k] =
+                    verification_key
+                        ->public_inputs[verification_key->verification_key
+                                            ->ipa_claim_public_input_indices[Curve::BaseField::NUM_LIMBS + k]];
+            }
+            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
+            ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
             ipa_claim.commitment = {
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[4]],
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[5]],
-                false // WORKTODO: make this a witness?
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[8]],
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]],
+                false
             };
             output.ipa_opening_claim = std::move(ipa_claim);
         }
