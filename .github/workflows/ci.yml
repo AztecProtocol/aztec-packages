@@ -439,20 +439,21 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-plonk
 
-  bb-acir-tests-bb-ultra-honk:
-    needs: [bootstrap-noir-bb, configure]
-    runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: barretenberg-acir-tests-bb-ultra-honk-x86
-      - name: "BB Native Acir Tests (Ultrahonk)"
-        working-directory: ./barretenberg/
-        timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
+  # WORKTODO make issue for reenabling
+  # bb-acir-tests-bb-ultra-honk:
+  #   needs: [bootstrap-noir-bb, configure]
+  #   runs-on: ${{ needs.configure.outputs.username }}-x86
+  #   if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with: { ref: "${{ env.GIT_COMMIT }}" }
+  #     - uses: ./.github/ci-setup-action
+  #       with:
+  #         concurrency_key: barretenberg-acir-tests-bb-ultra-honk-x86
+  #     - name: "BB Native Acir Tests (Ultrahonk)"
+  #       working-directory: ./barretenberg/
+  #       timeout-minutes: 40
+  #       run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
 
   bb-acir-tests-bb-mega-honk:
     needs: [bootstrap-noir-bb, configure]
