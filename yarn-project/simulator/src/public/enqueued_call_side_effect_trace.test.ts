@@ -174,7 +174,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     ]);
   });
   describe('Maximum accesses', () => {
-    it('Should enforce maximum number of public storage writes', () => {
+    it('Should enforce maximum number of user public storage writes', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
         const newLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i + 1), new Fr(i + 1), Fr.ZERO, 0n);
@@ -194,6 +194,56 @@ describe('Enqueued-call Side Effect Trace', () => {
           [],
         ),
       ).toThrow(SideEffectLimitReachedError);
+      // Still allows protocol writes
+      expect(() =>
+        trace.tracePublicStorageWrite(
+          AztecAddress.fromNumber(42),
+          new Fr(42),
+          value,
+          true,
+          leafPreimage,
+          Fr.ZERO,
+          [],
+          leafPreimage,
+          [],
+        ),
+      ).not.toThrow();
+    });
+
+    it('Should enforce maximum number of protocol public storage writes', () => {
+      for (let i = 0; i < PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+        const lowLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
+        const newLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i + 1), new Fr(i + 1), Fr.ZERO, 0n);
+        trace.tracePublicStorageWrite(address, slot, value, true, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+      }
+      const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
+      expect(() =>
+        trace.tracePublicStorageWrite(
+          AztecAddress.fromNumber(42),
+          new Fr(42),
+          value,
+          true,
+          leafPreimage,
+          Fr.ZERO,
+          [],
+          leafPreimage,
+          [],
+        ),
+      ).toThrow(SideEffectLimitReachedError);
+      // Still allows user writes
+      expect(() =>
+        trace.tracePublicStorageWrite(
+          AztecAddress.fromNumber(42),
+          new Fr(42),
+          value,
+          false,
+          leafPreimage,
+          Fr.ZERO,
+          [],
+          leafPreimage,
+          [],
+        ),
+      ).not.toThrow();
     });
 
     it('Should enforce maximum number of new note hashes', () => {
