@@ -12,6 +12,8 @@ import {
   ProvingRequestType,
 } from '@aztec/circuit-types/interfaces';
 import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -33,6 +35,8 @@ import {
   RootParityInput,
   RootParityInputs,
   type VerificationKeyAsFields,
+  VerificationKeyData,
+  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
@@ -45,7 +49,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
@@ -719,8 +723,9 @@ export class ProvingOrchestrator implements EpochProver {
     index: number | bigint,
     type: T,
     inputs: ProvingJobInputsMap[T],
-    // request: (signal: AbortSignal) => Promise<T>,
     callback: (result: ProvingJobResultsMap[T]) => void | Promise<void>,
+    fallback?: (err: any) => ProvingJobResultsMap[T] | Promise<ProvingJobResultsMap[T]>,
+    spanAttributes?: object,
   ) {
     if (!provingState?.verifyState()) {
       logger.debug(`Not enqueuing job, state no longer valid`);
@@ -732,64 +737,63 @@ export class ProvingOrchestrator implements EpochProver {
 
     // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
     // and reject the proving job whilst keeping the event loop free of rejections
-    const safeJob = async () => {
-      try {
-        // there's a delay between enqueueing this job and it actually running
-        if (controller.signal.aborted) {
-          return;
+    const safeJob = wrapCallbackInSpan(
+      this.tracer,
+      `ProvingOrchestrator.deferredProving.${ProvingRequestType[type]}`,
+      {
+        ...spanAttributes,
+        [Attributes.PROOF_TYPE]: ProvingRequestType[type],
+      },
+      async () => {
+        try {
+          // there's a delay between enqueueing this job and it actually running
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          const id = `${provingState.getProvinbJobPrefix()}:${level}:${index}:${
+            ProvingRequestType[type]
+          }` as ProvingJobId;
+
+          const result = await this.enqueueAndWaitForJob(id, type, inputs, controller.signal);
+
+          if (!provingState?.verifyState()) {
+            logger.debug(`State no longer valid, discarding result`);
+            return;
+          }
+
+          // we could have been cancelled whilst waiting for the result
+          // and the prover ignored the signal. Drop the result in that case
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          await callback(result);
+        } catch (err) {
+          if (err instanceof AbortError) {
+            // operation was cancelled, probably because the block was cancelled
+            // drop this result
+            return;
+          }
+
+          if (fallback) {
+            try {
+              return await callback(await fallback(err));
+            } catch {
+              // ignore error & fall through to reject the proving state
+            }
+          }
+
+          logger.error(`Error thrown when proving job`, err);
+          provingState!.reject(`${err}`);
+        } finally {
+          const index = this.pendingProvingJobs.indexOf(controller);
+          if (index > -1) {
+            this.pendingProvingJobs.splice(index, 1);
+          }
         }
-
-        const id = `${provingState.getProvinbJobPrefix()}:${level}:${index}:${
-          ProvingRequestType[type]
-        }` as ProvingJobId;
-        //const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
-
-        //const job: ProvingJob = {
-        //  id,
-        //  type: type,
-        //  inputsUri,
-        //  blockNumber: 0,
-        //};
-        const result = await this.enqueueAndWaitForJob(id, type, inputs, controller.signal);
-        //await this.prover.enqueueProvingJob(job);
-        //const result = await this.prover.waitForJobToSettle(job.id);
-
-        // const result = await request(controller.signal);
-        if (!provingState?.verifyState()) {
-          logger.debug(`State no longer valid, discarding result`);
-          return;
-        }
-
-        // we could have been cancelled whilst waiting for the result
-        // and the prover ignored the signal. Drop the result in that case
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        await callback(result);
-
-        //if (result.status === 'fulfilled') {
-        //  const output = await this.proofStore.getProofOutput(result.value);
-        //  await callback(output.result as ProvingJobResultsMap[T]);
-        //} else {
-        //  throw new Error(result.reason);
-        //}
-      } catch (err) {
-        if (err instanceof AbortError) {
-          // operation was cancelled, probably because the block was cancelled
-          // drop this result
-          return;
-        }
-
-        logger.error(`Error thrown when proving job`, err);
-        provingState!.reject(`${err}`);
-      } finally {
-        const index = this.pendingProvingJobs.indexOf(controller);
-        if (index > -1) {
-          this.pendingProvingJobs.splice(index, 1);
-        }
-      }
-    };
+      },
+    );
 
     // let the callstack unwind before adding the job to the queue
     setImmediate(safeJob);
@@ -893,6 +897,10 @@ export class ProvingOrchestrator implements EpochProver {
         logger.debug(`Completed tube proof for tx index: ${txIndex}`);
         txProvingState.assignTubeProof(result);
         this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+      },
+      undefined,
+      {
+        [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
       },
     );
   }
@@ -1209,6 +1217,22 @@ export class ProvingOrchestrator implements EpochProver {
         logger.debug(`Proven VM for tx index: ${txIndex}`);
         txProvingState.assignAvmProof(proofAndVk);
         this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+      },
+      err => {
+        if (process.env.AVM_PROVING_STRICT) {
+          throw err;
+        } else {
+          logger.warn(
+            `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
+          );
+          return {
+            proof: makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
+            verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+          };
+        }
+      },
+      {
+        [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
       },
     );
   }

@@ -23,6 +23,8 @@ export const NETWORK_NAME = 'aztec.network_name';
  */
 export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
 
+export const PROOF_TYPE = 'aztec.proof_type';
+
 /**
  * The type of protocol circuit being run: server or client
  */
