@@ -92,6 +92,9 @@ case "$cmd" in
     ;;
   ""|"fast"|"full")
     ;;
+  "build")
+    build
+    ;;
   "test"|"ci")
     build
     test

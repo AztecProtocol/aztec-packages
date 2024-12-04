@@ -140,7 +140,7 @@ jobs:
         if: needs.configure.outputs.base-images == 'true'
         timeout-minutes: 40
         run: |
-          earthly-ci --push ./base-images/+build
+          earthly-ci --push ./build-images/+build
 
   bootstrap-noir-bb:
     needs: [base-images, configure]

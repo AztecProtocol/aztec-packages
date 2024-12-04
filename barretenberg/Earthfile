@@ -6,6 +6,7 @@ acir-tests-base:
     WORKDIR /usr/src/barretenberg/acir_tests
     ENV VERBOSE=1
     RUN mkdir -p ~/.bb-crs
+    RUN ./bootstrap.sh build
     # Avoid race conditions with bb.
     RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
 

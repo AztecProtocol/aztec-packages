@@ -1,23 +1,23 @@
 VERSION 0.8
 
 run:
-    FROM ubuntu:noble
-    # Install Tini as nargo doesn't handle signals properly.
-    # Install git as nargo needs it to clone.
-    RUN apt-get update && apt-get install -y git tini jq curl && rm -rf /var/lib/apt/lists/* && apt-get clean
+  FROM ubuntu:noble
+  # Install Tini as nargo doesn't handle signals properly.
+  # Install git as nargo needs it to clone.
+  RUN apt-get update && apt-get install -y git tini jq curl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-    # Copy binaries to /usr/bin
-    COPY ../noir+nargo/nargo /usr/bin/nargo
-    COPY ../avm-transpiler+build/avm-transpiler /usr/bin/avm-transpiler
-    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/bin/bb
+  # Copy binaries to /usr/bin
+  COPY ../+bootstrap/usr/src/noir/target/release/avm-transpiler /usr/bin/avm-transpiler
+  COPY ../+bootstrap/usr/src/avm-transpiler/target/release/avm-transpiler /usr/bin/avm-transpiler
+  COPY ../+bootstrap/usr/src/barretenberg/build/bin/bb /usr/bin/bb
 
-    # Copy in script that calls both binaries
-    COPY ./compile_then_postprocess.sh /usr/bin/compile_then_postprocess.sh
+  # Copy in script that calls both binaries
+  COPY ./compile_then_postprocess.sh /usr/bin/compile_then_postprocess.sh
 
-    ENV PATH "/usr/bin:${PATH}"
-    ENTRYPOINT ["/usr/bin/tini", "--", "/usr/bin/compile_then_postprocess.sh"]
-    SAVE IMAGE aztecprotocol/aztec-nargo
-    SAVE ARTIFACT /usr/bin/compile_then_postprocess.sh /aztec-nargo
+  ENV PATH "/usr/bin:${PATH}"
+  ENTRYPOINT ["/usr/bin/tini", "--", "/usr/bin/compile_then_postprocess.sh"]
+  SAVE IMAGE aztecprotocol/aztec-nargo
+  SAVE ARTIFACT /usr/bin/compile_then_postprocess.sh /aztec-nargo
 
 export-aztec-nargo:
   FROM +run
