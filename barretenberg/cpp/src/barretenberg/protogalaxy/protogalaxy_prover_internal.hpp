@@ -45,8 +45,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + DeciderPKs::NUM - 1) * (DeciderPKs::NUM - 1) + 1>;
     // TODO: use the Monomial type directly
     // TODO: describe wtf is going on here
-    using ShortUnivariatesNoOptimisticSkipping = typename Flavor::template ProverUnivariates<2>;
-    using ShortUnivariates = typename Flavor::template ProverUnivariatesWithOptimisticSkipping<2, DeciderPKs::NUM - 1>;
+    // using ShortUnivariatesNoOptimisticSkipping = typename Flavor::template ProverUnivariates<2>;
+    using ShortUnivariates = typename Flavor::template ProverUnivariates<2>;
+    // typename Flavor::template ProverUnivariatesWithOptimisticSkipping<2, DeciderPKs::NUM - 1>;
     static constexpr size_t SHORT_LENGTH = 2;
 
     // using ShortUnivariatesNoOptimisticSkipping =
@@ -307,7 +308,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     BB_INLINE static void extend_univariates(
         std::conditional_t<
             std::same_as<Flavor, MegaFlavor>,
-            std::conditional_t<skip_count != 0, ShortUnivariates, ShortUnivariatesNoOptimisticSkipping>,
+            ShortUnivariates,
             std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>>&
             extended_univariates,
         const DeciderPKs& keys,
@@ -318,7 +319,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         PROFILE_THIS_NAME("PG::extend_univariates");
 
         static constexpr size_t len = std::same_as<Flavor, MegaFlavor> ? SHORT_LENGTH : ExtendedUnivariate::LENGTH;
-        auto incoming_univariates = keys.template row_to_univariates<len, skip_count>(row_idx);
+        // what is going on here... is that we want to, if we are using a flavor that allows for a short univariate
+        // representation, we
+        constexpr size_t _skip_count = std::same_as<Flavor, MegaFlavor> ? 0 : skip_count;
+        auto incoming_univariates = keys.template row_to_univariates<len, _skip_count>(row_idx);
         for (auto [extended_univariate, incoming_univariate] :
              zip_view(extended_univariates.get_all(), incoming_univariates)) {
             if constexpr (!std::same_as<Flavor, MegaFlavor>) {
@@ -327,85 +331,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             extended_univariate = std::move(incoming_univariate);
         }
     }
-
-    // template <size_t skip_count = 0>
-    // static void extend_univariates_2(
-    //     std::conditional_t<
-    //         std::same_as<Flavor, MegaFlavor>,
-    //         std::conditional_t<skip_count != 0, ShortUnivariates, ShortUnivariatesNoOptimisticSkipping>,
-    //         std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>>&
-    //         extended_univariates,
-    //     const DeciderPKs& keys,
-    //     const size_t row_idx)
-    // {
-    //     // we get the incoming univariates from the deciver proving key...
-    //     // we want to access, for each univariate, a parameter that defines the maximu mdegree
-    //     PROFILE_THIS_NAME("PG::extend_univariates");
-    //     static constexpr size_t len = std::same_as<Flavor, MegaFlavor> ? SHORT_LENGTH : ExtendedUnivariate::LENGTH;
-    //     auto incoming_univariates = keys.template row_to_univariates<len, skip_count>(row_idx);
-    //     for (auto [extended_univariate, incoming_univariate] :
-    //          zip_view(extended_univariates.get_all(), incoming_univariates)) {
-    //         //     if constexpr (!std::same_as<Flavor, MegaFlavor>) {
-    //         incoming_univariate.template self_extend_from<NUM_KEYS>();
-    //         //     }
-    //         extended_univariate = std::move(incoming_univariate);
-    //     }
-    // }
-
-    // template <size_t skip_count,
-    //           typename TupleOfTuplesOfUnivariates_,
-    //           typename ExtendedUnivariates_,
-    //           typename Parameters,
-    //           size_t relation_idx = 0>
-    // BB_INLINE static void accumulate_relation_univariates_debug(const DeciderPKs& keys,
-    //                                                             size_t idx,
-    //                                                             TupleOfTuplesOfUnivariates_& univariate_accumulators,
-    //                                                             ExtendedUnivariates_& extended_univariates,
-    //                                                             const Parameters& relation_parameters,
-    //                                                             const FF& scaling_factor)
-    // {
-    //     if (relation_idx == 0) {
-    //         extend_univariates_2<skip_count>(extended_univariates, keys, idx);
-    //     }
-    //     if constexpr (std::same_as<Flavor, MegaFlavor>) {
-    //         if (relation_idx == Flavor::NUM_RELATIONS - 1) {
-    //             for (auto& foo : extended_univariates.get_all()) {
-    //                 foo.evaluations[2] = 1;
-    //             }
-    //         }
-    //     }
-    //     // if (relation_idx == 4) {
-    //     //     extend_univariates_2<skip_count>(extended_univariates, keys, idx);
-    //     // }
-    //     using Relation = std::tuple_element_t<relation_idx, Relations>;
-
-    //     //  Check if the relation is skippable to speed up accumulation
-    //     if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
-    //         // If not, accumulate normally
-    //         Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-    //                              extended_univariates,
-    //                              relation_parameters,
-    //                              scaling_factor);
-    //     } else {
-    //         // If so, only compute the contribution if the relation is active
-    //         if (!Relation::skip(extended_univariates)) {
-    //             Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-    //                                  extended_univariates,
-    //                                  relation_parameters,
-    //                                  scaling_factor);
-    //         }
-    //     }
-
-    //     // Repeat for the next relation.
-    //     if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
-    //         accumulate_relation_univariates_debug<skip_count,
-    //                                               TupleOfTuplesOfUnivariates_,
-    //                                               ExtendedUnivariates_,
-    //                                               Parameters,
-    //                                               relation_idx + 1>(
-    //             keys, idx, univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
-    //     }
-    // }
 
     /**
      * @brief Add the value of each relation over univariates to an appropriate accumulator
@@ -447,7 +372,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                      scaling_factor);
             }
         }
-        //     extend_univariates_2<1>(extended_univariates, keys, idx);
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
@@ -493,12 +417,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
 
-            std::conditional_t<
-                std::same_as<Flavor, MegaFlavor>,
-                std::conditional_t<skip_zero_computations, ShortUnivariates, ShortUnivariatesNoOptimisticSkipping>,
-                std::conditional_t<skip_zero_computations,
-                                   ExtendedUnivariates,
-                                   ExtendedUnivariatesNoOptimisticSkipping>>;
+            std::conditional_t<std::same_as<Flavor, MegaFlavor>,
+                               ShortUnivariates,
+                               std::conditional_t<skip_zero_computations,
+                                                  ExtendedUnivariates,
+                                                  ExtendedUnivariatesNoOptimisticSkipping>>;
 
         // Construct univariate accumulator containers; one per thread
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);

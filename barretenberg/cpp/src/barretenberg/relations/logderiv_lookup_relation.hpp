@@ -144,14 +144,11 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
         auto table_index_entry = table_index * eta_three;
 
+        // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
+        // deg 2 or 3
         auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
         result += Accumulator(derived_table_entry_1 + table_index_entry);
         return result;
-        // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
-        // deg 2 or 3
-        // auto result = derived_table_entry_2 * eta + derived_table_entry_3 * eta_two + table_index * eta_three;
-        // result += derived_table_entry_1;
-        // return Accumulator(result);
     }
 
     /**
@@ -242,14 +239,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto read_counts_m = MonomialAccumulator(in.lookup_read_counts); // Degree 1
         const auto read_selector_m = MonomialAccumulator(in.q_lookup);         // Degree 1
 
-        // const MonomialAccumulator row_has_write = MonomialAccumulator(in.lookup_read_tags);
-        // const MonomialAccumulator row_has_read = MonomialAccumulator(in.q_lookup);
-        // auto inverse_exists_m = -(row_has_write * row_has_read) + row_has_write + row_has_read;
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
         const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)
         const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1 (2)
-        // const auto write_inverse = Accumulator(inverses_m) * read_term;         // Degree 3 (4)
-        // const auto read_inverse = Accumulator(inverses_m) * write_term;         // Degree 2 (3)
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
@@ -260,17 +252,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
         // Degrees:                       1            2 (3)            1            3 (4)
-
-        // rs * I * w - rc * I * r
-
-        // (rs * w - rc * r) * I
         Accumulator tmp = Accumulator(read_selector_m) * write_term;
         tmp -= (Accumulator(read_counts_m) * read_term);
         tmp *= inverses;                 // degree 4(5)
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
-
-        //  std::get<1>(accumulator) +=
-        //    Accumulator(read_selector_m) * read_inverse - Accumulator(read_counts_m) * write_inverse; // Deg 4 (5)
     }
 };
 

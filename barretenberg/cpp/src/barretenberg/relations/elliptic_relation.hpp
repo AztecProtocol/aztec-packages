@@ -58,15 +58,9 @@ template <typename FF_> class EllipticRelationImpl {
                                   const FF& scaling_factor)
     {
         PROFILE_THIS_NAME("Elliptic::accumulate");
-        // TODO(@zac - williamson #2608 when Pedersen refactor is completed,
-        // replace old addition relations with these ones and
-        // remove endomorphism coefficient in ecc add gate(not used))
 
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-
-        // auto y_2 = View(in.w_4_shift);
-        //   auto y_3 = View(in.w_o_shift);
         auto x_3_m = MonomialAccumulator(in.w_r_shift);
         auto y_1_m = MonomialAccumulator(in.w_o);
         auto y_2_m = MonomialAccumulator(in.w_4_shift);
@@ -74,12 +68,6 @@ template <typename FF_> class EllipticRelationImpl {
         auto x_1_m = MonomialAccumulator(in.w_r);
         auto x_2_m = MonomialAccumulator(in.w_l_shift);
         auto y_3_m = MonomialAccumulator(in.w_o_shift);
-        // auto x_3_m = MonomialAccumulator(in.w_r_shift);
-        // 20 muls
-        // auto q_sign = View(in.q_l);
-        //  auto q_elliptic = View(in.q_elliptic);
-        //  auto q_is_double = View(in.q_m);
-
         auto q_elliptic_m = MonomialAccumulator(in.q_elliptic);
         auto q_is_double_m = MonomialAccumulator(in.q_m);
         auto q_sign_m = MonomialAccumulator(in.q_l);
@@ -98,41 +86,19 @@ template <typename FF_> class EllipticRelationImpl {
         Accumulator x3_sub_x1(x3_sub_x1_m);
         Accumulator x1_mul_3(x1_mul_3_m);
         Accumulator x3_plus_two_x1(x3_plus_two_x1_m);
-        // (3x1 already made in monomial basis)
-        // x3 - x1 = 2 adds + covnvert
-        // x3 + x1 + x1 = 2 adds + convert
-        // x3 + x2 + x1 = 2 adds + convert
-        // 3 converts and 6 adds = 4 * 3 + 6 = 18 adds
 
-        // vs 6 add = 6 * 5 = 30 F adds
         // Contribution (1) point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
         auto y2_sqr_m = y_2_m.sqr();
         auto y1_sqr_m = y_1_m.sqr();
-        // auto y1y2_m = y_1_m * y_2_m;
         auto y2_mul_q_sign_m = y_2_m * q_sign_m;
         auto x_add_identity = x3_plus_x2_plus_x1 * Accumulator(x2_sub_x1_m.sqr()) - Accumulator(y2_sqr_m + y1_sqr_m) +
                               Accumulator(y2_mul_q_sign_m + y2_mul_q_sign_m) * Accumulator(y_1_m);
 
-        // q_elliptic - q_elliptic * q_double
-        // (q_elliptic - 1) * q_double
         auto q_elliptic_by_scaling_m = q_elliptic_m * scaling_factor;
         auto q_elliptic_q_double_scaling_m = (q_elliptic_by_scaling_m * q_is_double_m);
         Accumulator q_elliptic_q_double_scaling(q_elliptic_q_double_scaling_m);
         auto neg_q_elliptic_not_double_scaling = Accumulator(q_elliptic_q_double_scaling_m - q_elliptic_by_scaling_m);
-
-        // qecc * qdouble * scaling
-        // qecc * (q_double - 1) * scaling
-        // auto qecc_qscaling = q_elliptic_m * scaling_factor; // degree 1
-        // auto q_elliptic_q_double_scaling = qecc_qscaling * q_double_m;
-        // auto q_elliptic_not_double_scaling = q_elliptic_q_double_scaling - qecc_qscaling;
-        // auto q_elliptic_not_double_scaling_partial_m = (q_elliptic_m - FF(1)) * q_is_double_m;
-        // auto q_elliptic_not_double_scaling = Accumulator((q_elliptic_not_double_scaling_partial_m)*scaling_factor);
-        // auto q_elliptic_q_double_scaling =
-        //     Accumulator((q_elliptic_not_double_scaling_partial_m + q_is_double_m) * scaling_factor);
-        // auto q_elliptic_by_scaling = q_elliptic * scaling_factor;
-        // auto q_elliptic_q_double_scaling = q_elliptic_by_scaling * q_is_double;
-        // auto q_elliptic_not_double_scaling = q_elliptic_by_scaling - q_elliptic_q_double_scaling;
         std::get<0>(accumulators) -= x_add_identity * neg_q_elliptic_not_double_scaling;
 
         // Contribution (2) point addition, x-coordinate check

@@ -50,36 +50,16 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
 
-    // explicit operator UnivariateMonomial<Fr, 1, true>() const
-    //     requires(LENGTH == 1)
-    // {
-    //     static_assert(domain_start == 0);
-    //     // (1 - X)a0 + Xa1
-    //     // a0
-    //     UnivariateMonomial<Fr, 1, 0, 0> result;
-    //     result.evaluations[0] = evaluations[0];
-    //     return result;
-    // }
-
     explicit operator UnivariateMonomial<Fr, 2, true>() const
         requires(LENGTH > 1)
     {
-        //       static std::mutex g_pages_mutex;
         static_assert(domain_end >= 2);
         static_assert(domain_start == 0);
-        // (1 - X)a0 + Xa1
-        // a0
 
         UnivariateMonomial<Fr, 2, true> result;
-        // std::lock_guard<std::mutex> guard(g_pages_mutex);
-        // std::cout << "evaluations[0] = " << evaluations[0] << std::endl;
-        // std::cout << "evaluations[1] = " << evaluations[1] << std::endl;
-
         result.coefficients[0] = evaluations[0];
         result.coefficients[1] = evaluations[1] - evaluations[0];
         result.coefficients[2] = evaluations[1];
-        // std::cout << "evaluations[1] = " << result.evaluations[1] << std::endl;
-        // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
         return result;
     }
 
@@ -194,19 +174,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     // Check if the univariate is identically zero
     bool is_zero() const
     {
-        if (!evaluations[0].is_zero()) {
-            return false;
-        }
-        // TODO: real nasty workaround hack for relation skipping bug
-        if constexpr (LENGTH == 2) {
-            return evaluations[1].is_zero();
-        }
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
             if (!evaluations[i].is_zero()) {
                 return false;
             }
         }
-        return true;
+        return evaluations[0].is_zero();
     }
 
     // Write the Univariate evaluations to a buffer
@@ -457,8 +430,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
      * {f(domain_start),..., f(extended_domain_end -1)}
      *
      * @details Write v_i = f(x_i) on a the domain {x_{domain_start}, ..., x_{domain_end-1}}. To efficiently
-     * compute the needed values of f, we use the barycentric
-     * formula/mnt/user-data/zac/aztec-packages/barretenberg/cpp/src/barretenberg/protogalaxy
+     * compute the needed values of f, we use the barycentric formula
      *      - f(x) = B(x) Σ_{i=domain_start}^{domain_end-1} v_i / (d_i*(x-x_i))
      * where
      *      - B(x) = Π_{i=domain_start}^{domain_end-1} (x-x_i)
@@ -689,8 +661,6 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         r = r && (evaluations[0] == other.evaluations[0]);
         // a view might have nonzero terms in its skip_count if accessing an original monomial
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-            //  for (size_t i = 1; i < LENGTH; ++i) {
-
             r = r && (evaluations[i] == other.evaluations[i]);
         }
         return r;
@@ -705,22 +675,14 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     explicit operator UnivariateMonomial<Fr, 2, true>() const
         requires(LENGTH > 1)
     {
-        //       static std::mutex g_pages_mutex;
         static_assert(domain_end >= 2);
         static_assert(domain_start == 0);
-        // (1 - X)a0 + Xa1
-        // a0
 
         UnivariateMonomial<Fr, 2, true> result;
-        // std::lock_guard<std::mutex> guard(g_pages_mutex);
-        // std::cout << "evaluations[0] = " << evaluations[0] << std::endl;
-        // std::cout << "evaluations[1] = " << evaluations[1] << std::endl;
 
         result.coefficients[0] = evaluations[0];
         result.coefficients[1] = evaluations[1] - evaluations[0];
         result.coefficients[2] = evaluations[1];
-        // std::cout << "evaluations[1] = " << result.evaluations[1] << std::endl;
-        // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
         return result;
     }
 
