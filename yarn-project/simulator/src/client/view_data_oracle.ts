@@ -16,7 +16,7 @@ import {
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
@@ -33,7 +33,7 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
-    protected log = createDebugLogger('aztec:simulator:client_view_context'),
+    protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
     super();

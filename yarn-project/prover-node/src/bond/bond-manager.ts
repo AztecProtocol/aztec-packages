@@ -1,10 +1,10 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type EscrowContract } from './escrow-contract.js';
 import { type TokenContract } from './token-contract.js';
 
 export class BondManager {
-  private readonly logger = createDebugLogger('aztec:prover-node:bond-manager');
+  private readonly logger = createLogger('prover-node:bond-manager');
 
   constructor(
     private readonly tokenContract: TokenContract,

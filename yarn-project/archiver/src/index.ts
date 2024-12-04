@@ -1,5 +1,5 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -16,7 +16,7 @@ export * from './factory.js';
 
 export { retrieveL2ProofVerifiedEvents, retrieveBlockFromRollup } from './archiver/data_retrieval.js';
 
-const log = createDebugLogger('aztec:archiver');
+const log = createLogger('archiver');
 
 /**
  * A function which instantiates and starts Archiver.

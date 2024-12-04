@@ -1,4 +1,4 @@
-import { type DebugLogger, type LogData, addLogDataHandler } from '@aztec/foundation/log';
+import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
 import {
   DiagConsoleLogger,
@@ -34,7 +34,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
     private loggerProvider: LoggerProvider,
-    private log: DebugLogger,
+    private log: Logger,
   ) {}
 
   getMeter(name: string): Meter {
@@ -96,7 +96,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     ]);
   }
 
-  public static async createAndStart(config: TelemetryClientConfig, log: DebugLogger): Promise<OpenTelemetryClient> {
+  public static async createAndStart(config: TelemetryClientConfig, log: Logger): Promise<OpenTelemetryClient> {
     const resource = await getOtelResource();
 
     // TODO(palla/log): Should we show traces as logs in stdout when otel collection is disabled?

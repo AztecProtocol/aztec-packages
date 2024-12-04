@@ -1,5 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,
   type Gauge,
@@ -21,7 +21,7 @@ export class ArchiverInstrumentation {
   private proofsSubmittedCount: UpDownCounter;
   private dbMetrics: LmdbMetrics;
 
-  private log = createDebugLogger('aztec:archiver:instrumentation');
+  private log = createLogger('archiver:instrumentation');
 
   constructor(private telemetry: TelemetryClient) {
     const meter = telemetry.getMeter('Archiver');

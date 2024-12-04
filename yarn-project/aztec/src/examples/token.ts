@@ -1,9 +1,9 @@
 import { getSingleKeyAccount } from '@aztec/accounts/single_key';
 import { type AccountWallet, Fr, createPXEClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createLogger('http-rpc-client');
 
 export const alicePrivateKey = Fr.random();
 export const bobPrivateKey = Fr.random();

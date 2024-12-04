@@ -1,5 +1,5 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, getAddress, getContract, http } from 'viem';
@@ -10,7 +10,7 @@ import { isK8sConfig, runAlertCheck, setupEnvironment, startPortForward } from '
 
 const config = setupEnvironment(process.env);
 
-const debugLogger = createDebugLogger('aztec:spartan-test:smoke');
+const debugLogger = createLogger('spartan-test:smoke');
 
 // QoS alerts for when we are running in k8s
 const qosAlerts: AlertConfig[] = [

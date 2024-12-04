@@ -1,8 +1,8 @@
 // docs:start:token_utils
-import { type AztecAddress, type DebugLogger, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type Logger, type Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
-export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: DebugLogger) {
+export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
   const contract = await TokenContract.deploy(adminWallet, adminWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
     .send()
@@ -35,7 +35,7 @@ export async function expectTokenBalance(
   token: TokenContract,
   owner: AztecAddress,
   expectedBalance: bigint,
-  logger: DebugLogger,
+  logger: Logger,
 ) {
   // Then check the balance
   const contractWithWallet = await TokenContract.at(token.address, wallet);

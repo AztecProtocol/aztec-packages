@@ -2,7 +2,7 @@ import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
 import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
+import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type ClientProtocolArtifact,
   type ProtocolArtifact,
@@ -30,13 +30,13 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
     private config: BBConfig,
     private verificationKeys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>(),
-    private logger: DebugLogger,
+    private logger: Logger,
   ) {}
 
   public static async new(
     config: BBConfig,
     initialCircuits: ProtocolArtifact[] = [],
-    logger = createDebugLogger('aztec:bb-verifier'),
+    logger = createLogger('bb-verifier'),
   ) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     const keys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>();

@@ -1,6 +1,6 @@
 import { type NoirCallStack } from '@aztec/circuit-types';
 import type { FunctionDebugMetadata } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import {
   type ExecutionError,
@@ -42,7 +42,7 @@ export async function acvm(
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
 ): Promise<ACIRExecutionResult> {
-  const logger = createDebugLogger('aztec:simulator:acvm');
+  const logger = createLogger('simulator:acvm');
 
   const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     acir,

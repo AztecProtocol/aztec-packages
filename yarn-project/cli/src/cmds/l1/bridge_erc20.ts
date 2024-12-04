@@ -1,7 +1,7 @@
 import { L1ToL2TokenPortalManager } from '@aztec/aztec.js';
 import { type AztecAddress, type EthAddress, type Fr } from '@aztec/circuits.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 
@@ -18,7 +18,7 @@ export async function bridgeERC20(
   mint: boolean,
   json: boolean,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   // Prepare L1 client
   const chain = createEthereumChain(l1RpcUrl, chainId);

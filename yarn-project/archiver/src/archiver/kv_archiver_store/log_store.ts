@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, PrivateLog } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js/constants';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
@@ -27,7 +27,7 @@ export class LogStore {
   #unencryptedLogsByBlock: AztecMap<number, Buffer>;
   #contractClassLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
-  #log = createDebugLogger('aztec:archiver:log_store');
+  #log = createLogger('archiver:log_store');
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');

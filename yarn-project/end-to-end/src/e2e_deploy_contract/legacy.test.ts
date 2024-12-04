@@ -1,8 +1,8 @@
 import {
   AztecAddress,
   ContractDeployer,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   TxStatus,
   type Wallet,
@@ -18,7 +18,7 @@ describe('e2e_deploy_contract legacy', () => {
   const t = new DeployTest('legacy');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   beforeAll(async () => {

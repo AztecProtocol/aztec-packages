@@ -35,7 +35,7 @@ import {
   makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -78,7 +78,7 @@ import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulator();
   private instrumentation: ProverInstrumentation;
-  private logger = createDebugLogger('aztec:test-prover');
+  private logger = createLogger('test-prover');
 
   constructor(
     telemetry: TelemetryClient,

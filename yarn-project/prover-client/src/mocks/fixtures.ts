@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
@@ -30,7 +30,7 @@ const {
 } = process.env;
 
 // Determines if we have access to the bb binary and a tmp folder for temp files
-export const getEnvironmentConfig = async (logger: DebugLogger) => {
+export const getEnvironmentConfig = async (logger: Logger) => {
   try {
     const expectedBBPath = BB_BINARY_PATH
       ? BB_BINARY_PATH
@@ -68,7 +68,7 @@ export const getEnvironmentConfig = async (logger: DebugLogger) => {
 
 export async function getSimulationProvider(
   config: { acvmWorkingDirectory: string | undefined; acvmBinaryPath: string | undefined },
-  logger?: DebugLogger,
+  logger?: Logger,
 ): Promise<SimulationProvider> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {

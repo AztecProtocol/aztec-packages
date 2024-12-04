@@ -1,6 +1,6 @@
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { deployAztecContracts } from '../../utils/aztec.js';
 
@@ -13,7 +13,7 @@ export async function deployL1Contracts(
   json: boolean,
   initialValidators: EthAddress[],
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   const config = getL1ContractsConfigEnvVars();
 

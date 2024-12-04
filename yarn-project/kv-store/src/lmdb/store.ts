@@ -1,4 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { mkdirSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
@@ -25,7 +25,7 @@ export class AztecLmdbStore implements AztecKVStore {
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
-  #log = createDebugLogger('aztec:kv-store:lmdb');
+  #log = createLogger('kv-store:lmdb');
 
   constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
     this.#rootDb = rootDb;
@@ -60,7 +60,7 @@ export class AztecLmdbStore implements AztecKVStore {
     path?: string,
     mapSizeKb = 1 * 1024 * 1024, // defaults to 1 GB map size
     ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:lmdb'),
+    log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
     if (path) {
       mkdirSync(path, { recursive: true });

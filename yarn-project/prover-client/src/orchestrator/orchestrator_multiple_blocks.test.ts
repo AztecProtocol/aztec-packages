@@ -1,9 +1,9 @@
 import { timesAsync } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createDebugLogger('aztec:orchestrator-multi-blocks');
+const logger = createLogger('orchestrator-multi-blocks');
 
 describe('prover/orchestrator/multi-block', () => {
   let context: TestContext;

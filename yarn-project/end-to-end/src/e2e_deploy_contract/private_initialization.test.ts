@@ -1,4 +1,4 @@
-import { BatchCall, type DebugLogger, Fr, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, Fr, type Logger, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -9,7 +9,7 @@ describe('e2e_deploy_contract private initialization', () => {
   const t = new DeployTest('private initialization');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   beforeAll(async () => {

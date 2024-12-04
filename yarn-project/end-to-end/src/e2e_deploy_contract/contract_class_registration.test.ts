@@ -4,9 +4,9 @@ import {
   type ContractArtifact,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
-  type DebugLogger,
   type FieldsOf,
   Fr,
+  type Logger,
   type PXE,
   type TxReceipt,
   TxStatus,
@@ -33,7 +33,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   const t = new DeployTest('contract class');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
   let aztecNode: AztecNode;
 

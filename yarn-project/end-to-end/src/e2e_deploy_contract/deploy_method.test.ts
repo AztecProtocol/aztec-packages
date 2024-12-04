@@ -1,5 +1,5 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecAddress, type DebugLogger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import { AztecAddress, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { CounterContract, StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -10,7 +10,7 @@ describe('e2e_deploy_contract deploy method', () => {
   const t = new DeployTest('deploy method');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   const ignoredArg = AztecAddress.random();

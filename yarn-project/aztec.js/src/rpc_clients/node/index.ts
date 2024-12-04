@@ -1,6 +1,6 @@
 import { type PXE } from '@aztec/circuit-types';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { Axios, type AxiosError } from 'axios';
@@ -51,7 +51,7 @@ async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndp
  * @param _logger - Debug logger to warn version incompatibilities.
  * @returns A PXE client.
  */
-export function createCompatibleClient(rpcUrl: string, logger: DebugLogger): Promise<PXE> {
+export function createCompatibleClient(rpcUrl: string, logger: Logger): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
   const fetch = async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
     return await retry(

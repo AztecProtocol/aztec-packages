@@ -1,9 +1,9 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { GrumpkinScalar, type Point } from '../../../index.js';
 import { Grumpkin } from './index.js';
 
-const log = createDebugLogger('bb:grumpkin_test');
+const log = createLogger('bb:grumpkin_test');
 
 describe('grumpkin', () => {
   let grumpkin!: Grumpkin;

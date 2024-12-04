@@ -3,9 +3,9 @@ import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   type ExtendedNote,
   Fr,
+  type Logger,
   type PXE,
   type Wallet,
   retryUntil,
@@ -28,7 +28,7 @@ describe('e2e_2_pxes', () => {
   let pxeB: PXE;
   let walletA: Wallet;
   let walletB: Wallet;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 

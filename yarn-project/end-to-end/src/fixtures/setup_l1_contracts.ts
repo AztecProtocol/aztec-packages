@@ -1,4 +1,4 @@
-import { type DebugLogger, deployL1Contracts } from '@aztec/aztec.js';
+import { type Logger, deployL1Contracts } from '@aztec/aztec.js';
 import { type DeployL1ContractsArgs, type L1ContractsConfig } from '@aztec/ethereum';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -11,7 +11,7 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
-  logger: DebugLogger,
+  logger: Logger,
   args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators'> & L1ContractsConfig,
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, {

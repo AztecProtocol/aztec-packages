@@ -1,10 +1,10 @@
 import { format, inspect } from 'util';
 
-import { type DebugLogger, createDebugLogger } from '../../log/index.js';
+import { type Logger, createLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
 import { jsonStringify } from '../convert.js';
 
-const log = createDebugLogger('json-rpc:json_rpc_client');
+const log = createLogger('json-rpc:json_rpc_client');
 
 /**
  * A normal fetch function that does not retry.
@@ -73,7 +73,7 @@ export async function defaultFetch(
  * @param log - Optional logger for logging attempts.
  * @returns A fetch function.
  */
-export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: DebugLogger) {
+export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logger) {
   return async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean, noRetry?: boolean) => {
     return await retry(
       () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry ?? defaultNoRetry),

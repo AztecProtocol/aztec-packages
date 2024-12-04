@@ -8,7 +8,7 @@ import { type AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
-import { type DebugLogger, createDebugLogger } from '../../log/index.js';
+import { type Logger, createLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
 import { jsonStringify } from '../convert.js';
@@ -27,7 +27,7 @@ export class SafeJsonRpcServer {
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
     /** Logger */
-    private log = createDebugLogger('json-rpc:server'),
+    private log = createLogger('json-rpc:server'),
   ) {}
 
   public isHealthy(): boolean | Promise<boolean> {
@@ -170,7 +170,7 @@ interface Proxy {
  * before forwarding calls, and then converts outputs into JSON using default conversions.
  */
 export class SafeJsonProxy<T extends object = any> implements Proxy {
-  private log = createDebugLogger('json-rpc:proxy');
+  private log = createLogger('json-rpc:proxy');
   private schema: ApiSchema;
 
   constructor(private handler: T, schema: ApiSchemaFor<T>) {
@@ -233,7 +233,7 @@ export function makeHandler<T extends object>(handler: T, schema: ApiSchemaFor<T
   return [handler, schema];
 }
 
-function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: DebugLogger): StatusCheckFn {
+function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Logger): StatusCheckFn {
   return async () => {
     try {
       const results = await Promise.all(
@@ -259,7 +259,7 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: De
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  log = createDebugLogger('json-rpc:server'),
+  log = createLogger('json-rpc:server'),
 ): SafeJsonRpcServer {
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);

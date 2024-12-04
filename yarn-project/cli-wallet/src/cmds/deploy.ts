@@ -2,7 +2,7 @@ import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, F
 import { PublicKeys } from '@aztec/circuits.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import { getInitializer } from '@aztec/foundation/abi';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
@@ -21,7 +21,7 @@ export async function deploy(
   universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   log: LogFn,
   logJson: (output: any) => void,
 ) {

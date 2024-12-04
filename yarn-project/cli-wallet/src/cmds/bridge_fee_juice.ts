@@ -3,7 +3,7 @@ import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 export async function bridgeL1FeeJuice(
   amount: bigint,
@@ -18,7 +18,7 @@ export async function bridgeL1FeeJuice(
   wait: boolean,
   interval = 60_000,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   // Prepare L1 client
   const chain = createEthereumChain(l1RpcUrl, chainId);

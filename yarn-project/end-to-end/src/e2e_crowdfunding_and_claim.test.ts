@@ -3,8 +3,8 @@ import {
   type AccountWallet,
   type AztecNode,
   type CheatCodes,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   PackedValues,
   TxExecutionRequest,
@@ -45,7 +45,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
-  let logger: DebugLogger;
+  let logger: Logger;
 
   let donationToken: TokenContract;
   let rewardToken: TokenContract;

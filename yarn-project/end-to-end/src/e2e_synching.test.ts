@@ -39,10 +39,10 @@ import {
   AnvilTestWatcher,
   BatchCall,
   type Contract,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
-  createDebugLogger,
+  type Logger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
@@ -96,7 +96,7 @@ type VariantDefinition = {
  *
  */
 class TestVariant {
-  private logger: DebugLogger = createDebugLogger(`test_variant`);
+  private logger: Logger = createLogger(`test_variant`);
   private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;

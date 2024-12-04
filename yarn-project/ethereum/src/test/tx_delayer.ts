@@ -1,4 +1,4 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { inspect } from 'util';
@@ -12,7 +12,7 @@ import {
   walletActions,
 } from 'viem';
 
-export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: DebugLogger) {
+export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: Logger) {
   const publicClient =
     'getBlockNumber' in client && typeof client.getBlockNumber === 'function'
       ? (client as unknown as PublicClient)
@@ -30,7 +30,7 @@ export function waitUntilBlock<T extends Client>(client: T, blockNumber: number 
   );
 }
 
-export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: number | bigint, logger?: DebugLogger) {
+export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: number | bigint, logger?: Logger) {
   const publicClient =
     'getBlockNumber' in client && typeof client.getBlockNumber === 'function'
       ? (client as unknown as PublicClient)
@@ -94,7 +94,7 @@ export function withDelayer<T extends WalletClient>(
   client: T,
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {
-  const logger = createDebugLogger('aztec:ethereum:tx_delayer');
+  const logger = createLogger('ethereum:tx_delayer');
   const delayer = new DelayerImpl(opts);
   const extended = client
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.

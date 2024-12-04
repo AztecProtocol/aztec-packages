@@ -5,7 +5,7 @@ import {
   NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
@@ -19,7 +19,7 @@ import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils
 const TRANSFER_AMOUNT = 1;
 
 export class Bot {
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
 
   private attempts: number = 0;
   private successes: number = 0;

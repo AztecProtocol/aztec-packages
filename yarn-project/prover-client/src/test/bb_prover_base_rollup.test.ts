@@ -8,7 +8,7 @@ import {
   PrivateTubeData,
   VkWitnessData,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -16,7 +16,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { TestContext } from '../mocks/test_context.js';
 import { buildBaseRollupHints } from '../orchestrator/block-building-helpers.js';
 
-const logger = createDebugLogger('aztec:bb-prover-base-rollup');
+const logger = createLogger('bb-prover-base-rollup');
 
 describe('prover/bb_prover/base-rollup', () => {
   let context: TestContext;

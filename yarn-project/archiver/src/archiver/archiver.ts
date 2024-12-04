@@ -35,7 +35,7 @@ import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
@@ -119,7 +119,7 @@ export class Archiver implements ArchiveSource {
     private readonly pollingIntervalMs: number,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
-    private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
+    private readonly log: Logger = createLogger('archiver'),
   ) {
     this.store = new ArchiverStoreHelper(dataStore);
 
@@ -805,7 +805,7 @@ class ArchiverStoreHelper
       | 'addFunctions'
     >
 {
-  #log = createDebugLogger('aztec:archiver:block-helper');
+  #log = createLogger('archiver:block-helper');
 
   constructor(private readonly store: ArchiverDataStore) {}
 

@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
 
@@ -22,7 +22,7 @@ export class MockL2BlockSource implements L2BlockSource {
   private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
 
-  private log = createDebugLogger('aztec:archiver:mock_l2_block_source');
+  private log = createLogger('archiver:mock_l2_block_source');
 
   public createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {

@@ -8,7 +8,7 @@ import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infra
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
-import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
@@ -17,7 +17,7 @@ import { dirname, resolve } from 'path';
 import { injectAztecCommands } from '../cli/index.js';
 
 const userLog = createConsoleLogger();
-const debugLogger = createDebugLogger('aztec:cli');
+const debugLogger = createLogger('cli');
 
 /** CLI & full node main entrypoint */
 async function main() {

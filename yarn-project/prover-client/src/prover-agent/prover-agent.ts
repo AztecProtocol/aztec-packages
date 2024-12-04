@@ -8,7 +8,7 @@ import {
   type ServerCircuitProver,
   makeProvingRequestResult,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
@@ -38,7 +38,7 @@ export class ProverAgent implements ProverAgentApi {
     private maxConcurrency = 1,
     /** How long to wait between jobs */
     private pollIntervalMs = 100,
-    private log = createDebugLogger('aztec:prover-client:prover-agent'),
+    private log = createLogger('prover-client:prover-agent'),
   ) {}
 
   setMaxConcurrency(maxConcurrency: number): Promise<void> {

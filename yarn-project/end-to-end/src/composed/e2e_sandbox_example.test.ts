@@ -1,7 +1,7 @@
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { Fr, GrumpkinScalar, type PXE, createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { Fr, GrumpkinScalar, type PXE, createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
 import { format } from 'util';
 
@@ -14,7 +14,7 @@ describe('e2e_sandbox_example', () => {
   it('sandbox example works', async () => {
     // docs:start:setup
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
-    const logger = createDebugLogger('token');
+    const logger = createLogger('token');
 
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
@@ -118,7 +118,7 @@ describe('e2e_sandbox_example', () => {
   });
 
   it('can create accounts on the sandbox', async () => {
-    const logger = createDebugLogger('token');
+    const logger = createLogger('token');
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready

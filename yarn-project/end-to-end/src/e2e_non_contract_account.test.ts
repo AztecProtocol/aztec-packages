@@ -1,4 +1,4 @@
-import { type DebugLogger, ExtendedNote, Fr, Note, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { ExtendedNote, Fr, type Logger, Note, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -9,7 +9,7 @@ describe('e2e_non_contract_account', () => {
   let nonContractAccountWallet: Wallet;
   let teardown: () => Promise<void>;
 
-  let logger: DebugLogger;
+  let logger: Logger;
 
   let contract: TestContract;
   let wallet: Wallet;

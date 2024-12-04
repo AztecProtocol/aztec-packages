@@ -1,13 +1,13 @@
 import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 export interface NullifierSource {
   getNullifierIndex: (nullifier: Fr) => Promise<bigint | undefined>;
 }
 
 export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_double_spend');
+  #log = createLogger('sequencer:tx_validator:tx_double_spend');
   #nullifierSource: NullifierSource;
 
   constructor(nullifierSource: NullifierSource, private readonly isValidatingBlock: boolean = true) {

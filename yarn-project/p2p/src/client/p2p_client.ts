@@ -12,7 +12,7 @@ import {
   type TxHash,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -223,7 +223,7 @@ export class P2PClient extends WithTracer implements P2P {
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
-    private log = createDebugLogger('aztec:p2p'),
+    private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
 

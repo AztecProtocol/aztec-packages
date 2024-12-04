@@ -29,7 +29,7 @@ import {
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 
@@ -49,7 +49,7 @@ export class SimulatorOracle implements DBOracle {
     private db: PxeDatabase,
     private keyStore: KeyStore,
     private aztecNode: AztecNode,
-    private log = createDebugLogger('aztec:pxe:simulator_oracle'),
+    private log = createLogger('pxe:simulator_oracle'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {

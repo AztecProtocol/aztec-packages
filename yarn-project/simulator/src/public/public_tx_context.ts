@@ -21,7 +21,7 @@ import {
   type StateReference,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
@@ -39,7 +39,7 @@ import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js'
  * The transaction-level context for public execution.
  */
 export class PublicTxContext {
-  private log: DebugLogger;
+  private log: Logger;
 
   /* Gas used including private, teardown gas _limit_, setup and app logic */
   private gasUsed: Gas;
@@ -72,7 +72,7 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_context`);
+    this.log = createLogger(`aztec:public_tx_context`);
     this.gasUsed = startGasUsed;
   }
 
@@ -374,12 +374,12 @@ export class PublicTxContext {
  * transaction level one.
  */
 class PhaseStateManager {
-  private log: DebugLogger;
+  private log: Logger;
 
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 
   constructor(private readonly txStateManager: AvmPersistableStateManager) {
-    this.log = createDebugLogger(`aztec:public_phase_state_manager`);
+    this.log = createLogger(`aztec:public_phase_state_manager`);
   }
 
   fork() {

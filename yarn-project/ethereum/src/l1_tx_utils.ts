@@ -4,7 +4,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -140,7 +140,7 @@ export class L1TxUtils {
   constructor(
     private readonly publicClient: PublicClient,
     private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger?: DebugLogger,
+    private readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {

@@ -1,4 +1,4 @@
-import { type AccountWallet, type CheatCodes, type DebugLogger, type DeployL1Contracts, Fr } from '@aztec/aztec.js';
+import { type AccountWallet, type CheatCodes, type DeployL1Contracts, Fr, type Logger } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -14,7 +14,7 @@ describe('e2e_lending_contract', () => {
   let wallet: AccountWallet;
   let deployL1ContractsValues: DeployL1Contracts;
 
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let cc: CheatCodes;

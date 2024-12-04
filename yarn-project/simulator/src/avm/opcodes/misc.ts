@@ -1,4 +1,4 @@
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
@@ -9,7 +9,7 @@ import { Instruction } from './instruction.js';
 export class DebugLog extends Instruction {
   static type: string = 'DEBUGLOG';
   static readonly opcode: Opcode = Opcode.DEBUGLOG;
-  static readonly logger = createDebugLogger('aztec:avm_simulator:debug_log');
+  static readonly logger = createLogger('avm_simulator:debug_log');
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [

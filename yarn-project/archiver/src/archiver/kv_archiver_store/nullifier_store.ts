@@ -1,13 +1,13 @@
 import { type InBlock, type L2Block } from '@aztec/circuit-types';
 import { type Fr, MAX_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 export class NullifierStore {
   #nullifiersToBlockNumber: AztecMap<string, number>;
   #nullifiersToBlockHash: AztecMap<string, string>;
   #nullifiersToIndex: AztecMap<string, number>;
-  #log = createDebugLogger('aztec:archiver:log_store');
+  #log = createLogger('archiver:log_store');
 
   constructor(private db: AztecKVStore) {
     this.#nullifiersToBlockNumber = db.openMap('archiver_nullifiers_to_block_number');

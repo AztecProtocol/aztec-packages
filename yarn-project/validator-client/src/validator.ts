@@ -9,7 +9,7 @@ import {
 import { type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
@@ -69,7 +69,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
-    private log = createDebugLogger('aztec:validator'),
+    private log = createLogger('validator'),
   ) {
     // Instantiate tracer
     super(telemetry, 'Validator');

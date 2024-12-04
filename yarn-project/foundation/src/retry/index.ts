@@ -1,4 +1,4 @@
-import { createDebugLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
@@ -48,7 +48,7 @@ export async function retry<Result>(
   fn: () => Promise<Result>,
   name = 'Operation',
   backoff = backoffGenerator(),
-  log = createDebugLogger('aztec:foundation:retry'),
+  log = createLogger('foundation:retry'),
   failSilently = false,
 ) {
   while (true) {

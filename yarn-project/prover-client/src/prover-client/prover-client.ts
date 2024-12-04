@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuit-types/interfaces';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
@@ -38,7 +38,7 @@ export class ProverClient implements EpochProverManager {
     private telemetry: TelemetryClient,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
-    private log = createDebugLogger('aztec:prover-client:tx-prover'),
+    private log = createLogger('prover-client:tx-prover'),
   ) {
     // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
     // so it can be reused across multiple ones and not recomputed every time.
