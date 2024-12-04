@@ -847,6 +847,10 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     using DeciderProvingKey = ClientIVC::DeciderProvingKey;
     using VerificationKey = ClientIVC::MegaVerificationKey;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    init_bn254_crs(1 << 20);
+    init_grumpkin_crs(1 << 15);
+
     auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_format::WitnessVector witness = {};
 
@@ -1280,7 +1284,9 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_mega_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<MegaFlavor>(bytecode_path, output_path, recursive);
-            // write_vk_for_ivc(bytecode_path, output_path);
+        } else if (command == "write_vk_for_ivc") {
+            std::string output_path = get_option(args, "-o", "./target/vk");
+            write_vk_for_ivc(bytecode_path, output_path);
         } else if (command == "proof_as_fields_honk") {
             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
             proof_as_fields_honk(proof_path, output_path);
