@@ -310,7 +310,7 @@ jobs:
           runner_type: 16core-tester-x86
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci -P --no-output ./barretenberg/+bench-publish-acir-bb
+            scripts/earthly-ci -P --no-output ./barretenberg/acir_tests+bench-publish
 
   bench-summary:
     needs:
@@ -417,7 +417,7 @@ jobs:
         with:
           concurrency_key: bb-acir-tests
       - name: "BB Native Acir Tests (Misc)"
-        working-directory: ./barretenberg/
+        working-directory: ./barretenberg/acir_tests
         timeout-minutes: 40
         run: earthly-ci --no-output ./+acir-tests
 

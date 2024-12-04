@@ -132,7 +132,7 @@ export-bench-acir-bb:
   FROM +acir-benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
 
-bench-publish-acir-bb:
+bench-publish:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG EARTHLY_GIT_HASH
