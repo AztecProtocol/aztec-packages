@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - master
-      - provernet
+      - provernet ./bootstrap.sh
       - "*/ci-push*"
   pull_request:
     types:
@@ -422,7 +422,7 @@ jobs:
       - name: "BB Native Acir Tests (Misc)"
         working-directory: ./barretenberg/
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
+        run: earthly-ci --no-output ./+acir-tests
 
   noir-format:
     needs: [bootstrap-noir-bb, configure]
