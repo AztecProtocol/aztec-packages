@@ -18,7 +18,7 @@ const InitWasm = ({ children }: any) => {
       ]);
       setInit(true);
     })();
-  });
+  }, []);
 
   return <div>{init && children}</div>;
 };
