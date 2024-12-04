@@ -14,9 +14,6 @@
     },
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../circuits.js"
     }
   ],
   "include": ["src"]
