@@ -20,6 +20,12 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
 
+    static constexpr FF grumpkin_subgroup_generator =
+        FF(uint256_t("00820eccfa880378746c1f015854b884a8ffa551ab51bf15cea2cecc5d3a8850"));
+
+    static constexpr FF bn_254_subgroup_generator =
+        FF(uint256_t("0e4061303ba140794a3a2d8659909fd6ffb3dfdc290e4d9ca93bccd950f16404"));
+
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1, i.e. it is equal \ref MAX_PARTIAL_RELATION_LENGTH
@@ -33,7 +39,7 @@ template <typename Flavor> struct ZKSumcheckData {
     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
-
+    FF free_term{ 0 };
     LibraUnivariates libra_univariates;
     LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
@@ -48,10 +54,32 @@ template <typename Flavor> struct ZKSumcheckData {
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-        : libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
+        : free_term(FF::random_element())
+        , libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
         , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
 
     {
+
+        std::array<FF, 377> coeffs_lagrange_subgroup;
+        coeffs_lagrange_subgroup[0] = free_term;
+        info(libra_univariates_monomial.size());
+        for (size_t poly_idx = 0; poly_idx < libra_univariates_monomial.size(); poly_idx++) {
+            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+                size_t idx_to_populate = 1 + poly_idx * LIBRA_UNIVARIATES_LENGTH + idx;
+                info(idx_to_populate);
+                coeffs_lagrange_subgroup[idx_to_populate] = libra_univariates_monomial[poly_idx].value_at(idx);
+            }
+        }
+        // 377--> Flavor::SubgroupSize
+
+        // create evaluation domain using the generator
+        std::array<FF, 377> subgroup_interpolation_domain;
+        for (size_t idx = 0; idx < 377; idx++) {
+            subgroup_interpolation_domain[idx] = bn_254_subgroup_generator.pow(idx);
+        }
+
+        Polynomial<FF> polynomial_to_commit(
+            std::span<FF>(subgroup_interpolation_domain), std::span<FF>(coeffs_lagrange_subgroup), 377);
 
         // If proving_key is provided, commit to libra_univariates
         if (commitment_key != nullptr) {
