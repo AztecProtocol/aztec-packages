@@ -45,7 +45,7 @@ contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        std::schnorr::verify_signature(public_key, signature, outer_hash.to_be_bytes::<32>())
+        schnorr::verify_signature(public_key, signature, outer_hash.to_be_bytes::<32>())
     }
     // docs:end:is-valid
 }

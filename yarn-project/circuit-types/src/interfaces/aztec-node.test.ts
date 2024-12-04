@@ -10,6 +10,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
@@ -177,6 +178,19 @@ describe('AztecNodeApiSchema', () => {
   it('isReady', async () => {
     const response = await context.client.isReady();
     expect(response).toBe(true);
+  });
+
+  it('getNodeInfo', async () => {
+    const response = await context.client.getNodeInfo();
+    expect(response).toEqual({
+      ...(await handler.getNodeInfo()),
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, expect.any(EthAddress)]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)]),
+      ) as ProtocolContractAddresses,
+    });
   });
 
   it('getBlocks', async () => {
@@ -450,6 +464,20 @@ class MockAztecNode implements AztecNode {
   }
   isReady(): Promise<boolean> {
     return Promise.resolve(true);
+  }
+  getNodeInfo(): Promise<NodeInfo> {
+    return Promise.resolve({
+      nodeVersion: '1.0',
+      l1ChainId: 1,
+      protocolVersion: 1,
+      enr: 'enr',
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, EthAddress.random()]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
+      ) as ProtocolContractAddresses,
+    });
   }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return Promise.resolve(times(limit, i => L2Block.random(from + i)));

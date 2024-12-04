@@ -45,6 +45,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateLog,
@@ -235,6 +236,29 @@ export class AztecNodeService implements AztecNode {
    */
   public isReady() {
     return Promise.resolve(this.p2pClient.isReady() ?? false);
+  }
+
+  public async getNodeInfo(): Promise<NodeInfo> {
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.getNodeVersion(),
+        this.getVersion(),
+        this.getChainId(),
+        this.getEncodedEnr(),
+        this.getL1ContractAddresses(),
+        this.getProtocolContractAddresses(),
+      ]);
+
+    const nodeInfo: NodeInfo = {
+      nodeVersion,
+      l1ChainId: chainId,
+      protocolVersion,
+      enr,
+      l1ContractAddresses: contractAddresses,
+      protocolContractAddresses: protocolContractAddresses,
+    };
+
+    return nodeInfo;
   }
 
   /**

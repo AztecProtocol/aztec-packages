@@ -6,8 +6,6 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract SchnorrAccount {
-    use dep::std;
-
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
@@ -83,7 +81,7 @@ contract SchnorrAccount {
             is_infinite: false,
         };
         // Verify signature of the payload bytes
-        std::schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
+        schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
     }
 
