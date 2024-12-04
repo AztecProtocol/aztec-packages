@@ -92,6 +92,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, undefined]);
   });
 
+  it('findBlockNumbersForIndexes', async () => {
+    const response = await context.client.findBlockNumbersForIndexes(1, MerkleTreeId.ARCHIVE, [5n, 58n]);
+    expect(response).toEqual([3n, 9n]);
+  });
+
   it('findNullifiersIndexesWithBlock', async () => {
     const response = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
     expect(response).toEqual([
@@ -362,6 +367,15 @@ class MockAztecNode implements AztecNode {
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
     return Promise.resolve([1n, undefined]);
+  }
+
+  findBlockNumbersForIndexes(
+    _blockNumber: number | 'latest',
+    _treeId: MerkleTreeId,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    expect(leafIndices).toEqual([5n, 58n]);
+    return Promise.resolve([3n, 9n]);
   }
   findNullifiersIndexesWithBlock(
     blockNumber: number | 'latest',

@@ -28,7 +28,7 @@ pub global ARGS_LENGTH: u32 = 16;
 // "PER CALL" CONSTANTS
 pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 4;
+pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
 pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
 pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 64;
@@ -90,7 +90,7 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 // TODO: for large multisends we might run out of key validation requests here but not dealing with this now as
 // databus will hopefully make the issue go away.
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 64;
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
 pub global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 // docs:end:constants

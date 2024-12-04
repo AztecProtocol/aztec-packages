@@ -202,6 +202,9 @@ export class P2PClient extends WithTracer implements P2P {
   private attestationPool: AttestationPool;
   private epochProofQuotePool: EpochProofQuotePool;
 
+  /** How many slots to keep attestations for. */
+  private keepAttestationsInPoolFor: number;
+
   private blockStream;
 
   /**
@@ -224,7 +227,9 @@ export class P2PClient extends WithTracer implements P2P {
   ) {
     super(telemetry, 'P2PClient');
 
-    const { blockCheckIntervalMS, blockRequestBatchSize } = getP2PConfigFromEnv();
+    const { blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = getP2PConfigFromEnv();
+
+    this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
     this.blockStream = new L2BlockStream(l2BlockSource, this, this, {
       batchSize: blockRequestBatchSize,
@@ -615,7 +620,9 @@ export class P2PClient extends WithTracer implements P2P {
 
     const firstBlockNum = blocks[0].number;
     const lastBlockNum = blocks[blocks.length - 1].number;
+    const lastBlockSlot = blocks[blocks.length - 1].header.globalVariables.slotNumber.toBigInt();
 
+    // If keepProvenTxsFor is 0, we delete all txs from all proven blocks.
     if (this.keepProvenTxsFor === 0) {
       await this.deleteTxsFromBlocks(blocks);
     } else if (lastBlockNum - this.keepProvenTxsFor >= INITIAL_L2_BLOCK_NUM) {
@@ -626,12 +633,19 @@ export class P2PClient extends WithTracer implements P2P {
       await this.deleteTxsFromBlocks(blocksToDeleteTxsFrom);
     }
 
+    // We delete attestations older than the last block slot minus the number of slots we want to keep in the pool.
+    const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
+    if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
+      await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
+    }
+
     await this.synchedProvenBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
+
     await this.startServiceIfSynched();
   }
 

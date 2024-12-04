@@ -247,7 +247,7 @@ library TxsDecoder {
       // We pad base leaves with hashes of empty tx effect.
       for (uint256 i = numTxEffects; i < vars.baseLeaves.length; i++) {
         // Value taken from tx_effect.test.ts "hash of empty tx effect matches snapshot" test case
-        vars.baseLeaves[i] = hex"0014a1509239adce426ae94248ef0db28299cd8694dfb0b515498b508d794eb8";
+        vars.baseLeaves[i] = hex"0038249b91f300ff56f2a8135be3bdb4fc493df5771061b67f2ab01b620b22b7";
       }
     }
 

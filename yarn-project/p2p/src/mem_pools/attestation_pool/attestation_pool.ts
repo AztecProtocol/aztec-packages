@@ -22,6 +22,15 @@ export interface AttestationPool {
   deleteAttestations(attestations: BlockAttestation[]): Promise<void>;
 
   /**
+   * Delete Attestations with a slot number smaller than the given slot
+   *
+   * Removes all attestations associated with a slot
+   *
+   * @param slot - The oldest slot to keep.
+   */
+  deleteAttestationsOlderThan(slot: bigint): Promise<void>;
+
+  /**
    * Delete Attestations for slot
    *
    * Removes all attestations associated with a slot

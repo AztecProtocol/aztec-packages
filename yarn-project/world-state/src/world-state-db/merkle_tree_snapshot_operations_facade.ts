@@ -101,6 +101,10 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
     };
   }
 
+  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(_a: ID, _b: bigint[]): Promise<(bigint | undefined)[]> {
+    throw new Error('Not implemented');
+  }
+
   async getStateReference(): Promise<StateReference> {
     const snapshots = await Promise.all([
       this.#getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),

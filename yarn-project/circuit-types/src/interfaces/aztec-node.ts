@@ -63,13 +63,26 @@ export interface AztecNode
    * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The values to search for
+   * @param leafValues - The values to search for
    * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
   findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]>;
+
+  /**
+   * Find the indexes of the given leaves in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * @param treeId - The tree to search in.
+   * @param leafIndices - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   */
+  findBlockNumbersForIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafIndices: bigint[],
   ): Promise<(bigint | undefined)[]>;
 
   /**
@@ -437,6 +450,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
+    .returns(z.array(optional(schemas.BigInt))),
+
+  findBlockNumbersForIndexes: z
+    .function()
+    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.BigInt))
     .returns(z.array(optional(schemas.BigInt))),
 
   findNullifiersIndexesWithBlock: z

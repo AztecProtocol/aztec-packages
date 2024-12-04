@@ -4,11 +4,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 import { type ChildProcess } from 'child_process';
 
-import { getConfig, isK8sConfig, startPortForward } from './utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 jest.setTimeout(2_400_000); // 40 minutes
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 const debugLogger = createDebugLogger('aztec:spartan-test:proving');
 const SLEEP_MS = 1000;
 

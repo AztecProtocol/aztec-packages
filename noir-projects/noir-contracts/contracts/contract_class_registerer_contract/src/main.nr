@@ -22,9 +22,7 @@ contract ContractClassRegisterer {
     };
 
     use crate::events::{
-        class_registered::{
-            ContractClassRegistered, MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-        },
+        class_registered::ContractClassRegistered,
         private_function_broadcasted::{
             ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
         },
@@ -44,6 +42,7 @@ contract ContractClassRegisterer {
         artifact_hash: Field,
         private_functions_root: Field,
         public_bytecode_commitment: Field,
+        emit: bool,
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
@@ -98,18 +97,13 @@ contract ContractClassRegisterer {
 
         // TODO(#10007): Drop this conditional and always emit the bytecode. We allow skipping the broadcast
         // as a stopgap solution to allow txs to fit in Sepolia when we broadcast public bytecode.
-        if bytecode_length_in_fields <= MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
-            let mut event_public_bytecode =
-                [0; MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
-            for i in 0..MAX_BROADCASTEABLE_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
-                event_public_bytecode[i] = packed_public_bytecode[i];
-            }
+        if emit {
             let event = ContractClassRegistered {
                 contract_class_id,
                 version: 1,
                 artifact_hash,
                 private_functions_root,
-                packed_public_bytecode: event_public_bytecode,
+                packed_public_bytecode,
             };
             emit_contract_class_log(&mut context, event.serialize());
         }
