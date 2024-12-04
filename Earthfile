@@ -40,6 +40,7 @@ bootstrap:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
     CI=1 TEST=0 ./bootstrap.sh fast && \
+    find avm-transpiler/target/release -type f ! -name "avm-transpiler" -delete && \
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
 
@@ -63,7 +64,6 @@ bootstrap-aztec:
     l1-contracts \
     barretenberg/cpp/src \
     barretenberg/ts \
-    ci3 \
     build-system \
     docs \
     yarn-project/end-to-end \
@@ -77,6 +77,8 @@ bootstrap-end-to-end:
     .git .github \
     noir-projects \
     l1-contracts \
+    build-system \
+    docs \
     barretenberg/ts/src \
     barretenberg/ts/dest/node-cjs \
     barretenberg/ts/dest/browser

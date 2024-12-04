@@ -145,11 +145,7 @@ case "$CMD" in
     ;;
   "test-boxes")
     github_group "test-boxes"
-    source $ci3/source_tmp
-    echo "earthly artifact build:"
-    earthly --artifact +bootstrap/usr/src $TMP/usr/src
-    docker_mount_run $TMP/usr/src "CI=1 boxes/bootstrap.sh $@"
-    github_endgroup
+    bootstrap_local "CI=1 TEST=0 ./bootstrap.sh fast ; ./boxes/bootstrap.sh test";
     exit
   ;;
   "image-aztec")
