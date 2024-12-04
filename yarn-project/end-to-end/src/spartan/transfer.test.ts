@@ -5,9 +5,9 @@ import { TokenContract } from '@aztec/noir-contracts.js';
 import { jest } from '@jest/globals';
 
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
-import { getConfig, isK8sConfig, startPortForward } from './utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes

@@ -1178,7 +1178,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const {
           preimage: lowLeafPreimage,
           index: lowLeafIndex,
-          update: leafAlreadyPresent,
+          alreadyPresent: leafAlreadyPresent,
         } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
           leafSlot0,
@@ -1224,7 +1224,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const {
           preimage: lowLeafPreimage,
           index: lowLeafIndex,
-          update: leafAlreadyPresent,
+          alreadyPresent: leafAlreadyPresent,
         } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
           leafSlot0,
@@ -1295,7 +1295,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const {
           preimage: lowLeafPreimage,
           index: lowLeafIndex,
-          update: leafAlreadyPresent,
+          alreadyPresent: leafAlreadyPresent,
         } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
           leafSlot0,
