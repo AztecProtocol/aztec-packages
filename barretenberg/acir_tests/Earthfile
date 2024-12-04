@@ -1,6 +1,6 @@
 VERSION 0.8
 
-acir-tests-base:
+test-base:
     FROM ../+bootstrap-noir-bb
     ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
     WORKDIR /usr/src/barretenberg/acir_tests
@@ -11,8 +11,8 @@ acir-tests-base:
     # Avoid race conditions with bb.
     RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
 
-acir-tests-bb:
-    FROM +acir-tests-base
+bb:
+    FROM +test-base
     # Fold and verify an ACIR program stack using ClientIvc
     RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
@@ -22,8 +22,8 @@ acir-tests-bb:
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
     RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
-acir-tests-bb-ultra-plonk:
-    FROM +acir-tests-base
+bb-ultra-plonk:
+    FROM +test-base
     # Do not pass with plonk!
     RUN cd acir_tests && rm -rf verify_honk_proof double_verify_honk_proof
     # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
@@ -31,8 +31,8 @@ acir-tests-bb-ultra-plonk:
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
     RUN FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
 
-acir-tests-bb-ultra-honk:
-    FROM +acir-tests-base
+bb-ultra-honk:
+    FROM +test-base
     # Do not pass with honk!
     RUN cd acir_tests && rm -rf single_verify_proof double_verify_proof double_verify_nested_proof
     # Run the acir test through native bb build prove_then_verify_ultra_honk flow
@@ -49,8 +49,8 @@ acir-tests-bb-ultra-honk:
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
 
-acir-tests-bb-mega-honk:
-    FROM +acir-tests-base
+bb-mega-honk:
+    FROM +test-base
     # Do not pass with honk!
     RUN rm -rf acir_tests/{single_verify_proof,double_verify_proof,double_verify_nested_proof}
     # Construct and separately verify a MegaHonk proof for all acir programs
@@ -60,20 +60,20 @@ acir-tests-bb-mega-honk:
     # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
     RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
 
-acir-tests-sol:
-    FROM +acir-tests-base
+sol:
+    FROM +test-base
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
 
-acir-tests-sol-honk:
-    FROM +acir-tests-base
+sol-honk:
+    FROM +test-base
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
 
-acir-tests-bb.js:
-    FROM +acir-tests-base
+bb.js:
+    FROM +test-base
     # Build/install ts apps.
     RUN cd browser-test-app && yarn && yarn build
     RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
@@ -104,18 +104,18 @@ acir-tests-bb.js:
     # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
-acir-tests:
+test:
     # cleaner output:
     WAIT
-      BUILD +acir-tests-base
+      BUILD +test-base
     END
-    BUILD +acir-tests-bb
-    BUILD +acir-tests-bb-ultra-plonk
-    BUILD +acir-tests-bb-ultra-honk
-    BUILD +acir-tests-bb-mega-honk
-    BUILD +acir-tests-sol
-    BUILD +acir-tests-sol-honk
-    BUILD +acir-tests-bb.js
+    BUILD +bb
+    BUILD +bb-ultra-plonk
+    BUILD +bb-ultra-honk
+    BUILD +bb-mega-honk
+    BUILD +sol
+    BUILD +sol-honk
+    BUILD +bb.js
 
 acir-benches-bb:
   FROM ../+bootstrap-noir-bb

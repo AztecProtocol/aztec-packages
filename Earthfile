@@ -217,4 +217,3 @@ ci:
   BUILD ./yarn-project/+network-test
   BUILD ./yarn-project/+prover-client-test
   BUILD ./yarn-project/+test
-  BUILD ./yarn-project+export-e2e-test-images
