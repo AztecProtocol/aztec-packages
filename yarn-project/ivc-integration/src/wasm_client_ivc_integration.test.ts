@@ -34,31 +34,6 @@ jest.setTimeout(120_000);
 describe('Client IVC Integration', () => {
   beforeEach(async () => {});
 
-  // WORKTODO: need the 'true' below to skip auto verify. How to update new interface to use this?
-  // beforeEach(async () => {
-  //   // Create a temp working dir
-  //   bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-client-ivc-integration-'));
-  //   bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-  // });
-
-  // async function createClientIvcProof(witnessStack: Uint8Array[], bytecodes: string[]): Promise<ClientIvcProof> {
-  //   await fs.writeFile(
-  //     path.join(bbWorkingDirectory, 'acir.msgpack'),
-  //     encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
-  //   );
-
-  //   await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
-  //   const provingResult = await executeBbClientIvcProof(
-  //     bbBinaryPath,
-  //     bbWorkingDirectory,
-  //     path.join(bbWorkingDirectory, 'acir.msgpack'),
-  //     path.join(bbWorkingDirectory, 'witnesses.msgpack'),
-  //     logger.info,
-  //     true,
-  //   );
-
-  //   if (provingResult.status === BB_RESULT.FAILURE) {
-  //     throw new Error(provingResult.reason);
   function base64ToUint8Array(base64: string) {
     const binaryString = atob(base64);
     const len = binaryString.length;
