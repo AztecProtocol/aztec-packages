@@ -203,9 +203,9 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['publicDataWritesCount'] = body.publicDataWrites.length;
       }
 
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
     } else {
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
     const timer = new Timer();
@@ -248,7 +248,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
     const decodingDuration = timer.ms() - callDuration;
     const totalDuration = timer.ms();
-    this.log.debug(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
+    this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
       totalDuration,
       encodingDuration,
       callDuration,

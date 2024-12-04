@@ -37,6 +37,7 @@ export function createDebugLogger(module: string): DebugLogger {
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
     trace: (msg: string, data?: LogData) => logFn('trace', msg, data),
     level: pinoLogger.level as LogLevel,
+    isLevelEnabled: pinoLogger.isLevelEnabled.bind(pinoLogger),
   };
 }
 
@@ -113,7 +114,10 @@ type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
 /**
  * Logger that supports multiple severity levels.
  */
-export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn } & { level: LogLevel };
+export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn } & {
+  level: LogLevel;
+  isLevelEnabled: (level: LogLevel) => boolean;
+};
 
 /**
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.

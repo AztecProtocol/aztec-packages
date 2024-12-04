@@ -139,7 +139,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
       const { msg, propagationSource: peerId } = e.detail;
-      this.logger.debug(`Received PUBSUB message.`);
+      this.logger.trace(`Received PUBSUB message.`);
 
       await this.jobQueue.put(() => this.handleNewGossipMessage(msg, peerId));
     });
@@ -451,7 +451,7 @@ export class LibP2PService extends WithTracer implements P2PService {
    * @param message - The message to propagate.
    */
   public propagate<T extends Gossipable>(message: T): void {
-    this.logger.debug(`[${message.p2pMessageIdentifier()}] queued`);
+    this.logger.trace(`[${message.p2pMessageIdentifier()}] queued`);
     void this.jobQueue.put(async () => {
       await this.sendToPeers(message);
     });
