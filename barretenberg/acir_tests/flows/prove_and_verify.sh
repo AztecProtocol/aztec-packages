@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -eux
 
 VFLAG=${VERBOSE:+-v}
 FLAGS="-c $CRS_PATH $VFLAG"
