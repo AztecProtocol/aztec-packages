@@ -65,7 +65,8 @@ export class EpochProvingJob {
   public async run() {
     const epochNumber = Number(this.epochNumber);
     const epochSize = this.blocks.length;
-    this.log.info(`Starting epoch proving job`, { epochSize, epochNumber, uuid: this.uuid });
+    const firstBlockNumber = this.blocks[0].number;
+    this.log.info(`Starting epoch proving job`, { firstBlockNumber, epochSize, epochNumber, uuid: this.uuid });
     this.state = 'processing';
     const timer = new Timer();
 
@@ -73,7 +74,7 @@ export class EpochProvingJob {
     this.runPromise = promise;
 
     try {
-      this.prover.startNewEpoch(epochNumber, epochSize);
+      this.prover.startNewEpoch(epochNumber, firstBlockNumber, epochSize);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;

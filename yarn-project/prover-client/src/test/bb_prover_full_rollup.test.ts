@@ -40,7 +40,7 @@ describe('prover/bb_prover/full-rollup', () => {
       log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
 
       const initialHeader = context.getHeader(0);
-      context.orchestrator.startNewEpoch(1, totalBlocks);
+      context.orchestrator.startNewEpoch(1, 1, totalBlocks);
 
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
         const globals = makeGlobals(blockNum);
@@ -102,7 +102,7 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    context.orchestrator.startNewEpoch(1, 1);
+    context.orchestrator.startNewEpoch(1, 1, 1);
 
     await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, l1ToL2Messages);
 

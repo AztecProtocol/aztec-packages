@@ -78,9 +78,9 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
             $fn_stubs_quote
 
             pub fn at(
-                target_contract: aztec::protocol_types::address::AztecAddress
+                addr: aztec::protocol_types::address::AztecAddress
             ) -> Self {
-                Self { target_contract }
+                Self { target_contract: addr }
             }
 
             pub fn interface() -> Self {
@@ -92,9 +92,9 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
         #[contract_library_method]
         pub fn at(
-            target_contract: aztec::protocol_types::address::AztecAddress
+            addr: aztec::protocol_types::address::AztecAddress
         ) -> $module_name {
-            $module_name { target_contract }
+            $module_name { target_contract: addr }
         }
 
         #[contract_library_method]

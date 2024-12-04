@@ -6,7 +6,26 @@ import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SignedMath} from "@oz/utils/math/SignedMath.sol";
 
-import {Errors} from "./Errors.sol";
+import {Errors} from "../Errors.sol";
+
+// These values are taken from the model, but mostly pulled out of the ass
+uint256 constant MINIMUM_PROVING_COST_PER_MANA = 5415357955;
+uint256 constant MAX_PROVING_COST_MODIFIER = 1000000000;
+uint256 constant PROVING_UPDATE_FRACTION = 100000000000;
+
+uint256 constant MINIMUM_FEE_ASSET_PRICE = 10000000000;
+uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1000000000;
+uint256 constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100000000000;
+
+uint256 constant L1_GAS_PER_BLOCK_PROPOSED = 150000;
+uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
+
+uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1000000000;
+uint256 constant MANA_TARGET = 100000000;
+uint256 constant CONGESTION_UPDATE_FRACTION = 854700854;
+
+uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
+uint256 constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
 struct OracleInput {
   int256 provingCostModifier;
@@ -21,27 +40,58 @@ struct ManaBaseFeeComponents {
   uint256 provingCost;
 }
 
+struct FeeHeader {
+  uint256 excessMana;
+  uint256 feeAssetPriceNumerator;
+  uint256 manaUsed;
+  uint256 provingCostPerManaNumerator;
+  uint256 congestionCost;
+}
+
+struct L1FeeData {
+  uint256 baseFee;
+  uint256 blobFee;
+}
+
 library FeeMath {
   using Math for uint256;
   using SafeCast for int256;
   using SafeCast for uint256;
   using SignedMath for int256;
 
-  // These values are taken from the model, but mostly pulled out of the ass
-  uint256 internal constant MINIMUM_PROVING_COST_PER_MANA = 5415357955;
-  uint256 internal constant MAX_PROVING_COST_MODIFIER = 1000000000;
-  uint256 internal constant PROVING_UPDATE_FRACTION = 100000000000;
+  function getManaBaseFeeComponentsAt(
+    FeeHeader storage _parentFeeHeader,
+    L1FeeData memory _fees,
+    uint256 _feeAssetPrice,
+    uint256 _epochDuration
+  ) internal view returns (ManaBaseFeeComponents memory) {
+    uint256 excessMana = FeeMath.clampedAdd(
+      _parentFeeHeader.excessMana + _parentFeeHeader.manaUsed, -int256(MANA_TARGET)
+    );
 
-  uint256 internal constant MINIMUM_FEE_ASSET_PRICE = 10000000000;
-  uint256 internal constant MAX_FEE_ASSET_PRICE_MODIFIER = 1000000000;
-  uint256 internal constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100000000000;
+    uint256 dataCost =
+      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil);
+    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
+      + L1_GAS_PER_EPOCH_VERIFIED / _epochDuration;
+    uint256 gasCost = Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil);
+    uint256 provingCost = FeeMath.provingCostPerMana(_parentFeeHeader.provingCostPerManaNumerator);
 
-  uint256 internal constant L1_GAS_PER_BLOCK_PROPOSED = 150000;
-  uint256 internal constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
+    uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
+    uint256 total = dataCost + gasCost + provingCost;
+    uint256 congestionCost = Math.mulDiv(
+      total, congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor
+    ) - total;
 
-  uint256 internal constant MINIMUM_CONGESTION_MULTIPLIER = 1000000000;
-  uint256 internal constant MANA_TARGET = 100000000;
-  uint256 internal constant CONGESTION_UPDATE_FRACTION = 854700854;
+    // @todo @lherskind. The following is a crime against humanity, but it makes it
+    // very neat to plot etc from python, #10004 will fix it across the board
+    return ManaBaseFeeComponents({
+      dataCost: Math.mulDiv(dataCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      gasCost: Math.mulDiv(gasCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      provingCost: Math.mulDiv(provingCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      congestionCost: Math.mulDiv(congestionCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      congestionMultiplier: congestionMultiplier_
+    });
+  }
 
   function assertValid(OracleInput memory _self) internal pure returns (bool) {
     require(

@@ -82,7 +82,7 @@ library TxsDecoder {
    * @param _body - The L2 block body calldata.
    * @return The txs effects hash.
    */
-  function decode(bytes calldata _body) external pure returns (bytes32) {
+  function decode(bytes calldata _body) internal pure returns (bytes32) {
     ArrayOffsets memory offsets;
     Counts memory counts;
     ConsumablesVars memory vars;

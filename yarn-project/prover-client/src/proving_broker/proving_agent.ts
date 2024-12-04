@@ -128,7 +128,7 @@ export class ProvingAgent {
   ) => {
     if (err) {
       const retry = err.name === ProvingError.NAME ? (err as ProvingError).retry : false;
-      this.log.info(`Job id=${jobId} type=${ProvingRequestType[type]} failed err=${err.message} retry=${retry}`);
+      this.log.error(`Job id=${jobId} type=${ProvingRequestType[type]} failed err=${err.message} retry=${retry}`, err);
       return this.broker.reportProvingJobError(jobId, err.message, retry);
     } else if (result) {
       const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);
