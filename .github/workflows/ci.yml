@@ -516,7 +516,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   noir-format:
-    needs: [base-images, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true'
     steps:
@@ -536,7 +536,7 @@ jobs:
           earthly-ci --no-output ./+format
 
   noir-test:
-    needs: [base-images, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
     steps:
@@ -549,8 +549,7 @@ jobs:
         run: earthly-ci --no-output ./noir+test
 
   noir-examples:
-    # We delay this job until after the `build` job has completed as it depends on bb being built.
-    needs: [bootstrap, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
     steps:
@@ -563,8 +562,7 @@ jobs:
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
-    # We delay this job until after the `build` job has completed as it depends on bb.js being built.
-    needs: [bootstrap, configure]
+    needs: [bootstrap-noir-bb, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -768,7 +766,7 @@ jobs:
           path: network-test.log
 
   l1-contracts-test:
-    needs: [base-images, configure]
+    needs: [bootstrap, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.l1-contracts == 'true'
     steps:

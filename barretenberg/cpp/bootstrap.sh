@@ -55,6 +55,7 @@ function build_wasm {
     cmake --build --preset wasm
     cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
   fi
+  (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 function build_wasm_threads {
@@ -64,6 +65,7 @@ function build_wasm_threads {
     cmake --build --preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
   fi
+  (cd ./build-wasm-threads/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 function build {
