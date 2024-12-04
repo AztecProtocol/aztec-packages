@@ -53,6 +53,7 @@ class AvmTraceBuilder {
     {
         this->current_public_call_request = public_call_request;
     }
+    uint32_t get_call_ptr() const { return call_ptr; }
     void set_call_ptr(uint8_t call_ptr) { this->call_ptr = call_ptr; }
 
     uint32_t get_pc() const { return pc; }
@@ -264,6 +265,7 @@ class AvmTraceBuilder {
         uint32_t success_offset;
         uint32_t l2_gas;
         uint32_t da_gas;
+        std::stack<uint32_t> internal_return_ptr_stack;
     };
 
     ExtCallCtx current_ext_call_ctx{};

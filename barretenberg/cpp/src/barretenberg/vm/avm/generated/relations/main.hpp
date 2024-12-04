@@ -10,6 +10,7 @@ template <typename FF_> class mainImpl {
   public:
     using FF = FF_;
 
+<<<<<<< HEAD
     static constexpr std::array<size_t, 112> SUBRELATION_PARTIAL_LENGTHS = {
         2, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -20,6 +21,12 @@ template <typename FF_> class mainImpl {
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3,
         4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3
 >>>>>>> c8d4add49d (feat: nested call handling)
+=======
+    static constexpr std::array<size_t, 99> SUBRELATION_PARTIAL_LENGTHS = {
+        2, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3
+>>>>>>> 8e18d2694f (feat: get nested calls working)
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -30,7 +37,6 @@ template <typename FF_> class mainImpl {
     {
         const auto constants_MEM_TAG_FF = FF(0);
         const auto constants_MEM_TAG_U1 = FF(1);
-        const auto constants_misc_INTERNAL_CALL_SPACE_ID = FF(255);
         const auto main_SEL_ALL_CTRL_FLOW =
             (((((((new_term.main_sel_op_jump + new_term.main_sel_op_jumpi) + new_term.main_sel_op_internal_call) +
                  new_term.main_sel_op_internal_return) +
@@ -90,8 +96,6 @@ template <typename FF_> class mainImpl {
                main_SEL_ALL_CTRL_FLOW) +
               main_KERNEL_INPUT_SELECTORS) +
              main_KERNEL_OUTPUT_SELECTORS);
-        const auto main_CUR_AND_NEXT_ARE_MAIN =
-            (new_term.main_sel_execution_row * new_term.main_sel_execution_row_shift);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -616,90 +620,145 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<85, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp =
                 (new_term.main_sel_op_internal_call * (new_term.main_internal_return_ptr - new_term.main_mem_addr_b));
+=======
+            auto tmp = (((FF(1) - new_term.main_sel_op_internal_call) - new_term.main_sel_op_internal_return) *
+                        (new_term.main_call_ptr - new_term.main_space_id));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<85>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<86, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_call * (new_term.main_pc_shift - new_term.main_ia));
+=======
+            auto tmp = (new_term.main_sel_op_jumpi *
+                        (((new_term.main_id * new_term.main_inv) - FF(1)) + new_term.main_id_zero));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<86>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<87, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_call * ((new_term.main_pc + FF(5)) - new_term.main_ib));
+=======
+            auto tmp = ((new_term.main_sel_op_jumpi * new_term.main_id_zero) * (FF(1) - new_term.main_inv));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<87>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<88, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_call * (new_term.main_rwb - FF(1)));
+=======
+            auto tmp = (new_term.main_sel_mov_ia_to_ic - (new_term.main_sel_op_mov * (FF(1) - new_term.main_id_zero)));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<88>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<89, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_call * (new_term.main_sel_mem_op_b - FF(1)));
+=======
+            auto tmp = (new_term.main_sel_mov_ia_to_ic * (new_term.main_ia - new_term.main_ic));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<89>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<90, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_return *
                         (new_term.main_internal_return_ptr_shift - (new_term.main_internal_return_ptr - FF(1))));
+=======
+            auto tmp = (new_term.main_sel_mov_ib_to_ic * (new_term.main_ib - new_term.main_ic));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<90>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<91, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_return *
                         ((new_term.main_internal_return_ptr - FF(1)) - new_term.main_mem_addr_a));
+=======
+            auto tmp = (new_term.main_sel_op_mov * (new_term.main_r_in_tag - new_term.main_w_in_tag));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<91>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<92, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_return * (new_term.main_pc_shift - new_term.main_ia));
+=======
+            auto tmp = (new_term.main_sel_alu - (main_SEL_ALL_ALU * (FF(1) - new_term.main_op_err)));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<92>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<93, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_return * new_term.main_rwa);
+=======
+            auto tmp = (main_SEL_ALU_R_TAG * (new_term.main_alu_in_tag - new_term.main_r_in_tag));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<93>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<94, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_internal_return * (new_term.main_sel_mem_op_a - FF(1)));
+=======
+            auto tmp = (main_SEL_ALU_W_TAG * (new_term.main_alu_in_tag - new_term.main_w_in_tag));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<94>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<95, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = ((main_CUR_AND_NEXT_ARE_MAIN * (FF(1) - main_SEL_ALL_CTRL_FLOW)) *
                         (new_term.main_internal_return_ptr_shift - new_term.main_internal_return_ptr));
+=======
+            auto tmp = (new_term.main_sel_op_l2gasleft * (new_term.main_ia - new_term.main_l2_gas_remaining_shift));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<95>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<96, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = ((new_term.main_sel_op_internal_call + new_term.main_sel_op_internal_return) *
                         (new_term.main_space_id - constants_misc_INTERNAL_CALL_SPACE_ID));
+=======
+            auto tmp = (new_term.main_sel_op_dagasleft * (new_term.main_ia - new_term.main_da_gas_remaining_shift));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<96>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<97, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (((FF(1) - new_term.main_sel_op_internal_call) - new_term.main_sel_op_internal_return) *
                         (new_term.main_call_ptr - new_term.main_space_id));
+=======
+            auto tmp = (new_term.main_bin_op_id - (new_term.main_sel_op_or + (FF(2) * new_term.main_sel_op_xor)));
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             tmp *= scaling_factor;
             std::get<97>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<98, ContainerOverSubrelations>;
+<<<<<<< HEAD
             auto tmp = (new_term.main_sel_op_jumpi *
                         (((new_term.main_id * new_term.main_inv) - FF(1)) + new_term.main_id_zero));
             tmp *= scaling_factor;
@@ -781,11 +840,13 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<111, ContainerOverSubrelations>;
+=======
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             auto tmp = (new_term.main_sel_bin -
                         (((new_term.main_sel_op_and + new_term.main_sel_op_or) + new_term.main_sel_op_xor) *
                          (FF(1) - new_term.main_op_err)));
             tmp *= scaling_factor;
-            std::get<111>(evals) += typename Accumulator::View(tmp);
+            std::get<98>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -817,6 +878,7 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
             return "PC_JUMP";
         case 83:
             return "PC_JUMPI";
+<<<<<<< HEAD
         case 84:
             return "RETURN_POINTER_INCREMENT";
         case 90:
@@ -840,10 +902,27 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
         case 107:
             return "L2GASLEFT";
         case 108:
+=======
+        case 85:
+            return "SPACE_ID_STANDARD_OPCODES";
+        case 86:
+            return "JMP_CONDITION_RES_1";
+        case 87:
+            return "JMP_CONDITION_RES_2";
+        case 89:
+            return "MOV_SAME_VALUE_A";
+        case 90:
+            return "MOV_SAME_VALUE_B";
+        case 91:
+            return "MOV_MAIN_SAME_TAG";
+        case 95:
+            return "L2GASLEFT";
+        case 96:
+>>>>>>> 8e18d2694f (feat: get nested calls working)
             return "DAGASLEFT";
-        case 110:
+        case 97:
             return "BIN_SEL_1";
-        case 111:
+        case 98:
             return "BIN_SEL_2";
         }
         return std::to_string(index);
