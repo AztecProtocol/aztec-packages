@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
-#include <atomic>
 namespace bb {
 /**
  * @brief Ultra Permutation Relation

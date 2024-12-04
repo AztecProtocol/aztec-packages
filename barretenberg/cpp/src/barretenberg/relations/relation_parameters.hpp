@@ -26,13 +26,6 @@ template <typename T> struct RelationParameters {
     T lookup_grand_product_delta{ 0 }; // Lookup
     T beta_sqr{ 0 };
     T beta_cube{ 0 };
-
-    // we could add useful temporaries into here although it's a bit bruteforce
-    // w_1 + gamma
-    // w_2 + gamma
-    // w_3 + gamma
-    // w_4 + gamma
-
     // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
     // We can remove this by modifying the relation, but increases complexity
     T eccvm_set_permutation_delta = T(0);

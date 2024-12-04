@@ -72,8 +72,6 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto q_l_m = MonomialAccumulator(in.q_l);
         auto q_poseidon2_internal_m = MonomialAccumulator(in.q_poseidon2_internal);
 
-        // old 9 muls,  14 adds
-        // new:
         // add round constants
         auto s1 = Accumulator(w_l_m + q_l_m);
 
