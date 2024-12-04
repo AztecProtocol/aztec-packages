@@ -145,7 +145,7 @@ case "$CMD" in
     ;;
   "test-boxes")
     github_group "test-boxes"
-    bootstrap_local "CI=1 TEST=0 ./bootstrap.sh fast ; ./boxes/bootstrap.sh test";
+    bootstrap_local "CI=1 TEST=0 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
     exit
   ;;
   "image-aztec")
