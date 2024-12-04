@@ -55,7 +55,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
-  private log = createLogger('kernel-prover');
+  private log = createLogger('pxe:kernel-prover');
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
 

@@ -78,7 +78,7 @@ import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulator();
   private instrumentation: ProverInstrumentation;
-  private logger = createLogger('test-prover');
+  private logger = createLogger('bb-prover:test-prover');
 
   constructor(
     telemetry: TelemetryClient,

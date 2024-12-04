@@ -544,9 +544,9 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   if (!describeBlockName) {
     const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createLogger('' + name);
+    return createLogger('e2e:' + name);
   }
-  return createLogger('' + describeBlockName);
+  return createLogger('e2e:' + describeBlockName);
 }
 
 /**

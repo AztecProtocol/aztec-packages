@@ -7,7 +7,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import Koa from 'koa';
 import Router from 'koa-router';
 
-const debugLogger = createLogger('bootstrap_node');
+const debugLogger = createLogger('p2p-bootstrap:bootstrap_node');
 
 const { HTTP_PORT } = process.env;
 

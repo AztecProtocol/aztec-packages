@@ -16,7 +16,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { TestContext } from '../mocks/test_context.js';
 import { buildBaseRollupHints } from '../orchestrator/block-building-helpers.js';
 
-const logger = createLogger('bb-prover-base-rollup');
+const logger = createLogger('prover-client:test:bb-prover-base-rollup');
 
 describe('prover/bb_prover/base-rollup', () => {
   let context: TestContext;

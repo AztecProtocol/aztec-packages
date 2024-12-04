@@ -3,7 +3,7 @@ import { type Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('sequencer:tx_validator:tx_metadata');
+  #log = createLogger('p2p:tx_validator:tx_metadata');
 
   constructor(private chainId: Fr, private blockNumber: Fr) {}
 

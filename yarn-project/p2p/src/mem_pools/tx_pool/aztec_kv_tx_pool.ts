@@ -30,7 +30,7 @@ export class AztecKVTxPool implements TxPool {
    * @param store - A KV store.
    * @param log - A logger.
    */
-  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createLogger('tx_pool')) {
+  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createLogger('p2p:tx_pool')) {
     this.#txs = store.openMap('txs');
     this.#minedTxs = store.openMap('minedTxs');
     this.#pendingTxs = store.openSet('pendingTxs');

@@ -79,7 +79,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private skipCleanup: boolean,
-    private log = createLogger('bb-native-prover'),
+    private log = createLogger('bb-prover:native'),
   ) {}
 
   public static async new(config: BBConfig, log?: Logger) {

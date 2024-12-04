@@ -32,7 +32,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private readonly txs: ProcessedTx[] = [];
 
-  private readonly logger = createLogger('sequencer-client:block_builder_light');
+  private readonly logger = createLogger('prover-client:block_builder');
 
   constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 

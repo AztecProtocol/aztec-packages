@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('orchestrator-failures');
+const logger = createLogger('prover-client:test:orchestrator-failures');
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;

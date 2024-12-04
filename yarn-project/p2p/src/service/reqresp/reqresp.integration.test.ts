@@ -82,7 +82,7 @@ describe('Req Resp p2p client integration', () => {
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
-  const logger = createLogger('p2p-client-integration-test');
+  const logger = createLogger('p2p:test:client-integration');
 
   beforeEach(() => {
     ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());

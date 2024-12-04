@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 
 import { type SimulationProvider } from './simulation_provider.js';
 
-const logger = createLogger('acvm-native');
+const logger = createLogger('simulator:acvm-native');
 
 export enum ACVM_RESULT {
   SUCCESS,

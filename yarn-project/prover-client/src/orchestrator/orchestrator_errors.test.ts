@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('orchestrator-errors');
+const logger = createLogger('prover-client:test:orchestrator-errors');
 
 describe('prover/orchestrator/errors', () => {
   let context: TestContext;

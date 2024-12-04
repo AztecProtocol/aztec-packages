@@ -263,7 +263,7 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
 export async function inspectTree(
   db: MerkleTreeReadOperations,
   treeId: MerkleTreeId,
-  log = createLogger('inspect-tree'),
+  log = createLogger('types:inspect-tree'),
 ) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];

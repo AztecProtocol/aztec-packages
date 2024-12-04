@@ -24,7 +24,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('bb-prover-parity');
+const logger = createLogger('prover-client:test:bb-prover-parity');
 
 describe('prover/bb_prover/parity', () => {
   let context: TestContext;

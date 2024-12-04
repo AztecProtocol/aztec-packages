@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('orchestrator-mixed-blocks');
+const logger = createLogger('prover-client:test:orchestrator-mixed-blocks');
 
 describe('prover/orchestrator/mixed-blocks', () => {
   let context: TestContext;

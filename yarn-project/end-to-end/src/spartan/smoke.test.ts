@@ -10,7 +10,7 @@ import { isK8sConfig, runAlertCheck, setupEnvironment, startPortForward } from '
 
 const config = setupEnvironment(process.env);
 
-const debugLogger = createLogger('spartan-test:smoke');
+const debugLogger = createLogger('e2e:spartan-test:smoke');
 
 // QoS alerts for when we are running in k8s
 const qosAlerts: AlertConfig[] = [

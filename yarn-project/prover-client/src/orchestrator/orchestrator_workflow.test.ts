@@ -23,7 +23,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('orchestrator-workflow');
+const logger = createLogger('prover-client:test:orchestrator-workflow');
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {

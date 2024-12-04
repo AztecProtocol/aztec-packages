@@ -21,7 +21,7 @@ export class BootstrapNode {
   constructor(
     private store: AztecKVStore,
     private telemetry: TelemetryClient,
-    private logger = createLogger('p2p_bootstrap'),
+    private logger = createLogger('p2p:bootstrap'),
   ) {}
 
   /**

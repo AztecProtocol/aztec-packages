@@ -9,7 +9,7 @@ import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 jest.setTimeout(2_400_000); // 40 minutes
 
 const config = setupEnvironment(process.env);
-const debugLogger = createLogger('spartan-test:proving');
+const debugLogger = createLogger('e2e:spartan-test:proving');
 const SLEEP_MS = 1000;
 
 describe('proving test', () => {

@@ -121,7 +121,11 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param store - The db instance to use for data persistance.
    * @returns - A fully initialized MerkleTrees instance.
    */
-  public static async new(store: AztecKVStore, client: TelemetryClient, log = createLogger('merkle_trees')) {
+  public static async new(
+    store: AztecKVStore,
+    client: TelemetryClient,
+    log = createLogger('world-state:merkle_trees'),
+  ) {
     const merkleTrees = new MerkleTrees(store, client, log);
     await merkleTrees.#init();
     return merkleTrees;
@@ -236,7 +240,11 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
   // that can work on a read-only store and one that actually writes to the store. This implies
   // having read-only versions of the kv-stores, all kv-containers, and all trees.
   public async ephemeralFork(): Promise<MerkleTreeWriteOperations> {
-    const forked = new MerkleTrees(this.store, this.telemetryClient, createLogger('merkle_trees:ephemeral_fork'));
+    const forked = new MerkleTrees(
+      this.store,
+      this.telemetryClient,
+      createLogger('world-state:merkle_trees:ephemeral_fork'),
+    );
     await forked.#init(true);
     return new MerkleTreeReadOperationsFacade(forked, true);
   }

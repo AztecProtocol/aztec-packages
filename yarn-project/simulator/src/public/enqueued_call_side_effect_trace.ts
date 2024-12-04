@@ -99,7 +99,7 @@ export class SideEffectArrayLengths {
  * Trace side effects for an entire enqueued call.
  */
 export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createLogger('public_enqueued_call_side_effect_trace');
+  public log = createLogger('simulator:public_enqueued_call_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number;

@@ -285,7 +285,10 @@ class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvg
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
 
-  constructor(telemetryClient: TelemetryClient, private logger: Logger = createLogger('otel-metrics-adapter')) {
+  constructor(
+    telemetryClient: TelemetryClient,
+    private logger: Logger = createLogger('telemetry:otel-metrics-adapter'),
+  ) {
     super();
     this.meter = telemetryClient.getMeter('metrics-adapter');
   }

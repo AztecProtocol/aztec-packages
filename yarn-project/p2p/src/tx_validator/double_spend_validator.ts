@@ -7,7 +7,7 @@ export interface NullifierSource {
 }
 
 export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('sequencer:tx_validator:tx_double_spend');
+  #log = createLogger('p2p:tx_validator:tx_double_spend');
   #nullifierSource: NullifierSource;
 
   constructor(nullifierSource: NullifierSource, private readonly isValidatingBlock: boolean = true) {

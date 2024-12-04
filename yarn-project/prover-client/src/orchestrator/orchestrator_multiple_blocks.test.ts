@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('orchestrator-multi-blocks');
+const logger = createLogger('prover-client:test:orchestrator-multi-blocks');
 
 describe('prover/orchestrator/multi-block', () => {
   let context: TestContext;

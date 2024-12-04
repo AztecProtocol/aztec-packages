@@ -24,7 +24,7 @@ export type DeployTxReceipt<TContract extends ContractBase = Contract> = FieldsO
  * A contract deployment transaction sent to the network, extending SentTx with methods to create a contract instance.
  */
 export class DeploySentTx<TContract extends Contract = Contract> extends SentTx {
-  private log = createLogger('js:deploy_sent_tx');
+  private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
     wallet: PXE | Wallet,

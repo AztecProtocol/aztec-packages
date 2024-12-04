@@ -26,7 +26,7 @@ export async function createProverCoordination(
   config: ProverNodeConfig & DataStoreConfig,
   deps: ProverCoordinationDeps,
 ): Promise<ProverCoordination> {
-  const log = createLogger('createProverCoordination');
+  const log = createLogger('prover-node:prover-coordination');
 
   if (deps.aztecNodeTxProvider) {
     log.info('Using prover coordination via aztec node');

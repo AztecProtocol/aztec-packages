@@ -10,7 +10,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
 
-  constructor(telemetry: TelemetryClient, private log = createLogger('attestation_pool')) {
+  constructor(telemetry: TelemetryClient, private log = createLogger('p2p:attestation_pool')) {
     this.attestations = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
