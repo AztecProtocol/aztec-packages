@@ -115,7 +115,8 @@ transcript. These operations are taken care of by \ref bb::BaseTranscript "Trans
 The Sumcheck output is specified by \ref bb::SumcheckOutput< Flavor >.
  */
 template <typename Flavor> class SumcheckProver {
-
+    // PartiallyEvaluatedMultivariates OR ProverPolynomials
+    // both inherit from AllEntities
   public:
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;

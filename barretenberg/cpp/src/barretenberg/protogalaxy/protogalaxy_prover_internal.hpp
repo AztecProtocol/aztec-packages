@@ -417,30 +417,26 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Construct univariate accumulator containers; one per thread
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
-        for (auto& accum : thread_univariate_accumulators) {
-            // just normal relation lengths
-            RelationUtils::zero_univariates(accum);
-        }
-
-        // Construct extended univariates containers; one per thread
-        std::vector<ExtendedUnivatiatesType> extended_univariates;
-        extended_univariates.resize(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads, common_polynomial_size);
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
+            // Initialize the thread accumulator to 0
+            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedUnivatiatesType extended_univariate;
+
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
             const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {
                     // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
                     // are still available for skipping relations, but all derived univariate will ignore those
                     // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
-                    extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
+                    extend_univariates<skip_count>(extended_univariate, keys, idx);
 
                     const FF pow_challenge = gate_separators[idx];
 
@@ -448,7 +444,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                     // this function have already been folded. Moreover, linear-dependent relations that act over the
                     // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                    extended_univariates[thread_idx],
+                                                    extended_univariate,
                                                     relation_parameters, // these parameters have already been folded
                                                     pow_challenge);
                 }
