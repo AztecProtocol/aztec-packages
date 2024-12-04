@@ -29,7 +29,7 @@ export class TokenContractTest {
   badAccount!: DocsExampleContract;
 
   constructor(testName: string) {
-    this.logger = createLogger(`aztec:e2e_token_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath, {
       metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
     });

@@ -61,7 +61,7 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     metricsPort?: number,
   ) {
-    this.logger = createLogger(`aztec:e2e_p2p:${testName}`);
+    this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);

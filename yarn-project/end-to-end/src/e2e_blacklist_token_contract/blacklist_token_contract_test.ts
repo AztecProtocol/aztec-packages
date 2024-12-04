@@ -70,7 +70,7 @@ export class BlacklistTokenContractTest {
   blacklisted!: AccountWallet;
 
   constructor(testName: string) {
-    this.logger = createLogger(`aztec:e2e_blacklist_token_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath);
   }
 

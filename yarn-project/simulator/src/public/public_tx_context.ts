@@ -74,7 +74,7 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
-    this.log = createLogger(`aztec:public_tx_context`);
+    this.log = createLogger(`simulator:public_tx_context`);
     this.gasUsed = startGasUsed;
   }
 
@@ -372,7 +372,7 @@ class PhaseStateManager {
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 
   constructor(private readonly txStateManager: AvmPersistableStateManager) {
-    this.log = createLogger(`aztec:public_phase_state_manager`);
+    this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 
   fork() {

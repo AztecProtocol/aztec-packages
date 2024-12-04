@@ -8,6 +8,6 @@ beforeEach(() => {
   if (!testPath || !currentTestName) {
     return;
   }
-  const logger = createLogger(`aztec:${basename(testPath).replace('.test.ts', '')}`);
+  const logger = createLogger(`e2e:${basename(testPath).replace('.test.ts', '')}`);
   logger.info(`Running test: ${currentTestName}`);
 });

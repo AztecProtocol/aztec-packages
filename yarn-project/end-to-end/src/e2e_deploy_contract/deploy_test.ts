@@ -29,7 +29,7 @@ export class DeployTest {
   public aztecNode!: AztecNode;
 
   constructor(testName: string) {
-    this.logger = createLogger(`aztec:e2e_deploy_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
   }
 

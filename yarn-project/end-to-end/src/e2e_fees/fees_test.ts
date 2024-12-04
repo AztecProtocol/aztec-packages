@@ -83,7 +83,7 @@ export class FeesTest {
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
   constructor(testName: string) {
-    this.logger = createLogger(`aztec:e2e_fees:${testName}`);
+    this.logger = createLogger(`e2e:e2e_fees:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}`, dataPath);
   }
 

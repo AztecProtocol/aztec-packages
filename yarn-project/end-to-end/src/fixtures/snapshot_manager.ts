@@ -96,7 +96,7 @@ class MockSnapshotManager implements ISnapshotManager {
     private config: Partial<AztecNodeConfig> = {},
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
   ) {
-    this.logger = createLogger(`aztec:snapshot_manager:${testName}`);
+    this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
   }
 
@@ -145,7 +145,7 @@ class SnapshotManager implements ISnapshotManager {
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
-    this.logger = createLogger(`aztec:snapshot_manager:${testName}`);
+    this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
   }
 
   public async snapshot<T>(
