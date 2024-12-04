@@ -202,7 +202,7 @@ base-log-uploader:
   COPY +scripts/scripts /usr/src/scripts
 
 ci:
-  BUILD ./barretenberg/+acir-tests
+  BUILD ./barretenberg/acir_tests/+acir-tests
   BUILD ./barretenberg/+bench-publish-acir-bb
   BUILD ./barretenberg/cpp/+bench-binaries
   BUILD ./barretenberg/cpp/+preset-gcc

@@ -11,7 +11,7 @@ test-base:
     # Avoid race conditions with bb.
     RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
 
-bb:
+test-bb:
     FROM +test-base
     # Fold and verify an ACIR program stack using ClientIvc
     RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
@@ -22,7 +22,7 @@ bb:
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
     RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
-bb-ultra-plonk:
+test-bb-ultra-plonk:
     FROM +test-base
     # Do not pass with plonk!
     RUN cd acir_tests && rm -rf verify_honk_proof double_verify_honk_proof
@@ -31,7 +31,7 @@ bb-ultra-plonk:
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
     RUN FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
 
-bb-ultra-honk:
+test-bb-ultra-honk:
     FROM +test-base
     # Do not pass with honk!
     RUN cd acir_tests && rm -rf single_verify_proof double_verify_proof double_verify_nested_proof
@@ -49,7 +49,7 @@ bb-ultra-honk:
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
 
-bb-mega-honk:
+test-bb-mega-honk:
     FROM +test-base
     # Do not pass with honk!
     RUN rm -rf acir_tests/{single_verify_proof,double_verify_proof,double_verify_nested_proof}
@@ -60,19 +60,19 @@ bb-mega-honk:
     # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
     RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
 
-sol:
+test-sol:
     FROM +test-base
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
 
-sol-honk:
+test-sol-honk:
     FROM +test-base
     COPY ./cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
     RUN FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
 
-bb.js:
+test-bb.js:
     FROM +test-base
     # Build/install ts apps.
     RUN cd browser-test-app && yarn && yarn build
@@ -109,22 +109,22 @@ test:
     WAIT
       BUILD +test-base
     END
-    BUILD +bb
-    BUILD +bb-ultra-plonk
-    BUILD +bb-ultra-honk
-    BUILD +bb-mega-honk
-    BUILD +sol
-    BUILD +sol-honk
-    BUILD +bb.js
+    BUILD +test-bb
+    BUILD +test-bb-ultra-plonk
+    BUILD +test-bb-ultra-honk
+    BUILD +test-bb-mega-honk
+    BUILD +test-sol
+    BUILD +test-sol-honk
+    BUILD +test-bb.js
 
-acir-benches-bb:
+benches-bb:
   FROM ../+bootstrap-noir-bb
   WORKDIR /usr/src/barretenberg/acir_tests
 
-bench-acir-bb:
+bench:
   # This target is used for debugging the benchmarking target.
   # For precise benchmarks in CI use `bench-publish-acir-bb`
-  FROM +acir-benches-bb
+  FROM +benches-bb
   RUN ./bench_acir_tests.sh
 
 export-bench-acir-bb:
